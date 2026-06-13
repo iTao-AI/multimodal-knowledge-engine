@@ -127,6 +127,13 @@ Use `gstack-document-release` as a pre-merge audit for important features, publi
 - Stage only intentional files. Never use `git add -A` or `git add .`.
 - Do not push, create a PR, merge, release, or publish without explicit user authorization.
 
+## Issues
+
+- Treat direct user requests, PR review findings, CI failures, and bugs within the current PR scope as work to handle directly. Do not require the user to create an Issue first.
+- Create or recommend a GitHub Issue only when the work is outside the current PR, cannot be completed now, requires cross-PR tracking, needs continued investigation, or benefits from public collaboration.
+- When deferring work to an Issue, include the observed problem, evidence, scope, acceptance criteria, and why it is not being handled in the current PR.
+- Do not use Issues as a transcript of routine execution or as a substitute for an approved spec, plan, or PR.
+
 ## Security And Public Boundaries
 
 - Never commit secrets, tokens, cookies, private configuration, private source material, or personal paths.
