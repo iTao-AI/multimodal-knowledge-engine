@@ -133,11 +133,12 @@ Superpowers specs and plans are implementation history. Long-lived architecture 
 Minimum verification targets:
 
 ```bash
-pytest -q
-ruff check .
-pyright
+uv run pytest -q
+uv run ruff check .
+uv run pyright
+uv build
 cd frontend && npm run test && npm run lint && npm run build
-mke demo --verify
+uv run mke demo --verify
 ```
 
 Run only commands that exist in the current repository. If a target is not implemented yet, report that fact instead of claiming it passed.

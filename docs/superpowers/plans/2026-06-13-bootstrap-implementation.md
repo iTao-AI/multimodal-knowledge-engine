@@ -49,7 +49,7 @@ Expected: `multimodal-knowledge-engine: bootstrap stage`
 
 - [x] **Step 1: Add a CI workflow**
 
-The workflow must use read-only repository permissions, cancel redundant runs for the same workflow and Git ref, enforce a timeout, check out the repository, install `uv`, test Python 3.12 and 3.13, run `uv sync --locked`, then run `uv run pytest -q`, `uv run ruff check .`, and `uv run pyright`.
+The workflow must use read-only repository permissions, cancel redundant runs for the same workflow and Git ref, enforce a timeout, pin third-party Actions to full commit SHAs, check out the repository, install `uv`, test Python 3.12 and 3.13, run `uv sync --locked`, then run tests, static checks, package build, and a wheel-install CLI smoke.
 
 - [x] **Step 2: Add the PR template**
 

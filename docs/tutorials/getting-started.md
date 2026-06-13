@@ -16,10 +16,11 @@ uv sync
 uv run pytest -q
 uv run ruff check .
 uv run pyright
+uv build
 uv run mke
 ```
 
-The final command prints:
+The build command creates an sdist and wheel under `dist/`. The final command prints:
 
 ```text
 multimodal-knowledge-engine: bootstrap stage
