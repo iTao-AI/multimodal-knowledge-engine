@@ -6,7 +6,9 @@
 
 **Architecture:** Keep the bootstrap intentionally small: a Python package and CLI smoke path, repository policy, Diataxis documentation, ADRs, and required CI checks. Do not implement product-domain behavior in this plan.
 
-**Tech Stack:** Python 3.12, uv, hatchling, pytest, Ruff, Pyright, GitHub Actions.
+**Tech Stack:** Python 3.12 and 3.13, uv, hatchling, pytest, Ruff, Pyright, GitHub Actions.
+
+**Status:** Complete. The checklist records the bootstrap work delivered in PR #1.
 
 ---
 
@@ -16,13 +18,13 @@
 - Modify: `src/mke/cli.py`
 - Test: `tests/test_bootstrap.py`
 
-- [ ] **Step 1: Run the bootstrap tests**
+- [x] **Step 1: Run the bootstrap tests**
 
 Run: `uv run pytest -q`
 
 Expected: `2 passed`.
 
-- [ ] **Step 2: Run static checks**
+- [x] **Step 2: Run static checks**
 
 Run: `uv run ruff check .`
 
@@ -32,7 +34,7 @@ Run: `uv run pyright`
 
 Expected: `0 errors`.
 
-- [ ] **Step 3: Run the CLI smoke**
+- [x] **Step 3: Run the CLI smoke**
 
 Run: `uv run mke`
 
@@ -45,15 +47,15 @@ Expected: `multimodal-knowledge-engine: bootstrap stage`
 - Create: `.github/pull_request_template.md`
 - Create: `uv.lock`
 
-- [ ] **Step 1: Add a CI workflow**
+- [x] **Step 1: Add a CI workflow**
 
-The workflow must cancel redundant runs for the same Git ref, check out the repository, install `uv`, select Python 3.12, run `uv sync --locked`, then run `uv run pytest -q`, `uv run ruff check .`, and `uv run pyright`.
+The workflow must use read-only repository permissions, cancel redundant runs for the same workflow and Git ref, enforce a timeout, check out the repository, install `uv`, test Python 3.12 and 3.13, run `uv sync --locked`, then run `uv run pytest -q`, `uv run ruff check .`, and `uv run pyright`.
 
-- [ ] **Step 2: Add the PR template**
+- [x] **Step 2: Add the PR template**
 
 The template must contain `Summary`, `Completion`, `Verification`, `Documentation impact`, and optional `Risk / Migration`.
 
-- [ ] **Step 3: Generate and verify the dependency lock**
+- [x] **Step 3: Generate and verify the dependency lock**
 
 Run: `uv lock`
 
@@ -63,7 +65,7 @@ Run: `uv lock --check`
 
 Expected: exit code `0`.
 
-- [ ] **Step 4: Validate workflow and template presence**
+- [x] **Step 4: Validate workflow and template presence**
 
 Run: `test -f .github/workflows/ci.yml && test -f .github/pull_request_template.md`
 
@@ -76,7 +78,7 @@ Expected: exit code `0`.
 - Modify: `README.md`
 - Modify: `README_CN.md`
 
-- [ ] **Step 1: Check required document roots**
+- [x] **Step 1: Check required document roots**
 
 Run:
 
@@ -89,7 +91,7 @@ test -f docs/superpowers/plans/2026-06-13-bootstrap-implementation.md
 
 Expected: exit code `0`.
 
-- [ ] **Step 2: Scan for private or premature claims**
+- [x] **Step 2: Scan for private or premature claims**
 
 Run: `git grep -n "/Users/" -- ':!docs/superpowers/plans/2026-06-13-bootstrap-implementation.md'`
 
@@ -100,13 +102,13 @@ Expected: no matches.
 **Files:**
 - Modify: all intentional bootstrap files
 
-- [ ] **Step 1: Review the complete diff**
+- [x] **Step 1: Review the complete diff**
 
 Run: `git status --short && git diff --check && git diff --stat`
 
 Expected: only bootstrap files; no whitespace errors.
 
-- [ ] **Step 2: Stage intentional files**
+- [x] **Step 2: Stage intentional files**
 
 Run:
 
@@ -116,7 +118,7 @@ git add .github .gitignore AGENTS.md README.md README_CN.md docs pyproject.toml 
 
 Expected: only intended bootstrap files are staged.
 
-- [ ] **Step 3: Commit locally**
+- [x] **Step 3: Commit locally**
 
 Run: `git commit -m "chore: bootstrap multimodal knowledge engine"`
 

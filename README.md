@@ -27,6 +27,8 @@ See [Architecture](./docs/explanation/architecture.md) and [ADR-0001](./docs/dec
 
 Start at [docs/README.md](./docs/README.md). Approved implementation history is kept under `docs/superpowers/`; long-lived architecture decisions are kept under `docs/decisions/`.
 
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for the development workflow and [SECURITY.md](./SECURITY.md) for responsible vulnerability reporting.
+
 ## Development Status
 
 The bootstrap development baseline is available:
@@ -40,3 +42,7 @@ uv run mke
 ```
 
 The `mke` command currently reports bootstrap status only. Product workflows remain unimplemented.
+
+## License
+
+MIT. See [LICENSE](./LICENSE).

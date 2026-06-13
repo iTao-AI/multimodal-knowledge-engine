@@ -27,6 +27,8 @@ Multimodal Knowledge Engine 是一个本地优先、可被 Agent 调用的 Evide
 
 从 [docs/README.md](./docs/README.md) 开始。批准后的实施历史保存在 `docs/superpowers/`；长期架构决策保存在 `docs/decisions/`。
 
+开发流程见 [CONTRIBUTING.md](./CONTRIBUTING.md)，安全漏洞报告方式见 [SECURITY.md](./SECURITY.md)。
+
 ## 开发状态
 
 bootstrap 开发基线已可用：
@@ -40,3 +42,7 @@ uv run mke
 ```
 
 当前 `mke` 命令只报告 bootstrap 状态，产品工作流仍未实现。
+
+## License
+
+MIT，详见 [LICENSE](./LICENSE)。
