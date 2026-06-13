@@ -29,4 +29,14 @@ Start at [docs/README.md](./docs/README.md). Approved implementation history is 
 
 ## Development Status
 
-No installation or run command is published yet. The first bootstrap PR will establish the verified development commands before feature implementation begins.
+The bootstrap development baseline is available:
+
+```bash
+uv sync
+uv run pytest -q
+uv run ruff check .
+uv run pyright
+uv run mke
+```
+
+The `mke` command currently reports bootstrap status only. Product workflows remain unimplemented.

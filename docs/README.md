@@ -13,3 +13,7 @@ This repository uses Diataxis plus architecture decision records and approved im
 | `superpowers/plans/` | Executable implementation plans |
 
 Documentation changes ship in the same PR as affected behavior. Raw GStack artifacts and private planning notes do not belong in this repository.
+
+## Development Verification
+
+Use the verified bootstrap commands in the [Getting Started tutorial](./tutorials/getting-started.md) before changing product behavior.

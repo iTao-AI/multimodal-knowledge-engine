@@ -29,4 +29,14 @@ Multimodal Knowledge Engine 是一个本地优先、可被 Agent 调用的 Evide
 
 ## 开发状态
 
-当前尚未发布安装或运行命令。首个 bootstrap PR 将先建立经过验证的开发命令，再开始功能实现。
+bootstrap 开发基线已可用：
+
+```bash
+uv sync
+uv run pytest -q
+uv run ruff check .
+uv run pyright
+uv run mke
+```
+
+当前 `mke` 命令只报告 bootstrap 状态，产品工作流仍未实现。
