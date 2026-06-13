@@ -23,8 +23,6 @@ The first product slice must prove:
 
 ## Source Of Truth
 
-Before making decisions, inspect the current repository.
-
 Priority order:
 
 1. Actual code, tests, migrations, configuration, and command output.
@@ -118,6 +116,7 @@ Superpowers specs and plans are implementation history. Long-lived architecture 
 
 ## Task Start And Handoff
 
+- Before making decisions, inspect the current repository.
 - Before starting a new task, sync from the latest `main`, confirm `AGENTS.md` exists, and inspect relevant ADRs, specs, plans, tests, and open PR context.
 - Use an isolated worktree for implementation plans or changes that should not share state with the current checkout.
 - Do not start feature implementation from a branch whose bootstrap or prerequisite PR is still unmerged.
