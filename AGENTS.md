@@ -103,6 +103,7 @@ mke demo --verify
 ```
 
 Run only commands that exist in the repository.
+During bootstrap, use only the commands confirmed in `docs/tutorials/getting-started.md`.
 
 ## Documentation Policy
 

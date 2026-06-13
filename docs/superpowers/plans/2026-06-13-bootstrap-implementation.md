@@ -43,16 +43,27 @@ Expected: `multimodal-knowledge-engine: bootstrap stage`
 **Files:**
 - Create: `.github/workflows/ci.yml`
 - Create: `.github/pull_request_template.md`
+- Create: `uv.lock`
 
 - [ ] **Step 1: Add a CI workflow**
 
-The workflow must check out the repository, install `uv`, select Python 3.12, run `uv sync`, then run `uv run pytest -q`, `uv run ruff check .`, and `uv run pyright`.
+The workflow must cancel redundant runs for the same Git ref, check out the repository, install `uv`, select Python 3.12, run `uv sync --locked`, then run `uv run pytest -q`, `uv run ruff check .`, and `uv run pyright`.
 
 - [ ] **Step 2: Add the PR template**
 
 The template must contain `Summary`, `Completion`, `Verification`, `Documentation impact`, and optional `Risk / Migration`.
 
-- [ ] **Step 3: Validate workflow and template presence**
+- [ ] **Step 3: Generate and verify the dependency lock**
+
+Run: `uv lock`
+
+Expected: `uv.lock` exists and resolves the project and development dependencies.
+
+Run: `uv lock --check`
+
+Expected: exit code `0`.
+
+- [ ] **Step 4: Validate workflow and template presence**
 
 Run: `test -f .github/workflows/ci.yml && test -f .github/pull_request_template.md`
 
@@ -100,7 +111,7 @@ Expected: only bootstrap files; no whitespace errors.
 Run:
 
 ```bash
-git add .github .gitignore AGENTS.md README.md README_CN.md docs pyproject.toml src tests
+git add .github .gitignore AGENTS.md README.md README_CN.md docs pyproject.toml src tests uv.lock
 ```
 
 Expected: only intended bootstrap files are staged.
