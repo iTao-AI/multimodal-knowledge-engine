@@ -175,6 +175,11 @@ If the audit would commit, push, update a PR body, or require a version decision
 - When deferring work to an Issue, include the observed problem, evidence, scope, acceptance criteria, and why it is not being handled in the current PR.
 - Do not use Issues as a transcript of routine execution or as a substitute for an approved spec, plan, or PR.
 
+PR descriptions default to Simplified Chinese for local review efficiency. Keep section headings,
+commands, code identifiers, API names, CLI output, file paths, and public product terms in English.
+Switch a PR description to English only when the PR is intended for external collaborators or the
+user explicitly asks for English.
+
 PR descriptions must include:
 
 - Result-focused summary.
