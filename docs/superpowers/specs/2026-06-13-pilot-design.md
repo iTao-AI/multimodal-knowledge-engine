@@ -1,5 +1,12 @@
 # Multimodal Knowledge Engine Pilot Design
 
+Status: Superseded for active implementation order by
+`docs/superpowers/specs/2026-06-15-trustworthy-pdf-video-slice-design.md`.
+
+This document remains historical bootstrap context. The active implementation plan now proves
+trustworthy PDF Search first, then adds the short-video slice, before stabilizing broader
+HTTP, MCP, Ask, or workspace contracts.
+
 ## Goal
 
 Build a local-first Evidence engine whose first verified slice processes one PDF and one short video, publishes only complete output, and returns page- or timestamp-addressable Evidence through consistent HTTP, CLI, MCP, and workspace contracts.
