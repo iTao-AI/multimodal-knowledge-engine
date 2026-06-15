@@ -35,18 +35,6 @@ Status:
 | `mke ask` | planned | Deferred until Search Evidence is trustworthy. |
 | `mke mcp` | planned | Deferred until PDF and video contracts are stable. |
 
-```text
-mke init
-mke serve
-mke library create
-mke ingest <file>
-mke run get <run_id>
-mke search
-mke ask
-mke mcp
-mke demo --verify
-```
-
 ## MCP
 
 Status: planned after PDF and video lifecycle validation.

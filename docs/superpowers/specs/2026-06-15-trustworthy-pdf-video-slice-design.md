@@ -47,6 +47,31 @@ uv run mke demo --verify
   changed.
 - `failed`, `superseded`, and `interrupted` Runs are terminal and cannot publish.
 
+## Run State Machine
+
+ADR-0002 defines the authoritative Run states. Valid transitions are:
+
+```text
+queued -> running -> validated -> published
+                  \-> failed
+                  \-> interrupted
+        \-> superseded
+
+validated -> superseded
+```
+
+- `queued` means a Run is recorded but processing has not started.
+- `running` means extraction, candidate Evidence persistence, or manifest construction is in
+  progress.
+- `validated` means candidate Evidence and the Run manifest passed validation but are not
+  searchable.
+- `published` means the active Publication pointer and active Search projection changed in one
+  transaction.
+- `failed` means processing or validation failed before publication.
+- `superseded` means a newer request won the generation or active revision check.
+- `interrupted` means the process stopped before reaching a safe terminal state and the Run cannot
+  publish.
+
 ## Milestones
 
 ### PR 2: PDF Happy Path With Minimal Publication Correctness
@@ -67,6 +92,9 @@ uv run mke demo --verify
   observability.
 - Prove failures before validation, during candidate persistence, during active projection
   replacement, and during activation do not change Search visibility.
+- Failure points that must not affect Search include before validation, during candidate Evidence
+  writes, during FTS5 replacement, after Publication insert, after active pointer switch, and
+  during activation conflict.
 - Implement `mke demo --verify` as a deterministic offline product proof.
 - Update README, getting-started tutorial, CLI reference, error catalog, and CI to use the demo as
   the primary reviewer path.

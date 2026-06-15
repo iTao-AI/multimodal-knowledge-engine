@@ -24,7 +24,7 @@ Publication protocol for the first PDF slice.
   - `run.based_on_active_revision = source.active_revision`
 - A Run that fails this activation check becomes `superseded` and cannot publish.
 - Run states are `queued`, `running`, `validated`, `published`, `failed`, `superseded`, and
-  `interrupted`.
+  `interrupted`. The active implementation design owns the state transition diagram.
 - `validated` means candidate output is complete but not searchable. Only `published` output is
   searchable.
 - Candidate `Evidence` and the `RunManifest` are persisted in ordinary relational tables.
@@ -43,3 +43,5 @@ Publication protocol for the first PDF slice.
 - The first implementation has a stricter Publication protocol, but avoids a later redesign when
   video and agent-facing interfaces are added.
 - FTS5 is a Pilot projection, not a long-term ranking contract.
+- The activation transaction must be a single SQLite transaction. If it fails, the Run stays
+  `validated` and can be retried. No partial Publication state is observable.

@@ -125,6 +125,3 @@ CI must also run the wheel-installed version of `mke demo --verify`.
 
 Each PR must update documentation in the same branch as behavior. If a command is planned but
 not implemented, the docs must say so explicitly.
-
-Before PR 2 implementation starts, ensure the superseded Pilot spec points to
-`docs/superpowers/specs/2026-06-15-trustworthy-pdf-video-slice-design.md`.
