@@ -11,6 +11,9 @@ from uuid import uuid4
 from mke.domain import (
     ActivationResult,
     CandidateEvidence,
+    FailurePoint,
+    RunEvent,
+    RunEventType,
     RunManifest,
     RunRecord,
     RunState,
@@ -26,6 +29,10 @@ def _new_id(prefix: str) -> str:
     return f"{prefix}_{uuid4().hex}"
 
 
+class InjectedStorageFailure(RuntimeError):
+    """Raised by deterministic reliability proof failure injection."""
+
+
 class SQLiteStore:
     """Persistence adapter for Source-level Publication semantics."""
 
@@ -36,6 +43,7 @@ class SQLiteStore:
         self._connection.row_factory = sqlite3.Row
         self._configure()
         self.migrate()
+        self.interrupt_unfinished_runs()
 
     def __enter__(self) -> Self:
         return self
@@ -50,6 +58,7 @@ class SQLiteStore:
         self._connection.execute("PRAGMA foreign_keys = ON")
         self._connection.execute("PRAGMA journal_mode = WAL")
         self._connection.execute(f"PRAGMA busy_timeout = {_BUSY_TIMEOUT_MS}")
+        self._connection.autocommit = False  # Explicit: PEP 249 tx semantics (rollback-safe)
         self._probe_fts5()
 
     def _probe_fts5(self) -> None:
@@ -88,7 +97,8 @@ class SQLiteStore:
               source_id TEXT NOT NULL REFERENCES sources(source_id),
               state TEXT NOT NULL,
               source_generation INTEGER NOT NULL,
-              based_on_active_revision INTEGER NOT NULL
+              based_on_active_revision INTEGER NOT NULL,
+              retry_of_run_id TEXT REFERENCES runs(run_id)
             );
 
             CREATE TABLE IF NOT EXISTS run_manifests (
@@ -119,6 +129,7 @@ class SQLiteStore:
             CREATE TABLE IF NOT EXISTS run_events (
               event_id TEXT PRIMARY KEY,
               run_id TEXT NOT NULL REFERENCES runs(run_id),
+              event_index INTEGER NOT NULL,
               event_type TEXT NOT NULL
             );
             """
@@ -138,7 +149,27 @@ class SQLiteStore:
         self._connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_evidence_run_id ON evidence(run_id)"
         )
+        self._ensure_column("runs", "retry_of_run_id", "TEXT REFERENCES runs(run_id)")
+        self._ensure_column("run_events", "event_index", "INTEGER NOT NULL DEFAULT 0")
+        self._connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_runs_retry_of_run_id ON runs(retry_of_run_id)"
+        )
         self._connection.commit()
+
+    def _ensure_column(self, table: str, column: str, definition: str) -> None:
+        """Add a column if it does not already exist.
+
+        WARNING: ``table`` and ``column`` must be hardcoded string literals, never
+        caller-controlled input. This method uses f-string interpolation for SQL
+        identifiers because SQLite PRAGMA and ALTER TABLE do not accept bound
+        parameters for them.
+        """
+        columns = {
+            str(row["name"])
+            for row in self._connection.execute(f"PRAGMA table_info({table})").fetchall()
+        }
+        if column not in columns:
+            self._connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
     def ensure_default_library(self) -> str:
         row = self._connection.execute(
@@ -152,6 +183,27 @@ class SQLiteStore:
         )
         self._connection.commit()
         return library_id
+
+    def get_first_source(self) -> SourceRecord | None:
+        row = self._connection.execute(
+            """
+            SELECT source_id, active_publication_id, active_revision, requested_generation
+            FROM sources ORDER BY rowid LIMIT 1
+            """
+        ).fetchone()
+        return _source_from_row(row) if row is not None else None
+
+    def get_source(self, source_id: str) -> SourceRecord:
+        row = self._connection.execute(
+            """
+            SELECT source_id, active_publication_id, active_revision, requested_generation
+            FROM sources WHERE source_id = ?
+            """,
+            (source_id,),
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"unknown source: {source_id}")
+        return _source_from_row(row)
 
     def ensure_source(self, display_name: str, asset_sha256: str) -> SourceRecord:
         library_id = self.ensure_default_library()
@@ -192,7 +244,7 @@ class SQLiteStore:
         self._connection.commit()
         return asset_id
 
-    def create_run(self, source_id: str) -> RunRecord:
+    def create_run(self, source_id: str, retry_of_run_id: str | None = None) -> RunRecord:
         with self._connection:
             source = self._connection.execute(
                 "SELECT active_revision, requested_generation FROM sources WHERE source_id = ?",
@@ -210,8 +262,9 @@ class SQLiteStore:
             self._connection.execute(
                 """
                 INSERT INTO runs(
-                  run_id, source_id, state, source_generation, based_on_active_revision
-                ) VALUES (?, ?, ?, ?, ?)
+                  run_id, source_id, state, source_generation, based_on_active_revision,
+                  retry_of_run_id
+                ) VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (
                     run_id,
@@ -219,10 +272,17 @@ class SQLiteStore:
                     RunState.QUEUED.value,
                     source_generation,
                     based_on_active_revision,
+                    retry_of_run_id,
                 ),
             )
+            self._append_event(run_id, RunEventType.RUN_CREATED)
         return RunRecord(
-            run_id, source_id, RunState.QUEUED, source_generation, based_on_active_revision
+            run_id,
+            source_id,
+            RunState.QUEUED,
+            source_generation,
+            based_on_active_revision,
+            retry_of_run_id,
         )
 
     def get_run(self, run_id: str) -> RunRecord:
@@ -232,18 +292,46 @@ class SQLiteStore:
         return _run_from_row(row)
 
     def mark_run_failed(self, run_id: str) -> None:
-        self._connection.execute(
-            "UPDATE runs SET state = ? WHERE run_id = ?", (RunState.FAILED.value, run_id)
-        )
-        self._connection.commit()
+        with self._connection:
+            self._connection.execute(
+                "UPDATE runs SET state = ? WHERE run_id = ?", (RunState.FAILED.value, run_id)
+            )
+            self._append_event(run_id, RunEventType.RUN_FAILED)
+
+    def mark_run_running(self, run_id: str) -> None:
+        with self._connection:
+            self._connection.execute(
+                "UPDATE runs SET state = ? WHERE run_id = ?", (RunState.RUNNING.value, run_id)
+            )
+            self._append_event(run_id, RunEventType.RUN_STARTED)
+
+    def interrupt_unfinished_runs(self) -> None:
+        rows = self._connection.execute(
+            "SELECT run_id FROM runs WHERE state IN (?, ?)",
+            (RunState.QUEUED.value, RunState.RUNNING.value),
+        ).fetchall()
+        with self._connection:
+            for row in rows:
+                run_id = str(row["run_id"])
+                self._connection.execute(
+                    "UPDATE runs SET state = ? WHERE run_id = ?",
+                    (RunState.INTERRUPTED.value, run_id),
+                )
+                self._append_event(run_id, RunEventType.RUN_INTERRUPTED)
 
     def persist_validated_candidate(
-        self, run_id: str, evidence: list[CandidateEvidence], manifest: RunManifest
+        self,
+        run_id: str,
+        evidence: list[CandidateEvidence],
+        manifest: RunManifest,
+        failure_point: FailurePoint | None = None,
     ) -> None:
         validate_manifest(manifest, evidence)
         run = self.get_run(run_id)
         with self._connection:
             self._connection.execute("DELETE FROM evidence WHERE run_id = ?", (run_id,))
+            if failure_point == FailurePoint.DURING_CANDIDATE_WRITES:
+                raise InjectedStorageFailure(failure_point.value)
             for item in evidence:
                 self._connection.execute(
                     """
@@ -278,8 +366,11 @@ class SQLiteStore:
             self._connection.execute(
                 "UPDATE runs SET state = ? WHERE run_id = ?", (RunState.VALIDATED.value, run_id)
             )
+            self._append_event(run_id, RunEventType.CANDIDATE_VALIDATED)
 
-    def activate_publication(self, run_id: str) -> ActivationResult:
+    def activate_publication(
+        self, run_id: str, failure_point: FailurePoint | None = None
+    ) -> ActivationResult:
         with self._connection:
             run_row = self._connection.execute(
                 "SELECT * FROM runs WHERE run_id = ?", (run_id,)
@@ -302,6 +393,7 @@ class SQLiteStore:
                     "UPDATE runs SET state = ? WHERE run_id = ?",
                     (RunState.SUPERSEDED.value, run_id),
                 )
+                self._append_event(run_id, RunEventType.RUN_SUPERSEDED)
                 return ActivationResult(run_id, RunState.SUPERSEDED, False, None)
 
             evidence_rows = self._connection.execute(
@@ -317,9 +409,13 @@ class SQLiteStore:
                 """,
                 (publication_id, run.source_id, run_id, next_revision),
             )
+            if failure_point == FailurePoint.AFTER_PUBLICATION_INSERT:
+                raise InjectedStorageFailure(failure_point.value)
             self._connection.execute(
                 "DELETE FROM active_evidence_fts WHERE source_id = ?", (run.source_id,)
             )
+            if failure_point == FailurePoint.DURING_ACTIVE_FTS_REPLACEMENT:
+                raise InjectedStorageFailure(failure_point.value)
             library_id = str(source_row["library_id"])
             for row in evidence_rows:
                 self._connection.execute(
@@ -345,14 +441,50 @@ class SQLiteStore:
                 """,
                 (publication_id, next_revision, run.source_id),
             )
+            if failure_point == FailurePoint.AFTER_ACTIVE_POINTER_SWITCH:
+                raise InjectedStorageFailure(failure_point.value)
             self._connection.execute(
                 "UPDATE runs SET state = ? WHERE run_id = ?", (RunState.PUBLISHED.value, run_id)
             )
-            self._connection.execute(
-                "INSERT INTO run_events(event_id, run_id, event_type) VALUES (?, ?, ?)",
-                (_new_id("evt"), run_id, "publication_activated"),
-            )
+            self._append_event(run_id, RunEventType.PUBLICATION_ACTIVATED)
         return ActivationResult(run_id, RunState.PUBLISHED, True, publication_id)
+
+    def get_run_events(self, run_id: str) -> list[RunEvent]:
+        rows = self._connection.execute(
+            """
+            SELECT run_id, event_index, event_type
+            FROM run_events
+            WHERE run_id = ?
+            ORDER BY event_index
+            """,
+            (run_id,),
+        ).fetchall()
+        return [
+            RunEvent(
+                run_id=str(row["run_id"]),
+                event_index=int(row["event_index"]),
+                event_type=str(row["event_type"]),
+            )
+            for row in rows
+        ]
+
+    def _append_event(self, run_id: str, event_type: str) -> None:
+        row = self._connection.execute(
+            """
+            SELECT COALESCE(MAX(event_index), 0) + 1 AS next_index
+            FROM run_events
+            WHERE run_id = ?
+            """,
+            (run_id,),
+        ).fetchone()
+        event_index = int(row["next_index"]) if row is not None else 1
+        self._connection.execute(
+            """
+            INSERT INTO run_events(event_id, run_id, event_index, event_type)
+            VALUES (?, ?, ?, ?)
+            """,
+            (_new_id("evt"), run_id, event_index, event_type),
+        )
 
     def search(self, query: str) -> list[SearchResult]:
         match_query = _to_fts_query(query)
@@ -396,12 +528,14 @@ def _source_from_row(row: sqlite3.Row) -> SourceRecord:
 
 
 def _run_from_row(row: sqlite3.Row) -> RunRecord:
+    retry_of_run_id = row["retry_of_run_id"]
     return RunRecord(
         run_id=str(row["run_id"]),
         source_id=str(row["source_id"]),
         state=RunState(str(row["state"])),
         source_generation=int(row["source_generation"]),
         based_on_active_revision=int(row["based_on_active_revision"]),
+        retry_of_run_id=str(retry_of_run_id) if retry_of_run_id is not None else None,
     )
 
 

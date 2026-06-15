@@ -18,6 +18,28 @@ class RunState(StrEnum):
     INTERRUPTED = "interrupted"
 
 
+class FailurePoint(StrEnum):
+    """Deterministic failure injection points for the PR 3 reliability proof."""
+
+    BEFORE_VALIDATION = "before_validation"
+    DURING_CANDIDATE_WRITES = "during_candidate_writes"
+    DURING_ACTIVE_FTS_REPLACEMENT = "during_active_fts_replacement"
+    AFTER_PUBLICATION_INSERT = "after_publication_insert"
+    AFTER_ACTIVE_POINTER_SWITCH = "after_active_pointer_switch"
+
+
+class RunEventType(StrEnum):
+    """Append-only Run event types recorded during the Evidence lifecycle."""
+
+    RUN_CREATED = "run_created"
+    RUN_STARTED = "run_started"
+    RUN_FAILED = "run_failed"
+    RUN_INTERRUPTED = "run_interrupted"
+    CANDIDATE_VALIDATED = "candidate_validated"
+    PUBLICATION_ACTIVATED = "publication_activated"
+    RUN_SUPERSEDED = "run_superseded"
+
+
 class ManifestValidationError(ValueError):
     """Raised when candidate output cannot safely become a Publication."""
 
@@ -37,6 +59,14 @@ class RunRecord:
     state: RunState
     source_generation: int
     based_on_active_revision: int
+    retry_of_run_id: str | None = None
+
+
+@dataclass(frozen=True)
+class RunEvent:
+    run_id: str
+    event_index: int
+    event_type: str
 
 
 @dataclass(frozen=True)
@@ -70,6 +100,7 @@ class IngestResult:
     run_id: str
     run_state: RunState
     evidence_count: int
+    retry_of_run_id: str | None = None
 
 
 @dataclass(frozen=True)

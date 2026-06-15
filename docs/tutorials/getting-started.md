@@ -1,16 +1,37 @@
 # Getting Started
 
-The repository has a verified bootstrap baseline and a narrow PR 2 PDF CLI path. The golden demo and broader product workflows are still planned.
+The repository has a deterministic local PDF proof path. Broader product workflows are still
+planned.
 
 ## Prepare The Environment
 
-Install the development dependencies:
+Install the locked development dependencies:
 
 ```bash
-uv sync
+uv sync --locked
 ```
 
-## Verify The Bootstrap
+## Run The Product Proof
+
+```bash
+uv run mke demo --verify
+```
+
+Expected output includes these phase lines:
+
+```text
+mke demo --verify
+phase=ingest_initial status=ok
+phase=failed_reprocess status=ok active_publication_impact=unchanged
+phase=retry_publish status=ok
+phase=cleanup status=ok
+result=passed duration_ms=<milliseconds>
+```
+
+The demo uses a temporary SQLite workspace, cleans it up before exit, and is expected to complete
+in a few seconds on a local development machine. It makes no network calls.
+
+## Run Development Checks
 
 ```bash
 uv run pytest -q
@@ -26,13 +47,14 @@ The build command creates an sdist and wheel under `dist/`. The final command pr
 multimodal-knowledge-engine: bootstrap stage
 ```
 
-## Try The Narrow PDF Path
+## Try The Lower-Level PDF Commands
 
 ```bash
 uv run mke --db .tmp/mke.sqlite ingest tests/fixtures/pdf/text-layer.pdf
 uv run mke --db .tmp/mke.sqlite search trustworthy
+uv run mke --db .tmp/mke.sqlite run get <run_id>
 ```
 
 This path supports only deterministic text-layer PDFs and active Publication Search. It does not
-cover scanned-PDF OCR, failure injection, retry lineage, Run observability, video, Ask, MCP, or
-`mke demo --verify`; those remain later milestones.
+cover scanned-PDF OCR, video, Ask, MCP, HTTP, workspace UI, hosted coordination, or multi-worker
+runtime behavior.

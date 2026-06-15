@@ -26,4 +26,4 @@ def test_cli_ingest_invalid_pdf_returns_error(tmp_path: Path, capsys: CaptureFix
     invalid.write_text("not a pdf")
 
     assert main(["--db", str(db_path), "ingest", str(invalid)]) == 1
-    assert "error=" in capsys.readouterr().out
+    assert "problem=pdf_ingest_failed" in capsys.readouterr().out

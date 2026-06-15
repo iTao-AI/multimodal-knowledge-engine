@@ -64,22 +64,22 @@ Files expected to change:
 - `docs/reference/contracts.md`
 - `docs/how-to/`
 
-- [ ] Add reprocess and retry lineage.
-- [ ] Add append-only Run event query support.
-- [ ] Add interrupted Run handling at startup without claiming automatic checkpoint resume.
-- [ ] Add failure injection before validation, during candidate writes, during active FTS5
+- [x] Add reprocess and retry lineage.
+- [x] Add append-only Run event query support.
+- [x] Add interrupted Run handling at startup without claiming automatic checkpoint resume.
+- [x] Add failure injection before validation, during candidate writes, during active FTS5
   replacement, after Publication insert, after active pointer switch, and during activation
   conflict.
-- [ ] Prove every failed path leaves previous active Search results unchanged.
-- [ ] Add `mke demo --verify` as a deterministic offline product proof using a temporary SQLite
+- [x] Prove every failed path leaves previous active Search results unchanged.
+- [x] Add `mke demo --verify` as a deterministic offline product proof using a temporary SQLite
   workspace and repository fixture PDF.
-- [ ] Define demo phases, stdout shape, exit codes, cleanup behavior, and expected duration.
-- [ ] Add CLI error contracts covering problem, cause, active Publication impact, and next step.
-- [ ] Add `docs/reference/cli.md` with implemented versus planned command status.
-- [ ] Update README and getting-started tutorial so the first proof path is
+- [x] Define demo phases, stdout shape, exit codes, cleanup behavior, and expected duration.
+- [x] Add CLI error contracts covering problem, cause, active Publication impact, and next step.
+- [x] Add `docs/reference/cli.md` with implemented versus planned command status.
+- [x] Update README and getting-started tutorial so the first proof path is
   `uv sync --locked && uv run mke demo --verify`.
-- [ ] Update CI to run the wheel-installed `mke demo --verify`.
-- [ ] Document default DB path, `--db`, demo DB isolation, migration, reset, and local cleanup.
+- [x] Update CI to run the wheel-installed `mke demo --verify`.
+- [x] Document default DB path, `--db`, demo DB isolation, migration, reset, and local cleanup.
 
 ## PR 4: Short Video Timestamp Evidence
 
