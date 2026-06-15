@@ -28,24 +28,24 @@ Files expected to change:
 - `docs/explanation/architecture.md`
 - `docs/reference/contracts.md`
 
-- [ ] Add domain states and identifiers for `Library`, `Source`, `Asset`, `Run`, `Evidence`,
+- [x] Add domain states and identifiers for `Library`, `Source`, `Asset`, `Run`, `Evidence`,
   `RunManifest`, and `Publication`.
-- [ ] Add SQLite migrations for Source active Publication, active revision, requested generation,
+- [x] Add SQLite migrations for Source active Publication, active revision, requested generation,
   Runs, Run manifests, Evidence, Publications, and active FTS5 projection.
-- [ ] Ensure SQLite enables `foreign_keys`, uses WAL, sets `busy_timeout`, and probes FTS5.
-- [ ] Add Run creation that increments `Source.requested_generation` and captures
+- [x] Ensure SQLite enables `foreign_keys`, uses WAL, sets `busy_timeout`, and probes FTS5.
+- [x] Add Run creation that increments `Source.requested_generation` and captures
   `Run.source_generation` plus `Run.based_on_active_revision` in one transaction.
-- [ ] Add text-layer PDF extraction for a public-safe fixture PDF.
-- [ ] Persist candidate Evidence and Run manifest in relational tables.
-- [ ] Validate counts, locators, extractor fingerprint, and required stages before activation.
-- [ ] Activate Publication in one transaction: generation/revision check, Publication insert,
+- [x] Add text-layer PDF extraction for a public-safe fixture PDF.
+- [x] Persist candidate Evidence and Run manifest in relational tables.
+- [x] Validate counts, locators, extractor fingerprint, and required stages before activation.
+- [x] Activate Publication in one transaction: generation/revision check, Publication insert,
   active FTS5 replacement, active pointer switch, active revision increment, Run `published`
   state, and Run event.
-- [ ] Mark stale Runs `superseded` without changing active Search visibility.
-- [ ] Add narrow CLI commands for local PDF ingest and Search.
-- [ ] Add tests for Run states, manifest validation, active-only Search, stale Run rejection,
+- [x] Mark stale Runs `superseded` without changing active Search visibility.
+- [x] Add narrow CLI commands for local PDF ingest and Search.
+- [x] Add tests for Run states, manifest validation, active-only Search, stale Run rejection,
   invalid PDFs, no-text PDFs, and FTS query escaping.
-- [ ] Update docs for implemented PDF commands and known non-goals.
+- [x] Update docs for implemented PDF commands and known non-goals.
 
 ## PR 3: Reliability Proof And Golden Demo
 

@@ -13,7 +13,7 @@ authors = [{ name = "iTao-AI" }]
 dependencies = []
 
 [project.scripts]
-mke = "mke.cli:main"
+mke = "mke.cli:console_main"
 
 [dependency-groups]
 dev = [
