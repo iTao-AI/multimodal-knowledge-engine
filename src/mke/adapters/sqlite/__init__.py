@@ -13,6 +13,7 @@ from mke.domain import (
     CandidateEvidence,
     FailurePoint,
     RunEvent,
+    RunEventType,
     RunManifest,
     RunRecord,
     RunState,
@@ -57,6 +58,7 @@ class SQLiteStore:
         self._connection.execute("PRAGMA foreign_keys = ON")
         self._connection.execute("PRAGMA journal_mode = WAL")
         self._connection.execute(f"PRAGMA busy_timeout = {_BUSY_TIMEOUT_MS}")
+        self._connection.autocommit = False  # Explicit: PEP 249 tx semantics (rollback-safe)
         self._probe_fts5()
 
     def _probe_fts5(self) -> None:
@@ -149,9 +151,19 @@ class SQLiteStore:
         )
         self._ensure_column("runs", "retry_of_run_id", "TEXT REFERENCES runs(run_id)")
         self._ensure_column("run_events", "event_index", "INTEGER NOT NULL DEFAULT 0")
+        self._connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_runs_retry_of_run_id ON runs(retry_of_run_id)"
+        )
         self._connection.commit()
 
     def _ensure_column(self, table: str, column: str, definition: str) -> None:
+        """Add a column if it does not already exist.
+
+        WARNING: ``table`` and ``column`` must be hardcoded string literals, never
+        caller-controlled input. This method uses f-string interpolation for SQL
+        identifiers because SQLite PRAGMA and ALTER TABLE do not accept bound
+        parameters for them.
+        """
         columns = {
             str(row["name"])
             for row in self._connection.execute(f"PRAGMA table_info({table})").fetchall()
@@ -263,7 +275,7 @@ class SQLiteStore:
                     retry_of_run_id,
                 ),
             )
-            self._append_event(run_id, "run_created")
+            self._append_event(run_id, RunEventType.RUN_CREATED)
         return RunRecord(
             run_id,
             source_id,
@@ -284,14 +296,14 @@ class SQLiteStore:
             self._connection.execute(
                 "UPDATE runs SET state = ? WHERE run_id = ?", (RunState.FAILED.value, run_id)
             )
-            self._append_event(run_id, "run_failed")
+            self._append_event(run_id, RunEventType.RUN_FAILED)
 
     def mark_run_running(self, run_id: str) -> None:
         with self._connection:
             self._connection.execute(
                 "UPDATE runs SET state = ? WHERE run_id = ?", (RunState.RUNNING.value, run_id)
             )
-            self._append_event(run_id, "run_started")
+            self._append_event(run_id, RunEventType.RUN_STARTED)
 
     def interrupt_unfinished_runs(self) -> None:
         rows = self._connection.execute(
@@ -305,7 +317,7 @@ class SQLiteStore:
                     "UPDATE runs SET state = ? WHERE run_id = ?",
                     (RunState.INTERRUPTED.value, run_id),
                 )
-                self._append_event(run_id, "run_interrupted")
+                self._append_event(run_id, RunEventType.RUN_INTERRUPTED)
 
     def persist_validated_candidate(
         self,
@@ -354,7 +366,7 @@ class SQLiteStore:
             self._connection.execute(
                 "UPDATE runs SET state = ? WHERE run_id = ?", (RunState.VALIDATED.value, run_id)
             )
-            self._append_event(run_id, "candidate_validated")
+            self._append_event(run_id, RunEventType.CANDIDATE_VALIDATED)
 
     def activate_publication(
         self, run_id: str, failure_point: FailurePoint | None = None
@@ -381,7 +393,7 @@ class SQLiteStore:
                     "UPDATE runs SET state = ? WHERE run_id = ?",
                     (RunState.SUPERSEDED.value, run_id),
                 )
-                self._append_event(run_id, "run_superseded")
+                self._append_event(run_id, RunEventType.RUN_SUPERSEDED)
                 return ActivationResult(run_id, RunState.SUPERSEDED, False, None)
 
             evidence_rows = self._connection.execute(
@@ -434,7 +446,7 @@ class SQLiteStore:
             self._connection.execute(
                 "UPDATE runs SET state = ? WHERE run_id = ?", (RunState.PUBLISHED.value, run_id)
             )
-            self._append_event(run_id, "publication_activated")
+            self._append_event(run_id, RunEventType.PUBLICATION_ACTIVATED)
         return ActivationResult(run_id, RunState.PUBLISHED, True, publication_id)
 
     def get_run_events(self, run_id: str) -> list[RunEvent]:

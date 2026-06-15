@@ -83,7 +83,11 @@ def _search(engine: KnowledgeEngine, query: str) -> int:
 
 
 def _run_get(engine: KnowledgeEngine, run_id: str) -> int:
-    run = engine.get_run(run_id)
+    try:
+        run = engine.get_run(run_id)
+    except KeyError:
+        _print_error_contract(f"unknown run: {run_id}")
+        return 1
     retry = f" retry_of_run_id={run.retry_of_run_id}" if run.retry_of_run_id else ""
     print(
         f"run_id={run.run_id} state={run.state.value} "
@@ -103,8 +107,9 @@ def _demo_verify(fixture: Path, revised_fixture: Path) -> int:
 
     with tempfile.TemporaryDirectory(prefix="mke-demo-") as temp_dir:
         db_path = Path(temp_dir) / "demo.sqlite"
-        engine = KnowledgeEngine(db_path)
+        engine: KnowledgeEngine | None = None
         try:
+            engine = KnowledgeEngine(db_path)
             initial = engine.ingest_pdf(fixture)
             initial_results = engine.search("trustworthy")
             if not initial_results:
@@ -135,7 +140,8 @@ def _demo_verify(fixture: Path, revised_fixture: Path) -> int:
                     failure_point=FailurePoint.AFTER_PUBLICATION_INSERT,
                 )
             except PdfIngestError as activation_failure:
-                retry = engine.activate_publication(activation_failure.run_id or "")
+                retry_run_id = activation_failure.run_id or ""
+                retry = engine.activate_publication(retry_run_id)
             else:
                 raise RuntimeError("activation failure injection did not fail")
             if not retry.published or not engine.search("revised"):
@@ -145,7 +151,8 @@ def _demo_verify(fixture: Path, revised_fixture: Path) -> int:
             _print_error_contract(str(error))
             return 1
         finally:
-            engine.close()
+            if engine is not None:
+                engine.close()
 
     duration_ms = int((time.monotonic() - started) * 1000)
     print("phase=cleanup status=ok")

@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from mke.application import KnowledgeEngine, PdfIngestError
-from mke.domain import FailurePoint, RunState
+from mke.domain import FailurePoint, RunEventType, RunState
 from tests.conftest import PDF_FIXTURES
 
 
@@ -11,15 +11,18 @@ def _texts(engine: KnowledgeEngine, query: str) -> list[str]:
     return [match.text for match in engine.search(query)]
 
 
+_FAILURE_POINT_EXPECTED_STATE = {
+    FailurePoint.BEFORE_VALIDATION: RunState.FAILED,
+    FailurePoint.DURING_CANDIDATE_WRITES: RunState.FAILED,
+    FailurePoint.DURING_ACTIVE_FTS_REPLACEMENT: RunState.VALIDATED,
+    FailurePoint.AFTER_PUBLICATION_INSERT: RunState.VALIDATED,
+    FailurePoint.AFTER_ACTIVE_POINTER_SWITCH: RunState.VALIDATED,
+}
+
+
 @pytest.mark.parametrize(
     "failure_point",
-    [
-        FailurePoint.BEFORE_VALIDATION,
-        FailurePoint.DURING_CANDIDATE_WRITES,
-        FailurePoint.DURING_ACTIVE_FTS_REPLACEMENT,
-        FailurePoint.AFTER_PUBLICATION_INSERT,
-        FailurePoint.AFTER_ACTIVE_POINTER_SWITCH,
-    ],
+    list(_FAILURE_POINT_EXPECTED_STATE.keys()),
 )
 def test_failure_injection_preserves_previous_active_publication(
     tmp_path: Path, failure_point: FailurePoint
@@ -28,12 +31,16 @@ def test_failure_injection_preserves_previous_active_publication(
     first = engine.ingest_pdf(PDF_FIXTURES / "text-layer.pdf")
     before = _texts(engine, "trustworthy")
 
-    with pytest.raises(PdfIngestError, match=failure_point.value):
+    with pytest.raises(PdfIngestError, match=failure_point.value) as exc_info:
         engine.reprocess_pdf(PDF_FIXTURES / "text-layer-revised.pdf", failure_point=failure_point)
 
     assert _texts(engine, "trustworthy") == before
     assert _texts(engine, "revised") == []
     assert engine.get_run(first.run_id).state == RunState.PUBLISHED
+    failed_run_id = exc_info.value.run_id
+    assert failed_run_id is not None
+    expected_state = _FAILURE_POINT_EXPECTED_STATE[failure_point]
+    assert engine.get_run(failed_run_id).state == expected_state
 
 
 def test_retry_lineage_creates_new_run_and_successfully_replaces_publication(
@@ -85,9 +92,7 @@ def test_activation_conflict_supersedes_stale_run_without_search_change(tmp_path
     stale = engine.prepare_pdf_candidate(PDF_FIXTURES / "text-layer-revised.pdf")
     newer = engine.reprocess_pdf(PDF_FIXTURES / "text-layer.pdf")
 
-    activation = engine.activate_publication(
-        stale.run_id, failure_point=FailurePoint.DURING_ACTIVATION_CONFLICT
-    )
+    activation = engine.activate_publication(stale.run_id)
 
     assert activation.published is False
     assert activation.run_state == RunState.SUPERSEDED
@@ -108,8 +113,16 @@ def test_startup_marks_unfinished_runs_interrupted(tmp_path: Path) -> None:
 
     assert restarted.get_run(prepared.run_id).state == RunState.INTERRUPTED
     assert [event.event_type for event in restarted.get_run_events(prepared.run_id)][-1] == (
-        "run_interrupted"
+        RunEventType.RUN_INTERRUPTED
     )
+
+
+def test_reprocess_pdf_without_failure_replaces_active_search(tmp_path: Path) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    engine.ingest_pdf(PDF_FIXTURES / "text-layer.pdf")
+    result = engine.reprocess_pdf(PDF_FIXTURES / "text-layer-revised.pdf")
+    assert result.run_state == RunState.PUBLISHED
+    assert _texts(engine, "revised") == ["Revised trustworthy evidence replaces page one."]
 
 
 def test_run_events_are_append_only_and_queryable(tmp_path: Path) -> None:
@@ -117,8 +130,8 @@ def test_run_events_are_append_only_and_queryable(tmp_path: Path) -> None:
     result = engine.ingest_pdf(PDF_FIXTURES / "text-layer.pdf")
 
     assert [event.event_type for event in engine.get_run_events(result.run_id)] == [
-        "run_created",
-        "run_started",
-        "candidate_validated",
-        "publication_activated",
+        RunEventType.RUN_CREATED,
+        RunEventType.RUN_STARTED,
+        RunEventType.CANDIDATE_VALIDATED,
+        RunEventType.PUBLICATION_ACTIVATED,
     ]

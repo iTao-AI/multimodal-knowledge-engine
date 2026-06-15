@@ -26,7 +26,18 @@ class FailurePoint(StrEnum):
     DURING_ACTIVE_FTS_REPLACEMENT = "during_active_fts_replacement"
     AFTER_PUBLICATION_INSERT = "after_publication_insert"
     AFTER_ACTIVE_POINTER_SWITCH = "after_active_pointer_switch"
-    DURING_ACTIVATION_CONFLICT = "during_activation_conflict"
+
+
+class RunEventType(StrEnum):
+    """Append-only Run event types recorded during the Evidence lifecycle."""
+
+    RUN_CREATED = "run_created"
+    RUN_STARTED = "run_started"
+    RUN_FAILED = "run_failed"
+    RUN_INTERRUPTED = "run_interrupted"
+    CANDIDATE_VALIDATED = "candidate_validated"
+    PUBLICATION_ACTIVATED = "publication_activated"
+    RUN_SUPERSEDED = "run_superseded"
 
 
 class ManifestValidationError(ValueError):

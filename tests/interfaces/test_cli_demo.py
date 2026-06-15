@@ -47,7 +47,33 @@ def test_demo_verify_outputs_phases_and_cleans_up(capsys: CaptureFixture[str]) -
     assert "result=passed" in output
 
 
-def test_demo_verify_failure_exit_code_for_missing_fixture(tmp_path: Path) -> None:
+def test_demo_verify_failure_exit_code_for_missing_fixture(
+    tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
     missing = tmp_path / "missing.pdf"
 
     assert main(["demo", "--verify", "--fixture", str(missing)]) == 1
+
+    output = capsys.readouterr().out
+    assert "problem=pdf_ingest_failed" in output
+    assert "cause=demo fixture is missing" in output
+    assert "active_publication_impact=unchanged" in output
+    assert "next_step=fix_input_or_retry" in output
+
+
+def test_cli_run_get_nonexistent_id_returns_error_contract(
+    tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "mke.sqlite"
+    # create a minimal database file so KnowledgeEngine can open it
+    import sqlite3
+
+    sqlite3.connect(db_path).close()
+
+    assert main(["--db", str(db_path), "run", "get", "run_nonexistent"]) == 1
+
+    output = capsys.readouterr().out
+    assert "problem=pdf_ingest_failed" in output
+    assert "cause=unknown run: run_nonexistent" in output
+    assert "active_publication_impact=unchanged" in output
+    assert "next_step=fix_input_or_retry" in output

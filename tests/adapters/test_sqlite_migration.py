@@ -2,6 +2,7 @@ import sqlite3
 from pathlib import Path
 
 from mke.application import KnowledgeEngine
+from mke.domain import RunEventType
 from tests.conftest import PDF_FIXTURES
 
 
@@ -77,8 +78,8 @@ def test_pr2_database_schema_is_migrated_for_retry_lineage_and_events(tmp_path: 
 
     assert result.run_state.value == "published"
     assert [event.event_type for event in engine.get_run_events(result.run_id)] == [
-        "run_created",
-        "run_started",
-        "candidate_validated",
-        "publication_activated",
+        RunEventType.RUN_CREATED,
+        RunEventType.RUN_STARTED,
+        RunEventType.CANDIDATE_VALIDATED,
+        RunEventType.PUBLICATION_ACTIVATED,
     ]
