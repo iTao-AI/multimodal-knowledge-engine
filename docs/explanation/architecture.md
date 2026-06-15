@@ -44,7 +44,16 @@ candidate Evidence + RunManifest
 ```
 
 Candidate, failed, superseded, or historical output is not stored in the active FTS5 projection.
-Search reads only active Publication rows.
+Search reads only active Publication rows and joins back through the active Publication identity.
+A stale Run that loses the Source generation or active revision check is marked `superseded`
+without changing active Search visibility.
+
+## PR 2 Runtime Shape
+
+The PR 2 runtime is an in-process CLI plus a project-owned application service. SQLite remains the
+domain truth and owns the rebuildable active FTS5 projection. The built-in PDF adapter extracts
+page-addressed text Evidence from deterministic text-layer PDFs without external services,
+credentials, model downloads, OCR, or network calls.
 
 ## Planned Pilot Modules
 

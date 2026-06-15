@@ -6,7 +6,7 @@ Multimodal Knowledge Engine 是一个本地优先、可被 Agent 调用的 Evide
 
 ## 当前状态
 
-仓库处于 bootstrap 阶段，目前只包含已批准的 Pilot 架构、文档治理与交付流程。PDF 导入、视频处理、Search、Ask、MCP 和 workspace 尚未实现。
+仓库现在已有首个窄范围 PDF CLI 切片：text-layer PDF 可以导入 SQLite、原子发布，并通过 active Publication Evidence 搜索。视频处理、Ask、MCP、workspace 和 `mke demo --verify` 黄金验证路径尚未实现。
 
 ## Pilot 目标
 
@@ -42,7 +42,14 @@ uv build
 uv run mke
 ```
 
-当前 `mke` 命令只报告 bootstrap 状态，产品工作流仍未实现。
+窄范围 PDF 命令已可用：
+
+```bash
+uv run mke --db .tmp/mke.sqlite ingest tests/fixtures/pdf/text-layer.pdf
+uv run mke --db .tmp/mke.sqlite search trustworthy
+```
+
+无参数 `mke` 命令仍报告 bootstrap 状态。`mke demo --verify` 仍属于 PR 3 范围。
 
 ## License
 

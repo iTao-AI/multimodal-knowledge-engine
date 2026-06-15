@@ -17,3 +17,5 @@ dist/
 build/
 node_modules/
 frontend/dist/
+
+.worktrees/

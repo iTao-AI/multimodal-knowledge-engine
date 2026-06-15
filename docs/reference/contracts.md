@@ -1,8 +1,8 @@
 # Public Contracts
 
 These contracts are planned around one application service layer and project-owned DTOs. The
-first implementation only exposes the narrow PDF CLI path needed to prove trustworthy Search and
-Publication semantics.
+current implementation exposes only the narrow PDF CLI path needed to prove active Publication
+Search semantics.
 
 ## HTTP
 
@@ -25,8 +25,8 @@ Status:
 
 | Command | Status | Notes |
 |---|---|---|
-| `mke ingest <file>` | PR 2 target | Text-layer PDF path first. |
-| `mke search` | PR 2 target | Searches active Publications only. |
+| `mke --db <path> ingest <file>` | implemented in PR 2 | Text-layer PDF path only. Persists candidate Evidence, validates a RunManifest, and activates a Source Publication atomically. |
+| `mke --db <path> search <query>` | implemented in PR 2 | Searches only active Publication rows in the SQLite FTS5 projection. |
 | `mke run get <run_id>` | PR 3 target | Used for Run observability. |
 | `mke demo --verify` | PR 3 target | Golden local proof path. |
 | `mke init` | planned | Workspace initialization after lifecycle proof. |
@@ -34,6 +34,11 @@ Status:
 | `mke library create` | planned | May be implicit in first CLI path. |
 | `mke ask` | planned | Deferred until Search Evidence is trustworthy. |
 | `mke mcp` | planned | Deferred until PDF and video contracts are stable. |
+
+The PR 2 PDF CLI uses a local SQLite database path supplied with `--db`. It does not expose a
+general FTS query language: Search tokenizes user input into escaped terms before querying FTS5.
+The built-in PDF extractor supports deterministic text-layer PDFs with uncompressed text showing
+operators; OCR, scanned PDFs, page coordinates, tables, and complex layout are non-goals.
 
 ## MCP
 

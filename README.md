@@ -6,7 +6,7 @@ Multimodal Knowledge Engine is a local-first Evidence engine for ingesting, sear
 
 ## Current Status
 
-This repository is in the bootstrap stage. It currently defines the approved Pilot architecture, documentation governance, and delivery workflow. PDF ingestion, video processing, Search, Ask, MCP, and the workspace are not implemented yet.
+This repository now has the first narrow PDF CLI slice: a text-layer PDF can be ingested into SQLite, atomically published, and searched through active Publication Evidence. Video processing, Ask, MCP, the workspace, and the golden `mke demo --verify` proof are not implemented yet.
 
 ## Pilot Goal
 
@@ -42,7 +42,14 @@ uv build
 uv run mke
 ```
 
-The `mke` command currently reports bootstrap status only. Product workflows remain unimplemented.
+The narrow PDF commands are available:
+
+```bash
+uv run mke --db .tmp/mke.sqlite ingest tests/fixtures/pdf/text-layer.pdf
+uv run mke --db .tmp/mke.sqlite search trustworthy
+```
+
+The default no-argument `mke` command still reports bootstrap status. `mke demo --verify` remains a PR 3 target.
 
 ## License
 
