@@ -14,22 +14,45 @@ Multimodal Knowledge Engine converts documents and media into published Evidence
 Source
   -> immutable Asset
   -> observable Run
-  -> Artifacts, Segments, Passages
-  -> rebuildable retrieval projection
+  -> candidate Evidence and RunManifest
+  -> validated Run
+  -> active Search projection
   -> atomic Publication switch
   -> Search / Ask Evidence
 ```
 
-A failed or partial Run never changes the active Publication. Retry creates a new immutable Run.
+A failed, interrupted, superseded, or partial Run never changes the active Publication. Retry
+creates a new immutable Run.
+
+The first PDF slice implements only the lifecycle concepts needed to prove trustworthy Search:
+`Library`, `Source`, `Asset`, `Run`, `Evidence`, `RunManifest`, and `Publication`. `Artifact`,
+`Segment`, and `Passage` remain public vocabulary for later cross-modal and Ask workflows, but
+their durable semantics are not stabilized before the PDF and video slices validate the lifecycle.
+
+## Publication Semantics
+
+Publication is atomic per `Source`.
+
+```text
+candidate Evidence + RunManifest
+  -> validate counts, locators, extractor fingerprint, required stages
+  -> check Run generation and Source active revision
+  -> create Publication
+  -> replace this Source's active FTS5 rows
+  -> switch Source.active_publication_id
+  -> mark Run published
+```
+
+Candidate, failed, superseded, or historical output is not stored in the active FTS5 projection.
+Search reads only active Publication rows.
 
 ## Planned Pilot Modules
 
 ```text
 src/mke/
-  core/
-  ingestion/
-  retrieval/
-  publication/
+  domain/
+  application/
+  ports/
   adapters/
   interfaces/
   runtime/
