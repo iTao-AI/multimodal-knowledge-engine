@@ -1,6 +1,8 @@
 import pytest
 
 from mke.domain import (
+    PDF_EXTRACTOR_FINGERPRINT,
+    REQUIRED_PDF_STAGES,
     CandidateEvidence,
     ManifestValidationError,
     RunManifest,
@@ -8,57 +10,88 @@ from mke.domain import (
 )
 
 
-def test_manifest_validation_accepts_complete_page_evidence() -> None:
-    evidence = [
-        CandidateEvidence(
-            evidence_id="ev_1",
-            locator_kind="page",
-            locator_start=1,
-            locator_end=1,
-            text="Trustworthy evidence starts on page one.",
-        )
-    ]
-    manifest = RunManifest(
-        run_id="run_1",
-        evidence_count=1,
-        required_stages=("pdf_text_extraction", "candidate_evidence"),
-        extractor_fingerprint="builtin-pdf-text-v1",
-        asset_sha256="a" * 64,
+def _make_evidence(
+    evidence_id: str = "ev_1",
+    locator_kind: str = "page",
+    locator_start: int = 1,
+    locator_end: int = 1,
+    text: str = "Test evidence.",
+) -> CandidateEvidence:
+    return CandidateEvidence(
+        evidence_id=evidence_id,
+        locator_kind=locator_kind,
+        locator_start=locator_start,
+        locator_end=locator_end,
+        text=text,
     )
 
-    validate_manifest(manifest, evidence)
+
+def _make_manifest(
+    run_id: str = "run_1",
+    evidence_count: int = 1,
+    required_stages: tuple[str, ...] | None = None,
+    extractor_fingerprint: str | None = None,
+    asset_sha256: str = "a" * 64,
+) -> RunManifest:
+    return RunManifest(
+        run_id=run_id,
+        evidence_count=evidence_count,
+        required_stages=(
+            tuple(sorted(REQUIRED_PDF_STAGES))
+            if required_stages is None
+            else required_stages
+        ),
+        extractor_fingerprint=(
+            PDF_EXTRACTOR_FINGERPRINT if extractor_fingerprint is None else extractor_fingerprint
+        ),
+        asset_sha256=asset_sha256,
+    )
+
+
+def test_manifest_validation_accepts_complete_page_evidence() -> None:
+    validate_manifest(_make_manifest(), [_make_evidence()])
 
 
 def test_manifest_validation_rejects_count_mismatch() -> None:
-    manifest = RunManifest(
-        run_id="run_1",
-        evidence_count=2,
-        required_stages=("pdf_text_extraction", "candidate_evidence"),
-        extractor_fingerprint="builtin-pdf-text-v1",
-        asset_sha256="a" * 64,
-    )
-
+    manifest = _make_manifest(evidence_count=2)
     with pytest.raises(ManifestValidationError, match="evidence count"):
         validate_manifest(manifest, [])
 
 
-def test_manifest_validation_rejects_invalid_page_locator() -> None:
-    evidence = [
-        CandidateEvidence(
-            evidence_id="ev_1",
-            locator_kind="page",
-            locator_start=0,
-            locator_end=0,
-            text="invalid locator",
-        )
-    ]
-    manifest = RunManifest(
-        run_id="run_1",
-        evidence_count=1,
-        required_stages=("pdf_text_extraction", "candidate_evidence"),
-        extractor_fingerprint="builtin-pdf-text-v1",
-        asset_sha256="a" * 64,
-    )
+class TestRejectsInvalidManifest:
+    def test_stages_incomplete(self) -> None:
+        manifest = _make_manifest(required_stages=("pdf_text_extraction",))
+        with pytest.raises(ManifestValidationError, match="required stages"):
+            validate_manifest(manifest, [_make_evidence()])
 
-    with pytest.raises(ManifestValidationError, match="page locator"):
-        validate_manifest(manifest, evidence)
+    def test_fingerprint_unrecognized(self) -> None:
+        manifest = _make_manifest(extractor_fingerprint="bad")
+        with pytest.raises(ManifestValidationError, match="fingerprint"):
+            validate_manifest(manifest, [_make_evidence()])
+
+    def test_sha256_too_short(self) -> None:
+        manifest = _make_manifest(asset_sha256="short")
+        with pytest.raises(ManifestValidationError, match="sha256"):
+            validate_manifest(manifest, [_make_evidence()])
+
+
+class TestRejectsInvalidEvidence:
+    def test_locator_kind_not_page(self) -> None:
+        evidence = [_make_evidence(locator_kind="paragraph")]
+        with pytest.raises(ManifestValidationError, match="locator kind"):
+            validate_manifest(_make_manifest(), evidence)
+
+    def test_locator_start_below_one(self) -> None:
+        evidence = [_make_evidence(locator_start=0, locator_end=0)]
+        with pytest.raises(ManifestValidationError, match="page locator"):
+            validate_manifest(_make_manifest(), evidence)
+
+    def test_locator_end_before_start(self) -> None:
+        evidence = [_make_evidence(locator_start=3, locator_end=2)]
+        with pytest.raises(ManifestValidationError, match="page locator"):
+            validate_manifest(_make_manifest(), evidence)
+
+    def test_text_empty(self) -> None:
+        evidence = [_make_evidence(text="  ")]
+        with pytest.raises(ManifestValidationError, match="must not be empty"):
+            validate_manifest(_make_manifest(), evidence)

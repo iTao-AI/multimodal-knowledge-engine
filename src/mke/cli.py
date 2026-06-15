@@ -31,11 +31,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if args.command == "ingest":
             return _ingest(engine, args.file)
-        if args.command == "search":
-            return _search(engine, " ".join(args.query))
+        return _search(engine, " ".join(args.query))
     finally:
         engine.close()
-    return 2
 
 
 def console_main() -> int:

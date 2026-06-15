@@ -19,6 +19,8 @@ from mke.domain import (
     validate_manifest,
 )
 
+_BUSY_TIMEOUT_MS = 5000
+
 
 def _new_id(prefix: str) -> str:
     return f"{prefix}_{uuid4().hex}"
@@ -47,7 +49,7 @@ class SQLiteStore:
     def _configure(self) -> None:
         self._connection.execute("PRAGMA foreign_keys = ON")
         self._connection.execute("PRAGMA journal_mode = WAL")
-        self._connection.execute("PRAGMA busy_timeout = 5000")
+        self._connection.execute(f"PRAGMA busy_timeout = {_BUSY_TIMEOUT_MS}")
         self._probe_fts5()
 
     def _probe_fts5(self) -> None:
@@ -132,6 +134,9 @@ class SQLiteStore:
               text
             )
             """
+        )
+        self._connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_evidence_run_id ON evidence(run_id)"
         )
         self._connection.commit()
 

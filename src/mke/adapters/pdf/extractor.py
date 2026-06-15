@@ -19,6 +19,7 @@ class PdfPageText:
 
 _STREAM_RE = re.compile(rb"stream\r?\n(?P<body>.*?)\r?\nendstream", re.DOTALL)
 _TEXT_RE = re.compile(rb"\((?P<text>(?:\\.|[^\\)])*)\)\s*Tj")
+_PDF_ESCAPE_MAP: dict[int, int] = {ord("n"): 10, ord("r"): 13, ord("t"): 9}
 
 
 def extract_text_pages(path: Path) -> list[PdfPageText]:
@@ -59,8 +60,9 @@ def _decode_pdf_string(value: bytes) -> str:
             continue
         index += 1
         if index >= len(value):
+            output.append(0x5C)
             break
         escaped = value[index]
-        output.append({ord("n"): 10, ord("r"): 13, ord("t"): 9}.get(escaped, escaped))
+        output.append(_PDF_ESCAPE_MAP.get(escaped, escaped))
         index += 1
     return output.decode("latin-1").strip()

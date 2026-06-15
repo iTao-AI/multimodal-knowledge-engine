@@ -14,11 +14,14 @@ from mke.domain import (
     ActivationResult,
     CandidateEvidence,
     IngestResult,
+    ManifestValidationError,
     RunManifest,
     RunRecord,
     SearchResult,
     SourceRecord,
 )
+
+_SHA256_CHUNK_BYTES = 1024 * 1024
 
 
 class PdfIngestError(ValueError):
@@ -84,7 +87,7 @@ class KnowledgeEngine:
                 run_state=activation.run_state,
                 evidence_count=len(evidence) if activation.published else 0,
             )
-        except PdfExtractionError as error:
+        except (PdfExtractionError, ManifestValidationError) as error:
             self._store.mark_run_failed(run.run_id)
             raise PdfIngestError(str(error)) from error
 
@@ -92,6 +95,6 @@ class KnowledgeEngine:
 def _sha256_file(path: Path) -> str:
     digest = sha256()
     with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+        for chunk in iter(lambda: handle.read(_SHA256_CHUNK_BYTES), b""):
             digest.update(chunk)
     return digest.hexdigest()

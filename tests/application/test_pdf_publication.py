@@ -3,15 +3,20 @@ from pathlib import Path
 import pytest
 
 from mke.application import KnowledgeEngine, PdfIngestError
-from mke.domain import CandidateEvidence, RunManifest, RunState
-
-FIXTURES = Path(__file__).parents[1] / "fixtures" / "pdf"
+from mke.domain import (
+    PDF_EXTRACTOR_FINGERPRINT,
+    REQUIRED_PDF_STAGES,
+    CandidateEvidence,
+    RunManifest,
+    RunState,
+)
+from tests.conftest import PDF_FIXTURES
 
 
 def test_pdf_ingest_publishes_page_evidence_to_active_search(tmp_path: Path) -> None:
     engine = KnowledgeEngine(tmp_path / "mke.sqlite")
 
-    result = engine.ingest_pdf(FIXTURES / "text-layer.pdf")
+    result = engine.ingest_pdf(PDF_FIXTURES / "text-layer.pdf")
 
     assert result.run_state == RunState.PUBLISHED
     assert result.evidence_count == 2
@@ -37,8 +42,8 @@ def test_candidate_evidence_is_not_searchable_before_activation(tmp_path: Path) 
     manifest = RunManifest(
         run_id=run.run_id,
         evidence_count=1,
-        required_stages=("pdf_text_extraction", "candidate_evidence"),
-        extractor_fingerprint="builtin-pdf-text-v1",
+        required_stages=tuple(sorted(REQUIRED_PDF_STAGES)),
+        extractor_fingerprint=PDF_EXTRACTOR_FINGERPRINT,
         asset_sha256="b" * 64,
     )
 
@@ -87,17 +92,42 @@ def test_invalid_and_no_text_pdfs_fail_without_publication(tmp_path: Path) -> No
     engine = KnowledgeEngine(tmp_path / "mke.sqlite")
 
     with pytest.raises(PdfIngestError, match="valid PDF"):
-        engine.ingest_pdf(FIXTURES / "invalid.pdf")
+        engine.ingest_pdf(PDF_FIXTURES / "invalid.pdf")
 
     with pytest.raises(PdfIngestError, match="text layer"):
-        engine.ingest_pdf(FIXTURES / "no-text.pdf")
+        engine.ingest_pdf(PDF_FIXTURES / "no-text.pdf")
 
     assert engine.search("anything") == []
 
 
 def test_fts_query_syntax_is_escaped(tmp_path: Path) -> None:
     engine = KnowledgeEngine(tmp_path / "mke.sqlite")
-    engine.ingest_pdf(FIXTURES / "text-layer.pdf")
+    engine.ingest_pdf(PDF_FIXTURES / "text-layer.pdf")
 
     assert engine.search('" OR active* : NEAR(page)') == []
     assert [match.page_number for match in engine.search("active page")] == [2]
+
+
+def test_get_run_unknown_id_raises_keyerror(tmp_path: Path) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    with pytest.raises(KeyError, match="unknown run"):
+        engine.get_run("run_nonexistent")
+
+
+def test_create_run_unknown_source_raises_keyerror(tmp_path: Path) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    with pytest.raises(KeyError, match="unknown source"):
+        engine.create_run("src_nonexistent")
+
+
+def test_publishable_after_invalid_pdf_failure(tmp_path: Path) -> None:
+    """A failed ingest must not prevent a later successful ingest on the same asset."""
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+
+    with pytest.raises(PdfIngestError):
+        engine.ingest_pdf(PDF_FIXTURES / "invalid.pdf")
+
+    result = engine.ingest_pdf(PDF_FIXTURES / "text-layer.pdf")
+    assert result.run_state == RunState.PUBLISHED
+    assert result.evidence_count == 2
+    assert len(engine.search("trustworthy")) == 1
