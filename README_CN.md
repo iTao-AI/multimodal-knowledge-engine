@@ -6,7 +6,7 @@ Multimodal Knowledge Engine 是一个本地优先、可被 Agent 调用的 Evide
 
 ## 当前状态
 
-仓库现在已有确定性的本地 PDF proof：`mke demo --verify` 会导入 text-layer PDF，证明失败的 reprocess 不会改变 active Publication，重试 validated candidate 路径，并验证 active-only Search。视频处理、Ask、MCP、HTTP 和 workspace 尚未实现。
+仓库现在已有确定性的本地跨模态 proof：`mke demo --verify` 会导入 text-layer PDF 和短本地视频，证明失败的 PDF reprocess 不会改变 active Publication，重试 validated candidate 路径，并验证 page Evidence 与 timestamp Evidence 都只来自 active Search。Ask、MCP、HTTP 和 workspace 尚未实现。
 
 ## Pilot 目标
 
@@ -47,11 +47,13 @@ uv run pyright
 uv build
 ```
 
-底层 PDF 命令仍可用：
+底层 ingest 和 Search 命令仍可用：
 
 ```bash
 uv run mke --db .tmp/mke.sqlite ingest tests/fixtures/pdf/text-layer.pdf
+uv run mke --db .tmp/mke.sqlite ingest tests/fixtures/video/short-audio.mp4
 uv run mke --db .tmp/mke.sqlite search trustworthy
+uv run mke --db .tmp/mke.sqlite search timestamp
 uv run mke --db .tmp/mke.sqlite run get <run_id>
 ```
 

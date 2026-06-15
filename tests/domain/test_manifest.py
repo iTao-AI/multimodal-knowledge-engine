@@ -3,6 +3,8 @@ import pytest
 from mke.domain import (
     PDF_EXTRACTOR_FINGERPRINT,
     REQUIRED_PDF_STAGES,
+    REQUIRED_VIDEO_STAGES,
+    VIDEO_TRANSCRIPT_FINGERPRINT,
     CandidateEvidence,
     ManifestValidationError,
     RunManifest,
@@ -52,6 +54,23 @@ def test_manifest_validation_accepts_complete_page_evidence() -> None:
     validate_manifest(_make_manifest(), [_make_evidence()])
 
 
+def test_manifest_validation_accepts_timestamp_evidence() -> None:
+    manifest = _make_manifest(
+        required_stages=tuple(sorted(REQUIRED_VIDEO_STAGES)),
+        extractor_fingerprint=VIDEO_TRANSCRIPT_FINGERPRINT,
+    )
+    evidence = [
+        _make_evidence(
+            locator_kind="timestamp_ms",
+            locator_start=0,
+            locator_end=1200,
+            text="Video evidence has timestamp locators.",
+        )
+    ]
+
+    validate_manifest(manifest, evidence)
+
+
 def test_manifest_validation_rejects_count_mismatch() -> None:
     manifest = _make_manifest(evidence_count=2)
     with pytest.raises(ManifestValidationError, match="evidence count"):
@@ -95,3 +114,15 @@ class TestRejectsInvalidEvidence:
         evidence = [_make_evidence(text="  ")]
         with pytest.raises(ManifestValidationError, match="must not be empty"):
             validate_manifest(_make_manifest(), evidence)
+
+    def test_timestamp_end_must_be_after_start(self) -> None:
+        manifest = _make_manifest(
+            required_stages=tuple(sorted(REQUIRED_VIDEO_STAGES)),
+            extractor_fingerprint=VIDEO_TRANSCRIPT_FINGERPRINT,
+        )
+        evidence = [
+            _make_evidence(locator_kind="timestamp_ms", locator_start=1000, locator_end=1000)
+        ]
+
+        with pytest.raises(ManifestValidationError, match="timestamp locator"):
+            validate_manifest(manifest, evidence)

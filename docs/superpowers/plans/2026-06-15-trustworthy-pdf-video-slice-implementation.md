@@ -93,14 +93,14 @@ Files expected to change:
 - `tests/`
 - `docs/reference/cli.md`
 
-- [ ] Add or update ADR for video dependency and transcription strategy.
-- [ ] Decide and document `ffmpeg` handling, supported codecs, transcription adapter,
+- [x] Add or update ADR for video dependency and transcription strategy.
+- [x] Decide and document `ffmpeg` handling, supported codecs, transcription adapter,
   model/cache behavior, offline behavior, fixture license, fixture size, and CI strategy.
-- [ ] Persist timestamp Evidence using integer millisecond time ranges.
-- [ ] Reuse the PR 2/3 Source Publication lifecycle without weakening PDF semantics.
-- [ ] Add failure tests for missing audio, unsupported codec, transcription failure, and unstable
+- [x] Persist timestamp Evidence using integer millisecond time ranges.
+- [x] Reuse the PR 2/3 Source Publication lifecycle without weakening PDF semantics.
+- [x] Add failure tests for missing audio, unsupported codec, transcription failure, and unstable
   timestamp locator generation.
-- [ ] Extend `mke demo --verify` to prove one PDF and one short video.
+- [x] Extend `mke demo --verify` to prove one PDF and one short video.
 
 ## Verification
 

@@ -1,4 +1,4 @@
-"""Application service for the narrow PR 2 PDF ingest and Search path."""
+"""Application service for the narrow local Evidence ingest and Search path."""
 
 from __future__ import annotations
 
@@ -8,9 +8,12 @@ from uuid import uuid4
 
 from mke.adapters.pdf import PdfExtractionError, extract_text_pages
 from mke.adapters.sqlite import InjectedStorageFailure, SQLiteStore
+from mke.adapters.video import VideoExtractionError, extract_transcript_segments
 from mke.domain import (
     PDF_EXTRACTOR_FINGERPRINT,
     REQUIRED_PDF_STAGES,
+    REQUIRED_VIDEO_STAGES,
+    VIDEO_TRANSCRIPT_FINGERPRINT,
     ActivationResult,
     CandidateEvidence,
     FailurePoint,
@@ -35,6 +38,14 @@ class PdfIngestError(ValueError):
         self.run_id = run_id
 
 
+class VideoIngestError(ValueError):
+    """Raised when the video path cannot produce publishable Evidence."""
+
+    def __init__(self, message: str, run_id: str | None = None) -> None:
+        super().__init__(message)
+        self.run_id = run_id
+
+
 class KnowledgeEngine:
     """Project-owned application facade shared by CLI and future interfaces."""
 
@@ -44,8 +55,10 @@ class KnowledgeEngine:
     def close(self) -> None:
         self._store.close()
 
-    def ensure_source(self, display_name: str, asset_sha256: str) -> SourceRecord:
-        return self._store.ensure_source(display_name, asset_sha256)
+    def ensure_source(
+        self, display_name: str, asset_sha256: str, media_type: str = "application/pdf"
+    ) -> SourceRecord:
+        return self._store.ensure_source(display_name, asset_sha256, media_type=media_type)
 
     def create_run(self, source_id: str, retry_of_run_id: str | None = None) -> RunRecord:
         return self._store.create_run(source_id, retry_of_run_id=retry_of_run_id)
@@ -71,6 +84,9 @@ class KnowledgeEngine:
 
     def ingest_pdf(self, path: Path) -> IngestResult:
         return self._process_pdf(path, retry_of_run_id=None, failure_point=None)
+
+    def ingest_video(self, path: Path) -> IngestResult:
+        return self._process_video(path)
 
     def reprocess_pdf(
         self, path: Path, failure_point: FailurePoint | None = None
@@ -184,6 +200,45 @@ class KnowledgeEngine:
             if existing is not None:
                 return existing
         return self.ensure_source(display_name=path.name, asset_sha256=asset_sha256)
+
+    def _process_video(self, path: Path) -> IngestResult:
+        asset_sha256 = _sha256_file(path)
+        source = self.ensure_source(
+            display_name=path.name,
+            asset_sha256=asset_sha256,
+            media_type="video/mp4",
+        )
+        run = self.create_run(source.source_id)
+        self._store.mark_run_running(run.run_id)
+        try:
+            segments = extract_transcript_segments(path)
+            evidence = [
+                CandidateEvidence(
+                    evidence_id=f"ev_{uuid4().hex}",
+                    locator_kind="timestamp_ms",
+                    locator_start=segment.start_ms,
+                    locator_end=segment.end_ms,
+                    text=segment.text,
+                )
+                for segment in segments
+            ]
+            manifest = RunManifest(
+                run_id=run.run_id,
+                evidence_count=len(evidence),
+                required_stages=tuple(sorted(REQUIRED_VIDEO_STAGES)),
+                extractor_fingerprint=VIDEO_TRANSCRIPT_FINGERPRINT,
+                asset_sha256=asset_sha256,
+            )
+            self._store.persist_validated_candidate(run.run_id, evidence, manifest)
+            activation = self.activate_publication(run.run_id)
+            return IngestResult(
+                run_id=run.run_id,
+                run_state=activation.run_state,
+                evidence_count=len(evidence) if activation.published else 0,
+            )
+        except (VideoExtractionError, ManifestValidationError, InjectedStorageFailure) as error:
+            self._store.mark_run_failed(run.run_id)
+            raise VideoIngestError(str(error), run.run_id) from error
 
 
 def _sha256_file(path: Path) -> str:

@@ -18,6 +18,7 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 
 - [ADR-0001](./decisions/0001-local-first-pilot-architecture.md) defines the local-first Pilot architecture.
 - [ADR-0002](./decisions/0002-source-publication-and-active-search-projection.md) defines Source Publication and active Search projection semantics.
+- [ADR-0003](./decisions/0003-video-dependency-and-transcription-strategy.md) defines the short-video dependency and transcription strategy.
 - [Architecture](./explanation/architecture.md) explains the current domain flow and projection boundary.
 - [Public Contracts](./reference/contracts.md) tracks implemented versus planned interfaces.
 - [CLI Reference](./reference/cli.md) documents implemented commands, demo output, and error fields.
