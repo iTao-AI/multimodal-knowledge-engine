@@ -20,6 +20,7 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [ADR-0002](./decisions/0002-source-publication-and-active-search-projection.md) defines Source Publication and active Search projection semantics.
 - [Architecture](./explanation/architecture.md) explains the current domain flow and projection boundary.
 - [Public Contracts](./reference/contracts.md) tracks implemented versus planned interfaces.
+- [CLI Reference](./reference/cli.md) documents implemented commands, demo output, and error fields.
 - [Trustworthy PDF And Video Slice Design](./superpowers/specs/2026-06-15-trustworthy-pdf-video-slice-design.md) is the active implementation design.
 - [Trustworthy PDF And Video Slice Implementation Plan](./superpowers/plans/2026-06-15-trustworthy-pdf-video-slice-implementation.md) is the active executable plan.
 

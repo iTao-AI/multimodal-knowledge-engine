@@ -36,3 +36,4 @@ jobs:
           uv venv /tmp/mke-wheel-env --python "${{ matrix.python-version }}"
           uv pip install --python /tmp/mke-wheel-env/bin/python dist/*.whl
           /tmp/mke-wheel-env/bin/mke
+          /tmp/mke-wheel-env/bin/mke demo --verify
