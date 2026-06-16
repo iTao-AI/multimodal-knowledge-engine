@@ -27,3 +27,23 @@ def test_safe_tool_returns_stable_error_without_exception_details() -> None:
         "active_publication_impact": "unchanged",
         "next_step": "check_server_logs",
     }
+
+
+def test_safe_tool_passes_through_success_result() -> None:
+    @safe_tool
+    def ok_tool() -> dict[str, object]:
+        return {"ok": True, "data": "result"}
+
+    result = ok_tool()
+
+    assert result == {"ok": True, "data": "result"}
+
+
+def test_safe_tool_preserves_arguments() -> None:
+    @safe_tool
+    def arg_tool(a: str, b: int) -> dict[str, object]:
+        return {"ok": True, "a": a, "b": b}
+
+    result = arg_tool("hello", b=42)
+
+    assert result == {"ok": True, "a": "hello", "b": 42}

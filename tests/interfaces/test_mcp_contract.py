@@ -223,3 +223,44 @@ def test_search_library_accepts_limit_boundaries(tmp_path: Path) -> None:
     assert len(lower["results"]) == 1
     assert upper["ok"] is True
     assert 0 < len(upper["results"]) <= 20
+
+
+def test_search_library_rejects_limit_above_max(tmp_path: Path) -> None:
+    config = _config(tmp_path, PDF_FIXTURES)
+
+    result = search_library(config, "publication", limit=21)
+
+    assert result == {
+        "ok": False,
+        "problem": "invalid_query",
+        "cause": "limit must be between 1 and 20",
+        "active_publication_impact": "unchanged",
+        "next_step": "choose_limit_between_1_and_20",
+    }
+
+
+def test_ingest_file_returns_stable_error_on_invalid_pdf(tmp_path: Path) -> None:
+    corrupt = tmp_path / "bad.pdf"
+    corrupt.write_bytes(b"%PDF-1.4 garbage not valid content")
+    config = _config(tmp_path, tmp_path)
+
+    result = ingest_file(config, "bad.pdf")
+
+    assert result["ok"] is False
+    assert result["problem"] == "pdf_ingest_failed"
+    assert result["active_publication_impact"] == "unchanged"
+    assert result["next_step"] == "fix_input_or_retry"
+    assert "run_id" in result
+
+
+def test_ingest_file_returns_stable_error_on_broken_symlink(tmp_path: Path) -> None:
+    link = tmp_path / "broken.pdf"
+    link.symlink_to("/nonexistent/target.pdf")
+    config = _config(tmp_path, tmp_path)
+
+    result = ingest_file(config, "broken.pdf")
+
+    assert result["ok"] is False
+    assert result["problem"] == "input_path_rejected"
+    assert result["active_publication_impact"] == "unchanged"
+    assert result["next_step"] == "choose_file_under_allowed_root"

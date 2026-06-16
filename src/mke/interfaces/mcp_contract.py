@@ -2,16 +2,23 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from mke.application import KnowledgeEngine, PdfIngestError, VideoIngestError
 
+logger = logging.getLogger(__name__)
+
 _SUPPORTED_SUFFIX_MEDIA_TYPES = {
     ".pdf": "application/pdf",
     ".mp4": "video/mp4",
 }
+
+_DEFAULT_SEARCH_LIMIT = 5
+_MIN_SEARCH_LIMIT = 1
+_MAX_SEARCH_LIMIT = 20
 
 
 @dataclass(frozen=True)
@@ -36,10 +43,17 @@ def list_libraries() -> dict[str, Any]:
 def ingest_file(config: McpRuntimeConfig, path: str) -> dict[str, Any]:
     try:
         input_path = _resolve_allowed_file(config, path)
-    except (OSError, ValueError) as error:
+    except ValueError as error:
         return _failure(
             "input_path_rejected",
             str(error),
+            "choose_file_under_allowed_root",
+        )
+    except OSError:
+        logger.exception("path resolution failed")
+        return _failure(
+            "input_path_rejected",
+            "file path cannot be resolved",
             "choose_file_under_allowed_root",
         )
 
@@ -58,8 +72,14 @@ def ingest_file(config: McpRuntimeConfig, path: str) -> dict[str, Any]:
         try:
             if suffix == ".mp4":
                 result = engine.ingest_video(input_path)
-            else:
+            elif suffix == ".pdf":
                 result = engine.ingest_pdf(input_path)
+            else:
+                return _failure(
+                    "unsupported_media_type",
+                    "supported suffixes are .pdf and .mp4",
+                    "choose_supported_file",
+                )
         except PdfIngestError as error:
             return _failure(
                 "pdf_ingest_failed",
@@ -116,14 +136,16 @@ def get_run(config: McpRuntimeConfig, run_id: str) -> dict[str, Any]:
             engine.close()
 
 
-def search_library(config: McpRuntimeConfig, query: str, limit: int = 5) -> dict[str, Any]:
+def search_library(
+    config: McpRuntimeConfig, query: str, limit: int = _DEFAULT_SEARCH_LIMIT
+) -> dict[str, Any]:
     normalized_query = query.strip()
     if not normalized_query:
         return _failure("invalid_query", "query must not be empty", "provide_non_empty_query")
-    if limit < 1 or limit > 20:
+    if limit < _MIN_SEARCH_LIMIT or limit > _MAX_SEARCH_LIMIT:
         return _failure(
             "invalid_query",
-            "limit must be between 1 and 20",
+            f"limit must be between {_MIN_SEARCH_LIMIT} and {_MAX_SEARCH_LIMIT}",
             "choose_limit_between_1_and_20",
         )
 
