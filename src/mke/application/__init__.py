@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from hashlib import sha256
 from pathlib import Path
 from uuid import uuid4
@@ -15,6 +16,7 @@ from mke.domain import (
     REQUIRED_VIDEO_STAGES,
     VIDEO_TRANSCRIPT_FINGERPRINT,
     ActivationResult,
+    AskResult,
     CandidateEvidence,
     FailurePoint,
     IngestResult,
@@ -28,6 +30,15 @@ from mke.domain import (
 )
 
 _SHA256_CHUNK_BYTES = 1024 * 1024
+_DEFAULT_ASK_LIMIT = 5
+_MIN_ASK_LIMIT = 1
+_MAX_ASK_LIMIT = 20
+_MAX_ASK_QUESTION_CHARS = 1000
+_SEARCHABLE_TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
+_MODEL_FREE_LIMITATION = "No model-generated answer is produced in this slice."
+_COUNT_ONLY_LIMITATION = (
+    "The summary is deterministic and only reports matched Evidence count."
+)
 
 
 class PdfIngestError(ValueError):
@@ -44,6 +55,16 @@ class VideoIngestError(ValueError):
     def __init__(self, message: str, run_id: str | None = None) -> None:
         super().__init__(message)
         self.run_id = run_id
+
+
+class AskValidationError(ValueError):
+    """Raised when an Ask request cannot be evaluated safely."""
+
+    def __init__(self, problem: str, cause: str, next_step: str) -> None:
+        super().__init__(cause)
+        self.problem = problem
+        self.cause = cause
+        self.next_step = next_step
 
 
 class KnowledgeEngine:
@@ -81,6 +102,36 @@ class KnowledgeEngine:
 
     def search(self, query: str, limit: int | None = None) -> list[SearchResult]:
         return self._store.search(query, limit=limit)
+
+    def ask(self, question: str, limit: int = _DEFAULT_ASK_LIMIT) -> AskResult:
+        normalized_question = _normalize_ask_question(question)
+        if limit < _MIN_ASK_LIMIT or limit > _MAX_ASK_LIMIT:
+            raise AskValidationError(
+                "invalid_query",
+                f"limit must be between {_MIN_ASK_LIMIT} and {_MAX_ASK_LIMIT}",
+                "choose_limit_between_1_and_20",
+            )
+        evidence = self.search(normalized_question, limit=limit)
+        if evidence:
+            return AskResult(
+                ask_id=f"ask_{uuid4().hex}",
+                question=normalized_question,
+                answer_status="evidence_found",
+                summary=_matched_summary(len(evidence)),
+                evidence=evidence,
+                limitations=[_MODEL_FREE_LIMITATION, _COUNT_ONLY_LIMITATION],
+            )
+        return AskResult(
+            ask_id=f"ask_{uuid4().hex}",
+            question=normalized_question,
+            answer_status="insufficient_evidence",
+            summary="No active Evidence matched the search terms.",
+            evidence=[],
+            limitations=[
+                "No answer is produced because no active Evidence matched the search terms.",
+                _MODEL_FREE_LIMITATION,
+            ],
+        )
 
     def ingest_pdf(self, path: Path) -> IngestResult:
         return self._process_pdf(path, retry_of_run_id=None, failure_point=None)
@@ -241,6 +292,34 @@ class KnowledgeEngine:
         except (VideoExtractionError, ManifestValidationError, InjectedStorageFailure) as error:
             self._store.mark_run_failed(run.run_id)
             raise VideoIngestError(str(error), run.run_id) from error
+
+
+def _normalize_ask_question(question: str) -> str:
+    normalized_question = question.strip()
+    if not normalized_question:
+        raise AskValidationError(
+            "invalid_question",
+            "question must not be empty",
+            "provide_non_empty_question",
+        )
+    if len(normalized_question) > _MAX_ASK_QUESTION_CHARS:
+        raise AskValidationError(
+            "invalid_question",
+            f"question must be {_MAX_ASK_QUESTION_CHARS} characters or fewer",
+            "shorten_question",
+        )
+    if _SEARCHABLE_TOKEN_RE.search(normalized_question) is None:
+        raise AskValidationError(
+            "invalid_question",
+            "question must contain at least one searchable ASCII token",
+            "provide_searchable_question",
+        )
+    return normalized_question
+
+
+def _matched_summary(evidence_count: int) -> str:
+    noun = "item" if evidence_count == 1 else "items"
+    return f"{evidence_count} active Evidence {noun} matched the search terms."
 
 
 def _sha256_file(path: Path) -> str:
