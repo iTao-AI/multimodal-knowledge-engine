@@ -111,6 +111,8 @@ class SQLiteStore:
               asset_sha256 TEXT NOT NULL
             );
 
+            -- Rollback: deploy code that stops reading/writing this table,
+            -- then DROP TABLE IF EXISTS pdf_intake_reports locally.
             CREATE TABLE IF NOT EXISTS pdf_intake_reports (
               run_id TEXT PRIMARY KEY REFERENCES runs(run_id),
               total_pages INTEGER NOT NULL,

@@ -7,6 +7,10 @@ from mke.domain import (
     PDF_EXTRACTOR_FINGERPRINT,
     REQUIRED_PDF_STAGES,
     CandidateEvidence,
+    FailurePoint,
+    PdfExtractionResult,
+    PdfIntakeReport,
+    PdfPageText,
     RunManifest,
     RunState,
 )
@@ -144,6 +148,80 @@ def test_pdf_ingest_result_carries_intake_report(tmp_path: Path) -> None:
     assert engine.get_pdf_intake_report(result.run_id) == result.intake_report
 
 
+def test_prepare_pdf_candidate_persists_report_after_validation(tmp_path: Path) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+
+    result = engine.prepare_pdf_candidate(PDF_FIXTURES / "text-layer.pdf")
+
+    assert result.run_state == RunState.VALIDATED
+    assert result.intake_report is not None
+    assert engine.get_pdf_intake_report(result.run_id) == result.intake_report
+
+
+def test_successful_extraction_report_is_not_persisted_when_validation_fails(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "invalid-page.pdf"
+    path.write_bytes(b"stub pdf bytes")
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite", pdf_extractor=_InvalidPageExtractor())
+
+    with pytest.raises(PdfIngestError, match="positive page numbers") as error:
+        engine.ingest_pdf(path)
+
+    run_id = error.value.run_id
+    assert run_id is not None
+    assert engine.get_run(run_id).state == RunState.FAILED
+    assert engine.get_pdf_intake_report(run_id) is None
+
+
+def test_successful_extraction_report_is_not_persisted_when_candidate_write_fails(
+    tmp_path: Path,
+) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+
+    with pytest.raises(PdfIngestError, match=FailurePoint.DURING_CANDIDATE_WRITES.value) as error:
+        engine.reprocess_pdf(
+            PDF_FIXTURES / "text-layer.pdf",
+            failure_point=FailurePoint.DURING_CANDIDATE_WRITES,
+        )
+
+    run_id = error.value.run_id
+    assert run_id is not None
+    assert engine.get_run(run_id).state == RunState.FAILED
+    assert engine.get_pdf_intake_report(run_id) is None
+
+
+def test_successful_extraction_report_is_not_persisted_when_activation_fails(
+    tmp_path: Path,
+) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    engine.ingest_pdf(PDF_FIXTURES / "text-layer.pdf")
+
+    with pytest.raises(PdfIngestError, match=FailurePoint.AFTER_PUBLICATION_INSERT.value) as error:
+        engine.reprocess_pdf(
+            PDF_FIXTURES / "text-layer-revised.pdf",
+            failure_point=FailurePoint.AFTER_PUBLICATION_INSERT,
+        )
+
+    run_id = error.value.run_id
+    assert run_id is not None
+    assert engine.get_run(run_id).state == RunState.VALIDATED
+    assert engine.get_pdf_intake_report(run_id) is None
+
+
+def test_knowledge_engine_accepts_custom_pdf_extractor(tmp_path: Path) -> None:
+    path = tmp_path / "stub.pdf"
+    path.write_bytes(b"stub pdf bytes")
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite", pdf_extractor=_StubExtractor())
+
+    result = engine.ingest_pdf(path)
+
+    assert result.run_state == RunState.PUBLISHED
+    assert result.intake_report is not None
+    assert result.intake_report.extraction_mode == "stub"
+    assert engine.search("stub") != []
+
+
 def test_failed_pdf_ingest_persists_failure_report(tmp_path: Path) -> None:
     engine = KnowledgeEngine(tmp_path / "mke.sqlite")
 
@@ -154,3 +232,32 @@ def test_failed_pdf_ingest_persists_failure_report(tmp_path: Path) -> None:
     assert report is not None
     assert report.failure_reason == "PDF has no extractable text"
     assert engine.search("anything") == []
+
+
+def _stub_report() -> PdfIntakeReport:
+    return PdfIntakeReport(
+        total_pages=1,
+        extracted_pages=1,
+        empty_pages=0,
+        total_extracted_chars=13,
+        page_char_counts=(13,),
+        suspected_scanned_pages=0,
+        extraction_mode="stub",
+        failure_reason=None,
+    )
+
+
+class _StubExtractor:
+    def extract(self, path: Path) -> PdfExtractionResult:
+        return PdfExtractionResult(
+            report=_stub_report(),
+            pages=(PdfPageText(page_number=1, text="stub evidence"),),
+        )
+
+
+class _InvalidPageExtractor:
+    def extract(self, path: Path) -> PdfExtractionResult:
+        return PdfExtractionResult(
+            report=_stub_report(),
+            pages=(PdfPageText(page_number=0, text="stub evidence"),),
+        )

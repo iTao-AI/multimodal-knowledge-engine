@@ -47,7 +47,7 @@ class PyMuPDFPdfExtractor:
                 page_char_counts.append(char_count)
                 if text:
                     pages.append(PdfPageText(page_number=page_index + 1, text=text))
-                elif page.get_images(full=True):
+                elif page.get_images():
                     suspected_scanned_pages += 1
             report = PdfIntakeReport(
                 total_pages=total_pages,
@@ -66,7 +66,10 @@ class PyMuPDFPdfExtractor:
             raise PdfExtractionError("PDF cannot be opened", report) from error
         finally:
             if document is not None:
-                document.close()
+                try:
+                    document.close()
+                except Exception:
+                    pass
         if not pages:
             failed = PdfIntakeReport(
                 total_pages=report.total_pages,

@@ -207,7 +207,6 @@ class KnowledgeEngine:
             if failure_point == FailurePoint.BEFORE_VALIDATION:
                 raise InjectedStorageFailure(failure_point.value)
             extraction = self._pdf_extractor.extract(path)
-            self._store.persist_pdf_intake_report(run.run_id, extraction.report)
             evidence = [
                 CandidateEvidence(
                     evidence_id=f"ev_{uuid4().hex}",
@@ -232,6 +231,7 @@ class KnowledgeEngine:
                 failure_point=failure_point,
             )
             if not activate:
+                self._store.persist_pdf_intake_report(run.run_id, extraction.report)
                 return IngestResult(
                     run.run_id,
                     RunState.VALIDATED,
@@ -240,6 +240,8 @@ class KnowledgeEngine:
                     extraction.report,
                 )
             activation = self.activate_publication(run.run_id, failure_point=failure_point)
+            if activation.published:
+                self._store.persist_pdf_intake_report(run.run_id, extraction.report)
             return IngestResult(
                 run_id=run.run_id,
                 run_state=activation.run_state,

@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from mke.interfaces.mcp_contract import (
     McpRuntimeConfig,
     ask_library,
@@ -435,14 +437,43 @@ def test_ingest_file_returns_stable_error_on_broken_symlink(tmp_path: Path) -> N
     assert result["next_step"] == "choose_file_under_allowed_root"
 
 
-def test_mcp_rejects_oversized_pdf_before_ingest(tmp_path: Path) -> None:
+def test_mcp_rejects_oversized_pdf_before_ingest(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr("mke.interfaces.mcp_contract._MAX_PDF_INPUT_BYTES", 100)
     large_pdf = tmp_path / "large.pdf"
-    large_pdf.write_bytes(b"%PDF-1.7\n" + b"0" * (100 * 1024 * 1024 + 1))
+    large_pdf.write_bytes(b"x" * 101)
     config = _config(tmp_path, tmp_path)
 
     result = ingest_file(config, "large.pdf")
 
     assert result == {
+        "ok": False,
+        "problem": "input_file_too_large",
+        "cause": "PDF input exceeds 100 MB limit",
+        "active_publication_impact": "unchanged",
+        "next_step": "choose_smaller_file",
+    }
+
+
+def test_mcp_rejects_oversized_pdf_with_mocked_size_boundary(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr("mke.interfaces.mcp_contract._MAX_PDF_INPUT_BYTES", 100)
+    config = _config(tmp_path, tmp_path)
+
+    accepted = tmp_path / "accepted.pdf"
+    accepted.write_bytes(b"x" * 100)
+    rejected = tmp_path / "rejected.pdf"
+    rejected.write_bytes(b"x" * 101)
+
+    accepted_result = ingest_file(config, "accepted.pdf")
+    rejected_result = ingest_file(config, "rejected.pdf")
+
+    assert accepted_result.get("problem") != "input_file_too_large"
+    assert rejected_result == {
         "ok": False,
         "problem": "input_file_too_large",
         "cause": "PDF input exceeds 100 MB limit",
