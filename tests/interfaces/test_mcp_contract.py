@@ -49,6 +49,16 @@ def test_ingest_file_publishes_pdf_and_search_returns_page_evidence(tmp_path: Pa
     assert "Publication search returns only active page two." in result["text"]
 
 
+def test_mcp_ingest_file_returns_pdf_intake_summary(tmp_path: Path) -> None:
+    config = _config(tmp_path, PDF_FIXTURES)
+
+    result = ingest_file(config, "text-layer.pdf")
+
+    assert result["ok"] is True
+    assert result["intake_report"]["total_pages"] == 2
+    assert result["intake_report"]["extracted_pages"] == 2
+
+
 def test_ingest_file_publishes_video_and_search_returns_timestamp_evidence(
     tmp_path: Path,
 ) -> None:
@@ -160,6 +170,16 @@ def test_get_run_returns_state_and_events(tmp_path: Path) -> None:
         "candidate_validated",
         "publication_activated",
     ]
+
+
+def test_mcp_get_run_returns_pdf_intake_summary(tmp_path: Path) -> None:
+    config = _config(tmp_path, PDF_FIXTURES)
+    ingest = ingest_file(config, "text-layer.pdf")
+
+    result = get_run(config, str(ingest["run_id"]))
+
+    assert result["ok"] is True
+    assert result["intake_report"]["total_pages"] == 2
 
 
 def test_get_run_unknown_id_returns_stable_error(tmp_path: Path) -> None:
@@ -413,3 +433,19 @@ def test_ingest_file_returns_stable_error_on_broken_symlink(tmp_path: Path) -> N
     assert result["problem"] == "input_path_rejected"
     assert result["active_publication_impact"] == "unchanged"
     assert result["next_step"] == "choose_file_under_allowed_root"
+
+
+def test_mcp_rejects_oversized_pdf_before_ingest(tmp_path: Path) -> None:
+    large_pdf = tmp_path / "large.pdf"
+    large_pdf.write_bytes(b"%PDF-1.7\n" + b"0" * (100 * 1024 * 1024 + 1))
+    config = _config(tmp_path, tmp_path)
+
+    result = ingest_file(config, "large.pdf")
+
+    assert result == {
+        "ok": False,
+        "problem": "input_file_too_large",
+        "cause": "PDF input exceeds 100 MB limit",
+        "active_publication_impact": "unchanged",
+        "next_step": "choose_smaller_file",
+    }

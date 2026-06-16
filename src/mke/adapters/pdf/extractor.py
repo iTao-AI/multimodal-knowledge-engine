@@ -24,6 +24,9 @@ class PyMuPDFPdfExtractor:
     extraction_mode = "pymupdf-text"
 
     def extract(self, path: Path) -> PdfExtractionResult:
+        if path.suffix.lower() != ".pdf":
+            report = _failure_report("PDF cannot be opened")
+            raise PdfExtractionError("PDF cannot be opened", report)
         try:
             with pymupdf.open(path) as document:
                 if document.is_encrypted:

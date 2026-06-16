@@ -17,8 +17,11 @@ from mke.application import (
     VideoIngestError,
 )
 from mke.domain import SearchResult
+from mke.domain import PdfIntakeReport
 
 logger = logging.getLogger(__name__)
+
+_MAX_PDF_INPUT_BYTES = 100 * 1024 * 1024
 
 _SUPPORTED_SUFFIX_MEDIA_TYPES = {
     ".pdf": "application/pdf",
@@ -70,6 +73,12 @@ def ingest_file(config: McpRuntimeConfig, path: str) -> dict[str, Any]:
             "supported suffixes are .pdf and .mp4",
             "choose_supported_file",
         )
+    if suffix == ".pdf" and input_path.stat().st_size > _MAX_PDF_INPUT_BYTES:
+        return _failure(
+            "input_file_too_large",
+            "PDF input exceeds 100 MB limit",
+            "choose_smaller_file",
+        )
 
     engine: KnowledgeEngine | None = None
     try:
@@ -99,7 +108,7 @@ def ingest_file(config: McpRuntimeConfig, path: str) -> dict[str, Any]:
                 "fix_input_or_retry",
                 run_id=error.run_id,
             )
-        return {
+        payload: dict[str, Any] = {
             "ok": True,
             "run_id": result.run_id,
             "run_state": result.run_state.value,
@@ -109,6 +118,9 @@ def ingest_file(config: McpRuntimeConfig, path: str) -> dict[str, Any]:
                 "changed" if result.run_state.value == "published" else "unchanged"
             ),
         }
+        if result.intake_report is not None:
+            payload["intake_report"] = _pdf_intake_report_payload(result.intake_report)
+        return payload
     finally:
         if engine is not None:
             engine.close()
@@ -126,7 +138,7 @@ def get_run(config: McpRuntimeConfig, run_id: str) -> dict[str, Any]:
             {"event_index": event.event_index, "event": event.event_type}
             for event in engine.get_run_events(run_id)
         ]
-        return {
+        payload: dict[str, Any] = {
             "ok": True,
             "run": {
                 "run_id": run.run_id,
@@ -136,6 +148,10 @@ def get_run(config: McpRuntimeConfig, run_id: str) -> dict[str, Any]:
             },
             "events": events,
         }
+        report = engine.get_pdf_intake_report(run_id)
+        if report is not None:
+            payload["intake_report"] = _pdf_intake_report_payload(report)
+        return payload
     finally:
         if engine is not None:
             engine.close()
@@ -217,6 +233,19 @@ def _evidence_from_search_result(match: SearchResult) -> dict[str, Any]:
             "end": match.locator_end,
         },
         "text": match.text,
+    }
+
+
+def _pdf_intake_report_payload(report: PdfIntakeReport) -> dict[str, Any]:
+    return {
+        "total_pages": report.total_pages,
+        "extracted_pages": report.extracted_pages,
+        "empty_pages": report.empty_pages,
+        "total_extracted_chars": report.total_extracted_chars,
+        "page_char_counts": list(report.page_char_counts),
+        "suspected_scanned_pages": report.suspected_scanned_pages,
+        "extraction_mode": report.extraction_mode,
+        "failure_reason": report.failure_reason,
     }
 
 

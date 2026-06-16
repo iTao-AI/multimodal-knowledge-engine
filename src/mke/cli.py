@@ -10,7 +10,7 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 from mke.application import AskValidationError, KnowledgeEngine, PdfIngestError, VideoIngestError
-from mke.domain import FailurePoint, SearchResult
+from mke.domain import FailurePoint, PdfIntakeReport, SearchResult
 from mke.interfaces.mcp_server import run_mcp_server
 
 _DEFAULT_PDF_FIXTURE = Path("tests/fixtures/pdf/text-layer.pdf")
@@ -88,9 +88,14 @@ def _ingest(engine: KnowledgeEngine, path: Path) -> int:
     except VideoIngestError as error:
         _print_error_contract(str(error), problem="video_ingest_failed")
         return 1
+    report = (
+        f" {_format_pdf_intake_report(result.intake_report)}"
+        if result.intake_report is not None
+        else ""
+    )
     print(
         f"run_id={result.run_id} run_state={result.run_state.value} "
-        f"evidence_count={result.evidence_count}"
+        f"evidence_count={result.evidence_count}{report}"
     )
     return 0
 
@@ -134,6 +139,9 @@ def _run_get(engine: KnowledgeEngine, run_id: str) -> int:
         f"run_id={run.run_id} state={run.state.value} "
         f"source_generation={run.source_generation}{retry}"
     )
+    report = engine.get_pdf_intake_report(run_id)
+    if report is not None:
+        print(_format_pdf_intake_report(report))
     for event in engine.get_run_events(run_id):
         print(f"event_index={event.event_index} event={event.event_type}")
     return 0
@@ -227,4 +235,14 @@ def _print_error_contract(
         f"cause={cause} "
         "active_publication_impact=unchanged "
         f"next_step={next_step}"
+    )
+
+
+def _format_pdf_intake_report(report: PdfIntakeReport) -> str:
+    return (
+        f"pdf_pages={report.total_pages} "
+        f"extracted_pages={report.extracted_pages} "
+        f"empty_pages={report.empty_pages} "
+        f"extracted_chars={report.total_extracted_chars} "
+        f"suspected_scanned_pages={report.suspected_scanned_pages}"
     )

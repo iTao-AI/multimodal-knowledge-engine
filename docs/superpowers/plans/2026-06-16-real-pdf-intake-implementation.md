@@ -839,7 +839,7 @@ git commit -m "feat(pdf): attach intake reports to runs"
 - Modify: `tests/interfaces/test_cli_pdf.py`
 - Modify: `tests/interfaces/test_mcp_contract.py`
 
-- [ ] **Step 1: Add failing CLI tests**
+- [x] **Step 1: Add failing CLI tests**
 
 Append to `tests/interfaces/test_cli_pdf.py`:
 
@@ -873,7 +873,7 @@ def test_cli_run_get_prints_pdf_intake_summary(
     assert "extracted_pages=2" in output
 ```
 
-- [ ] **Step 2: Add failing MCP tests**
+- [x] **Step 2: Add failing MCP tests**
 
 Append to `tests/interfaces/test_mcp_contract.py`:
 
@@ -914,7 +914,7 @@ def test_mcp_rejects_oversized_pdf_before_ingest(tmp_path: Path) -> None:
     }
 ```
 
-- [ ] **Step 3: Run failing interface tests**
+- [x] **Step 3: Run failing interface tests**
 
 Run:
 
@@ -924,7 +924,7 @@ uv run pytest tests/interfaces/test_cli_pdf.py tests/interfaces/test_mcp_contrac
 
 Expected: FAIL because intake payloads and size guard are missing.
 
-- [ ] **Step 4: Implement CLI helpers**
+- [x] **Step 4: Implement CLI helpers**
 
 In `src/mke/cli.py`, import `PdfIntakeReport` and add:
 
@@ -961,7 +961,7 @@ In `_run_get()`, after the Run line:
         print(_format_pdf_intake_report(report))
 ```
 
-- [ ] **Step 5: Implement MCP report mapper and size guard**
+- [x] **Step 5: Implement MCP report mapper and size guard**
 
 In `src/mke/interfaces/mcp_contract.py`, add:
 
@@ -1033,7 +1033,7 @@ In `get_run()`:
         return payload
 ```
 
-- [ ] **Step 6: Run interface tests**
+- [x] **Step 6: Run interface tests**
 
 Run:
 
@@ -1043,7 +1043,7 @@ uv run pytest tests/interfaces/test_cli_pdf.py tests/interfaces/test_mcp_contrac
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/mke/cli.py src/mke/interfaces/mcp_contract.py tests/interfaces/test_cli_pdf.py tests/interfaces/test_mcp_contract.py
