@@ -6,10 +6,10 @@ Multimodal Knowledge Engine is a local-first Evidence engine for ingesting, sear
 
 ## Current Status
 
-This repository now has a deterministic local PDF proof: `mke demo --verify` ingests a text-layer
-PDF, proves failed reprocessing leaves the active Publication searchable, retries the validated
-candidate path, and verifies active-only Search. Video processing, Ask, MCP, HTTP, and the
-workspace are not implemented yet.
+This repository now has a deterministic local cross-modal proof: `mke demo --verify` ingests a
+text-layer PDF and a short local video, proves failed PDF reprocessing leaves the active
+Publication searchable, retries the validated candidate path, and verifies active-only Search for
+page and timestamp Evidence. Ask, MCP, HTTP, and the workspace are not implemented yet.
 
 ## Pilot Goal
 
@@ -50,11 +50,13 @@ uv run pyright
 uv build
 ```
 
-The lower-level PDF commands remain available:
+The lower-level ingest and Search commands remain available:
 
 ```bash
 uv run mke --db .tmp/mke.sqlite ingest tests/fixtures/pdf/text-layer.pdf
+uv run mke --db .tmp/mke.sqlite ingest tests/fixtures/video/short-audio.mp4
 uv run mke --db .tmp/mke.sqlite search trustworthy
+uv run mke --db .tmp/mke.sqlite search timestamp
 uv run mke --db .tmp/mke.sqlite run get <run_id>
 ```
 

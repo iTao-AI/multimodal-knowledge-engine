@@ -1,0 +1,23 @@
+{
+  "format": "mke.video_transcript.v1",
+  "license": "Generated test fixture, MIT-compatible",
+  "media": {
+    "container": "mp4",
+    "video_codec": "h264",
+    "audio_codec": "aac",
+    "has_audio": true,
+    "duration_ms": 2200
+  },
+  "segments": [
+    {
+      "start_ms": 0,
+      "end_ms": 1200,
+      "text": "Video evidence introduces timestamp search."
+    },
+    {
+      "start_ms": 1200,
+      "end_ms": 2200,
+      "text": "Active publication search finds spoken timestamp proof."
+    }
+  ]
+}

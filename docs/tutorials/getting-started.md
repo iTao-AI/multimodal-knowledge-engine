@@ -1,7 +1,7 @@
 # Getting Started
 
-The repository has a deterministic local PDF proof path. Broader product workflows are still
-planned.
+The repository has a deterministic local PDF and short-video proof path. Broader product
+workflows are still planned.
 
 ## Prepare The Environment
 
@@ -24,6 +24,7 @@ mke demo --verify
 phase=ingest_initial status=ok
 phase=failed_reprocess status=ok active_publication_impact=unchanged
 phase=retry_publish status=ok
+phase=ingest_video status=ok
 phase=cleanup status=ok
 result=passed duration_ms=<milliseconds>
 ```
@@ -47,14 +48,17 @@ The build command creates an sdist and wheel under `dist/`. The final command pr
 multimodal-knowledge-engine: bootstrap stage
 ```
 
-## Try The Lower-Level PDF Commands
+## Try The Lower-Level Ingest Commands
 
 ```bash
 uv run mke --db .tmp/mke.sqlite ingest tests/fixtures/pdf/text-layer.pdf
+uv run mke --db .tmp/mke.sqlite ingest tests/fixtures/video/short-audio.mp4
 uv run mke --db .tmp/mke.sqlite search trustworthy
+uv run mke --db .tmp/mke.sqlite search timestamp
 uv run mke --db .tmp/mke.sqlite run get <run_id>
 ```
 
-This path supports only deterministic text-layer PDFs and active Publication Search. It does not
-cover scanned-PDF OCR, video, Ask, MCP, HTTP, workspace UI, hosted coordination, or multi-worker
-runtime behavior.
+This path supports deterministic text-layer PDFs, the documented short MP4 fixture profile with a
+local transcript sidecar, and active Publication Search. It does not cover scanned-PDF OCR, long
+videos, real speech-model transcription, Ask, MCP, HTTP, workspace UI, hosted coordination, or
+multi-worker runtime behavior.

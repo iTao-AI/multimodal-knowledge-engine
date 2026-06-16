@@ -108,12 +108,22 @@ class SearchResult:
     evidence_id: str
     publication_id: str
     source_id: str
-    page_number: int
+    locator_kind: str
+    locator_start: int
+    locator_end: int
     text: str
+
+    @property
+    def page_number(self) -> int:
+        if self.locator_kind != "page":
+            raise ValueError("SearchResult does not contain page Evidence")
+        return self.locator_start
 
 
 REQUIRED_PDF_STAGES = frozenset({"pdf_text_extraction", "candidate_evidence"})
 PDF_EXTRACTOR_FINGERPRINT = "builtin-pdf-text-v1"
+REQUIRED_VIDEO_STAGES = frozenset({"video_transcription", "candidate_evidence"})
+VIDEO_TRANSCRIPT_FINGERPRINT = "builtin-video-transcript-v1"
 
 
 def validate_manifest(manifest: RunManifest, evidence: list[CandidateEvidence]) -> None:
@@ -122,16 +132,30 @@ def validate_manifest(manifest: RunManifest, evidence: list[CandidateEvidence]) 
         raise ManifestValidationError(
             "RunManifest evidence count does not match candidate Evidence"
         )
-    if frozenset(manifest.required_stages) != REQUIRED_PDF_STAGES:
-        raise ManifestValidationError("RunManifest required stages are incomplete")
-    if manifest.extractor_fingerprint != PDF_EXTRACTOR_FINGERPRINT:
+    if manifest.extractor_fingerprint == PDF_EXTRACTOR_FINGERPRINT:
+        expected_stages = REQUIRED_PDF_STAGES
+        expected_locator_kind = "page"
+    elif manifest.extractor_fingerprint == VIDEO_TRANSCRIPT_FINGERPRINT:
+        expected_stages = REQUIRED_VIDEO_STAGES
+        expected_locator_kind = "timestamp_ms"
+    else:
         raise ManifestValidationError("RunManifest extractor fingerprint is not recognized")
+    if frozenset(manifest.required_stages) != expected_stages:
+        raise ManifestValidationError("RunManifest required stages are incomplete")
     if len(manifest.asset_sha256) != 64:
         raise ManifestValidationError("RunManifest asset sha256 must be a hex digest")
     for item in evidence:
-        if item.locator_kind != "page":
-            raise ManifestValidationError("Evidence locator kind must be page")
-        if item.locator_start < 1 or item.locator_end < item.locator_start:
+        if item.locator_kind != expected_locator_kind:
+            raise ManifestValidationError(f"Evidence locator kind must be {expected_locator_kind}")
+        if item.locator_kind == "page" and (
+            item.locator_start < 1 or item.locator_end < item.locator_start
+        ):
             raise ManifestValidationError("Evidence page locator must use positive page numbers")
+        if item.locator_kind == "timestamp_ms" and (
+            item.locator_start < 0 or item.locator_end <= item.locator_start
+        ):
+            raise ManifestValidationError(
+                "Evidence timestamp locator must use non-negative increasing millisecond ranges"
+            )
         if not item.text.strip():
             raise ManifestValidationError("Evidence text must not be empty")

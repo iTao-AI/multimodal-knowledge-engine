@@ -205,9 +205,11 @@ class SQLiteStore:
             raise KeyError(f"unknown source: {source_id}")
         return _source_from_row(row)
 
-    def ensure_source(self, display_name: str, asset_sha256: str) -> SourceRecord:
+    def ensure_source(
+        self, display_name: str, asset_sha256: str, media_type: str = "application/pdf"
+    ) -> SourceRecord:
         library_id = self.ensure_default_library()
-        asset_id = self._ensure_asset(asset_sha256)
+        asset_id = self._ensure_asset(asset_sha256, media_type)
         row = self._connection.execute(
             """
             SELECT source_id, active_publication_id, active_revision, requested_generation
@@ -230,7 +232,7 @@ class SQLiteStore:
             return SourceRecord(source_id, None, 0, 0)
         return _source_from_row(row)
 
-    def _ensure_asset(self, asset_sha256: str) -> str:
+    def _ensure_asset(self, asset_sha256: str, media_type: str) -> str:
         row = self._connection.execute(
             "SELECT asset_id FROM assets WHERE sha256 = ?", (asset_sha256,)
         ).fetchone()
@@ -239,7 +241,7 @@ class SQLiteStore:
         asset_id = _new_id("asset")
         self._connection.execute(
             "INSERT INTO assets(asset_id, sha256, media_type) VALUES (?, ?, ?)",
-            (asset_id, asset_sha256, "application/pdf"),
+            (asset_id, asset_sha256, media_type),
         )
         self._connection.commit()
         return asset_id
@@ -418,6 +420,8 @@ class SQLiteStore:
                 raise InjectedStorageFailure(failure_point.value)
             library_id = str(source_row["library_id"])
             for row in evidence_rows:
+                locator_kind = str(row["locator_kind"])
+                locator_start = int(row["locator_start"])
                 self._connection.execute(
                     """
                     INSERT INTO active_evidence_fts(
@@ -429,7 +433,7 @@ class SQLiteStore:
                         run.source_id,
                         publication_id,
                         str(row["evidence_id"]),
-                        f"page:{int(row['locator_start'])}",
+                        _locator_label(locator_kind, locator_start, int(row["locator_end"])),
                         str(row["text"]),
                     ),
                 )
@@ -493,7 +497,8 @@ class SQLiteStore:
         rows = self._connection.execute(
             """
             SELECT evidence.evidence_id, active_evidence_fts.publication_id,
-                   evidence.source_id, evidence.locator_start, evidence.text
+                   evidence.source_id, evidence.locator_kind, evidence.locator_start,
+                   evidence.locator_end, evidence.text
             FROM active_evidence_fts
             JOIN evidence ON evidence.evidence_id = active_evidence_fts.evidence_id
             JOIN sources ON sources.source_id = evidence.source_id
@@ -508,7 +513,9 @@ class SQLiteStore:
                 evidence_id=str(row["evidence_id"]),
                 publication_id=str(row["publication_id"]),
                 source_id=str(row["source_id"]),
-                page_number=int(row["locator_start"]),
+                locator_kind=str(row["locator_kind"]),
+                locator_start=int(row["locator_start"]),
+                locator_end=int(row["locator_end"]),
                 text=str(row["text"]),
             )
             for row in rows
@@ -542,3 +549,11 @@ def _run_from_row(row: sqlite3.Row) -> RunRecord:
 def _to_fts_query(query: str) -> str:
     terms = re.findall(r"[A-Za-z0-9_]+", query.casefold())
     return " ".join(f'"{term}"' for term in terms)
+
+
+def _locator_label(locator_kind: str, locator_start: int, locator_end: int) -> str:
+    if locator_kind == "page":
+        return f"page:{locator_start}"
+    if locator_kind == "timestamp_ms":
+        return f"timestamp_ms:{locator_start}..{locator_end}"
+    return f"{locator_kind}:{locator_start}..{locator_end}"

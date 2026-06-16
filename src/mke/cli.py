@@ -9,11 +9,12 @@ import time
 from collections.abc import Sequence
 from pathlib import Path
 
-from mke.application import KnowledgeEngine, PdfIngestError
+from mke.application import KnowledgeEngine, PdfIngestError, VideoIngestError
 from mke.domain import FailurePoint
 
 _DEFAULT_PDF_FIXTURE = Path("tests/fixtures/pdf/text-layer.pdf")
 _DEFAULT_REVISED_PDF_FIXTURE = Path("tests/fixtures/pdf/text-layer-revised.pdf")
+_DEFAULT_VIDEO_FIXTURE = Path("tests/fixtures/video/short-audio.mp4")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -41,10 +42,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     demo.add_argument("--verify", action="store_true", required=True)
     demo.add_argument("--fixture", type=Path, default=_DEFAULT_PDF_FIXTURE)
     demo.add_argument("--revised-fixture", type=Path, default=_DEFAULT_REVISED_PDF_FIXTURE)
+    demo.add_argument("--video-fixture", type=Path, default=_DEFAULT_VIDEO_FIXTURE)
 
     args = parser.parse_args(argv)
     if args.command == "demo":
-        return _demo_verify(args.fixture, args.revised_fixture)
+        return _demo_verify(args.fixture, args.revised_fixture, args.video_fixture)
 
     engine = KnowledgeEngine(args.db)
     try:
@@ -65,9 +67,15 @@ def console_main() -> int:
 
 def _ingest(engine: KnowledgeEngine, path: Path) -> int:
     try:
-        result = engine.ingest_pdf(path)
+        if path.suffix.lower() == ".mp4":
+            result = engine.ingest_video(path)
+        else:
+            result = engine.ingest_pdf(path)
     except PdfIngestError as error:
         _print_error_contract(str(error))
+        return 1
+    except VideoIngestError as error:
+        _print_error_contract(str(error), problem="video_ingest_failed")
         return 1
     print(
         f"run_id={result.run_id} run_state={result.run_state.value} "
@@ -78,7 +86,11 @@ def _ingest(engine: KnowledgeEngine, path: Path) -> int:
 
 def _search(engine: KnowledgeEngine, query: str) -> int:
     for match in engine.search(query):
-        print(f"page={match.page_number} evidence_id={match.evidence_id} text={match.text}")
+        if match.locator_kind == "page":
+            locator = f"page={match.page_number}"
+        else:
+            locator = f"{match.locator_kind}={match.locator_start}..{match.locator_end}"
+        print(f"{locator} evidence_id={match.evidence_id} text={match.text}")
     return 0
 
 
@@ -98,11 +110,14 @@ def _run_get(engine: KnowledgeEngine, run_id: str) -> int:
     return 0
 
 
-def _demo_verify(fixture: Path, revised_fixture: Path) -> int:
+def _demo_verify(fixture: Path, revised_fixture: Path, video_fixture: Path) -> int:
     started = time.monotonic()
     print("mke demo --verify")
     if not fixture.exists() or not revised_fixture.exists():
         _print_error_contract("demo fixture is missing")
+        return 1
+    if not video_fixture.exists():
+        _print_error_contract("demo video fixture is missing", problem="video_ingest_failed")
         return 1
 
     with tempfile.TemporaryDirectory(prefix="mke-demo-") as temp_dir:
@@ -147,8 +162,21 @@ def _demo_verify(fixture: Path, revised_fixture: Path) -> int:
             if not retry.published or not engine.search("revised"):
                 raise RuntimeError("retry publication did not replace active Search")
             print(f"phase=retry_publish status=ok run_id={retry.run_id}")
+
+            video = engine.ingest_video(video_fixture)
+            video_results = engine.search("timestamp proof")
+            if not video_results:
+                raise RuntimeError("video search returned no timestamp Evidence")
+            print(
+                f"phase=ingest_video status=ok run_id={video.run_id} "
+                f"video_evidence_count={video.evidence_count}"
+            )
         except Exception as error:
-            _print_error_contract(str(error))
+            if isinstance(error, VideoIngestError):
+                problem = "video_ingest_failed"
+            else:
+                problem = "pdf_ingest_failed"
+            _print_error_contract(str(error), problem=problem)
             return 1
         finally:
             if engine is not None:
@@ -160,9 +188,9 @@ def _demo_verify(fixture: Path, revised_fixture: Path) -> int:
     return 0
 
 
-def _print_error_contract(cause: str) -> None:
+def _print_error_contract(cause: str, problem: str = "pdf_ingest_failed") -> None:
     print(
-        "problem=pdf_ingest_failed "
+        f"problem={problem} "
         f"cause={cause} "
         "active_publication_impact=unchanged "
         "next_step=fix_input_or_retry"
