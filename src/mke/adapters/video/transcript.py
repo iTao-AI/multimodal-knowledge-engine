@@ -1,4 +1,4 @@
-"""Sidecar-backed transcript extraction for the PR 4 video proof."""
+"""Sidecar-backed transcript extraction for the deterministic local video evidence path."""
 
 from __future__ import annotations
 
@@ -83,7 +83,7 @@ def _segment_from_payload(payload: dict[str, object]) -> VideoTranscriptSegment:
     start_ms = payload.get("start_ms")
     end_ms = payload.get("end_ms")
     text = payload.get("text")
-    if not isinstance(start_ms, int) or not isinstance(end_ms, int):
+    if type(start_ms) is not int or type(end_ms) is not int:
         raise VideoExtractionError("timestamp locators must be integer milliseconds")
     if start_ms < 0 or end_ms <= start_ms:
         raise VideoExtractionError("stable timestamp locator generation requires increasing ranges")

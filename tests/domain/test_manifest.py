@@ -126,3 +126,26 @@ class TestRejectsInvalidEvidence:
 
         with pytest.raises(ManifestValidationError, match="timestamp locator"):
             validate_manifest(manifest, evidence)
+
+
+def test_search_result_page_number_raises_for_timestamp_result() -> None:
+    from mke.domain import SearchResult
+
+    result = SearchResult(
+        evidence_id="ev_t",
+        publication_id="pub_t",
+        source_id="src_t",
+        locator_kind="timestamp_ms",
+        locator_start=0,
+        locator_end=1200,
+        text="Test",
+    )
+
+    with pytest.raises(ValueError, match="does not contain page Evidence"):
+        _ = result.page_number
+
+
+def test_locator_label_fallback_for_unknown_kind() -> None:
+    from mke.adapters.sqlite import _locator_label  # pyright: ignore[reportPrivateUsage]
+
+    assert _locator_label("paragraph", 3, 5) == "paragraph:3..5"

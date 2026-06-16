@@ -202,6 +202,8 @@ class KnowledgeEngine:
         return self.ensure_source(display_name=path.name, asset_sha256=asset_sha256)
 
     def _process_video(self, path: Path) -> IngestResult:
+        if not path.exists():
+            raise VideoIngestError("input video is missing")
         asset_sha256 = _sha256_file(path)
         source = self.ensure_source(
             display_name=path.name,
