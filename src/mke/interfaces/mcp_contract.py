@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from mke.application import KnowledgeEngine, PdfIngestError, VideoIngestError
+from mke.application import AskValidationError, KnowledgeEngine, PdfIngestError, VideoIngestError
+from mke.domain import SearchResult
 
 logger = logging.getLogger(__name__)
 
@@ -152,25 +153,54 @@ def search_library(
     engine: KnowledgeEngine | None = None
     try:
         engine = KnowledgeEngine(config.db_path)
-        results: list[dict[str, Any]] = []
-        for match in engine.search(normalized_query, limit=limit):
-            results.append(
-                {
-                    "evidence_id": match.evidence_id,
-                    "publication_id": match.publication_id,
-                    "source_id": match.source_id,
-                    "locator": {
-                        "kind": match.locator_kind,
-                        "start": match.locator_start,
-                        "end": match.locator_end,
-                    },
-                    "text": match.text,
-                }
-            )
+        results = [
+            _evidence_from_search_result(match)
+            for match in engine.search(normalized_query, limit=limit)
+        ]
         return {"ok": True, "query": normalized_query, "results": results}
     finally:
         if engine is not None:
             engine.close()
+
+
+def ask_library(
+    config: McpRuntimeConfig, question: str, limit: int = _DEFAULT_SEARCH_LIMIT
+) -> dict[str, Any]:
+    engine: KnowledgeEngine | None = None
+    try:
+        engine = KnowledgeEngine(config.db_path)
+        try:
+            result = engine.ask(question, limit=limit)
+        except AskValidationError as error:
+            return _failure(error.problem, error.cause, error.next_step)
+        return {
+            "ok": True,
+            "ask_id": result.ask_id,
+            "question": result.question,
+            "answer_status": result.answer_status,
+            "summary": result.summary,
+            "evidence": [
+                _evidence_from_search_result(match) for match in result.evidence
+            ],
+            "limitations": result.limitations,
+        }
+    finally:
+        if engine is not None:
+            engine.close()
+
+
+def _evidence_from_search_result(match: SearchResult) -> dict[str, Any]:
+    return {
+        "evidence_id": match.evidence_id,
+        "publication_id": match.publication_id,
+        "source_id": match.source_id,
+        "locator": {
+            "kind": match.locator_kind,
+            "start": match.locator_start,
+            "end": match.locator_end,
+        },
+        "text": match.text,
+    }
 
 
 def _resolve_allowed_file(config: McpRuntimeConfig, path: str) -> Path:

@@ -341,7 +341,7 @@ git commit -m "feat(ask): add evidence-only ask service"
 - Modify: `src/mke/interfaces/mcp_contract.py`
 - Modify: `tests/interfaces/test_mcp_contract.py`
 
-- [ ] **Step 1: Write failing MCP contract tests**
+- [x] **Step 1: Write failing MCP contract tests**
 
 Modify imports in `tests/interfaces/test_mcp_contract.py`:
 
@@ -479,7 +479,7 @@ def test_search_and_ask_share_evidence_payload_shape(tmp_path: Path) -> None:
     assert ask["evidence"][0] == search["results"][0]
 ```
 
-- [ ] **Step 2: Run failing MCP contract tests**
+- [x] **Step 2: Run failing MCP contract tests**
 
 Run:
 
@@ -489,7 +489,7 @@ uv run pytest tests/interfaces/test_mcp_contract.py -q
 
 Expected: FAIL because `ask_library` does not exist.
 
-- [ ] **Step 3: Implement shared Evidence mapper and `ask_library`**
+- [x] **Step 3: Implement shared Evidence mapper and `ask_library`**
 
 Modify imports in `src/mke/interfaces/mcp_contract.py`:
 
@@ -553,7 +553,7 @@ def _evidence_from_search_result(match: SearchResult) -> dict[str, Any]:
     }
 ```
 
-- [ ] **Step 4: Run MCP contract tests**
+- [x] **Step 4: Run MCP contract tests**
 
 Run:
 
@@ -563,7 +563,7 @@ uv run pytest tests/interfaces/test_mcp_contract.py -q
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit MCP contract Ask**
+- [x] **Step 5: Commit MCP contract Ask**
 
 Run:
 
