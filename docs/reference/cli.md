@@ -52,6 +52,21 @@ mke --db <path> run get <run_id>
 - `run get` prints Run state, retry lineage when present, and append-only Run events.
 - To reset a local proof database, remove the selected SQLite file and its `-wal`/`-shm` files.
 
+## MCP Server Command
+
+```bash
+mke --db <path> mcp --allowed-root <path>
+```
+
+- Runs a local stdio MCP server.
+- `--allowed-root` defaults to the current working directory.
+- `ingest_file` rejects paths outside `--allowed-root`.
+- Implemented MCP tools are `list_libraries`, `ingest_file`, `get_run`, and `search_library`.
+- `ask_library`, HTTP, and workspace UI remain planned.
+
+`mke mcp --help` prints the command-specific options. Databases created by `mke ingest` can be
+reused with `mke mcp --db <path>`.
+
 ## Error Contract
 
 CLI failures use stable fields:
@@ -78,8 +93,8 @@ next_step=fix_input_or_retry
 
 ## Planned Commands
 
-`mke init`, `mke serve`, `mke library create`, `mke ask`, and `mke mcp` remain planned.
+`mke init`, `mke serve`, `mke library create`, and `mke ask` remain planned.
 
-Ask, MCP, HTTP, workspace UI, OCR, scanned PDFs, long videos, real speech-model transcription,
+Ask, HTTP, workspace UI, OCR, scanned PDFs, long videos, real speech-model transcription,
 tables, page coordinates, hosted coordination, and multi-worker runtime behavior are outside the
 current CLI scope.

@@ -26,7 +26,8 @@ Evidence, and cleans up the temporary workspace before exit.
 - Scanned-PDF OCR.
 - Arbitrary or long-video processing.
 - Real speech-model transcription.
-- Ask, MCP, HTTP, or workspace UI.
+- Ask, HTTP, or workspace UI.
+- MCP server startup; see [Use MKE As A Local MCP Server](./use-mke-mcp.md).
 - Hosted coordination, multi-worker behavior, or external provider integration.
 
 For lower-level inspection:

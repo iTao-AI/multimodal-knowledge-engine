@@ -104,6 +104,7 @@ Persist approved Superpowers artifacts when a change affects architecture, publi
 ```text
 docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md
 docs/superpowers/plans/YYYY-MM-DD-<topic>-implementation.md
+docs/superpowers/reviews/YYYY-MM-DD-<topic>-review.md
 ```
 
 Use the Issue or PR body for small fixes, dependency updates, wording changes, and local refactors.
@@ -112,6 +113,11 @@ Superpowers specs and plans are implementation history. Long-lived architecture 
 
 - Keep active plan checklists current as work is completed.
 - Mark completed plans explicitly so later Agents do not treat historical work as pending.
+- After `gstack-review`, `gstack-autoplan`, or equivalent plan/PR review, persist durable
+  public-neutral findings under `docs/superpowers/reviews/` when this repository is the downstream
+  execution target.
+- If the related spec or plan changes materially after a review is persisted, mark the older review
+  as superseded in the same PR or add a replacement review file.
 - Do not commit raw GStack review artifacts, timelines, restore points, learnings, or private planning notes. Extract durable public decisions into ADRs or project documentation.
 
 ## Task Start And Handoff

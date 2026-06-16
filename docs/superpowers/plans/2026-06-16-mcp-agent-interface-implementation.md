@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use
-> checkbox (`- [ ]`) syntax for tracking.
+> checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add a local stdio MCP server that lets Agents ingest supported files, inspect Runs, and
 search active Evidence through the existing `KnowledgeEngine`.
@@ -44,7 +44,7 @@ calls, or broad file access.
 - Modify: `pyproject.toml`
 - Create: `src/mke/interfaces/__init__.py`
 
-- [ ] **Step 1: Add the MCP SDK runtime dependency**
+- [x] **Step 1: Add the MCP SDK runtime dependency**
 
 Modify `[project]` dependencies in `pyproject.toml` to:
 
@@ -54,7 +54,7 @@ dependencies = [
 ]
 ```
 
-- [ ] **Step 2: Create the interface package marker**
+- [x] **Step 2: Create the interface package marker**
 
 Create `src/mke/interfaces/__init__.py`:
 
@@ -62,7 +62,7 @@ Create `src/mke/interfaces/__init__.py`:
 """Interface adapters for CLI-adjacent public contracts."""
 ```
 
-- [ ] **Step 3: Sync dependencies**
+- [x] **Step 3: Sync dependencies**
 
 Run:
 
@@ -72,7 +72,7 @@ uv sync --locked
 
 Expected: `uv.lock` updates and the environment installs the `mcp` package.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add pyproject.toml uv.lock src/mke/interfaces/__init__.py
@@ -85,7 +85,7 @@ git commit -m "chore: add mcp interface dependency"
 - Create: `src/mke/interfaces/mcp_contract.py`
 - Test: `tests/interfaces/test_mcp_contract.py`
 
-- [ ] **Step 1: Write failing MCP contract tests**
+- [x] **Step 1: Write failing MCP contract tests**
 
 Create `tests/interfaces/test_mcp_contract.py`:
 
@@ -249,7 +249,7 @@ def test_search_library_rejects_invalid_limit(tmp_path: Path) -> None:
     }
 ```
 
-- [ ] **Step 2: Run the failing tests**
+- [x] **Step 2: Run the failing tests**
 
 Run:
 
@@ -259,7 +259,7 @@ uv run pytest tests/interfaces/test_mcp_contract.py -q
 
 Expected: FAIL because `mke.interfaces.mcp_contract` does not exist.
 
-- [ ] **Step 3: Implement the MCP contract module**
+- [x] **Step 3: Implement the MCP contract module**
 
 Create `src/mke/interfaces/mcp_contract.py`:
 
@@ -426,7 +426,7 @@ def _failure(problem: str, cause: str, next_step: str) -> dict[str, Any]:
     }
 ```
 
-- [ ] **Step 4: Run contract tests**
+- [x] **Step 4: Run contract tests**
 
 Run:
 
@@ -436,7 +436,7 @@ uv run pytest tests/interfaces/test_mcp_contract.py -q
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/mke/interfaces/mcp_contract.py tests/interfaces/test_mcp_contract.py
@@ -449,7 +449,7 @@ git commit -m "feat(mcp): add evidence tool contract layer"
 - Create: `src/mke/interfaces/mcp_server.py`
 - Test: `tests/interfaces/test_mcp_server.py`
 
-- [ ] **Step 1: Write a server construction test**
+- [x] **Step 1: Write a server construction test**
 
 Create `tests/interfaces/test_mcp_server.py`:
 
@@ -468,7 +468,7 @@ def test_build_mcp_server_returns_named_server(tmp_path: Path) -> None:
     assert server.name == "Multimodal Knowledge Engine"
 ```
 
-- [ ] **Step 2: Run the failing server test**
+- [x] **Step 2: Run the failing server test**
 
 Run:
 
@@ -478,7 +478,7 @@ uv run pytest tests/interfaces/test_mcp_server.py -q
 
 Expected: FAIL because `mke.interfaces.mcp_server` does not exist.
 
-- [ ] **Step 3: Implement the FastMCP adapter**
+- [x] **Step 3: Implement the FastMCP adapter**
 
 Create `src/mke/interfaces/mcp_server.py`:
 
@@ -528,7 +528,7 @@ def run_mcp_server(*, db_path: Path, allowed_root: Path) -> int:
     return 0
 ```
 
-- [ ] **Step 4: Run server tests**
+- [x] **Step 4: Run server tests**
 
 Run:
 
@@ -538,7 +538,7 @@ uv run pytest tests/interfaces/test_mcp_server.py -q
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/mke/interfaces/mcp_server.py tests/interfaces/test_mcp_server.py
@@ -551,7 +551,7 @@ git commit -m "feat(mcp): add stdio server adapter"
 - Modify: `src/mke/cli.py`
 - Test: `tests/interfaces/test_cli_mcp.py`
 
-- [ ] **Step 1: Write CLI parser tests**
+- [x] **Step 1: Write CLI parser tests**
 
 Create `tests/interfaces/test_cli_mcp.py`:
 
@@ -601,7 +601,7 @@ def test_cli_mcp_allowed_root_defaults_to_current_directory(
     assert calls == [(db_path, Path.cwd())]
 ```
 
-- [ ] **Step 2: Run the failing CLI tests**
+- [x] **Step 2: Run the failing CLI tests**
 
 Run:
 
@@ -611,7 +611,7 @@ uv run pytest tests/interfaces/test_cli_mcp.py -q
 
 Expected: FAIL because `mke.cli` does not expose `run_mcp_server` or parse `mcp`.
 
-- [ ] **Step 3: Modify `src/mke/cli.py` imports**
+- [x] **Step 3: Modify `src/mke/cli.py` imports**
 
 Add near the existing imports:
 
@@ -619,7 +619,7 @@ Add near the existing imports:
 from mke.interfaces.mcp_server import run_mcp_server
 ```
 
-- [ ] **Step 4: Add the `mcp` subcommand**
+- [x] **Step 4: Add the `mcp` subcommand**
 
 In `main`, after the `demo` parser setup, add:
 
@@ -628,7 +628,7 @@ In `main`, after the `demo` parser setup, add:
     mcp.add_argument("--allowed-root", type=Path, default=Path.cwd())
 ```
 
-- [ ] **Step 5: Dispatch the `mcp` command before opening `KnowledgeEngine`**
+- [x] **Step 5: Dispatch the `mcp` command before opening `KnowledgeEngine`**
 
 After the existing `if args.command == "demo":` block, add:
 
@@ -637,7 +637,7 @@ After the existing `if args.command == "demo":` block, add:
         return run_mcp_server(db_path=args.db, allowed_root=args.allowed_root)
 ```
 
-- [ ] **Step 6: Run CLI MCP tests**
+- [x] **Step 6: Run CLI MCP tests**
 
 Run:
 
@@ -647,7 +647,7 @@ uv run pytest tests/interfaces/test_cli_mcp.py -q
 
 Expected: PASS.
 
-- [ ] **Step 7: Run existing CLI tests**
+- [x] **Step 7: Run existing CLI tests**
 
 Run:
 
@@ -657,7 +657,7 @@ uv run pytest tests/interfaces -q
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/mke/cli.py tests/interfaces/test_cli_mcp.py
@@ -674,7 +674,7 @@ git commit -m "feat(cli): expose mcp stdio server command"
 - Modify: `README.md`
 - Modify: `README_CN.md`
 
-- [ ] **Step 1: Update `docs/reference/contracts.md`**
+- [x] **Step 1: Update `docs/reference/contracts.md`**
 
 Change MCP status to:
 
@@ -704,7 +704,7 @@ only accepts files under the configured allowed root and currently supports `.pd
 `search_library` reads active Publication Evidence only.
 ```
 
-- [ ] **Step 2: Update `docs/reference/cli.md` planned and implemented command sections**
+- [x] **Step 2: Update `docs/reference/cli.md` planned and implemented command sections**
 
 Add under implemented commands:
 
@@ -724,7 +724,7 @@ mke --db <path> mcp --allowed-root <path>
 
 Remove `mke mcp` from the planned command sentence.
 
-- [ ] **Step 3: Add the MCP how-to**
+- [x] **Step 3: Add the MCP how-to**
 
 Create `docs/how-to/use-mke-mcp.md`:
 
@@ -766,7 +766,7 @@ root.
 - The server rejects paths outside `--allowed-root`.
 ```
 
-- [ ] **Step 4: Update `docs/README.md`**
+- [x] **Step 4: Update `docs/README.md`**
 
 Add a bullet under the current product proof and plan section:
 
@@ -775,7 +775,7 @@ Add a bullet under the current product proof and plan section:
   stdio interface.
 ```
 
-- [ ] **Step 5: Update README files**
+- [x] **Step 5: Update README files**
 
 In `README.md`, add one sentence to `Current Status`:
 
@@ -790,27 +790,28 @@ In `README_CN.md`, add the equivalent:
 首个 Agent-facing interface 是本地 stdio MCP server，支持 ingest、Run 检查和 active Evidence Search。
 ```
 
-- [ ] **Step 6: Run documentation checks**
+- [x] **Step 6: Run documentation checks**
 
 Run:
 
 ```bash
-rg -n "mke mcp|ask_library|run-local-pdf-proof|Status: planned after PDF and video lifecycle validation" README.md README_CN.md docs
+rg -n "run-local-pdf-proof" README.md README_CN.md docs/reference docs/how-to docs/tutorials docs/README.md || true
+rg -n "## MCP|Status:" docs/reference/contracts.md
+rg -n "MCP.*not implemented|MCP.*尚未实现" README.md README_CN.md docs/reference docs/how-to docs/tutorials docs/README.md || true
 git diff --check
 ```
 
 Expected:
 
-- `mke mcp` appears only in implemented MCP documentation.
-- `ask_library` appears only as planned.
 - `run-local-pdf-proof` has no matches.
-- `Status: planned after PDF and video lifecycle validation` has no matches for MCP.
+- MCP status in `docs/reference/contracts.md` is `partially implemented`.
+- Any `MCP.*not implemented` or `MCP.*尚未实现` match is reviewed as a real conflict, not just a nearby non-scope sentence.
 - `git diff --check` exits 0.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
-git add README.md README_CN.md docs/reference/contracts.md docs/reference/cli.md docs/how-to/use-mke-mcp.md docs/README.md
+git add AGENTS.md README.md README_CN.md docs/README.md docs/how-to/run-local-product-proof.md docs/how-to/use-mke-mcp.md docs/reference/contracts.md docs/reference/cli.md docs/superpowers/plans/2026-06-16-mcp-agent-interface-implementation.md docs/superpowers/reviews/2026-06-16-mcp-agent-interface-autoplan-review.md docs/tutorials/getting-started.md
 git commit -m "docs(mcp): document local agent interface"
 ```
 

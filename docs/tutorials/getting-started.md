@@ -59,6 +59,7 @@ uv run mke --db .tmp/mke.sqlite run get <run_id>
 ```
 
 This path supports deterministic text-layer PDFs, the documented short MP4 fixture profile with a
-local transcript sidecar, and active Publication Search. It does not cover scanned-PDF OCR, long
-videos, real speech-model transcription, Ask, MCP, HTTP, workspace UI, hosted coordination, or
+local transcript sidecar, active Publication Search, and local stdio MCP access through
+`mke mcp`. It does not cover scanned-PDF OCR, long videos, real speech-model transcription, Ask,
+HTTP, workspace UI, hosted coordination, or
 multi-worker runtime behavior.
