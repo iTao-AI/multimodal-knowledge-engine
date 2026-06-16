@@ -20,6 +20,7 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [ADR-0001](./decisions/0001-local-first-pilot-architecture.md) defines the local-first Pilot architecture.
 - [ADR-0002](./decisions/0002-source-publication-and-active-search-projection.md) defines Source Publication and active Search projection semantics.
 - [ADR-0003](./decisions/0003-video-dependency-and-transcription-strategy.md) defines the short-video dependency and transcription strategy.
+- [ADR-0004](./decisions/0004-pymupdf-pdf-intake-adapter.md) defines the PyMuPDF PDF intake adapter and licensing boundary.
 - [Architecture](./explanation/architecture.md) explains the current domain flow and projection boundary.
 - [Public Contracts](./reference/contracts.md) tracks implemented versus planned interfaces.
 - [CLI Reference](./reference/cli.md) documents implemented commands, demo output, and error fields.
@@ -33,6 +34,9 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [Evidence-Only Ask Design](./superpowers/specs/2026-06-16-evidence-only-ask-design.md) defines deterministic non-generative Ask.
 - [Evidence-Only Ask Implementation Plan](./superpowers/plans/2026-06-16-evidence-only-ask-implementation.md) is the executable C2 plan.
 - [Evidence-Only Ask Autoplan Review](./superpowers/reviews/2026-06-16-evidence-only-ask-autoplan-review.md) records the approved pre-implementation review findings.
+- [Real PDF Intake Design](./superpowers/specs/2026-06-16-real-pdf-intake-design.md) defines D1 PyMuPDF text-layer intake.
+- [Real PDF Intake Implementation Plan](./superpowers/plans/2026-06-16-real-pdf-intake-implementation.md) is the executable D1 plan.
+- [Real PDF Intake Autoplan Review](./superpowers/reviews/2026-06-16-real-pdf-intake-autoplan-review.md) and [Engineering Review](./superpowers/reviews/2026-06-16-real-pdf-intake-eng-review.md) record the approved D1 review findings.
 
 ## Development Verification
 

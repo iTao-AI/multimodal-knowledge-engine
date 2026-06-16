@@ -30,7 +30,7 @@ def test_cli_error_contract_for_invalid_pdf(tmp_path: Path, capsys: CaptureFixtu
 
     output = capsys.readouterr().out
     assert "problem=pdf_ingest_failed" in output
-    assert "cause=input is not a valid PDF" in output
+    assert "cause=PDF cannot be opened" in output
     assert "active_publication_impact=unchanged" in output
     assert "next_step=fix_input_or_retry" in output
 

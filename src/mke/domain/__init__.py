@@ -96,11 +96,36 @@ class ActivationResult:
 
 
 @dataclass(frozen=True)
+class PdfIntakeReport:
+    total_pages: int
+    extracted_pages: int
+    empty_pages: int
+    total_extracted_chars: int
+    page_char_counts: tuple[int, ...]
+    suspected_scanned_pages: int
+    extraction_mode: str
+    failure_reason: str | None = None
+
+
+@dataclass(frozen=True)
+class PdfPageText:
+    page_number: int
+    text: str
+
+
+@dataclass(frozen=True)
+class PdfExtractionResult:
+    report: PdfIntakeReport
+    pages: tuple[PdfPageText, ...]
+
+
+@dataclass(frozen=True)
 class IngestResult:
     run_id: str
     run_state: RunState
     evidence_count: int
     retry_of_run_id: str | None = None
+    intake_report: PdfIntakeReport | None = None
 
 
 @dataclass(frozen=True)
@@ -132,6 +157,7 @@ class AskResult:
 
 REQUIRED_PDF_STAGES = frozenset({"pdf_text_extraction", "candidate_evidence"})
 PDF_EXTRACTOR_FINGERPRINT = "builtin-pdf-text-v1"
+PYMUPDF_TEXT_FINGERPRINT = "pymupdf-text-v1"
 REQUIRED_VIDEO_STAGES = frozenset({"video_transcription", "candidate_evidence"})
 VIDEO_TRANSCRIPT_FINGERPRINT = "builtin-video-transcript-v1"
 
@@ -142,7 +168,10 @@ def validate_manifest(manifest: RunManifest, evidence: list[CandidateEvidence]) 
         raise ManifestValidationError(
             "RunManifest evidence count does not match candidate Evidence"
         )
-    if manifest.extractor_fingerprint == PDF_EXTRACTOR_FINGERPRINT:
+    if manifest.extractor_fingerprint in {
+        PDF_EXTRACTOR_FINGERPRINT,
+        PYMUPDF_TEXT_FINGERPRINT,
+    }:
         expected_stages = REQUIRED_PDF_STAGES
         expected_locator_kind = "page"
     elif manifest.extractor_fingerprint == VIDEO_TRANSCRIPT_FINGERPRINT:

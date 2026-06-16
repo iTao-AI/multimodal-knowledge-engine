@@ -27,3 +27,32 @@ def test_cli_ingest_invalid_pdf_returns_error(tmp_path: Path, capsys: CaptureFix
 
     assert main(["--db", str(db_path), "ingest", str(invalid)]) == 1
     assert "problem=pdf_ingest_failed" in capsys.readouterr().out
+
+
+def test_cli_ingest_prints_pdf_intake_summary(
+    tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "mke.sqlite"
+
+    assert main(["--db", str(db_path), "ingest", str(PDF_FIXTURES / "text-layer.pdf")]) == 0
+
+    output = capsys.readouterr().out
+    assert "pdf_pages=2" in output
+    assert "extracted_pages=2" in output
+    assert "empty_pages=0" in output
+    assert "suspected_scanned_pages=0" in output
+
+
+def test_cli_run_get_prints_pdf_intake_summary(
+    tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "mke.sqlite"
+    assert main(["--db", str(db_path), "ingest", str(PDF_FIXTURES / "text-layer.pdf")]) == 0
+    ingest_output = capsys.readouterr().out
+    run_id = ingest_output.split()[0].split("=", 1)[1]
+
+    assert main(["--db", str(db_path), "run", "get", run_id]) == 0
+
+    output = capsys.readouterr().out
+    assert "pdf_pages=2" in output
+    assert "extracted_pages=2" in output

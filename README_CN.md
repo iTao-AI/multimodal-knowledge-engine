@@ -6,11 +6,13 @@ Multimodal Knowledge Engine 是一个本地优先、可被 Agent 调用的 Evide
 
 ## 当前状态
 
-仓库现在已有确定性的本地跨模态 proof：`mke demo --verify` 会导入 text-layer PDF 和短本地视频，证明失败的 PDF reprocess 不会改变 active Publication，重试 validated candidate 路径，并验证 page Evidence 与 timestamp Evidence 都只来自 active Search。
+仓库现在已有确定性的本地跨模态 proof：`mke demo --verify` 会导入 PyMuPDF text-layer PDF 和短本地视频，证明失败的 PDF reprocess 不会改变 active Publication，重试 validated candidate 路径，并验证 page Evidence 与 timestamp Evidence 都只来自 active Search。
 首个 Agent-facing interface 是本地 stdio MCP server，支持 ingest、Run 检查和 active Evidence Search。
 现在 C2 已加入 evidence-only Ask；HTTP 和 workspace 尚未实现。
 
 这个 proof 验证的是生命周期边界，不代表已经支持广泛媒体处理。当前不包含扫描 PDF OCR、任意视频处理、真实 speech-model transcription、托管协调或外部 provider 调用。
+
+PDF intake 使用位于 `src/mke/adapters/pdf/` 边界内的 PyMuPDF，并通过 `mke ingest`、`mke run get`、MCP `ingest_file` 和 MCP `get_run` 暴露 `PdfIntakeReport`。PyMuPDF 许可边界和未来 sidecar 替换路径见 [ADR-0004](./docs/decisions/0004-pymupdf-pdf-intake-adapter.md)。MCP 会在打开 extractor 前拒绝超过 100 MB 的 PDF 输入。
 
 C2 Ask 只返回 Evidence：`ask_library` 和 `mke ask` 会在 active Search 命中问题词时返回带页码或时间戳的 cited Evidence；没有命中时返回 `insufficient_evidence`。当前 slice 不调用 LLM，也不生成自然语言答案。
 

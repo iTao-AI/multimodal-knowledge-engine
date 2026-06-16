@@ -28,8 +28,9 @@ Example client configuration shape:
 ## Available Tools
 
 - `list_libraries`: returns the implicit local library.
-- `ingest_file`: ingests a supported `.pdf` or `.mp4` under `--allowed-root`.
-- `get_run`: returns Run state and append-only Run events.
+- `ingest_file`: ingests a supported `.pdf` or `.mp4` under `--allowed-root`; PDF success includes
+  `intake_report`.
+- `get_run`: returns Run state, append-only Run events, and PDF `intake_report` when present.
 - `search_library`: searches active Publication Evidence.
 - `ask_library`: returns deterministic cited Evidence or an insufficient-Evidence state.
 
@@ -64,3 +65,4 @@ timestamp Evidence when active Search matches the question terms.
 - Scanned-PDF OCR, arbitrary videos, real speech-model transcription, and external providers are
   outside this MCP slice.
 - The server rejects paths outside `--allowed-root`.
+- The server rejects PDF inputs above 100 MB before opening the PDF extractor.
