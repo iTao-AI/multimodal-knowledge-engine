@@ -204,6 +204,20 @@ def test_search_library_rejects_invalid_limit(tmp_path: Path) -> None:
     }
 
 
+def test_search_library_rejects_boolean_limit(tmp_path: Path) -> None:
+    config = _config(tmp_path, PDF_FIXTURES)
+
+    result = search_library(config, "publication", limit=True)
+
+    assert result == {
+        "ok": False,
+        "problem": "invalid_query",
+        "cause": "limit must be between 1 and 20",
+        "active_publication_impact": "unchanged",
+        "next_step": "choose_limit_between_1_and_20",
+    }
+
+
 def test_search_library_returns_empty_results_for_no_match(tmp_path: Path) -> None:
     config = _config(tmp_path, PDF_FIXTURES)
     ingest_file(config, "text-layer.pdf")
@@ -340,6 +354,20 @@ def test_ask_library_rejects_invalid_limit(tmp_path: Path) -> None:
     config = _config(tmp_path, PDF_FIXTURES)
 
     result = ask_library(config, "publication", limit=21)
+
+    assert result == {
+        "ok": False,
+        "problem": "invalid_query",
+        "cause": "limit must be between 1 and 20",
+        "active_publication_impact": "unchanged",
+        "next_step": "choose_limit_between_1_and_20",
+    }
+
+
+def test_ask_library_rejects_boolean_limit(tmp_path: Path) -> None:
+    config = _config(tmp_path, PDF_FIXTURES)
+
+    result = ask_library(config, "publication", limit=True)
 
     assert result == {
         "ok": False,

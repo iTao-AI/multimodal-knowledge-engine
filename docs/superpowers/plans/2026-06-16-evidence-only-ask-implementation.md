@@ -849,11 +849,11 @@ git commit -m "docs(ask): document evidence-only ask"
 - Modify: `docs/superpowers/plans/2026-06-16-evidence-only-ask-implementation.md`
 - Optional create: `docs/superpowers/reviews/2026-06-16-evidence-only-ask-review.md` after pre-landing review
 
-- [ ] **Step 1: Mark completed checklist items**
+- [x] **Step 1: Mark completed checklist items**
 
 As each implementation task is completed, update this plan from `- [ ]` to `- [x]` for completed steps. Do not mark future tasks complete early.
 
-- [ ] **Step 2: Run focused tests**
+- [x] **Step 2: Run focused tests**
 
 Run:
 
@@ -863,7 +863,7 @@ uv run pytest tests/application/test_ask.py tests/interfaces/test_mcp_contract.p
 
 Expected: PASS.
 
-- [ ] **Step 3: Run full local verification**
+- [x] **Step 3: Run full local verification**
 
 Run:
 
@@ -885,7 +885,7 @@ Expected:
 - `mke demo --verify` prints `result=passed`.
 - `git diff --check` exits 0.
 
-- [ ] **Step 4: Run pre-landing review**
+- [x] **Step 4: Run pre-landing review**
 
 Run `gstack-review` or the currently approved project review workflow against the full branch diff. Persist durable public-neutral findings to:
 
@@ -895,7 +895,7 @@ docs/superpowers/reviews/2026-06-16-evidence-only-ask-review.md
 
 If the review produces actionable findings in scope, fix them in the same branch and rerun the relevant tests.
 
-- [ ] **Step 5: Prepare Chinese PR body**
+- [x] **Step 5: Prepare Chinese PR body**
 
 Use this structure:
 
@@ -945,6 +945,6 @@ MKE 现在提供 evidence-only Ask：Agent 可以通过 MCP `ask_library` 或 CL
 更新 public contracts、CLI reference、MCP how-to、README、getting-started tutorial、C2 implementation plan 和 review report。
 ```
 
-- [ ] **Step 6: Stop before push or PR**
+- [x] **Step 6: Create PR after explicit user authorization**
 
-Report the branch, commits, verification results, documentation impact, and remaining risks. Do not push, create a PR, or merge without explicit user authorization.
+Report the branch, commits, verification results, documentation impact, and remaining risks. Push and create the PR because the user explicitly requested PR creation for this task.

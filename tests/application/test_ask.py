@@ -106,3 +106,15 @@ def test_ask_rejects_invalid_limit(tmp_path: Path, limit: int) -> None:
     assert error.value.problem == "invalid_query"
     assert error.value.cause == "limit must be between 1 and 20"
     assert error.value.next_step == "choose_limit_between_1_and_20"
+
+
+@pytest.mark.parametrize("limit", [False, True])
+def test_ask_rejects_boolean_limit(tmp_path: Path, limit: bool) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+
+    with pytest.raises(AskValidationError) as error:
+        engine.ask("publication", limit=limit)
+
+    assert error.value.problem == "invalid_query"
+    assert error.value.cause == "limit must be between 1 and 20"
+    assert error.value.next_step == "choose_limit_between_1_and_20"

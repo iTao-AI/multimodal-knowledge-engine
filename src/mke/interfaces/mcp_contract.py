@@ -143,7 +143,7 @@ def search_library(
     normalized_query = query.strip()
     if not normalized_query:
         return _failure("invalid_query", "query must not be empty", "provide_non_empty_query")
-    if limit < _MIN_SEARCH_LIMIT or limit > _MAX_SEARCH_LIMIT:
+    if type(limit) is not int or limit < _MIN_SEARCH_LIMIT or limit > _MAX_SEARCH_LIMIT:
         return _failure(
             "invalid_query",
             f"limit must be between {_MIN_SEARCH_LIMIT} and {_MAX_SEARCH_LIMIT}",

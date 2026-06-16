@@ -105,7 +105,7 @@ class KnowledgeEngine:
 
     def ask(self, question: str, limit: int = _DEFAULT_ASK_LIMIT) -> AskResult:
         normalized_question = _normalize_ask_question(question)
-        if limit < _MIN_ASK_LIMIT or limit > _MAX_ASK_LIMIT:
+        if type(limit) is not int or limit < _MIN_ASK_LIMIT or limit > _MAX_ASK_LIMIT:
             raise AskValidationError(
                 "invalid_query",
                 f"limit must be between {_MIN_ASK_LIMIT} and {_MAX_ASK_LIMIT}",
