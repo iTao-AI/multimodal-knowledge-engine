@@ -11,6 +11,7 @@ from pathlib import Path
 
 from mke.application import KnowledgeEngine, PdfIngestError, VideoIngestError
 from mke.domain import FailurePoint
+from mke.interfaces.mcp_server import run_mcp_server
 
 _DEFAULT_PDF_FIXTURE = Path("tests/fixtures/pdf/text-layer.pdf")
 _DEFAULT_REVISED_PDF_FIXTURE = Path("tests/fixtures/pdf/text-layer-revised.pdf")
@@ -44,9 +45,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     demo.add_argument("--revised-fixture", type=Path, default=_DEFAULT_REVISED_PDF_FIXTURE)
     demo.add_argument("--video-fixture", type=Path, default=_DEFAULT_VIDEO_FIXTURE)
 
+    mcp = subcommands.add_parser("mcp")
+    mcp.add_argument("--allowed-root", type=Path, default=Path.cwd())
+
     args = parser.parse_args(argv)
     if args.command == "demo":
         return _demo_verify(args.fixture, args.revised_fixture, args.video_fixture)
+    if args.command == "mcp":
+        return run_mcp_server(db_path=args.db, allowed_root=args.allowed_root)
 
     engine = KnowledgeEngine(args.db)
     try:
