@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 
 from mke.interfaces.mcp_contract import McpRuntimeConfig
@@ -11,6 +12,16 @@ def test_build_mcp_server_returns_named_server(tmp_path: Path) -> None:
     )
 
     assert server.name == "Multimodal Knowledge Engine"
+
+
+def test_build_mcp_server_exposes_ask_library_tool(tmp_path: Path) -> None:
+    server = build_mcp_server(
+        McpRuntimeConfig(db_path=tmp_path / "mke.sqlite", allowed_root=tmp_path)
+    )
+
+    tools = asyncio.run(server.list_tools())
+
+    assert "ask_library" in {tool.name for tool in tools}
 
 
 def test_safe_tool_returns_stable_error_without_exception_details() -> None:

@@ -53,6 +53,14 @@ def build_mcp_server(config: McpRuntimeConfig) -> FastMCP:
         """Search active Publication Evidence."""
         return mcp_contract.search_library(config, query, limit)
 
+    @mcp.tool()
+    @_safe_tool
+    def ask_library(  # pyright: ignore[reportUnusedFunction]
+        question: str, limit: int = 5
+    ) -> dict[str, Any]:
+        """Return deterministic cited Evidence or insufficient-Evidence state."""
+        return mcp_contract.ask_library(config, question, limit)
+
     return mcp
 
 

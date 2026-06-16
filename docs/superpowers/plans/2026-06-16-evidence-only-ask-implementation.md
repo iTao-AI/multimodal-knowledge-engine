@@ -579,7 +579,7 @@ git commit -m "feat(mcp): add evidence-only ask contract"
 - Modify: `src/mke/cli.py`
 - Create: `tests/interfaces/test_cli_ask.py`
 
-- [ ] **Step 1: Add CLI Ask tests**
+- [x] **Step 1: Add CLI Ask tests**
 
 Create `tests/interfaces/test_cli_ask.py`:
 
@@ -636,7 +636,7 @@ def test_cli_ask_invalid_question_returns_error_contract(
     assert "next_step=provide_searchable_question" in output
 ```
 
-- [ ] **Step 2: Run failing CLI Ask tests**
+- [x] **Step 2: Run failing CLI Ask tests**
 
 Run:
 
@@ -646,7 +646,7 @@ uv run pytest tests/interfaces/test_cli_ask.py -q
 
 Expected: FAIL because `mke ask` does not exist.
 
-- [ ] **Step 3: Add MCP server tool wrapper**
+- [x] **Step 3: Add MCP server tool wrapper**
 
 Modify `src/mke/interfaces/mcp_server.py` after `search_library()`:
 
@@ -660,7 +660,7 @@ Modify `src/mke/interfaces/mcp_server.py` after `search_library()`:
         return mcp_contract.ask_library(config, question, limit)
 ```
 
-- [ ] **Step 4: Add CLI `ask` parser and dispatch**
+- [x] **Step 4: Add CLI `ask` parser and dispatch**
 
 Modify `src/mke/cli.py` imports:
 
@@ -720,7 +720,7 @@ def _print_error_contract(
     )
 ```
 
-- [ ] **Step 5: Run CLI and MCP server tests**
+- [x] **Step 5: Run CLI and MCP server tests**
 
 Run:
 
@@ -730,7 +730,7 @@ uv run pytest tests/interfaces/test_cli_ask.py tests/interfaces/test_mcp_server.
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit MCP server and CLI Ask**
+- [x] **Step 6: Commit MCP server and CLI Ask**
 
 Run:
 
