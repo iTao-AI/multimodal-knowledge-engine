@@ -4,11 +4,21 @@
 > notes into this repository. Public source of truth is ADR-0001, ADR-0002, this plan, tests, and
 > actual command output.
 
-Status: Approved for implementation.
+Status: Completed.
 
-## Scope
+Completed in the public PR sequence:
 
-Implement the first useful MKE product proof in three PRs:
+- GitHub PR #4: text-layer PDF happy path with Publication correctness.
+- GitHub PR #6: reliability proof, failure isolation, retry lineage, and `mke demo --verify`.
+- GitHub PR #7: short-video timestamp Evidence using the same lifecycle.
+
+At completion, the proof path is `uv sync --locked && uv run mke demo --verify`. Ask, MCP, HTTP,
+workspace UI, scanned-PDF OCR, long-video processing, real speech-model transcription, external
+services, and hosted coordination remain outside this completed slice.
+
+## Completed Scope
+
+The first useful MKE product proof was implemented in three delivery stages:
 
 1. PR 2: text-layer PDF happy path with minimal Publication correctness.
 2. PR 3: failure isolation, reprocess/retry proof, and `mke demo --verify`.
@@ -104,7 +114,7 @@ Files expected to change:
 
 ## Verification
 
-Run commands that exist in the repository at the time of each PR:
+Run commands that exist in the repository at the time of each PR and at milestone closure:
 
 ```bash
 uv run pytest -q
@@ -120,6 +130,16 @@ uv run mke demo --verify
 ```
 
 CI must also run the wheel-installed version of `mke demo --verify`.
+
+Milestone closure verification:
+
+```text
+uv run pytest -q
+uv run ruff check .
+uv run pyright
+uv build
+uv run mke demo --verify
+```
 
 ## Documentation Gate
 

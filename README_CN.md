@@ -8,6 +8,8 @@ Multimodal Knowledge Engine 是一个本地优先、可被 Agent 调用的 Evide
 
 仓库现在已有确定性的本地跨模态 proof：`mke demo --verify` 会导入 text-layer PDF 和短本地视频，证明失败的 PDF reprocess 不会改变 active Publication，重试 validated candidate 路径，并验证 page Evidence 与 timestamp Evidence 都只来自 active Search。Ask、MCP、HTTP 和 workspace 尚未实现。
 
+这个 proof 验证的是生命周期边界，不代表已经支持广泛媒体处理。当前不包含扫描 PDF OCR、任意视频处理、真实 speech-model transcription、托管协调或外部 provider 调用。
+
 ## Pilot 目标
 
 首个经过验证的产品切片将让一个 PDF 和一个短视频经过可观察 Run，只发布成功输出，并返回带稳定页码或时间戳的 Evidence。
@@ -25,7 +27,9 @@ Multimodal Knowledge Engine 是一个本地优先、可被 Agent 调用的 Evide
 
 ## 文档
 
-从 [docs/README.md](./docs/README.md) 开始。批准后的实施历史保存在 `docs/superpowers/`；长期架构决策保存在 `docs/decisions/`。
+从 [docs/README.md](./docs/README.md) 开始。要直接验证当前 proof，见
+[Run The Local Product Proof](./docs/how-to/run-local-product-proof.md)。批准后的实施历史保存在
+`docs/superpowers/`；长期架构决策保存在 `docs/decisions/`。
 
 开发流程见 [CONTRIBUTING.md](./CONTRIBUTING.md)，安全漏洞报告方式见 [SECURITY.md](./SECURITY.md)。
 

@@ -13,6 +13,22 @@ forces a failed PDF reprocess, verifies the previous active Publication remains 
 retries a publishable candidate, ingests the repository short-video fixture with timestamp
 Evidence, and cleans up the temporary workspace before exit.
 
+## What This Proves
+
+- Text-layer PDF ingest can publish page-addressed Evidence.
+- Short local video fixture ingest can publish timestamp-addressed Evidence.
+- Failed PDF reprocessing leaves the previous active Publication searchable.
+- Retry creates a new Run and can publish validated candidate output.
+- Search reads only active Publication rows.
+
+## What This Does Not Prove
+
+- Scanned-PDF OCR.
+- Arbitrary or long-video processing.
+- Real speech-model transcription.
+- Ask, MCP, HTTP, or workspace UI.
+- Hosted coordination, multi-worker behavior, or external provider integration.
+
 For lower-level inspection:
 
 ```bash
