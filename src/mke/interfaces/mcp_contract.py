@@ -16,8 +16,7 @@ from mke.application import (
     PdfIngestError,
     VideoIngestError,
 )
-from mke.domain import SearchResult
-from mke.domain import PdfIntakeReport
+from mke.domain import PdfIntakeReport, SearchResult
 
 logger = logging.getLogger(__name__)
 

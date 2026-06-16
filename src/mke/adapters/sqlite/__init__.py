@@ -345,10 +345,14 @@ class SQLiteStore:
             extracted_pages=int(row["extracted_pages"]),
             empty_pages=int(row["empty_pages"]),
             total_extracted_chars=int(row["total_extracted_chars"]),
-            page_char_counts=tuple(int(value) for value in json.loads(str(row["page_char_counts"]))),
+            page_char_counts=tuple(
+                int(value) for value in json.loads(str(row["page_char_counts"]))
+            ),
             suspected_scanned_pages=int(row["suspected_scanned_pages"]),
             extraction_mode=str(row["extraction_mode"]),
-            failure_reason=str(row["failure_reason"]) if row["failure_reason"] is not None else None,
+            failure_reason=(
+                str(row["failure_reason"]) if row["failure_reason"] is not None else None
+            ),
         )
 
     def mark_run_failed(self, run_id: str) -> None:

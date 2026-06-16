@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Any, cast
 
 import pymupdf
 
@@ -27,37 +28,45 @@ class PyMuPDFPdfExtractor:
         if path.suffix.lower() != ".pdf":
             report = _failure_report("PDF cannot be opened")
             raise PdfExtractionError("PDF cannot be opened", report)
+        document: Any | None = None
         try:
-            with pymupdf.open(path) as document:
-                if document.is_encrypted:
-                    report = _failure_report("encrypted PDF is not supported")
-                    raise PdfExtractionError("encrypted PDF is not supported", report)
-                pages: list[PdfPageText] = []
-                page_char_counts: list[int] = []
-                suspected_scanned_pages = 0
-                for page_index, page in enumerate(document, start=1):
-                    text = _normalize_page_text(page.get_text("text", sort=True))
-                    char_count = len(text)
-                    page_char_counts.append(char_count)
-                    if text:
-                        pages.append(PdfPageText(page_number=page_index, text=text))
-                    elif page.get_images(full=True):
-                        suspected_scanned_pages += 1
-                report = PdfIntakeReport(
-                    total_pages=len(document),
-                    extracted_pages=len(pages),
-                    empty_pages=len(document) - len(pages),
-                    total_extracted_chars=sum(page_char_counts),
-                    page_char_counts=tuple(page_char_counts),
-                    suspected_scanned_pages=suspected_scanned_pages,
-                    extraction_mode=self.extraction_mode,
-                    failure_reason=None,
+            document = pymupdf.open(path)
+            if document.is_encrypted:
+                report = _failure_report("encrypted PDF is not supported")
+                raise PdfExtractionError("encrypted PDF is not supported", report)
+            pages: list[PdfPageText] = []
+            page_char_counts: list[int] = []
+            suspected_scanned_pages = 0
+            total_pages = int(document.page_count)
+            for page_index in range(total_pages):
+                page: Any = document.load_page(page_index)
+                text = _normalize_page_text(
+                    cast(str, page.get_text("text", sort=True))
                 )
+                char_count = len(text)
+                page_char_counts.append(char_count)
+                if text:
+                    pages.append(PdfPageText(page_number=page_index + 1, text=text))
+                elif page.get_images(full=True):
+                    suspected_scanned_pages += 1
+            report = PdfIntakeReport(
+                total_pages=total_pages,
+                extracted_pages=len(pages),
+                empty_pages=total_pages - len(pages),
+                total_extracted_chars=sum(page_char_counts),
+                page_char_counts=tuple(page_char_counts),
+                suspected_scanned_pages=suspected_scanned_pages,
+                extraction_mode=self.extraction_mode,
+                failure_reason=None,
+            )
         except PdfExtractionError:
             raise
         except Exception as error:
             report = _failure_report("PDF cannot be opened")
             raise PdfExtractionError("PDF cannot be opened", report) from error
+        finally:
+            if document is not None:
+                document.close()
         if not pages:
             failed = PdfIntakeReport(
                 total_pages=report.total_pages,

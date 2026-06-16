@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -77,8 +78,8 @@ def test_pymupdf_extractor_preserves_50_page_numbers(tmp_path: Path) -> None:
 def _write_blank_and_text_pdf(path: Path) -> None:
     import pymupdf
 
-    doc = pymupdf.open()
-    page = doc.new_page()
+    doc: Any = pymupdf.open()
+    page: Any = doc.new_page()
     page.insert_text((72, 72), "visible text page")
     doc.new_page()
     doc.save(path)
@@ -87,8 +88,8 @@ def _write_blank_and_text_pdf(path: Path) -> None:
 def _write_two_column_pdf(path: Path) -> None:
     import pymupdf
 
-    doc = pymupdf.open()
-    page = doc.new_page()
+    doc: Any = pymupdf.open()
+    page: Any = doc.new_page()
     page.insert_text((320, 72), "right column second")
     page.insert_text((72, 72), "left column first")
     doc.save(path)
@@ -97,9 +98,9 @@ def _write_two_column_pdf(path: Path) -> None:
 def _write_many_pages_pdf(path: Path, pages: int) -> None:
     import pymupdf
 
-    doc = pymupdf.open()
+    doc: Any = pymupdf.open()
     for index in range(1, pages + 1):
-        page = doc.new_page()
+        page: Any = doc.new_page()
         page.insert_text((72, 72), f"page {index} evidence text")
     doc.save(path)
 
@@ -107,13 +108,14 @@ def _write_many_pages_pdf(path: Path, pages: int) -> None:
 def _write_encrypted_pdf(path: Path) -> None:
     import pymupdf
 
-    doc = pymupdf.open()
-    page = doc.new_page()
+    pymupdf_api: Any = pymupdf
+    doc: Any = pymupdf.open()
+    page: Any = doc.new_page()
     page.insert_text((72, 72), "encrypted evidence text")
     doc.save(
         path,
-        encryption=pymupdf.PDF_ENCRYPT_AES_256,
+        encryption=pymupdf_api.PDF_ENCRYPT_AES_256,
         owner_pw="owner-password",
         user_pw="user-password",
-        permissions=int(pymupdf.PDF_PERM_ACCESSIBILITY),
+        permissions=int(pymupdf_api.PDF_PERM_ACCESSIBILITY),
     )
