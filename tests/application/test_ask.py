@@ -16,10 +16,10 @@ def test_ask_returns_pdf_page_evidence_packet(tmp_path: Path) -> None:
     assert result.question == "publication active"
     assert result.answer_status == "evidence_found"
     assert result.summary == "1 active Evidence item matched the search terms."
-    assert result.limitations == [
+    assert result.limitations == (
         "No model-generated answer is produced in this slice.",
         "The summary is deterministic and only reports matched Evidence count.",
-    ]
+    )
     assert len(result.evidence) == 1
     match = result.evidence[0]
     assert match.locator_kind == "page"
@@ -43,6 +43,30 @@ def test_ask_returns_video_timestamp_evidence_packet(tmp_path: Path) -> None:
     assert "Active publication search finds spoken timestamp proof." in match.text
 
 
+def test_ask_reports_plural_summary_for_multiple_matches(tmp_path: Path) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    engine.ingest_pdf(PDF_FIXTURES / "text-layer.pdf")
+
+    result = engine.ask("page", limit=20)
+
+    assert result.answer_status == "evidence_found"
+    assert result.summary == "2 active Evidence items matched the search terms."
+    assert len(result.evidence) == 2
+
+
+def test_ask_accepts_limit_boundaries(tmp_path: Path) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    engine.ingest_pdf(PDF_FIXTURES / "text-layer.pdf")
+
+    lower = engine.ask("page", limit=1)
+    upper = engine.ask("page", limit=20)
+
+    assert lower.answer_status == "evidence_found"
+    assert len(lower.evidence) == 1
+    assert upper.answer_status == "evidence_found"
+    assert len(upper.evidence) == 2
+
+
 def test_ask_returns_insufficient_evidence_for_no_match(tmp_path: Path) -> None:
     engine = KnowledgeEngine(tmp_path / "mke.sqlite")
     engine.ingest_pdf(PDF_FIXTURES / "text-layer.pdf")
@@ -53,11 +77,11 @@ def test_ask_returns_insufficient_evidence_for_no_match(tmp_path: Path) -> None:
     assert result.question == "audio diarization"
     assert result.answer_status == "insufficient_evidence"
     assert result.summary == "No active Evidence matched the search terms."
-    assert result.evidence == []
-    assert result.limitations == [
+    assert result.evidence == ()
+    assert result.limitations == (
         "No answer is produced because no active Evidence matched the search terms.",
         "No model-generated answer is produced in this slice.",
-    ]
+    )
 
 
 def test_ask_rejects_empty_question(tmp_path: Path) -> None:

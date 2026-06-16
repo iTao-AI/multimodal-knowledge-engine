@@ -11,7 +11,10 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from mke.interfaces import mcp_contract
-from mke.interfaces.mcp_contract import McpRuntimeConfig
+from mke.interfaces.mcp_contract import (
+    DEFAULT_ASK_LIMIT,
+    McpRuntimeConfig,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +51,7 @@ def build_mcp_server(config: McpRuntimeConfig) -> FastMCP:
     @mcp.tool()
     @_safe_tool
     def search_library(  # pyright: ignore[reportUnusedFunction]
-        query: str, limit: int = 5
+        query: str, limit: int = DEFAULT_ASK_LIMIT
     ) -> dict[str, Any]:
         """Search active Publication Evidence."""
         return mcp_contract.search_library(config, query, limit)
@@ -56,7 +59,7 @@ def build_mcp_server(config: McpRuntimeConfig) -> FastMCP:
     @mcp.tool()
     @_safe_tool
     def ask_library(  # pyright: ignore[reportUnusedFunction]
-        question: str, limit: int = 5
+        question: str, limit: int = DEFAULT_ASK_LIMIT
     ) -> dict[str, Any]:
         """Return deterministic cited Evidence or insufficient-Evidence state."""
         return mcp_contract.ask_library(config, question, limit)

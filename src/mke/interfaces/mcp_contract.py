@@ -7,7 +7,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from mke.application import AskValidationError, KnowledgeEngine, PdfIngestError, VideoIngestError
+from mke.application import (
+    DEFAULT_ASK_LIMIT,
+    MAX_ASK_LIMIT,
+    MIN_ASK_LIMIT,
+    AskValidationError,
+    KnowledgeEngine,
+    PdfIngestError,
+    VideoIngestError,
+)
 from mke.domain import SearchResult
 
 logger = logging.getLogger(__name__)
@@ -16,10 +24,6 @@ _SUPPORTED_SUFFIX_MEDIA_TYPES = {
     ".pdf": "application/pdf",
     ".mp4": "video/mp4",
 }
-
-_DEFAULT_SEARCH_LIMIT = 5
-_MIN_SEARCH_LIMIT = 1
-_MAX_SEARCH_LIMIT = 20
 
 
 @dataclass(frozen=True)
@@ -138,15 +142,15 @@ def get_run(config: McpRuntimeConfig, run_id: str) -> dict[str, Any]:
 
 
 def search_library(
-    config: McpRuntimeConfig, query: str, limit: int = _DEFAULT_SEARCH_LIMIT
+    config: McpRuntimeConfig, query: str, limit: int = DEFAULT_ASK_LIMIT
 ) -> dict[str, Any]:
     normalized_query = query.strip()
     if not normalized_query:
         return _failure("invalid_query", "query must not be empty", "provide_non_empty_query")
-    if type(limit) is not int or limit < _MIN_SEARCH_LIMIT or limit > _MAX_SEARCH_LIMIT:
+    if type(limit) is not int or limit < MIN_ASK_LIMIT or limit > MAX_ASK_LIMIT:
         return _failure(
             "invalid_query",
-            f"limit must be between {_MIN_SEARCH_LIMIT} and {_MAX_SEARCH_LIMIT}",
+            f"limit must be between {MIN_ASK_LIMIT} and {MAX_ASK_LIMIT}",
             "choose_limit_between_1_and_20",
         )
 
@@ -164,8 +168,21 @@ def search_library(
 
 
 def ask_library(
-    config: McpRuntimeConfig, question: str, limit: int = _DEFAULT_SEARCH_LIMIT
+    config: McpRuntimeConfig, question: str, limit: int = DEFAULT_ASK_LIMIT
 ) -> dict[str, Any]:
+    normalized_question = question.strip()
+    if not normalized_question:
+        return _failure(
+            "invalid_question",
+            "question must not be empty",
+            "provide_non_empty_question",
+        )
+    if type(limit) is not int or limit < MIN_ASK_LIMIT or limit > MAX_ASK_LIMIT:
+        return _failure(
+            "invalid_query",
+            f"limit must be between {MIN_ASK_LIMIT} and {MAX_ASK_LIMIT}",
+            "choose_limit_between_1_and_20",
+        )
     engine: KnowledgeEngine | None = None
     try:
         engine = KnowledgeEngine(config.db_path)
@@ -182,7 +199,7 @@ def ask_library(
             "evidence": [
                 _evidence_from_search_result(match) for match in result.evidence
             ],
-            "limitations": result.limitations,
+            "limitations": list(result.limitations),
         }
     finally:
         if engine is not None:

@@ -3,7 +3,7 @@ from pathlib import Path
 from pytest import CaptureFixture
 
 from mke.cli import main
-from tests.conftest import PDF_FIXTURES
+from tests.conftest import PDF_FIXTURES, VIDEO_FIXTURES
 
 
 def test_cli_ask_returns_evidence_packet(tmp_path: Path, capsys: CaptureFixture[str]) -> None:
@@ -20,6 +20,24 @@ def test_cli_ask_returns_evidence_packet(tmp_path: Path, capsys: CaptureFixture[
     assert 'summary="1 active Evidence item matched the search terms."' in output
     assert "page=2" in output
     assert "Publication search returns only active page two." in output
+
+
+def test_cli_ask_returns_video_timestamp_evidence(
+    tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "mke.sqlite"
+
+    assert main(["--db", str(db_path), "ingest", str(VIDEO_FIXTURES / "short-audio.mp4")]) == 0
+    capsys.readouterr()
+
+    assert main(["--db", str(db_path), "ask", "timestamp"]) == 0
+
+    output = capsys.readouterr().out
+    assert "answer_status=evidence_found" in output
+    assert "evidence_count=2" in output
+    assert "timestamp_ms=0..1200" in output
+    assert "timestamp_ms=1200..2200" in output
+    assert "Active publication search finds spoken timestamp proof." in output
 
 
 def test_cli_ask_returns_insufficient_evidence(

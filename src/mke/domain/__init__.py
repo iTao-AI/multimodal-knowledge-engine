@@ -126,8 +126,8 @@ class AskResult:
     question: str
     answer_status: str
     summary: str
-    evidence: list[SearchResult]
-    limitations: list[str]
+    evidence: tuple[SearchResult, ...]
+    limitations: tuple[str, ...]
 
 
 REQUIRED_PDF_STAGES = frozenset({"pdf_text_extraction", "candidate_evidence"})

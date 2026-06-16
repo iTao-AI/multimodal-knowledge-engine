@@ -30,9 +30,9 @@ from mke.domain import (
 )
 
 _SHA256_CHUNK_BYTES = 1024 * 1024
-_DEFAULT_ASK_LIMIT = 5
-_MIN_ASK_LIMIT = 1
-_MAX_ASK_LIMIT = 20
+DEFAULT_ASK_LIMIT = 5
+MIN_ASK_LIMIT = 1
+MAX_ASK_LIMIT = 20
 _MAX_ASK_QUESTION_CHARS = 1000
 _SEARCHABLE_TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
 _MODEL_FREE_LIMITATION = "No model-generated answer is produced in this slice."
@@ -103,12 +103,12 @@ class KnowledgeEngine:
     def search(self, query: str, limit: int | None = None) -> list[SearchResult]:
         return self._store.search(query, limit=limit)
 
-    def ask(self, question: str, limit: int = _DEFAULT_ASK_LIMIT) -> AskResult:
+    def ask(self, question: str, limit: int = DEFAULT_ASK_LIMIT) -> AskResult:
         normalized_question = _normalize_ask_question(question)
-        if type(limit) is not int or limit < _MIN_ASK_LIMIT or limit > _MAX_ASK_LIMIT:
+        if type(limit) is not int or limit < MIN_ASK_LIMIT or limit > MAX_ASK_LIMIT:
             raise AskValidationError(
                 "invalid_query",
-                f"limit must be between {_MIN_ASK_LIMIT} and {_MAX_ASK_LIMIT}",
+                f"limit must be between {MIN_ASK_LIMIT} and {MAX_ASK_LIMIT}",
                 "choose_limit_between_1_and_20",
             )
         evidence = self.search(normalized_question, limit=limit)
@@ -118,19 +118,19 @@ class KnowledgeEngine:
                 question=normalized_question,
                 answer_status="evidence_found",
                 summary=_matched_summary(len(evidence)),
-                evidence=evidence,
-                limitations=[_MODEL_FREE_LIMITATION, _COUNT_ONLY_LIMITATION],
+                evidence=tuple(evidence),
+                limitations=(_MODEL_FREE_LIMITATION, _COUNT_ONLY_LIMITATION),
             )
         return AskResult(
             ask_id=f"ask_{uuid4().hex}",
             question=normalized_question,
             answer_status="insufficient_evidence",
             summary="No active Evidence matched the search terms.",
-            evidence=[],
-            limitations=[
+            evidence=(),
+            limitations=(
                 "No answer is produced because no active Evidence matched the search terms.",
                 _MODEL_FREE_LIMITATION,
-            ],
+            ),
         )
 
     def ingest_pdf(self, path: Path) -> IngestResult:
@@ -295,6 +295,12 @@ class KnowledgeEngine:
 
 
 def _normalize_ask_question(question: str) -> str:
+    if not isinstance(question, str):  # pyright: ignore[reportUnnecessaryIsInstance] -- runtime guard
+        raise AskValidationError(
+            "invalid_question",
+            "question must be a string",
+            "provide_string_question",
+        )
     normalized_question = question.strip()
     if not normalized_question:
         raise AskValidationError(
