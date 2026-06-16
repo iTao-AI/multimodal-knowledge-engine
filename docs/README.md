@@ -11,6 +11,7 @@ This repository uses Diataxis plus architecture decision records and approved im
 | `decisions/` | Long-lived accepted architecture decisions |
 | `superpowers/specs/` | Approved public-neutral designs |
 | `superpowers/plans/` | Executable implementation plans |
+| `superpowers/reviews/` | Durable public-neutral plan and PR review reports |
 
 Documentation changes ship in the same PR as affected behavior. Raw GStack artifacts and private planning notes do not belong in this repository.
 
@@ -23,8 +24,12 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [Public Contracts](./reference/contracts.md) tracks implemented versus planned interfaces.
 - [CLI Reference](./reference/cli.md) documents implemented commands, demo output, and error fields.
 - [Run The Local Product Proof](./how-to/run-local-product-proof.md) explains the deterministic PDF and short-video proof.
+- [Use MKE As A Local MCP Server](./how-to/use-mke-mcp.md) explains the first Agent-facing stdio interface.
 - [Trustworthy PDF And Video Slice Design](./superpowers/specs/2026-06-15-trustworthy-pdf-video-slice-design.md) records the approved design.
 - [Trustworthy PDF And Video Slice Implementation Plan](./superpowers/plans/2026-06-15-trustworthy-pdf-video-slice-implementation.md) records the completed implementation plan.
+- [MCP Agent Interface Design](./superpowers/specs/2026-06-16-mcp-agent-interface-design.md) defines the first Agent-facing stdio interface.
+- [MCP Agent Interface Implementation Plan](./superpowers/plans/2026-06-16-mcp-agent-interface-implementation.md) is the executable plan for the next interface slice.
+- [MCP Agent Interface Autoplan Review](./superpowers/reviews/2026-06-16-mcp-agent-interface-autoplan-review.md) records the approved review findings for this slice.
 
 ## Development Verification
 

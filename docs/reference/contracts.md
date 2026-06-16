@@ -29,11 +29,11 @@ Status:
 | `mke --db <path> search <query>` | implemented in PR 2 | Searches only active Publication rows in the SQLite FTS5 projection. |
 | `mke --db <path> run get <run_id>` | implemented in PR 3 | Prints Run state, retry lineage, and append-only Run events. |
 | `mke demo --verify` | implemented in PR 3, extended in PR 4 | Deterministic offline PDF and short-video proof using temporary SQLite workspace and repository fixtures. |
+| `mke --db <path> mcp --allowed-root <path>` | implemented in C1 | Runs a local stdio MCP server for Agent-facing ingest, Run inspection, and active Evidence Search. |
 | `mke init` | planned | Workspace initialization after lifecycle proof. |
 | `mke serve` | planned | Single-owner local process after CLI proof. |
 | `mke library create` | planned | May be implicit in first CLI path. |
 | `mke ask` | planned | Deferred until Search Evidence is trustworthy. |
-| `mke mcp` | planned | Deferred until PDF and video contracts are stable. |
 
 The PR 2 PDF CLI uses a local SQLite database path supplied with `--db`. It does not expose a
 general FTS query language: Search tokenizes user input into escaped terms before querying FTS5.
@@ -54,14 +54,26 @@ Publication impact is `unchanged`.
 
 ## MCP
 
-Status: planned after PDF and video lifecycle validation.
+Status: partially implemented.
+
+Implemented tools:
 
 ```text
 list_libraries
 ingest_file
 get_run
 search_library
+```
+
+Planned tools:
+
+```text
 ask_library
 ```
+
+The MCP server runs over stdio through `mke mcp --allowed-root <path>`. It reuses the same
+`KnowledgeEngine` application service as CLI ingest, Run inspection, and Search. `ingest_file`
+only accepts files under the configured allowed root and currently supports `.pdf` and `.mp4`.
+`search_library` reads active Publication Evidence only.
 
 HTTP, CLI, MCP, and the workspace must use the same application services and project-owned DTOs.

@@ -10,7 +10,9 @@ readme = "README.md"
 requires-python = ">=3.12,<3.14"
 license = { text = "MIT" }
 authors = [{ name = "iTao-AI" }]
-dependencies = []
+dependencies = [
+  "mcp>=1.12.4,<2",
+]
 
 [project.scripts]
 mke = "mke.cli:console_main"
