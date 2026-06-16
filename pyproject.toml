@@ -12,6 +12,7 @@ license = { text = "MIT" }
 authors = [{ name = "iTao-AI" }]
 dependencies = [
   "mcp>=1.12.4,<2",
+  "pymupdf>=1.24.0,<2",
 ]
 
 [project.scripts]

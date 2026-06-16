@@ -52,7 +52,7 @@ This plan incorporates:
 - Modify: `pyproject.toml`
 - Test: `uv lock --check` or `uv sync --locked`
 
-- [ ] **Step 1: Add the dependency ADR**
+- [x] **Step 1: Add the dependency ADR**
 
 Create `docs/decisions/0004-pymupdf-pdf-intake-adapter.md`:
 
@@ -88,7 +88,7 @@ a commercial PyMuPDF license, or a replacement adapter.
 - OCR, table extraction, PyMuPDF4LLM, and layout-aware chunking remain outside D1.
 ```
 
-- [ ] **Step 2: Pin PyMuPDF**
+- [x] **Step 2: Pin PyMuPDF**
 
 Modify `pyproject.toml` dependencies:
 
@@ -99,7 +99,7 @@ dependencies = [
 ]
 ```
 
-- [ ] **Step 3: Refresh lockfile**
+- [x] **Step 3: Refresh lockfile**
 
 Run:
 
@@ -109,7 +109,7 @@ uv sync
 
 Expected: `uv.lock` updates with a PyMuPDF package entry and the environment syncs successfully.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add pyproject.toml uv.lock docs/decisions/0004-pymupdf-pdf-intake-adapter.md
