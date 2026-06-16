@@ -122,7 +122,7 @@ git commit -m "docs(decision): accept pymupdf pdf intake adapter"
 - Modify: `src/mke/domain/__init__.py`
 - Create: `tests/domain/test_pdf_intake_report.py`
 
-- [ ] **Step 1: Add failing domain tests**
+- [x] **Step 1: Add failing domain tests**
 
 Create `tests/domain/test_pdf_intake_report.py`:
 
@@ -179,7 +179,7 @@ def test_validate_manifest_accepts_legacy_and_pymupdf_pdf_fingerprints() -> None
         )
 ```
 
-- [ ] **Step 2: Run failing tests**
+- [x] **Step 2: Run failing tests**
 
 Run:
 
@@ -189,7 +189,7 @@ uv run pytest tests/domain/test_pdf_intake_report.py -q
 
 Expected: FAIL because `PdfIntakeReport` and `PYMUPDF_TEXT_FINGERPRINT` do not exist.
 
-- [ ] **Step 3: Add DTOs and fingerprint**
+- [x] **Step 3: Add DTOs and fingerprint**
 
 Modify `src/mke/domain/__init__.py` after `ActivationResult`:
 
@@ -251,7 +251,7 @@ Update `validate_manifest()` PDF branch:
         expected_locator_kind = "page"
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run:
 
@@ -261,7 +261,7 @@ uv run pytest tests/domain/test_pdf_intake_report.py tests/domain/test_manifest.
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/mke/domain/__init__.py tests/domain/test_pdf_intake_report.py
