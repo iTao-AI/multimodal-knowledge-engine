@@ -490,12 +490,11 @@ class SQLiteStore:
             (_new_id("evt"), run_id, event_index, event_type),
         )
 
-    def search(self, query: str) -> list[SearchResult]:
+    def search(self, query: str, limit: int | None = None) -> list[SearchResult]:
         match_query = _to_fts_query(query)
         if not match_query:
             return []
-        rows = self._connection.execute(
-            """
+        sql = """
             SELECT evidence.evidence_id, active_evidence_fts.publication_id,
                    evidence.source_id, evidence.locator_kind, evidence.locator_start,
                    evidence.locator_end, evidence.text
@@ -505,9 +504,12 @@ class SQLiteStore:
             WHERE active_evidence_fts MATCH ?
               AND sources.active_publication_id = active_evidence_fts.publication_id
             ORDER BY rank, evidence.locator_start, evidence.evidence_id
-            """,
-            (match_query,),
-        ).fetchall()
+            """
+        params: list[object] = [match_query]
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(limit)
+        rows = self._connection.execute(sql, params).fetchall()
         return [
             SearchResult(
                 evidence_id=str(row["evidence_id"]),

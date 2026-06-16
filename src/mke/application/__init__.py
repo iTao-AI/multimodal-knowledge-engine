@@ -79,8 +79,8 @@ class KnowledgeEngine:
     ) -> ActivationResult:
         return self._store.activate_publication(run_id, failure_point=failure_point)
 
-    def search(self, query: str) -> list[SearchResult]:
-        return self._store.search(query)
+    def search(self, query: str, limit: int | None = None) -> list[SearchResult]:
+        return self._store.search(query, limit=limit)
 
     def ingest_pdf(self, path: Path) -> IngestResult:
         return self._process_pdf(path, retry_of_run_id=None, failure_point=None)
