@@ -31,9 +31,10 @@ Example client configuration shape:
 - `ingest_file`: ingests a supported `.pdf` or `.mp4` under `--allowed-root`.
 - `get_run`: returns Run state and append-only Run events.
 - `search_library`: searches active Publication Evidence.
+- `ask_library`: returns deterministic cited Evidence or an insufficient-Evidence state.
 
 CLI names stay human-oriented (`ingest`, `search`, `run get`). MCP tool names are explicit for
-Agents (`ingest_file`, `search_library`, `get_run`).
+Agents (`ingest_file`, `search_library`, `ask_library`, `get_run`).
 
 ## Example Agent Flow
 
@@ -41,12 +42,25 @@ Agents (`ingest_file`, `search_library`, `get_run`).
 2. Call `ingest_file` with `tests/fixtures/pdf/text-layer.pdf`.
 3. Call `get_run` with the returned `run_id`.
 4. Call `search_library` with `publication active`.
-5. Cite returned Evidence locators.
+5. Call `ask_library` with:
+
+```json
+{
+  "question": "What does the document say about Publication failures?",
+  "limit": 5
+}
+```
+
+6. Cite returned Evidence locators.
+
+`ask_library` does not produce model-generated answers. It returns an Evidence packet with
+`answer_status="evidence_found"` or `answer_status="insufficient_evidence"`, plus cited page or
+timestamp Evidence when active Search matches the question terms.
 
 ## Boundaries
 
-- `ask_library` is not implemented yet.
 - HTTP and workspace UI are not implemented yet.
+- Generative Ask, model providers, prompt templates, and model retries are not implemented yet.
 - Scanned-PDF OCR, arbitrary videos, real speech-model transcription, and external providers are
   outside this MCP slice.
 - The server rejects paths outside `--allowed-root`.

@@ -38,6 +38,7 @@ Expected duration: a few seconds on a local development machine.
 ```bash
 mke --db <path> ingest <file>
 mke --db <path> search <query>
+mke --db <path> ask <question>
 mke --db <path> run get <run_id>
 ```
 
@@ -49,8 +50,29 @@ mke --db <path> run get <run_id>
 - `search` reads only active Publication rows in SQLite FTS5.
 - PDF results print `page=<number>`.
 - Video results print `timestamp_ms=<start>..<end>` using integer millisecond locators.
+- `ask` returns deterministic evidence-only Ask output. It does not call an LLM or generate a
+  natural-language answer.
 - `run get` prints Run state, retry lineage when present, and append-only Run events.
 - To reset a local proof database, remove the selected SQLite file and its `-wal`/`-shm` files.
+
+Successful Ask with Evidence prints:
+
+```text
+answer_status=evidence_found evidence_count=1 summary="1 active Evidence item matched the search terms."
+page=2 evidence_id=ev_... text=Publication search returns only active page two.
+```
+
+Ask with no matching active Evidence is not an error:
+
+```text
+answer_status=insufficient_evidence evidence_count=0 summary="No active Evidence matched the search terms."
+```
+
+Ask validation failures use the CLI error contract:
+
+```text
+problem=invalid_question cause=question must contain at least one searchable ASCII token active_publication_impact=unchanged next_step=provide_searchable_question
+```
 
 ## MCP Server Command
 
@@ -61,8 +83,9 @@ mke --db <path> mcp --allowed-root <path>
 - Runs a local stdio MCP server.
 - `--allowed-root` defaults to the current working directory.
 - `ingest_file` rejects paths outside `--allowed-root`.
-- Implemented MCP tools are `list_libraries`, `ingest_file`, `get_run`, and `search_library`.
-- `ask_library`, HTTP, and workspace UI remain planned.
+- Implemented MCP tools are `list_libraries`, `ingest_file`, `get_run`, `search_library`, and
+  `ask_library`.
+- HTTP and workspace UI remain planned.
 
 `mke mcp --help` prints the command-specific options. Databases created by `mke ingest` can be
 reused with `mke mcp --db <path>`.
@@ -93,8 +116,8 @@ next_step=fix_input_or_retry
 
 ## Planned Commands
 
-`mke init`, `mke serve`, `mke library create`, and `mke ask` remain planned.
+`mke init`, `mke serve`, and `mke library create` remain planned.
 
-Ask, HTTP, workspace UI, OCR, scanned PDFs, long videos, real speech-model transcription,
-tables, page coordinates, hosted coordination, and multi-worker runtime behavior are outside the
-current CLI scope.
+Generative Ask, HTTP, workspace UI, OCR, scanned PDFs, long videos, real speech-model
+transcription, tables, page coordinates, hosted coordination, and multi-worker runtime behavior
+are outside the current CLI scope.

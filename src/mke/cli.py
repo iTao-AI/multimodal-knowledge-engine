@@ -6,11 +6,11 @@ import argparse
 import sys
 import tempfile
 import time
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
-from mke.application import KnowledgeEngine, PdfIngestError, VideoIngestError
-from mke.domain import FailurePoint
+from mke.application import AskValidationError, KnowledgeEngine, PdfIngestError, VideoIngestError
+from mke.domain import FailurePoint, SearchResult
 from mke.interfaces.mcp_server import run_mcp_server
 
 _DEFAULT_PDF_FIXTURE = Path("tests/fixtures/pdf/text-layer.pdf")
@@ -19,7 +19,7 @@ _DEFAULT_VIDEO_FIXTURE = Path("tests/fixtures/video/short-audio.mp4")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run the narrow PR 2 CLI path."""
+    """Run the narrow local Evidence ingest, Search, and Ask CLI path."""
     if argv is None:
         print("multimodal-knowledge-engine: bootstrap stage")
         return 0
@@ -33,6 +33,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     search = subcommands.add_parser("search")
     search.add_argument("query", nargs="+")
+
+    ask = subcommands.add_parser("ask")
+    ask.add_argument("question", nargs="+")
 
     run = subcommands.add_parser("run")
     run_subcommands = run.add_subparsers(dest="run_command", required=True)
@@ -60,6 +63,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _ingest(engine, args.file)
         if args.command == "search":
             return _search(engine, " ".join(args.query))
+        if args.command == "ask":
+            return _ask(engine, " ".join(args.question))
         return _run_get(engine, args.run_id)
     finally:
         engine.close()
@@ -91,13 +96,31 @@ def _ingest(engine: KnowledgeEngine, path: Path) -> int:
 
 
 def _search(engine: KnowledgeEngine, query: str) -> int:
-    for match in engine.search(query):
+    _print_evidence_matches(engine.search(query))
+    return 0
+
+
+def _ask(engine: KnowledgeEngine, question: str) -> int:
+    try:
+        result = engine.ask(question)
+    except AskValidationError as error:
+        _print_error_contract(error.cause, problem=error.problem, next_step=error.next_step)
+        return 1
+    print(
+        f"answer_status={result.answer_status} evidence_count={len(result.evidence)} "
+        f"summary=\"{result.summary}\""
+    )
+    _print_evidence_matches(result.evidence)
+    return 0
+
+
+def _print_evidence_matches(matches: Iterable[SearchResult]) -> None:
+    for match in matches:
         if match.locator_kind == "page":
             locator = f"page={match.page_number}"
         else:
             locator = f"{match.locator_kind}={match.locator_start}..{match.locator_end}"
         print(f"{locator} evidence_id={match.evidence_id} text={match.text}")
-    return 0
 
 
 def _run_get(engine: KnowledgeEngine, run_id: str) -> int:
@@ -194,10 +217,14 @@ def _demo_verify(fixture: Path, revised_fixture: Path, video_fixture: Path) -> i
     return 0
 
 
-def _print_error_contract(cause: str, problem: str = "pdf_ingest_failed") -> None:
+def _print_error_contract(
+    cause: str,
+    problem: str = "pdf_ingest_failed",
+    next_step: str = "fix_input_or_retry",
+) -> None:
     print(
         f"problem={problem} "
         f"cause={cause} "
         "active_publication_impact=unchanged "
-        "next_step=fix_input_or_retry"
+        f"next_step={next_step}"
     )

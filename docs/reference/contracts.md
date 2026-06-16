@@ -30,10 +30,10 @@ Status:
 | `mke --db <path> run get <run_id>` | implemented in PR 3 | Prints Run state, retry lineage, and append-only Run events. |
 | `mke demo --verify` | implemented in PR 3, extended in PR 4 | Deterministic offline PDF and short-video proof using temporary SQLite workspace and repository fixtures. |
 | `mke --db <path> mcp --allowed-root <path>` | implemented in C1 | Runs a local stdio MCP server for Agent-facing ingest, Run inspection, and active Evidence Search. |
+| `mke --db <path> ask <question>` | implemented in C2 | Returns deterministic evidence-only Ask output using active Publication Search. |
 | `mke init` | planned | Workspace initialization after lifecycle proof. |
 | `mke serve` | planned | Single-owner local process after CLI proof. |
 | `mke library create` | planned | May be implicit in first CLI path. |
-| `mke ask` | planned | Deferred until Search Evidence is trustworthy. |
 
 The PR 2 PDF CLI uses a local SQLite database path supplied with `--db`. It does not expose a
 general FTS query language: Search tokenizes user input into escaped terms before querying FTS5.
@@ -52,6 +52,10 @@ For PDF ingest failures the current stable problem code is `pdf_ingest_failed`. 
 failures the current stable problem code is `video_ingest_failed`. In both cases the active
 Publication impact is `unchanged`.
 
+Ask validation failures use `invalid_question` for empty, overlong, or no-searchable-token
+questions and `invalid_query` for invalid limits. CJK-only and punctuation-only Ask inputs return
+`invalid_question` in C2 because the current retrieval path only exposes searchable ASCII tokens.
+
 ## MCP
 
 Status: partially implemented.
@@ -63,17 +67,30 @@ list_libraries
 ingest_file
 get_run
 search_library
-```
-
-Planned tools:
-
-```text
 ask_library
 ```
+
+`ask_library` returns deterministic Evidence packets, not model-generated answers. Successful
+responses include:
+
+```text
+ok
+ask_id
+question
+answer_status
+summary
+evidence
+limitations
+```
+
+`answer_status` supports `evidence_found` and `insufficient_evidence` in C2. No-match Ask is not
+an error: it returns `ok=true`, `answer_status="insufficient_evidence"`, an empty `evidence` list,
+and a limitation explaining that no active Evidence matched the search terms.
 
 The MCP server runs over stdio through `mke mcp --allowed-root <path>`. It reuses the same
 `KnowledgeEngine` application service as CLI ingest, Run inspection, and Search. `ingest_file`
 only accepts files under the configured allowed root and currently supports `.pdf` and `.mp4`.
-`search_library` reads active Publication Evidence only.
+`search_library` and `ask_library` read active Publication Evidence only and share the same
+Evidence locator payload shape.
 
 HTTP, CLI, MCP, and the workspace must use the same application services and project-owned DTOs.

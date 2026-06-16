@@ -55,11 +55,13 @@ uv run mke --db .tmp/mke.sqlite ingest tests/fixtures/pdf/text-layer.pdf
 uv run mke --db .tmp/mke.sqlite ingest tests/fixtures/video/short-audio.mp4
 uv run mke --db .tmp/mke.sqlite search trustworthy
 uv run mke --db .tmp/mke.sqlite search timestamp
+uv run mke --db .tmp/mke.sqlite ask "publication active"
 uv run mke --db .tmp/mke.sqlite run get <run_id>
 ```
 
 This path supports deterministic text-layer PDFs, the documented short MP4 fixture profile with a
 local transcript sidecar, active Publication Search, and local stdio MCP access through
-`mke mcp`. It does not cover scanned-PDF OCR, long videos, real speech-model transcription, Ask,
-HTTP, workspace UI, hosted coordination, or
-multi-worker runtime behavior.
+`mke mcp`. `mke ask` is evidence-only: it reports cited active Evidence or
+`insufficient_evidence`, without model-generated answers. This path does not cover scanned-PDF
+OCR, long videos, real speech-model transcription, generative Ask, HTTP, workspace UI, hosted
+coordination, or multi-worker runtime behavior.

@@ -10,12 +10,16 @@ This repository now has a deterministic local cross-modal proof: `mke demo --ver
 text-layer PDF and a short local video, proves failed PDF reprocessing leaves the active
 Publication searchable, retries the validated candidate path, and verifies active-only Search for
 page and timestamp Evidence. The first Agent-facing interface is a local stdio MCP server for
-ingest, Run inspection, and active Evidence Search. Ask, HTTP, and the workspace are not
-implemented yet.
+ingest, Run inspection, active Evidence Search, and evidence-only Ask. HTTP and the workspace are
+not implemented yet.
 
 The proof covers the lifecycle boundary, not broad media support. It does not perform scanned-PDF
 OCR, arbitrary video processing, real speech-model transcription, hosted coordination, or external
 provider calls.
+
+C2 Ask is evidence-only: `ask_library` and `mke ask` return cited page or timestamp Evidence when
+active Search matches the question terms, or `insufficient_evidence` when it does not. MKE does
+not call an LLM or generate natural-language answers in this slice.
 
 ## Pilot Goal
 
@@ -67,6 +71,7 @@ uv run mke --db .tmp/mke.sqlite ingest tests/fixtures/pdf/text-layer.pdf
 uv run mke --db .tmp/mke.sqlite ingest tests/fixtures/video/short-audio.mp4
 uv run mke --db .tmp/mke.sqlite search trustworthy
 uv run mke --db .tmp/mke.sqlite search timestamp
+uv run mke --db .tmp/mke.sqlite ask "publication active"
 uv run mke --db .tmp/mke.sqlite run get <run_id>
 uv run mke --db .tmp/mke.sqlite mcp --allowed-root .
 ```

@@ -7,7 +7,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from mke.application import KnowledgeEngine, PdfIngestError, VideoIngestError
+from mke.application import (
+    DEFAULT_ASK_LIMIT,
+    MAX_ASK_LIMIT,
+    MIN_ASK_LIMIT,
+    AskValidationError,
+    KnowledgeEngine,
+    PdfIngestError,
+    VideoIngestError,
+)
+from mke.domain import SearchResult
 
 logger = logging.getLogger(__name__)
 
@@ -15,10 +24,6 @@ _SUPPORTED_SUFFIX_MEDIA_TYPES = {
     ".pdf": "application/pdf",
     ".mp4": "video/mp4",
 }
-
-_DEFAULT_SEARCH_LIMIT = 5
-_MIN_SEARCH_LIMIT = 1
-_MAX_SEARCH_LIMIT = 20
 
 
 @dataclass(frozen=True)
@@ -137,40 +142,82 @@ def get_run(config: McpRuntimeConfig, run_id: str) -> dict[str, Any]:
 
 
 def search_library(
-    config: McpRuntimeConfig, query: str, limit: int = _DEFAULT_SEARCH_LIMIT
+    config: McpRuntimeConfig, query: str, limit: int = DEFAULT_ASK_LIMIT
 ) -> dict[str, Any]:
     normalized_query = query.strip()
     if not normalized_query:
         return _failure("invalid_query", "query must not be empty", "provide_non_empty_query")
-    if limit < _MIN_SEARCH_LIMIT or limit > _MAX_SEARCH_LIMIT:
+    if type(limit) is not int or limit < MIN_ASK_LIMIT or limit > MAX_ASK_LIMIT:
         return _failure(
             "invalid_query",
-            f"limit must be between {_MIN_SEARCH_LIMIT} and {_MAX_SEARCH_LIMIT}",
+            f"limit must be between {MIN_ASK_LIMIT} and {MAX_ASK_LIMIT}",
             "choose_limit_between_1_and_20",
         )
 
     engine: KnowledgeEngine | None = None
     try:
         engine = KnowledgeEngine(config.db_path)
-        results: list[dict[str, Any]] = []
-        for match in engine.search(normalized_query, limit=limit):
-            results.append(
-                {
-                    "evidence_id": match.evidence_id,
-                    "publication_id": match.publication_id,
-                    "source_id": match.source_id,
-                    "locator": {
-                        "kind": match.locator_kind,
-                        "start": match.locator_start,
-                        "end": match.locator_end,
-                    },
-                    "text": match.text,
-                }
-            )
+        results = [
+            _evidence_from_search_result(match)
+            for match in engine.search(normalized_query, limit=limit)
+        ]
         return {"ok": True, "query": normalized_query, "results": results}
     finally:
         if engine is not None:
             engine.close()
+
+
+def ask_library(
+    config: McpRuntimeConfig, question: str, limit: int = DEFAULT_ASK_LIMIT
+) -> dict[str, Any]:
+    normalized_question = question.strip()
+    if not normalized_question:
+        return _failure(
+            "invalid_question",
+            "question must not be empty",
+            "provide_non_empty_question",
+        )
+    if type(limit) is not int or limit < MIN_ASK_LIMIT or limit > MAX_ASK_LIMIT:
+        return _failure(
+            "invalid_query",
+            f"limit must be between {MIN_ASK_LIMIT} and {MAX_ASK_LIMIT}",
+            "choose_limit_between_1_and_20",
+        )
+    engine: KnowledgeEngine | None = None
+    try:
+        engine = KnowledgeEngine(config.db_path)
+        try:
+            result = engine.ask(question, limit=limit)
+        except AskValidationError as error:
+            return _failure(error.problem, error.cause, error.next_step)
+        return {
+            "ok": True,
+            "ask_id": result.ask_id,
+            "question": result.question,
+            "answer_status": result.answer_status,
+            "summary": result.summary,
+            "evidence": [
+                _evidence_from_search_result(match) for match in result.evidence
+            ],
+            "limitations": list(result.limitations),
+        }
+    finally:
+        if engine is not None:
+            engine.close()
+
+
+def _evidence_from_search_result(match: SearchResult) -> dict[str, Any]:
+    return {
+        "evidence_id": match.evidence_id,
+        "publication_id": match.publication_id,
+        "source_id": match.source_id,
+        "locator": {
+            "kind": match.locator_kind,
+            "start": match.locator_start,
+            "end": match.locator_end,
+        },
+        "text": match.text,
+    }
 
 
 def _resolve_allowed_file(config: McpRuntimeConfig, path: str) -> Path:

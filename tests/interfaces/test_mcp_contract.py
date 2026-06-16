@@ -2,6 +2,7 @@ from pathlib import Path
 
 from mke.interfaces.mcp_contract import (
     McpRuntimeConfig,
+    ask_library,
     get_run,
     ingest_file,
     list_libraries,
@@ -203,6 +204,20 @@ def test_search_library_rejects_invalid_limit(tmp_path: Path) -> None:
     }
 
 
+def test_search_library_rejects_boolean_limit(tmp_path: Path) -> None:
+    config = _config(tmp_path, PDF_FIXTURES)
+
+    result = search_library(config, "publication", limit=True)
+
+    assert result == {
+        "ok": False,
+        "problem": "invalid_query",
+        "cause": "limit must be between 1 and 20",
+        "active_publication_impact": "unchanged",
+        "next_step": "choose_limit_between_1_and_20",
+    }
+
+
 def test_search_library_returns_empty_results_for_no_match(tmp_path: Path) -> None:
     config = _config(tmp_path, PDF_FIXTURES)
     ingest_file(config, "text-layer.pdf")
@@ -237,6 +252,140 @@ def test_search_library_rejects_limit_above_max(tmp_path: Path) -> None:
         "active_publication_impact": "unchanged",
         "next_step": "choose_limit_between_1_and_20",
     }
+
+
+def test_ask_library_returns_pdf_evidence_packet(tmp_path: Path) -> None:
+    config = _config(tmp_path, PDF_FIXTURES)
+    ingest_file(config, "text-layer.pdf")
+
+    result = ask_library(config, "publication active")
+
+    assert result["ok"] is True
+    assert str(result["ask_id"]).startswith("ask_")
+    assert result["question"] == "publication active"
+    assert result["answer_status"] == "evidence_found"
+    assert result["summary"] == "1 active Evidence item matched the search terms."
+    assert result["limitations"] == [
+        "No model-generated answer is produced in this slice.",
+        "The summary is deterministic and only reports matched Evidence count.",
+    ]
+    evidence = result["evidence"][0]
+    assert evidence["locator"] == {"kind": "page", "start": 2, "end": 2}
+    assert "Publication search returns only active page two." in evidence["text"]
+
+
+def test_ask_library_returns_video_evidence_packet(tmp_path: Path) -> None:
+    config = _config(tmp_path, VIDEO_FIXTURES)
+    ingest_file(config, "short-audio.mp4")
+
+    result = ask_library(config, "timestamp proof")
+
+    assert result["ok"] is True
+    assert result["answer_status"] == "evidence_found"
+    evidence = result["evidence"][0]
+    assert evidence["locator"] == {"kind": "timestamp_ms", "start": 1200, "end": 2200}
+    assert "Active publication search finds spoken timestamp proof." in evidence["text"]
+
+
+def test_ask_library_returns_insufficient_evidence(tmp_path: Path) -> None:
+    config = _config(tmp_path, PDF_FIXTURES)
+    ingest_file(config, "text-layer.pdf")
+
+    result = ask_library(config, "audio diarization")
+
+    assert result == {
+        "ok": True,
+        "ask_id": result["ask_id"],
+        "question": "audio diarization",
+        "answer_status": "insufficient_evidence",
+        "summary": "No active Evidence matched the search terms.",
+        "evidence": [],
+        "limitations": [
+            "No answer is produced because no active Evidence matched the search terms.",
+            "No model-generated answer is produced in this slice.",
+        ],
+    }
+    assert str(result["ask_id"]).startswith("ask_")
+
+
+def test_ask_library_rejects_empty_question(tmp_path: Path) -> None:
+    config = _config(tmp_path, PDF_FIXTURES)
+
+    result = ask_library(config, "   ")
+
+    assert result == {
+        "ok": False,
+        "problem": "invalid_question",
+        "cause": "question must not be empty",
+        "active_publication_impact": "unchanged",
+        "next_step": "provide_non_empty_question",
+    }
+
+
+def test_ask_library_rejects_no_searchable_token_question(tmp_path: Path) -> None:
+    config = _config(tmp_path, PDF_FIXTURES)
+
+    result = ask_library(config, "发布时间？")
+
+    assert result == {
+        "ok": False,
+        "problem": "invalid_question",
+        "cause": "question must contain at least one searchable ASCII token",
+        "active_publication_impact": "unchanged",
+        "next_step": "provide_searchable_question",
+    }
+
+
+def test_ask_library_rejects_overlong_question(tmp_path: Path) -> None:
+    config = _config(tmp_path, PDF_FIXTURES)
+
+    result = ask_library(config, "x" * 1001)
+
+    assert result == {
+        "ok": False,
+        "problem": "invalid_question",
+        "cause": "question must be 1000 characters or fewer",
+        "active_publication_impact": "unchanged",
+        "next_step": "shorten_question",
+    }
+
+
+def test_ask_library_rejects_invalid_limit(tmp_path: Path) -> None:
+    config = _config(tmp_path, PDF_FIXTURES)
+
+    result = ask_library(config, "publication", limit=21)
+
+    assert result == {
+        "ok": False,
+        "problem": "invalid_query",
+        "cause": "limit must be between 1 and 20",
+        "active_publication_impact": "unchanged",
+        "next_step": "choose_limit_between_1_and_20",
+    }
+
+
+def test_ask_library_rejects_boolean_limit(tmp_path: Path) -> None:
+    config = _config(tmp_path, PDF_FIXTURES)
+
+    result = ask_library(config, "publication", limit=True)
+
+    assert result == {
+        "ok": False,
+        "problem": "invalid_query",
+        "cause": "limit must be between 1 and 20",
+        "active_publication_impact": "unchanged",
+        "next_step": "choose_limit_between_1_and_20",
+    }
+
+
+def test_search_and_ask_share_evidence_payload_shape(tmp_path: Path) -> None:
+    config = _config(tmp_path, PDF_FIXTURES)
+    ingest_file(config, "text-layer.pdf")
+
+    search = search_library(config, "publication active")
+    ask = ask_library(config, "publication active")
+
+    assert ask["evidence"][0] == search["results"][0]
 
 
 def test_ingest_file_returns_stable_error_on_invalid_pdf(tmp_path: Path) -> None:

@@ -120,6 +120,16 @@ class SearchResult:
         return self.locator_start
 
 
+@dataclass(frozen=True)
+class AskResult:
+    ask_id: str
+    question: str
+    answer_status: str
+    summary: str
+    evidence: tuple[SearchResult, ...]
+    limitations: tuple[str, ...]
+
+
 REQUIRED_PDF_STAGES = frozenset({"pdf_text_extraction", "candidate_evidence"})
 PDF_EXTRACTOR_FINGERPRINT = "builtin-pdf-text-v1"
 REQUIRED_VIDEO_STAGES = frozenset({"video_transcription", "candidate_evidence"})
