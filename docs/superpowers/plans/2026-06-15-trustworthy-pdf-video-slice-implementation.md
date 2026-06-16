@@ -20,11 +20,11 @@ services, and hosted coordination remain outside this completed slice.
 
 The first useful MKE product proof was implemented in three delivery stages:
 
-1. PR 2: text-layer PDF happy path with minimal Publication correctness.
-2. PR 3: failure isolation, reprocess/retry proof, and `mke demo --verify`.
-3. PR 4: short video timestamp Evidence using the same lifecycle.
+1. PR 2 (GitHub #4): text-layer PDF happy path with minimal Publication correctness.
+2. PR 3 (GitHub #6): failure isolation, reprocess/retry proof, and `mke demo --verify`.
+3. PR 4 (GitHub #7): short video timestamp Evidence using the same lifecycle.
 
-## PR 2: PDF Happy Path With Minimal Publication Correctness
+## PR 2 (GitHub #4): PDF Happy Path With Minimal Publication Correctness
 
 Files expected to change:
 
@@ -57,7 +57,7 @@ Files expected to change:
   invalid PDFs, no-text PDFs, and FTS query escaping.
 - [x] Update docs for implemented PDF commands and known non-goals.
 
-## PR 3: Reliability Proof And Golden Demo
+## PR 3 (GitHub #6): Reliability Proof And Golden Demo
 
 Files expected to change:
 
@@ -91,7 +91,7 @@ Files expected to change:
 - [x] Update CI to run the wheel-installed `mke demo --verify`.
 - [x] Document default DB path, `--db`, demo DB isolation, migration, reset, and local cleanup.
 
-## PR 4: Short Video Timestamp Evidence
+## PR 4 (GitHub #7): Short Video Timestamp Evidence
 
 Files expected to change:
 
@@ -107,7 +107,7 @@ Files expected to change:
 - [x] Decide and document `ffmpeg` handling, supported codecs, transcription adapter,
   model/cache behavior, offline behavior, fixture license, fixture size, and CI strategy.
 - [x] Persist timestamp Evidence using integer millisecond time ranges.
-- [x] Reuse the PR 2/3 Source Publication lifecycle without weakening PDF semantics.
+- [x] Reuse the PR 2/3 (GitHub #4/#6) Source Publication lifecycle without weakening PDF semantics.
 - [x] Add failure tests for missing audio, unsupported codec, transcription failure, and unstable
   timestamp locator generation.
 - [x] Extend `mke demo --verify` to prove one PDF and one short video.
@@ -123,7 +123,7 @@ uv run pyright
 uv build
 ```
 
-After PR 3:
+After PR 3 (GitHub #6):
 
 ```bash
 uv run mke demo --verify
