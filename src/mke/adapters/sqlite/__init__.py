@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import sqlite3
 from pathlib import Path
@@ -12,6 +13,7 @@ from mke.domain import (
     ActivationResult,
     CandidateEvidence,
     FailurePoint,
+    PdfIntakeReport,
     RunEvent,
     RunEventType,
     RunManifest,
@@ -107,6 +109,18 @@ class SQLiteStore:
               required_stages TEXT NOT NULL,
               extractor_fingerprint TEXT NOT NULL,
               asset_sha256 TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS pdf_intake_reports (
+              run_id TEXT PRIMARY KEY REFERENCES runs(run_id),
+              total_pages INTEGER NOT NULL,
+              extracted_pages INTEGER NOT NULL,
+              empty_pages INTEGER NOT NULL,
+              total_extracted_chars INTEGER NOT NULL,
+              page_char_counts TEXT NOT NULL,
+              suspected_scanned_pages INTEGER NOT NULL,
+              extraction_mode TEXT NOT NULL,
+              failure_reason TEXT
             );
 
             CREATE TABLE IF NOT EXISTS evidence (
@@ -292,6 +306,50 @@ class SQLiteStore:
         if row is None:
             raise KeyError(f"unknown run: {run_id}")
         return _run_from_row(row)
+
+    def persist_pdf_intake_report(self, run_id: str, report: PdfIntakeReport) -> None:
+        self._connection.execute(
+            """
+            INSERT OR REPLACE INTO pdf_intake_reports(
+              run_id, total_pages, extracted_pages, empty_pages, total_extracted_chars,
+              page_char_counts, suspected_scanned_pages, extraction_mode, failure_reason
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                run_id,
+                report.total_pages,
+                report.extracted_pages,
+                report.empty_pages,
+                report.total_extracted_chars,
+                json.dumps(list(report.page_char_counts), separators=(",", ":")),
+                report.suspected_scanned_pages,
+                report.extraction_mode,
+                report.failure_reason,
+            ),
+        )
+        self._connection.commit()
+
+    def get_pdf_intake_report(self, run_id: str) -> PdfIntakeReport | None:
+        row = self._connection.execute(
+            """
+            SELECT total_pages, extracted_pages, empty_pages, total_extracted_chars,
+                   page_char_counts, suspected_scanned_pages, extraction_mode, failure_reason
+            FROM pdf_intake_reports WHERE run_id = ?
+            """,
+            (run_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return PdfIntakeReport(
+            total_pages=int(row["total_pages"]),
+            extracted_pages=int(row["extracted_pages"]),
+            empty_pages=int(row["empty_pages"]),
+            total_extracted_chars=int(row["total_extracted_chars"]),
+            page_char_counts=tuple(int(value) for value in json.loads(str(row["page_char_counts"]))),
+            suspected_scanned_pages=int(row["suspected_scanned_pages"]),
+            extraction_mode=str(row["extraction_mode"]),
+            failure_reason=str(row["failure_reason"]) if row["failure_reason"] is not None else None,
+        )
 
     def mark_run_failed(self, run_id: str) -> None:
         with self._connection:

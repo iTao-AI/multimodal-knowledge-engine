@@ -555,7 +555,7 @@ git commit -m "feat(pdf): add pymupdf text intake adapter"
 - Modify: `src/mke/adapters/sqlite/__init__.py`
 - Create: `tests/adapters/test_sqlite_pdf_intake_report.py`
 
-- [ ] **Step 1: Add failing storage tests**
+- [x] **Step 1: Add failing storage tests**
 
 Create `tests/adapters/test_sqlite_pdf_intake_report.py`:
 
@@ -595,7 +595,7 @@ def test_sqlite_returns_none_for_missing_pdf_intake_report(tmp_path: Path) -> No
     assert store.get_pdf_intake_report(run.run_id) is None
 ```
 
-- [ ] **Step 2: Run failing tests**
+- [x] **Step 2: Run failing tests**
 
 Run:
 
@@ -605,7 +605,7 @@ uv run pytest tests/adapters/test_sqlite_pdf_intake_report.py -q
 
 Expected: FAIL because persistence methods do not exist.
 
-- [ ] **Step 3: Add schema and storage methods**
+- [x] **Step 3: Add schema and storage methods**
 
 In `SQLiteStore.migrate()`, add:
 
@@ -674,7 +674,7 @@ Import `json` and `PdfIntakeReport`, then add methods:
         )
 ```
 
-- [ ] **Step 4: Run storage tests**
+- [x] **Step 4: Run storage tests**
 
 Run:
 
@@ -684,7 +684,7 @@ uv run pytest tests/adapters/test_sqlite_pdf_intake_report.py tests/adapters/tes
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/mke/adapters/sqlite/__init__.py tests/adapters/test_sqlite_pdf_intake_report.py
