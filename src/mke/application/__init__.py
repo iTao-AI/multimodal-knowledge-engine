@@ -5,13 +5,14 @@ from __future__ import annotations
 import re
 from hashlib import sha256
 from pathlib import Path
+from typing import Protocol
 from uuid import uuid4
 
-from mke.adapters.pdf import PdfExtractionError, extract_text_pages
+from mke.adapters.pdf import PdfExtractionError, PyMuPDFPdfExtractor
 from mke.adapters.sqlite import InjectedStorageFailure, SQLiteStore
 from mke.adapters.video import VideoExtractionError, extract_transcript_segments
 from mke.domain import (
-    PDF_EXTRACTOR_FINGERPRINT,
+    PYMUPDF_TEXT_FINGERPRINT,
     REQUIRED_PDF_STAGES,
     REQUIRED_VIDEO_STAGES,
     VIDEO_TRANSCRIPT_FINGERPRINT,
@@ -21,6 +22,8 @@ from mke.domain import (
     FailurePoint,
     IngestResult,
     ManifestValidationError,
+    PdfExtractionResult,
+    PdfIntakeReport,
     RunEvent,
     RunManifest,
     RunRecord,
@@ -39,6 +42,11 @@ _MODEL_FREE_LIMITATION = "No model-generated answer is produced in this slice."
 _COUNT_ONLY_LIMITATION = (
     "The summary is deterministic and only reports matched Evidence count."
 )
+
+
+class PdfExtractor(Protocol):
+    def extract(self, path: Path) -> PdfExtractionResult:
+        raise NotImplementedError
 
 
 class PdfIngestError(ValueError):
@@ -70,8 +78,9 @@ class AskValidationError(ValueError):
 class KnowledgeEngine:
     """Project-owned application facade shared by CLI and future interfaces."""
 
-    def __init__(self, db_path: Path) -> None:
+    def __init__(self, db_path: Path, pdf_extractor: PdfExtractor | None = None) -> None:
         self._store = SQLiteStore(db_path)
+        self._pdf_extractor = pdf_extractor or PyMuPDFPdfExtractor()
 
     def close(self) -> None:
         self._store.close()
@@ -89,6 +98,9 @@ class KnowledgeEngine:
 
     def get_run_events(self, run_id: str) -> list[RunEvent]:
         return self._store.get_run_events(run_id)
+
+    def get_pdf_intake_report(self, run_id: str) -> PdfIntakeReport | None:
+        return self._store.get_pdf_intake_report(run_id)
 
     def persist_validated_candidate(
         self, run_id: str, evidence: list[CandidateEvidence], manifest: RunManifest
@@ -194,7 +206,8 @@ class KnowledgeEngine:
         try:
             if failure_point == FailurePoint.BEFORE_VALIDATION:
                 raise InjectedStorageFailure(failure_point.value)
-            pages = extract_text_pages(path)
+            extraction = self._pdf_extractor.extract(path)
+            self._store.persist_pdf_intake_report(run.run_id, extraction.report)
             evidence = [
                 CandidateEvidence(
                     evidence_id=f"ev_{uuid4().hex}",
@@ -203,13 +216,13 @@ class KnowledgeEngine:
                     locator_end=page.page_number,
                     text=page.text,
                 )
-                for page in pages
+                for page in extraction.pages
             ]
             manifest = RunManifest(
                 run_id=run.run_id,
                 evidence_count=len(evidence),
                 required_stages=tuple(sorted(REQUIRED_PDF_STAGES)),
-                extractor_fingerprint=PDF_EXTRACTOR_FINGERPRINT,
+                extractor_fingerprint=PYMUPDF_TEXT_FINGERPRINT,
                 asset_sha256=asset_sha256,
             )
             self._store.persist_validated_candidate(
@@ -219,15 +232,24 @@ class KnowledgeEngine:
                 failure_point=failure_point,
             )
             if not activate:
-                return IngestResult(run.run_id, RunState.VALIDATED, len(evidence), retry_of_run_id)
+                return IngestResult(
+                    run.run_id,
+                    RunState.VALIDATED,
+                    len(evidence),
+                    retry_of_run_id,
+                    extraction.report,
+                )
             activation = self.activate_publication(run.run_id, failure_point=failure_point)
             return IngestResult(
                 run_id=run.run_id,
                 run_state=activation.run_state,
                 evidence_count=len(evidence) if activation.published else 0,
                 retry_of_run_id=retry_of_run_id,
+                intake_report=extraction.report,
             )
         except (PdfExtractionError, ManifestValidationError, InjectedStorageFailure) as error:
+            if isinstance(error, PdfExtractionError) and error.report is not None:
+                self._store.persist_pdf_intake_report(run.run_id, error.report)
             if failure_point in {
                 FailurePoint.AFTER_PUBLICATION_INSERT,
                 FailurePoint.DURING_ACTIVE_FTS_REPLACEMENT,

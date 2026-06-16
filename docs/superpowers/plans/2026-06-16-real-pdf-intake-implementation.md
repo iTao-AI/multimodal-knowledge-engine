@@ -697,7 +697,7 @@ git commit -m "feat(storage): persist pdf intake report"
 - Modify: `src/mke/application/__init__.py`
 - Modify: `tests/application/test_pdf_publication.py`
 
-- [ ] **Step 1: Add failing application tests**
+- [x] **Step 1: Add failing application tests**
 
 Append to `tests/application/test_pdf_publication.py`:
 
@@ -725,7 +725,7 @@ def test_failed_pdf_ingest_persists_failure_report(tmp_path: Path) -> None:
     assert engine.search("anything") == []
 ```
 
-- [ ] **Step 2: Run failing application tests**
+- [x] **Step 2: Run failing application tests**
 
 Run:
 
@@ -735,7 +735,7 @@ uv run pytest tests/application/test_pdf_publication.py -q
 
 Expected: FAIL because `get_pdf_intake_report()` and `intake_report` wiring do not exist.
 
-- [ ] **Step 3: Wire extractor and report persistence**
+- [x] **Step 3: Wire extractor and report persistence**
 
 Update imports in `src/mke/application/__init__.py`:
 
@@ -814,7 +814,7 @@ In the `except PdfExtractionError` branch, persist the error report when availab
                 self._store.persist_pdf_intake_report(run.run_id, error.report)
 ```
 
-- [ ] **Step 4: Run application tests**
+- [x] **Step 4: Run application tests**
 
 Run:
 
@@ -824,7 +824,7 @@ uv run pytest tests/application/test_pdf_publication.py tests/application/test_r
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/mke/application/__init__.py tests/application/test_pdf_publication.py

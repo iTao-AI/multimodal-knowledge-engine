@@ -91,10 +91,10 @@ def test_stale_run_is_superseded_without_changing_active_search(tmp_path: Path) 
 def test_invalid_and_no_text_pdfs_fail_without_publication(tmp_path: Path) -> None:
     engine = KnowledgeEngine(tmp_path / "mke.sqlite")
 
-    with pytest.raises(PdfIngestError, match="valid PDF"):
+    with pytest.raises(PdfIngestError, match="PDF cannot be opened"):
         engine.ingest_pdf(PDF_FIXTURES / "invalid.pdf")
 
-    with pytest.raises(PdfIngestError, match="text layer"):
+    with pytest.raises(PdfIngestError, match="extractable text"):
         engine.ingest_pdf(PDF_FIXTURES / "no-text.pdf")
 
     assert engine.search("anything") == []
@@ -131,3 +131,26 @@ def test_publishable_after_invalid_pdf_failure(tmp_path: Path) -> None:
     assert result.run_state == RunState.PUBLISHED
     assert result.evidence_count == 2
     assert len(engine.search("trustworthy")) == 1
+
+
+def test_pdf_ingest_result_carries_intake_report(tmp_path: Path) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+
+    result = engine.ingest_pdf(PDF_FIXTURES / "text-layer.pdf")
+
+    assert result.intake_report is not None
+    assert result.intake_report.total_pages == 2
+    assert result.intake_report.extracted_pages == 2
+    assert engine.get_pdf_intake_report(result.run_id) == result.intake_report
+
+
+def test_failed_pdf_ingest_persists_failure_report(tmp_path: Path) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+
+    with pytest.raises(PdfIngestError) as error:
+        engine.ingest_pdf(PDF_FIXTURES / "no-text.pdf")
+
+    report = engine.get_pdf_intake_report(error.value.run_id or "")
+    assert report is not None
+    assert report.failure_reason == "PDF has no extractable text"
+    assert engine.search("anything") == []
