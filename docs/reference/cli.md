@@ -82,14 +82,14 @@ problem=invalid_question cause=question must contain at least one searchable ASC
 Successful PDF ingest prints:
 
 ```text
-run_id=run_... run_state=published evidence_count=2 pdf_pages=2 extracted_pages=2 empty_pages=0 extracted_chars=87 suspected_scanned_pages=0
+run_id=run_... run_state=published evidence_count=2 pdf_pages=2 extracted_pages=2 empty_pages=0 extracted_chars=<chars> suspected_scanned_pages=0
 ```
 
 PDF Run inspection includes the same intake summary before Run events:
 
 ```text
 run_id=run_... state=published source_generation=1
-pdf_pages=2 extracted_pages=2 empty_pages=0 extracted_chars=87 suspected_scanned_pages=0
+pdf_pages=2 extracted_pages=2 empty_pages=0 extracted_chars=<chars> suspected_scanned_pages=0
 event_index=1 event=run_created
 ```
 

@@ -1148,7 +1148,7 @@ git commit -m "docs(pdf): document real pdf intake workflow"
 - Modify: `docs/superpowers/plans/2026-06-16-real-pdf-intake-implementation.md`
 - Optional create after review: `docs/superpowers/reviews/2026-06-16-real-pdf-intake-review.md`
 
-- [ ] **Step 1: Run full verification**
+- [x] **Step 1: Run full verification**
 
 Run:
 
@@ -1168,7 +1168,7 @@ Expected:
 - build creates sdist/wheel,
 - demo prints `result=passed`.
 
-- [ ] **Step 2: Run optional smoke harness**
+- [x] **Step 2: Run optional smoke harness**
 
 If a local smoke PDF directory is available, run:
 
@@ -1178,12 +1178,12 @@ uv run python scripts/pdf_intake_smoke.py /path/to/local/pdf-directory
 
 Commit only redacted aggregate results in the PR body. Do not commit source PDFs or local paths.
 
-- [ ] **Step 3: Update checklist**
+- [x] **Step 3: Update checklist**
 
 Mark completed tasks in this plan from `- [ ]` to `- [x]` as they are finished. Do not mark future
 items complete early.
 
-- [ ] **Step 4: Run pre-landing review**
+- [x] **Step 4: Run pre-landing review**
 
 Run the approved project review workflow against the full branch diff. Persist durable
 public-neutral findings to:
@@ -1195,7 +1195,7 @@ docs/superpowers/reviews/2026-06-16-real-pdf-intake-review.md
 Only include review conclusions, actionable findings, and verification results. Do not include raw
 GStack restore paths or private local paths.
 
-- [ ] **Step 5: Prepare Chinese PR body**
+- [x] **Step 5: Prepare Chinese PR body**
 
 Use the project PR format:
 
@@ -1242,7 +1242,7 @@ D1 将 PDF intake 从 fixture-only 解析扩展为 PyMuPDF-backed text-layer ext
 - Updated ADR, CLI/MCP references, product proof docs, README files, and implementation history.
 ```
 
-- [ ] **Step 6: Stop for authorization**
+- [x] **Step 6: Stop for authorization**
 
 Do not push, create PR, or merge without explicit user authorization.
 
