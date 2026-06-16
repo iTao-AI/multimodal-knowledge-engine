@@ -4,17 +4,27 @@
 > notes into this repository. Public source of truth is ADR-0001, ADR-0002, this plan, tests, and
 > actual command output.
 
-Status: Approved for implementation.
+Status: Completed.
 
-## Scope
+Completed in the public PR sequence:
 
-Implement the first useful MKE product proof in three PRs:
+- GitHub PR #4: text-layer PDF happy path with Publication correctness.
+- GitHub PR #6: reliability proof, failure isolation, retry lineage, and `mke demo --verify`.
+- GitHub PR #7: short-video timestamp Evidence using the same lifecycle.
 
-1. PR 2: text-layer PDF happy path with minimal Publication correctness.
-2. PR 3: failure isolation, reprocess/retry proof, and `mke demo --verify`.
-3. PR 4: short video timestamp Evidence using the same lifecycle.
+At completion, the proof path is `uv sync --locked && uv run mke demo --verify`. Ask, MCP, HTTP,
+workspace UI, scanned-PDF OCR, long-video processing, real speech-model transcription, external
+services, and hosted coordination remain outside this completed slice.
 
-## PR 2: PDF Happy Path With Minimal Publication Correctness
+## Completed Scope
+
+The first useful MKE product proof was implemented in three delivery stages:
+
+1. PR 2 (GitHub #4): text-layer PDF happy path with minimal Publication correctness.
+2. PR 3 (GitHub #6): failure isolation, reprocess/retry proof, and `mke demo --verify`.
+3. PR 4 (GitHub #7): short video timestamp Evidence using the same lifecycle.
+
+## PR 2 (GitHub #4): PDF Happy Path With Minimal Publication Correctness
 
 Files expected to change:
 
@@ -47,7 +57,7 @@ Files expected to change:
   invalid PDFs, no-text PDFs, and FTS query escaping.
 - [x] Update docs for implemented PDF commands and known non-goals.
 
-## PR 3: Reliability Proof And Golden Demo
+## PR 3 (GitHub #6): Reliability Proof And Golden Demo
 
 Files expected to change:
 
@@ -81,7 +91,7 @@ Files expected to change:
 - [x] Update CI to run the wheel-installed `mke demo --verify`.
 - [x] Document default DB path, `--db`, demo DB isolation, migration, reset, and local cleanup.
 
-## PR 4: Short Video Timestamp Evidence
+## PR 4 (GitHub #7): Short Video Timestamp Evidence
 
 Files expected to change:
 
@@ -97,14 +107,14 @@ Files expected to change:
 - [x] Decide and document `ffmpeg` handling, supported codecs, transcription adapter,
   model/cache behavior, offline behavior, fixture license, fixture size, and CI strategy.
 - [x] Persist timestamp Evidence using integer millisecond time ranges.
-- [x] Reuse the PR 2/3 Source Publication lifecycle without weakening PDF semantics.
+- [x] Reuse the PR 2/3 (GitHub #4/#6) Source Publication lifecycle without weakening PDF semantics.
 - [x] Add failure tests for missing audio, unsupported codec, transcription failure, and unstable
   timestamp locator generation.
 - [x] Extend `mke demo --verify` to prove one PDF and one short video.
 
 ## Verification
 
-Run commands that exist in the repository at the time of each PR:
+Run commands that exist in the repository at the time of each PR and at milestone closure:
 
 ```bash
 uv run pytest -q
@@ -113,13 +123,23 @@ uv run pyright
 uv build
 ```
 
-After PR 3:
+After PR 3 (GitHub #6):
 
 ```bash
 uv run mke demo --verify
 ```
 
 CI must also run the wheel-installed version of `mke demo --verify`.
+
+Milestone closure verification:
+
+```text
+uv run pytest -q
+uv run ruff check .
+uv run pyright
+uv build
+uv run mke demo --verify
+```
 
 ## Documentation Gate
 

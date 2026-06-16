@@ -11,6 +11,10 @@ text-layer PDF and a short local video, proves failed PDF reprocessing leaves th
 Publication searchable, retries the validated candidate path, and verifies active-only Search for
 page and timestamp Evidence. Ask, MCP, HTTP, and the workspace are not implemented yet.
 
+The proof covers the lifecycle boundary, not broad media support. It does not perform scanned-PDF
+OCR, arbitrary video processing, real speech-model transcription, hosted coordination, or external
+provider calls.
+
 ## Pilot Goal
 
 The first verified product slice will process one PDF and one short local video through observable Runs, publish only successful output, and return page- or timestamp-addressable Evidence.
@@ -28,7 +32,10 @@ See [Architecture](./docs/explanation/architecture.md) and [ADR-0001](./docs/dec
 
 ## Documentation
 
-Start at [docs/README.md](./docs/README.md). Approved implementation history is kept under `docs/superpowers/`; long-lived architecture decisions are kept under `docs/decisions/`.
+Start at [docs/README.md](./docs/README.md). To verify the current proof directly, see
+[Run The Local Product Proof](./docs/how-to/run-local-product-proof.md). Approved implementation
+history is kept under `docs/superpowers/`; long-lived architecture decisions are kept under
+`docs/decisions/`.
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for the development workflow and [SECURITY.md](./SECURITY.md) for responsible vulnerability reporting.
 
