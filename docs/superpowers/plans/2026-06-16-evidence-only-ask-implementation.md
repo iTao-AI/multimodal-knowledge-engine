@@ -750,7 +750,7 @@ git commit -m "feat(cli): expose evidence-only ask"
 - Modify: `README_CN.md`
 - Modify: `docs/README.md`
 
-- [ ] **Step 1: Update contracts**
+- [x] **Step 1: Update contracts**
 
 In `docs/reference/contracts.md`:
 
@@ -768,7 +768,7 @@ In `docs/reference/contracts.md`:
 - State that no-Evidence is `ok=true`, not an error.
 - State that CJK-only and punctuation-only Ask inputs return `invalid_question` because C2 uses the current ASCII-token FTS path.
 
-- [ ] **Step 2: Update CLI reference**
+- [x] **Step 2: Update CLI reference**
 
 In `docs/reference/cli.md`, add:
 
@@ -795,7 +795,7 @@ Document Ask validation errors:
 problem=invalid_question cause=question must contain at least one searchable ASCII token active_publication_impact=unchanged next_step=provide_searchable_question
 ```
 
-- [ ] **Step 3: Update MCP how-to**
+- [x] **Step 3: Update MCP how-to**
 
 In `docs/how-to/use-mke-mcp.md`, add `ask_library` after `search_library`:
 
@@ -808,7 +808,7 @@ In `docs/how-to/use-mke-mcp.md`, add `ask_library` after `search_library`:
 
 Explain that the tool returns cited Evidence packets and never model-generated answers.
 
-- [ ] **Step 4: Update tutorials and README files**
+- [x] **Step 4: Update tutorials and README files**
 
 In `README.md` and `README_CN.md`, state:
 
@@ -824,7 +824,7 @@ In `docs/README.md`, add links to:
 - `docs/superpowers/plans/2026-06-16-evidence-only-ask-implementation.md`
 - `docs/superpowers/reviews/2026-06-16-evidence-only-ask-autoplan-review.md`
 
-- [ ] **Step 5: Run docs-sensitive tests**
+- [x] **Step 5: Run docs-sensitive tests**
 
 Run:
 
@@ -834,7 +834,7 @@ uv run pytest tests/interfaces/test_cli_ask.py tests/interfaces/test_mcp_contrac
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit documentation updates**
+- [x] **Step 6: Commit documentation updates**
 
 Run:
 

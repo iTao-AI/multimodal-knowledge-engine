@@ -30,6 +30,9 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [MCP Agent Interface Design](./superpowers/specs/2026-06-16-mcp-agent-interface-design.md) defines the first Agent-facing stdio interface.
 - [MCP Agent Interface Implementation Plan](./superpowers/plans/2026-06-16-mcp-agent-interface-implementation.md) is the executable plan for the next interface slice.
 - [MCP Agent Interface Autoplan Review](./superpowers/reviews/2026-06-16-mcp-agent-interface-autoplan-review.md) records the approved review findings for this slice.
+- [Evidence-Only Ask Design](./superpowers/specs/2026-06-16-evidence-only-ask-design.md) defines deterministic non-generative Ask.
+- [Evidence-Only Ask Implementation Plan](./superpowers/plans/2026-06-16-evidence-only-ask-implementation.md) is the executable C2 plan.
+- [Evidence-Only Ask Autoplan Review](./superpowers/reviews/2026-06-16-evidence-only-ask-autoplan-review.md) records the approved pre-implementation review findings.
 
 ## Development Verification
 
