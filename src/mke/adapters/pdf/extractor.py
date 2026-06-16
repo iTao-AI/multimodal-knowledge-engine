@@ -1,68 +1,94 @@
-"""Small text-layer PDF extractor for the first offline fixture-backed slice."""
+"""PyMuPDF-backed text-layer PDF extractor."""
 
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 from pathlib import Path
+
+import pymupdf
+
+from mke.domain import PdfExtractionResult, PdfIntakeReport, PdfPageText
 
 
 class PdfExtractionError(ValueError):
     """Raised when a PDF cannot produce trustworthy text-layer Evidence."""
 
-
-@dataclass(frozen=True)
-class PdfPageText:
-    page_number: int
-    text: str
+    def __init__(self, message: str, report: PdfIntakeReport | None = None) -> None:
+        super().__init__(message)
+        self.report = report
 
 
-_STREAM_RE = re.compile(rb"stream\r?\n(?P<body>.*?)\r?\nendstream", re.DOTALL)
-_TEXT_RE = re.compile(rb"\((?P<text>(?:\\.|[^\\)])*)\)\s*Tj")
-_PDF_ESCAPE_MAP: dict[int, int] = {ord("n"): 10, ord("r"): 13, ord("t"): 9}
+class PyMuPDFPdfExtractor:
+    """Extract text-layer page Evidence and intake diagnostics from local PDFs."""
+
+    extraction_mode = "pymupdf-text"
+
+    def extract(self, path: Path) -> PdfExtractionResult:
+        try:
+            with pymupdf.open(path) as document:
+                if document.is_encrypted:
+                    report = _failure_report("encrypted PDF is not supported")
+                    raise PdfExtractionError("encrypted PDF is not supported", report)
+                pages: list[PdfPageText] = []
+                page_char_counts: list[int] = []
+                suspected_scanned_pages = 0
+                for page_index, page in enumerate(document, start=1):
+                    text = _normalize_page_text(page.get_text("text", sort=True))
+                    char_count = len(text)
+                    page_char_counts.append(char_count)
+                    if text:
+                        pages.append(PdfPageText(page_number=page_index, text=text))
+                    elif page.get_images(full=True):
+                        suspected_scanned_pages += 1
+                report = PdfIntakeReport(
+                    total_pages=len(document),
+                    extracted_pages=len(pages),
+                    empty_pages=len(document) - len(pages),
+                    total_extracted_chars=sum(page_char_counts),
+                    page_char_counts=tuple(page_char_counts),
+                    suspected_scanned_pages=suspected_scanned_pages,
+                    extraction_mode=self.extraction_mode,
+                    failure_reason=None,
+                )
+        except PdfExtractionError:
+            raise
+        except Exception as error:
+            report = _failure_report("PDF cannot be opened")
+            raise PdfExtractionError("PDF cannot be opened", report) from error
+        if not pages:
+            failed = PdfIntakeReport(
+                total_pages=report.total_pages,
+                extracted_pages=0,
+                empty_pages=report.empty_pages,
+                total_extracted_chars=0,
+                page_char_counts=report.page_char_counts,
+                suspected_scanned_pages=report.suspected_scanned_pages,
+                extraction_mode=report.extraction_mode,
+                failure_reason="PDF has no extractable text",
+            )
+            raise PdfExtractionError("PDF has no extractable text", failed)
+        return PdfExtractionResult(report=report, pages=tuple(pages))
 
 
 def extract_text_pages(path: Path) -> list[PdfPageText]:
-    """Extract simple text-layer page strings without network or model dependencies.
-
-    This adapter intentionally supports the deterministic PR 2 fixture class: unencrypted,
-    uncompressed text-layer PDFs with text showing operators. OCR, compressed object streams,
-    complex layout, and coordinates are explicit non-goals for this PR.
-    """
-    payload = path.read_bytes()
-    if not payload.startswith(b"%PDF-"):
-        raise PdfExtractionError("input is not a valid PDF")
-
-    pages: list[PdfPageText] = []
-    for stream in _STREAM_RE.finditer(payload):
-        text = _extract_stream_text(stream.group("body"))
-        if text:
-            pages.append(PdfPageText(page_number=len(pages) + 1, text=text))
-
-    if not pages:
-        raise PdfExtractionError("PDF does not contain a supported text layer")
-    return pages
+    """Compatibility helper for callers not yet using PdfExtractionResult."""
+    return list(PyMuPDFPdfExtractor().extract(path).pages)
 
 
-def _extract_stream_text(stream: bytes) -> str:
-    parts = [_decode_pdf_string(match.group("text")) for match in _TEXT_RE.finditer(stream)]
-    return " ".join(part for part in parts if part).strip()
+def _normalize_page_text(text: str) -> str:
+    text = text.replace("\r\n", "\n").replace("\r", "\n").replace("\x00", " ")
+    text = re.sub(r"[\x01-\x08\x0b\x0c\x0e-\x1f]", " ", text)
+    return text.strip()
 
 
-def _decode_pdf_string(value: bytes) -> str:
-    output = bytearray()
-    index = 0
-    while index < len(value):
-        byte = value[index]
-        if byte != 0x5C:
-            output.append(byte)
-            index += 1
-            continue
-        index += 1
-        if index >= len(value):
-            output.append(0x5C)
-            break
-        escaped = value[index]
-        output.append(_PDF_ESCAPE_MAP.get(escaped, escaped))
-        index += 1
-    return output.decode("latin-1").strip()
+def _failure_report(reason: str) -> PdfIntakeReport:
+    return PdfIntakeReport(
+        total_pages=0,
+        extracted_pages=0,
+        empty_pages=0,
+        total_extracted_chars=0,
+        page_char_counts=(),
+        suspected_scanned_pages=0,
+        extraction_mode=PyMuPDFPdfExtractor.extraction_mode,
+        failure_reason=reason,
+    )

@@ -276,7 +276,7 @@ git commit -m "feat(domain): add pdf intake report contract"
 - Create: `tests/adapters/test_pdf_extractor.py`
 - Create or update fixtures under `tests/fixtures/pdf/`
 
-- [ ] **Step 1: Add failing extractor tests**
+- [x] **Step 1: Add failing extractor tests**
 
 Create `tests/adapters/test_pdf_extractor.py`:
 
@@ -402,7 +402,7 @@ def _write_encrypted_pdf(path: Path) -> None:
     )
 ```
 
-- [ ] **Step 2: Run failing tests**
+- [x] **Step 2: Run failing tests**
 
 Run:
 
@@ -412,7 +412,7 @@ uv run pytest tests/adapters/test_pdf_extractor.py -q
 
 Expected: FAIL because `PyMuPDFPdfExtractor` does not exist.
 
-- [ ] **Step 3: Implement extractor**
+- [x] **Step 3: Implement extractor**
 
 Replace `src/mke/adapters/pdf/extractor.py` with:
 
@@ -532,7 +532,7 @@ from mke.adapters.pdf.extractor import (
 __all__ = ["PdfExtractionError", "PyMuPDFPdfExtractor", "extract_text_pages"]
 ```
 
-- [ ] **Step 4: Run extractor tests**
+- [x] **Step 4: Run extractor tests**
 
 Run:
 
@@ -542,7 +542,7 @@ uv run pytest tests/adapters/test_pdf_extractor.py -q
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/mke/adapters/pdf/extractor.py src/mke/adapters/pdf/__init__.py tests/adapters/test_pdf_extractor.py
