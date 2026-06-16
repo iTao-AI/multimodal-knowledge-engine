@@ -25,9 +25,9 @@ Status:
 
 | Command | Status | Notes |
 |---|---|---|
-| `mke --db <path> ingest <file>` | implemented in PR 2, extended in PR 4 | Text-layer PDF path and documented short MP4 fixture profile. Persists candidate Evidence, validates a RunManifest, and activates a Source Publication atomically. |
+| `mke --db <path> ingest <file>` | implemented in PR 2, extended in PR 4 and D1 | PyMuPDF text-layer PDF path and documented short MP4 fixture profile. Persists candidate Evidence, validates a RunManifest, and activates a Source Publication atomically. PDF success includes an intake summary. |
 | `mke --db <path> search <query>` | implemented in PR 2 | Searches only active Publication rows in the SQLite FTS5 projection. |
-| `mke --db <path> run get <run_id>` | implemented in PR 3 | Prints Run state, retry lineage, and append-only Run events. |
+| `mke --db <path> run get <run_id>` | implemented in PR 3, extended in D1 | Prints Run state, retry lineage, PDF intake summary when present, and append-only Run events. |
 | `mke demo --verify` | implemented in PR 3, extended in PR 4 | Deterministic offline PDF and short-video proof using temporary SQLite workspace and repository fixtures. |
 | `mke --db <path> mcp --allowed-root <path>` | implemented in C1 | Runs a local stdio MCP server for Agent-facing ingest, Run inspection, and active Evidence Search. |
 | `mke --db <path> ask <question>` | implemented in C2 | Returns deterministic evidence-only Ask output using active Publication Search. |
@@ -35,12 +35,16 @@ Status:
 | `mke serve` | planned | Single-owner local process after CLI proof. |
 | `mke library create` | planned | May be implicit in first CLI path. |
 
-The PR 2 PDF CLI uses a local SQLite database path supplied with `--db`. It does not expose a
-general FTS query language: Search tokenizes user input into escaped terms before querying FTS5.
-The built-in PDF extractor supports deterministic text-layer PDFs with uncompressed text showing
-operators. The built-in video transcript adapter supports the documented short MP4 fixture profile
-with a local `mke.video_transcript.v1` sidecar. OCR, scanned PDFs, real speech-model
-transcription, long videos, page coordinates, tables, and complex layout are non-goals.
+The PDF CLI uses a local SQLite database path supplied with `--db`. It does not expose a general
+FTS query language: Search tokenizes user input into escaped terms before querying FTS5. The
+built-in PDF extractor uses PyMuPDF behind the adapter boundary and extracts text-layer page text
+with `page.get_text("text", sort=True)`. Successful PDF ingest and Run inspection expose
+`PdfIntakeReport` summary fields: total pages, extracted pages, empty pages, extracted characters,
+page character counts, suspected scanned pages, extraction mode, and failure reason when present.
+The built-in video transcript adapter supports the documented short MP4 fixture profile with a
+local `mke.video_transcript.v1` sidecar. OCR, scanned PDFs, real speech-model transcription, long
+videos, page coordinates, tables, layout-aware chunking, hybrid retrieval, rerank, and Unicode-aware
+retrieval are non-goals.
 
 CLI errors use a field-based contract:
 
@@ -90,6 +94,9 @@ and a limitation explaining that no active Evidence matched the search terms.
 The MCP server runs over stdio through `mke mcp --allowed-root <path>`. It reuses the same
 `KnowledgeEngine` application service as CLI ingest, Run inspection, and Search. `ingest_file`
 only accepts files under the configured allowed root and currently supports `.pdf` and `.mp4`.
+MCP rejects PDF inputs larger than 100 MB with `problem="input_file_too_large"` before opening the
+PDF extractor. PDF `ingest_file` success and `get_run` responses include `intake_report` when a
+Run has one.
 `search_library` and `ask_library` read active Publication Evidence only and share the same
 Evidence locator payload shape.
 

@@ -1061,7 +1061,7 @@ git commit -m "feat(interfaces): expose pdf intake summaries"
 - Modify: `README_CN.md`
 - Modify: `docs/README.md`
 
-- [ ] **Step 1: Add smoke harness**
+- [x] **Step 1: Add smoke harness**
 
 Create `scripts/pdf_intake_smoke.py`:
 
@@ -1115,7 +1115,7 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Step 2: Update docs**
+- [x] **Step 2: Update docs**
 
 Update docs to say:
 
@@ -1125,7 +1125,7 @@ Update docs to say:
 - OCR, table extraction, layout-aware chunking, and Unicode retrieval remain outside D1.
 - PyMuPDF dependency and license boundary are documented in ADR-0004.
 
-- [ ] **Step 3: Run doc checks**
+- [x] **Step 3: Run doc checks**
 
 Run:
 
@@ -1135,7 +1135,7 @@ rg -n "fixture-only PDF|uncompressed text showing operators|builtin-pdf-text-v1"
 
 Expected: no stale user-facing claim that the only PDF path is fixture-only. Internal historical plans may still mention old fingerprints if they are explicitly historical.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add scripts/pdf_intake_smoke.py README.md README_CN.md docs/README.md docs/reference/cli.md docs/reference/contracts.md docs/how-to/run-local-product-proof.md

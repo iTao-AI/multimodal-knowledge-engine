@@ -7,7 +7,7 @@ Multimodal Knowledge Engine is a local-first Evidence engine for ingesting, sear
 ## Current Status
 
 This repository now has a deterministic local cross-modal proof: `mke demo --verify` ingests a
-text-layer PDF and a short local video, proves failed PDF reprocessing leaves the active
+PyMuPDF text-layer PDF and a short local video, proves failed PDF reprocessing leaves the active
 Publication searchable, retries the validated candidate path, and verifies active-only Search for
 page and timestamp Evidence. The first Agent-facing interface is a local stdio MCP server for
 ingest, Run inspection, active Evidence Search, and evidence-only Ask. HTTP and the workspace are
@@ -16,6 +16,12 @@ not implemented yet.
 The proof covers the lifecycle boundary, not broad media support. It does not perform scanned-PDF
 OCR, arbitrary video processing, real speech-model transcription, hosted coordination, or external
 provider calls.
+
+PDF intake uses PyMuPDF behind the `src/mke/adapters/pdf/` boundary and exposes a
+`PdfIntakeReport` through `mke ingest`, `mke run get`, MCP `ingest_file`, and MCP `get_run`.
+PyMuPDF licensing and the future sidecar escape route are documented in
+[ADR-0004](./docs/decisions/0004-pymupdf-pdf-intake-adapter.md). MCP rejects PDF inputs above
+100 MB before opening the extractor.
 
 C2 Ask is evidence-only: `ask_library` and `mke ask` return cited page or timestamp Evidence when
 active Search matches the question terms, or `insufficient_evidence` when it does not. MKE does

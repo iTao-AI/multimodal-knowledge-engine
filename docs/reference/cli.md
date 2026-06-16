@@ -9,8 +9,9 @@ uv sync --locked
 uv run mke demo --verify
 ```
 
-`mke demo --verify` is deterministic and offline. It uses repository PDF and short-video fixtures
-with a temporary SQLite workspace, then removes the temporary workspace before exit.
+`mke demo --verify` is deterministic and offline. It uses repository PyMuPDF text-layer PDF and
+short-video fixtures with a temporary SQLite workspace, then removes the temporary workspace before
+exit.
 
 Expected stdout shape:
 
@@ -44,15 +45,19 @@ mke --db <path> run get <run_id>
 
 - `--db` defaults to `mke.sqlite` in the current working directory.
 - The SQLite schema is created automatically when the database is opened.
-- `ingest` supports deterministic text-layer PDFs and the documented short MP4 fixture profile.
+- `ingest` supports PyMuPDF text-layer PDFs and the documented short MP4 fixture profile.
 - Video ingest reads `<video>.mke-transcript.json` sidecars and does not run `ffmpeg`, download
   speech models, or call external services.
 - `search` reads only active Publication rows in SQLite FTS5.
 - PDF results print `page=<number>`.
+- Successful PDF ingest prints stable intake summary fields:
+  `pdf_pages`, `extracted_pages`, `empty_pages`, `extracted_chars`, and
+  `suspected_scanned_pages`.
 - Video results print `timestamp_ms=<start>..<end>` using integer millisecond locators.
 - `ask` returns deterministic evidence-only Ask output. It does not call an LLM or generate a
   natural-language answer.
-- `run get` prints Run state, retry lineage when present, and append-only Run events.
+- `run get` prints Run state, retry lineage when present, PDF intake summary when available, and
+  append-only Run events.
 - To reset a local proof database, remove the selected SQLite file and its `-wal`/`-shm` files.
 
 Successful Ask with Evidence prints:
@@ -72,6 +77,20 @@ Ask validation failures use the CLI error contract:
 
 ```text
 problem=invalid_question cause=question must contain at least one searchable ASCII token active_publication_impact=unchanged next_step=provide_searchable_question
+```
+
+Successful PDF ingest prints:
+
+```text
+run_id=run_... run_state=published evidence_count=2 pdf_pages=2 extracted_pages=2 empty_pages=0 extracted_chars=87 suspected_scanned_pages=0
+```
+
+PDF Run inspection includes the same intake summary before Run events:
+
+```text
+run_id=run_... state=published source_generation=1
+pdf_pages=2 extracted_pages=2 empty_pages=0 extracted_chars=87 suspected_scanned_pages=0
+event_index=1 event=run_created
 ```
 
 ## MCP Server Command
