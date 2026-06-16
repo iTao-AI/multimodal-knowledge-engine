@@ -1,8 +1,8 @@
 # MCP Agent Interface — Autoplan Review Report
 
-**审查日期：** 2026-06-16  
-**分支：** `codex/mcp-agent-interface-plan`  
-**审查来源：** Claude（CEO + Eng + DX 三阶段审查，Codex 不可用）  
+**审查日期：** 2026-06-16
+**分支：** `codex/mcp-agent-interface-plan`
+**审查来源：** Claude（CEO + Eng + DX 三阶段审查，Codex 不可用）
 **计划文件：**
 - `docs/superpowers/specs/2026-06-16-mcp-agent-interface-design.md`
 - `docs/superpowers/plans/2026-06-16-mcp-agent-interface-implementation.md`

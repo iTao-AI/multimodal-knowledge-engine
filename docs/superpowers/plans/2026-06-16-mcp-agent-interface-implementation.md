@@ -820,7 +820,7 @@ git commit -m "docs(mcp): document local agent interface"
 **Files:**
 - No new files expected unless previous verification finds a docs-only correction.
 
-- [ ] **Step 1: Run focused tests**
+- [x] **Step 1: Run focused tests**
 
 ```bash
 uv run pytest tests/interfaces/test_mcp_contract.py tests/interfaces/test_mcp_server.py tests/interfaces/test_cli_mcp.py -q
@@ -828,7 +828,7 @@ uv run pytest tests/interfaces/test_mcp_contract.py tests/interfaces/test_mcp_se
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full tests**
+- [x] **Step 2: Run full tests**
 
 ```bash
 uv run pytest -q
@@ -836,7 +836,7 @@ uv run pytest -q
 
 Expected: PASS.
 
-- [ ] **Step 3: Run lint and type checks**
+- [x] **Step 3: Run lint and type checks**
 
 ```bash
 uv run ruff check .
@@ -848,7 +848,7 @@ Expected:
 - Ruff reports `All checks passed!`.
 - Pyright reports `0 errors, 0 warnings, 0 informations`.
 
-- [ ] **Step 4: Build and run the existing product proof**
+- [x] **Step 4: Build and run the existing product proof**
 
 ```bash
 uv build
@@ -860,7 +860,7 @@ Expected:
 - sdist and wheel build successfully.
 - `uv run mke demo --verify` prints `result=passed`.
 
-- [ ] **Step 5: Inspect final diff**
+- [x] **Step 5: Inspect final diff**
 
 ```bash
 git status --short
@@ -873,7 +873,7 @@ Expected:
 - Only intentional MCP interface, tests, dependency, and docs files changed.
 - No whitespace errors.
 
-- [ ] **Step 6: Prepare PR body**
+- [x] **Step 6: Prepare PR body**
 
 Use this PR body shape:
 
@@ -925,3 +925,14 @@ Updates public contracts, CLI reference, MCP how-to, docs index, and README file
 ```
 
 Do not open the PR until every Verification row has the actual command result from this branch.
+
+Completed verification:
+
+| Check | Result |
+|---|---|
+| `uv run pytest tests/interfaces/test_mcp_contract.py tests/interfaces/test_mcp_server.py tests/interfaces/test_cli_mcp.py -q` | `18 passed in 0.19s` |
+| `uv run pytest -q` | `91 passed in 0.31s` |
+| `uv run ruff check .` | `All checks passed!` |
+| `uv run pyright` | `0 errors, 0 warnings, 0 informations` |
+| `uv build` | Built `dist/multimodal_knowledge_engine-0.0.0.tar.gz` and `dist/multimodal_knowledge_engine-0.0.0-py3-none-any.whl` |
+| `uv run mke demo --verify` | `result=passed duration_ms=5` |

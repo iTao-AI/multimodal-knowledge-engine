@@ -1,12 +1,14 @@
 from pathlib import Path
 
+from pytest import MonkeyPatch
+
 import mke.cli
 from mke.cli import main
 
 
 def test_cli_mcp_passes_db_and_allowed_root(
     tmp_path: Path,
-    monkeypatch,
+    monkeypatch: MonkeyPatch,
 ) -> None:
     calls: list[tuple[Path, Path]] = []
     db_path = tmp_path / "mke.sqlite"
@@ -26,7 +28,7 @@ def test_cli_mcp_passes_db_and_allowed_root(
 
 def test_cli_mcp_allowed_root_defaults_to_current_directory(
     tmp_path: Path,
-    monkeypatch,
+    monkeypatch: MonkeyPatch,
 ) -> None:
     calls: list[tuple[Path, Path]] = []
     db_path = tmp_path / "mke.sqlite"
