@@ -915,7 +915,7 @@ git commit -m "feat(proof): run product proof cases"
 - Modify: `src/mke/cli.py`
 - Create: `tests/interfaces/test_cli_proof.py`
 
-- [ ] **Step 1: Add failing CLI tests**
+- [x] **Step 1: Add failing CLI tests**
 
 Create `tests/interfaces/test_cli_proof.py`:
 
@@ -959,7 +959,7 @@ def test_cli_proof_run_json_outputs_parseable_report(
     ]
 ```
 
-- [ ] **Step 2: Run failing CLI proof tests**
+- [x] **Step 2: Run failing CLI proof tests**
 
 Run:
 
@@ -969,7 +969,7 @@ uv run pytest tests/interfaces/test_cli_proof.py -q
 
 Expected: FAIL because `proof` command does not exist.
 
-- [ ] **Step 3: Add CLI parser and handler**
+- [x] **Step 3: Add CLI parser and handler**
 
 Modify imports in `src/mke/cli.py`:
 
@@ -1005,7 +1005,7 @@ def _proof_run(*, json_output: bool) -> int:
     return 0 if report.status == "passed" else 1
 ```
 
-- [ ] **Step 4: Run CLI proof tests**
+- [x] **Step 4: Run CLI proof tests**
 
 Run:
 
@@ -1015,7 +1015,7 @@ uv run pytest tests/interfaces/test_cli_proof.py -q
 
 Expected: PASS.
 
-- [ ] **Step 5: Verify old demo compatibility**
+- [x] **Step 5: Verify old demo compatibility**
 
 Run:
 
@@ -1029,7 +1029,7 @@ Expected:
 - Tests pass.
 - `uv run mke demo --verify` still prints `phase=...` lines and `result=passed`.
 
-- [ ] **Step 6: Commit CLI wiring**
+- [x] **Step 6: Commit CLI wiring**
 
 ```bash
 git add src/mke/cli.py tests/interfaces/test_cli_proof.py
