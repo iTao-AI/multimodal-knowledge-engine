@@ -28,9 +28,11 @@ C2 Ask is evidence-only: `ask_library` and `mke ask` return cited page or timest
 active Search matches the question terms, or `insufficient_evidence` when it does not. MKE does
 not call an LLM or generate natural-language answers in this slice.
 
-## Pilot Goal
+## Verified Product Slice
 
-The first verified product slice will process one PDF and one short local video through observable Runs, publish only successful output, and return page- or timestamp-addressable Evidence.
+The current verified product slice processes text-layer PDFs and the documented short local video
+fixture through observable Runs, publishes only successful output, and returns page- or
+timestamp-addressable Evidence.
 
 ## Architecture
 

@@ -16,9 +16,9 @@ PDF intake 使用位于 `src/mke/adapters/pdf/` 边界内的 PyMuPDF，并通过
 
 C2 Ask 只返回 Evidence：`ask_library` 和 `mke ask` 会在 active Search 命中问题词时返回带页码或时间戳的 cited Evidence；没有命中时返回 `insufficient_evidence`。当前 slice 不调用 LLM，也不生成自然语言答案。
 
-## Pilot 目标
+## 已验证产品切片
 
-首个经过验证的产品切片将让一个 PDF 和一个短视频经过可观察 Run，只发布成功输出，并返回带稳定页码或时间戳的 Evidence。
+当前经过验证的产品切片会让 text-layer PDF 和文档化的短本地视频 fixture 经过可观察 Run，只发布成功输出，并返回带稳定页码或时间戳的 Evidence。
 
 ## 架构原则
 

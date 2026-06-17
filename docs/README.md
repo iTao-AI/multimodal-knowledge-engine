@@ -29,16 +29,16 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [Trustworthy PDF And Video Slice Design](./superpowers/specs/2026-06-15-trustworthy-pdf-video-slice-design.md) records the approved design.
 - [Trustworthy PDF And Video Slice Implementation Plan](./superpowers/plans/2026-06-15-trustworthy-pdf-video-slice-implementation.md) records the completed implementation plan.
 - [MCP Agent Interface Design](./superpowers/specs/2026-06-16-mcp-agent-interface-design.md) defines the first Agent-facing stdio interface.
-- [MCP Agent Interface Implementation Plan](./superpowers/plans/2026-06-16-mcp-agent-interface-implementation.md) is the executable plan for the next interface slice.
+- [MCP Agent Interface Implementation Plan](./superpowers/plans/2026-06-16-mcp-agent-interface-implementation.md) records the completed C1 interface plan.
 - [MCP Agent Interface Autoplan Review](./superpowers/reviews/2026-06-16-mcp-agent-interface-autoplan-review.md) records the approved review findings for this slice.
 - [Evidence-Only Ask Design](./superpowers/specs/2026-06-16-evidence-only-ask-design.md) defines deterministic non-generative Ask.
-- [Evidence-Only Ask Implementation Plan](./superpowers/plans/2026-06-16-evidence-only-ask-implementation.md) is the executable C2 plan.
+- [Evidence-Only Ask Implementation Plan](./superpowers/plans/2026-06-16-evidence-only-ask-implementation.md) records the completed C2 Ask plan.
 - [Evidence-Only Ask Autoplan Review](./superpowers/reviews/2026-06-16-evidence-only-ask-autoplan-review.md) records the approved pre-implementation review findings.
 - [Real PDF Intake Design](./superpowers/specs/2026-06-16-real-pdf-intake-design.md) defines D1 PyMuPDF text-layer intake.
-- [Real PDF Intake Implementation Plan](./superpowers/plans/2026-06-16-real-pdf-intake-implementation.md) is the executable D1 plan.
+- [Real PDF Intake Implementation Plan](./superpowers/plans/2026-06-16-real-pdf-intake-implementation.md) records the completed D1 intake plan.
 - [Real PDF Intake Autoplan Review](./superpowers/reviews/2026-06-16-real-pdf-intake-autoplan-review.md) and [Engineering Review](./superpowers/reviews/2026-06-16-real-pdf-intake-eng-review.md) record the approved D1 review findings.
 - [Product Proof And Evaluation Harness Design](./superpowers/specs/2026-06-17-product-proof-evaluation-harness-design.md) defines the D2 deterministic product proof harness.
-- [Product Proof And Evaluation Harness Implementation Plan](./superpowers/plans/2026-06-17-product-proof-evaluation-harness-implementation.md) is the executable D2 plan.
+- [Product Proof And Evaluation Harness Implementation Plan](./superpowers/plans/2026-06-17-product-proof-evaluation-harness-implementation.md) records the completed D2 proof plan.
 
 ## Development Verification
 

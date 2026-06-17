@@ -1,13 +1,13 @@
 # Public Contracts
 
-These contracts are planned around one application service layer and project-owned DTOs. The
+These contracts are organized around one application service layer and project-owned DTOs. The
 current implementation exposes the PDF and short-video CLI path plus a deterministic local product
 proof needed to prove active Publication Search and Ask semantics across CLI-equivalent and MCP
 contract paths.
 
 ## HTTP
 
-Status: planned after PDF and video lifecycle validation.
+Status: planned. HTTP is not part of the current local CLI/MCP proof.
 
 ```text
 POST /libraries

@@ -58,16 +58,18 @@ timestamp-addressed transcript Evidence from a deterministic local sidecar for t
 short MP4 fixture profile. The proof path uses no external services, credentials, model downloads,
 OCR, real speech-model transcription, or network calls.
 
-## Planned Pilot Modules
+## Current Module Shape
 
 ```text
 src/mke/
   domain/
   application/
-  ports/
   adapters/
+    pdf/
+    sqlite/
+    video/
   interfaces/
-  runtime/
+  proof/
 ```
 
 The domain and application layers must not depend on FastAPI, database implementations, model SDKs, LangChain, or LlamaIndex.
