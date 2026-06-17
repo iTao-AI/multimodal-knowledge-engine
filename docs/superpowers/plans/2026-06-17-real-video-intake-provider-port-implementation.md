@@ -333,7 +333,7 @@ Expected: pass.
 - Modify: `src/mke/adapters/video/providers.py`
 - Create: `tests/adapters/test_local_command_transcript_provider.py`
 
-- [ ] **Step 1: Write success and failure tests with fake commands**
+- [x] **Step 1: Write success and failure tests with fake commands**
 
 Create `tests/adapters/test_local_command_transcript_provider.py`. Use temporary Python scripts as
 fake commands. The success test should emit a valid `mke.video_transcript.v1` object to stdout:
@@ -386,7 +386,7 @@ Also cover:
 - oversized stderr raises `VideoExtractionError`,
 - invalid transcript ranges are rejected by the shared schema parser.
 
-- [ ] **Step 2: Run the tests and verify failure**
+- [x] **Step 2: Run the tests and verify failure**
 
 Run:
 
@@ -396,7 +396,7 @@ uv run pytest tests/adapters/test_local_command_transcript_provider.py -q
 
 Expected: fail because `LocalCommandTranscriptProvider` does not exist.
 
-- [ ] **Step 3: Implement config validation**
+- [x] **Step 3: Implement config validation**
 
 In `src/mke/adapters/video/providers.py`, add:
 
@@ -428,7 +428,7 @@ class LocalCommandTranscriptConfig:
         object.__setattr__(self, "argv", normalized)
 ```
 
-- [ ] **Step 4: Implement local command extraction**
+- [x] **Step 4: Implement local command extraction**
 
 Implement `LocalCommandTranscriptProvider.extract(path)`:
 
@@ -452,7 +452,7 @@ Stable public errors should include:
 - `transcript command stdout is not valid UTF-8`
 - parser validation errors from the shared schema.
 
-- [ ] **Step 5: Run adapter tests**
+- [x] **Step 5: Run adapter tests**
 
 Run:
 
