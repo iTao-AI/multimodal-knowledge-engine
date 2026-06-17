@@ -2,6 +2,19 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+## Completion Note
+
+- Status: implemented locally on `codex/real-video-intake-plan`.
+- PR: not created per instruction.
+- Final verification on 2026-06-17:
+  - `uv run pytest -q`: `199 passed, 5 warnings`
+  - `uv run ruff check .`: `All checks passed!`
+  - `uv run pyright`: `0 errors, 0 warnings, 0 informations`
+  - `uv build`: sdist and wheel built successfully
+  - `uv run mke proof run`: `proof=product status=passed cases=8 passed=8 failed=0`
+  - `uv run mke demo --verify`: `result=passed duration_ms=9`
+  - `git diff --check`: no output
+
 **Goal:** Add a transcript provider port and proof-only local-command MP4 transcription smoke path while preserving deterministic sidecar proof behavior.
 
 **Architecture:** Refactor video transcription into a `TranscriptProvider` boundary. Keep `SidecarTranscriptProvider` as the default provider, add a shared transcript schema parser, then add `LocalCommandTranscriptProvider` behind explicit injection and proof-only smoke wiring.
@@ -644,7 +657,7 @@ Document:
 - `mke proof transcript-smoke` is proof-only,
 - real speech-model runtimes are still not bundled.
 
-- [ ] **Step 2: Mark this plan as completed**
+- [x] **Step 2: Mark this plan as completed**
 
 At the top of this plan, add a completion note with the PR number and final verification results.
 Keep checklist items accurate.
@@ -664,7 +677,7 @@ Expected: docs should distinguish "not bundled" from "optional local command pro
 **Files:**
 - No new files expected.
 
-- [ ] **Step 1: Run full verification**
+- [x] **Step 1: Run full verification**
 
 Run:
 
@@ -688,7 +701,7 @@ Expected:
 - compatibility demo passes,
 - `git diff --check` prints no output.
 
-- [ ] **Step 2: Review the diff**
+- [x] **Step 2: Review the diff**
 
 Run:
 
@@ -706,7 +719,7 @@ Check:
 - no unrelated formatting churn,
 - no changes to deterministic proof output except intentional docs.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 Use a focused commit message:
 
@@ -715,7 +728,7 @@ git add <intentional-files>
 git commit -m "feat(video): add transcript provider port"
 ```
 
-- [ ] **Step 4: Prepare a Simplified Chinese PR body**
+- [x] **Step 4: Prepare a Simplified Chinese PR body**
 
 Use the repository PR format. The PR body should contain these concrete facts after Step 1 records
 the exact verification outputs:

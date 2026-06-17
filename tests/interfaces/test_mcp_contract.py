@@ -1,6 +1,7 @@
 import inspect
 import json
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -84,10 +85,11 @@ def test_ingest_file_publishes_video_and_search_returns_timestamp_evidence(
 
 def test_mcp_ingest_file_contract_does_not_accept_command_argv(tmp_path: Path) -> None:
     config = _config(tmp_path, VIDEO_FIXTURES)
+    unsafe_ingest_file = cast(Any, ingest_file)
 
     assert tuple(inspect.signature(ingest_file).parameters) == ("config", "path")
     with pytest.raises(TypeError):
-        ingest_file(  # pyright: ignore[reportCallIssue]
+        unsafe_ingest_file(
             config,
             "short-audio.mp4",
             command_argv=("transcribe-wrapper", "{input}"),

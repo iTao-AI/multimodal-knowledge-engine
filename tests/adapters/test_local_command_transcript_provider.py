@@ -143,7 +143,10 @@ def test_local_command_provider_uses_argv_with_shell_false(
             "print(json.dumps({"
             "'format':'mke.video_transcript.v1',"
             "'media':{'container':'mp4','video_codec':'h264','audio_codec':'aac','has_audio':True,'duration_ms':1000},"
-            "'segments':[{'start_ms':0,'end_ms':1000,'text':'first'}, {'start_ms':900,'end_ms':1100,'text':'overlap'}]"
+            "'segments':["
+            "{'start_ms':0,'end_ms':1000,'text':'first'}, "
+            "{'start_ms':900,'end_ms':1100,'text':'overlap'}"
+            "]"
             "}))\n",
             "stable timestamp",
             2048,

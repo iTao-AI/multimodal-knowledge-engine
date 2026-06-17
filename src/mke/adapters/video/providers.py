@@ -38,12 +38,15 @@ class LocalCommandTranscriptConfig:
     extractor_fingerprint: str = LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT
 
     def __post_init__(self) -> None:
-        if isinstance(self.argv, str) or not isinstance(self.argv, Sequence):
+        if isinstance(self.argv, str) or not isinstance(self.argv, Sequence):  # pyright: ignore[reportUnnecessaryIsInstance] -- runtime guard for untyped callers
             raise TypeError("argv must be a non-empty sequence of strings")
         normalized = tuple(self.argv)
         if not normalized:
             raise TypeError("argv must be a non-empty sequence of strings")
-        if any(not isinstance(part, str) or not part for part in normalized):
+        if any(
+            not isinstance(part, str) or not part  # pyright: ignore[reportUnnecessaryIsInstance] -- runtime guard for untyped callers
+            for part in normalized
+        ):
             raise TypeError("argv must contain non-empty strings")
         if normalized.count("{input}") != 1:
             raise ValueError("argv must contain exactly one {input} placeholder")
