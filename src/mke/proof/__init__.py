@@ -8,6 +8,7 @@ from mke.proof.report import (
     render_human_report,
     render_json_report,
 )
+from mke.proof.runner import run_product_proof
 
 __all__ = [
     "ObservedField",
@@ -18,4 +19,5 @@ __all__ = [
     "ProofReport",
     "render_human_report",
     "render_json_report",
+    "run_product_proof",
 ]

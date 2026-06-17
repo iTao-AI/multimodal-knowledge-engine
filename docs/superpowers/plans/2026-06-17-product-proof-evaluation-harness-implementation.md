@@ -436,7 +436,7 @@ git commit -m "feat(proof): add product proof manifest"
 - Modify: `src/mke/proof/__init__.py`
 - Create: `tests/proof/test_runner.py`
 
-- [ ] **Step 1: Add failing runner tests for CLI-equivalent cases**
+- [x] **Step 1: Add failing runner tests for CLI-equivalent cases**
 
 Create `tests/proof/test_runner.py`:
 
@@ -515,7 +515,7 @@ def test_product_proof_runner_reports_missing_fixture_without_traceback(
     assert report.results[0].observed[0].value == "text_layer_pdf"
 ```
 
-- [ ] **Step 2: Run failing runner tests**
+- [x] **Step 2: Run failing runner tests**
 
 Run:
 
@@ -525,7 +525,7 @@ uv run pytest tests/proof/test_runner.py -q
 
 Expected: FAIL because `mke.proof.runner` does not exist.
 
-- [ ] **Step 3: Implement runner skeleton, fixture validation, and CLI-equivalent cases**
+- [x] **Step 3: Implement runner skeleton, fixture validation, and CLI-equivalent cases**
 
 Create `src/mke/proof/runner.py`:
 
@@ -767,7 +767,7 @@ from mke.proof.runner import run_product_proof
 
 and add `run_product_proof` to `__all__`.
 
-- [ ] **Step 4: Run runner tests and observe MCP failures**
+- [x] **Step 4: Run runner tests and observe MCP failures**
 
 Run:
 
@@ -778,7 +778,7 @@ uv run pytest tests/proof/test_runner.py -q
 Expected: FAIL because MCP cases are intentionally not implemented yet and the full runner does not
 pass all 8 cases.
 
-- [ ] **Step 5: Commit CLI-equivalent partial runner**
+- [x] **Step 5: Commit CLI-equivalent partial runner**
 
 Do not commit a failing full runner. If the test suite is failing at this point, continue to Task 4
 before committing.
@@ -789,7 +789,7 @@ before committing.
 - Modify: `src/mke/proof/runner.py`
 - Modify: `tests/proof/test_runner.py`
 
-- [ ] **Step 1: Add focused MCP dependency assertions**
+- [x] **Step 1: Add focused MCP dependency assertions**
 
 Append to `tests/proof/test_runner.py`:
 
@@ -804,7 +804,7 @@ def test_product_proof_runner_reports_mcp_observed_fields() -> None:
     assert by_case["mcp_search_and_ask"].observed[1].value == "evidence_found"
 ```
 
-- [ ] **Step 2: Implement MCP cases**
+- [x] **Step 2: Implement MCP cases**
 
 Modify imports in `src/mke/proof/runner.py`:
 
@@ -882,7 +882,7 @@ def _case_mcp_search_and_ask(context: _ProofContext) -> ProofCaseResult:
     )
 ```
 
-- [ ] **Step 3: Run proof runner tests**
+- [x] **Step 3: Run proof runner tests**
 
 Run:
 
@@ -892,7 +892,7 @@ uv run pytest tests/proof/test_report.py tests/proof/test_manifest.py tests/proo
 
 Expected: PASS.
 
-- [ ] **Step 4: Run full tests for regression safety**
+- [x] **Step 4: Run full tests for regression safety**
 
 Run:
 
@@ -902,7 +902,7 @@ uv run pytest -q
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit runner**
+- [x] **Step 5: Commit runner**
 
 ```bash
 git add src/mke/proof/__init__.py src/mke/proof/runner.py tests/proof/test_runner.py
