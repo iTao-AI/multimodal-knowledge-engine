@@ -49,7 +49,7 @@ This plan incorporates:
 - Modify: `src/mke/adapters/video/__init__.py`
 - Modify: `tests/adapters/test_video_transcript.py`
 
-- [ ] **Step 1: Write parser tests against public functions**
+- [x] **Step 1: Write parser tests against public functions**
 
 Update `tests/adapters/test_video_transcript.py` so segment validation no longer imports private
 `_segment_from_payload`. Add public parser tests:
@@ -82,7 +82,7 @@ def test_parse_transcript_payload_returns_timestamp_segments() -> None:
     ]
 ```
 
-- [ ] **Step 2: Run the focused adapter tests and verify failure**
+- [x] **Step 2: Run the focused adapter tests and verify failure**
 
 Run:
 
@@ -92,7 +92,7 @@ uv run pytest tests/adapters/test_video_transcript.py -q
 
 Expected: fail because `mke.adapters.video.schema` does not exist.
 
-- [ ] **Step 3: Add domain DTOs**
+- [x] **Step 3: Add domain DTOs**
 
 In `src/mke/domain/__init__.py`, add:
 
@@ -116,7 +116,7 @@ Also add:
 LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT = "local-command-video-transcript-v1"
 ```
 
-- [ ] **Step 4: Create the shared video error module**
+- [x] **Step 4: Create the shared video error module**
 
 Create `src/mke/adapters/video/errors.py`:
 
@@ -128,7 +128,7 @@ class VideoExtractionError(ValueError):
 Update `src/mke/adapters/video/transcript.py`, `src/mke/adapters/video/__init__.py`, and existing
 tests to import `VideoExtractionError` from `mke.adapters.video.errors` or the package export.
 
-- [ ] **Step 5: Create the shared parser**
+- [x] **Step 5: Create the shared parser**
 
 Create `src/mke/adapters/video/schema.py` with public functions:
 
@@ -182,12 +182,12 @@ The parser must enforce the same validation messages currently covered by video 
 - `stable timestamp locator generation requires sorted ranges`
 - `video transcript text must not be empty`
 
-- [ ] **Step 6: Preserve the old wrapper**
+- [x] **Step 6: Preserve the old wrapper**
 
 Keep `extract_transcript_segments(path)` as a compatibility wrapper in
 `src/mke/adapters/video/transcript.py`. It should read the sidecar JSON and call the shared parser.
 
-- [ ] **Step 7: Run the adapter tests**
+- [x] **Step 7: Run the adapter tests**
 
 Run:
 
@@ -339,6 +339,18 @@ Create `tests/adapters/test_local_command_transcript_provider.py`. Use temporary
 fake commands. The success test should emit a valid `mke.video_transcript.v1` object to stdout:
 
 ```python
+import sys
+from pathlib import Path
+
+import pytest
+
+from mke.adapters.video import VideoExtractionError
+from mke.adapters.video.providers import (
+    LocalCommandTranscriptConfig,
+    LocalCommandTranscriptProvider,
+)
+
+
 def test_local_command_provider_parses_stdout_json(tmp_path: Path) -> None:
     script = tmp_path / "emit_transcript.py"
     script.write_text(
@@ -362,6 +374,7 @@ def test_local_command_provider_parses_stdout_json(tmp_path: Path) -> None:
 
 Also cover:
 
+- config accepts list `argv` and normalizes it to a tuple,
 - config rejects string `argv`,
 - config rejects missing `{input}`,
 - config rejects duplicate `{input}`,
@@ -388,21 +401,31 @@ Expected: fail because `LocalCommandTranscriptProvider` does not exist.
 In `src/mke/adapters/video/providers.py`, add:
 
 ```python
+from collections.abc import Sequence
+from dataclasses import dataclass
+
+from mke.domain import LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT
+
+
 @dataclass(frozen=True)
 class LocalCommandTranscriptConfig:
-    argv: tuple[str, ...]
+    argv: Sequence[str]
     timeout_seconds: float = 60.0
     max_stdout_bytes: int = 1024 * 1024
     max_stderr_bytes: int = 64 * 1024
     extractor_fingerprint: str = LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT
 
     def __post_init__(self) -> None:
-        if not isinstance(self.argv, tuple) or not self.argv:
-            raise TypeError("argv must be a non-empty tuple of strings")
-        if any(not isinstance(part, str) or not part for part in self.argv):
+        if isinstance(self.argv, str) or not isinstance(self.argv, Sequence):
+            raise TypeError("argv must be a non-empty sequence of strings")
+        normalized = tuple(self.argv)
+        if not normalized:
+            raise TypeError("argv must be a non-empty sequence of strings")
+        if any(not isinstance(part, str) or not part for part in normalized):
             raise TypeError("argv must contain non-empty strings")
-        if self.argv.count("{input}") != 1:
+        if normalized.count("{input}") != 1:
             raise ValueError("argv must contain exactly one {input} placeholder")
+        object.__setattr__(self, "argv", normalized)
 ```
 
 - [ ] **Step 4: Implement local command extraction**
@@ -488,11 +511,10 @@ are caught in the existing `VideoIngestError` fail-closed branch.
 **Files:**
 - Modify: `src/mke/cli.py`
 - Create: `tests/interfaces/test_cli_transcript_smoke.py`
-- Create: `tests/fixtures/video/fake_transcriber.py`
 
 - [ ] **Step 1: Write CLI smoke tests**
 
-Add a test that invokes:
+Add a test that writes a temporary fake transcriber script under `tmp_path` and invokes:
 
 ```bash
 mke proof transcript-smoke --fixture <tmp-video> -- <python> <fake-script> {input}
@@ -619,7 +641,7 @@ Document:
 - sidecar remains the default deterministic provider,
 - `LocalCommandTranscriptProvider` is optional and local-only,
 - MCP does not accept command overrides,
-- `mke proof transcript-smoke` is proof-only if implemented,
+- `mke proof transcript-smoke` is proof-only,
 - real speech-model runtimes are still not bundled.
 
 - [ ] **Step 2: Mark this plan as completed**

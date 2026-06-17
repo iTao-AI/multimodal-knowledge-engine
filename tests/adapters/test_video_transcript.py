@@ -6,9 +6,7 @@ from pathlib import Path
 import pytest
 
 from mke.adapters.video import VideoExtractionError, extract_transcript_segments
-from mke.adapters.video.transcript import (
-    _segment_from_payload,  # pyright: ignore[reportPrivateUsage]
-)
+from mke.adapters.video.schema import parse_transcript_payload
 from tests.conftest import VIDEO_FIXTURES
 
 
@@ -37,6 +35,30 @@ def test_extracts_deterministic_timestamp_segments() -> None:
     assert [(segment.start_ms, segment.end_ms, segment.text) for segment in segments] == [
         (0, 1200, "Video evidence introduces timestamp search."),
         (1200, 2200, "Active publication search finds spoken timestamp proof."),
+    ]
+
+
+def test_parse_transcript_payload_returns_timestamp_segments() -> None:
+    segments = parse_transcript_payload(
+        {
+            "format": "mke.video_transcript.v1",
+            "media": {
+                "container": "mp4",
+                "video_codec": "h264",
+                "audio_codec": "aac",
+                "has_audio": True,
+                "duration_ms": 2200,
+            },
+            "segments": [
+                {"start_ms": 0, "end_ms": 1200, "text": "first"},
+                {"start_ms": 1200, "end_ms": 2200, "text": "second"},
+            ],
+        }
+    )
+
+    assert [(segment.start_ms, segment.end_ms, segment.text) for segment in segments] == [
+        (0, 1200, "first"),
+        (1200, 2200, "second"),
     ]
 
 
@@ -168,5 +190,17 @@ def test_rejects_invalid_json_structure(
 def test_segment_from_payload_rejects_invalid_inputs(
     segment_payload: dict[str, object], match: str
 ) -> None:
+    payload = {
+        "format": "mke.video_transcript.v1",
+        "media": {
+            "container": "mp4",
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "has_audio": True,
+            "duration_ms": 1000,
+        },
+        "segments": [segment_payload],
+    }
+
     with pytest.raises(VideoExtractionError, match=match):
-        _segment_from_payload(segment_payload)
+        parse_transcript_payload(payload)
