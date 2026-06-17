@@ -21,6 +21,7 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [ADR-0002](./decisions/0002-source-publication-and-active-search-projection.md) defines Source Publication and active Search projection semantics.
 - [ADR-0003](./decisions/0003-video-dependency-and-transcription-strategy.md) defines the short-video dependency and transcription strategy.
 - [ADR-0004](./decisions/0004-pymupdf-pdf-intake-adapter.md) defines the PyMuPDF PDF intake adapter and licensing boundary.
+- [ADR-0005](./decisions/0005-optional-local-command-transcription-provider.md) defines the optional local-command transcription provider boundary.
 - [Architecture](./explanation/architecture.md) explains the current domain flow and projection boundary.
 - [Public Contracts](./reference/contracts.md) tracks implemented versus planned interfaces.
 - [CLI Reference](./reference/cli.md) documents implemented commands, proof output, compatibility demo output, and error fields.
@@ -39,6 +40,9 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [Real PDF Intake Autoplan Review](./superpowers/reviews/2026-06-16-real-pdf-intake-autoplan-review.md) and [Engineering Review](./superpowers/reviews/2026-06-16-real-pdf-intake-eng-review.md) record the approved D1 review findings.
 - [Product Proof And Evaluation Harness Design](./superpowers/specs/2026-06-17-product-proof-evaluation-harness-design.md) defines the D2 deterministic product proof harness.
 - [Product Proof And Evaluation Harness Implementation Plan](./superpowers/plans/2026-06-17-product-proof-evaluation-harness-implementation.md) records the completed D2 proof plan.
+- [Real Video Intake Provider Port Design](./superpowers/specs/2026-06-17-real-video-intake-provider-port-design.md) defines the D3-A transcript provider boundary and local-command smoke scope.
+- [Real Video Intake Provider Port Implementation Plan](./superpowers/plans/2026-06-17-real-video-intake-provider-port-implementation.md) records the D3-A execution plan.
+- [Real Video Intake Provider Port Engineering Review](./superpowers/reviews/2026-06-17-real-video-intake-eng-review.md) records the approved D3-A review findings.
 
 ## Development Verification
 
