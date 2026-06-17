@@ -9,6 +9,7 @@ import time
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
+from mke.adapters.video import LocalCommandTranscriptConfig, LocalCommandTranscriptProvider
 from mke.application import AskValidationError, KnowledgeEngine, PdfIngestError, VideoIngestError
 from mke.domain import FailurePoint, PdfIntakeReport, SearchResult
 from mke.interfaces.mcp_server import run_mcp_server
@@ -53,6 +54,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     proof_subcommands = proof.add_subparsers(dest="proof_command", required=True)
     proof_run = proof_subcommands.add_parser("run")
     proof_run.add_argument("--json", action="store_true", dest="json_output")
+    proof_smoke = proof_subcommands.add_parser("transcript-smoke")
+    proof_smoke.add_argument("--fixture", type=Path, required=True)
+    proof_smoke.add_argument("transcript_command", nargs=argparse.REMAINDER)
 
     mcp = subcommands.add_parser("mcp")
     mcp.add_argument("--allowed-root", type=Path, default=Path.cwd())
@@ -61,7 +65,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "demo":
         return _demo_verify(args.fixture, args.revised_fixture, args.video_fixture)
     if args.command == "proof":
-        return _proof_run(json_output=args.json_output)
+        if args.proof_command == "run":
+            return _proof_run(json_output=args.json_output)
+        return _proof_transcript_smoke(args.fixture, args.transcript_command)
     if args.command == "mcp":
         return run_mcp_server(db_path=args.db, allowed_root=args.allowed_root)
 
@@ -240,6 +246,45 @@ def _proof_run(*, json_output: bool) -> int:
     else:
         print(render_human_report(report))
     return 0 if report.status == "passed" else 1
+
+
+def _proof_transcript_smoke(fixture: Path, command: Sequence[str]) -> int:
+    print("mke proof transcript-smoke")
+    normalized_command = _normalize_remainder_command(command)
+    if not normalized_command:
+        _print_error_contract(
+            "transcript command is required",
+            problem="video_ingest_failed",
+        )
+        return 1
+    try:
+        provider = LocalCommandTranscriptProvider(
+            LocalCommandTranscriptConfig(argv=normalized_command)
+        )
+        with tempfile.TemporaryDirectory(prefix="mke-transcript-smoke-") as temp_dir:
+            engine = KnowledgeEngine(
+                Path(temp_dir) / "transcript-smoke.sqlite",
+                transcript_provider=provider,
+            )
+            try:
+                result = engine.ingest_video(fixture)
+            finally:
+                engine.close()
+    except (TypeError, ValueError, VideoIngestError) as error:
+        _print_error_contract(str(error), problem="video_ingest_failed")
+        return 1
+    print(
+        "proof=transcript_smoke status=passed "
+        f"provider=local_command evidence_count={result.evidence_count}"
+    )
+    return 0
+
+
+def _normalize_remainder_command(command: Sequence[str]) -> tuple[str, ...]:
+    normalized = tuple(command)
+    if normalized and normalized[0] == "--":
+        return normalized[1:]
+    return normalized
 
 
 def _print_error_contract(

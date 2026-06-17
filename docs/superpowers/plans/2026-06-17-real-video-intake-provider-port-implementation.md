@@ -512,7 +512,7 @@ are caught in the existing `VideoIngestError` fail-closed branch.
 - Modify: `src/mke/cli.py`
 - Create: `tests/interfaces/test_cli_transcript_smoke.py`
 
-- [ ] **Step 1: Write CLI smoke tests**
+- [x] **Step 1: Write CLI smoke tests**
 
 Add a test that writes a temporary fake transcriber script under `tmp_path` and invokes:
 
@@ -534,7 +534,7 @@ Add failure tests for:
 - command without `{input}`,
 - command emitting invalid JSON.
 
-- [ ] **Step 2: Run the smoke tests and verify failure**
+- [x] **Step 2: Run the smoke tests and verify failure**
 
 Run:
 
@@ -544,7 +544,7 @@ uv run pytest tests/interfaces/test_cli_transcript_smoke.py -q
 
 Expected: fail because the CLI command does not exist.
 
-- [ ] **Step 3: Add CLI parser branch**
+- [x] **Step 3: Add CLI parser branch**
 
 In `src/mke/cli.py`, extend `mke proof`:
 
@@ -567,7 +567,7 @@ proof=transcript_smoke status=passed provider=local_command evidence_count=<n>
 
 On failure, reuse the CLI error contract with `problem=video_ingest_failed`.
 
-- [ ] **Step 4: Run CLI smoke tests**
+- [x] **Step 4: Run CLI smoke tests**
 
 Run:
 
