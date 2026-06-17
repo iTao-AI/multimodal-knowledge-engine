@@ -585,7 +585,7 @@ Expected: pass.
 - Modify: `tests/interfaces/test_mcp_contract.py`
 - Modify: `src/mke/proof/runner.py`
 
-- [ ] **Step 1: Add proof determinism tests**
+- [x] **Step 1: Add proof determinism tests**
 
 Add tests proving:
 
@@ -596,7 +596,7 @@ Add tests proving:
 If implementation introduces any process-level provider configuration later, these tests must
 explicitly force `SidecarTranscriptProvider`.
 
-- [ ] **Step 2: Add MCP boundary tests**
+- [x] **Step 2: Add MCP boundary tests**
 
 Add tests proving:
 
@@ -606,7 +606,7 @@ Add tests proving:
 - MCP video failures return `video_ingest_failed` without argv, stderr, stack traces, or absolute
   local paths.
 
-- [ ] **Step 3: Run proof and MCP tests**
+- [x] **Step 3: Run proof and MCP tests**
 
 Run:
 

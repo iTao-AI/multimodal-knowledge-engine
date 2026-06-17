@@ -1,7 +1,9 @@
 from pathlib import Path
 
+import pytest
 from pytest import CaptureFixture
 
+from mke.adapters.video.providers import LocalCommandTranscriptProvider
 from mke.cli import main
 from tests.conftest import PDF_FIXTURES
 
@@ -44,6 +46,21 @@ def test_demo_verify_outputs_phases_and_cleans_up(capsys: CaptureFixture[str]) -
     assert "phase=failed_reprocess status=ok active_publication_impact=unchanged" in output
     assert "phase=retry_publish status=ok" in output
     assert "phase=cleanup status=ok" in output
+    assert "result=passed" in output
+
+
+def test_demo_verify_does_not_require_local_command_provider(
+    monkeypatch: pytest.MonkeyPatch, capsys: CaptureFixture[str]
+) -> None:
+    def fail_if_used(self: LocalCommandTranscriptProvider, path: Path) -> object:
+        raise AssertionError("demo verify must remain sidecar-backed")
+
+    monkeypatch.setattr(LocalCommandTranscriptProvider, "extract", fail_if_used)
+
+    assert main(["demo", "--verify"]) == 0
+
+    output = capsys.readouterr().out
+    assert "phase=ingest_video status=ok" in output
     assert "result=passed" in output
 
 
