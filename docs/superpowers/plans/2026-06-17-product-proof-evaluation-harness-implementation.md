@@ -1132,7 +1132,7 @@ If `docs/README.md` is unchanged, omit it from `git add`.
 **Files:**
 - No new source files unless a verification failure requires a targeted fix.
 
-- [ ] **Step 1: Run focused proof tests**
+- [x] **Step 1: Run focused proof tests**
 
 Run:
 
@@ -1142,7 +1142,7 @@ uv run pytest tests/proof tests/interfaces/test_cli_proof.py -q
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full test suite**
+- [x] **Step 2: Run full test suite**
 
 Run:
 
@@ -1152,7 +1152,7 @@ uv run pytest -q
 
 Expected: all tests pass. Record the exact pass count.
 
-- [ ] **Step 3: Run lint and type checks**
+- [x] **Step 3: Run lint and type checks**
 
 Run:
 
@@ -1166,7 +1166,7 @@ Expected:
 - Ruff: `All checks passed!`
 - Pyright: `0 errors, 0 warnings, 0 informations`
 
-- [ ] **Step 4: Build and run proof commands**
+- [x] **Step 4: Build and run proof commands**
 
 Run:
 
@@ -1186,7 +1186,7 @@ Expected:
 - `uv run mke demo --verify` prints `result=passed` and retains `phase=` lines.
 - `git diff --check` has no output.
 
-- [ ] **Step 5: Inspect public boundary**
+- [x] **Step 5: Inspect public boundary**
 
 Run:
 
@@ -1197,7 +1197,7 @@ rg -n "/Users|Career|求职|interview|gstack|restore|token|secret|private source
 Expected: no private paths or private motivations. Public boundary references to `private source`
 inside docs are acceptable only when describing what must not be included.
 
-- [ ] **Step 6: Prepare Chinese PR body**
+- [x] **Step 6: Prepare Chinese PR body**
 
 Use this structure:
 
@@ -1249,7 +1249,7 @@ Use this structure:
 - README / README_CN, local product proof how-to, CLI reference, contracts, Superpowers spec/plan updated.
 ```
 
-- [ ] **Step 7: Stop before push/PR unless authorized**
+- [x] **Step 7: Stop before push/PR unless authorized**
 
 Report:
 
