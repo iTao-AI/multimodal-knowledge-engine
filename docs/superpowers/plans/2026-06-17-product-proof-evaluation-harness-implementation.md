@@ -311,7 +311,7 @@ git commit -m "feat(proof): add deterministic proof reports"
 - Modify: `src/mke/proof/__init__.py`
 - Create: `tests/proof/test_manifest.py`
 
-- [ ] **Step 1: Add failing manifest tests**
+- [x] **Step 1: Add failing manifest tests**
 
 Create `tests/proof/test_manifest.py`:
 
@@ -345,7 +345,7 @@ def test_product_manifest_uses_repository_relative_fixtures() -> None:
     )
 ```
 
-- [ ] **Step 2: Run failing manifest tests**
+- [x] **Step 2: Run failing manifest tests**
 
 Run:
 
@@ -355,7 +355,7 @@ uv run pytest tests/proof/test_manifest.py -q
 
 Expected: FAIL because `mke.proof.manifest` does not exist.
 
-- [ ] **Step 3: Implement manifest**
+- [x] **Step 3: Implement manifest**
 
 Create `src/mke/proof/manifest.py`:
 
@@ -412,7 +412,7 @@ from mke.proof.manifest import PRODUCT_PROOF_MANIFEST, ProofFixtures, ProofManif
 
 and add those three names to `__all__`.
 
-- [ ] **Step 4: Run manifest tests**
+- [x] **Step 4: Run manifest tests**
 
 Run:
 
@@ -422,7 +422,7 @@ uv run pytest tests/proof/test_manifest.py -q
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/mke/proof/__init__.py src/mke/proof/manifest.py tests/proof/test_manifest.py
