@@ -1,4 +1,6 @@
 import json
+import os
+import tempfile
 from pathlib import Path
 
 from mke.proof.manifest import PRODUCT_PROOF_MANIFEST, ProofManifest
@@ -42,8 +44,10 @@ def test_product_proof_runner_json_payload_contains_no_absolute_paths() -> None:
     rendered = render_json_report(run_product_proof())
     json.loads(rendered)
 
-    assert "/Users/" not in rendered
-    assert "/tmp/" not in rendered
+    home_prefix = os.path.expanduser("~")
+    tmp_prefix = tempfile.gettempdir()
+    assert home_prefix not in rendered
+    assert tmp_prefix not in rendered
 
 
 def test_product_proof_runner_reports_missing_fixture_without_traceback(

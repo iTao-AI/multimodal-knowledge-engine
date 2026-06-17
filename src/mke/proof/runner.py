@@ -19,6 +19,9 @@ from mke.interfaces.mcp_contract import (
 from mke.proof.manifest import PRODUCT_PROOF_MANIFEST, ProofManifest
 from mke.proof.report import ObservedField, ProofCaseResult, ProofReport
 
+_EXPECTED_PDF_EVIDENCE_COUNT = 2
+_EXPECTED_VIDEO_EVIDENCE_COUNT = 2
+
 _CaseFn = Callable[["_ProofContext"], ProofCaseResult]
 
 
@@ -97,7 +100,7 @@ def _case_cli_pdf_ingest(context: _ProofContext) -> ProofCaseResult:
     engine = KnowledgeEngine(context.cli_db_path)
     try:
         result = engine.ingest_pdf(context.fixture(context.manifest.fixtures.text_layer_pdf))
-        if result.evidence_count != 2 or result.intake_report is None:
+        if result.evidence_count != _EXPECTED_PDF_EVIDENCE_COUNT or result.intake_report is None:
             raise AssertionError("PDF ingest did not publish expected Evidence and intake report")
         return ProofCaseResult(
             case="cli_pdf_ingest",
@@ -166,7 +169,7 @@ def _case_cli_video_ingest_search(context: _ProofContext) -> ProofCaseResult:
         result = engine.ingest_video(context.fixture(context.manifest.fixtures.video))
         matches = engine.search("timestamp proof")
         if (
-            result.evidence_count != 2
+            result.evidence_count != _EXPECTED_VIDEO_EVIDENCE_COUNT
             or not matches
             or matches[0].locator_kind != "timestamp_ms"
         ):

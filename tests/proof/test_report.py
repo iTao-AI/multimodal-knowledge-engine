@@ -36,6 +36,28 @@ def test_human_report_renders_summary_and_case_lines() -> None:
     )
 
 
+def test_json_report_includes_reason_on_failed_case() -> None:
+    report = ProofReport(
+        proof="product",
+        results=(
+            ProofCaseResult(
+                case="fixture_validation",
+                status="failed",
+                summary="Required fixture is missing.",
+                observed=(ObservedField("fixture", "text_layer_pdf"),),
+                duration_ms=0,
+                reason="fixture_missing",
+            ),
+        ),
+        duration_ms=0,
+    )
+    payload = json.loads(render_json_report(report))
+    assert payload["status"] == "failed"
+    assert payload["failed"] == 1
+    assert payload["results"][0]["reason"] == "fixture_missing"
+    assert "reason" in payload["results"][0]
+
+
 def test_failed_case_renders_stable_reason() -> None:
     report = ProofReport(
         proof="product",
