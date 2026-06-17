@@ -39,25 +39,11 @@ def test_product_proof_runner_reports_mcp_observed_fields() -> None:
 def test_product_proof_runner_json_payload_contains_no_absolute_paths() -> None:
     from mke.proof.report import render_json_report
 
-    payload = json.loads(render_json_report(run_product_proof()))
+    rendered = render_json_report(run_product_proof())
+    json.loads(rendered)
 
-    def walk(value: object) -> list[str]:
-        if isinstance(value, str):
-            return [value]
-        if isinstance(value, dict):
-            strings: list[str] = []
-            for item in value.values():
-                strings.extend(walk(item))
-            return strings
-        if isinstance(value, list):
-            strings = []
-            for item in value:
-                strings.extend(walk(item))
-            return strings
-        return []
-
-    assert not any("/Users/" in value for value in walk(payload))
-    assert not any("/tmp/" in value for value in walk(payload))
+    assert "/Users/" not in rendered
+    assert "/tmp/" not in rendered
 
 
 def test_product_proof_runner_reports_missing_fixture_without_traceback(

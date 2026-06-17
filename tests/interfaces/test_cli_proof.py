@@ -12,7 +12,10 @@ def test_cli_proof_run_outputs_human_report(capsys: CaptureFixture[str]) -> None
     assert "mke proof run" in output
     assert "proof=product status=passed cases=8 passed=8 failed=0" in output
     assert "case=cli_pdf_ingest status=passed evidence_count=2 intake_report=present" in output
-    assert "case=mcp_search_and_ask status=passed locator=page answer_status=evidence_found" in output
+    assert (
+        "case=mcp_search_and_ask status=passed locator=page answer_status=evidence_found"
+        in output
+    )
 
 
 def test_cli_proof_run_json_outputs_parseable_report(
