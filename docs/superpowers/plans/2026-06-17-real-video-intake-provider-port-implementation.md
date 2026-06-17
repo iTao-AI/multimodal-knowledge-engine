@@ -206,7 +206,7 @@ Expected: pass.
 - Create or modify: `tests/application/test_video_provider_injection.py`
 - Modify: `tests/application/test_video_publication.py`
 
-- [ ] **Step 1: Write failing application injection tests**
+- [x] **Step 1: Write failing application injection tests**
 
 Create `tests/application/test_video_provider_injection.py`:
 
@@ -244,7 +244,7 @@ def test_knowledge_engine_accepts_injected_transcript_provider(tmp_path: Path) -
     ]
 ```
 
-- [ ] **Step 2: Run the new test and verify failure**
+- [x] **Step 2: Run the new test and verify failure**
 
 Run:
 
@@ -254,7 +254,7 @@ uv run pytest tests/application/test_video_provider_injection.py -q
 
 Expected: fail because `KnowledgeEngine` does not accept `transcript_provider`.
 
-- [ ] **Step 3: Add provider classes**
+- [x] **Step 3: Add provider classes**
 
 Create `src/mke/adapters/video/providers.py`:
 
@@ -269,7 +269,7 @@ class SidecarTranscriptProvider:
         )
 ```
 
-- [ ] **Step 4: Add `TranscriptProvider` protocol and injection**
+- [x] **Step 4: Add `TranscriptProvider` protocol and injection**
 
 In `src/mke/application/__init__.py`, add:
 
@@ -317,7 +317,7 @@ manifest = RunManifest(
 )
 ```
 
-- [ ] **Step 5: Run video application tests**
+- [x] **Step 5: Run video application tests**
 
 Run:
 
