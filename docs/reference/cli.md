@@ -6,14 +6,31 @@ The CLI is intentionally narrow until the PDF and video lifecycle is proven.
 
 ```bash
 uv sync --locked
-uv run mke demo --verify
+uv run mke proof run
+uv run mke proof run --json
 ```
 
-`mke demo --verify` is deterministic and offline. It uses repository PyMuPDF text-layer PDF and
-short-video fixtures with a temporary SQLite workspace, then removes the temporary workspace before
-exit.
+`mke proof run` is deterministic and offline. It uses repository PyMuPDF text-layer PDF and
+short-video fixtures with a temporary SQLite workspace, executes CLI-equivalent application cases
+and MCP contract cases, then removes the temporary workspace before exit. `--json` emits a
+machine-readable report with public-safe scalar observed fields and no absolute local paths.
 
-Expected stdout shape:
+Expected human stdout shape:
+
+```text
+mke proof run
+proof=product status=passed cases=8 passed=8 failed=0 duration_ms=<milliseconds>
+case=cli_pdf_ingest status=passed evidence_count=2 intake_report=present
+case=cli_pdf_search status=passed locator=page
+case=cli_failed_reprocess status=passed active_publication_impact=unchanged
+case=cli_video_ingest_search status=passed locator=timestamp_ms
+case=cli_ask status=passed answer_status=evidence_found
+case=mcp_ingest_file status=passed intake_report=present
+case=mcp_get_run status=passed run_state=published
+case=mcp_search_and_ask status=passed locator=page answer_status=evidence_found
+```
+
+`mke demo --verify` remains available as a compatibility proof with phase-oriented stdout:
 
 ```text
 mke demo --verify
@@ -30,7 +47,7 @@ Exit codes:
 | Code | Meaning |
 |---|---|
 | `0` | Proof passed. |
-| `1` | Proof failed and printed the CLI error contract. |
+| `1` | At least one proof case failed. |
 
 Expected duration: a few seconds on a local development machine.
 

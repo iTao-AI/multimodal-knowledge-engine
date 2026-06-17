@@ -1047,7 +1047,7 @@ git commit -m "feat(cli): add product proof command"
 - Modify: `docs/README.md` if the index needs an explicit proof harness label
 - Modify: `docs/superpowers/plans/2026-06-17-product-proof-evaluation-harness-implementation.md`
 
-- [ ] **Step 1: Update README proof command**
+- [x] **Step 1: Update README proof command**
 
 In `README.md`, change the primary local proof command from:
 
@@ -1064,11 +1064,11 @@ uv run mke proof run --json
 
 Keep a sentence saying `mke demo --verify` remains available as a compatibility proof.
 
-- [ ] **Step 2: Update README_CN proof command**
+- [x] **Step 2: Update README_CN proof command**
 
 In `README_CN.md`, make the same command change and keep technical identifiers in English.
 
-- [ ] **Step 3: Rewrite local product proof how-to**
+- [x] **Step 3: Rewrite local product proof how-to**
 
 In `docs/how-to/run-local-product-proof.md`, replace the opening command block with:
 
@@ -1086,13 +1086,13 @@ compatibility note:
 the primary product proof entrypoint.
 ```
 
-- [ ] **Step 4: Update CLI reference**
+- [x] **Step 4: Update CLI reference**
 
 In `docs/reference/cli.md`, add `mke proof run` before the old `mke demo --verify` section. Include
 the human output shape and note that `--json` emits machine-readable results with no absolute
 local paths.
 
-- [ ] **Step 5: Update contracts reference**
+- [x] **Step 5: Update contracts reference**
 
 In `docs/reference/contracts.md`, update the CLI status table with:
 
@@ -1102,7 +1102,7 @@ In `docs/reference/contracts.md`, update the CLI status table with:
 
 Keep `mke demo --verify` as implemented and compatibility-oriented.
 
-- [ ] **Step 6: Documentation safety checks**
+- [x] **Step 6: Documentation safety checks**
 
 Run:
 
@@ -1118,7 +1118,7 @@ Expected:
 - Second command finds README and documentation references.
 - `git diff --check` has no output.
 
-- [ ] **Step 7: Commit docs**
+- [x] **Step 7: Commit docs**
 
 ```bash
 git add README.md README_CN.md docs/how-to/run-local-product-proof.md docs/reference/cli.md docs/reference/contracts.md docs/README.md docs/superpowers/specs/2026-06-17-product-proof-evaluation-harness-design.md docs/superpowers/plans/2026-06-17-product-proof-evaluation-harness-implementation.md
