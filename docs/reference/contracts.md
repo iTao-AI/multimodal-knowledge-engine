@@ -30,6 +30,7 @@ Status:
 | `mke --db <path> search <query>` | implemented in PR 2 | Searches only active Publication rows in the SQLite FTS5 projection. |
 | `mke --db <path> run get <run_id>` | implemented in PR 3, extended in D1 | Prints Run state, retry lineage, PDF intake summary when present, and append-only Run events. |
 | `mke proof run` | implemented in D2 | Runs the deterministic product proof harness across CLI-equivalent application behavior and MCP contract behavior. |
+| `mke proof transcript-smoke --fixture <short-mp4> -- <command> {input}` | implemented in D3-A | Proof-only trusted-local smoke for `LocalCommandTranscriptProvider`; not part of normal ingest and not exposed through MCP. |
 | `mke demo --verify` | implemented in PR 3, extended in PR 4 | Compatibility-oriented deterministic offline PDF and short-video proof using temporary SQLite workspace and repository fixtures. |
 | `mke --db <path> mcp --allowed-root <path>` | implemented in C1 | Runs a local stdio MCP server for Agent-facing ingest, Run inspection, and active Evidence Search. |
 | `mke --db <path> ask <question>` | implemented in C2 | Returns deterministic evidence-only Ask output using active Publication Search. |
@@ -43,10 +44,12 @@ built-in PDF extractor uses PyMuPDF behind the adapter boundary and extracts tex
 with `page.get_text("text", sort=True)`. Successful PDF ingest and Run inspection expose
 `PdfIntakeReport` summary fields: total pages, extracted pages, empty pages, extracted characters,
 page character counts, suspected scanned pages, extraction mode, and failure reason when present.
-The built-in video transcript adapter supports the documented short MP4 fixture profile with a
-local `mke.video_transcript.v1` sidecar. OCR, scanned PDFs, real speech-model transcription, long
-videos, page coordinates, tables, layout-aware chunking, hybrid retrieval, rerank, and Unicode-aware
-retrieval are non-goals.
+The default video transcript adapter supports the documented short MP4 fixture profile with a
+local `mke.video_transcript.v1` sidecar. D3-A adds a project-owned `TranscriptProvider` port and an
+optional trusted-local `LocalCommandTranscriptProvider` that reads the same transcript JSON shape
+from stdout, but normal ingest does not accept provider commands. OCR, scanned PDFs, bundled
+speech-model transcription, long videos, page coordinates, tables, layout-aware chunking, hybrid
+retrieval, rerank, and Unicode-aware retrieval are non-goals.
 
 CLI errors use a field-based contract:
 
@@ -95,7 +98,9 @@ and a limitation explaining that no active Evidence matched the search terms.
 
 The MCP server runs over stdio through `mke mcp --allowed-root <path>`. It reuses the same
 `KnowledgeEngine` application service as CLI ingest, Run inspection, and Search. `ingest_file`
-only accepts files under the configured allowed root and currently supports `.pdf` and `.mp4`.
+has the stable contract `ingest_file(config, path)`, only accepts files under the configured
+allowed root, and currently supports `.pdf` and `.mp4`. MCP requests cannot include transcription
+command argv or override the process-local transcript provider.
 MCP rejects PDF inputs larger than 100 MB with `problem="input_file_too_large"` before opening the
 PDF extractor. PDF `ingest_file` success and `get_run` responses include `intake_report` when a
 Run has one.

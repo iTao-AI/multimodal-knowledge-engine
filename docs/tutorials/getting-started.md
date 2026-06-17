@@ -63,5 +63,6 @@ This path supports deterministic text-layer PDFs, the documented short MP4 fixtu
 local transcript sidecar, active Publication Search, and local stdio MCP access through
 `mke mcp`. `mke ask` is evidence-only: it reports cited active Evidence or
 `insufficient_evidence`, without model-generated answers. This path does not cover scanned-PDF
-OCR, long videos, real speech-model transcription, generative Ask, HTTP, workspace UI, hosted
-coordination, or multi-worker runtime behavior.
+OCR, long videos, bundled speech-model transcription, generative Ask, HTTP, workspace UI, hosted
+coordination, or multi-worker runtime behavior. The optional local-command transcript smoke command
+is separate from this deterministic getting-started path.

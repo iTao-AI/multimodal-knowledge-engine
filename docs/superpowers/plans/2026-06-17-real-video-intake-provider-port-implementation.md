@@ -634,7 +634,7 @@ Expected:
 - Modify: `docs/how-to/run-local-product-proof.md`
 - Modify: `docs/superpowers/plans/2026-06-17-real-video-intake-provider-port-implementation.md`
 
-- [ ] **Step 1: Update public docs**
+- [x] **Step 1: Update public docs**
 
 Document:
 
@@ -649,7 +649,7 @@ Document:
 At the top of this plan, add a completion note with the PR number and final verification results.
 Keep checklist items accurate.
 
-- [ ] **Step 3: Scan for stale non-goals**
+- [x] **Step 3: Scan for stale non-goals**
 
 Run:
 

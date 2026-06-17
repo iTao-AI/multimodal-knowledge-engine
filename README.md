@@ -15,8 +15,10 @@ inspection, active Evidence Search, and evidence-only Ask. HTTP and the workspac
 implemented yet.
 
 The proof covers the lifecycle boundary, not broad media support. It does not perform scanned-PDF
-OCR, arbitrary video processing, real speech-model transcription, hosted coordination, or external
-provider calls.
+OCR, arbitrary video processing, bundled speech-model transcription, hosted coordination, or
+external provider calls. D3-A adds an optional trusted-local `LocalCommandTranscriptProvider`
+boundary and a proof-only `mke proof transcript-smoke` command, but normal ingest, MCP ingest,
+`mke proof run`, and `mke demo --verify` remain sidecar-backed and deterministic.
 
 PDF intake uses PyMuPDF behind the `src/mke/adapters/pdf/` boundary and exposes a
 `PdfIntakeReport` through `mke ingest`, `mke run get`, MCP `ingest_file`, and MCP `get_run`.

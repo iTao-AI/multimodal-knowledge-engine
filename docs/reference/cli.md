@@ -51,6 +51,28 @@ Exit codes:
 
 Expected duration: a few seconds on a local development machine.
 
+## Proof-Only Transcript Smoke
+
+```bash
+mke proof transcript-smoke --fixture <short-mp4> -- <transcriber-command> {input}
+```
+
+`transcript-smoke` is a local operator smoke command for the optional
+`LocalCommandTranscriptProvider`. It is not the normal ingest contract and is not exposed through
+MCP. The command argv must be supplied as separate arguments, must include exactly one `{input}`
+placeholder, and is executed with `shell=False`. The provider expects stdout to contain the shared
+`mke.video_transcript.v1` JSON object.
+
+Expected success stdout shape:
+
+```text
+mke proof transcript-smoke
+proof=transcript_smoke status=passed provider=local_command evidence_count=<n>
+```
+
+Failures use the video ingest error contract and do not expose argv, provider stderr, absolute
+paths, stack traces, secrets, or temporary directory names.
+
 ## Ingest And Search Commands
 
 ```bash
@@ -63,8 +85,8 @@ mke --db <path> run get <run_id>
 - `--db` defaults to `mke.sqlite` in the current working directory.
 - The SQLite schema is created automatically when the database is opened.
 - `ingest` supports PyMuPDF text-layer PDFs and the documented short MP4 fixture profile.
-- Video ingest reads `<video>.mke-transcript.json` sidecars and does not run `ffmpeg`, download
-  speech models, or call external services.
+- Normal video ingest reads `<video>.mke-transcript.json` sidecars and does not run `ffmpeg`,
+  download speech models, or call external services. It does not accept command argv.
 - `search` reads only active Publication rows in SQLite FTS5.
 - PDF results print `page=<number>`.
 - Successful PDF ingest prints stable intake summary fields:
@@ -154,6 +176,7 @@ next_step=fix_input_or_retry
 
 `mke init`, `mke serve`, and `mke library create` remain planned.
 
-Generative Ask, HTTP, workspace UI, OCR, scanned PDFs, long videos, real speech-model
+Generative Ask, HTTP, workspace UI, OCR, scanned PDFs, long videos, bundled speech-model
 transcription, tables, page coordinates, hosted coordination, and multi-worker runtime behavior
-are outside the current CLI scope.
+are outside the current CLI scope. The only real-provider boundary in D3-A is the optional
+proof-only local-command transcript smoke path.
