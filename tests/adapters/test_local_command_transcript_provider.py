@@ -74,49 +74,89 @@ def test_local_command_provider_uses_argv_with_shell_false(
     captured: dict[str, object] = {}
     video = tmp_path / "sample.mp4"
     video.write_bytes(b"fake mp4 bytes")
+    script = _write_script(tmp_path, _valid_transcript_script())
+    original_popen: Any = subprocess.Popen
 
-    def fake_run(
-        command: list[str],
-        *,
-        shell: bool,
-        capture_output: bool,
-        timeout: float,
-        check: bool,
-    ) -> subprocess.CompletedProcess[bytes]:
-        captured.update(
-            {
-                "command": command,
-                "shell": shell,
-                "capture_output": capture_output,
-                "timeout": timeout,
-                "check": check,
-            }
-        )
-        return subprocess.CompletedProcess(
-            command,
-            0,
-            stdout=(
-                b'{"format":"mke.video_transcript.v1",'
-                b'"media":{"container":"mp4","video_codec":"h264","audio_codec":"aac","has_audio":true,"duration_ms":1000},'
-                b'"segments":[{"start_ms":0,"end_ms":1000,"text":"ok"}]}'
-            ),
-            stderr=b"",
-        )
+    def fail_on_run(*args: object, **kwargs: object) -> object:
+        raise AssertionError("capture_output=True is not bounded capture")
 
-    monkeypatch.setattr(subprocess, "run", fake_run)
+    def spy_popen(*args: Any, **kwargs: Any) -> Any:
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return original_popen(*args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", fail_on_run)
+    monkeypatch.setattr(subprocess, "Popen", spy_popen)
     provider = LocalCommandTranscriptProvider(
-        LocalCommandTranscriptConfig(argv=("fake-transcriber", "--input", "{input}"))
+        LocalCommandTranscriptConfig(argv=(sys.executable, str(script), "{input}"))
     )
 
     provider.extract(video)
 
-    assert captured == {
-        "command": ["fake-transcriber", "--input", str(video)],
-        "shell": False,
-        "capture_output": True,
-        "timeout": 60.0,
-        "check": False,
-    }
+    popen_args = captured["args"]
+    assert isinstance(popen_args, tuple)
+    assert popen_args[0] == [sys.executable, str(script), str(video)]
+    kwargs = captured["kwargs"]
+    assert isinstance(kwargs, dict)
+    assert kwargs["shell"] is False
+    assert kwargs["stdout"] == subprocess.PIPE
+    assert kwargs["stderr"] == subprocess.PIPE
+
+
+def test_local_command_provider_rejects_oversized_stdout_before_json_parser(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    script = _write_script(
+        tmp_path,
+        "import sys\nsys.stdout.write('{\"format\":\"mke.video_transcript.v1\"}' * 100)\n",
+    )
+    video = tmp_path / "sample.mp4"
+    video.write_bytes(b"fake mp4 bytes")
+
+    def fail_if_parsed(text: str) -> object:
+        raise AssertionError(f"JSON parser should not receive oversized stdout: {text[:8]}")
+
+    monkeypatch.setattr("mke.adapters.video.providers.load_transcript_json", fail_if_parsed)
+    provider = LocalCommandTranscriptProvider(
+        LocalCommandTranscriptConfig(
+            argv=(sys.executable, str(script), "{input}"),
+            max_stdout_bytes=50,
+        )
+    )
+
+    with pytest.raises(
+        VideoExtractionError,
+        match="transcript command produced too much stdout",
+    ):
+        provider.extract(video)
+
+
+def test_local_command_provider_rejects_oversized_stderr_without_leaking_content(
+    tmp_path: Path,
+) -> None:
+    secret = "SECRET_STDERR_VALUE"
+    script = _write_script(
+        tmp_path,
+        "import sys\n"
+        f"sys.stderr.write('{secret}' * 100)\n"
+        + _valid_transcript_script(),
+    )
+    video = tmp_path / "sample.mp4"
+    video.write_bytes(b"fake mp4 bytes")
+    provider = LocalCommandTranscriptProvider(
+        LocalCommandTranscriptConfig(
+            argv=(sys.executable, str(script), "{input}"),
+            max_stderr_bytes=50,
+        )
+    )
+
+    with pytest.raises(VideoExtractionError) as exc_info:
+        provider.extract(video)
+
+    message = str(exc_info.value)
+    assert message == "transcript command produced too much stderr"
+    assert secret not in message
+    assert str(tmp_path) not in message
 
 
 @pytest.mark.parametrize(

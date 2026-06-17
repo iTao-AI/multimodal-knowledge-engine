@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import os
+import select
 import subprocess
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,6 +18,9 @@ from mke.domain import (
     VIDEO_TRANSCRIPT_FINGERPRINT,
     TranscriptExtractionResult,
 )
+
+_CAPTURE_CHUNK_BYTES = 8192
+_POLL_INTERVAL_SECONDS = 0.05
 
 
 @dataclass(frozen=True)
@@ -64,29 +70,16 @@ class LocalCommandTranscriptProvider:
             str(path) if part == "{input}" else part
             for part in self.config.argv
         ]
-        try:
-            completed = subprocess.run(
-                command,
-                shell=False,
-                capture_output=True,
-                timeout=self.config.timeout_seconds,
-                check=False,
-            )
-        except FileNotFoundError as error:
-            raise VideoExtractionError("transcript command executable is missing") from error
-        except subprocess.TimeoutExpired as error:
-            raise VideoExtractionError("transcript command timed out") from error
-
-        stdout = _process_bytes(completed.stdout)
-        stderr = _process_bytes(completed.stderr)
-        if len(stdout) > self.config.max_stdout_bytes:
-            raise VideoExtractionError("transcript command produced too much stdout")
-        if len(stderr) > self.config.max_stderr_bytes:
-            raise VideoExtractionError("transcript command produced too much stderr")
+        completed = _run_bounded_command(
+            command,
+            timeout_seconds=self.config.timeout_seconds,
+            max_stdout_bytes=self.config.max_stdout_bytes,
+            max_stderr_bytes=self.config.max_stderr_bytes,
+        )
         if completed.returncode != 0:
             raise VideoExtractionError("transcript command failed")
         try:
-            text = stdout.decode("utf-8")
+            text = completed.stdout.decode("utf-8")
         except UnicodeDecodeError as error:
             raise VideoExtractionError(
                 "transcript command stdout is not valid UTF-8"
@@ -97,9 +90,117 @@ class LocalCommandTranscriptProvider:
         )
 
 
-def _process_bytes(value: bytes | str | None) -> bytes:
-    if value is None:
-        return b""
-    if isinstance(value, str):
-        return value.encode("utf-8", errors="replace")
-    return value
+@dataclass(frozen=True)
+class _BoundedCommandResult:
+    returncode: int
+    stdout: bytes
+    stderr: bytes
+
+
+def _run_bounded_command(
+    command: Sequence[str],
+    *,
+    timeout_seconds: float,
+    max_stdout_bytes: int,
+    max_stderr_bytes: int,
+) -> _BoundedCommandResult:
+    try:
+        process = subprocess.Popen(
+            list(command),
+            shell=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except FileNotFoundError as error:
+        raise VideoExtractionError("transcript command executable is missing") from error
+
+    stdout = bytearray()
+    stderr = bytearray()
+    try:
+        return _read_bounded_process_output(
+            process,
+            stdout=stdout,
+            stderr=stderr,
+            timeout_seconds=timeout_seconds,
+            max_stdout_bytes=max_stdout_bytes,
+            max_stderr_bytes=max_stderr_bytes,
+        )
+    finally:
+        if process.stdout is not None:
+            process.stdout.close()
+        if process.stderr is not None:
+            process.stderr.close()
+
+
+def _read_bounded_process_output(
+    process: subprocess.Popen[bytes],
+    *,
+    stdout: bytearray,
+    stderr: bytearray,
+    timeout_seconds: float,
+    max_stdout_bytes: int,
+    max_stderr_bytes: int,
+) -> _BoundedCommandResult:
+    if process.stdout is None or process.stderr is None:
+        _kill_process(process)
+        raise VideoExtractionError("transcript command failed")
+
+    stdout_fd = process.stdout.fileno()
+    stderr_fd = process.stderr.fileno()
+    os.set_blocking(stdout_fd, False)
+    os.set_blocking(stderr_fd, False)
+    streams: dict[int, tuple[str, bytearray, int]] = {
+        stdout_fd: ("stdout", stdout, max_stdout_bytes),
+        stderr_fd: ("stderr", stderr, max_stderr_bytes),
+    }
+    deadline = time.monotonic() + timeout_seconds
+
+    while streams:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            _kill_process(process)
+            raise VideoExtractionError("transcript command timed out")
+        ready, _, _ = select.select(
+            list(streams),
+            [],
+            [],
+            min(remaining, _POLL_INTERVAL_SECONDS),
+        )
+        if not ready:
+            continue
+        for fd in ready:
+            stream_name, buffer, limit = streams[fd]
+            read_size = min(_CAPTURE_CHUNK_BYTES, limit - len(buffer) + 1)
+            if read_size <= 0:
+                _kill_process(process)
+                raise _oversized_output_error(stream_name)
+            try:
+                chunk = os.read(fd, read_size)
+            except BlockingIOError:
+                continue
+            if not chunk:
+                del streams[fd]
+                continue
+            buffer.extend(chunk)
+            if len(buffer) > limit:
+                _kill_process(process)
+                raise _oversized_output_error(stream_name)
+
+    return _BoundedCommandResult(
+        returncode=process.wait(),
+        stdout=bytes(stdout),
+        stderr=bytes(stderr),
+    )
+
+
+def _kill_process(process: subprocess.Popen[bytes]) -> None:
+    if process.poll() is None:
+        process.kill()
+    try:
+        process.wait(timeout=1)
+    except subprocess.TimeoutExpired:
+        pass
+
+
+def _oversized_output_error(stream_name: str) -> VideoExtractionError:
+    return VideoExtractionError(f"transcript command produced too much {stream_name}")

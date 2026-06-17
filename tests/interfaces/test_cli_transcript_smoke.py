@@ -127,3 +127,44 @@ def test_cli_proof_transcript_smoke_rejects_invalid_json(
     assert "problem=video_ingest_failed" in output
     assert "cause=video transcript sidecar is not valid JSON" in output
     assert str(tmp_path) not in output
+
+
+def test_cli_proof_transcript_smoke_sanitizes_command_failure(
+    tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    video = _write_video(tmp_path)
+    secret = "SECRET_STDERR_TOKEN"
+    argv_secret = "SECRET_ARGV_TOKEN"
+    script = _write_fake_transcriber(
+        tmp_path,
+        "import sys\n"
+        f"sys.stderr.write('{secret} Traceback {tmp_path}')\n"
+        "sys.exit(7)\n",
+    )
+
+    assert (
+        main(
+            [
+                "proof",
+                "transcript-smoke",
+                "--fixture",
+                str(video),
+                "--",
+                sys.executable,
+                str(script),
+                "{input}",
+                argv_secret,
+            ]
+        )
+        == 1
+    )
+
+    output = capsys.readouterr().out
+    assert "problem=video_ingest_failed" in output
+    assert "cause=transcript command failed" in output
+    assert str(tmp_path) not in output
+    assert str(script) not in output
+    assert argv_secret not in output
+    assert secret not in output
+    assert "Traceback" not in output
+    assert "mke-transcript-smoke-" not in output

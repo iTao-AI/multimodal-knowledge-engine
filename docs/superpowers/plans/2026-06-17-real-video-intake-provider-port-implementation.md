@@ -4,10 +4,13 @@
 
 ## Completion Note
 
-- Status: implemented locally on `codex/real-video-intake-plan`.
-- PR: not created per instruction.
-- Final verification on 2026-06-17:
-  - `uv run pytest -q`: `199 passed, 5 warnings`
+- Status: implemented on `codex/real-video-intake-plan`.
+- PR: #14.
+- Pre-landing follow-up: `LocalCommandTranscriptProvider` now uses bounded pipe capture instead
+  of `subprocess.run(..., capture_output=True)`, so stdout/stderr limits are enforced before
+  unbounded process output can be accumulated in memory.
+- Final verification on 2026-06-17 after the bounded capture fix:
+  - `uv run pytest -q`: `202 passed, 5 warnings`
   - `uv run ruff check .`: `All checks passed!`
   - `uv run pyright`: `0 errors, 0 warnings, 0 informations`
   - `uv build`: sdist and wheel built successfully
