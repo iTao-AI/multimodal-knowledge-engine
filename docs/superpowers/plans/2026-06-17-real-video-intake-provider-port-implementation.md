@@ -8,14 +8,15 @@
 - PR: #14.
 - Pre-landing follow-up: `LocalCommandTranscriptProvider` now uses bounded pipe capture instead
   of `subprocess.run(..., capture_output=True)`, so stdout/stderr limits are enforced before
-  unbounded process output can be accumulated in memory.
+  unbounded process output can be accumulated in memory. CLI public error output also allowlists
+  stable causes so sensitive exception text is redacted before stdout.
 - Final verification on 2026-06-17 after the bounded capture fix:
-  - `uv run pytest -q`: `202 passed, 5 warnings`
+  - `uv run pytest -q`: `203 passed, 5 warnings`
   - `uv run ruff check .`: `All checks passed!`
   - `uv run pyright`: `0 errors, 0 warnings, 0 informations`
   - `uv build`: sdist and wheel built successfully
   - `uv run mke proof run`: `proof=product status=passed cases=8 passed=8 failed=0`
-  - `uv run mke demo --verify`: `result=passed duration_ms=9`
+  - `uv run mke demo --verify`: `result=passed duration_ms=12`
   - `git diff --check`: no output
 
 **Goal:** Add a transcript provider port and proof-only local-command MP4 transcription smoke path while preserving deterministic sidecar proof behavior.

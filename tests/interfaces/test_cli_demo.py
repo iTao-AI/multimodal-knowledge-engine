@@ -91,6 +91,7 @@ def test_cli_run_get_nonexistent_id_returns_error_contract(
 
     output = capsys.readouterr().out
     assert "problem=pdf_ingest_failed" in output
-    assert "cause=unknown run: run_nonexistent" in output
+    assert "cause=unknown run" in output
+    assert "run_nonexistent" not in output
     assert "active_publication_impact=unchanged" in output
     assert "next_step=fix_input_or_retry" in output
