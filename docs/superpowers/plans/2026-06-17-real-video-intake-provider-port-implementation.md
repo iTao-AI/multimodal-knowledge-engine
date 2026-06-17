@@ -468,7 +468,7 @@ Expected: pass.
 - Modify: `tests/application/test_video_provider_injection.py`
 - Modify: `src/mke/application/__init__.py`
 
-- [ ] **Step 1: Write a regression test for failed provider isolation**
+- [x] **Step 1: Write a regression test for failed provider isolation**
 
 Add:
 
@@ -495,7 +495,7 @@ def test_failed_transcript_provider_leaves_active_search_unchanged(tmp_path: Pat
     assert [match.text for match in engine.search("timestamp proof")] == before
 ```
 
-- [ ] **Step 2: Run the regression test**
+- [x] **Step 2: Run the regression test**
 
 Run:
 
