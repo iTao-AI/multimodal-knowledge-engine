@@ -6,12 +6,12 @@ This file defines the execution rules for Codex when working in this repository.
 
 Multimodal Knowledge Engine is a local-first, Agent-callable Evidence engine for ingesting, searching, and asking questions over documents and media.
 
-The first product slice must prove:
+The first verified product slice proves:
 
-- One PDF and one short local video can be ingested through observable Runs.
-- Search and Ask return stable page or timestamp Evidence.
+- Text-layer PDFs and the documented short local video fixture can be ingested through observable Runs.
+- Search and Ask return stable page or timestamp Evidence from active Publications.
 - Failed or partial processing never becomes searchable.
-- HTTP, CLI, MCP, and the workspace use one canonical contract.
+- CLI and MCP use one canonical application contract. HTTP and workspace UI remain planned.
 
 ## Explicit Non-Goals
 
@@ -65,7 +65,8 @@ Public product concepts are:
 - A retry creates a new immutable Run. Crash recovery may resume the same Run only after checkpoint and fingerprint validation.
 - Any required-stage, embedding-batch, or indexing failure must fail the Run and prevent Publication switching.
 - Random vectors and silent fallbacks are prohibited.
-- The first runtime is a single-owner `mke serve` process with one worker and no Redis requirement.
+- The current runtime is local CLI plus stdio MCP over one owner process and SQLite. A future
+  `mke serve` process must keep the same domain and application contracts.
 
 Changing any constraint above requires an ADR in the same PR.
 
@@ -143,7 +144,7 @@ uv run pytest -q
 uv run ruff check .
 uv run pyright
 uv build
-cd frontend && npm run test && npm run lint && npm run build
+uv run mke proof run
 uv run mke demo --verify
 ```
 
