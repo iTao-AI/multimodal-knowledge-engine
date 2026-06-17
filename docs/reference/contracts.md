@@ -1,8 +1,9 @@
 # Public Contracts
 
 These contracts are planned around one application service layer and project-owned DTOs. The
-current implementation exposes the PDF and short-video CLI path plus deterministic local demo
-needed to prove active Publication Search semantics.
+current implementation exposes the PDF and short-video CLI path plus a deterministic local product
+proof needed to prove active Publication Search and Ask semantics across CLI-equivalent and MCP
+contract paths.
 
 ## HTTP
 
@@ -28,7 +29,8 @@ Status:
 | `mke --db <path> ingest <file>` | implemented in PR 2, extended in PR 4 and D1 | PyMuPDF text-layer PDF path and documented short MP4 fixture profile. Persists candidate Evidence, validates a RunManifest, and activates a Source Publication atomically. PDF success includes an intake summary. |
 | `mke --db <path> search <query>` | implemented in PR 2 | Searches only active Publication rows in the SQLite FTS5 projection. |
 | `mke --db <path> run get <run_id>` | implemented in PR 3, extended in D1 | Prints Run state, retry lineage, PDF intake summary when present, and append-only Run events. |
-| `mke demo --verify` | implemented in PR 3, extended in PR 4 | Deterministic offline PDF and short-video proof using temporary SQLite workspace and repository fixtures. |
+| `mke proof run` | implemented in D2 | Runs the deterministic product proof harness across CLI-equivalent application behavior and MCP contract behavior. |
+| `mke demo --verify` | implemented in PR 3, extended in PR 4 | Compatibility-oriented deterministic offline PDF and short-video proof using temporary SQLite workspace and repository fixtures. |
 | `mke --db <path> mcp --allowed-root <path>` | implemented in C1 | Runs a local stdio MCP server for Agent-facing ingest, Run inspection, and active Evidence Search. |
 | `mke --db <path> ask <question>` | implemented in C2 | Returns deterministic evidence-only Ask output using active Publication Search. |
 | `mke init` | planned | Workspace initialization after lifecycle proof. |

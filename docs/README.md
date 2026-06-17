@@ -23,7 +23,7 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [ADR-0004](./decisions/0004-pymupdf-pdf-intake-adapter.md) defines the PyMuPDF PDF intake adapter and licensing boundary.
 - [Architecture](./explanation/architecture.md) explains the current domain flow and projection boundary.
 - [Public Contracts](./reference/contracts.md) tracks implemented versus planned interfaces.
-- [CLI Reference](./reference/cli.md) documents implemented commands, demo output, and error fields.
+- [CLI Reference](./reference/cli.md) documents implemented commands, proof output, compatibility demo output, and error fields.
 - [Run The Local Product Proof](./how-to/run-local-product-proof.md) explains the deterministic PDF and short-video proof.
 - [Use MKE As A Local MCP Server](./how-to/use-mke-mcp.md) explains the first Agent-facing stdio interface.
 - [Trustworthy PDF And Video Slice Design](./superpowers/specs/2026-06-15-trustworthy-pdf-video-slice-design.md) records the approved design.
@@ -37,6 +37,8 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [Real PDF Intake Design](./superpowers/specs/2026-06-16-real-pdf-intake-design.md) defines D1 PyMuPDF text-layer intake.
 - [Real PDF Intake Implementation Plan](./superpowers/plans/2026-06-16-real-pdf-intake-implementation.md) is the executable D1 plan.
 - [Real PDF Intake Autoplan Review](./superpowers/reviews/2026-06-16-real-pdf-intake-autoplan-review.md) and [Engineering Review](./superpowers/reviews/2026-06-16-real-pdf-intake-eng-review.md) record the approved D1 review findings.
+- [Product Proof And Evaluation Harness Design](./superpowers/specs/2026-06-17-product-proof-evaluation-harness-design.md) defines the D2 deterministic product proof harness.
+- [Product Proof And Evaluation Harness Implementation Plan](./superpowers/plans/2026-06-17-product-proof-evaluation-harness-implementation.md) is the executable D2 plan.
 
 ## Development Verification
 

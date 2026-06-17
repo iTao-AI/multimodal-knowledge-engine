@@ -5,21 +5,37 @@ checkout.
 
 ```bash
 uv sync --locked
-uv run mke demo --verify
+uv run mke proof run
+uv run mke proof run --json
 ```
 
-The demo creates a temporary SQLite workspace, ingests the repository PyMuPDF text-layer PDF
-fixture, forces a failed PDF reprocess, verifies the previous active Publication remains
-searchable, retries a publishable candidate, ingests the repository short-video fixture with
-timestamp Evidence, and cleans up the temporary workspace before exit.
+The proof runner creates a temporary SQLite workspace, executes ordered CLI-equivalent application
+checks and MCP contract checks, and cleans up the temporary workspace before exit. The JSON report
+uses public-safe scalar fields and does not include absolute local paths, Run IDs, Evidence IDs, raw
+Evidence text, or temporary directory names.
+
+`mke demo --verify` remains available and keeps its phase-oriented output, but `mke proof run` is
+the primary product proof entrypoint.
 
 ## What This Proves
 
 - PyMuPDF text-layer PDF ingest can publish page-addressed Evidence and report intake diagnostics.
 - Short local video fixture ingest can publish timestamp-addressed Evidence.
 - Failed PDF reprocessing leaves the previous active Publication searchable.
-- Retry creates a new Run and can publish validated candidate output.
-- Search reads only active Publication rows.
+- Search and evidence-only Ask read only active Publication rows.
+- MCP `ingest_file`, `get_run`, `search_library`, and `ask_library` expose the same contract-ready
+  behavior in process.
+
+## Proof Cases
+
+- `cli_pdf_ingest`
+- `cli_pdf_search`
+- `cli_failed_reprocess`
+- `cli_video_ingest_search`
+- `cli_ask`
+- `mcp_ingest_file`
+- `mcp_get_run`
+- `mcp_search_and_ask`
 
 ## What This Does Not Prove
 
@@ -28,8 +44,8 @@ timestamp Evidence, and cleans up the temporary workspace before exit.
 - Unicode-aware retrieval beyond the current ASCII Search tokenization.
 - Arbitrary or long-video processing.
 - Real speech-model transcription.
-- Ask, HTTP, or workspace UI.
-- MCP server startup; see [Use MKE As A Local MCP Server](./use-mke-mcp.md).
+- HTTP or workspace UI.
+- stdio MCP server startup; see [Use MKE As A Local MCP Server](./use-mke-mcp.md).
 - Hosted coordination, multi-worker behavior, or external provider integration.
 
 For lower-level inspection:
@@ -39,6 +55,7 @@ uv run mke --db .tmp/mke.sqlite ingest tests/fixtures/pdf/text-layer.pdf
 uv run mke --db .tmp/mke.sqlite ingest tests/fixtures/video/short-audio.mp4
 uv run mke --db .tmp/mke.sqlite search trustworthy
 uv run mke --db .tmp/mke.sqlite search timestamp
+uv run mke --db .tmp/mke.sqlite ask "publication active"
 uv run mke --db .tmp/mke.sqlite run get <run_id>
 ```
 

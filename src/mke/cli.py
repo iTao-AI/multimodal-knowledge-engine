@@ -12,6 +12,7 @@ from pathlib import Path
 from mke.application import AskValidationError, KnowledgeEngine, PdfIngestError, VideoIngestError
 from mke.domain import FailurePoint, PdfIntakeReport, SearchResult
 from mke.interfaces.mcp_server import run_mcp_server
+from mke.proof import render_human_report, render_json_report, run_product_proof
 
 _DEFAULT_PDF_FIXTURE = Path("tests/fixtures/pdf/text-layer.pdf")
 _DEFAULT_REVISED_PDF_FIXTURE = Path("tests/fixtures/pdf/text-layer-revised.pdf")
@@ -48,12 +49,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     demo.add_argument("--revised-fixture", type=Path, default=_DEFAULT_REVISED_PDF_FIXTURE)
     demo.add_argument("--video-fixture", type=Path, default=_DEFAULT_VIDEO_FIXTURE)
 
+    proof = subcommands.add_parser("proof")
+    proof_subcommands = proof.add_subparsers(dest="proof_command", required=True)
+    proof_run = proof_subcommands.add_parser("run")
+    proof_run.add_argument("--json", action="store_true", dest="json_output")
+
     mcp = subcommands.add_parser("mcp")
     mcp.add_argument("--allowed-root", type=Path, default=Path.cwd())
 
     args = parser.parse_args(argv)
     if args.command == "demo":
         return _demo_verify(args.fixture, args.revised_fixture, args.video_fixture)
+    if args.command == "proof":
+        return _proof_run(json_output=args.json_output)
     if args.command == "mcp":
         return run_mcp_server(db_path=args.db, allowed_root=args.allowed_root)
 
@@ -223,6 +231,15 @@ def _demo_verify(fixture: Path, revised_fixture: Path, video_fixture: Path) -> i
     print("phase=cleanup status=ok")
     print(f"result=passed duration_ms={duration_ms}")
     return 0
+
+
+def _proof_run(*, json_output: bool) -> int:
+    report = run_product_proof()
+    if json_output:
+        print(render_json_report(report))
+    else:
+        print(render_human_report(report))
+    return 0 if report.status == "passed" else 1
 
 
 def _print_error_contract(

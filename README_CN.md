@@ -6,7 +6,7 @@ Multimodal Knowledge Engine 是一个本地优先、可被 Agent 调用的 Evide
 
 ## 当前状态
 
-仓库现在已有确定性的本地跨模态 proof：`mke demo --verify` 会导入 PyMuPDF text-layer PDF 和短本地视频，证明失败的 PDF reprocess 不会改变 active Publication，重试 validated candidate 路径，并验证 page Evidence 与 timestamp Evidence 都只来自 active Search。
+仓库现在已有确定性的本地 product proof：`mke proof run` 会在临时 SQLite workspace 中执行有序的 CLI-equivalent 和 MCP contract cases。它会导入 PyMuPDF text-layer PDF 和短本地视频，证明失败的 PDF reprocess 不会改变 active Publication，并验证 page Evidence 与 timestamp Evidence 都只来自 active Search 和 evidence-only Ask。
 首个 Agent-facing interface 是本地 stdio MCP server，支持 ingest、Run 检查和 active Evidence Search。
 现在 C2 已加入 evidence-only Ask；HTTP 和 workspace 尚未实现。
 
@@ -46,8 +46,11 @@ C2 Ask 只返回 Evidence：`ask_library` 和 `mke ask` 会在 active Search 命
 
 ```bash
 uv sync --locked
-uv run mke demo --verify
+uv run mke proof run
+uv run mke proof run --json
 ```
+
+`mke demo --verify` 仍作为 compatibility proof 可用，并保留 phase-oriented 输出。
 
 开发检查命令是：
 

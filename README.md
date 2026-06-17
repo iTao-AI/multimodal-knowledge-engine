@@ -6,12 +6,13 @@ Multimodal Knowledge Engine is a local-first Evidence engine for ingesting, sear
 
 ## Current Status
 
-This repository now has a deterministic local cross-modal proof: `mke demo --verify` ingests a
-PyMuPDF text-layer PDF and a short local video, proves failed PDF reprocessing leaves the active
-Publication searchable, retries the validated candidate path, and verifies active-only Search for
-page and timestamp Evidence. The first Agent-facing interface is a local stdio MCP server for
-ingest, Run inspection, active Evidence Search, and evidence-only Ask. HTTP and the workspace are
-not implemented yet.
+This repository now has a deterministic local product proof: `mke proof run` executes ordered
+CLI-equivalent and MCP contract cases against a temporary SQLite workspace. It ingests a PyMuPDF
+text-layer PDF and a short local video, proves failed PDF reprocessing leaves the active
+Publication searchable, and verifies active-only Search and evidence-only Ask for page and
+timestamp Evidence. The first Agent-facing interface is a local stdio MCP server for ingest, Run
+inspection, active Evidence Search, and evidence-only Ask. HTTP and the workspace are not
+implemented yet.
 
 The proof covers the lifecycle boundary, not broad media support. It does not perform scanned-PDF
 OCR, arbitrary video processing, real speech-model transcription, hosted coordination, or external
@@ -58,8 +59,11 @@ The primary local proof is:
 
 ```bash
 uv sync --locked
-uv run mke demo --verify
+uv run mke proof run
+uv run mke proof run --json
 ```
+
+`mke demo --verify` remains available as a compatibility proof with its phase-oriented output.
 
 The development checks are:
 
