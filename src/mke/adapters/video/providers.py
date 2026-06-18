@@ -105,7 +105,11 @@ class LocalCommandTranscriptProvider:
         if completed.returncode != 0:
             failure = self.config.exit_code_errors.get(completed.returncode)
             if failure is not None:
-                raise VideoExtractionError(failure.cause)
+                raise VideoExtractionError(
+                    failure.cause,
+                    problem=failure.problem,
+                    next_step=failure.next_step,
+                )
             raise VideoExtractionError("transcript command failed")
         try:
             text = completed.stdout.decode("utf-8")

@@ -68,9 +68,9 @@ Recognized real-provider Manifests use the exact fingerprint grammar:
 faster-whisper-v1:<64 lowercase hexadecimal characters>
 ```
 
-The digest covers canonical provider, model, model revision, library version, device, compute
-type, and requested language identity. Prefix-only, uppercase, short, or version-mismatched values
-are rejected.
+The digest covers canonical provider, model, model revision, library version, the actual device
+and compute type resolved by CTranslate2, and requested language identity. Prefix-only, uppercase,
+short, or version-mismatched values are rejected.
 
 A successful real-provider activation exposes `TranscriptIntakeReport` fields through CLI ingest,
 CLI `run get`, MCP `ingest_file`, and MCP `get_run`:
@@ -110,6 +110,11 @@ CLI and MCP use the same typed `PublicError` payload with `ok=false`, `problem`,
 allowlisted. Unknown exception text is replaced with
 `operation failed; details were redacted`; public errors never expose paths, argv, stderr, cache
 locations, endpoints, credentials, secrets, or stack traces.
+
+First-party adapter exit mappings retain the complete project-owned
+`problem`/`cause`/`next_step` triple through provider, application, CLI, and MCP boundaries.
+Owner configuration failures occur before ingest and are reported as CLI usage errors. Explicit
+language support is checked cache-only before CLI faster-whisper ingest creates a Run.
 
 Ask validation failures use `invalid_question` for empty, overlong, or no-searchable-token
 questions and `invalid_query` for invalid limits. CJK-only and punctuation-only Ask inputs return

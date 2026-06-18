@@ -87,3 +87,53 @@ def test_async_ingest_cancellation_waits_for_worker_cleanup(
 
     assert cancelled_process.is_set()
     assert worker_finished.is_set()
+
+
+def test_async_ingest_cancellation_kills_process_registered_after_cancel(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = _config(tmp_path)
+    worker_started = threading.Event()
+    cancellation_seen = threading.Event()
+    process_killed = threading.Event()
+
+    class LateProcess:
+        def poll(self) -> None:
+            return None
+
+        def kill(self) -> None:
+            process_killed.set()
+
+        def wait(self, timeout: float | None = None) -> int:
+            return -9
+
+    process = LateProcess()
+    original_cancel = config.runtime.process_controller.cancel_active
+
+    def observe_cancel() -> None:
+        original_cancel()
+        cancellation_seen.set()
+
+    def register_after_cancel(config: McpRuntimeConfig, path: str) -> dict[str, object]:
+        worker_started.set()
+        assert cancellation_seen.wait(timeout=2)
+        config.runtime.process_controller.register(process)  # type: ignore[arg-type]
+        config.runtime.process_controller.unregister(process)  # type: ignore[arg-type]
+        return {"ok": False}
+
+    monkeypatch.setattr(
+        "mke.interfaces.mcp_server.mcp_contract.ingest_file",
+        register_after_cancel,
+    )
+    monkeypatch.setattr(config.runtime.process_controller, "cancel_active", observe_cancel)
+
+    async def exercise() -> None:
+        task = asyncio.create_task(ingest_with_cancellation_for_test(config, "speech.mp4"))
+        await asyncio.to_thread(worker_started.wait, 2)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(task, timeout=2)
+
+    asyncio.run(exercise())
+
+    assert process_killed.is_set()

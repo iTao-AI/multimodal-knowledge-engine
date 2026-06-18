@@ -145,6 +145,10 @@ mke transcription doctor [runtime flags] [--json]
 Runtime flags are `--transcript-provider`, `--model`, `--model-revision`, `--device`,
 `--compute-type`, `--language`, `--model-cache`, and `--transcription-timeout-seconds`.
 Preparation is the only download path. Doctor returns `0` ready, `1` not ready, and `2` for usage.
+Invalid owner configuration is a usage error and never emits a Python traceback. Faster-whisper
+video ingest runs the same cache-only readiness checks before opening SQLite or creating a Run;
+an unsupported explicit language returns `problem=transcription_not_ready` with
+`next_step=choose_supported_language`.
 
 ## MCP Server Command
 
@@ -183,8 +187,12 @@ Current video failures use:
 ```text
 problem=video_ingest_failed
 active_publication_impact=unchanged
-next_step=fix_input_or_retry
+next_step=<provider-specific recovery action or fix_input_or_retry>
 ```
+
+First-party adapter failures preserve stable recovery actions such as
+`install_transcription_extra`, `run_transcription_prepare`, and
+`check_model_configuration`.
 
 ## Planned Commands
 

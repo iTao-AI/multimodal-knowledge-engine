@@ -393,7 +393,7 @@ def test_transcribe_materializes_generator_before_returning(
 
     class FakeModel:
         def __init__(self, *args: object, **kwargs: object) -> None:
-            pass
+            self.model = SimpleNamespace(device="cpu", compute_type="int8")
 
         def transcribe(self, path: str, *, language: str | None) -> tuple[object, object]:
             def segments() -> object:
@@ -422,3 +422,74 @@ def test_transcribe_materializes_generator_before_returning(
     assert parsed.segments[0].text == "speech"
     assert parsed.transcription_provenance is not None
     assert parsed.transcription_provenance.language == "auto"
+
+
+def test_transcribe_reports_missing_optional_runtime_before_media_probe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    video = tmp_path / "speech.mp4"
+    video.write_bytes(b"x")
+
+    def missing_runtime() -> tuple[object, str]:
+        raise ImportError("No module named 'av'")
+
+    def fail_probe(path: Path, limits: VideoTranscriptionLimits) -> VideoMediaInfo:
+        pytest.fail("media probing must not classify a missing optional runtime as a codec error")
+
+    monkeypatch.setattr(
+        "mke.adapters.video.faster_whisper._load_whisper_runtime",
+        missing_runtime,
+    )
+    monkeypatch.setattr("mke.adapters.video.faster_whisper.probe_media", fail_probe)
+
+    with pytest.raises(AdapterProtocolError) as exc_info:
+        transcribe_media(video, FasterWhisperTranscriptionConfig())
+
+    assert exc_info.value.exit_code == AdapterExitCode.DEPENDENCY_MISSING
+
+
+def test_transcribe_records_resolved_runtime_profile(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    video = tmp_path / "speech.mp4"
+    video.write_bytes(b"x")
+
+    class FakeModel:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            self.model = SimpleNamespace(device="cpu", compute_type="int8_float32")
+
+        def transcribe(self, path: str, *, language: str | None) -> tuple[object, object]:
+            return (
+                [_RawSegment(start=0.0, end=1.0, text="speech")],
+                SimpleNamespace(language="en"),
+            )
+
+    def fake_probe(path: Path, limits: VideoTranscriptionLimits) -> VideoMediaInfo:
+        return VideoMediaInfo("mp4", "h264", "aac", True, 1000)
+
+    def fake_resolve(
+        config: FasterWhisperTranscriptionConfig, *, allow_download: bool
+    ) -> Path:
+        return tmp_path / "snapshot"
+
+    monkeypatch.setattr(
+        "mke.adapters.video.faster_whisper.probe_media",
+        fake_probe,
+    )
+    monkeypatch.setattr(
+        "mke.adapters.video.faster_whisper.resolve_model_snapshot",
+        fake_resolve,
+    )
+    monkeypatch.setattr(
+        "mke.adapters.video.faster_whisper._load_whisper_runtime",
+        lambda: (FakeModel, "1.2.1"),
+    )
+
+    parsed = transcribe_media(
+        video,
+        FasterWhisperTranscriptionConfig(device="auto", compute_type="default"),
+    )
+
+    assert parsed.transcription_provenance is not None
+    assert parsed.transcription_provenance.device == "cpu"
+    assert parsed.transcription_provenance.compute_type == "int8_float32"

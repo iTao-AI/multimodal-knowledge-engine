@@ -70,6 +70,30 @@ def test_error_contract_redacts_unrecognized_sensitive_cause(
     assert "/Users/mac" not in output
 
 
+def test_cli_preserves_typed_video_recovery_action(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: CaptureFixture[str],
+) -> None:
+    video = tmp_path / "input.mp4"
+    video.write_bytes(b"fake mp4 bytes")
+
+    def fail_with_typed_error(self: KnowledgeEngine, path: Path) -> object:
+        raise VideoIngestError(
+            "configured transcription model is not cached",
+            problem="video_ingest_failed",
+            next_step="run_transcription_prepare",
+        )
+
+    monkeypatch.setattr(KnowledgeEngine, "ingest_video", fail_with_typed_error)
+
+    assert main(["--db", str(tmp_path / "mke.sqlite"), "ingest", str(video)]) == 1
+
+    output = capsys.readouterr().out
+    assert "cause=configured transcription model is not cached" in output
+    assert "next_step=run_transcription_prepare" in output
+
+
 def test_cli_redacts_video_hash_failure(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -55,6 +55,11 @@ class _ReadyModel(Protocol):
     supported_languages: list[str]
 
 
+class _ResolvedRuntimeModel(Protocol):
+    device: str
+    compute_type: str
+
+
 class _WhisperModelFactory(Protocol):
     def __call__(
         self,
@@ -102,6 +107,8 @@ class _TranscriptionInfo(Protocol):
 
 
 class _TranscribingModel(_ReadyModel, Protocol):
+    model: _ResolvedRuntimeModel
+
     def transcribe(
         self, path: str, *, language: str | None
     ) -> tuple[Iterable[_TranscriptionSegment], _TranscriptionInfo]: ...
@@ -428,6 +435,10 @@ def transcribe_media(
     path: Path,
     config: FasterWhisperTranscriptionConfig,
 ) -> ParsedVideoTranscript:
+    try:
+        model_factory, library_version = _load_whisper_runtime()
+    except ImportError as error:
+        raise AdapterProtocolError(AdapterExitCode.DEPENDENCY_MISSING) from error
     media = probe_media(path, config.limits)
     try:
         snapshot = resolve_model_snapshot(config, allow_download=False)
@@ -438,10 +449,6 @@ def transcribe_media(
             else AdapterExitCode.MODEL_RESOLUTION_FAILED
         )
         raise AdapterProtocolError(exit_code) from error
-    try:
-        model_factory, library_version = _load_whisper_runtime()
-    except ImportError as error:
-        raise AdapterProtocolError(AdapterExitCode.DEPENDENCY_MISSING) from error
     started = time.monotonic()
     try:
         model = model_factory(
@@ -468,8 +475,8 @@ def transcribe_media(
         model=config.model,
         model_revision=config.model_revision,
         library_version=library_version,
-        device=config.device,
-        compute_type=config.compute_type,
+        device=model.model.device,
+        compute_type=model.model.compute_type,
         language=config.language,
         detected_language=detected_language,
         model_source="cache",
@@ -483,6 +490,7 @@ def transcribe_media(
 
 
 def _load_whisper_runtime() -> tuple[_TranscribingModelFactory, str]:
+    import_module("av")
     faster_whisper = import_module("faster_whisper")
     return (
         cast(_TranscribingModelFactory, faster_whisper.WhisperModel),

@@ -15,7 +15,13 @@ interpreter. Defaults are model `small`, revision
 Only `mke transcription prepare --allow-model-download` may populate the model cache. Doctor,
 CLI ingest, MCP startup, and adapter execution use exact-revision cache-only resolution. CLI and
 MCP share one typed `RuntimeConfig`; MCP tool inputs cannot override owner provider policy.
-Registered adapter children are terminated and waited during cancellation or shutdown.
+CLI faster-whisper ingest completes the same read-only readiness check before opening SQLite or
+creating a Run. Successful provenance records the device and compute type resolved by CTranslate2,
+not unresolved owner values such as `auto` or `default`.
+
+Registered adapter children are terminated and waited during cancellation or shutdown. The owner
+process keeps cancellation latched until the active worker exits, so a child registered after the
+initial cancellation signal is terminated immediately.
 
 Required Python 3.12/3.13 CI installs the core wheel and `wheel[transcription]` without a model.
 Rollback selects the default sidecar provider.

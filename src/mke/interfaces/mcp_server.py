@@ -95,14 +95,19 @@ async def _ingest_with_cancellation(
     config: McpRuntimeConfig,
     path: str,
 ) -> dict[str, Any]:
-    worker = asyncio.create_task(asyncio.to_thread(mcp_contract.ingest_file, config, path))
+    controller = config.runtime.process_controller
+    controller.begin_operation()
     try:
-        return await asyncio.shield(worker)
-    except asyncio.CancelledError:
-        config.runtime.process_controller.cancel_active()
-        with suppress(Exception):
-            await asyncio.shield(worker)
-        raise
+        worker = asyncio.create_task(asyncio.to_thread(mcp_contract.ingest_file, config, path))
+        try:
+            return await asyncio.shield(worker)
+        except asyncio.CancelledError:
+            controller.cancel_active()
+            with suppress(Exception):
+                await asyncio.shield(worker)
+            raise
+    finally:
+        controller.end_operation()
 
 
 def _safe_tool(fn: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any]]:

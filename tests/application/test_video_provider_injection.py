@@ -36,6 +36,15 @@ class FailingTranscriptProvider:
         raise VideoExtractionError("transcript command failed")
 
 
+class TypedFailingTranscriptProvider:
+    def extract(self, path: Path) -> TranscriptExtractionResult:
+        raise VideoExtractionError(
+            "configured transcription model is not cached",
+            problem="video_ingest_failed",
+            next_step="run_transcription_prepare",
+        )
+
+
 def _faster_whisper_provenance() -> TranscriptionProvenance:
     return TranscriptionProvenance(
         provider="faster-whisper",
@@ -109,6 +118,21 @@ def test_failed_transcript_provider_leaves_active_search_unchanged(tmp_path: Pat
         failing.ingest_video(failed_video)
 
     assert [match.text for match in engine.search("timestamp proof")] == before
+
+
+def test_video_ingest_preserves_typed_provider_recovery_fields(tmp_path: Path) -> None:
+    video = tmp_path / "failed.mp4"
+    video.write_bytes(b"fake mp4 bytes")
+    engine = KnowledgeEngine(
+        tmp_path / "mke.sqlite",
+        transcript_provider=TypedFailingTranscriptProvider(),
+    )
+
+    with pytest.raises(VideoIngestError) as exc_info:
+        engine.ingest_video(video)
+
+    assert exc_info.value.problem == "video_ingest_failed"
+    assert exc_info.value.next_step == "run_transcription_prepare"
 
 
 def test_faster_whisper_ingest_returns_and_persists_successful_report(tmp_path: Path) -> None:

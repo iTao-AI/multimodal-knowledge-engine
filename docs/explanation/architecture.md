@@ -80,6 +80,11 @@ short MP4 fixture profile, while `LocalCommandTranscriptProvider` also binds the
 faster-whisper subprocess. `src/mke/runtime.py` is the shared CLI/MCP composition root. Preparation
 is explicit; doctor, ingest, MCP startup, and adapter execution are cache-only. Requests cannot
 supply command argv or download policy. Deterministic proof remains sidecar-backed and model-free.
+CLI faster-whisper ingest performs readiness before engine construction, while successful
+provenance uses the runtime profile resolved by CTranslate2. Adapter failure metadata remains typed
+through the provider and application layers so interfaces can return the correct operator action.
+Cancellation remains latched for the active MCP worker, closing the interval between worker start
+and child-process registration.
 
 CLI and MCP errors share one project-owned `PublicError` serializer. Only allowlisted stable causes
 can reach public output; unknown exception text is replaced with

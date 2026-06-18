@@ -72,9 +72,18 @@ class PdfIngestError(ValueError):
 class VideoIngestError(ValueError):
     """Raised when the video path cannot produce publishable Evidence."""
 
-    def __init__(self, message: str, run_id: str | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        run_id: str | None = None,
+        *,
+        problem: str = "video_ingest_failed",
+        next_step: str = "fix_input_or_retry",
+    ) -> None:
         super().__init__(message)
         self.run_id = run_id
+        self.problem = problem
+        self.next_step = next_step
 
 
 class AskValidationError(ValueError):
@@ -357,7 +366,12 @@ class KnowledgeEngine:
                 self._store.mark_run_failed(run.run_id)
             except Exception:
                 pass
-            raise VideoIngestError(str(error), run.run_id) from error
+            raise VideoIngestError(
+                str(error),
+                run.run_id,
+                problem=getattr(error, "problem", "video_ingest_failed"),
+                next_step=getattr(error, "next_step", "fix_input_or_retry"),
+            ) from error
 
 
 def _validate_video_input(path: Path, limits: VideoTranscriptionLimits) -> None:

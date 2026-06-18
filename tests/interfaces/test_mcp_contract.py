@@ -7,7 +7,7 @@ from typing import Any, cast
 import pytest
 
 import mke.interfaces.mcp_contract
-from mke.application import KnowledgeEngine
+from mke.application import KnowledgeEngine, VideoIngestError
 from mke.interfaces.mcp_contract import (
     McpRuntimeConfig,
     ask_library,
@@ -189,6 +189,28 @@ def test_mcp_video_failure_does_not_leak_provider_diagnostics(tmp_path: Path) ->
     assert "--secret" not in rendered
     assert "stderr" not in rendered
     assert "Traceback" not in rendered
+
+
+def test_mcp_video_failure_preserves_typed_recovery_action(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    video = tmp_path / "bad.mp4"
+    video.write_bytes(b"fake mp4 bytes")
+    config = _config(tmp_path, tmp_path)
+
+    def fail_with_typed_error(self: KnowledgeEngine, path: Path) -> object:
+        raise VideoIngestError(
+            "configured transcription model is not cached",
+            problem="video_ingest_failed",
+            next_step="run_transcription_prepare",
+        )
+
+    monkeypatch.setattr(KnowledgeEngine, "ingest_video", fail_with_typed_error)
+
+    result = ingest_file(config, "bad.mp4")
+
+    assert result["cause"] == "configured transcription model is not cached"
+    assert result["next_step"] == "run_transcription_prepare"
 
 
 def test_ingest_file_rejects_paths_outside_allowed_root(tmp_path: Path) -> None:

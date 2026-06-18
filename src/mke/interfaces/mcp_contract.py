@@ -108,9 +108,9 @@ def ingest_file(config: McpRuntimeConfig, path: str) -> dict[str, Any]:
             )
         except VideoIngestError as error:
             return _failure(
-                "video_ingest_failed",
+                error.problem,
                 str(error),
-                "fix_input_or_retry",
+                error.next_step,
                 run_id=error.run_id,
             )
         payload: dict[str, Any] = {

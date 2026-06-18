@@ -103,19 +103,43 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _proof_run(json_output=args.json_output)
         return _proof_transcript_smoke(args.fixture, args.transcript_command)
     if args.command == "mcp":
+        try:
+            runtime = runtime_config_from_args(args)
+        except (TypeError, ValueError) as error:
+            parser.error(str(error))
         return run_mcp_server(
             McpRuntimeConfig(
-                runtime=runtime_config_from_args(args),
+                runtime=runtime,
                 allowed_root=args.allowed_root,
             )
         )
     if args.command == "transcription":
-        config = _faster_whisper_config_from_args(args)
+        try:
+            config = _faster_whisper_config_from_args(args)
+        except (TypeError, ValueError) as error:
+            parser.error(str(error))
         if args.transcription_command == "prepare":
             return _transcription_prepare(config, json_output=args.json_output)
         return _transcription_doctor(config, json_output=args.json_output)
 
-    runtime = runtime_config_from_args(args)
+    try:
+        runtime = runtime_config_from_args(args)
+    except (TypeError, ValueError) as error:
+        parser.error(str(error))
+    if (
+        args.command == "ingest"
+        and args.file.suffix.lower() == ".mp4"
+        and isinstance(runtime.transcription, FasterWhisperTranscriptionConfig)
+    ):
+        readiness = doctor_transcription(runtime.transcription)
+        if readiness.status != "ready":
+            _print_error_contract(
+                readiness.cause or "transcription readiness check failed",
+                problem="transcription_not_ready",
+                next_step=readiness.next_step or "run_transcription_doctor",
+                json_output=args.json_output,
+            )
+            return 1
     engine = build_engine(runtime)
     try:
         if args.command == "ingest":
@@ -145,7 +169,12 @@ def _ingest(engine: KnowledgeEngine, path: Path, *, json_output: bool = False) -
         _print_error_contract(str(error), json_output=json_output)
         return 1
     except VideoIngestError as error:
-        _print_error_contract(str(error), problem="video_ingest_failed", json_output=json_output)
+        _print_error_contract(
+            str(error),
+            problem=error.problem,
+            next_step=error.next_step,
+            json_output=json_output,
+        )
         return 1
     if json_output:
         payload: dict[str, object] = {

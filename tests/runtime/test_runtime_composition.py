@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import sys
 from pathlib import Path
 from typing import Any, cast
@@ -68,6 +69,25 @@ def test_runtime_limits_remain_within_the_approved_short_video_envelope() -> Non
         FasterWhisperTranscriptionConfig(
             limits=VideoTranscriptionLimits(max_input_bytes=100 * 1024 * 1024 + 1)
         )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("max_input_bytes", 1.5),
+        ("max_media_duration_ms", 1.5),
+        ("max_segment_count", 1.5),
+        ("max_stdout_bytes", 1.5),
+        ("max_stderr_bytes", 1.5),
+        ("timeout_seconds", math.nan),
+        ("timeout_seconds", math.inf),
+    ],
+)
+def test_runtime_limits_reject_fractional_integer_slots_and_non_finite_timeout(
+    field: str, value: float
+) -> None:
+    with pytest.raises(ValueError, match="video transcription limits"):
+        VideoTranscriptionLimits(**{field: value})  # type: ignore[arg-type]
 
 
 def test_download_permission_exists_only_on_preparation_config() -> None:

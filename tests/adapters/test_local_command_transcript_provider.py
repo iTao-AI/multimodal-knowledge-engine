@@ -289,6 +289,8 @@ def test_local_command_provider_maps_configured_exit_code_without_leaking_stderr
         provider.extract(video)
 
     assert str(exc_info.value) == "configured transcription model is not cached"
+    assert exc_info.value.problem == "video_ingest_failed"
+    assert exc_info.value.next_step == "run_transcription_prepare"
     assert secret not in str(exc_info.value)
 
 
