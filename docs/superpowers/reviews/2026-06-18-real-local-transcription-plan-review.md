@@ -39,7 +39,8 @@ Resolution:
 
 - shield the worker task from request cancellation;
 - terminate registered adapter processes;
-- wait for the worker under a bounded cleanup timeout;
+- wait for worker lifecycle cleanup before propagating cancellation;
+- keep timeout enforcement in the test harness rather than production cleanup;
 - require tests proving subprocess termination and failed-Run recovery complete before cancellation
   is returned.
 
