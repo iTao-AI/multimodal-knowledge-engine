@@ -5,6 +5,7 @@ from pytest import CaptureFixture, MonkeyPatch
 import mke.cli
 from mke.application import KnowledgeEngine
 from mke.cli import main
+from mke.runtime import RuntimeConfig
 from tests.application.test_video_provider_injection import FakeFasterWhisperProvider
 from tests.conftest import PDF_FIXTURES, VIDEO_FIXTURES
 
@@ -48,10 +49,10 @@ def test_cli_video_ingest_and_run_get_render_transcript_intake_report(
     video = tmp_path / "spoken.mp4"
     video.write_bytes(b"video")
 
-    def build_engine(path: Path) -> KnowledgeEngine:
-        return KnowledgeEngine(path, transcript_provider=FakeFasterWhisperProvider())
+    def build_engine(config: RuntimeConfig) -> KnowledgeEngine:
+        return KnowledgeEngine(config.db_path, transcript_provider=FakeFasterWhisperProvider())
 
-    monkeypatch.setattr(mke.cli, "KnowledgeEngine", build_engine)
+    monkeypatch.setattr(mke.cli, "build_engine", build_engine)
 
     assert main(["--db", str(db_path), "ingest", str(video)]) == 0
     ingest_output = capsys.readouterr().out
@@ -70,16 +71,19 @@ def test_cli_video_ingest_and_run_get_render_transcript_intake_report(
 
 
 def test_demo_verify_proves_pdf_and_video(capsys: CaptureFixture[str]) -> None:
-    assert main(
-        [
-            "demo",
-            "--verify",
-            "--fixture",
-            str(PDF_FIXTURES / "text-layer.pdf"),
-            "--video-fixture",
-            str(VIDEO_FIXTURES / "short-audio.mp4"),
-        ]
-    ) == 0
+    assert (
+        main(
+            [
+                "demo",
+                "--verify",
+                "--fixture",
+                str(PDF_FIXTURES / "text-layer.pdf"),
+                "--video-fixture",
+                str(VIDEO_FIXTURES / "short-audio.mp4"),
+            ]
+        )
+        == 0
+    )
 
     output = capsys.readouterr().out
     assert "phase=ingest_initial status=ok" in output

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import tempfile
 import time
@@ -10,16 +11,33 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 from mke.adapters.video import LocalCommandTranscriptConfig, LocalCommandTranscriptProvider
+from mke.adapters.video.contracts import VideoTranscriptionLimits
+from mke.adapters.video.faster_whisper import (
+    ModelResolutionError,
+    TranscriptionReadiness,
+    doctor_transcription,
+    prepare_model,
+)
 from mke.application import AskValidationError, KnowledgeEngine, PdfIngestError, VideoIngestError
 from mke.domain import FailurePoint, PdfIntakeReport, SearchResult, TranscriptIntakeReport
 from mke.interfaces.mcp_contract import transcript_intake_report_payload
 from mke.interfaces.mcp_server import run_mcp_server
 from mke.interfaces.public_errors import public_error_from_cause, render_public_error_line
 from mke.proof import render_human_report, render_json_report, run_product_proof
+from mke.runtime import (
+    DEFAULT_MODEL_REVISION,
+    FasterWhisperTranscriptionConfig,
+    ModelPreparationConfig,
+    RuntimeConfig,
+    SidecarTranscriptionConfig,
+    build_engine,
+)
 
 _DEFAULT_PDF_FIXTURE = Path("tests/fixtures/pdf/text-layer.pdf")
 _DEFAULT_REVISED_PDF_FIXTURE = Path("tests/fixtures/pdf/text-layer-revised.pdf")
 _DEFAULT_VIDEO_FIXTURE = Path("tests/fixtures/video/short-audio.mp4")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the narrow local Evidence ingest, Search, and Ask CLI path."""
     if argv is None:
@@ -32,6 +50,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     ingest = subcommands.add_parser("ingest")
     ingest.add_argument("file", type=Path)
+    ingest.add_argument("--json", action="store_true", dest="json_output")
+    add_transcription_runtime_arguments(ingest, default_provider="sidecar")
 
     search = subcommands.add_parser("search")
     search.add_argument("query", nargs="+")
@@ -43,6 +63,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     run_subcommands = run.add_subparsers(dest="run_command", required=True)
     run_get = run_subcommands.add_parser("get")
     run_get.add_argument("run_id")
+    run_get.add_argument("--json", action="store_true", dest="json_output")
 
     demo = subcommands.add_parser("demo")
     demo.add_argument("--verify", action="store_true", required=True)
@@ -61,6 +82,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     mcp = subcommands.add_parser("mcp")
     mcp.add_argument("--allowed-root", type=Path, default=Path.cwd())
 
+    transcription = subcommands.add_parser("transcription")
+    transcription_subcommands = transcription.add_subparsers(
+        dest="transcription_command", required=True
+    )
+    prepare = transcription_subcommands.add_parser("prepare")
+    prepare.add_argument("--allow-model-download", action="store_true", required=True)
+    prepare.add_argument("--json", action="store_true", dest="json_output")
+    add_transcription_runtime_arguments(prepare, default_provider="faster-whisper")
+    doctor = transcription_subcommands.add_parser("doctor")
+    doctor.add_argument("--json", action="store_true", dest="json_output")
+    add_transcription_runtime_arguments(doctor, default_provider="faster-whisper")
+
     args = parser.parse_args(argv)
     if args.command == "demo":
         return _demo_verify(args.fixture, args.revised_fixture, args.video_fixture)
@@ -70,16 +103,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _proof_transcript_smoke(args.fixture, args.transcript_command)
     if args.command == "mcp":
         return run_mcp_server(db_path=args.db, allowed_root=args.allowed_root)
+    if args.command == "transcription":
+        config = _faster_whisper_config_from_args(args)
+        if args.transcription_command == "prepare":
+            return _transcription_prepare(config, json_output=args.json_output)
+        return _transcription_doctor(config, json_output=args.json_output)
 
-    engine = KnowledgeEngine(args.db)
+    runtime = runtime_config_from_args(args)
+    engine = build_engine(runtime)
     try:
         if args.command == "ingest":
-            return _ingest(engine, args.file)
+            return _ingest(engine, args.file, json_output=args.json_output)
         if args.command == "search":
             return _search(engine, " ".join(args.query))
         if args.command == "ask":
             return _ask(engine, " ".join(args.question))
-        return _run_get(engine, args.run_id)
+        return _run_get(engine, args.run_id, json_output=args.json_output)
     finally:
         engine.close()
 
@@ -90,18 +129,33 @@ def console_main() -> int:
     return main(argv if argv else None)
 
 
-def _ingest(engine: KnowledgeEngine, path: Path) -> int:
+def _ingest(engine: KnowledgeEngine, path: Path, *, json_output: bool = False) -> int:
     try:
         if path.suffix.lower() == ".mp4":
             result = engine.ingest_video(path)
         else:
             result = engine.ingest_pdf(path)
     except PdfIngestError as error:
-        _print_error_contract(str(error))
+        _print_error_contract(str(error), json_output=json_output)
         return 1
     except VideoIngestError as error:
-        _print_error_contract(str(error), problem="video_ingest_failed")
+        _print_error_contract(str(error), problem="video_ingest_failed", json_output=json_output)
         return 1
+    if json_output:
+        payload: dict[str, object] = {
+            "ok": True,
+            "run_id": result.run_id,
+            "run_state": result.run_state.value,
+            "evidence_count": result.evidence_count,
+        }
+        if result.intake_report is not None:
+            payload["intake_report"] = _pdf_intake_report_payload(result.intake_report)
+        if result.transcript_intake_report is not None:
+            payload["transcript_intake_report"] = transcript_intake_report_payload(
+                result.transcript_intake_report
+            )
+        print(json.dumps(payload))
+        return 0
     report = (
         f" {_format_pdf_intake_report(result.intake_report)}"
         if result.intake_report is not None
@@ -132,7 +186,7 @@ def _ask(engine: KnowledgeEngine, question: str) -> int:
         return 1
     print(
         f"answer_status={result.answer_status} evidence_count={len(result.evidence)} "
-        f"summary=\"{result.summary}\""
+        f'summary="{result.summary}"'
     )
     _print_evidence_matches(result.evidence)
     return 0
@@ -147,12 +201,36 @@ def _print_evidence_matches(matches: Iterable[SearchResult]) -> None:
         print(f"{locator} evidence_id={match.evidence_id} text={match.text}")
 
 
-def _run_get(engine: KnowledgeEngine, run_id: str) -> int:
+def _run_get(engine: KnowledgeEngine, run_id: str, *, json_output: bool = False) -> int:
     try:
         run = engine.get_run(run_id)
     except KeyError:
-        _print_error_contract(f"unknown run: {run_id}")
+        _print_error_contract(f"unknown run: {run_id}", json_output=json_output)
         return 1
+    if json_output:
+        payload: dict[str, object] = {
+            "ok": True,
+            "run": {
+                "run_id": run.run_id,
+                "state": run.state.value,
+                "source_generation": run.source_generation,
+                "retry_of_run_id": run.retry_of_run_id,
+            },
+            "events": [
+                {"event_index": event.event_index, "event": event.event_type}
+                for event in engine.get_run_events(run_id)
+            ],
+        }
+        report = engine.get_pdf_intake_report(run_id)
+        if report is not None:
+            payload["intake_report"] = _pdf_intake_report_payload(report)
+        transcript_report = engine.get_transcript_intake_report(run_id)
+        if transcript_report is not None:
+            payload["transcript_intake_report"] = transcript_intake_report_payload(
+                transcript_report
+            )
+        print(json.dumps(payload))
+        return 0
     retry = f" retry_of_run_id={run.retry_of_run_id}" if run.retry_of_run_id else ""
     print(
         f"run_id={run.run_id} state={run.state.value} "
@@ -299,13 +377,126 @@ def _print_error_contract(
     cause: str,
     problem: str = "pdf_ingest_failed",
     next_step: str = "fix_input_or_retry",
+    json_output: bool = False,
 ) -> None:
     error = public_error_from_cause(
         cause,
         problem=problem,
         next_step=next_step,
     )
-    print(render_public_error_line(error))
+    if json_output:
+        print(json.dumps(error.payload()))
+    else:
+        print(render_public_error_line(error))
+
+
+def add_transcription_runtime_arguments(
+    parser: argparse.ArgumentParser,
+    *,
+    default_provider: str,
+) -> None:
+    parser.add_argument(
+        "--transcript-provider",
+        choices=("sidecar", "faster-whisper"),
+        default=default_provider,
+    )
+    parser.add_argument("--model", default="small")
+    parser.add_argument("--model-revision", default=DEFAULT_MODEL_REVISION)
+    parser.add_argument("--device", default="cpu")
+    parser.add_argument("--compute-type", default="int8")
+    parser.add_argument("--language", default="auto")
+    parser.add_argument("--model-cache", type=Path)
+    parser.add_argument("--transcription-timeout-seconds", type=float, default=900.0)
+
+
+def runtime_config_from_args(args: argparse.Namespace) -> RuntimeConfig:
+    provider = getattr(args, "transcript_provider", "sidecar")
+    transcription = (
+        _faster_whisper_config_from_args(args)
+        if provider == "faster-whisper"
+        else SidecarTranscriptionConfig()
+    )
+    return RuntimeConfig(db_path=args.db, transcription=transcription)
+
+
+def _faster_whisper_config_from_args(
+    args: argparse.Namespace,
+) -> FasterWhisperTranscriptionConfig:
+    return FasterWhisperTranscriptionConfig(
+        model=args.model,
+        model_revision=args.model_revision,
+        device=args.device,
+        compute_type=args.compute_type,
+        language=args.language,
+        cache_dir=args.model_cache,
+        limits=VideoTranscriptionLimits(timeout_seconds=args.transcription_timeout_seconds),
+    )
+
+
+def _transcription_prepare(
+    config: FasterWhisperTranscriptionConfig,
+    *,
+    json_output: bool,
+) -> int:
+    try:
+        result = prepare_model(ModelPreparationConfig(config, allow_model_download=True))
+    except ModelResolutionError as error:
+        _print_error_contract(
+            error.cause,
+            problem="transcription_not_ready",
+            next_step=error.next_step,
+            json_output=json_output,
+        )
+        return 1
+    payload = {
+        "status": result.status,
+        "provider": result.provider,
+        "model": result.model,
+        "model_revision": result.model_revision,
+    }
+    print(json.dumps(payload) if json_output else " ".join(f"{k}={v}" for k, v in payload.items()))
+    return 0
+
+
+def _transcription_doctor(
+    config: FasterWhisperTranscriptionConfig,
+    *,
+    json_output: bool,
+) -> int:
+    readiness = doctor_transcription(config)
+    payload = _readiness_payload(readiness)
+    if json_output:
+        print(json.dumps(payload))
+    else:
+        print(" ".join(f"{key}={value}" for key, value in payload.items() if key != "checks"))
+        for check in readiness.checks:
+            print(f"check={check.name} status={check.status} message={check.message}")
+    return 0 if readiness.status == "ready" else 1
+
+
+def _readiness_payload(readiness: TranscriptionReadiness) -> dict[str, object]:
+    return {
+        "status": readiness.status,
+        "checks": [
+            {"name": check.name, "status": check.status, "message": check.message}
+            for check in readiness.checks
+        ],
+        "cause": readiness.cause,
+        "next_step": readiness.next_step,
+    }
+
+
+def _pdf_intake_report_payload(report: PdfIntakeReport) -> dict[str, object]:
+    return {
+        "total_pages": report.total_pages,
+        "extracted_pages": report.extracted_pages,
+        "empty_pages": report.empty_pages,
+        "total_extracted_chars": report.total_extracted_chars,
+        "page_char_counts": list(report.page_char_counts),
+        "suspected_scanned_pages": report.suspected_scanned_pages,
+        "extraction_mode": report.extraction_mode,
+        "failure_reason": report.failure_reason,
+    }
 
 
 def _format_pdf_intake_report(report: PdfIntakeReport) -> str:
