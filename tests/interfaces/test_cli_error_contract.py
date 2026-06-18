@@ -43,3 +43,25 @@ def test_error_contract_redacts_unrecognized_sensitive_cause(
     assert "SECRET_TOKEN" not in output
     assert "Traceback" not in output
     assert "/Users/mac" not in output
+
+
+def test_cli_redacts_video_hash_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: CaptureFixture[str],
+) -> None:
+    video = tmp_path / "disappeared-after-preflight.mp4"
+    video.write_bytes(b"fake mp4 bytes")
+
+    def fail_hash(path: Path) -> str:
+        raise FileNotFoundError(f"Traceback: could not read {path}")
+
+    monkeypatch.setattr("mke.application._sha256_file", fail_hash)
+
+    assert main(["--db", str(tmp_path / "mke.sqlite"), "ingest", str(video)]) == 1
+
+    output = capsys.readouterr().out
+    assert "problem=video_ingest_failed" in output
+    assert "cause=input video could not be read" in output
+    assert str(video) not in output
+    assert "Traceback" not in output

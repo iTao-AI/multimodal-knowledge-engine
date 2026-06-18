@@ -474,9 +474,10 @@ class SQLiteStore:
             if source_row is None:
                 raise KeyError(f"unknown source: {run.source_id}")
             source = _source_from_row(source_row)
+            if run.state != RunState.VALIDATED:
+                raise ManifestValidationError("Run must be validated before activation")
             if (
-                run.state != RunState.VALIDATED
-                or run.source_generation != source.requested_generation
+                run.source_generation != source.requested_generation
                 or run.based_on_active_revision != source.active_revision
             ):
                 self._connection.execute(

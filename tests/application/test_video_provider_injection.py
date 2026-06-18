@@ -153,3 +153,30 @@ def test_video_preflight_rejects_before_hash_provider_or_run_creation(
 
     with pytest.raises(VideoIngestError):
         engine.ingest_video(path)
+
+
+def test_video_hash_failure_is_redacted_without_run_recovery(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    video = tmp_path / "disappeared-after-preflight.mp4"
+    video.write_bytes(b"fake mp4 bytes")
+    provider = FakeFasterWhisperProvider()
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite", transcript_provider=provider)
+
+    def fail_hash(path: Path) -> str:
+        raise FileNotFoundError(f"Traceback: could not read {path}")
+
+    def fail_if_recovery_runs(run_id: str) -> None:
+        raise AssertionError("Run recovery requires a created Run")
+
+    monkeypatch.setattr("mke.application._sha256_file", fail_hash)
+    monkeypatch.setattr(engine._store, "mark_run_failed", fail_if_recovery_runs)  # pyright: ignore[reportPrivateUsage]
+
+    with pytest.raises(VideoIngestError) as exc_info:
+        engine.ingest_video(video)
+
+    assert str(exc_info.value) == "input video could not be read"
+    assert exc_info.value.run_id is None
+    assert str(video) not in str(exc_info.value)
+    assert "Traceback" not in str(exc_info.value)

@@ -22,6 +22,7 @@ _ALLOWLISTED_CAUSES = frozenset(
         "input video is empty",
         "input video is missing",
         "input video must be an MP4 file",
+        "input video could not be read",
         "limit must be between 1 and 20",
         "query must not be empty",
         "question must be 1000 characters or fewer",

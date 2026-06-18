@@ -22,8 +22,13 @@ provider configuration, or deployment proof.
    activation.
 3. The public error allowlist now exactly matches the duration preflight cause, preserving a stable
    specific error without exposing raw exception text.
+4. Video preflight and hashing now translate filesystem races and read failures into a stable,
+   redacted `VideoIngestError`. Run failure recovery executes only after a Run exists.
+5. Publication activation now rejects every non-`VALIDATED` Run before stale-generation checks.
+   Repeated activation therefore preserves the published Run, its successful transcript report,
+   and its event history; only stale `VALIDATED` Runs become `superseded`.
 
-Regression tests cover all three findings.
+Regression tests cover all five findings.
 
 ## Lifecycle Review
 
@@ -49,7 +54,7 @@ Regression tests cover all three findings.
 
 | Command | Result |
 |---|---|
-| `uv run pytest -q` | `270 passed, 5 warnings` |
+| `uv run pytest -q` | `273 passed, 5 warnings` |
 | `uv run ruff check .` | passed |
 | `uv run pyright` | `0 errors, 0 warnings, 0 informations` |
 | `uv build` | sdist and wheel built successfully |

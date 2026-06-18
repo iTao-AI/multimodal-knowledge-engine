@@ -96,6 +96,29 @@ def test_faster_whisper_activation_exposes_publication_and_report_together(
     ]
 
 
+def test_repeated_activation_preserves_published_run_and_report(tmp_path: Path) -> None:
+    store, source_id = _store_with_active_video(tmp_path)
+    run_id = _validated_video_run(
+        store,
+        source_id=source_id,
+        fingerprint=_FASTER_WHISPER_FINGERPRINT,
+        text="published faster whisper evidence",
+    )
+    report = _report()
+    assert store.activate_publication(run_id, transcript_intake_report=report).published
+    events_before = store.get_run_events(run_id)
+
+    with pytest.raises(ManifestValidationError, match="validated before activation"):
+        store.activate_publication(run_id, transcript_intake_report=report)
+
+    assert store.get_run(run_id).state == RunState.PUBLISHED
+    assert store.get_transcript_intake_report(run_id) == report
+    assert store.get_run_events(run_id) == events_before
+    assert [result.text for result in store.search("published faster whisper")] == [
+        "published faster whisper evidence"
+    ]
+
+
 @pytest.mark.parametrize(
     "failure_point",
     [

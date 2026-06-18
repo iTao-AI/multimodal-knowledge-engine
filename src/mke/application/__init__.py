@@ -300,8 +300,13 @@ class KnowledgeEngine:
         return self.ensure_source(display_name=path.name, asset_sha256=asset_sha256)
 
     def _process_video(self, path: Path) -> IngestResult:
-        _validate_video_input(path, _VIDEO_TRANSCRIPTION_LIMITS)
-        asset_sha256 = _sha256_file(path)
+        try:
+            _validate_video_input(path, _VIDEO_TRANSCRIPTION_LIMITS)
+            asset_sha256 = _sha256_file(path)
+        except VideoIngestError:
+            raise
+        except OSError as error:
+            raise VideoIngestError("input video could not be read") from error
         source = self.ensure_source(
             display_name=path.name,
             asset_sha256=asset_sha256,
