@@ -76,6 +76,9 @@ def test_faster_whisper_fingerprint_requires_version_and_lowercase_sha256() -> N
 ```
 
 Add a Manifest test using the valid dynamic fingerprint and another asserting a prefix-only value raises `ManifestValidationError`.
+Add report invariant tests for blank identity fields, invalid language mode, negative durations,
+non-positive segment count, and any `model_source` other than `cache`. Add an identity test proving
+that changing only the requested language changes the faster-whisper fingerprint.
 
 - [ ] **Step 2: Run the focused tests and verify RED**
 
@@ -109,6 +112,7 @@ class TranscriptionProvenance:
     library_version: str
     device: str
     compute_type: str
+    language: str
     detected_language: str
     model_source: str
     transcription_duration_ms: int
@@ -129,6 +133,7 @@ class TranscriptIntakeReport:
     library_version: str
     device: str
     compute_type: str
+    language: str
     detected_language: str
     media_duration_ms: int
     transcription_duration_ms: int
@@ -154,6 +159,13 @@ transcript_intake_report: TranscriptIntakeReport | None = None
 ```
 
 Keep `intake_report` as the PDF-only field.
+
+Add `__post_init__` validation to `VideoMediaInfo`, `TranscriptionProvenance`, and
+`TranscriptIntakeReport`. The report must reject blank identity fields, language values outside
+the normalized project-owned grammar (`auto` or `[a-z]{2,3}`), negative durations, non-positive
+segment counts, and `model_source != "cache"`. Frozen dataclasses provide immutability, not value
+validation. Provider support for a syntactically valid explicit language is checked by doctor and
+the first-party adapter in PR 2.
 
 - [ ] **Step 4: Add exact fingerprint recognition**
 
@@ -209,6 +221,7 @@ def faster_whisper_fingerprint(provenance: TranscriptionProvenance) -> str:
         "model": provenance.model,
         "model_revision": provenance.model_revision,
         "provider": provenance.provider,
+        "language": provenance.language,
     }
     canonical = json.dumps(identity, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     return "faster-whisper-v1:" + sha256(canonical.encode("utf-8")).hexdigest()
@@ -311,6 +324,7 @@ required = {
     "library_version",
     "device",
     "compute_type",
+    "language",
     "detected_language",
     "model_source",
     "transcription_duration_ms",
@@ -469,6 +483,7 @@ CREATE TABLE IF NOT EXISTS transcript_intake_reports (
   library_version TEXT NOT NULL,
   device TEXT NOT NULL,
   compute_type TEXT NOT NULL,
+  language TEXT NOT NULL,
   detected_language TEXT NOT NULL,
   media_duration_ms INTEGER NOT NULL CHECK(media_duration_ms > 0),
   transcription_duration_ms INTEGER NOT NULL CHECK(transcription_duration_ms >= 0),
@@ -628,6 +643,7 @@ def transcript_intake_report_payload(
         "library_version": report.library_version,
         "device": report.device,
         "compute_type": report.compute_type,
+        "language": report.language,
         "detected_language": report.detected_language,
         "media_duration_ms": report.media_duration_ms,
         "transcription_duration_ms": report.transcription_duration_ms,

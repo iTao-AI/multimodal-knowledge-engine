@@ -72,11 +72,15 @@ transcript:
 Evidence remains traceable after publication.
 ```
 
-The voice must be synthetic, not a personal recording or private source.
+The voice must be synthetic, not a personal recording or private source. Before generating or
+committing the fixture, record a primary-source license or terms link that explicitly permits
+redistribution of the generated audio. A synthesizer's software license alone is not evidence that
+its bundled voice output can be redistributed.
 
 - [ ] **Step 2: Generate the fixture outside the repository and then copy only the MP4**
 
-On macOS, one reproducible maintainer path is:
+The following macOS command is only a local prototype. Do not use its output as the committed
+fixture unless Apple voice-output redistribution terms are found and recorded:
 
 ```bash
 tmp_dir="$(mktemp -d)"
@@ -96,7 +100,9 @@ real proof before accepting the fixture.
 Add to the fixture README:
 
 - repository-authored text;
-- synthetic macOS voice name;
+- synthesizer and voice identifier;
+- primary-source generated-output or source-recording license URL;
+- the exact redistribution basis for the committed audio;
 - no personal/private source audio;
 - MP4/H.264/AAC profile;
 - exact generation command;
@@ -104,13 +110,19 @@ Add to the fixture README:
 - fixture byte size and duration;
 - no transcript sidecar;
 - no exact cross-runtime transcript assertion;
-- MIT repository fixture policy.
+- repository fixture policy, without relicensing third-party source audio.
 
 - [ ] **Step 4: Write and run model-free fixture tests**
 
 Use the optional PyAV package in the extra-enabled test environment to assert container, codecs,
 audio presence, positive duration, short-video limits, checksum, and absence of
 `spoken-evidence.mp4.mke-transcript.json`.
+
+The test module must not import `av` at module import time. Inside the media-profile test, check
+`importlib.util.find_spec("av")`: skip only when the extra is absent and
+`MKE_REQUIRE_TRANSCRIPTION_EXTRA` is unset; fail when that environment variable is `1` but PyAV is
+missing. Add a dedicated extra-enabled CI step with
+`MKE_REQUIRE_TRANSCRIPTION_EXTRA=1` so the media-profile assertion cannot silently skip.
 
 ```bash
 uv sync --locked --extra transcription
@@ -426,6 +438,11 @@ CI must not:
 - contact model hosting;
 - execute real ASR;
 - require a persisted model cache.
+
+Run the fixture profile test explicitly after installing the transcription extra, and configure
+the step with `MKE_REQUIRE_TRANSCRIPTION_EXTRA=1` so a missing PyAV dependency fails instead of
+skipping. The earlier core-only `uv run pytest -q` must still collect the module successfully
+without importing PyAV.
 
 - [ ] **Step 2: Add the hostile cleanup regression**
 

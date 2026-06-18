@@ -75,6 +75,9 @@ Cover:
 - faster-whisper defaults are `small`, approved revision, CPU, `int8`, language auto;
 - model identifiers reject absolute paths, relative paths, `..`, empty values, and malformed repository IDs;
 - revision must be exactly 40 lowercase hex characters;
+- language syntax is normalized to `auto` or `[a-z]{2,3}`, doctor verifies the explicit code is
+  supported by the resolved model before a Run starts, and the value is propagated into
+  first-party provenance;
 - timeout/capture/resource limits must be positive and bounded;
 - download permission exists only on `ModelPreparationConfig`;
 - runtime config has one shared `ActiveProcessController`.
@@ -321,7 +324,13 @@ def transcribe_media(
     )
     materialized = tuple(raw_segments)
     segments = normalize_segments(materialized, media, config.limits)
-    return build_first_party_transcript(media, segments, info, config)
+    return build_first_party_transcript(
+        media,
+        segments,
+        info,
+        config,
+        requested_language=config.language,
+    )
 ```
 
 If the locked constructor does not accept `local_files_only` when given a snapshot path, remove only that redundant keyword after verifying installed source; cache-only behavior remains enforced by prior exact snapshot resolution.
@@ -437,6 +446,8 @@ return TranscriptExtractionResult(
 ```
 
 Do not use merely requested config values for the report or dynamic fingerprint.
+The adapter writes the normalized requested language into the validated provenance before this
+step; the report and fingerprint therefore distinguish `auto` from an explicit language override.
 
 - [ ] **Step 5: Implement the provider and engine factories**
 
@@ -618,19 +629,25 @@ Use the shared controller and an async tool wrapper:
 
 ```python
 async def ingest_file(path: str) -> dict[str, Any]:
-    task = asyncio.create_task(
+    worker = asyncio.create_task(
         asyncio.to_thread(mcp_contract.ingest_file, config, path)
     )
     try:
-        return await task
+        # Shield keeps request cancellation from cancelling the wrapper task while
+        # the underlying worker thread is still performing lifecycle cleanup.
+        return await asyncio.shield(worker)
     except asyncio.CancelledError:
         config.runtime.process_controller.cancel_active()
         with suppress(Exception):
-            await asyncio.shield(task)
+            await asyncio.shield(worker)
         raise
 ```
 
 Configure a FastMCP lifespan whose `finally` calls `cancel_active()`. The application thread must finish its failure cleanup so a created Run becomes failed and no candidate becomes searchable. Add a bounded test timeout to prevent hanging CI.
+The cancellation test must prove the worker task was not marked cancelled by the request, the
+subprocess was killed, and the worker completed the failed-Run recovery before the tool returned
+`CancelledError`. Keep the timeout in the test harness, not around production cleanup: swallowing a
+cleanup timeout would let the tool return while a worker could still mutate Run state.
 
 - [ ] **Step 6: Preserve safe async error handling**
 

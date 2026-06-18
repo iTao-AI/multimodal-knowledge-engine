@@ -158,7 +158,7 @@ local_files_only = true
 ```
 
 Normal ingest, real proof execution, and MCP are cache-only. `mke transcription doctor` is also
-read-only and never downloads. Only the side-effect-free operator command
+read-only and never downloads. Only the explicit, Run-free operator command
 `mke transcription prepare --allow-model-download` may acquire the exact configured model
 revision. Agent-facing MCP requests cannot enable downloads. A configured cache directory is
 process-local configuration and must never appear in public output.
@@ -191,12 +191,14 @@ Normal ingest is cache-only, so a successful `TranscriptIntakeReport` records
 
 ```text
 src/mke/
+  runtime.py
   domain/
     ParsedVideoTranscript
     TranscriptIntakeReport
   adapters/video/
     faster_whisper_cli.py
-    runtime.py
+    faster_whisper.py
+    process.py
     schema.py
     providers.py
   interfaces/
@@ -212,7 +214,7 @@ Responsibilities:
 | Component | Responsibility |
 |---|---|
 | `faster_whisper_cli.py` | Optional-dependency import, media probe, model resolution, ASR, timestamp normalization, JSON output. |
-| `runtime.py` | Convert trusted typed runtime configuration into a `TranscriptProvider`. |
+| `src/mke/runtime.py` | Convert trusted typed runtime configuration into a `TranscriptProvider`. |
 | `schema.py` | Validate provider-neutral transcript payloads and return typed media, segments, and optional provenance. |
 | `LocalCommandTranscriptProvider` | Execute the first-party command with the existing bounded and sanitized process boundary. |
 | `KnowledgeEngine` | Convert validated transcript segments into candidate Evidence and apply the existing Run/Publication lifecycle. |
@@ -447,6 +449,7 @@ Example:
     "library_version": "1.2.1",
     "device": "cpu",
     "compute_type": "int8",
+    "language": "auto",
     "detected_language": "en",
     "model_source": "cache",
     "transcription_duration_ms": 1450
@@ -487,6 +490,7 @@ model_revision
 library_version
 device
 compute_type
+language
 detected_language
 media_duration_ms
 transcription_duration_ms
@@ -537,6 +541,13 @@ keys, and compact separators. The Manifest validator requires the exact
 `faster-whisper-v1:<64 lowercase hex>` grammar. Human-readable actual profile fields live in the
 validated intake report. The validator must not accept an arbitrary non-empty provider string or a
 broad prefix-only match.
+
+Every operator-controlled setting that can change successful transcript content must be part of
+the validated identity. D3-B therefore records the normalized requested language mode (`auto` or a
+lowercase two- or three-letter language code) in provenance, the intake report, and the fingerprint
+input. Configuration validates this syntax without importing optional ASR dependencies; doctor and
+the adapter validate provider support before a Run starts. The detected language remains a separate
+observed value and does not replace the requested mode.
 
 This keeps the actual model/runtime profile observable while preserving D3-A's value-completeness
 guard.
@@ -621,7 +632,8 @@ Add one short spoken MP4 with no transcript sidecar.
 Requirements:
 
 - repository-authored English text with at least one stable Search keyword such as `evidence`,
-- synthetic or explicitly licensed voice source,
+- a synthetic voice whose generated-audio redistribution terms are documented, or an explicitly
+  licensed source recording,
 - no personal voice or private material,
 - MP4/H.264/AAC profile,
 - short enough for a CPU proof,
