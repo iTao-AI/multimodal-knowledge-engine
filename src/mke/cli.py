@@ -11,7 +11,8 @@ from pathlib import Path
 
 from mke.adapters.video import LocalCommandTranscriptConfig, LocalCommandTranscriptProvider
 from mke.application import AskValidationError, KnowledgeEngine, PdfIngestError, VideoIngestError
-from mke.domain import FailurePoint, PdfIntakeReport, SearchResult
+from mke.domain import FailurePoint, PdfIntakeReport, SearchResult, TranscriptIntakeReport
+from mke.interfaces.mcp_contract import transcript_intake_report_payload
 from mke.interfaces.mcp_server import run_mcp_server
 from mke.interfaces.public_errors import public_error_from_cause, render_public_error_line
 from mke.proof import render_human_report, render_json_report, run_product_proof
@@ -106,9 +107,14 @@ def _ingest(engine: KnowledgeEngine, path: Path) -> int:
         if result.intake_report is not None
         else ""
     )
+    transcript_report = (
+        f" {_format_transcript_intake_report(result.transcript_intake_report)}"
+        if result.transcript_intake_report is not None
+        else ""
+    )
     print(
         f"run_id={result.run_id} run_state={result.run_state.value} "
-        f"evidence_count={result.evidence_count}{report}"
+        f"evidence_count={result.evidence_count}{report}{transcript_report}"
     )
     return 0
 
@@ -155,6 +161,9 @@ def _run_get(engine: KnowledgeEngine, run_id: str) -> int:
     report = engine.get_pdf_intake_report(run_id)
     if report is not None:
         print(_format_pdf_intake_report(report))
+    transcript_report = engine.get_transcript_intake_report(run_id)
+    if transcript_report is not None:
+        print(_format_transcript_intake_report(transcript_report))
     for event in engine.get_run_events(run_id):
         print(f"event_index={event.event_index} event={event.event_type}")
     return 0
@@ -307,3 +316,9 @@ def _format_pdf_intake_report(report: PdfIntakeReport) -> str:
         f"extracted_chars={report.total_extracted_chars} "
         f"suspected_scanned_pages={report.suspected_scanned_pages}"
     )
+
+
+def _format_transcript_intake_report(report: TranscriptIntakeReport) -> str:
+    payload = transcript_intake_report_payload(report)
+    fields = " ".join(f"{key}={value}" for key, value in payload.items())
+    return f"transcript_intake_report {fields}"

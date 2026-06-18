@@ -16,7 +16,7 @@ from mke.application import (
     PdfIngestError,
     VideoIngestError,
 )
-from mke.domain import PdfIntakeReport, SearchResult
+from mke.domain import PdfIntakeReport, SearchResult, TranscriptIntakeReport
 from mke.interfaces.public_errors import public_error_from_cause
 
 logger = logging.getLogger(__name__)
@@ -120,6 +120,10 @@ def ingest_file(config: McpRuntimeConfig, path: str) -> dict[str, Any]:
         }
         if result.intake_report is not None:
             payload["intake_report"] = _pdf_intake_report_payload(result.intake_report)
+        if result.transcript_intake_report is not None:
+            payload["transcript_intake_report"] = transcript_intake_report_payload(
+                result.transcript_intake_report
+            )
         return payload
     finally:
         if engine is not None:
@@ -156,6 +160,11 @@ def get_run(config: McpRuntimeConfig, run_id: str) -> dict[str, Any]:
         report = engine.get_pdf_intake_report(run_id)
         if report is not None:
             payload["intake_report"] = _pdf_intake_report_payload(report)
+        transcript_report = engine.get_transcript_intake_report(run_id)
+        if transcript_report is not None:
+            payload["transcript_intake_report"] = transcript_intake_report_payload(
+                transcript_report
+            )
         return payload
     finally:
         if engine is not None:
@@ -251,6 +260,25 @@ def _pdf_intake_report_payload(report: PdfIntakeReport) -> dict[str, Any]:
         "suspected_scanned_pages": report.suspected_scanned_pages,
         "extraction_mode": report.extraction_mode,
         "failure_reason": report.failure_reason,
+    }
+
+
+def transcript_intake_report_payload(
+    report: TranscriptIntakeReport,
+) -> dict[str, object]:
+    return {
+        "provider": report.provider,
+        "model": report.model,
+        "model_revision": report.model_revision,
+        "library_version": report.library_version,
+        "device": report.device,
+        "compute_type": report.compute_type,
+        "language": report.language,
+        "detected_language": report.detected_language,
+        "media_duration_ms": report.media_duration_ms,
+        "transcription_duration_ms": report.transcription_duration_ms,
+        "segment_count": report.segment_count,
+        "model_source": report.model_source,
     }
 
 
