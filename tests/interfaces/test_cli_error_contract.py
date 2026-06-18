@@ -9,7 +9,30 @@ from pytest import CaptureFixture
 from mke.adapters.sqlite import SQLiteStore
 from mke.application import KnowledgeEngine, VideoIngestError
 from mke.cli import main
-from mke.interfaces.public_errors import PublicError, render_public_error_line
+from mke.interfaces.public_errors import (
+    PublicError,
+    public_error_from_cause,
+    render_public_error_line,
+)
+
+
+@pytest.mark.parametrize(
+    "cause",
+    [
+        "transcription optional dependency is not installed",
+        "configured transcription model is not cached",
+        "transcription model resolution failed",
+        "transcript schema validation failed",
+    ],
+)
+def test_transcription_setup_causes_are_public_allowlisted(cause: str) -> None:
+    error = public_error_from_cause(
+        cause,
+        problem="video_ingest_failed",
+        next_step="fix_input_or_retry",
+    )
+
+    assert error.cause == cause
 
 
 def test_cli_error_renderer_uses_public_error_contract() -> None:
