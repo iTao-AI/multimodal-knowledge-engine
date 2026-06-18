@@ -228,6 +228,29 @@ def test_local_command_provider_rejects_missing_executable(tmp_path: Path) -> No
         provider.extract(video)
 
 
+def test_local_command_provider_sanitizes_process_start_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    video = tmp_path / "sample.mp4"
+    video.write_bytes(b"fake mp4 bytes")
+    secret = "SECRET_EXECUTION_DETAIL"
+
+    def fail_to_start(*args: object, **kwargs: object) -> object:
+        raise PermissionError(f"{secret} {tmp_path}")
+
+    monkeypatch.setattr(subprocess, "Popen", fail_to_start)
+    provider = LocalCommandTranscriptProvider(
+        LocalCommandTranscriptConfig(argv=("transcribe-wrapper", "{input}"))
+    )
+
+    with pytest.raises(VideoExtractionError) as exc_info:
+        provider.extract(video)
+
+    assert str(exc_info.value) == "transcript command failed"
+    assert secret not in str(exc_info.value)
+    assert str(tmp_path) not in str(exc_info.value)
+
+
 def test_local_command_provider_rejects_missing_input(tmp_path: Path) -> None:
     provider = LocalCommandTranscriptProvider(
         LocalCommandTranscriptConfig(argv=(sys.executable, "{input}"))

@@ -7,6 +7,7 @@ import select
 import subprocess
 import time
 from collections.abc import Sequence
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -113,6 +114,8 @@ def _run_bounded_command(
         )
     except FileNotFoundError as error:
         raise VideoExtractionError("transcript command executable is missing") from error
+    except OSError as error:
+        raise VideoExtractionError("transcript command failed") from error
 
     stdout = bytearray()
     stderr = bytearray()
@@ -125,11 +128,18 @@ def _run_bounded_command(
             max_stdout_bytes=max_stdout_bytes,
             max_stderr_bytes=max_stderr_bytes,
         )
+    except VideoExtractionError:
+        raise
+    except OSError as error:
+        _kill_process(process)
+        raise VideoExtractionError("transcript command failed") from error
     finally:
         if process.stdout is not None:
-            process.stdout.close()
+            with suppress(OSError):
+                process.stdout.close()
         if process.stderr is not None:
-            process.stderr.close()
+            with suppress(OSError):
+                process.stderr.close()
 
 
 def _read_bounded_process_output(
@@ -194,11 +204,12 @@ def _read_bounded_process_output(
 
 
 def _kill_process(process: subprocess.Popen[bytes]) -> None:
-    if process.poll() is None:
-        process.kill()
+    with suppress(OSError):
+        if process.poll() is None:
+            process.kill()
     try:
         process.wait(timeout=1)
-    except subprocess.TimeoutExpired:
+    except (OSError, subprocess.TimeoutExpired):
         pass
 
 
