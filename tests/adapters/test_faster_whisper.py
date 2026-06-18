@@ -1,18 +1,26 @@
 from __future__ import annotations
 
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
+from mke.adapters.video.contracts import AdapterExitCode, VideoTranscriptionLimits
 from mke.adapters.video.faster_whisper import (
+    AdapterProtocolError,
     ModelResolutionError,
     doctor_transcription,
+    normalize_segments,
+    normalize_timestamp_ms,
     prepare_model,
+    probe_media,
     resolve_model_snapshot,
+    transcribe_media,
 )
+from mke.domain import VideoMediaInfo
 from mke.runtime import FasterWhisperTranscriptionConfig, ModelPreparationConfig
 
 
@@ -83,9 +91,7 @@ def test_prepare_retries_with_network_only_after_explicit_opt_in(
         return str(tmp_path / "downloaded")
 
     _install_fake_hub(monkeypatch, snapshot_download)
-    config = ModelPreparationConfig(
-        FasterWhisperTranscriptionConfig(), allow_model_download=True
-    )
+    config = ModelPreparationConfig(FasterWhisperTranscriptionConfig(), allow_model_download=True)
 
     result = prepare_model(config)
 
@@ -106,9 +112,7 @@ def test_prepare_reports_already_cached_without_network(
     _install_fake_hub(monkeypatch, snapshot_download)
 
     result = prepare_model(
-        ModelPreparationConfig(
-            FasterWhisperTranscriptionConfig(), allow_model_download=True
-        )
+        ModelPreparationConfig(FasterWhisperTranscriptionConfig(), allow_model_download=True)
     )
 
     assert calls == [True]
@@ -190,9 +194,7 @@ def test_doctor_reports_missing_dependency_without_raw_import_error(
     ("device", "compute_type"),
     [("metal", "int8"), ("cpu", "not-a-type")],
 )
-def test_doctor_rejects_unsupported_profile_stably(
-    device: str, compute_type: str
-) -> None:
+def test_doctor_rejects_unsupported_profile_stably(device: str, compute_type: str) -> None:
     result = doctor_transcription(
         FasterWhisperTranscriptionConfig(device=device, compute_type=compute_type)
     )
@@ -212,3 +214,211 @@ def test_resolution_permission_error_is_redacted(monkeypatch: pytest.MonkeyPatch
 
     assert exc_info.value.cause == "transcription model cache is not readable"
     assert "/private" not in str(exc_info.value)
+
+
+class _FakeCodec:
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+
+class _FakeStream:
+    def __init__(self, codec: str) -> None:
+        self.codec_context = _FakeCodec(codec)
+
+
+class _FakeContainer:
+    def __init__(
+        self,
+        *,
+        container: str = "mov,mp4,m4a,3gp,3g2,mj2",
+        video_codec: str = "h264",
+        audio_codec: str = "aac",
+        duration: int = 1_000_000,
+        audio: bool = True,
+    ) -> None:
+        self.format = SimpleNamespace(name=container)
+        self.streams = SimpleNamespace(
+            video=[_FakeStream(video_codec)],
+            audio=[_FakeStream(audio_codec)] if audio else [],
+        )
+        self.duration = duration
+        self.closed = False
+
+    def close(self) -> None:
+        self.closed = True
+
+
+@dataclass
+class _RawSegment:
+    start: float
+    end: float
+    text: str
+
+
+def test_probe_accepts_short_mp4_and_closes_container(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    video = tmp_path / "speech.mp4"
+    video.write_bytes(b"x")
+    container = _FakeContainer()
+
+    def open_container(path: Path) -> _FakeContainer:
+        return container
+
+    monkeypatch.setattr("mke.adapters.video.faster_whisper._open_media_container", open_container)
+
+    media = probe_media(video, VideoTranscriptionLimits())
+
+    assert media == VideoMediaInfo("mp4", "h264", "aac", True, 1000)
+    assert container.closed is True
+
+
+@pytest.mark.parametrize(
+    ("container", "video_codec", "audio_codec", "audio", "duration", "code"),
+    [
+        ("matroska", "h264", "aac", True, 1_000_000, AdapterExitCode.MEDIA_UNSUPPORTED),
+        ("mp4", "hevc", "aac", True, 1_000_000, AdapterExitCode.MEDIA_UNSUPPORTED),
+        ("mp4", "h264", "opus", True, 1_000_000, AdapterExitCode.MEDIA_UNSUPPORTED),
+        ("mp4", "h264", "aac", False, 1_000_000, AdapterExitCode.MEDIA_NO_AUDIO),
+        ("mp4", "h264", "aac", True, 0, AdapterExitCode.MEDIA_UNSUPPORTED),
+        ("mp4", "h264", "aac", True, 901_000_000, AdapterExitCode.MEDIA_LIMIT_EXCEEDED),
+    ],
+)
+def test_probe_rejects_media_before_model_construction(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    container: str,
+    video_codec: str,
+    audio_codec: str,
+    audio: bool,
+    duration: int,
+    code: AdapterExitCode,
+) -> None:
+    video = tmp_path / "speech.mp4"
+    video.write_bytes(b"x")
+
+    def open_container(path: Path) -> _FakeContainer:
+        return _FakeContainer(
+            container=container,
+            video_codec=video_codec,
+            audio_codec=audio_codec,
+            audio=audio,
+            duration=duration,
+        )
+
+    monkeypatch.setattr("mke.adapters.video.faster_whisper._open_media_container", open_container)
+
+    with pytest.raises(AdapterProtocolError) as exc_info:
+        probe_media(video, VideoTranscriptionLimits())
+
+    assert exc_info.value.exit_code == code
+
+
+def test_probe_enforces_input_size_before_opening_pyav(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    video = tmp_path / "speech.mp4"
+    video.write_bytes(b"xx")
+    limits = VideoTranscriptionLimits(max_input_bytes=1)
+
+    def fail_open(path: Path) -> _FakeContainer:
+        pytest.fail("PyAV must not open oversized input")
+
+    monkeypatch.setattr("mke.adapters.video.faster_whisper._open_media_container", fail_open)
+
+    with pytest.raises(AdapterProtocolError) as exc_info:
+        probe_media(video, limits)
+
+    assert exc_info.value.exit_code == AdapterExitCode.MEDIA_LIMIT_EXCEEDED
+
+
+@pytest.mark.parametrize(
+    ("seconds", "expected"),
+    [(0.0, 0), (0.0005, 1), (1.2345, 1235)],
+)
+def test_timestamp_normalization_rounds_half_millisecond_up(seconds: float, expected: int) -> None:
+    assert normalize_timestamp_ms(seconds) == expected
+
+
+@pytest.mark.parametrize("seconds", [-0.1, float("inf"), float("nan")])
+def test_timestamp_normalization_rejects_negative_or_non_finite(seconds: float) -> None:
+    with pytest.raises(AdapterProtocolError) as exc_info:
+        normalize_timestamp_ms(seconds)
+    assert exc_info.value.exit_code == AdapterExitCode.SCHEMA_INVALID
+
+
+def test_normalize_segments_clamps_one_millisecond_overlap_and_trims_text() -> None:
+    raw = [
+        _RawSegment(start=0.0, end=1.001, text=" first "),
+        _RawSegment(start=1.0, end=2.0, text=" second "),
+    ]
+    media = VideoMediaInfo("mp4", "h264", "aac", True, 2000)
+
+    segments = normalize_segments(raw, media, VideoTranscriptionLimits())
+
+    assert [(item.start_ms, item.end_ms, item.text) for item in segments] == [
+        (0, 1001, "first"),
+        (1001, 2000, "second"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        [
+            _RawSegment(start=0.0, end=1.1, text="one"),
+            _RawSegment(start=1.0, end=2.0, text="two"),
+        ],
+        [_RawSegment(start=1.0, end=1.0, text="zero")],
+        [_RawSegment(start=0.0, end=1.0, text="   ")],
+    ],
+)
+def test_normalize_segments_rejects_invalid_ranges_or_empty_text(
+    raw: list[_RawSegment],
+) -> None:
+    with pytest.raises(AdapterProtocolError):
+        normalize_segments(
+            raw,
+            VideoMediaInfo("mp4", "h264", "aac", True, 2000),
+            VideoTranscriptionLimits(),
+        )
+
+
+def test_transcribe_materializes_generator_before_returning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    video = tmp_path / "speech.mp4"
+    video.write_bytes(b"x")
+    consumed: list[str] = []
+
+    class FakeModel:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        def transcribe(self, path: str, *, language: str | None) -> tuple[object, object]:
+            def segments() -> object:
+                consumed.append("started")
+                yield _RawSegment(start=0.0, end=1.0, text="speech")
+                consumed.append("finished")
+
+            return segments(), SimpleNamespace(language="en")
+
+    def fake_probe(path: Path, limits: VideoTranscriptionLimits) -> VideoMediaInfo:
+        return VideoMediaInfo("mp4", "h264", "aac", True, 1000)
+
+    def fake_resolve(config: FasterWhisperTranscriptionConfig, *, allow_download: bool) -> Path:
+        return tmp_path / "snapshot"
+
+    monkeypatch.setattr("mke.adapters.video.faster_whisper.probe_media", fake_probe)
+    monkeypatch.setattr("mke.adapters.video.faster_whisper.resolve_model_snapshot", fake_resolve)
+    monkeypatch.setattr(
+        "mke.adapters.video.faster_whisper._load_whisper_runtime",
+        lambda: (FakeModel, "1.2.1"),
+    )
+
+    parsed = transcribe_media(video, FasterWhisperTranscriptionConfig())
+
+    assert consumed == ["started", "finished"]
+    assert parsed.segments[0].text == "speech"
+    assert parsed.transcription_provenance is not None
+    assert parsed.transcription_provenance.language == "auto"

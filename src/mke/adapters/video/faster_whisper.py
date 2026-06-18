@@ -3,11 +3,21 @@
 from __future__ import annotations
 
 import logging
+import math
+import time
+from collections.abc import Iterable
 from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
 from typing import Literal, Protocol, cast
 
+from mke.adapters.video.contracts import AdapterExitCode, VideoTranscriptionLimits
+from mke.domain import (
+    ParsedVideoTranscript,
+    TranscriptionProvenance,
+    VideoMediaInfo,
+    VideoTranscriptSegment,
+)
 from mke.runtime import FasterWhisperTranscriptionConfig, ModelPreparationConfig
 
 logger = logging.getLogger(__name__)
@@ -56,6 +66,58 @@ class _WhisperModelFactory(Protocol):
     ) -> _ReadyModel: ...
 
 
+class _CodecContext(Protocol):
+    name: str
+
+
+class _Stream(Protocol):
+    codec_context: _CodecContext
+
+
+class _Streams(Protocol):
+    video: list[_Stream]
+    audio: list[_Stream]
+
+
+class _ContainerFormat(Protocol):
+    name: str
+
+
+class _MediaContainer(Protocol):
+    format: _ContainerFormat
+    streams: _Streams
+    duration: int | None
+
+    def close(self) -> None: ...
+
+
+class _TranscriptionSegment(Protocol):
+    start: float
+    end: float
+    text: str
+
+
+class _TranscriptionInfo(Protocol):
+    language: str
+
+
+class _TranscribingModel(_ReadyModel, Protocol):
+    def transcribe(
+        self, path: str, *, language: str | None
+    ) -> tuple[Iterable[_TranscriptionSegment], _TranscriptionInfo]: ...
+
+
+class _TranscribingModelFactory(Protocol):
+    def __call__(
+        self,
+        model_size_or_path: str,
+        *,
+        device: str,
+        compute_type: str,
+        local_files_only: bool,
+    ) -> _TranscribingModel: ...
+
+
 class ModelResolutionError(RuntimeError):
     """Stable setup failure that never includes SDK exception text or local paths."""
 
@@ -63,6 +125,18 @@ class ModelResolutionError(RuntimeError):
         super().__init__(cause)
         self.cause = cause
         self.next_step = next_step
+
+
+class AdapterProtocolError(RuntimeError):
+    """Versioned adapter failure with an optional internal-only diagnostic."""
+
+    def __init__(
+        self,
+        exit_code: AdapterExitCode,
+        diagnostic: str = "adapter operation failed",
+    ) -> None:
+        super().__init__(diagnostic)
+        self.exit_code = exit_code
 
 
 @dataclass(frozen=True)
@@ -269,4 +343,148 @@ def _not_ready(
         checks=checks,
         cause=cause,
         next_step=next_step,
+    )
+
+
+def probe_media(path: Path, limits: VideoTranscriptionLimits) -> VideoMediaInfo:
+    try:
+        input_size = path.stat().st_size
+    except OSError as error:
+        raise AdapterProtocolError(AdapterExitCode.MEDIA_UNSUPPORTED) from error
+    if input_size <= 0:
+        raise AdapterProtocolError(AdapterExitCode.MEDIA_UNSUPPORTED)
+    if input_size > limits.max_input_bytes:
+        raise AdapterProtocolError(AdapterExitCode.MEDIA_LIMIT_EXCEEDED)
+
+    try:
+        container = _open_media_container(path)
+    except Exception as error:
+        raise AdapterProtocolError(AdapterExitCode.MEDIA_UNSUPPORTED) from error
+    try:
+        if "mp4" not in container.format.name.split(","):
+            raise AdapterProtocolError(AdapterExitCode.MEDIA_UNSUPPORTED)
+        if not container.streams.audio:
+            raise AdapterProtocolError(AdapterExitCode.MEDIA_NO_AUDIO)
+        if not container.streams.video:
+            raise AdapterProtocolError(AdapterExitCode.MEDIA_UNSUPPORTED)
+        video_codec = container.streams.video[0].codec_context.name
+        audio_codec = container.streams.audio[0].codec_context.name
+        if video_codec != "h264" or audio_codec != "aac":
+            raise AdapterProtocolError(AdapterExitCode.MEDIA_UNSUPPORTED)
+        if container.duration is None or container.duration <= 0:
+            raise AdapterProtocolError(AdapterExitCode.MEDIA_UNSUPPORTED)
+        duration_ms = math.floor(container.duration / 1000 + 0.5)
+        if duration_ms > limits.max_media_duration_ms:
+            raise AdapterProtocolError(AdapterExitCode.MEDIA_LIMIT_EXCEEDED)
+        return VideoMediaInfo(
+            container="mp4",
+            video_codec=video_codec,
+            audio_codec=audio_codec,
+            has_audio=True,
+            duration_ms=duration_ms,
+        )
+    finally:
+        container.close()
+
+
+def _open_media_container(path: Path) -> _MediaContainer:
+    av = import_module("av")
+    return cast(_MediaContainer, av.open(str(path)))
+
+
+def normalize_timestamp_ms(seconds: float) -> int:
+    if not math.isfinite(seconds) or seconds < 0:
+        raise AdapterProtocolError(AdapterExitCode.SCHEMA_INVALID)
+    return math.floor(seconds * 1000 + 0.5)
+
+
+def normalize_segments(
+    raw_segments: Iterable[_TranscriptionSegment],
+    media: VideoMediaInfo,
+    limits: VideoTranscriptionLimits,
+) -> tuple[VideoTranscriptSegment, ...]:
+    normalized: list[VideoTranscriptSegment] = []
+    previous_end = 0
+    for raw in raw_segments:
+        if len(normalized) >= limits.max_segment_count:
+            raise AdapterProtocolError(AdapterExitCode.SCHEMA_INVALID)
+        start_ms = normalize_timestamp_ms(raw.start)
+        end_ms = normalize_timestamp_ms(raw.end)
+        if start_ms < previous_end:
+            if previous_end - start_ms > 1:
+                raise AdapterProtocolError(AdapterExitCode.SCHEMA_INVALID)
+            start_ms = previous_end
+        text = raw.text.strip()
+        if not text or end_ms <= start_ms or end_ms > media.duration_ms:
+            raise AdapterProtocolError(AdapterExitCode.SCHEMA_INVALID)
+        normalized.append(VideoTranscriptSegment(start_ms, end_ms, text))
+        previous_end = end_ms
+    if not normalized:
+        raise AdapterProtocolError(AdapterExitCode.EMPTY_TRANSCRIPT)
+    return tuple(normalized)
+
+
+def transcribe_media(
+    path: Path,
+    config: FasterWhisperTranscriptionConfig,
+) -> ParsedVideoTranscript:
+    media = probe_media(path, config.limits)
+    try:
+        snapshot = resolve_model_snapshot(config, allow_download=False)
+    except ModelResolutionError as error:
+        exit_code = (
+            AdapterExitCode.MODEL_UNAVAILABLE
+            if error.cause == "configured transcription model is not cached"
+            else AdapterExitCode.MODEL_RESOLUTION_FAILED
+        )
+        raise AdapterProtocolError(exit_code) from error
+    try:
+        model_factory, library_version = _load_whisper_runtime()
+    except ImportError as error:
+        raise AdapterProtocolError(AdapterExitCode.DEPENDENCY_MISSING) from error
+    started = time.monotonic()
+    try:
+        model = model_factory(
+            str(snapshot),
+            device=config.device,
+            compute_type=config.compute_type,
+            local_files_only=True,
+        )
+        raw_segments, info = model.transcribe(
+            str(path),
+            language=None if config.language == "auto" else config.language,
+        )
+        materialized = tuple(raw_segments)
+    except AdapterProtocolError:
+        raise
+    except Exception as error:
+        logger.exception("faster_whisper_transcription_failed")
+        raise AdapterProtocolError(AdapterExitCode.TRANSCRIPTION_FAILED) from error
+    segments = normalize_segments(materialized, media, config.limits)
+    duration_ms = math.floor((time.monotonic() - started) * 1000 + 0.5)
+    detected_language = info.language.lower()
+    provenance = TranscriptionProvenance(
+        provider="faster-whisper",
+        model=config.model,
+        model_revision=config.model_revision,
+        library_version=library_version,
+        device=config.device,
+        compute_type=config.compute_type,
+        language=config.language,
+        detected_language=detected_language,
+        model_source="cache",
+        transcription_duration_ms=duration_ms,
+    )
+    return ParsedVideoTranscript(
+        media=media,
+        segments=segments,
+        transcription_provenance=provenance,
+    )
+
+
+def _load_whisper_runtime() -> tuple[_TranscribingModelFactory, str]:
+    faster_whisper = import_module("faster_whisper")
+    return (
+        cast(_TranscribingModelFactory, faster_whisper.WhisperModel),
+        cast(str, faster_whisper.__version__),
     )
