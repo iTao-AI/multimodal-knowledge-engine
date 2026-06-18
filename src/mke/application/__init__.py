@@ -10,7 +10,8 @@ from uuid import uuid4
 
 from mke.adapters.pdf import PdfExtractionError, PyMuPDFPdfExtractor
 from mke.adapters.sqlite import InjectedStorageFailure, SQLiteStore
-from mke.adapters.video import SidecarTranscriptProvider, VideoExtractionError
+from mke.adapters.video import SidecarTranscriptProvider
+from mke.adapters.video.contracts import VideoTranscriptionLimits
 from mke.domain import (
     PYMUPDF_TEXT_FINGERPRINT,
     REQUIRED_PDF_STAGES,
@@ -30,6 +31,7 @@ from mke.domain import (
     SearchResult,
     SourceRecord,
     TranscriptExtractionResult,
+    TranscriptIntakeReport,
 )
 
 _SHA256_CHUNK_BYTES = 1024 * 1024
@@ -42,6 +44,7 @@ _MODEL_FREE_LIMITATION = "No model-generated answer is produced in this slice."
 _COUNT_ONLY_LIMITATION = (
     "The summary is deterministic and only reports matched Evidence count."
 )
+_VIDEO_TRANSCRIPTION_LIMITS = VideoTranscriptionLimits()
 
 
 class PdfExtractor(Protocol):
@@ -112,6 +115,11 @@ class KnowledgeEngine:
 
     def get_pdf_intake_report(self, run_id: str) -> PdfIntakeReport | None:
         return self._store.get_pdf_intake_report(run_id)
+
+    def get_transcript_intake_report(
+        self, run_id: str
+    ) -> TranscriptIntakeReport | None:
+        return self._store.get_transcript_intake_report(run_id)
 
     def persist_validated_candidate(
         self, run_id: str, evidence: list[CandidateEvidence], manifest: RunManifest
@@ -288,8 +296,7 @@ class KnowledgeEngine:
         return self.ensure_source(display_name=path.name, asset_sha256=asset_sha256)
 
     def _process_video(self, path: Path) -> IngestResult:
-        if not path.exists():
-            raise VideoIngestError("input video is missing")
+        _validate_video_input(path, _VIDEO_TRANSCRIPTION_LIMITS)
         asset_sha256 = _sha256_file(path)
         source = self.ensure_source(
             display_name=path.name,
@@ -318,15 +325,36 @@ class KnowledgeEngine:
                 asset_sha256=asset_sha256,
             )
             self._store.persist_validated_candidate(run.run_id, evidence, manifest)
-            activation = self.activate_publication(run.run_id)
+            activation = self._store.activate_publication(
+                run.run_id,
+                transcript_intake_report=transcript.transcript_intake_report,
+            )
             return IngestResult(
                 run_id=run.run_id,
                 run_state=activation.run_state,
                 evidence_count=len(evidence) if activation.published else 0,
+                transcript_intake_report=(
+                    transcript.transcript_intake_report if activation.published else None
+                ),
             )
-        except (VideoExtractionError, ManifestValidationError, InjectedStorageFailure) as error:
-            self._store.mark_run_failed(run.run_id)
+        except Exception as error:
+            try:
+                self._store.mark_run_failed(run.run_id)
+            except Exception:
+                pass
             raise VideoIngestError(str(error), run.run_id) from error
+
+
+def _validate_video_input(path: Path, limits: VideoTranscriptionLimits) -> None:
+    if not path.exists():
+        raise VideoIngestError("input video is missing")
+    if not path.is_file() or path.suffix.lower() != ".mp4":
+        raise VideoIngestError("input video must be an MP4 file")
+    size = path.stat().st_size
+    if size == 0:
+        raise VideoIngestError("input video is empty")
+    if size > limits.max_input_bytes:
+        raise VideoIngestError("video input exceeds 100 MiB limit")
 
 
 def _normalize_ask_question(question: str) -> str:

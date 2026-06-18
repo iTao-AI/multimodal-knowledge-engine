@@ -19,7 +19,9 @@ _ALLOWLISTED_CAUSES = frozenset(
         "input path must be a file",
         "input path must be under allowed root",
         "input path must not be empty",
+        "input video is empty",
         "input video is missing",
+        "input video must be an MP4 file",
         "limit must be between 1 and 20",
         "query must not be empty",
         "question must be 1000 characters or fewer",
@@ -55,6 +57,7 @@ _ALLOWLISTED_CAUSES = frozenset(
         "video transcript sidecar missing media",
         "video transcript sidecar must be a JSON object",
         "video transcript text must not be empty",
+        "video input exceeds 100 MiB limit",
     }
 )
 
