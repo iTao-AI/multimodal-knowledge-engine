@@ -2,9 +2,15 @@
 
 ## Status
 
-- Stage: Approved after autoplan review, pending implementation plan.
+- Stage: Approved after autoplan review; implementation plans ready.
 - Slice: D3-B.
 - Depends on: D3-A `TranscriptProvider` port and trusted local command boundary.
+
+Implementation plans:
+
+1. `docs/superpowers/plans/2026-06-18-real-local-transcription-protocol-lifecycle-implementation.md`
+2. `docs/superpowers/plans/2026-06-18-real-local-transcription-runtime-interfaces-implementation.md`
+3. `docs/superpowers/plans/2026-06-18-real-local-transcription-deployment-proof-docs-implementation.md`
 
 ## Goal
 
