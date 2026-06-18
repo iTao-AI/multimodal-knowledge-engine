@@ -1,6 +1,7 @@
 import sqlite3
 from pathlib import Path
 
+from mke.adapters.sqlite import SQLiteStore
 from mke.application import KnowledgeEngine
 from mke.domain import RunEventType
 from tests.conftest import PDF_FIXTURES
@@ -83,3 +84,18 @@ def test_pr2_database_schema_is_migrated_for_retry_lineage_and_events(tmp_path: 
         RunEventType.CANDIDATE_VALIDATED,
         RunEventType.PUBLICATION_ACTIVATED,
     ]
+
+
+def test_migration_creates_transcript_intake_reports_table(tmp_path: Path) -> None:
+    db_path = tmp_path / "mke.sqlite"
+    store = SQLiteStore(db_path)
+    store.close()
+
+    connection = sqlite3.connect(db_path)
+    row = connection.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+        ("transcript_intake_reports",),
+    ).fetchone()
+    connection.close()
+
+    assert row == ("transcript_intake_reports",)
