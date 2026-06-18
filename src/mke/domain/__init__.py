@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -127,9 +128,149 @@ class VideoTranscriptSegment:
 
 
 @dataclass(frozen=True)
-class TranscriptExtractionResult:
+class VideoMediaInfo:
+    container: str
+    video_codec: str
+    audio_codec: str
+    has_audio: bool
+    duration_ms: int
+
+    def __post_init__(self) -> None:
+        if any(
+            type(value) is not str or not value.strip()
+            for value in (self.container, self.video_codec, self.audio_codec)
+        ):
+            raise ValueError("video media identity fields must not be blank")
+        if type(self.has_audio) is not bool:
+            raise ValueError("video media has_audio must be a boolean")
+        if type(self.duration_ms) is not int or self.duration_ms <= 0:
+            raise ValueError("video media duration must be positive integer milliseconds")
+
+
+_LANGUAGE_RE = re.compile(r"(?:auto|[a-z]{2,3})\Z")
+
+
+def _validate_transcription_identity(
+    *,
+    provider: str,
+    model: str,
+    model_revision: str,
+    library_version: str,
+    device: str,
+    compute_type: str,
+    language: str,
+    detected_language: str,
+    model_source: str,
+    transcription_duration_ms: int,
+) -> None:
+    if any(
+        type(value) is not str or not value.strip()
+        for value in (
+            provider,
+            model,
+            model_revision,
+            library_version,
+            device,
+            compute_type,
+        )
+    ):
+        raise ValueError("transcription identity fields must not be blank")
+    if _LANGUAGE_RE.fullmatch(language) is None:
+        raise ValueError("transcription language must be auto or a lowercase language code")
+    if _LANGUAGE_RE.fullmatch(detected_language) is None:
+        raise ValueError("detected language must be auto or a lowercase language code")
+    if model_source != "cache":
+        raise ValueError("transcription model source must be cache")
+    if type(transcription_duration_ms) is not int or transcription_duration_ms < 0:
+        raise ValueError("transcription duration must be non-negative integer milliseconds")
+
+
+@dataclass(frozen=True)
+class TranscriptionProvenance:
+    provider: str
+    model: str
+    model_revision: str
+    library_version: str
+    device: str
+    compute_type: str
+    language: str
+    detected_language: str
+    model_source: str
+    transcription_duration_ms: int
+
+    def __post_init__(self) -> None:
+        _validate_transcription_identity(**self.__dict__)
+
+
+@dataclass(frozen=True)
+class ParsedVideoTranscript:
+    media: VideoMediaInfo
     segments: tuple[VideoTranscriptSegment, ...]
+    transcription_provenance: TranscriptionProvenance | None = None
+
+
+@dataclass(frozen=True)
+class TranscriptIntakeReport:
+    provider: str
+    model: str
+    model_revision: str
+    library_version: str
+    device: str
+    compute_type: str
+    language: str
+    detected_language: str
+    media_duration_ms: int
+    transcription_duration_ms: int
+    segment_count: int
+    model_source: str
+
+    def __post_init__(self) -> None:
+        _validate_transcription_identity(
+            provider=self.provider,
+            model=self.model,
+            model_revision=self.model_revision,
+            library_version=self.library_version,
+            device=self.device,
+            compute_type=self.compute_type,
+            language=self.language,
+            detected_language=self.detected_language,
+            model_source=self.model_source,
+            transcription_duration_ms=self.transcription_duration_ms,
+        )
+        if type(self.media_duration_ms) is not int or self.media_duration_ms <= 0:
+            raise ValueError("media duration must be positive integer milliseconds")
+        if type(self.segment_count) is not int or self.segment_count <= 0:
+            raise ValueError("segment count must be a positive integer")
+
+
+@dataclass(frozen=True, init=False)
+class TranscriptExtractionResult:
+    parsed_transcript: ParsedVideoTranscript | None
     extractor_fingerprint: str
+    transcript_intake_report: TranscriptIntakeReport | None = None
+    _legacy_segments: tuple[VideoTranscriptSegment, ...] | None = None
+
+    def __init__(
+        self,
+        parsed_transcript: ParsedVideoTranscript | None = None,
+        extractor_fingerprint: str = "",
+        transcript_intake_report: TranscriptIntakeReport | None = None,
+        *,
+        segments: tuple[VideoTranscriptSegment, ...] | None = None,
+    ) -> None:
+        if (parsed_transcript is None) == (segments is None):
+            raise ValueError("exactly one parsed transcript or legacy segment tuple is required")
+        object.__setattr__(self, "parsed_transcript", parsed_transcript)
+        object.__setattr__(self, "extractor_fingerprint", extractor_fingerprint)
+        object.__setattr__(self, "transcript_intake_report", transcript_intake_report)
+        object.__setattr__(self, "_legacy_segments", segments)
+
+    @property
+    def segments(self) -> tuple[VideoTranscriptSegment, ...]:
+        if self.parsed_transcript is not None:
+            return self.parsed_transcript.segments
+        assert self._legacy_segments is not None
+        return self._legacy_segments
 
 
 @dataclass(frozen=True)
@@ -139,6 +280,7 @@ class IngestResult:
     evidence_count: int
     retry_of_run_id: str | None = None
     intake_report: PdfIntakeReport | None = None
+    transcript_intake_report: TranscriptIntakeReport | None = None
 
 
 @dataclass(frozen=True)
@@ -174,6 +316,14 @@ PYMUPDF_TEXT_FINGERPRINT = "pymupdf-text-v1"
 REQUIRED_VIDEO_STAGES = frozenset({"video_transcription", "candidate_evidence"})
 VIDEO_TRANSCRIPT_FINGERPRINT = "builtin-video-transcript-v1"
 LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT = "local-command-video-transcript-v1"
+_FASTER_WHISPER_FINGERPRINT_RE = re.compile(r"faster-whisper-v1:[0-9a-f]{64}\Z")
+
+
+def is_recognized_video_fingerprint(value: str) -> bool:
+    return value in {
+        VIDEO_TRANSCRIPT_FINGERPRINT,
+        LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT,
+    } or _FASTER_WHISPER_FINGERPRINT_RE.fullmatch(value) is not None
 
 
 def validate_manifest(manifest: RunManifest, evidence: list[CandidateEvidence]) -> None:
@@ -188,10 +338,7 @@ def validate_manifest(manifest: RunManifest, evidence: list[CandidateEvidence]) 
     }:
         expected_stages = REQUIRED_PDF_STAGES
         expected_locator_kind = "page"
-    elif manifest.extractor_fingerprint in {
-        VIDEO_TRANSCRIPT_FINGERPRINT,
-        LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT,
-    }:
+    elif is_recognized_video_fingerprint(manifest.extractor_fingerprint):
         expected_stages = REQUIRED_VIDEO_STAGES
         expected_locator_kind = "timestamp_ms"
     else:

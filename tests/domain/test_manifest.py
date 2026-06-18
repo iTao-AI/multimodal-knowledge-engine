@@ -71,6 +71,39 @@ def test_manifest_validation_accepts_timestamp_evidence() -> None:
     validate_manifest(manifest, evidence)
 
 
+def test_manifest_validation_accepts_exact_faster_whisper_fingerprint() -> None:
+    manifest = _make_manifest(
+        required_stages=tuple(sorted(REQUIRED_VIDEO_STAGES)),
+        extractor_fingerprint="faster-whisper-v1:" + ("a" * 64),
+    )
+    evidence = [
+        _make_evidence(
+            locator_kind="timestamp_ms",
+            locator_start=0,
+            locator_end=1200,
+        )
+    ]
+
+    validate_manifest(manifest, evidence)
+
+
+def test_manifest_validation_rejects_faster_whisper_prefix_only() -> None:
+    manifest = _make_manifest(
+        required_stages=tuple(sorted(REQUIRED_VIDEO_STAGES)),
+        extractor_fingerprint="faster-whisper-v1:",
+    )
+    evidence = [
+        _make_evidence(
+            locator_kind="timestamp_ms",
+            locator_start=0,
+            locator_end=1200,
+        )
+    ]
+
+    with pytest.raises(ManifestValidationError, match="fingerprint"):
+        validate_manifest(manifest, evidence)
+
+
 def test_manifest_validation_rejects_count_mismatch() -> None:
     manifest = _make_manifest(evidence_count=2)
     with pytest.raises(ManifestValidationError, match="evidence count"):
