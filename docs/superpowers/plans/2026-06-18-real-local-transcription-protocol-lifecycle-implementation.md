@@ -8,6 +8,16 @@
 
 **Tech Stack:** Python 3.12/3.13, dataclasses, SQLite, pytest, Ruff, Pyright, uv.
 
+## Completion Record
+
+- Status: complete locally on 2026-06-18; no PR created pending explicit authorization.
+- Verification: `275 passed`, Ruff clean, Pyright clean, package build successful, product proof
+  `8/8`, deterministic demo passed, and `git diff --check` passed.
+- Review: clean after fixing Run-start recovery, transcript result consistency validation, public
+  error allowlist consistency, pre-Run filesystem error redaction, and non-`VALIDATED` activation
+  handling. A targeted follow-up additionally closed the Source/Run initialization error boundary.
+  Durable findings are recorded in the matching review document.
+
 ---
 
 ## Prerequisites And PR Boundary
@@ -62,7 +72,7 @@
 - Modify: `src/mke/domain/__init__.py`
 - Modify: `tests/domain/test_manifest.py`
 
-- [ ] **Step 1: Write failing DTO and Manifest tests**
+- [x] **Step 1: Write failing DTO and Manifest tests**
 
 Add tests that instantiate a complete parsed transcript, assert a frozen report contains no path or argv fields, and verify the exact fingerprint grammar:
 
@@ -80,7 +90,7 @@ Add report invariant tests for blank identity fields, invalid language mode, neg
 non-positive segment count, and any `model_source` other than `cache`. Add an identity test proving
 that changing only the requested language changes the faster-whisper fingerprint.
 
-- [ ] **Step 2: Run the focused tests and verify RED**
+- [x] **Step 2: Run the focused tests and verify RED**
 
 Run:
 
@@ -90,7 +100,7 @@ uv run pytest tests/domain/test_transcript_contracts.py tests/domain/test_manife
 
 Expected: collection or import failure because the new types and helper do not exist.
 
-- [ ] **Step 3: Add project-owned frozen DTOs**
+- [x] **Step 3: Add project-owned frozen DTOs**
 
 Add these domain shapes without provider SDK types:
 
@@ -167,7 +177,7 @@ segment counts, and `model_source != "cache"`. Frozen dataclasses provide immuta
 validation. Provider support for a syntactically valid explicit language is checked by doctor and
 the first-party adapter in PR 2.
 
-- [ ] **Step 4: Add exact fingerprint recognition**
+- [x] **Step 4: Add exact fingerprint recognition**
 
 Use a full-match regex and keep legacy D3-A fingerprints:
 
@@ -186,7 +196,7 @@ def is_recognized_video_fingerprint(value: str) -> bool:
 
 Route `validate_manifest()` through this helper. Do not accept arbitrary provider strings or a broad prefix.
 
-- [ ] **Step 5: Add canonical identity and resource contracts**
+- [x] **Step 5: Add canonical identity and resource contracts**
 
 In `contracts.py`, add:
 
@@ -229,7 +239,7 @@ def faster_whisper_fingerprint(provenance: TranscriptionProvenance) -> str:
 
 Validate positive limits in `VideoTranscriptionLimits.__post_init__`.
 
-- [ ] **Step 6: Run focused tests and commit**
+- [x] **Step 6: Run focused tests and commit**
 
 Run:
 
@@ -256,7 +266,7 @@ git commit -m "feat(video): define transcription contracts"
 - Modify: `tests/adapters/test_video_transcript.py`
 - Modify: `tests/adapters/test_local_command_transcript_provider.py`
 
-- [ ] **Step 1: Write failing parser tests**
+- [x] **Step 1: Write failing parser tests**
 
 Cover:
 
@@ -271,7 +281,7 @@ Cover:
 
 Use assertions against `ParsedVideoTranscript`, not raw dictionaries.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 ```bash
 uv run pytest tests/adapters/test_video_transcript.py tests/adapters/test_local_command_transcript_provider.py -q
@@ -279,7 +289,7 @@ uv run pytest tests/adapters/test_video_transcript.py tests/adapters/test_local_
 
 Expected: failures because `parse_transcript_payload()` still returns only segments.
 
-- [ ] **Step 3: Return a parsed transcript from the shared parser**
+- [x] **Step 3: Return a parsed transcript from the shared parser**
 
 Implement these signatures:
 
@@ -312,7 +322,7 @@ def load_transcript_json(
 
 Keep file-not-found handling in `transcript.py` as `video transcript sidecar is missing`.
 
-- [ ] **Step 4: Validate media, provenance, and segments before returning**
+- [x] **Step 4: Validate media, provenance, and segments before returning**
 
 Build `VideoMediaInfo` first, parse segments in source order, enforce media and count limits, then parse the fixed provenance allowlist. For first-party output require:
 
@@ -333,7 +343,7 @@ required = {
 
 Require `provider == "faster-whisper"`, `model_source == "cache"`, a full 40-character lowercase commit SHA, non-negative integer duration, and bounded strings. Reject segment end values greater than `media.duration_ms`.
 
-- [ ] **Step 5: Adapt both D3-A providers**
+- [x] **Step 5: Adapt both D3-A providers**
 
 `SidecarTranscriptProvider` calls the parser with `require_provenance=False` and returns no successful intake report. `LocalCommandTranscriptProvider` keeps the generic D3-A behavior and also allows missing provenance. Its result is:
 
@@ -347,7 +357,7 @@ return TranscriptExtractionResult(
 
 The first-party runtime in PR 2 will call the same parser with `require_provenance=True`.
 
-- [ ] **Step 6: Run tests and commit**
+- [x] **Step 6: Run tests and commit**
 
 ```bash
 uv run pytest tests/adapters/test_video_transcript.py tests/adapters/test_local_command_transcript_provider.py -q
@@ -371,7 +381,7 @@ git commit -m "feat(video): validate transcript provenance"
 - Modify: `tests/interfaces/test_cli_error_contract.py`
 - Modify: `tests/interfaces/test_mcp_server.py`
 
-- [ ] **Step 1: Write failing serializer and redaction tests**
+- [x] **Step 1: Write failing serializer and redaction tests**
 
 Assert CLI and MCP payloads come from the same DTO and that an unknown exception containing a home path, cache path, argv, stderr, endpoint, secret, and traceback serializes only:
 
@@ -385,13 +395,13 @@ Assert CLI and MCP payloads come from the same DTO and that an unknown exception
 }
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 ```bash
 uv run pytest tests/interfaces/test_public_errors.py tests/interfaces/test_cli_error_contract.py tests/interfaces/test_mcp_server.py -q
 ```
 
-- [ ] **Step 3: Implement the typed contract**
+- [x] **Step 3: Implement the typed contract**
 
 ```python
 @dataclass(frozen=True)
@@ -417,7 +427,7 @@ class PublicError:
 
 Add an exact allowlist mapping for stable causes and a generic fallback. Never include `str(error)` unless it exactly matches an allowlisted cause.
 
-- [ ] **Step 4: Route CLI and MCP through the serializer**
+- [x] **Step 4: Route CLI and MCP through the serializer**
 
 Replace `_PUBLIC_ERROR_CAUSES`, `_public_error_cause()`, `_failure()`, and the duplicated MCP fallback payload with `PublicError.payload()` plus a single human renderer:
 
@@ -433,7 +443,7 @@ def render_public_error_line(error: PublicError) -> str:
 
 Preserve current public output values for existing PDF, Ask, sidecar, and local-command failures.
 
-- [ ] **Step 5: Run tests and commit**
+- [x] **Step 5: Run tests and commit**
 
 ```bash
 uv run pytest tests/interfaces/test_public_errors.py tests/interfaces/test_cli_error_contract.py tests/interfaces/test_mcp_server.py -q
@@ -453,7 +463,7 @@ git commit -m "refactor(interfaces): share public error contract"
 - Create: `tests/adapters/test_sqlite_transcript_intake_report.py`
 - Modify: `tests/adapters/test_sqlite_migration.py`
 
-- [ ] **Step 1: Write failing migration and transaction tests**
+- [x] **Step 1: Write failing migration and transaction tests**
 
 Cover:
 
@@ -464,13 +474,13 @@ Cover:
 - a faster-whisper Manifest cannot publish without a report;
 - legacy sidecar and PDF activation still allow `None`.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 ```bash
 uv run pytest tests/adapters/test_sqlite_migration.py tests/adapters/test_sqlite_transcript_intake_report.py -q
 ```
 
-- [ ] **Step 3: Add the additive table**
+- [x] **Step 3: Add the additive table**
 
 Add an idempotent table with bounded CHECK constraints:
 
@@ -492,7 +502,7 @@ CREATE TABLE IF NOT EXISTS transcript_intake_reports (
 );
 ```
 
-- [ ] **Step 4: Insert the report inside activation**
+- [x] **Step 4: Insert the report inside activation**
 
 Change the signature to:
 
@@ -516,11 +526,11 @@ Inside the existing `with self._connection:` block:
 
 Do not commit in the report helper. Let the enclosing transaction own commit/rollback.
 
-- [ ] **Step 5: Add the report getter**
+- [x] **Step 5: Add the report getter**
 
 Implement `get_transcript_intake_report(run_id) -> TranscriptIntakeReport | None` with explicit field conversion. Do not return arbitrary row dictionaries.
 
-- [ ] **Step 6: Run tests and commit**
+- [x] **Step 6: Run tests and commit**
 
 ```bash
 uv run pytest tests/adapters/test_sqlite_migration.py tests/adapters/test_sqlite_transcript_intake_report.py -q
@@ -540,7 +550,7 @@ git commit -m "feat(storage): activate transcript reports atomically"
 - Modify: `tests/application/test_video_provider_injection.py`
 - Modify: `tests/application/test_video_publication.py`
 
-- [ ] **Step 1: Write failing application lifecycle tests**
+- [x] **Step 1: Write failing application lifecycle tests**
 
 Use a fake provider that returns a valid faster-whisper fingerprint and report. Assert:
 
@@ -551,13 +561,13 @@ Use a fake provider that returns a valid faster-whisper fingerprint and report. 
 - every failure keeps the previous active Search unchanged and exposes no successful report;
 - latest-request-wins superseded result exposes no report.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 ```bash
 uv run pytest tests/application/test_video_provider_injection.py tests/application/test_video_publication.py -q
 ```
 
-- [ ] **Step 3: Add application preflight and report access**
+- [x] **Step 3: Add application preflight and report access**
 
 Add:
 
@@ -580,7 +590,7 @@ def _validate_video_input(path: Path, limits: VideoTranscriptionLimits) -> None:
 
 Call this before `_sha256_file()`.
 
-- [ ] **Step 4: Pass the validated report into activation**
+- [x] **Step 4: Pass the validated report into activation**
 
 ```python
 activation = self._store.activate_publication(
@@ -599,7 +609,7 @@ return IngestResult(
 
 Catch ordinary `Exception` after Run creation, attempt `mark_run_failed()` in a separate recovery transaction, and raise `VideoIngestError` from the original error. Do not catch `KeyboardInterrupt` or `SystemExit`.
 
-- [ ] **Step 5: Run tests and commit**
+- [x] **Step 5: Run tests and commit**
 
 ```bash
 uv run pytest tests/application/test_video_provider_injection.py tests/application/test_video_publication.py -q
@@ -620,17 +630,17 @@ git commit -m "feat(video): publish transcript reports safely"
 - Modify: `tests/interfaces/test_cli_video.py`
 - Modify: `tests/interfaces/test_mcp_contract.py`
 
-- [ ] **Step 1: Write failing output tests**
+- [x] **Step 1: Write failing output tests**
 
 Assert successful video ingest and `run get` render only non-sensitive report fields. Assert MCP `ingest_file` and `get_run` use the exact key `transcript_intake_report`. Assert the MCP tool input schemas still contain no provider, model, cache, argv, endpoint, credential, or download fields.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 ```bash
 uv run pytest tests/interfaces/test_cli_video.py tests/interfaces/test_mcp_contract.py -q
 ```
 
-- [ ] **Step 3: Add one report payload helper**
+- [x] **Step 3: Add one report payload helper**
 
 ```python
 def transcript_intake_report_payload(
@@ -654,7 +664,7 @@ def transcript_intake_report_payload(
 
 Use the same field set for CLI human formatting and MCP payloads. Do not include paths, argv, stderr, or cache data.
 
-- [ ] **Step 4: Run tests and commit**
+- [x] **Step 4: Run tests and commit**
 
 ```bash
 uv run pytest tests/interfaces/test_cli_video.py tests/interfaces/test_mcp_contract.py -q
@@ -675,7 +685,7 @@ git commit -m "feat(interfaces): expose transcript intake report"
 - Modify: `docs/reference/contracts.md`
 - Modify: this plan
 
-- [ ] **Step 1: Update public-neutral contract documentation**
+- [x] **Step 1: Update public-neutral contract documentation**
 
 Document:
 
@@ -688,7 +698,7 @@ Document:
 - sidecar backward compatibility;
 - real ASR runtime and new commands remain for PR 2.
 
-- [ ] **Step 2: Run complete verification**
+- [x] **Step 2: Run complete verification**
 
 ```bash
 uv run pytest -q
@@ -702,7 +712,7 @@ git diff --check
 
 Expected baseline before implementation is 205 tests; the final count must be higher and recorded from actual output.
 
-- [ ] **Step 3: Run pre-landing review and self-review**
+- [x] **Step 3: Run pre-landing review and self-review**
 
 Run `gstack-review` because this PR changes Manifest recognition, public error behavior, SQLite
 transactions, and Run/Publication visibility. Persist durable public-neutral findings under:
@@ -721,7 +731,7 @@ Fix blockers, rerun affected tests, and then verify:
 - report visibility is transactionally coupled to Publication visibility;
 - the next plan can build the runtime without changing these contracts.
 
-- [ ] **Step 4: Mark this plan complete and commit**
+- [x] **Step 4: Mark this plan complete and commit**
 
 Change every completed checkbox to `[x]` and add a completion note with the PR number and actual verification results.
 
@@ -730,7 +740,7 @@ git add docs/explanation/architecture.md docs/reference/contracts.md docs/superp
 git commit -m "docs(video): record transcription protocol lifecycle"
 ```
 
-- [ ] **Step 5: Prepare the Chinese PR body**
+- [x] **Step 5: Prepare the Chinese PR body**
 
 Use the repository result-first format:
 

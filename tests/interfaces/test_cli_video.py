@@ -1,8 +1,11 @@
 from pathlib import Path
 
-from pytest import CaptureFixture
+from pytest import CaptureFixture, MonkeyPatch
 
+import mke.cli
+from mke.application import KnowledgeEngine
 from mke.cli import main
+from tests.application.test_video_provider_injection import FakeFasterWhisperProvider
 from tests.conftest import PDF_FIXTURES, VIDEO_FIXTURES
 
 
@@ -34,6 +37,36 @@ def test_cli_error_contract_for_invalid_video(tmp_path: Path, capsys: CaptureFix
     assert "problem=video_ingest_failed" in output
     assert "active_publication_impact=unchanged" in output
     assert "next_step=fix_input_or_retry" in output
+
+
+def test_cli_video_ingest_and_run_get_render_transcript_intake_report(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    capsys: CaptureFixture[str],
+) -> None:
+    db_path = tmp_path / "mke.sqlite"
+    video = tmp_path / "spoken.mp4"
+    video.write_bytes(b"video")
+
+    def build_engine(path: Path) -> KnowledgeEngine:
+        return KnowledgeEngine(path, transcript_provider=FakeFasterWhisperProvider())
+
+    monkeypatch.setattr(mke.cli, "KnowledgeEngine", build_engine)
+
+    assert main(["--db", str(db_path), "ingest", str(video)]) == 0
+    ingest_output = capsys.readouterr().out
+    run_id = ingest_output.split("run_id=", 1)[1].split(" ", 1)[0]
+    assert "transcript_intake_report provider=faster-whisper" in ingest_output
+    assert "model=small" in ingest_output
+    assert "media_duration_ms=1000" in ingest_output
+
+    assert main(["--db", str(db_path), "run", "get", run_id]) == 0
+    run_output = capsys.readouterr().out
+    assert "transcript_intake_report provider=faster-whisper" in run_output
+    assert "segment_count=1" in run_output
+    for forbidden in ("argv", "stderr", "cache_path", str(tmp_path)):
+        assert forbidden not in ingest_output
+        assert forbidden not in run_output
 
 
 def test_demo_verify_proves_pdf_and_video(capsys: CaptureFixture[str]) -> None:

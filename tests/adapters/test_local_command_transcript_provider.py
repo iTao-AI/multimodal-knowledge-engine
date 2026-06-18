@@ -41,6 +41,9 @@ def test_local_command_provider_parses_stdout_json(tmp_path: Path) -> None:
 
     result = provider.extract(video)
 
+    assert result.parsed_transcript is not None
+    assert result.parsed_transcript.media.duration_ms == 1000
+    assert result.parsed_transcript.transcription_provenance is None
     assert result.segments[0].text == "local command transcript"
     assert result.extractor_fingerprint == "local-command-video-transcript-v1"
 

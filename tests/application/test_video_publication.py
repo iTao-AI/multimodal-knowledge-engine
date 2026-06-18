@@ -1,10 +1,21 @@
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from mke.application import KnowledgeEngine, VideoIngestError
-from mke.domain import RunState
+from mke.domain import (
+    ActivationResult,
+    FailurePoint,
+    RunState,
+    TranscriptExtractionResult,
+    TranscriptIntakeReport,
+)
+from tests.application.test_video_provider_injection import (
+    FailingTranscriptProvider,
+    FakeFasterWhisperProvider,
+)
 from tests.conftest import PDF_FIXTURES, VIDEO_FIXTURES
 
 
@@ -124,3 +135,150 @@ def test_video_failures_do_not_change_active_pdf_search(
         engine.ingest_video(video)
 
     assert [match.text for match in engine.search("trustworthy")] == before
+
+
+@pytest.mark.parametrize(
+    "failure_stage",
+    [
+        "run_start",
+        "provider",
+        "schema",
+        "report_mismatch",
+        "fingerprint_mismatch",
+        "candidate",
+        "activation",
+        "report_insert",
+    ],
+)
+def test_video_lifecycle_failure_marks_run_failed_and_preserves_active_search(
+    tmp_path: Path,
+    failure_stage: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    engine.ingest_video(VIDEO_FIXTURES / "short-audio.mp4")
+    before = [match.text for match in engine.search("timestamp proof")]
+    provider = FakeFasterWhisperProvider()
+    monkeypatch.setattr(engine, "_transcript_provider", provider)
+
+    if failure_stage == "run_start":
+        def fail_run_start(*args: object, **kwargs: object) -> None:
+            raise RuntimeError("run start failed")
+
+        monkeypatch.setattr(
+            engine._store,  # pyright: ignore[reportPrivateUsage]
+            "mark_run_running",
+            fail_run_start,
+        )
+    elif failure_stage == "provider":
+        monkeypatch.setattr(engine, "_transcript_provider", FailingTranscriptProvider())
+    elif failure_stage == "schema":
+        original_extract = provider.extract
+
+        def invalid_schema(path: Path) -> object:
+            result = original_extract(path)
+            return type(result)(
+                parsed_transcript=result.parsed_transcript,
+                extractor_fingerprint="unrecognized-provider",
+                transcript_intake_report=result.transcript_intake_report,
+            )
+
+        monkeypatch.setattr(provider, "extract", invalid_schema)
+    elif failure_stage == "report_mismatch":
+        original_extract = provider.extract
+
+        def mismatched_report(path: Path) -> TranscriptExtractionResult:
+            result = original_extract(path)
+            assert result.transcript_intake_report is not None
+            return replace(
+                result,
+                transcript_intake_report=replace(
+                    result.transcript_intake_report,
+                    segment_count=2,
+                ),
+            )
+
+        monkeypatch.setattr(provider, "extract", mismatched_report)
+    elif failure_stage == "fingerprint_mismatch":
+        original_extract = provider.extract
+
+        def mismatched_fingerprint(path: Path) -> TranscriptExtractionResult:
+            return replace(
+                original_extract(path),
+                extractor_fingerprint="faster-whisper-v1:" + ("b" * 64),
+            )
+
+        monkeypatch.setattr(provider, "extract", mismatched_fingerprint)
+    elif failure_stage == "candidate":
+        def fail_candidate(*args: object, **kwargs: object) -> None:
+            raise RuntimeError("candidate persistence failed")
+
+        monkeypatch.setattr(
+            engine._store,  # pyright: ignore[reportPrivateUsage]
+            "persist_validated_candidate",
+            fail_candidate,
+        )
+    elif failure_stage == "activation":
+        def fail_activation(*args: object, **kwargs: object) -> None:
+            raise RuntimeError("activation failed")
+
+        monkeypatch.setattr(
+            engine._store,  # pyright: ignore[reportPrivateUsage]
+            "activate_publication",
+            fail_activation,
+        )
+    elif failure_stage == "report_insert":
+        def fail_report_insert(*args: object, **kwargs: object) -> None:
+            raise RuntimeError("report insert failed")
+
+        monkeypatch.setattr(
+            engine._store,  # pyright: ignore[reportPrivateUsage]
+            "_insert_transcript_intake_report",
+            fail_report_insert,
+        )
+
+    with pytest.raises(VideoIngestError) as exc_info:
+        engine.ingest_video(VIDEO_FIXTURES / "short-audio.mp4")
+
+    assert exc_info.value.run_id is not None
+    assert engine.get_run(exc_info.value.run_id).state == RunState.FAILED
+    assert engine.get_transcript_intake_report(exc_info.value.run_id) is None
+    assert [match.text for match in engine.search("timestamp proof")] == before
+    assert engine.search("faster whisper") == []
+
+
+def test_superseded_video_ingest_does_not_expose_successful_report(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    engine.ingest_video(VIDEO_FIXTURES / "short-audio.mp4")
+    before = [match.text for match in engine.search("timestamp proof")]
+    monkeypatch.setattr(engine, "_transcript_provider", FakeFasterWhisperProvider())
+    original_activate = engine._store.activate_publication  # pyright: ignore[reportPrivateUsage]
+
+    def supersede_before_activation(
+        run_id: str,
+        failure_point: FailurePoint | None = None,
+        *,
+        transcript_intake_report: TranscriptIntakeReport | None = None,
+    ) -> ActivationResult:
+        run = engine.get_run(run_id)
+        engine.create_run(run.source_id)
+        return original_activate(
+            run_id,
+            failure_point,
+            transcript_intake_report=transcript_intake_report,
+        )
+
+    monkeypatch.setattr(
+        engine._store,  # pyright: ignore[reportPrivateUsage]
+        "activate_publication",
+        supersede_before_activation,
+    )
+
+    result = engine.ingest_video(VIDEO_FIXTURES / "short-audio.mp4")
+
+    assert result.run_state == RunState.SUPERSEDED
+    assert result.transcript_intake_report is None
+    assert engine.get_transcript_intake_report(result.run_id) is None
+    assert [match.text for match in engine.search("timestamp proof")] == before

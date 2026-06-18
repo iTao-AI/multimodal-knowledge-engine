@@ -13,6 +13,7 @@ from mke.domain import (
     ActivationResult,
     CandidateEvidence,
     FailurePoint,
+    ManifestValidationError,
     PdfIntakeReport,
     RunEvent,
     RunEventType,
@@ -21,6 +22,8 @@ from mke.domain import (
     RunState,
     SearchResult,
     SourceRecord,
+    TranscriptIntakeReport,
+    is_recognized_video_fingerprint,
     validate_manifest,
 )
 
@@ -123,6 +126,23 @@ class SQLiteStore:
               suspected_scanned_pages INTEGER NOT NULL,
               extraction_mode TEXT NOT NULL,
               failure_reason TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS transcript_intake_reports (
+              run_id TEXT PRIMARY KEY REFERENCES runs(run_id),
+              provider TEXT NOT NULL CHECK(length(provider) BETWEEN 1 AND 256),
+              model TEXT NOT NULL CHECK(length(model) BETWEEN 1 AND 256),
+              model_revision TEXT NOT NULL CHECK(length(model_revision) BETWEEN 1 AND 256),
+              library_version TEXT NOT NULL CHECK(length(library_version) BETWEEN 1 AND 256),
+              device TEXT NOT NULL CHECK(length(device) BETWEEN 1 AND 256),
+              compute_type TEXT NOT NULL CHECK(length(compute_type) BETWEEN 1 AND 256),
+              language TEXT NOT NULL CHECK(length(language) BETWEEN 2 AND 4),
+              detected_language TEXT NOT NULL CHECK(length(detected_language) BETWEEN 2 AND 4),
+              media_duration_ms INTEGER NOT NULL CHECK(media_duration_ms > 0),
+              transcription_duration_ms INTEGER NOT NULL
+                CHECK(transcription_duration_ms >= 0),
+              segment_count INTEGER NOT NULL CHECK(segment_count > 0),
+              model_source TEXT NOT NULL CHECK(model_source = 'cache')
             );
 
             CREATE TABLE IF NOT EXISTS evidence (
@@ -435,7 +455,11 @@ class SQLiteStore:
             self._append_event(run_id, RunEventType.CANDIDATE_VALIDATED)
 
     def activate_publication(
-        self, run_id: str, failure_point: FailurePoint | None = None
+        self,
+        run_id: str,
+        failure_point: FailurePoint | None = None,
+        *,
+        transcript_intake_report: TranscriptIntakeReport | None = None,
     ) -> ActivationResult:
         with self._connection:
             run_row = self._connection.execute(
@@ -450,9 +474,10 @@ class SQLiteStore:
             if source_row is None:
                 raise KeyError(f"unknown source: {run.source_id}")
             source = _source_from_row(source_row)
+            if run.state != RunState.VALIDATED:
+                raise ManifestValidationError("Run must be validated before activation")
             if (
-                run.state != RunState.VALIDATED
-                or run.source_generation != source.requested_generation
+                run.source_generation != source.requested_generation
                 or run.based_on_active_revision != source.active_revision
             ):
                 self._connection.execute(
@@ -461,6 +486,29 @@ class SQLiteStore:
                 )
                 self._append_event(run_id, RunEventType.RUN_SUPERSEDED)
                 return ActivationResult(run_id, RunState.SUPERSEDED, False, None)
+
+            manifest_row = self._connection.execute(
+                "SELECT extractor_fingerprint FROM run_manifests WHERE run_id = ?",
+                (run_id,),
+            ).fetchone()
+            if manifest_row is None:
+                raise KeyError(f"missing RunManifest for Run: {run_id}")
+            fingerprint = str(manifest_row["extractor_fingerprint"])
+            is_faster_whisper = (
+                fingerprint.startswith("faster-whisper-v1:")
+                and is_recognized_video_fingerprint(fingerprint)
+            )
+            if is_faster_whisper and transcript_intake_report is None:
+                raise ManifestValidationError(
+                    "faster-whisper Publication requires a successful transcript intake report"
+                )
+            if (
+                transcript_intake_report is not None
+                and transcript_intake_report.provider != "faster-whisper"
+            ):
+                raise ManifestValidationError(
+                    "transcript intake report provider must be faster-whisper"
+                )
 
             evidence_rows = self._connection.execute(
                 "SELECT * FROM evidence WHERE run_id = ? ORDER BY locator_start, evidence_id",
@@ -511,11 +559,71 @@ class SQLiteStore:
             )
             if failure_point == FailurePoint.AFTER_ACTIVE_POINTER_SWITCH:
                 raise InjectedStorageFailure(failure_point.value)
+            if transcript_intake_report is not None:
+                self._insert_transcript_intake_report(run_id, transcript_intake_report)
             self._connection.execute(
                 "UPDATE runs SET state = ? WHERE run_id = ?", (RunState.PUBLISHED.value, run_id)
             )
             self._append_event(run_id, RunEventType.PUBLICATION_ACTIVATED)
         return ActivationResult(run_id, RunState.PUBLISHED, True, publication_id)
+
+    def _insert_transcript_intake_report(
+        self, run_id: str, report: TranscriptIntakeReport
+    ) -> None:
+        self._connection.execute(
+            """
+            INSERT INTO transcript_intake_reports(
+              run_id, provider, model, model_revision, library_version, device,
+              compute_type, language, detected_language, media_duration_ms,
+              transcription_duration_ms, segment_count, model_source
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                run_id,
+                report.provider,
+                report.model,
+                report.model_revision,
+                report.library_version,
+                report.device,
+                report.compute_type,
+                report.language,
+                report.detected_language,
+                report.media_duration_ms,
+                report.transcription_duration_ms,
+                report.segment_count,
+                report.model_source,
+            ),
+        )
+
+    def get_transcript_intake_report(
+        self, run_id: str
+    ) -> TranscriptIntakeReport | None:
+        row = self._connection.execute(
+            """
+            SELECT provider, model, model_revision, library_version, device,
+                   compute_type, language, detected_language, media_duration_ms,
+                   transcription_duration_ms, segment_count, model_source
+            FROM transcript_intake_reports
+            WHERE run_id = ?
+            """,
+            (run_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return TranscriptIntakeReport(
+            provider=str(row["provider"]),
+            model=str(row["model"]),
+            model_revision=str(row["model_revision"]),
+            library_version=str(row["library_version"]),
+            device=str(row["device"]),
+            compute_type=str(row["compute_type"]),
+            language=str(row["language"]),
+            detected_language=str(row["detected_language"]),
+            media_duration_ms=int(row["media_duration_ms"]),
+            transcription_duration_ms=int(row["transcription_duration_ms"]),
+            segment_count=int(row["segment_count"]),
+            model_source=str(row["model_source"]),
+        )
 
     def get_run_events(self, run_id: str) -> list[RunEvent]:
         rows = self._connection.execute(

@@ -1,3 +1,4 @@
+import asyncio
 import inspect
 import json
 from pathlib import Path
@@ -5,6 +6,8 @@ from typing import Any, cast
 
 import pytest
 
+import mke.interfaces.mcp_contract
+from mke.application import KnowledgeEngine
 from mke.interfaces.mcp_contract import (
     McpRuntimeConfig,
     ask_library,
@@ -13,6 +16,8 @@ from mke.interfaces.mcp_contract import (
     list_libraries,
     search_library,
 )
+from mke.interfaces.mcp_server import build_mcp_server
+from tests.application.test_video_provider_injection import FakeFasterWhisperProvider
 from tests.conftest import PDF_FIXTURES, VIDEO_FIXTURES
 
 
@@ -83,6 +88,42 @@ def test_ingest_file_publishes_video_and_search_returns_timestamp_evidence(
     assert "Active publication search finds spoken timestamp proof." in result["text"]
 
 
+def test_mcp_video_ingest_and_get_run_expose_exact_transcript_report_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    video = tmp_path / "spoken.mp4"
+    video.write_bytes(b"video")
+    config = _config(tmp_path, tmp_path)
+
+    def build_engine(path: Path) -> KnowledgeEngine:
+        return KnowledgeEngine(path, transcript_provider=FakeFasterWhisperProvider())
+
+    monkeypatch.setattr(mke.interfaces.mcp_contract, "KnowledgeEngine", build_engine)
+
+    ingest = ingest_file(config, "spoken.mp4")
+    run = get_run(config, str(ingest["run_id"]))
+
+    expected_keys = {
+        "provider",
+        "model",
+        "model_revision",
+        "library_version",
+        "device",
+        "compute_type",
+        "language",
+        "detected_language",
+        "media_duration_ms",
+        "transcription_duration_ms",
+        "segment_count",
+        "model_source",
+    }
+    assert set(ingest["transcript_intake_report"]) == expected_keys
+    assert ingest["transcript_intake_report"] == run["transcript_intake_report"]
+    rendered = json.dumps(ingest["transcript_intake_report"])
+    for forbidden in ("path", "argv", "stderr", "cache_path", str(tmp_path)):
+        assert forbidden not in rendered
+
+
 def test_mcp_ingest_file_contract_does_not_accept_command_argv(tmp_path: Path) -> None:
     config = _config(tmp_path, VIDEO_FIXTURES)
     unsafe_ingest_file = cast(Any, ingest_file)
@@ -94,6 +135,24 @@ def test_mcp_ingest_file_contract_does_not_accept_command_argv(tmp_path: Path) -
             "short-audio.mp4",
             command_argv=("transcribe-wrapper", "{input}"),
         )
+
+
+def test_mcp_ingest_file_tool_schema_has_no_provider_runtime_overrides(tmp_path: Path) -> None:
+    server = build_mcp_server(_config(tmp_path, VIDEO_FIXTURES))
+    tools = asyncio.run(server.list_tools())
+    ingest_tool = next(tool for tool in tools if tool.name == "ingest_file")
+    schema = json.dumps(ingest_tool.inputSchema).casefold()
+
+    for forbidden in (
+        "provider",
+        "model",
+        "cache",
+        "argv",
+        "endpoint",
+        "credential",
+        "download",
+    ):
+        assert forbidden not in schema
 
 
 def test_mcp_video_failure_does_not_leak_provider_diagnostics(tmp_path: Path) -> None:
@@ -241,9 +300,10 @@ def test_get_run_unknown_id_returns_stable_error(tmp_path: Path) -> None:
     assert result == {
         "ok": False,
         "problem": "run_not_found",
-        "cause": "unknown run: run_missing",
+        "cause": "unknown run",
         "active_publication_impact": "unchanged",
         "next_step": "check_run_id",
+        "run_id": "run_missing",
     }
 
 

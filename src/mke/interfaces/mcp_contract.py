@@ -16,7 +16,8 @@ from mke.application import (
     PdfIngestError,
     VideoIngestError,
 )
-from mke.domain import PdfIntakeReport, SearchResult
+from mke.domain import PdfIntakeReport, SearchResult, TranscriptIntakeReport
+from mke.interfaces.public_errors import public_error_from_cause
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +120,10 @@ def ingest_file(config: McpRuntimeConfig, path: str) -> dict[str, Any]:
         }
         if result.intake_report is not None:
             payload["intake_report"] = _pdf_intake_report_payload(result.intake_report)
+        if result.transcript_intake_report is not None:
+            payload["transcript_intake_report"] = transcript_intake_report_payload(
+                result.transcript_intake_report
+            )
         return payload
     finally:
         if engine is not None:
@@ -132,7 +137,12 @@ def get_run(config: McpRuntimeConfig, run_id: str) -> dict[str, Any]:
         try:
             run = engine.get_run(run_id)
         except KeyError:
-            return _failure("run_not_found", f"unknown run: {run_id}", "check_run_id")
+            return _failure(
+                "run_not_found",
+                "unknown run",
+                "check_run_id",
+                run_id=run_id,
+            )
         events = [
             {"event_index": event.event_index, "event": event.event_type}
             for event in engine.get_run_events(run_id)
@@ -150,6 +160,11 @@ def get_run(config: McpRuntimeConfig, run_id: str) -> dict[str, Any]:
         report = engine.get_pdf_intake_report(run_id)
         if report is not None:
             payload["intake_report"] = _pdf_intake_report_payload(report)
+        transcript_report = engine.get_transcript_intake_report(run_id)
+        if transcript_report is not None:
+            payload["transcript_intake_report"] = transcript_intake_report_payload(
+                transcript_report
+            )
         return payload
     finally:
         if engine is not None:
@@ -248,6 +263,25 @@ def _pdf_intake_report_payload(report: PdfIntakeReport) -> dict[str, Any]:
     }
 
 
+def transcript_intake_report_payload(
+    report: TranscriptIntakeReport,
+) -> dict[str, object]:
+    return {
+        "provider": report.provider,
+        "model": report.model,
+        "model_revision": report.model_revision,
+        "library_version": report.library_version,
+        "device": report.device,
+        "compute_type": report.compute_type,
+        "language": report.language,
+        "detected_language": report.detected_language,
+        "media_duration_ms": report.media_duration_ms,
+        "transcription_duration_ms": report.transcription_duration_ms,
+        "segment_count": report.segment_count,
+        "model_source": report.model_source,
+    }
+
+
 def _resolve_allowed_file(config: McpRuntimeConfig, path: str) -> Path:
     stripped_path = path.strip()
     if not stripped_path:
@@ -275,13 +309,9 @@ def _failure(
     *,
     run_id: str | None = None,
 ) -> dict[str, Any]:
-    payload: dict[str, Any] = {
-        "ok": False,
-        "problem": problem,
-        "cause": cause,
-        "active_publication_impact": "unchanged",
-        "next_step": next_step,
-    }
-    if run_id is not None:
-        payload["run_id"] = run_id
-    return payload
+    return public_error_from_cause(
+        cause,
+        problem=problem,
+        next_step=next_step,
+        run_id=run_id,
+    ).payload()
