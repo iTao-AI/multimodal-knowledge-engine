@@ -7,7 +7,11 @@ from dataclasses import dataclass
 from enum import IntEnum
 from hashlib import sha256
 
-from mke.domain import TranscriptionProvenance
+from mke.domain import (
+    ParsedVideoTranscript,
+    TranscriptIntakeReport,
+    TranscriptionProvenance,
+)
 
 
 @dataclass(frozen=True)
@@ -56,3 +60,25 @@ def faster_whisper_fingerprint(provenance: TranscriptionProvenance) -> str:
     }
     canonical = json.dumps(identity, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     return "faster-whisper-v1:" + sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def build_transcript_intake_report(
+    parsed: ParsedVideoTranscript,
+) -> TranscriptIntakeReport:
+    provenance = parsed.transcription_provenance
+    if provenance is None:
+        raise ValueError("transcription provenance is required for a successful report")
+    return TranscriptIntakeReport(
+        provider=provenance.provider,
+        model=provenance.model,
+        model_revision=provenance.model_revision,
+        library_version=provenance.library_version,
+        device=provenance.device,
+        compute_type=provenance.compute_type,
+        language=provenance.language,
+        detected_language=provenance.detected_language,
+        media_duration_ms=parsed.media.duration_ms,
+        transcription_duration_ms=provenance.transcription_duration_ms,
+        segment_count=len(parsed.segments),
+        model_source=provenance.model_source,
+    )

@@ -1,10 +1,17 @@
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from mke.application import KnowledgeEngine, VideoIngestError
-from mke.domain import ActivationResult, FailurePoint, RunState, TranscriptIntakeReport
+from mke.domain import (
+    ActivationResult,
+    FailurePoint,
+    RunState,
+    TranscriptExtractionResult,
+    TranscriptIntakeReport,
+)
 from tests.application.test_video_provider_injection import (
     FailingTranscriptProvider,
     FakeFasterWhisperProvider,
@@ -132,7 +139,16 @@ def test_video_failures_do_not_change_active_pdf_search(
 
 @pytest.mark.parametrize(
     "failure_stage",
-    ["provider", "schema", "candidate", "activation", "report_insert"],
+    [
+        "run_start",
+        "provider",
+        "schema",
+        "report_mismatch",
+        "fingerprint_mismatch",
+        "candidate",
+        "activation",
+        "report_insert",
+    ],
 )
 def test_video_lifecycle_failure_marks_run_failed_and_preserves_active_search(
     tmp_path: Path,
@@ -145,7 +161,16 @@ def test_video_lifecycle_failure_marks_run_failed_and_preserves_active_search(
     provider = FakeFasterWhisperProvider()
     monkeypatch.setattr(engine, "_transcript_provider", provider)
 
-    if failure_stage == "provider":
+    if failure_stage == "run_start":
+        def fail_run_start(*args: object, **kwargs: object) -> None:
+            raise RuntimeError("run start failed")
+
+        monkeypatch.setattr(
+            engine._store,  # pyright: ignore[reportPrivateUsage]
+            "mark_run_running",
+            fail_run_start,
+        )
+    elif failure_stage == "provider":
         monkeypatch.setattr(engine, "_transcript_provider", FailingTranscriptProvider())
     elif failure_stage == "schema":
         original_extract = provider.extract
@@ -159,6 +184,31 @@ def test_video_lifecycle_failure_marks_run_failed_and_preserves_active_search(
             )
 
         monkeypatch.setattr(provider, "extract", invalid_schema)
+    elif failure_stage == "report_mismatch":
+        original_extract = provider.extract
+
+        def mismatched_report(path: Path) -> TranscriptExtractionResult:
+            result = original_extract(path)
+            assert result.transcript_intake_report is not None
+            return replace(
+                result,
+                transcript_intake_report=replace(
+                    result.transcript_intake_report,
+                    segment_count=2,
+                ),
+            )
+
+        monkeypatch.setattr(provider, "extract", mismatched_report)
+    elif failure_stage == "fingerprint_mismatch":
+        original_extract = provider.extract
+
+        def mismatched_fingerprint(path: Path) -> TranscriptExtractionResult:
+            return replace(
+                original_extract(path),
+                extractor_fingerprint="faster-whisper-v1:" + ("b" * 64),
+            )
+
+        monkeypatch.setattr(provider, "extract", mismatched_fingerprint)
     elif failure_stage == "candidate":
         def fail_candidate(*args: object, **kwargs: object) -> None:
             raise RuntimeError("candidate persistence failed")

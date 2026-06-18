@@ -11,7 +11,11 @@ from uuid import uuid4
 from mke.adapters.pdf import PdfExtractionError, PyMuPDFPdfExtractor
 from mke.adapters.sqlite import InjectedStorageFailure, SQLiteStore
 from mke.adapters.video import SidecarTranscriptProvider
-from mke.adapters.video.contracts import VideoTranscriptionLimits
+from mke.adapters.video.contracts import (
+    VideoTranscriptionLimits,
+    build_transcript_intake_report,
+    faster_whisper_fingerprint,
+)
 from mke.domain import (
     PYMUPDF_TEXT_FINGERPRINT,
     REQUIRED_PDF_STAGES,
@@ -304,9 +308,10 @@ class KnowledgeEngine:
             media_type="video/mp4",
         )
         run = self.create_run(source.source_id)
-        self._store.mark_run_running(run.run_id)
         try:
+            self._store.mark_run_running(run.run_id)
             transcript = self._transcript_provider.extract(path)
+            _validate_transcript_extraction_result(transcript)
             evidence = [
                 CandidateEvidence(
                     evidence_id=f"ev_{uuid4().hex}",
@@ -355,6 +360,30 @@ def _validate_video_input(path: Path, limits: VideoTranscriptionLimits) -> None:
         raise VideoIngestError("input video is empty")
     if size > limits.max_input_bytes:
         raise VideoIngestError("video input exceeds 100 MiB limit")
+
+
+def _validate_transcript_extraction_result(
+    result: TranscriptExtractionResult,
+) -> None:
+    report = result.transcript_intake_report
+    if report is None:
+        return
+    try:
+        expected_report = build_transcript_intake_report(result.parsed_transcript)
+    except ValueError as error:
+        raise ManifestValidationError(
+            "successful transcript report requires validated provenance"
+        ) from error
+    if report != expected_report:
+        raise ManifestValidationError(
+            "transcript intake report does not match parsed transcript"
+        )
+    provenance = result.parsed_transcript.transcription_provenance
+    assert provenance is not None
+    if result.extractor_fingerprint != faster_whisper_fingerprint(provenance):
+        raise ManifestValidationError(
+            "transcript extractor fingerprint does not match provenance"
+        )
 
 
 def _normalize_ask_question(question: str) -> str:

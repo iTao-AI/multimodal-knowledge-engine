@@ -1,8 +1,19 @@
 from mke.interfaces.public_errors import (
     PublicError,
+    public_error_from_cause,
     public_error_from_exception,
     render_public_error_line,
 )
+
+
+def test_video_duration_limit_cause_is_allowlisted_exactly() -> None:
+    error = public_error_from_cause(
+        "video media exceeds duration limit",
+        problem="video_ingest_failed",
+        next_step="fix_input_or_retry",
+    )
+
+    assert error.cause == "video media exceeds duration limit"
 
 
 def test_public_error_payload_and_human_line_share_exact_fields() -> None:
