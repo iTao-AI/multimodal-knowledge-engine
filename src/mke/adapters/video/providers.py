@@ -6,12 +6,19 @@ import os
 import select
 import subprocess
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from types import MappingProxyType
 
+from mke.adapters.video.contracts import (
+    AdapterFailureSpec,
+    build_transcript_intake_report,
+    faster_whisper_fingerprint,
+)
 from mke.adapters.video.errors import VideoExtractionError
+from mke.adapters.video.process import ActiveProcessController
 from mke.adapters.video.schema import load_transcript_json
 from mke.domain import (
     LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT,
@@ -21,6 +28,10 @@ from mke.domain import (
 
 _CAPTURE_CHUNK_BYTES = 8192
 _POLL_INTERVAL_SECONDS = 0.05
+
+
+def _empty_exit_code_errors() -> Mapping[int, AdapterFailureSpec]:
+    return {}
 
 
 @dataclass(frozen=True)
@@ -47,6 +58,11 @@ class LocalCommandTranscriptConfig:
     max_stdout_bytes: int = 1024 * 1024
     max_stderr_bytes: int = 64 * 1024
     extractor_fingerprint: str = LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT
+    require_provenance: bool = False
+    exit_code_errors: Mapping[int, AdapterFailureSpec] = field(
+        default_factory=_empty_exit_code_errors
+    )
+    process_controller: ActiveProcessController | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.argv, str) or not isinstance(self.argv, Sequence):  # pyright: ignore[reportUnnecessaryIsInstance] -- runtime guard for untyped callers
@@ -62,6 +78,13 @@ class LocalCommandTranscriptConfig:
         if normalized.count("{input}") != 1:
             raise ValueError("argv must contain exactly one {input} placeholder")
         object.__setattr__(self, "argv", normalized)
+        if any(type(code) is not int or code <= 0 for code in self.exit_code_errors):
+            raise ValueError("adapter exit codes must be positive integers")
+        object.__setattr__(
+            self,
+            "exit_code_errors",
+            MappingProxyType(dict(self.exit_code_errors)),
+        )
 
 
 @dataclass(frozen=True)
@@ -71,25 +94,36 @@ class LocalCommandTranscriptProvider:
     def extract(self, path: Path) -> TranscriptExtractionResult:
         if not path.exists():
             raise VideoExtractionError("input video is missing")
-        command = [
-            str(path) if part == "{input}" else part
-            for part in self.config.argv
-        ]
+        command = [str(path) if part == "{input}" else part for part in self.config.argv]
         completed = _run_bounded_command(
             command,
             timeout_seconds=self.config.timeout_seconds,
             max_stdout_bytes=self.config.max_stdout_bytes,
             max_stderr_bytes=self.config.max_stderr_bytes,
+            process_controller=self.config.process_controller,
         )
         if completed.returncode != 0:
+            failure = self.config.exit_code_errors.get(completed.returncode)
+            if failure is not None:
+                raise VideoExtractionError(failure.cause)
             raise VideoExtractionError("transcript command failed")
         try:
             text = completed.stdout.decode("utf-8")
         except UnicodeDecodeError as error:
-            raise VideoExtractionError(
-                "transcript command stdout is not valid UTF-8"
-            ) from error
-        parsed = load_transcript_json(text, require_provenance=False)
+            raise VideoExtractionError("transcript command stdout is not valid UTF-8") from error
+        parsed = load_transcript_json(
+            text,
+            require_provenance=self.config.require_provenance,
+        )
+        if self.config.require_provenance:
+            provenance = parsed.transcription_provenance
+            if provenance is None:
+                raise VideoExtractionError("transcript provenance is required")
+            return TranscriptExtractionResult(
+                parsed_transcript=parsed,
+                extractor_fingerprint=faster_whisper_fingerprint(provenance),
+                transcript_intake_report=build_transcript_intake_report(parsed),
+            )
         return TranscriptExtractionResult(
             parsed_transcript=parsed,
             extractor_fingerprint=self.config.extractor_fingerprint,
@@ -109,6 +143,7 @@ def _run_bounded_command(
     timeout_seconds: float,
     max_stdout_bytes: int,
     max_stderr_bytes: int,
+    process_controller: ActiveProcessController | None = None,
 ) -> _BoundedCommandResult:
     try:
         process = subprocess.Popen(
@@ -122,6 +157,8 @@ def _run_bounded_command(
     except OSError as error:
         raise VideoExtractionError("transcript command failed") from error
 
+    if process_controller is not None:
+        process_controller.register(process)
     stdout = bytearray()
     stderr = bytearray()
     try:
@@ -133,12 +170,15 @@ def _run_bounded_command(
             max_stdout_bytes=max_stdout_bytes,
             max_stderr_bytes=max_stderr_bytes,
         )
-    except VideoExtractionError:
-        raise
     except OSError as error:
         _kill_process(process)
         raise VideoExtractionError("transcript command failed") from error
+    except BaseException:
+        _kill_process(process)
+        raise
     finally:
+        if process_controller is not None:
+            process_controller.unregister(process)
         if process.stdout is not None:
             with suppress(OSError):
                 process.stdout.close()

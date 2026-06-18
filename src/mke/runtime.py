@@ -3,12 +3,23 @@
 from __future__ import annotations
 
 import re
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-from mke.adapters.video.contracts import VideoTranscriptionLimits
+from mke.adapters.video.contracts import (
+    AdapterExitCode,
+    AdapterFailureSpec,
+    VideoTranscriptionLimits,
+)
 from mke.adapters.video.process import ActiveProcessController
+from mke.adapters.video.providers import (
+    LocalCommandTranscriptConfig,
+    LocalCommandTranscriptProvider,
+    SidecarTranscriptProvider,
+)
+from mke.application import KnowledgeEngine, TranscriptProvider
 
 DEFAULT_MODEL_REVISION = "536b0662742c02347bc0e980a01041f333bce120"
 
@@ -19,6 +30,42 @@ _REPOSITORY_ID_RE = re.compile(
     r"[A-Za-z0-9](?:[A-Za-z0-9._-]{0,95})\Z"
 )
 _MAX_LIMITS = VideoTranscriptionLimits()
+
+FIRST_PARTY_EXIT_ERRORS = {
+    int(AdapterExitCode.DEPENDENCY_MISSING): AdapterFailureSpec(
+        "video_ingest_failed",
+        "transcription optional dependency is not installed",
+        "install_transcription_extra",
+    ),
+    int(AdapterExitCode.MODEL_UNAVAILABLE): AdapterFailureSpec(
+        "video_ingest_failed",
+        "configured transcription model is not cached",
+        "run_transcription_prepare",
+    ),
+    int(AdapterExitCode.MODEL_RESOLUTION_FAILED): AdapterFailureSpec(
+        "video_ingest_failed",
+        "transcription model resolution failed",
+        "check_model_configuration",
+    ),
+    int(AdapterExitCode.MEDIA_UNSUPPORTED): AdapterFailureSpec(
+        "video_ingest_failed", "unsupported codec for local video proof", "choose_supported_file"
+    ),
+    int(AdapterExitCode.MEDIA_NO_AUDIO): AdapterFailureSpec(
+        "video_ingest_failed", "video must contain an audio track", "choose_supported_file"
+    ),
+    int(AdapterExitCode.MEDIA_LIMIT_EXCEEDED): AdapterFailureSpec(
+        "video_ingest_failed", "video media exceeds duration limit", "choose_smaller_file"
+    ),
+    int(AdapterExitCode.TRANSCRIPTION_FAILED): AdapterFailureSpec(
+        "video_ingest_failed", "transcription failed", "check_server_logs"
+    ),
+    int(AdapterExitCode.EMPTY_TRANSCRIPT): AdapterFailureSpec(
+        "video_ingest_failed", "video transcript must contain at least one segment", "check_audio"
+    ),
+    int(AdapterExitCode.SCHEMA_INVALID): AdapterFailureSpec(
+        "video_ingest_failed", "transcript schema validation failed", "check_server_logs"
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -98,3 +145,57 @@ def _validate_approved_limits(limits: VideoTranscriptionLimits) -> None:
     )
     if any(actual > maximum for actual, maximum in values):
         raise ValueError("video transcription limits exceed approved bounds")
+
+
+def first_party_adapter_argv(
+    config: FasterWhisperTranscriptionConfig,
+) -> tuple[str, ...]:
+    argv = [
+        sys.executable,
+        "-m",
+        "mke.adapters.video.faster_whisper_cli",
+        "{input}",
+        "--model",
+        config.model,
+        "--model-revision",
+        config.model_revision,
+        "--device",
+        config.device,
+        "--compute-type",
+        config.compute_type,
+        "--language",
+        config.language,
+        "--max-input-bytes",
+        str(config.limits.max_input_bytes),
+        "--max-media-duration-ms",
+        str(config.limits.max_media_duration_ms),
+        "--max-segment-count",
+        str(config.limits.max_segment_count),
+    ]
+    if config.cache_dir is not None:
+        argv.extend(("--model-cache", str(config.cache_dir)))
+    return tuple(argv)
+
+
+def build_transcript_provider(config: RuntimeConfig) -> TranscriptProvider:
+    if isinstance(config.transcription, SidecarTranscriptionConfig):
+        return SidecarTranscriptProvider()
+    transcription = config.transcription
+    return LocalCommandTranscriptProvider(
+        LocalCommandTranscriptConfig(
+            argv=first_party_adapter_argv(transcription),
+            timeout_seconds=transcription.limits.timeout_seconds,
+            max_stdout_bytes=transcription.limits.max_stdout_bytes,
+            max_stderr_bytes=transcription.limits.max_stderr_bytes,
+            require_provenance=True,
+            exit_code_errors=FIRST_PARTY_EXIT_ERRORS,
+            process_controller=config.process_controller,
+        )
+    )
+
+
+def build_engine(config: RuntimeConfig) -> KnowledgeEngine:
+    return KnowledgeEngine(
+        config.db_path,
+        transcript_provider=build_transcript_provider(config),
+    )

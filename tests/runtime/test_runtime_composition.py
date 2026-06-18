@@ -1,17 +1,22 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
 
 from mke.adapters.video.contracts import VideoTranscriptionLimits
+from mke.adapters.video.providers import LocalCommandTranscriptProvider, SidecarTranscriptProvider
 from mke.runtime import (
     DEFAULT_MODEL_REVISION,
     FasterWhisperTranscriptionConfig,
     ModelPreparationConfig,
     RuntimeConfig,
     SidecarTranscriptionConfig,
+    build_engine,
+    build_transcript_provider,
+    first_party_adapter_argv,
 )
 
 
@@ -70,9 +75,12 @@ def test_download_permission_exists_only_on_preparation_config() -> None:
 
     assert not hasattr(transcription, "allow_model_download")
     assert ModelPreparationConfig(transcription=transcription).allow_model_download is False
-    assert ModelPreparationConfig(
-        transcription=transcription, allow_model_download=True
-    ).allow_model_download is True
+    assert (
+        ModelPreparationConfig(
+            transcription=transcription, allow_model_download=True
+        ).allow_model_download
+        is True
+    )
 
 
 def test_runtime_rejects_non_typed_transcription_config(tmp_path: Path) -> None:
@@ -81,3 +89,44 @@ def test_runtime_rejects_non_typed_transcription_config(tmp_path: Path) -> None:
             db_path=tmp_path / "mke.sqlite",
             transcription=cast(Any, {"provider": "faster-whisper"}),
         )
+
+
+def test_first_party_argv_uses_current_interpreter_module_and_one_placeholder() -> None:
+    argv = first_party_adapter_argv(FasterWhisperTranscriptionConfig())
+
+    assert argv[:3] == (sys.executable, "-m", "mke.adapters.video.faster_whisper_cli")
+    assert argv.count("{input}") == 1
+
+
+def test_runtime_builds_sidecar_or_first_party_provider_with_shared_controller(
+    tmp_path: Path,
+) -> None:
+    sidecar = build_transcript_provider(RuntimeConfig(tmp_path / "sidecar.sqlite"))
+    runtime = RuntimeConfig(
+        tmp_path / "asr.sqlite",
+        transcription=FasterWhisperTranscriptionConfig(),
+    )
+    first_party = build_transcript_provider(runtime)
+
+    assert isinstance(sidecar, SidecarTranscriptProvider)
+    assert isinstance(first_party, LocalCommandTranscriptProvider)
+    assert first_party.config.process_controller is runtime.process_controller
+    assert first_party.config.require_provenance is True
+
+
+def test_build_engine_uses_shared_provider_factory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime = RuntimeConfig(tmp_path / "mke.sqlite")
+    sentinel = SidecarTranscriptProvider()
+
+    def fake_build(config: RuntimeConfig) -> SidecarTranscriptProvider:
+        return sentinel
+
+    monkeypatch.setattr("mke.runtime.build_transcript_provider", fake_build)
+
+    engine = build_engine(runtime)
+    try:
+        assert engine._transcript_provider is sentinel  # pyright: ignore[reportPrivateUsage]
+    finally:
+        engine.close()

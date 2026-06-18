@@ -48,6 +48,17 @@ class AdapterExitCode(IntEnum):
     SCHEMA_INVALID = 50
 
 
+@dataclass(frozen=True)
+class AdapterFailureSpec:
+    problem: str
+    cause: str
+    next_step: str
+
+    def __post_init__(self) -> None:
+        if any(not value.strip() for value in (self.problem, self.cause, self.next_step)):
+            raise ValueError("adapter failure fields must not be blank")
+
+
 def faster_whisper_fingerprint(provenance: TranscriptionProvenance) -> str:
     identity = {
         "compute_type": provenance.compute_type,
