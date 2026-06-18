@@ -8,6 +8,8 @@ from typing import Any
 import pytest
 
 from mke.adapters.video import VideoExtractionError
+from mke.adapters.video.contracts import AdapterFailureSpec
+from mke.adapters.video.process import ActiveProcessController
 from mke.adapters.video.providers import (
     LocalCommandTranscriptConfig,
     LocalCommandTranscriptProvider,
@@ -111,7 +113,7 @@ def test_local_command_provider_rejects_oversized_stdout_before_json_parser(
 ) -> None:
     script = _write_script(
         tmp_path,
-        "import sys\nsys.stdout.write('{\"format\":\"mke.video_transcript.v1\"}' * 100)\n",
+        'import sys\nsys.stdout.write(\'{"format":"mke.video_transcript.v1"}\' * 100)\n',
     )
     video = tmp_path / "sample.mp4"
     video.write_bytes(b"fake mp4 bytes")
@@ -140,9 +142,7 @@ def test_local_command_provider_rejects_oversized_stderr_without_leaking_content
     secret = "SECRET_STDERR_VALUE"
     script = _write_script(
         tmp_path,
-        "import sys\n"
-        f"sys.stderr.write('{secret}' * 100)\n"
-        + _valid_transcript_script(),
+        f"import sys\nsys.stderr.write('{secret}' * 100)\n" + _valid_transcript_script(),
     )
     video = tmp_path / "sample.mp4"
     video.write_bytes(b"fake mp4 bytes")
@@ -175,8 +175,7 @@ def test_local_command_provider_rejects_oversized_stderr_without_leaking_content
             50,
         ),
         (
-            "import sys\nsys.stderr.write('x' * 100)\n"
-            + _valid_transcript_script(),
+            "import sys\nsys.stderr.write('x' * 100)\n" + _valid_transcript_script(),
             "transcript command produced too much stderr",
             2048,
             50,
@@ -261,3 +260,105 @@ def test_local_command_provider_rejects_missing_input(tmp_path: Path) -> None:
 
     with pytest.raises(VideoExtractionError, match="input video is missing"):
         provider.extract(tmp_path / "missing.mp4")
+
+
+def test_local_command_provider_maps_configured_exit_code_without_leaking_stderr(
+    tmp_path: Path,
+) -> None:
+    secret = "SECRET_STDERR"
+    script = _write_script(
+        tmp_path,
+        f"import sys\nsys.stderr.write('{secret}')\nsys.exit(21)\n",
+    )
+    video = tmp_path / "sample.mp4"
+    video.write_bytes(b"fake mp4 bytes")
+    provider = LocalCommandTranscriptProvider(
+        LocalCommandTranscriptConfig(
+            argv=(sys.executable, str(script), "{input}"),
+            exit_code_errors={
+                21: AdapterFailureSpec(
+                    "video_ingest_failed",
+                    "configured transcription model is not cached",
+                    "run_transcription_prepare",
+                )
+            },
+        )
+    )
+
+    with pytest.raises(VideoExtractionError) as exc_info:
+        provider.extract(video)
+
+    assert str(exc_info.value) == "configured transcription model is not cached"
+    assert exc_info.value.problem == "video_ingest_failed"
+    assert exc_info.value.next_step == "run_transcription_prepare"
+    assert secret not in str(exc_info.value)
+
+
+def test_local_command_provider_requires_provenance_when_configured(tmp_path: Path) -> None:
+    script = _write_script(tmp_path, _valid_transcript_script())
+    video = tmp_path / "sample.mp4"
+    video.write_bytes(b"fake mp4 bytes")
+    provider = LocalCommandTranscriptProvider(
+        LocalCommandTranscriptConfig(
+            argv=(sys.executable, str(script), "{input}"),
+            require_provenance=True,
+        )
+    )
+
+    with pytest.raises(VideoExtractionError, match="provenance"):
+        provider.extract(video)
+
+
+def test_run_bounded_command_cleans_up_on_base_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    killed: list[bool] = []
+    waited: list[bool] = []
+
+    class FakePipe:
+        def close(self) -> None:
+            pass
+
+    class FakeProcess:
+        stdout = FakePipe()
+        stderr = FakePipe()
+
+        def poll(self) -> None:
+            return None
+
+        def kill(self) -> None:
+            killed.append(True)
+
+        def wait(self, timeout: float | None = None) -> int:
+            waited.append(True)
+            return -9
+
+    process = FakeProcess()
+    controller = ActiveProcessController()
+
+    def fake_popen(*args: Any, **kwargs: Any) -> Any:
+        return process
+
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+
+    def interrupt(*args: object, **kwargs: object) -> object:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("mke.adapters.video.providers._read_bounded_process_output", interrupt)
+    provider = LocalCommandTranscriptProvider(
+        LocalCommandTranscriptConfig(
+            argv=("owned", "{input}"),
+            process_controller=controller,
+        )
+    )
+    video = Path("sample.mp4")
+    video.write_bytes(b"video")
+
+    try:
+        with pytest.raises(KeyboardInterrupt):
+            provider.extract(video)
+    finally:
+        video.unlink()
+
+    assert killed == [True]
+    assert waited

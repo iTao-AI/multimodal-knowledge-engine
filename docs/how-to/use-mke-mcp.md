@@ -12,6 +12,16 @@ uv run mke --db .tmp/mke.sqlite mcp --allowed-root .
 The server uses stdio. Configure the Agent client to run the command above from the repository
 root. It can reuse a database created by `mke --db <path> ingest <file>`.
 
+After explicit model preparation, start cache-only local transcription with:
+
+```bash
+uv run mke --db .tmp/mke.sqlite mcp --allowed-root ./library \
+  --transcript-provider faster-whisper
+```
+
+Startup runs the same read-only checks as `mke transcription doctor`. See
+[Use Local Transcription](./use-local-transcription.md).
+
 Example client configuration shape:
 
 ```json
@@ -62,10 +72,9 @@ timestamp Evidence when active Search matches the question terms.
 
 - HTTP and workspace UI are not implemented yet.
 - Generative Ask, model providers, prompt templates, and model retries are not implemented yet.
-- Scanned-PDF OCR, arbitrary videos, bundled speech-model transcription, and external providers
+- Scanned-PDF OCR, arbitrary videos, bundled model weights, and external providers
   are outside this MCP slice.
-- MCP `ingest_file(config, path)` cannot accept or execute transcript command argv. The optional
-  local-command transcript provider is available only through trusted process-local wiring and the
-  proof-only `mke proof transcript-smoke` command.
+- MCP `ingest_file(config, path)` cannot accept provider, model, cache, download, endpoint,
+  credential, or command argv overrides. Provider policy is owner startup configuration.
 - The server rejects paths outside `--allowed-root`.
 - The server rejects PDF inputs above 100 MB before opening the PDF extractor.

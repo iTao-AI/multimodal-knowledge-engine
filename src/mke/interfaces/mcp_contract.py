@@ -18,6 +18,7 @@ from mke.application import (
 )
 from mke.domain import PdfIntakeReport, SearchResult, TranscriptIntakeReport
 from mke.interfaces.public_errors import public_error_from_cause
+from mke.runtime import RuntimeConfig, build_engine
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +32,12 @@ _SUPPORTED_SUFFIX_MEDIA_TYPES = {
 
 @dataclass(frozen=True)
 class McpRuntimeConfig:
-    db_path: Path
+    runtime: RuntimeConfig
     allowed_root: Path
+
+    @property
+    def db_path(self) -> Path:
+        return self.runtime.db_path
 
 
 def list_libraries() -> dict[str, Any]:
@@ -82,7 +87,7 @@ def ingest_file(config: McpRuntimeConfig, path: str) -> dict[str, Any]:
 
     engine: KnowledgeEngine | None = None
     try:
-        engine = KnowledgeEngine(config.db_path)
+        engine = build_engine(config.runtime)
         try:
             if suffix == ".mp4":
                 result = engine.ingest_video(input_path)
@@ -103,9 +108,9 @@ def ingest_file(config: McpRuntimeConfig, path: str) -> dict[str, Any]:
             )
         except VideoIngestError as error:
             return _failure(
-                "video_ingest_failed",
+                error.problem,
                 str(error),
-                "fix_input_or_retry",
+                error.next_step,
                 run_id=error.run_id,
             )
         payload: dict[str, Any] = {
@@ -133,7 +138,7 @@ def ingest_file(config: McpRuntimeConfig, path: str) -> dict[str, Any]:
 def get_run(config: McpRuntimeConfig, run_id: str) -> dict[str, Any]:
     engine: KnowledgeEngine | None = None
     try:
-        engine = KnowledgeEngine(config.db_path)
+        engine = build_engine(config.runtime)
         try:
             run = engine.get_run(run_id)
         except KeyError:
@@ -186,7 +191,7 @@ def search_library(
 
     engine: KnowledgeEngine | None = None
     try:
-        engine = KnowledgeEngine(config.db_path)
+        engine = build_engine(config.runtime)
         results = [
             _evidence_from_search_result(match)
             for match in engine.search(normalized_query, limit=limit)
@@ -215,7 +220,7 @@ def ask_library(
         )
     engine: KnowledgeEngine | None = None
     try:
-        engine = KnowledgeEngine(config.db_path)
+        engine = build_engine(config.runtime)
         try:
             result = engine.ask(question, limit=limit)
         except AskValidationError as error:
@@ -226,9 +231,7 @@ def ask_library(
             "question": result.question,
             "answer_status": result.answer_status,
             "summary": result.summary,
-            "evidence": [
-                _evidence_from_search_result(match) for match in result.evidence
-            ],
+            "evidence": [_evidence_from_search_result(match) for match in result.evidence],
             "limitations": list(result.limitations),
         }
     finally:

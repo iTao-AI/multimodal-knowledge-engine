@@ -4,11 +4,12 @@ from pathlib import Path
 from mke.interfaces.mcp_contract import McpRuntimeConfig
 from mke.interfaces.mcp_server import build_mcp_server
 from mke.interfaces.mcp_server import safe_tool_for_test as safe_tool
+from mke.runtime import RuntimeConfig
 
 
 def test_build_mcp_server_returns_named_server(tmp_path: Path) -> None:
     server = build_mcp_server(
-        McpRuntimeConfig(db_path=tmp_path / "mke.sqlite", allowed_root=tmp_path)
+        McpRuntimeConfig(runtime=RuntimeConfig(tmp_path / "mke.sqlite"), allowed_root=tmp_path)
     )
 
     assert server.name == "Multimodal Knowledge Engine"
@@ -16,7 +17,7 @@ def test_build_mcp_server_returns_named_server(tmp_path: Path) -> None:
 
 def test_build_mcp_server_exposes_ask_library_tool(tmp_path: Path) -> None:
     server = build_mcp_server(
-        McpRuntimeConfig(db_path=tmp_path / "mke.sqlite", allowed_root=tmp_path)
+        McpRuntimeConfig(runtime=RuntimeConfig(tmp_path / "mke.sqlite"), allowed_root=tmp_path)
     )
 
     tools = asyncio.run(server.list_tools())

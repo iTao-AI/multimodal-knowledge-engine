@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from enum import IntEnum
 from hashlib import sha256
@@ -24,15 +25,20 @@ class VideoTranscriptionLimits:
     max_stderr_bytes: int = 512 * 1024
 
     def __post_init__(self) -> None:
-        values = (
+        integer_values = (
             self.max_input_bytes,
             self.max_media_duration_ms,
             self.max_segment_count,
-            self.timeout_seconds,
             self.max_stdout_bytes,
             self.max_stderr_bytes,
         )
-        if any(type(value) not in {int, float} or value <= 0 for value in values):
+        timeout = self.timeout_seconds
+        if (
+            any(type(value) is not int or value <= 0 for value in integer_values)
+            or type(timeout) not in {int, float}
+            or not math.isfinite(timeout)
+            or timeout <= 0
+        ):
             raise ValueError("video transcription limits must be positive")
 
 
@@ -46,6 +52,17 @@ class AdapterExitCode(IntEnum):
     TRANSCRIPTION_FAILED = 40
     EMPTY_TRANSCRIPT = 41
     SCHEMA_INVALID = 50
+
+
+@dataclass(frozen=True)
+class AdapterFailureSpec:
+    problem: str
+    cause: str
+    next_step: str
+
+    def __post_init__(self) -> None:
+        if any(not value.strip() for value in (self.problem, self.cause, self.next_step)):
+            raise ValueError("adapter failure fields must not be blank")
 
 
 def faster_whisper_fingerprint(provenance: TranscriptionProvenance) -> str:

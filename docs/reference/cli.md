@@ -82,11 +82,14 @@ mke --db <path> ask <question>
 mke --db <path> run get <run_id>
 ```
 
+`ingest` and `run get` accept `--json` and emit exactly one JSON object.
+
 - `--db` defaults to `mke.sqlite` in the current working directory.
 - The SQLite schema is created automatically when the database is opened.
 - `ingest` supports PyMuPDF text-layer PDFs and the documented short MP4 fixture profile.
-- Normal video ingest reads `<video>.mke-transcript.json` sidecars and does not run `ffmpeg`,
-  download speech models, or call external services. It does not accept command argv.
+- Video ingest defaults to `<video>.mke-transcript.json`. Selecting
+  `--transcript-provider faster-whisper` uses the cache-only first-party adapter. It does not run a
+  system `ffmpeg`, download during ingest, or accept command argv.
 - `search` reads only active Publication rows in SQLite FTS5.
 - PDF results print `page=<number>`.
 - Successful PDF ingest prints stable intake summary fields:
@@ -132,6 +135,21 @@ pdf_pages=2 extracted_pages=2 empty_pages=0 extracted_chars=<chars> suspected_sc
 event_index=1 event=run_created
 ```
 
+## Transcription Setup
+
+```bash
+mke transcription prepare --allow-model-download [runtime flags] [--json]
+mke transcription doctor [runtime flags] [--json]
+```
+
+Runtime flags are `--transcript-provider`, `--model`, `--model-revision`, `--device`,
+`--compute-type`, `--language`, `--model-cache`, and `--transcription-timeout-seconds`.
+Preparation is the only download path. Doctor returns `0` ready, `1` not ready, and `2` for usage.
+Invalid owner configuration is a usage error and never emits a Python traceback. Faster-whisper
+video ingest runs the same cache-only readiness checks before opening SQLite or creating a Run;
+an unsupported explicit language returns `problem=transcription_not_ready` with
+`next_step=choose_supported_language`.
+
 ## MCP Server Command
 
 ```bash
@@ -169,14 +187,17 @@ Current video failures use:
 ```text
 problem=video_ingest_failed
 active_publication_impact=unchanged
-next_step=fix_input_or_retry
+next_step=<provider-specific recovery action or fix_input_or_retry>
 ```
+
+First-party adapter failures preserve stable recovery actions such as
+`install_transcription_extra`, `run_transcription_prepare`, and
+`check_model_configuration`.
 
 ## Planned Commands
 
 `mke init`, `mke serve`, and `mke library create` remain planned.
 
-Generative Ask, HTTP, workspace UI, OCR, scanned PDFs, long videos, bundled speech-model
-transcription, tables, page coordinates, hosted coordination, and multi-worker runtime behavior
-are outside the current CLI scope. The only real-provider boundary in D3-A is the optional
-proof-only local-command transcript smoke path.
+Generative Ask, HTTP, workspace UI, OCR, scanned PDFs, long videos, bundled model weights, tables,
+page coordinates, hosted coordination, and multi-worker behavior remain outside scope. Real
+spoken-fixture and deployment proof are deferred to PR 3.

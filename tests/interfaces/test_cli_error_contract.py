@@ -9,7 +9,30 @@ from pytest import CaptureFixture
 from mke.adapters.sqlite import SQLiteStore
 from mke.application import KnowledgeEngine, VideoIngestError
 from mke.cli import main
-from mke.interfaces.public_errors import PublicError, render_public_error_line
+from mke.interfaces.public_errors import (
+    PublicError,
+    public_error_from_cause,
+    render_public_error_line,
+)
+
+
+@pytest.mark.parametrize(
+    "cause",
+    [
+        "transcription optional dependency is not installed",
+        "configured transcription model is not cached",
+        "transcription model resolution failed",
+        "transcript schema validation failed",
+    ],
+)
+def test_transcription_setup_causes_are_public_allowlisted(cause: str) -> None:
+    error = public_error_from_cause(
+        cause,
+        problem="video_ingest_failed",
+        next_step="fix_input_or_retry",
+    )
+
+    assert error.cause == cause
 
 
 def test_cli_error_renderer_uses_public_error_contract() -> None:
@@ -45,6 +68,30 @@ def test_error_contract_redacts_unrecognized_sensitive_cause(
     assert "SECRET_TOKEN" not in output
     assert "Traceback" not in output
     assert "/Users/mac" not in output
+
+
+def test_cli_preserves_typed_video_recovery_action(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: CaptureFixture[str],
+) -> None:
+    video = tmp_path / "input.mp4"
+    video.write_bytes(b"fake mp4 bytes")
+
+    def fail_with_typed_error(self: KnowledgeEngine, path: Path) -> object:
+        raise VideoIngestError(
+            "configured transcription model is not cached",
+            problem="video_ingest_failed",
+            next_step="run_transcription_prepare",
+        )
+
+    monkeypatch.setattr(KnowledgeEngine, "ingest_video", fail_with_typed_error)
+
+    assert main(["--db", str(tmp_path / "mke.sqlite"), "ingest", str(video)]) == 1
+
+    output = capsys.readouterr().out
+    assert "cause=configured transcription model is not cached" in output
+    assert "next_step=run_transcription_prepare" in output
 
 
 def test_cli_redacts_video_hash_failure(

@@ -8,6 +8,18 @@
 
 **Tech Stack:** Python 3.12/3.13, faster-whisper, CTranslate2, PyAV, huggingface_hub, MCP Python SDK, asyncio, subprocess, pytest, uv.
 
+## Completion Record
+
+- Status: complete locally on 2026-06-19 after authoritative review remediation; branch retained
+  without push or PR.
+- Scope: PR 2 only. No model, spoken fixture, real ASR proof, or PR 3 deployment proof was added.
+- Review: the authoritative gstack review identified eight findings. All eight were independently
+  reproduced, fixed with regression coverage, and recorded in
+  `docs/superpowers/reviews/2026-06-18-real-local-transcription-runtime-interfaces-review.md`.
+- Verification: `364 passed, 5 warnings`; Ruff passed; Pyright reported zero errors; build,
+  eight-case product proof, demo verification, `git diff --check`, and the Python 3.13 model-free
+  `wheel[transcription]` install/import/empty-cache doctor gate passed.
+
 ---
 
 ## Prerequisites And PR Boundary
@@ -67,7 +79,7 @@
 - Create: `src/mke/runtime.py`
 - Create: `tests/runtime/test_runtime_composition.py`
 
-- [ ] **Step 1: Write failing configuration tests**
+- [x] **Step 1: Write failing configuration tests**
 
 Cover:
 
@@ -82,13 +94,13 @@ Cover:
 - download permission exists only on `ModelPreparationConfig`;
 - runtime config has one shared `ActiveProcessController`.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 ```bash
 uv run pytest tests/runtime/test_runtime_composition.py -q
 ```
 
-- [ ] **Step 3: Declare optional dependencies and scripts**
+- [x] **Step 3: Declare optional dependencies and scripts**
 
 Add:
 
@@ -114,7 +126,7 @@ uv sync --locked
 
 The ordinary sync must keep working without the extra. Do not download a model.
 
-- [ ] **Step 4: Implement typed configuration**
+- [x] **Step 4: Implement typed configuration**
 
 Use a discriminated union:
 
@@ -159,7 +171,7 @@ Import `ActiveProcessController` from `mke.adapters.video.process`; do not defin
 `runtime.py`, because both the runtime factory and provider need it and a runtime/provider import
 cycle is not acceptable. Validate values in `__post_init__`; do not accept arbitrary dictionaries.
 
-- [ ] **Step 5: Run tests and commit**
+- [x] **Step 5: Run tests and commit**
 
 ```bash
 uv run pytest tests/runtime/test_runtime_composition.py -q
@@ -178,7 +190,7 @@ git commit -m "feat(video): add transcription runtime config"
 - Create: `src/mke/adapters/video/faster_whisper.py`
 - Create: `tests/adapters/test_faster_whisper.py`
 
-- [ ] **Step 1: Write failing resolver and readiness tests**
+- [x] **Step 1: Write failing resolver and readiness tests**
 
 Mock every network/model boundary. Cover:
 
@@ -191,13 +203,13 @@ Mock every network/model boundary. Cover:
 - no result contains the resolved snapshot path or cache path;
 - prepare and doctor never open SQLite or create a Run.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 ```bash
 uv run pytest tests/adapters/test_faster_whisper.py -q
 ```
 
-- [ ] **Step 3: Implement strict model identity resolution**
+- [x] **Step 3: Implement strict model identity resolution**
 
 Use lazy imports so core installation remains usable:
 
@@ -224,7 +236,7 @@ def resolve_model_snapshot(
 
 `classify_model_resolution_error()` must return project-owned stable failures and log internal details separately. Never use raw exception text as a public cause.
 
-- [ ] **Step 4: Implement preparation and read-only doctor DTOs**
+- [x] **Step 4: Implement preparation and read-only doctor DTOs**
 
 ```python
 @dataclass(frozen=True)
@@ -245,7 +257,7 @@ class TranscriptionReadiness:
 
 `prepare_model()` must first attempt local-only resolution and only call network-enabled resolution after explicit opt-in. `doctor_transcription()` checks imports, config/profile, and cache-only resolution; it never transcribes or mutates cache.
 
-- [ ] **Step 5: Run tests and commit**
+- [x] **Step 5: Run tests and commit**
 
 ```bash
 uv run pytest tests/adapters/test_faster_whisper.py -q
@@ -266,7 +278,7 @@ git commit -m "feat(video): add model preparation and doctor"
 - Create: `tests/adapters/test_faster_whisper_cli.py`
 - Modify: `tests/adapters/test_faster_whisper.py`
 
-- [ ] **Step 1: Write failing probe and normalization tests**
+- [x] **Step 1: Write failing probe and normalization tests**
 
 Use fake PyAV containers and fake `WhisperModel` objects. Cover:
 
@@ -282,13 +294,13 @@ Use fake PyAV containers and fake `WhisperModel` objects. Cover:
 - generator is fully consumed before any JSON is emitted;
 - more than 10,000 normalized segments fails.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 ```bash
 uv run pytest tests/adapters/test_faster_whisper.py tests/adapters/test_faster_whisper_cli.py -q
 ```
 
-- [ ] **Step 3: Implement media probe and timestamp normalization**
+- [x] **Step 3: Implement media probe and timestamp normalization**
 
 Use PyAV only inside the optional adapter:
 
@@ -301,7 +313,7 @@ def normalize_timestamp_ms(seconds: float) -> int:
 
 `probe_media()` opens the file with PyAV, derives actual codec names and positive duration, closes the container in `finally`, and returns `VideoMediaInfo`. Do not invoke `ffmpeg` or `ffprobe`.
 
-- [ ] **Step 4: Implement cache-only ASR execution**
+- [x] **Step 4: Implement cache-only ASR execution**
 
 ```python
 def transcribe_media(
@@ -335,7 +347,7 @@ def transcribe_media(
 
 If the locked constructor does not accept `local_files_only` when given a snapshot path, remove only that redundant keyword after verifying installed source; cache-only behavior remains enforced by prior exact snapshot resolution.
 
-- [ ] **Step 5: Implement a thin stable adapter CLI**
+- [x] **Step 5: Implement a thin stable adapter CLI**
 
 `faster_whisper_cli.main(argv)` must:
 
@@ -349,7 +361,7 @@ If the locked constructor does not accept `local_files_only` when given a snapsh
 8. never catch `KeyboardInterrupt` or `SystemExit`;
 9. never serialize raw exception text.
 
-- [ ] **Step 6: Run tests and commit**
+- [x] **Step 6: Run tests and commit**
 
 ```bash
 uv run pytest tests/adapters/test_faster_whisper.py tests/adapters/test_faster_whisper_cli.py -q
@@ -372,7 +384,7 @@ git commit -m "feat(video): add faster whisper adapter"
 - Modify: `tests/adapters/test_local_command_transcript_provider.py`
 - Modify: `tests/runtime/test_runtime_composition.py`
 
-- [ ] **Step 1: Write failing provider and cancellation tests**
+- [x] **Step 1: Write failing provider and cancellation tests**
 
 Assert:
 
@@ -385,13 +397,13 @@ Assert:
 - `KeyboardInterrupt`, task cancellation signal, and owner shutdown kill and wait for the active child;
 - stderr, argv, cache path, input path, and exception text never enter the public failure.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 ```bash
 uv run pytest tests/adapters/test_local_command_transcript_provider.py tests/runtime/test_runtime_composition.py -q
 ```
 
-- [ ] **Step 3: Add a thread-safe active process controller**
+- [x] **Step 3: Add a thread-safe active process controller**
 
 ```python
 class ActiveProcessController:
@@ -416,7 +428,7 @@ class ActiveProcessController:
 
 Register immediately after spawn and unregister in `finally`. In `_run_bounded_command()`, catch `BaseException` only to kill/wait, then re-raise unchanged. This cleanup must not convert `KeyboardInterrupt` or `SystemExit` into a product error.
 
-- [ ] **Step 4: Extend local-command configuration for first-party protocol**
+- [x] **Step 4: Extend local-command configuration for first-party protocol**
 
 Add immutable fields:
 
@@ -449,7 +461,7 @@ Do not use merely requested config values for the report or dynamic fingerprint.
 The adapter writes the normalized requested language into the validated provenance before this
 step; the report and fingerprint therefore distinguish `auto` from an explicit language override.
 
-- [ ] **Step 5: Implement the provider and engine factories**
+- [x] **Step 5: Implement the provider and engine factories**
 
 ```python
 def build_transcript_provider(config: RuntimeConfig) -> TranscriptProvider:
@@ -476,7 +488,7 @@ def build_engine(config: RuntimeConfig) -> KnowledgeEngine:
     )
 ```
 
-- [ ] **Step 6: Run tests and commit**
+- [x] **Step 6: Run tests and commit**
 
 ```bash
 uv run pytest tests/adapters/test_local_command_transcript_provider.py tests/runtime/test_runtime_composition.py -q
@@ -497,7 +509,7 @@ git commit -m "feat(video): compose first party transcript provider"
 - Modify: `tests/interfaces/test_cli_video.py`
 - Modify: `tests/interfaces/test_cli_error_contract.py`
 
-- [ ] **Step 1: Write failing CLI tests**
+- [x] **Step 1: Write failing CLI tests**
 
 Cover:
 
@@ -512,13 +524,13 @@ Cover:
 - JSON stdout has no logs or paths;
 - stable failures are identical to the shared public serializer.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 ```bash
 uv run pytest tests/interfaces/test_cli_transcription.py tests/interfaces/test_cli_video.py tests/interfaces/test_cli_error_contract.py -q
 ```
 
-- [ ] **Step 3: Add reusable owner configuration arguments**
+- [x] **Step 3: Add reusable owner configuration arguments**
 
 Add `add_transcription_runtime_arguments(parser)` with:
 
@@ -535,7 +547,7 @@ Add `add_transcription_runtime_arguments(parser)` with:
 
 These are local operator/startup controls. Never add command argv, endpoint, or credentials.
 
-- [ ] **Step 4: Add prepare and doctor subcommands**
+- [x] **Step 4: Add prepare and doctor subcommands**
 
 The CLI tree is:
 
@@ -546,11 +558,11 @@ mke transcription doctor [runtime flags] [--json]
 
 Prepare does not accept `--db` behaviorally even though the global parser has a default; its handler must not build an engine. Doctor uses `doctor_transcription()` directly.
 
-- [ ] **Step 5: Add one-object JSON serializers**
+- [x] **Step 5: Add one-object JSON serializers**
 
 Use explicit payload builders rather than `dataclasses.asdict()`. Include only stable documented fields. Human output may be multi-line; JSON output must call `print(json.dumps(payload))` exactly once and route logs to stderr.
 
-- [ ] **Step 6: Route normal commands through the composition root**
+- [x] **Step 6: Route normal commands through the composition root**
 
 Replace direct `KnowledgeEngine(args.db)` construction with:
 
@@ -561,7 +573,7 @@ engine = build_engine(runtime)
 
 Keep `mke proof run` and `mke demo --verify` on their existing deterministic sidecar construction path.
 
-- [ ] **Step 7: Run tests and commit**
+- [x] **Step 7: Run tests and commit**
 
 ```bash
 uv run pytest tests/interfaces/test_cli_transcription.py tests/interfaces/test_cli_video.py tests/interfaces/test_cli_error_contract.py -q
@@ -585,7 +597,7 @@ git commit -m "feat(cli): add transcription setup and ingest"
 - Modify: `tests/interfaces/test_mcp_server.py`
 - Modify: `tests/interfaces/test_cli_mcp.py`
 
-- [ ] **Step 1: Write failing owner-policy and schema tests**
+- [x] **Step 1: Write failing owner-policy and schema tests**
 
 Assert:
 
@@ -598,13 +610,13 @@ Assert:
 - CLI and MCP provider factories receive equal typed config;
 - MCP output includes the transcript report without local paths.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 ```bash
 uv run pytest tests/interfaces/test_mcp_transcription_runtime.py tests/interfaces/test_mcp_contract.py tests/interfaces/test_mcp_server.py tests/interfaces/test_cli_mcp.py -q
 ```
 
-- [ ] **Step 3: Make MCP runtime configuration explicit**
+- [x] **Step 3: Make MCP runtime configuration explicit**
 
 ```python
 @dataclass(frozen=True)
@@ -619,11 +631,11 @@ class McpRuntimeConfig:
 
 Provide a compatibility constructor/helper only if existing tests or internal callers require it; do not maintain a second provider-building path.
 
-- [ ] **Step 4: Add preflight before stdio startup**
+- [x] **Step 4: Add preflight before stdio startup**
 
 `run_mcp_server()` must call the same read-only readiness function when the owner selected faster-whisper. On failure, render one safe message to stderr, return 1, and never call `FastMCP.run()`.
 
-- [ ] **Step 5: Add cancellation-safe async ingest**
+- [x] **Step 5: Add cancellation-safe async ingest**
 
 Use the shared controller and an async tool wrapper:
 
@@ -649,7 +661,7 @@ subprocess was killed, and the worker completed the failed-Run recovery before t
 `CancelledError`. Keep the timeout in the test harness, not around production cleanup: swallowing a
 cleanup timeout would let the tool return while a worker could still mutate Run state.
 
-- [ ] **Step 6: Preserve safe async error handling**
+- [x] **Step 6: Preserve safe async error handling**
 
 Extend the safe tool decorator or add a dedicated async equivalent that:
 
@@ -658,7 +670,7 @@ Extend the safe tool decorator or add a dedicated async equivalent that:
 - returns the shared generic public error for ordinary `Exception`;
 - never catches `BaseException`.
 
-- [ ] **Step 7: Run tests and commit**
+- [x] **Step 7: Run tests and commit**
 
 ```bash
 uv run pytest tests/interfaces/test_mcp_transcription_runtime.py tests/interfaces/test_mcp_contract.py tests/interfaces/test_mcp_server.py tests/interfaces/test_cli_mcp.py -q
@@ -679,7 +691,7 @@ git commit -m "feat(mcp): add owner configured transcription"
 - Modify: `tests/proof/test_runner.py`
 - Modify: `tests/interfaces/test_cli_demo.py`
 
-- [ ] **Step 1: Write deterministic guard tests**
+- [x] **Step 1: Write deterministic guard tests**
 
 Patch real provider construction to fail and assert:
 
@@ -688,13 +700,13 @@ Patch real provider construction to fail and assert:
 - core imports and `mke` bootstrap work when optional imports are unavailable;
 - doctor reports dependency missing instead of crashing.
 
-- [ ] **Step 2: Verify RED or regression coverage**
+- [x] **Step 2: Verify RED or regression coverage**
 
 ```bash
 uv run pytest tests/test_bootstrap.py tests/proof/test_runner.py tests/interfaces/test_cli_demo.py -q
 ```
 
-- [ ] **Step 3: Extend both Python matrix jobs without model download**
+- [x] **Step 3: Extend both Python matrix jobs without model download**
 
 After building the wheel:
 
@@ -708,7 +720,7 @@ After building the wheel:
 
 Use `uv export --locked --extra transcription --no-dev --no-emit-project` to create lock-derived constraints when supported by the pinned uv action. If the installed uv syntax differs, verify `uv export --help` and use its equivalent locked requirements output; do not drop the lock-derived constraint requirement.
 
-- [ ] **Step 4: Run local packaging checks**
+- [x] **Step 4: Run local packaging checks**
 
 ```bash
 uv sync --locked
@@ -720,7 +732,7 @@ uv run python -c "import av, faster_whisper"
 
 Do not invoke model preparation or real transcription.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add .github/workflows/ci.yml tests/test_bootstrap.py tests/proof/test_runner.py tests/interfaces/test_cli_demo.py
@@ -738,7 +750,7 @@ git commit -m "ci: verify transcription wheel extra"
 - Modify: `docs/how-to/use-mke-mcp.md`
 - Modify: this plan
 
-- [ ] **Step 1: Record ADR-0006**
+- [x] **Step 1: Record ADR-0006**
 
 Document:
 
@@ -752,11 +764,11 @@ Document:
 - rollback to sidecar;
 - HTTP/remote/vendor/queue work deferred.
 
-- [ ] **Step 2: Update Diataxis documentation**
+- [x] **Step 2: Update Diataxis documentation**
 
 Add exact install, prepare, doctor, CLI ingest, MCP startup, JSON, recovery, and non-goal examples. Clearly state that real proof evidence is added in PR 3; do not claim an unexecuted platform result.
 
-- [ ] **Step 3: Run complete verification**
+- [x] **Step 3: Run complete verification**
 
 ```bash
 uv sync --locked
@@ -771,7 +783,7 @@ git diff --check
 
 Also run the model-free extra installation commands from Task 7. Record actual output only.
 
-- [ ] **Step 4: Run a pre-landing review**
+- [x] **Step 4: Run a pre-landing review**
 
 Use `gstack-review` because this PR changes subprocess handling, optional native dependencies, CLI/MCP contracts, and cancellation behavior. Persist durable findings under:
 
@@ -781,14 +793,14 @@ docs/superpowers/reviews/2026-06-18-real-local-transcription-runtime-interfaces-
 
 Fix blockers, rerun focused tests, then rerun the full verification set.
 
-- [ ] **Step 5: Mark this plan complete and commit**
+- [x] **Step 5: Mark this plan complete and commit**
 
 ```bash
 git add docs/decisions/0006-first-party-local-transcription-runtime.md docs/how-to/use-local-transcription.md docs/explanation/architecture.md docs/reference/cli.md docs/reference/contracts.md docs/how-to/use-mke-mcp.md docs/superpowers/plans/2026-06-18-real-local-transcription-runtime-interfaces-implementation.md docs/superpowers/reviews/2026-06-18-real-local-transcription-runtime-interfaces-review.md
 git commit -m "docs(video): document local transcription runtime"
 ```
 
-- [ ] **Step 6: Prepare the Chinese PR body**
+- [x] **Step 6: Prepare the Chinese PR body**
 
 ```markdown
 ## Summary

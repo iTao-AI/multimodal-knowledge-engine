@@ -22,11 +22,13 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [ADR-0003](./decisions/0003-video-dependency-and-transcription-strategy.md) defines the short-video dependency and transcription strategy.
 - [ADR-0004](./decisions/0004-pymupdf-pdf-intake-adapter.md) defines the PyMuPDF PDF intake adapter and licensing boundary.
 - [ADR-0005](./decisions/0005-optional-local-command-transcription-provider.md) defines the optional local-command transcription provider boundary.
+- [ADR-0006](./decisions/0006-first-party-local-transcription-runtime.md) defines the cache-only faster-whisper runtime.
 - [Architecture](./explanation/architecture.md) explains the current domain flow and projection boundary.
 - [Public Contracts](./reference/contracts.md) tracks implemented versus planned interfaces.
 - [CLI Reference](./reference/cli.md) documents implemented commands, proof output, compatibility demo output, and error fields.
 - [Run The Local Product Proof](./how-to/run-local-product-proof.md) explains the deterministic PDF and short-video proof plus the optional local transcript smoke command.
 - [Use MKE As A Local MCP Server](./how-to/use-mke-mcp.md) explains the first Agent-facing stdio interface.
+- [Use Local Transcription](./how-to/use-local-transcription.md) covers prepare, doctor, ingest, and recovery.
 - [Trustworthy PDF And Video Slice Design](./superpowers/specs/2026-06-15-trustworthy-pdf-video-slice-design.md) records the approved design.
 - [Trustworthy PDF And Video Slice Implementation Plan](./superpowers/plans/2026-06-15-trustworthy-pdf-video-slice-implementation.md) records the completed implementation plan.
 - [MCP Agent Interface Design](./superpowers/specs/2026-06-16-mcp-agent-interface-design.md) defines the first Agent-facing stdio interface.

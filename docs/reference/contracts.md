@@ -34,6 +34,8 @@ Status:
 | `mke demo --verify` | implemented in PR 3, extended in PR 4 | Compatibility-oriented deterministic offline PDF and short-video proof using temporary SQLite workspace and repository fixtures. |
 | `mke --db <path> mcp --allowed-root <path>` | implemented in C1 | Runs a local stdio MCP server for Agent-facing ingest, Run inspection, and active Evidence Search. |
 | `mke --db <path> ask <question>` | implemented in C2 | Returns deterministic evidence-only Ask output using active Publication Search. |
+| `mke transcription prepare --allow-model-download` | implemented in D3-B | Explicit exact-revision acquisition; no database or Run. |
+| `mke transcription doctor` | implemented in D3-B | Read-only dependency, profile, language, and cache checks. |
 | `mke init` | planned | Workspace initialization after lifecycle proof. |
 | `mke serve` | planned | Single-owner local process after CLI proof. |
 | `mke library create` | planned | May be implicit in first CLI path. |
@@ -50,9 +52,9 @@ optional trusted-local `LocalCommandTranscriptProvider` that reads the same tran
 from stdout, but normal ingest does not accept provider commands. The shared schema returns a
 provider-neutral `ParsedVideoTranscript(media, segments, transcription_provenance | None)`.
 Existing sidecars without `transcription` provenance remain compatible. First-party output must
-provide complete faster-whisper provenance, but the real ASR runtime, model handling, and new
-transcription commands remain outside this protocol/lifecycle change. OCR, scanned PDFs, bundled
-speech-model transcription, long videos, page coordinates, tables, layout-aware chunking, hybrid
+provide complete faster-whisper provenance. D3-B adds explicit preparation, cache-only doctor and
+ingest, and shared CLI/MCP runtime composition. OCR, scanned PDFs, bundled model weights, long
+videos, page coordinates, tables, layout-aware chunking, hybrid
 retrieval, rerank, and Unicode-aware retrieval are non-goals.
 
 Video application preflight rejects missing, empty, non-MP4, and inputs larger than 100 MiB before
@@ -66,9 +68,9 @@ Recognized real-provider Manifests use the exact fingerprint grammar:
 faster-whisper-v1:<64 lowercase hexadecimal characters>
 ```
 
-The digest covers canonical provider, model, model revision, library version, device, compute
-type, and requested language identity. Prefix-only, uppercase, short, or version-mismatched values
-are rejected.
+The digest covers canonical provider, model, model revision, library version, the actual device
+and compute type resolved by CTranslate2, and requested language identity. Prefix-only, uppercase,
+short, or version-mismatched values are rejected.
 
 A successful real-provider activation exposes `TranscriptIntakeReport` fields through CLI ingest,
 CLI `run get`, MCP `ingest_file`, and MCP `get_run`:
@@ -109,6 +111,11 @@ allowlisted. Unknown exception text is replaced with
 `operation failed; details were redacted`; public errors never expose paths, argv, stderr, cache
 locations, endpoints, credentials, secrets, or stack traces.
 
+First-party adapter exit mappings retain the complete project-owned
+`problem`/`cause`/`next_step` triple through provider, application, CLI, and MCP boundaries.
+Owner configuration failures occur before ingest and are reported as CLI usage errors. Explicit
+language support is checked cache-only before CLI faster-whisper ingest creates a Run.
+
 Ask validation failures use `invalid_question` for empty, overlong, or no-searchable-token
 questions and `invalid_query` for invalid limits. CJK-only and punctuation-only Ask inputs return
 `invalid_question` in C2 because the current retrieval path only exposes searchable ASCII tokens.
@@ -144,14 +151,16 @@ limitations
 an error: it returns `ok=true`, `answer_status="insufficient_evidence"`, an empty `evidence` list,
 and a limitation explaining that no active Evidence matched the search terms.
 
-The MCP server runs over stdio through `mke mcp --allowed-root <path>`. It reuses the same
-`KnowledgeEngine` application service as CLI ingest, Run inspection, and Search. `ingest_file`
+The MCP server runs over stdio through `mke mcp --allowed-root <path>`. It uses the same typed
+runtime composition root as CLI ingest, Run inspection, and Search. `ingest_file`
 has the stable contract `ingest_file(config, path)`, only accepts files under the configured
 allowed root, and currently supports `.pdf` and `.mp4`. MCP requests cannot include transcription
 command argv or override provider, model, cache, endpoint, credential, or download policy.
 MCP rejects PDF inputs larger than 100 MB with `problem="input_file_too_large"` before opening the
 PDF extractor. PDF `ingest_file` success and `get_run` responses include `intake_report` when a
 Run has one.
+When faster-whisper is selected, startup performs cache-only readiness checks before stdio begins.
+Cancellation and shutdown terminate registered adapter children and wait for Run cleanup.
 `search_library` and `ask_library` read active Publication Evidence only and share the same
 Evidence locator payload shape.
 

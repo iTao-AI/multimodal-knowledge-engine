@@ -7,7 +7,7 @@ from typing import Any, cast
 import pytest
 
 import mke.interfaces.mcp_contract
-from mke.application import KnowledgeEngine
+from mke.application import KnowledgeEngine, VideoIngestError
 from mke.interfaces.mcp_contract import (
     McpRuntimeConfig,
     ask_library,
@@ -17,12 +17,15 @@ from mke.interfaces.mcp_contract import (
     search_library,
 )
 from mke.interfaces.mcp_server import build_mcp_server
+from mke.runtime import RuntimeConfig
 from tests.application.test_video_provider_injection import FakeFasterWhisperProvider
 from tests.conftest import PDF_FIXTURES, VIDEO_FIXTURES
 
 
 def _config(tmp_path: Path, allowed_root: Path) -> McpRuntimeConfig:
-    return McpRuntimeConfig(db_path=tmp_path / "mke.sqlite", allowed_root=allowed_root)
+    return McpRuntimeConfig(
+        runtime=RuntimeConfig(tmp_path / "mke.sqlite"), allowed_root=allowed_root
+    )
 
 
 def test_list_libraries_returns_implicit_local_library() -> None:
@@ -95,10 +98,10 @@ def test_mcp_video_ingest_and_get_run_expose_exact_transcript_report_key(
     video.write_bytes(b"video")
     config = _config(tmp_path, tmp_path)
 
-    def build_engine(path: Path) -> KnowledgeEngine:
-        return KnowledgeEngine(path, transcript_provider=FakeFasterWhisperProvider())
+    def build_engine(config: RuntimeConfig) -> KnowledgeEngine:
+        return KnowledgeEngine(config.db_path, transcript_provider=FakeFasterWhisperProvider())
 
-    monkeypatch.setattr(mke.interfaces.mcp_contract, "KnowledgeEngine", build_engine)
+    monkeypatch.setattr(mke.interfaces.mcp_contract, "build_engine", build_engine)
 
     ingest = ingest_file(config, "spoken.mp4")
     run = get_run(config, str(ingest["run_id"]))
@@ -186,6 +189,28 @@ def test_mcp_video_failure_does_not_leak_provider_diagnostics(tmp_path: Path) ->
     assert "--secret" not in rendered
     assert "stderr" not in rendered
     assert "Traceback" not in rendered
+
+
+def test_mcp_video_failure_preserves_typed_recovery_action(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    video = tmp_path / "bad.mp4"
+    video.write_bytes(b"fake mp4 bytes")
+    config = _config(tmp_path, tmp_path)
+
+    def fail_with_typed_error(self: KnowledgeEngine, path: Path) -> object:
+        raise VideoIngestError(
+            "configured transcription model is not cached",
+            problem="video_ingest_failed",
+            next_step="run_transcription_prepare",
+        )
+
+    monkeypatch.setattr(KnowledgeEngine, "ingest_video", fail_with_typed_error)
+
+    result = ingest_file(config, "bad.mp4")
+
+    assert result["cause"] == "configured transcription model is not cached"
+    assert result["next_step"] == "run_transcription_prepare"
 
 
 def test_ingest_file_rejects_paths_outside_allowed_root(tmp_path: Path) -> None:

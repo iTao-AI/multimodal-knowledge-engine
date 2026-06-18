@@ -15,8 +15,16 @@ dependencies = [
   "pymupdf>=1.24.0,<2",
 ]
 
+[project.optional-dependencies]
+transcription = [
+  "faster-whisper>=1.2.1,<2",
+  "av>=11,<18",
+  "huggingface-hub>=0.33,<2",
+]
+
 [project.scripts]
 mke = "mke.cli:console_main"
+mke-transcribe-faster-whisper = "mke.adapters.video.faster_whisper_cli:console_main"
 
 [dependency-groups]
 dev = [
