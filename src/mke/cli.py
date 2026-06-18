@@ -20,7 +20,7 @@ from mke.adapters.video.faster_whisper import (
 )
 from mke.application import AskValidationError, KnowledgeEngine, PdfIngestError, VideoIngestError
 from mke.domain import FailurePoint, PdfIntakeReport, SearchResult, TranscriptIntakeReport
-from mke.interfaces.mcp_contract import transcript_intake_report_payload
+from mke.interfaces.mcp_contract import McpRuntimeConfig, transcript_intake_report_payload
 from mke.interfaces.mcp_server import run_mcp_server
 from mke.interfaces.public_errors import public_error_from_cause, render_public_error_line
 from mke.proof import render_human_report, render_json_report, run_product_proof
@@ -81,6 +81,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     mcp = subcommands.add_parser("mcp")
     mcp.add_argument("--allowed-root", type=Path, default=Path.cwd())
+    add_transcription_runtime_arguments(mcp, default_provider="sidecar")
 
     transcription = subcommands.add_parser("transcription")
     transcription_subcommands = transcription.add_subparsers(
@@ -102,7 +103,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _proof_run(json_output=args.json_output)
         return _proof_transcript_smoke(args.fixture, args.transcript_command)
     if args.command == "mcp":
-        return run_mcp_server(db_path=args.db, allowed_root=args.allowed_root)
+        return run_mcp_server(
+            McpRuntimeConfig(
+                runtime=runtime_config_from_args(args),
+                allowed_root=args.allowed_root,
+            )
+        )
     if args.command == "transcription":
         config = _faster_whisper_config_from_args(args)
         if args.transcription_command == "prepare":

@@ -18,6 +18,7 @@ from mke.interfaces.mcp_contract import (
 )
 from mke.proof.manifest import PRODUCT_PROOF_MANIFEST, ProofManifest
 from mke.proof.report import ObservedField, ProofCaseResult, ProofReport
+from mke.runtime import RuntimeConfig
 
 _EXPECTED_PDF_EVIDENCE_COUNT = 2
 _EXPECTED_VIDEO_EVIDENCE_COUNT = 2
@@ -205,7 +206,9 @@ def _case_cli_ask(context: _ProofContext) -> ProofCaseResult:
 
 def _case_mcp_ingest_file(context: _ProofContext) -> ProofCaseResult:
     started = time.monotonic()
-    config = McpRuntimeConfig(db_path=context.mcp_db_path, allowed_root=context.repo_root)
+    config = McpRuntimeConfig(
+        runtime=RuntimeConfig(context.mcp_db_path), allowed_root=context.repo_root
+    )
     result = ingest_file(config, str(context.manifest.fixtures.text_layer_pdf))
     if not result.get("ok"):
         raise AssertionError("MCP ingest_file failed")
@@ -225,7 +228,9 @@ def _case_mcp_get_run(context: _ProofContext) -> ProofCaseResult:
     started = time.monotonic()
     if context.mcp_pdf_run_id is None:
         raise AssertionError("mcp_get_run requires mcp_ingest_file context")
-    config = McpRuntimeConfig(db_path=context.mcp_db_path, allowed_root=context.repo_root)
+    config = McpRuntimeConfig(
+        runtime=RuntimeConfig(context.mcp_db_path), allowed_root=context.repo_root
+    )
     result = get_run(config, context.mcp_pdf_run_id)
     if not result.get("ok"):
         raise AssertionError("MCP get_run failed")
@@ -244,7 +249,9 @@ def _case_mcp_get_run(context: _ProofContext) -> ProofCaseResult:
 
 def _case_mcp_search_and_ask(context: _ProofContext) -> ProofCaseResult:
     started = time.monotonic()
-    config = McpRuntimeConfig(db_path=context.mcp_db_path, allowed_root=context.repo_root)
+    config = McpRuntimeConfig(
+        runtime=RuntimeConfig(context.mcp_db_path), allowed_root=context.repo_root
+    )
     search = search_library(config, "trustworthy")
     if not search.get("ok") or not search["results"]:
         raise AssertionError("MCP search_library returned no active Evidence")

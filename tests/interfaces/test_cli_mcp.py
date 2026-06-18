@@ -4,6 +4,7 @@ from pytest import MonkeyPatch
 
 import mke.cli
 from mke.cli import main
+from mke.interfaces.mcp_contract import McpRuntimeConfig
 
 
 def test_cli_mcp_passes_db_and_allowed_root(
@@ -15,8 +16,8 @@ def test_cli_mcp_passes_db_and_allowed_root(
     allowed_root = tmp_path / "materials"
     allowed_root.mkdir()
 
-    def fake_run_mcp_server(*, db_path: Path, allowed_root: Path) -> int:
-        calls.append((db_path, allowed_root))
+    def fake_run_mcp_server(config: McpRuntimeConfig) -> int:
+        calls.append((config.db_path, config.allowed_root))
         return 0
 
     monkeypatch.setattr(mke.cli, "run_mcp_server", fake_run_mcp_server)
@@ -33,8 +34,8 @@ def test_cli_mcp_allowed_root_defaults_to_current_directory(
     calls: list[tuple[Path, Path]] = []
     db_path = tmp_path / "mke.sqlite"
 
-    def fake_run_mcp_server(*, db_path: Path, allowed_root: Path) -> int:
-        calls.append((db_path, allowed_root))
+    def fake_run_mcp_server(config: McpRuntimeConfig) -> int:
+        calls.append((config.db_path, config.allowed_root))
         return 0
 
     monkeypatch.setattr(mke.cli, "run_mcp_server", fake_run_mcp_server)

@@ -17,12 +17,15 @@ from mke.interfaces.mcp_contract import (
     search_library,
 )
 from mke.interfaces.mcp_server import build_mcp_server
+from mke.runtime import RuntimeConfig
 from tests.application.test_video_provider_injection import FakeFasterWhisperProvider
 from tests.conftest import PDF_FIXTURES, VIDEO_FIXTURES
 
 
 def _config(tmp_path: Path, allowed_root: Path) -> McpRuntimeConfig:
-    return McpRuntimeConfig(db_path=tmp_path / "mke.sqlite", allowed_root=allowed_root)
+    return McpRuntimeConfig(
+        runtime=RuntimeConfig(tmp_path / "mke.sqlite"), allowed_root=allowed_root
+    )
 
 
 def test_list_libraries_returns_implicit_local_library() -> None:
@@ -95,10 +98,10 @@ def test_mcp_video_ingest_and_get_run_expose_exact_transcript_report_key(
     video.write_bytes(b"video")
     config = _config(tmp_path, tmp_path)
 
-    def build_engine(path: Path) -> KnowledgeEngine:
-        return KnowledgeEngine(path, transcript_provider=FakeFasterWhisperProvider())
+    def build_engine(config: RuntimeConfig) -> KnowledgeEngine:
+        return KnowledgeEngine(config.db_path, transcript_provider=FakeFasterWhisperProvider())
 
-    monkeypatch.setattr(mke.interfaces.mcp_contract, "KnowledgeEngine", build_engine)
+    monkeypatch.setattr(mke.interfaces.mcp_contract, "build_engine", build_engine)
 
     ingest = ingest_file(config, "spoken.mp4")
     run = get_run(config, str(ingest["run_id"]))
