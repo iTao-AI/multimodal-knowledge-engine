@@ -15,10 +15,12 @@ inspection, active Evidence Search, and evidence-only Ask. HTTP and the workspac
 implemented yet.
 
 The proof covers the lifecycle boundary, not broad media support. It does not perform scanned-PDF
-OCR, arbitrary video processing, bundled speech-model transcription, hosted coordination, or
+OCR, arbitrary video processing, bundled model weights, hosted coordination, or
 external provider calls. D3-A adds an optional trusted-local `LocalCommandTranscriptProvider`
 boundary and a proof-only `mke proof transcript-smoke` command, but normal ingest, MCP ingest,
-`mke proof run`, and `mke demo --verify` remain sidecar-backed and deterministic.
+`mke proof run`, and `mke demo --verify` remain sidecar-backed and deterministic. D3-B adds an
+optional cache-only faster-whisper runtime for configured CLI and owner-started MCP; real
+spoken-fixture proof remains deferred.
 
 PDF intake uses PyMuPDF behind the `src/mke/adapters/pdf/` boundary and exposes a
 `PdfIntakeReport` through `mke ingest`, `mke run get`, MCP `ingest_file`, and MCP `get_run`.
@@ -51,7 +53,8 @@ See [Architecture](./docs/explanation/architecture.md) and [ADR-0001](./docs/dec
 
 Start at [docs/README.md](./docs/README.md). To verify the current proof directly, see
 [Run The Local Product Proof](./docs/how-to/run-local-product-proof.md). To connect a local Agent,
-see [Use MKE As A Local MCP Server](./docs/how-to/use-mke-mcp.md). Approved implementation history
+see [Use MKE As A Local MCP Server](./docs/how-to/use-mke-mcp.md) and
+[Use Local Transcription](./docs/how-to/use-local-transcription.md). Approved implementation history
 is kept under `docs/superpowers/`; long-lived architecture decisions are kept under
 `docs/decisions/`.
 
