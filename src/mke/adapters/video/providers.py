@@ -13,7 +13,6 @@ from pathlib import Path
 
 from mke.adapters.video.errors import VideoExtractionError
 from mke.adapters.video.schema import load_transcript_json
-from mke.adapters.video.transcript import extract_transcript_segments
 from mke.domain import (
     LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT,
     VIDEO_TRANSCRIPT_FINGERPRINT,
@@ -29,9 +28,14 @@ class SidecarTranscriptProvider:
     """Default deterministic provider backed by repository sidecar JSON."""
 
     def extract(self, path: Path) -> TranscriptExtractionResult:
-        segments = extract_transcript_segments(path)
+        if not path.exists():
+            raise VideoExtractionError("input video is missing")
+        sidecar = path.with_suffix(path.suffix + ".mke-transcript.json")
+        if not sidecar.exists():
+            raise VideoExtractionError("video transcript sidecar is missing")
+        parsed = load_transcript_json(sidecar.read_text(), require_provenance=False)
         return TranscriptExtractionResult(
-            segments=tuple(segments),
+            parsed_transcript=parsed,
             extractor_fingerprint=VIDEO_TRANSCRIPT_FINGERPRINT,
         )
 
@@ -85,8 +89,9 @@ class LocalCommandTranscriptProvider:
             raise VideoExtractionError(
                 "transcript command stdout is not valid UTF-8"
             ) from error
+        parsed = load_transcript_json(text, require_provenance=False)
         return TranscriptExtractionResult(
-            segments=load_transcript_json(text),
+            parsed_transcript=parsed,
             extractor_fingerprint=self.config.extractor_fingerprint,
         )
 

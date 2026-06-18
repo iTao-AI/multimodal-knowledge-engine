@@ -8,8 +8,10 @@ from mke.adapters.video import VideoExtractionError
 from mke.application import KnowledgeEngine, VideoIngestError
 from mke.domain import (
     LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT,
+    ParsedVideoTranscript,
     RunState,
     TranscriptExtractionResult,
+    VideoMediaInfo,
     VideoTranscriptSegment,
 )
 from tests.conftest import VIDEO_FIXTURES
@@ -18,7 +20,10 @@ from tests.conftest import VIDEO_FIXTURES
 class FakeTranscriptProvider:
     def extract(self, path: Path) -> TranscriptExtractionResult:
         return TranscriptExtractionResult(
-            segments=(VideoTranscriptSegment(0, 1000, "fake command transcript"),),
+            parsed_transcript=ParsedVideoTranscript(
+                media=VideoMediaInfo("mp4", "h264", "aac", True, 1000),
+                segments=(VideoTranscriptSegment(0, 1000, "fake command transcript"),),
+            ),
             extractor_fingerprint=LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT,
         )
 

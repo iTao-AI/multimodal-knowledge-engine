@@ -18,4 +18,4 @@ def extract_transcript_segments(path: Path) -> list[VideoTranscriptSegment]:
     sidecar = path.with_suffix(path.suffix + _SIDECAR_SUFFIX)
     if not sidecar.exists():
         raise VideoExtractionError("video transcript sidecar is missing")
-    return list(load_transcript_json(sidecar.read_text()))
+    return list(load_transcript_json(sidecar.read_text()).segments)

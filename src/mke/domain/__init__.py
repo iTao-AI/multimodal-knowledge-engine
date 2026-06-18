@@ -243,34 +243,15 @@ class TranscriptIntakeReport:
             raise ValueError("segment count must be a positive integer")
 
 
-@dataclass(frozen=True, init=False)
+@dataclass(frozen=True)
 class TranscriptExtractionResult:
-    parsed_transcript: ParsedVideoTranscript | None
+    parsed_transcript: ParsedVideoTranscript
     extractor_fingerprint: str
     transcript_intake_report: TranscriptIntakeReport | None = None
-    _legacy_segments: tuple[VideoTranscriptSegment, ...] | None = None
-
-    def __init__(
-        self,
-        parsed_transcript: ParsedVideoTranscript | None = None,
-        extractor_fingerprint: str = "",
-        transcript_intake_report: TranscriptIntakeReport | None = None,
-        *,
-        segments: tuple[VideoTranscriptSegment, ...] | None = None,
-    ) -> None:
-        if (parsed_transcript is None) == (segments is None):
-            raise ValueError("exactly one parsed transcript or legacy segment tuple is required")
-        object.__setattr__(self, "parsed_transcript", parsed_transcript)
-        object.__setattr__(self, "extractor_fingerprint", extractor_fingerprint)
-        object.__setattr__(self, "transcript_intake_report", transcript_intake_report)
-        object.__setattr__(self, "_legacy_segments", segments)
 
     @property
     def segments(self) -> tuple[VideoTranscriptSegment, ...]:
-        if self.parsed_transcript is not None:
-            return self.parsed_transcript.segments
-        assert self._legacy_segments is not None
-        return self._legacy_segments
+        return self.parsed_transcript.segments
 
 
 @dataclass(frozen=True)
