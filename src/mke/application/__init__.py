@@ -300,20 +300,21 @@ class KnowledgeEngine:
         return self.ensure_source(display_name=path.name, asset_sha256=asset_sha256)
 
     def _process_video(self, path: Path) -> IngestResult:
+        run: RunRecord | None = None
         try:
-            _validate_video_input(path, _VIDEO_TRANSCRIPTION_LIMITS)
-            asset_sha256 = _sha256_file(path)
-        except VideoIngestError:
-            raise
-        except OSError as error:
-            raise VideoIngestError("input video could not be read") from error
-        source = self.ensure_source(
-            display_name=path.name,
-            asset_sha256=asset_sha256,
-            media_type="video/mp4",
-        )
-        run = self.create_run(source.source_id)
-        try:
+            try:
+                _validate_video_input(path, _VIDEO_TRANSCRIPTION_LIMITS)
+                asset_sha256 = _sha256_file(path)
+            except VideoIngestError:
+                raise
+            except OSError as error:
+                raise VideoIngestError("input video could not be read") from error
+            source = self.ensure_source(
+                display_name=path.name,
+                asset_sha256=asset_sha256,
+                media_type="video/mp4",
+            )
+            run = self.create_run(source.source_id)
             self._store.mark_run_running(run.run_id)
             transcript = self._transcript_provider.extract(path)
             _validate_transcript_extraction_result(transcript)
@@ -348,6 +349,10 @@ class KnowledgeEngine:
                 ),
             )
         except Exception as error:
+            if run is None:
+                if isinstance(error, VideoIngestError):
+                    raise
+                raise VideoIngestError("video ingest initialization failed") from error
             try:
                 self._store.mark_run_failed(run.run_id)
             except Exception:

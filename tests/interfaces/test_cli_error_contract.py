@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from sqlite3 import OperationalError
 
 import pytest
 from pytest import CaptureFixture
 
+from mke.adapters.sqlite import SQLiteStore
 from mke.application import KnowledgeEngine, VideoIngestError
 from mke.cli import main
 from mke.interfaces.public_errors import PublicError, render_public_error_line
@@ -65,3 +67,39 @@ def test_cli_redacts_video_hash_failure(
     assert "cause=input video could not be read" in output
     assert str(video) not in output
     assert "Traceback" not in output
+
+
+@pytest.mark.parametrize("failure_method", ["ensure_source", "create_run"])
+def test_cli_redacts_pre_run_storage_failure_without_recovery(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: CaptureFixture[str],
+    failure_method: str,
+) -> None:
+    video = tmp_path / "input.mp4"
+    video.write_bytes(b"fake mp4 bytes")
+    recovery_calls: list[str] = []
+
+    def fail_with_sensitive_storage_error(*args: object, **kwargs: object) -> object:
+        raise OperationalError(f"ESCAPED OperationalError {tmp_path}/mke.sqlite is unreadable")
+
+    def record_recovery(self: SQLiteStore, run_id: str) -> None:
+        recovery_calls.append(run_id)
+
+    monkeypatch.setattr(
+        KnowledgeEngine,
+        failure_method,
+        fail_with_sensitive_storage_error,
+    )
+    monkeypatch.setattr(SQLiteStore, "mark_run_failed", record_recovery)
+
+    assert main(["--db", str(tmp_path / "mke.sqlite"), "ingest", str(video)]) == 1
+
+    output = capsys.readouterr().out
+    assert "problem=video_ingest_failed" in output
+    assert "cause=video ingest initialization failed" in output
+    assert "run_id=" not in output
+    assert str(tmp_path) not in output
+    assert "OperationalError" not in output
+    assert "Traceback" not in output
+    assert recovery_calls == []

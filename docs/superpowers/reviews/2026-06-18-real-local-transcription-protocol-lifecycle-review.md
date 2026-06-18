@@ -2,9 +2,12 @@
 
 ## Status
 
-- Result: CLEAN
+- Result: CLEAN after targeted follow-up
 - Scope: D3-B PR 1 protocol and lifecycle only
 - Review date: 2026-06-18
+
+A targeted re-review reopened the pre-Run public error boundary after the initial review. The
+additional finding is included below and is resolved in the current branch state.
 
 ## Scope Check
 
@@ -27,8 +30,11 @@ provider configuration, or deployment proof.
 5. Publication activation now rejects every non-`VALIDATED` Run before stale-generation checks.
    Repeated activation therefore preserves the published Run, its successful transcript report,
    and its event history; only stale `VALIDATED` Runs become `superseded`.
+6. Source and Run initialization failures now cross the same stable public error boundary as hash
+   failures. `ensure_source()` and `create_run()` exceptions cannot expose database paths or raw
+   exception text, and failure recovery runs only when Run creation returned successfully.
 
-Regression tests cover all five findings.
+Regression tests cover all six findings.
 
 ## Lifecycle Review
 
@@ -54,7 +60,7 @@ Regression tests cover all five findings.
 
 | Command | Result |
 |---|---|
-| `uv run pytest -q` | `273 passed, 5 warnings` |
+| `uv run pytest -q` | `275 passed, 5 warnings` |
 | `uv run ruff check .` | passed |
 | `uv run pyright` | `0 errors, 0 warnings, 0 informations` |
 | `uv build` | sdist and wheel built successfully |

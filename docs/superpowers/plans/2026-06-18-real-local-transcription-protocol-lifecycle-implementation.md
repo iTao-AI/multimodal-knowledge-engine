@@ -11,11 +11,12 @@
 ## Completion Record
 
 - Status: complete locally on 2026-06-18; no PR created pending explicit authorization.
-- Verification: `273 passed`, Ruff clean, Pyright clean, package build successful, product proof
+- Verification: `275 passed`, Ruff clean, Pyright clean, package build successful, product proof
   `8/8`, deterministic demo passed, and `git diff --check` passed.
 - Review: clean after fixing Run-start recovery, transcript result consistency validation, public
   error allowlist consistency, pre-Run filesystem error redaction, and non-`VALIDATED` activation
-  handling. Durable findings are recorded in the matching review document.
+  handling. A targeted follow-up additionally closed the Source/Run initialization error boundary.
+  Durable findings are recorded in the matching review document.
 
 ---
 

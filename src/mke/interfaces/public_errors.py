@@ -59,6 +59,7 @@ _ALLOWLISTED_CAUSES = frozenset(
         "video transcript sidecar must be a JSON object",
         "video transcript text must not be empty",
         "video input exceeds 100 MiB limit",
+        "video ingest initialization failed",
     }
 )
 
