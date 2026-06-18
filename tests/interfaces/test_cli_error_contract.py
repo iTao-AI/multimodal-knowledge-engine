@@ -7,6 +7,20 @@ from pytest import CaptureFixture
 
 from mke.application import KnowledgeEngine, VideoIngestError
 from mke.cli import main
+from mke.interfaces.public_errors import PublicError, render_public_error_line
+
+
+def test_cli_error_renderer_uses_public_error_contract() -> None:
+    error = PublicError(
+        problem="invalid_question",
+        cause="question must not be empty",
+        next_step="provide_non_empty_question",
+    )
+
+    assert render_public_error_line(error) == (
+        "problem=invalid_question cause=question must not be empty "
+        "active_publication_impact=unchanged next_step=provide_non_empty_question"
+    )
 
 
 def test_error_contract_redacts_unrecognized_sensitive_cause(

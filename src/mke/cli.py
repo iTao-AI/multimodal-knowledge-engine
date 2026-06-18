@@ -13,50 +13,12 @@ from mke.adapters.video import LocalCommandTranscriptConfig, LocalCommandTranscr
 from mke.application import AskValidationError, KnowledgeEngine, PdfIngestError, VideoIngestError
 from mke.domain import FailurePoint, PdfIntakeReport, SearchResult
 from mke.interfaces.mcp_server import run_mcp_server
+from mke.interfaces.public_errors import public_error_from_cause, render_public_error_line
 from mke.proof import render_human_report, render_json_report, run_product_proof
 
 _DEFAULT_PDF_FIXTURE = Path("tests/fixtures/pdf/text-layer.pdf")
 _DEFAULT_REVISED_PDF_FIXTURE = Path("tests/fixtures/pdf/text-layer-revised.pdf")
 _DEFAULT_VIDEO_FIXTURE = Path("tests/fixtures/video/short-audio.mp4")
-_REDACTED_ERROR_CAUSE = "operation failed; details were redacted"
-_UNKNOWN_RUN_ERROR_CAUSE = "unknown run"
-_PUBLIC_ERROR_CAUSES = {
-    cause: cause
-    for cause in (
-        "PDF cannot be opened",
-        "PDF has no extractable text",
-        "argv must contain exactly one {input} placeholder",
-        "demo fixture is missing",
-        "demo video fixture is missing",
-        "encrypted PDF is not supported",
-        "input video is missing",
-        "question must be 1000 characters or fewer",
-        "question must contain at least one searchable ASCII token",
-        "stable timestamp locator generation requires increasing ranges",
-        "stable timestamp locator generation requires sorted ranges",
-        "timestamp locators must be integer milliseconds",
-        "transcript command executable is missing",
-        "transcript command failed",
-        "transcript command is required",
-        "transcript command produced too much stderr",
-        "transcript command produced too much stdout",
-        "transcript command stdout is not valid UTF-8",
-        "transcript command timed out",
-        "transcription failed",
-        "unsupported codec for local video proof",
-        "video must contain an audio track",
-        "video transcript must contain at least one segment",
-        "video transcript segment must be an object",
-        "video transcript sidecar format is unsupported",
-        "video transcript sidecar is missing",
-        "video transcript sidecar is not valid JSON",
-        "video transcript sidecar missing media",
-        "video transcript sidecar must be a JSON object",
-        "video transcript text must not be empty",
-    )
-}
-
-
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the narrow local Evidence ingest, Search, and Ask CLI path."""
     if argv is None:
@@ -329,19 +291,12 @@ def _print_error_contract(
     problem: str = "pdf_ingest_failed",
     next_step: str = "fix_input_or_retry",
 ) -> None:
-    public_cause = _public_error_cause(cause)
-    print(
-        f"problem={problem} "
-        f"cause={public_cause} "
-        "active_publication_impact=unchanged "
-        f"next_step={next_step}"
+    error = public_error_from_cause(
+        cause,
+        problem=problem,
+        next_step=next_step,
     )
-
-
-def _public_error_cause(cause: str) -> str:
-    if cause.startswith("unknown run:"):
-        return _UNKNOWN_RUN_ERROR_CAUSE
-    return _PUBLIC_ERROR_CAUSES.get(cause, _REDACTED_ERROR_CAUSE)
+    print(render_public_error_line(error))
 
 
 def _format_pdf_intake_report(report: PdfIntakeReport) -> str:

@@ -125,7 +125,7 @@ def test_cli_proof_transcript_smoke_rejects_invalid_json(
 
     output = capsys.readouterr().out
     assert "problem=video_ingest_failed" in output
-    assert "cause=video transcript sidecar is not valid JSON" in output
+    assert "cause=video transcript is not valid JSON" in output
     assert str(tmp_path) not in output
 
 

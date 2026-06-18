@@ -241,9 +241,10 @@ def test_get_run_unknown_id_returns_stable_error(tmp_path: Path) -> None:
     assert result == {
         "ok": False,
         "problem": "run_not_found",
-        "cause": "unknown run: run_missing",
+        "cause": "unknown run",
         "active_publication_impact": "unchanged",
         "next_step": "check_run_id",
+        "run_id": "run_missing",
     }
 
 

@@ -15,17 +15,9 @@ from mke.interfaces.mcp_contract import (
     DEFAULT_ASK_LIMIT,
     McpRuntimeConfig,
 )
+from mke.interfaces.public_errors import public_error_from_exception
 
 logger = logging.getLogger(__name__)
-
-_MCP_TOOL_FAILED = {
-    "ok": False,
-    "problem": "mcp_tool_failed",
-    "cause": "internal error",
-    "active_publication_impact": "unchanged",
-    "next_step": "check_server_logs",
-}
-
 
 def build_mcp_server(config: McpRuntimeConfig) -> FastMCP:
     mcp = FastMCP("Multimodal Knowledge Engine", json_response=True, log_level="WARNING")
@@ -78,9 +70,13 @@ def _safe_tool(fn: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any
     def wrapper(*args: object, **kwargs: object) -> dict[str, Any]:
         try:
             return fn(*args, **kwargs)
-        except Exception:
+        except Exception as error:
             logger.exception("mcp_tool_failed")
-            return dict(_MCP_TOOL_FAILED)
+            return public_error_from_exception(
+                error,
+                problem="internal_error",
+                next_step="check_server_logs",
+            ).payload()
 
     return wrapper
 

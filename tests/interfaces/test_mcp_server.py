@@ -33,8 +33,8 @@ def test_safe_tool_returns_stable_error_without_exception_details() -> None:
 
     assert result == {
         "ok": False,
-        "problem": "mcp_tool_failed",
-        "cause": "internal error",
+        "problem": "internal_error",
+        "cause": "operation failed; details were redacted",
         "active_publication_impact": "unchanged",
         "next_step": "check_server_logs",
     }
