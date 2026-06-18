@@ -37,3 +37,22 @@ jobs:
           uv pip install --python /tmp/mke-wheel-env/bin/python dist/*.whl
           /tmp/mke-wheel-env/bin/mke
           /tmp/mke-wheel-env/bin/mke demo --verify
+      - name: Verify transcription wheel extra without a model
+        run: |
+          uv export --locked --extra transcription --no-dev --no-emit-project \
+            --output-file /tmp/mke-transcription-constraints.txt
+          uv venv --clear /tmp/mke-wheel-env --python "${{ matrix.python-version }}"
+          wheel=$(echo dist/*.whl)
+          uv pip install --python /tmp/mke-wheel-env/bin/python \
+            --constraint /tmp/mke-transcription-constraints.txt \
+            "${wheel}[transcription]"
+          /tmp/mke-wheel-env/bin/python -c "import av, faster_whisper"
+          set +e
+          doctor_output=$(HF_HOME="$RUNNER_TEMP/mke-empty-hf" \
+            /tmp/mke-wheel-env/bin/mke transcription doctor --json)
+          doctor_status=$?
+          set -e
+          test "$doctor_status" -eq 1
+          python -c 'import json,sys; payload=json.loads(sys.argv[1]); assert payload["status"] == "not_ready"' "$doctor_output"
+          test ! -d .cache/huggingface
+          test ! -d models
