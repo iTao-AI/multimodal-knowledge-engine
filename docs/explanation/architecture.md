@@ -41,6 +41,7 @@ candidate Evidence + RunManifest
   -> create Publication
   -> replace this Source's active FTS5 rows
   -> switch Source.active_publication_id
+  -> persist a successful transcript intake report when required
   -> mark Run published
 ```
 
@@ -48,6 +49,25 @@ Candidate, failed, superseded, or historical output is not stored in the active 
 Search reads only active Publication rows and joins back through the active Publication identity.
 A stale Run that loses the Source generation or active revision check is marked `superseded`
 without changing active Search visibility.
+
+For recognized `faster-whisper-v1:<64 lowercase hex>` Manifests, activation additionally requires
+a validated `TranscriptIntakeReport`. The Publication row, active FTS5 replacement, Source pointer,
+successful report, `published` Run state, and publication event commit in one SQLite transaction.
+Any failure rolls all of them back. Failed and superseded Runs therefore cannot expose a successful
+report, and legacy PDF or sidecar video Publications remain valid without one.
+
+## Transcript Protocol
+
+The provider-neutral transcript boundary uses project-owned `VideoMediaInfo`,
+`VideoTranscriptSegment`, optional `TranscriptionProvenance`, `ParsedVideoTranscript`, and
+`TranscriptExtractionResult` DTOs. Existing `mke.video_transcript.v1` sidecars may omit the
+additive `transcription` object. First-party faster-whisper output must provide complete validated
+provenance before a later runtime adapter can construct a successful `TranscriptIntakeReport`.
+
+The shared parser enforces a 15-minute media-duration limit, a 10,000-segment limit, positive
+integer millisecond media duration, stable timestamp ranges within that duration, bounded identity
+strings, and exact provider/model revision rules. Application preflight rejects missing, empty,
+non-MP4, or over-100-MiB inputs before hashing, provider execution, or Run creation.
 
 ## Current Runtime Shape
 
@@ -60,6 +80,12 @@ short MP4 fixture profile, while the optional `LocalCommandTranscriptProvider` i
 for trusted local smoke tests. Normal ingest and MCP requests cannot supply command argv. The
 deterministic proof path uses no external services, credentials, model downloads, OCR, bundled
 speech-model transcription, or network calls.
+
+CLI and MCP errors share one project-owned `PublicError` serializer. Only allowlisted stable causes
+can reach public output; unknown exception text is replaced with
+`operation failed; details were redacted`. Public payloads contain `problem`, `cause`,
+`active_publication_impact`, `next_step`, and an optional `run_id`, never local paths, argv, stderr,
+cache locations, endpoints, secrets, or tracebacks.
 
 ## Current Module Shape
 
