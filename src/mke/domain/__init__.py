@@ -120,6 +120,19 @@ class PdfExtractionResult:
 
 
 @dataclass(frozen=True)
+class VideoTranscriptSegment:
+    start_ms: int
+    end_ms: int
+    text: str
+
+
+@dataclass(frozen=True)
+class TranscriptExtractionResult:
+    segments: tuple[VideoTranscriptSegment, ...]
+    extractor_fingerprint: str
+
+
+@dataclass(frozen=True)
 class IngestResult:
     run_id: str
     run_state: RunState
@@ -160,6 +173,7 @@ PDF_EXTRACTOR_FINGERPRINT = "builtin-pdf-text-v1"
 PYMUPDF_TEXT_FINGERPRINT = "pymupdf-text-v1"
 REQUIRED_VIDEO_STAGES = frozenset({"video_transcription", "candidate_evidence"})
 VIDEO_TRANSCRIPT_FINGERPRINT = "builtin-video-transcript-v1"
+LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT = "local-command-video-transcript-v1"
 
 
 def validate_manifest(manifest: RunManifest, evidence: list[CandidateEvidence]) -> None:
@@ -174,7 +188,10 @@ def validate_manifest(manifest: RunManifest, evidence: list[CandidateEvidence]) 
     }:
         expected_stages = REQUIRED_PDF_STAGES
         expected_locator_kind = "page"
-    elif manifest.extractor_fingerprint == VIDEO_TRANSCRIPT_FINGERPRINT:
+    elif manifest.extractor_fingerprint in {
+        VIDEO_TRANSCRIPT_FINGERPRINT,
+        LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT,
+    }:
         expected_stages = REQUIRED_VIDEO_STAGES
         expected_locator_kind = "timestamp_ms"
     else:

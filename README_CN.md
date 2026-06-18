@@ -10,7 +10,7 @@ Multimodal Knowledge Engine 是一个本地优先、可被 Agent 调用的 Evide
 首个 Agent-facing interface 是本地 stdio MCP server，支持 ingest、Run 检查和 active Evidence Search。
 现在 C2 已加入 evidence-only Ask；HTTP 和 workspace 尚未实现。
 
-这个 proof 验证的是生命周期边界，不代表已经支持广泛媒体处理。当前不包含扫描 PDF OCR、任意视频处理、真实 speech-model transcription、托管协调或外部 provider 调用。
+这个 proof 验证的是生命周期边界，不代表已经支持广泛媒体处理。当前不包含扫描 PDF OCR、任意视频处理、内置 speech-model transcription、托管协调或外部 provider 调用。D3-A 增加了可选的 trusted-local `LocalCommandTranscriptProvider` 边界和 proof-only `mke proof transcript-smoke` 命令，但普通 ingest、MCP ingest、`mke proof run` 与 `mke demo --verify` 仍保持 sidecar-backed、deterministic。
 
 PDF intake 使用位于 `src/mke/adapters/pdf/` 边界内的 PyMuPDF，并通过 `mke ingest`、`mke run get`、MCP `ingest_file` 和 MCP `get_run` 暴露 `PdfIntakeReport`。PyMuPDF 许可边界和未来 sidecar 替换路径见 [ADR-0004](./docs/decisions/0004-pymupdf-pdf-intake-adapter.md)。MCP 会在打开 extractor 前拒绝超过 100 MB 的 PDF 输入。
 

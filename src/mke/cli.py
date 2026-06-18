@@ -9,6 +9,7 @@ import time
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
+from mke.adapters.video import LocalCommandTranscriptConfig, LocalCommandTranscriptProvider
 from mke.application import AskValidationError, KnowledgeEngine, PdfIngestError, VideoIngestError
 from mke.domain import FailurePoint, PdfIntakeReport, SearchResult
 from mke.interfaces.mcp_server import run_mcp_server
@@ -17,6 +18,43 @@ from mke.proof import render_human_report, render_json_report, run_product_proof
 _DEFAULT_PDF_FIXTURE = Path("tests/fixtures/pdf/text-layer.pdf")
 _DEFAULT_REVISED_PDF_FIXTURE = Path("tests/fixtures/pdf/text-layer-revised.pdf")
 _DEFAULT_VIDEO_FIXTURE = Path("tests/fixtures/video/short-audio.mp4")
+_REDACTED_ERROR_CAUSE = "operation failed; details were redacted"
+_UNKNOWN_RUN_ERROR_CAUSE = "unknown run"
+_PUBLIC_ERROR_CAUSES = {
+    cause: cause
+    for cause in (
+        "PDF cannot be opened",
+        "PDF has no extractable text",
+        "argv must contain exactly one {input} placeholder",
+        "demo fixture is missing",
+        "demo video fixture is missing",
+        "encrypted PDF is not supported",
+        "input video is missing",
+        "question must be 1000 characters or fewer",
+        "question must contain at least one searchable ASCII token",
+        "stable timestamp locator generation requires increasing ranges",
+        "stable timestamp locator generation requires sorted ranges",
+        "timestamp locators must be integer milliseconds",
+        "transcript command executable is missing",
+        "transcript command failed",
+        "transcript command is required",
+        "transcript command produced too much stderr",
+        "transcript command produced too much stdout",
+        "transcript command stdout is not valid UTF-8",
+        "transcript command timed out",
+        "transcription failed",
+        "unsupported codec for local video proof",
+        "video must contain an audio track",
+        "video transcript must contain at least one segment",
+        "video transcript segment must be an object",
+        "video transcript sidecar format is unsupported",
+        "video transcript sidecar is missing",
+        "video transcript sidecar is not valid JSON",
+        "video transcript sidecar missing media",
+        "video transcript sidecar must be a JSON object",
+        "video transcript text must not be empty",
+    )
+}
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -53,6 +91,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     proof_subcommands = proof.add_subparsers(dest="proof_command", required=True)
     proof_run = proof_subcommands.add_parser("run")
     proof_run.add_argument("--json", action="store_true", dest="json_output")
+    proof_smoke = proof_subcommands.add_parser("transcript-smoke")
+    proof_smoke.add_argument("--fixture", type=Path, required=True)
+    proof_smoke.add_argument("transcript_command", nargs=argparse.REMAINDER)
 
     mcp = subcommands.add_parser("mcp")
     mcp.add_argument("--allowed-root", type=Path, default=Path.cwd())
@@ -61,7 +102,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "demo":
         return _demo_verify(args.fixture, args.revised_fixture, args.video_fixture)
     if args.command == "proof":
-        return _proof_run(json_output=args.json_output)
+        if args.proof_command == "run":
+            return _proof_run(json_output=args.json_output)
+        return _proof_transcript_smoke(args.fixture, args.transcript_command)
     if args.command == "mcp":
         return run_mcp_server(db_path=args.db, allowed_root=args.allowed_root)
 
@@ -242,17 +285,63 @@ def _proof_run(*, json_output: bool) -> int:
     return 0 if report.status == "passed" else 1
 
 
+def _proof_transcript_smoke(fixture: Path, command: Sequence[str]) -> int:
+    print("mke proof transcript-smoke")
+    normalized_command = _normalize_remainder_command(command)
+    if not normalized_command:
+        _print_error_contract(
+            "transcript command is required",
+            problem="video_ingest_failed",
+        )
+        return 1
+    try:
+        provider = LocalCommandTranscriptProvider(
+            LocalCommandTranscriptConfig(argv=normalized_command)
+        )
+        with tempfile.TemporaryDirectory(prefix="mke-transcript-smoke-") as temp_dir:
+            engine = KnowledgeEngine(
+                Path(temp_dir) / "transcript-smoke.sqlite",
+                transcript_provider=provider,
+            )
+            try:
+                result = engine.ingest_video(fixture)
+            finally:
+                engine.close()
+    except (TypeError, ValueError, VideoIngestError) as error:
+        _print_error_contract(str(error), problem="video_ingest_failed")
+        return 1
+    print(
+        "proof=transcript_smoke status=passed "
+        f"provider=local_command evidence_count={result.evidence_count}"
+    )
+    return 0
+
+
+def _normalize_remainder_command(command: Sequence[str]) -> tuple[str, ...]:
+    normalized = tuple(command)
+    if normalized and normalized[0] == "--":
+        return normalized[1:]
+    return normalized
+
+
 def _print_error_contract(
     cause: str,
     problem: str = "pdf_ingest_failed",
     next_step: str = "fix_input_or_retry",
 ) -> None:
+    public_cause = _public_error_cause(cause)
     print(
         f"problem={problem} "
-        f"cause={cause} "
+        f"cause={public_cause} "
         "active_publication_impact=unchanged "
         f"next_step={next_step}"
     )
+
+
+def _public_error_cause(cause: str) -> str:
+    if cause.startswith("unknown run:"):
+        return _UNKNOWN_RUN_ERROR_CAUSE
+    return _PUBLIC_ERROR_CAUSES.get(cause, _REDACTED_ERROR_CAUSE)
 
 
 def _format_pdf_intake_report(report: PdfIntakeReport) -> str:

@@ -68,3 +68,17 @@ def test_cli_ask_invalid_question_returns_error_contract(
     assert "cause=question must contain at least one searchable ASCII token" in output
     assert "active_publication_impact=unchanged" in output
     assert "next_step=provide_searchable_question" in output
+
+
+def test_cli_ask_overlong_question_preserves_stable_cause(
+    tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "mke.sqlite"
+
+    assert main(["--db", str(db_path), "ask", "a" * 1001]) == 1
+
+    output = capsys.readouterr().out
+    assert "problem=invalid_question" in output
+    assert "cause=question must be 1000 characters or fewer" in output
+    assert "details were redacted" not in output
+    assert "next_step=shorten_question" in output

@@ -1,4 +1,7 @@
+import inspect
+import json
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -78,6 +81,52 @@ def test_ingest_file_publishes_video_and_search_returns_timestamp_evidence(
     result = search["results"][0]
     assert result["locator"] == {"kind": "timestamp_ms", "start": 1200, "end": 2200}
     assert "Active publication search finds spoken timestamp proof." in result["text"]
+
+
+def test_mcp_ingest_file_contract_does_not_accept_command_argv(tmp_path: Path) -> None:
+    config = _config(tmp_path, VIDEO_FIXTURES)
+    unsafe_ingest_file = cast(Any, ingest_file)
+
+    assert tuple(inspect.signature(ingest_file).parameters) == ("config", "path")
+    with pytest.raises(TypeError):
+        unsafe_ingest_file(
+            config,
+            "short-audio.mp4",
+            command_argv=("transcribe-wrapper", "{input}"),
+        )
+
+
+def test_mcp_video_failure_does_not_leak_provider_diagnostics(tmp_path: Path) -> None:
+    video = tmp_path / "bad.mp4"
+    video.write_bytes(b"fake mp4 bytes")
+    video.with_suffix(video.suffix + ".mke-transcript.json").write_text(
+        json.dumps(
+            {
+                "format": "mke.video_transcript.v1",
+                "media": {
+                    "container": "mp4",
+                    "video_codec": "h264",
+                    "audio_codec": "aac",
+                    "has_audio": True,
+                    "duration_ms": 1000,
+                },
+                "transcription_error": f"{tmp_path} --secret stderr Traceback",
+                "segments": [],
+            }
+        )
+    )
+    config = _config(tmp_path, tmp_path)
+
+    result = ingest_file(config, "bad.mp4")
+    rendered = json.dumps(result)
+
+    assert result["ok"] is False
+    assert result["problem"] == "video_ingest_failed"
+    assert result["cause"] == "transcription failed"
+    assert str(tmp_path) not in rendered
+    assert "--secret" not in rendered
+    assert "stderr" not in rendered
+    assert "Traceback" not in rendered
 
 
 def test_ingest_file_rejects_paths_outside_allowed_root(tmp_path: Path) -> None:

@@ -17,6 +17,9 @@ Evidence text, or temporary directory names.
 `mke demo --verify` remains available and keeps its phase-oriented output, but `mke proof run` is
 the primary product proof entrypoint.
 
+`mke proof run` and `mke demo --verify` intentionally use the deterministic sidecar transcript
+provider. They do not require a local transcription command.
+
 ## What This Proves
 
 - PyMuPDF text-layer PDF ingest can publish page-addressed Evidence and report intake diagnostics.
@@ -43,7 +46,7 @@ the primary product proof entrypoint.
 - Table extraction, page coordinates, or layout-aware chunking.
 - Unicode-aware retrieval beyond the current ASCII Search tokenization.
 - Arbitrary or long-video processing.
-- Real speech-model transcription.
+- Bundled real speech-model transcription or speech-model quality evaluation.
 - HTTP or workspace UI.
 - stdio MCP server startup; see [Use MKE As A Local MCP Server](./use-mke-mcp.md).
 - Hosted coordination, multi-worker behavior, or external provider integration.
@@ -61,6 +64,21 @@ uv run mke --db .tmp/mke.sqlite run get <run_id>
 
 Remove `.tmp/mke.sqlite*` when done. The local proof does not require credentials, model downloads,
 external services, `ffmpeg`, or network calls at runtime.
+
+## Optional Local Transcript Smoke
+
+D3-A adds a proof-only local command smoke path for trusted operators who already have a local
+transcriber wrapper. It proves that command-produced `mke.video_transcript.v1` JSON can flow
+through the same Run, Publication, Search, and Ask lifecycle:
+
+```bash
+uv run mke proof transcript-smoke --fixture tests/fixtures/video/short-audio.mp4 -- <transcriber-command> {input}
+```
+
+The command is passed as argv and runs with `shell=False`. It must write a valid transcript JSON
+object to stdout. This smoke command is not exposed through MCP, and normal `mke ingest` requests
+cannot supply command argv. Public failures use `video_ingest_failed` without exposing argv,
+stderr, absolute paths, stack traces, secrets, or temporary directory names.
 
 For local PDF intake smoke coverage against public-safe or private local PDFs, run:
 

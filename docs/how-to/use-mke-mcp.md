@@ -62,7 +62,10 @@ timestamp Evidence when active Search matches the question terms.
 
 - HTTP and workspace UI are not implemented yet.
 - Generative Ask, model providers, prompt templates, and model retries are not implemented yet.
-- Scanned-PDF OCR, arbitrary videos, real speech-model transcription, and external providers are
-  outside this MCP slice.
+- Scanned-PDF OCR, arbitrary videos, bundled speech-model transcription, and external providers
+  are outside this MCP slice.
+- MCP `ingest_file(config, path)` cannot accept or execute transcript command argv. The optional
+  local-command transcript provider is available only through trusted process-local wiring and the
+  proof-only `mke proof transcript-smoke` command.
 - The server rejects paths outside `--allowed-root`.
 - The server rejects PDF inputs above 100 MB before opening the PDF extractor.

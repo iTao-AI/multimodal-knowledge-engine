@@ -53,10 +53,13 @@ without changing active Search visibility.
 
 The runtime is an in-process CLI plus a project-owned application service. SQLite remains the
 domain truth and owns the rebuildable active FTS5 projection. The built-in PDF adapter extracts
-page-addressed text Evidence from deterministic text-layer PDFs. The built-in video adapter reads
+page-addressed text Evidence from deterministic text-layer PDFs. Video transcription now sits
+behind a project-owned `TranscriptProvider` port: the default `SidecarTranscriptProvider` reads
 timestamp-addressed transcript Evidence from a deterministic local sidecar for the documented
-short MP4 fixture profile. The proof path uses no external services, credentials, model downloads,
-OCR, real speech-model transcription, or network calls.
+short MP4 fixture profile, while the optional `LocalCommandTranscriptProvider` is available only
+for trusted local smoke tests. Normal ingest and MCP requests cannot supply command argv. The
+deterministic proof path uses no external services, credentials, model downloads, OCR, bundled
+speech-model transcription, or network calls.
 
 ## Current Module Shape
 

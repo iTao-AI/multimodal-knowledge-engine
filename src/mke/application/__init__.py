@@ -10,12 +10,11 @@ from uuid import uuid4
 
 from mke.adapters.pdf import PdfExtractionError, PyMuPDFPdfExtractor
 from mke.adapters.sqlite import InjectedStorageFailure, SQLiteStore
-from mke.adapters.video import VideoExtractionError, extract_transcript_segments
+from mke.adapters.video import SidecarTranscriptProvider, VideoExtractionError
 from mke.domain import (
     PYMUPDF_TEXT_FINGERPRINT,
     REQUIRED_PDF_STAGES,
     REQUIRED_VIDEO_STAGES,
-    VIDEO_TRANSCRIPT_FINGERPRINT,
     ActivationResult,
     AskResult,
     CandidateEvidence,
@@ -30,6 +29,7 @@ from mke.domain import (
     RunState,
     SearchResult,
     SourceRecord,
+    TranscriptExtractionResult,
 )
 
 _SHA256_CHUNK_BYTES = 1024 * 1024
@@ -46,6 +46,11 @@ _COUNT_ONLY_LIMITATION = (
 
 class PdfExtractor(Protocol):
     def extract(self, path: Path) -> PdfExtractionResult:
+        raise NotImplementedError
+
+
+class TranscriptProvider(Protocol):
+    def extract(self, path: Path) -> TranscriptExtractionResult:
         raise NotImplementedError
 
 
@@ -78,9 +83,15 @@ class AskValidationError(ValueError):
 class KnowledgeEngine:
     """Project-owned application facade shared by CLI and future interfaces."""
 
-    def __init__(self, db_path: Path, pdf_extractor: PdfExtractor | None = None) -> None:
+    def __init__(
+        self,
+        db_path: Path,
+        pdf_extractor: PdfExtractor | None = None,
+        transcript_provider: TranscriptProvider | None = None,
+    ) -> None:
         self._store = SQLiteStore(db_path)
         self._pdf_extractor = pdf_extractor or PyMuPDFPdfExtractor()
+        self._transcript_provider = transcript_provider or SidecarTranscriptProvider()
 
     def close(self) -> None:
         self._store.close()
@@ -288,7 +299,7 @@ class KnowledgeEngine:
         run = self.create_run(source.source_id)
         self._store.mark_run_running(run.run_id)
         try:
-            segments = extract_transcript_segments(path)
+            transcript = self._transcript_provider.extract(path)
             evidence = [
                 CandidateEvidence(
                     evidence_id=f"ev_{uuid4().hex}",
@@ -297,13 +308,13 @@ class KnowledgeEngine:
                     locator_end=segment.end_ms,
                     text=segment.text,
                 )
-                for segment in segments
+                for segment in transcript.segments
             ]
             manifest = RunManifest(
                 run_id=run.run_id,
                 evidence_count=len(evidence),
                 required_stages=tuple(sorted(REQUIRED_VIDEO_STAGES)),
-                extractor_fingerprint=VIDEO_TRANSCRIPT_FINGERPRINT,
+                extractor_fingerprint=transcript.extractor_fingerprint,
                 asset_sha256=asset_sha256,
             )
             self._store.persist_validated_candidate(run.run_id, evidence, manifest)

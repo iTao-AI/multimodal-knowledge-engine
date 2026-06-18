@@ -3,6 +3,9 @@ import os
 import tempfile
 from pathlib import Path
 
+import pytest
+
+from mke.adapters.video.providers import LocalCommandTranscriptProvider
 from mke.proof.manifest import PRODUCT_PROOF_MANIFEST, ProofManifest
 from mke.proof.runner import run_product_proof
 
@@ -14,6 +17,19 @@ def test_product_proof_runner_passes_all_cases() -> None:
     assert report.cases == 8
     assert report.passed == 8
     assert [result.case for result in report.results] == list(PRODUCT_PROOF_MANIFEST.cases)
+
+
+def test_product_proof_runner_does_not_require_local_command_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_if_used(self: LocalCommandTranscriptProvider, path: Path) -> object:
+        raise AssertionError("product proof must remain sidecar-backed")
+
+    monkeypatch.setattr(LocalCommandTranscriptProvider, "extract", fail_if_used)
+
+    report = run_product_proof()
+
+    assert report.status == "passed"
 
 
 def test_product_proof_runner_reports_cli_observed_fields() -> None:
