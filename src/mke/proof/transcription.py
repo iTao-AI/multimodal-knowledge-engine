@@ -21,8 +21,9 @@ from mke.runtime import FasterWhisperTranscriptionConfig, RuntimeConfig, build_e
 _NOT_RUN = "not_run"
 _MODEL_NOT_CACHED = "model_not_cached"
 _RUN_STATES = frozenset({"published", "failed"})
-_ASK_STATUSES = frozenset({"evidence_found", _NOT_RUN})
+_ASK_STATUSES = frozenset({"evidence_found", "insufficient_evidence", _NOT_RUN})
 _SAFE_TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+()-]{0,255}\Z")
+_SAFE_VERSION_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9.!_+()-]{0,127}\Z")
 _MODEL_PART_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,95}\Z")
 _COMMIT_SHA_RE = re.compile(r"[0-9a-f]{40}\Z")
 _NEXT_STEP_BY_REASON = {
@@ -47,9 +48,21 @@ class ProofEnvironment:
     pyav_version: str
 
     def __post_init__(self) -> None:
-        for value in self.__dict__.values():
-            if not _is_safe_token(value, max_length=128):
-                raise ValueError("proof environment fields must be public-safe tokens")
+        if not all(
+            _is_safe_token(value, max_length=128)
+            for value in (self.os, self.architecture)
+        ):
+            raise ValueError("proof environment platform fields must be public-safe tokens")
+        if not all(
+            _is_safe_version(value)
+            for value in (
+                self.python_version,
+                self.faster_whisper_version,
+                self.ctranslate2_version,
+                self.pyav_version,
+            )
+        ):
+            raise ValueError("proof environment version fields must be public-safe tokens")
 
 
 @dataclass(frozen=True)
@@ -71,7 +84,7 @@ class TranscriptionProofReport:
         if self.run_state not in _RUN_STATES:
             raise ValueError("proof run state must be published or failed")
         if self.ask_status not in _ASK_STATUSES:
-            raise ValueError("proof ask status must be evidence_found or not_run")
+            raise ValueError("proof ask status is not recognized")
         if type(self.evidence_count) is not int or self.evidence_count < 0:
             raise ValueError("proof evidence count must be a non-negative integer")
         if type(self.duration_ms) is not int or self.duration_ms < 0:
@@ -79,8 +92,16 @@ class TranscriptionProofReport:
         if self.status == "passed":
             if self.reason is not None:
                 raise ValueError("passed proof must not include a reason")
-            if self.transcript_intake_report is None or self.environment is None:
-                raise ValueError("passed proof requires intake and environment reports")
+            if (
+                self.run_state != "published"
+                or self.evidence_count <= 0
+                or not self.timestamp_evidence
+                or not self.search_keyword_matched
+                or self.ask_status != "evidence_found"
+                or self.transcript_intake_report is None
+                or self.environment is None
+            ):
+                raise ValueError("passed proof requires all success invariants")
             if not _is_safe_intake_report(self.transcript_intake_report):
                 raise ValueError("passed proof requires a public-safe intake report")
         elif not self.reason:
@@ -194,9 +215,17 @@ def validate_transcription_proof(
         and match.locator_end > match.locator_start
         for match in matches
     )
+    ordered_matches = sorted(
+        matches,
+        key=lambda match: (match.locator_start, match.locator_end, match.evidence_id),
+    )
     ordered_evidence = all(
         previous.locator_end <= current.locator_start
-        for previous, current in zip(matches, matches[1:], strict=False)
+        for previous, current in zip(
+            ordered_matches,
+            ordered_matches[1:],
+            strict=False,
+        )
     )
     search_keyword_matched = bool(matches) and all(
         "evidence" in match.text.casefold() for match in matches
@@ -209,16 +238,25 @@ def validate_transcription_proof(
     )
     source_id = expected_source_id or (matches[0].source_id if matches else None)
     publication_ids = {match.publication_id for match in matches}
-    search_identities = {_evidence_identity(match) for match in matches}
-    ask_identities = {_evidence_identity(item) for item in answer.evidence}
+    active_publication_id = next(iter(publication_ids)) if len(publication_ids) == 1 else None
     consistent_search_identity = (
         source_id is not None
         and all(match.source_id == source_id for match in matches)
-        and len(publication_ids) == 1
-        and len(search_identities) == len(matches)
+        and active_publication_id is not None
+        and bool(active_publication_id)
     )
-    consistent_ask_identity = bool(answer.evidence) and ask_identities.issubset(
-        search_identities
+    consistent_ask_identity = (
+        bool(answer.evidence)
+        and source_id is not None
+        and active_publication_id is not None
+        and all(
+            item.locator_kind == "timestamp_ms"
+            and item.locator_start >= 0
+            and item.locator_end > item.locator_start
+            and item.source_id == source_id
+            and item.publication_id == active_publication_id
+            for item in answer.evidence
+        )
     )
     valid = (
         result.run_state.value == "published"
@@ -227,7 +265,6 @@ def validate_transcription_proof(
         and safe_intake_report.provider == "faster-whisper"
         and safe_intake_report.model_source == "cache"
         and safe_intake_report.segment_count == result.evidence_count
-        and len(matches) == result.evidence_count
         and consistent_search_identity
         and timestamp_evidence
         and ordered_evidence
@@ -408,23 +445,12 @@ def _elapsed_ms(started: float | None) -> int:
     return int((finished - started) * 1000)
 
 
-def _evidence_identity(match: SearchResult) -> tuple[str, str, str, str, int, int]:
-    return (
-        match.evidence_id,
-        match.source_id,
-        match.publication_id,
-        match.locator_kind,
-        match.locator_start,
-        match.locator_end,
-    )
-
-
 def _is_safe_intake_report(report: TranscriptIntakeReport) -> bool:
     return (
         _is_safe_token(report.provider)
         and _is_safe_model(report.model)
         and _COMMIT_SHA_RE.fullmatch(report.model_revision) is not None
-        and _is_safe_token(report.library_version)
+        and _is_safe_version(report.library_version)
         and _is_safe_token(report.device)
         and _is_safe_token(report.compute_type)
         and _is_safe_token(report.language)
@@ -446,3 +472,7 @@ def _is_safe_token(value: object, *, max_length: int = 256) -> bool:
         and len(value) <= max_length
         and _SAFE_TOKEN_RE.fullmatch(value) is not None
     )
+
+
+def _is_safe_version(value: object) -> bool:
+    return isinstance(value, str) and _SAFE_VERSION_RE.fullmatch(value) is not None

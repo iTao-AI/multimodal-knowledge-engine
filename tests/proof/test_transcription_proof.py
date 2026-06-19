@@ -443,7 +443,7 @@ def test_transcription_proof_later_invalid_or_reversed_clock_returns_zero_durati
         ("run_state", "not_run"),
         ("ask_status", "/Users/private/ask"),
         ("ask_status", "token=secret"),
-        ("ask_status", "insufficient_evidence"),
+        ("ask_status", "unexpected_status"),
     ),
 )
 def test_transcription_proof_report_rejects_invalid_semantic_status_fields(
@@ -552,7 +552,7 @@ def test_transcription_proof_engine_close_failure_cannot_pass(
     assert report.run_state == "failed"
 
 
-def test_transcription_proof_rejects_search_subset_of_reported_evidence() -> None:
+def test_transcription_proof_allows_search_subset_of_reported_evidence() -> None:
     intake_report = TranscriptIntakeReport(
         provider="faster-whisper",
         model="small",
@@ -564,7 +564,7 @@ def test_transcription_proof_rejects_search_subset_of_reported_evidence() -> Non
         detected_language="en",
         media_duration_ms=4000,
         transcription_duration_ms=321,
-        segment_count=2,
+        segment_count=3,
         model_source="cache",
     )
     first_match = SearchResult(
@@ -579,7 +579,7 @@ def test_transcription_proof_rejects_search_subset_of_reported_evidence() -> Non
     result = IngestResult(
         run_id="run_1",
         run_state=RunState.PUBLISHED,
-        evidence_count=2,
+        evidence_count=3,
         transcript_intake_report=intake_report,
     )
     answer = AskResult(
@@ -606,8 +606,7 @@ def test_transcription_proof_rejects_search_subset_of_reported_evidence() -> Non
         duration_ms=12,
     )
 
-    assert report.status == "failed"
-    assert report.reason == "proof_validation_failed"
+    assert report.status == "passed"
 
 
 def _proof_validation_inputs() -> tuple[
@@ -711,9 +710,112 @@ def test_transcription_proof_rejects_search_source_unrelated_to_ingest_run() -> 
     assert report.reason == "proof_validation_failed"
 
 
-def test_transcription_proof_rejects_unrelated_ask_evidence() -> None:
+def test_transcription_proof_rejects_empty_search_publication_identity() -> None:
     result, matches, answer, environment = _proof_validation_inputs()
-    unrelated = replace(matches[0], evidence_id="ev_unrelated")
+    matches = [replace(match, publication_id="") for match in matches]
+
+    report = validate_transcription_proof(
+        result,
+        matches,
+        answer,
+        expected_source_id="src_1",
+        environment=environment,
+        duration_ms=12,
+    )
+
+    assert report.status == "failed"
+    assert report.reason == "proof_validation_failed"
+
+
+def test_transcription_proof_allows_ask_evidence_outside_search_subset() -> None:
+    result, matches, answer, environment = _proof_validation_inputs()
+    same_publication = replace(
+        matches[0],
+        evidence_id="ev_ask_only",
+        locator_start=500,
+        locator_end=1200,
+    )
+    answer = replace(answer, evidence=(same_publication,))
+
+    report = validate_transcription_proof(
+        result,
+        matches,
+        answer,
+        expected_source_id="src_1",
+        environment=environment,
+        duration_ms=12,
+    )
+
+    assert report.status == "passed"
+
+
+def test_transcription_proof_allows_rank_order_different_from_timestamp_order() -> None:
+    result, matches, answer, environment = _proof_validation_inputs()
+    ranked_matches = [matches[1], matches[0]]
+
+    report = validate_transcription_proof(
+        result,
+        ranked_matches,
+        answer,
+        expected_source_id="src_1",
+        environment=environment,
+        duration_ms=12,
+    )
+
+    assert report.status == "passed"
+    assert report.timestamp_evidence is True
+
+
+@pytest.mark.parametrize(
+    "invalid_match",
+    (
+        SearchResult(
+            evidence_id="ev_overlap",
+            publication_id="pub_1",
+            source_id="src_1",
+            locator_kind="timestamp_ms",
+            locator_start=1700,
+            locator_end=3000,
+            text="Evidence overlaps",
+        ),
+        SearchResult(
+            evidence_id="ev_invalid",
+            publication_id="pub_1",
+            source_id="src_1",
+            locator_kind="timestamp_ms",
+            locator_start=3000,
+            locator_end=3000,
+            text="Evidence invalid",
+        ),
+    ),
+)
+def test_transcription_proof_rejects_overlapping_or_invalid_timestamp_evidence(
+    invalid_match: SearchResult,
+) -> None:
+    result, matches, answer, environment = _proof_validation_inputs()
+    matches[1] = invalid_match
+
+    report = validate_transcription_proof(
+        result,
+        matches,
+        answer,
+        expected_source_id="src_1",
+        environment=environment,
+        duration_ms=12,
+    )
+
+    assert report.status == "failed"
+    assert report.reason == "proof_validation_failed"
+
+
+@pytest.mark.parametrize("identity_field", ("source_id", "publication_id"))
+def test_transcription_proof_rejects_mixed_ask_identity(identity_field: str) -> None:
+    result, matches, answer, environment = _proof_validation_inputs()
+    unrelated = replace(
+        matches[0],
+        evidence_id="ev_ask_only",
+        **{identity_field: f"other_{identity_field}"},
+    )
     answer = replace(answer, evidence=(unrelated,))
 
     report = validate_transcription_proof(
@@ -727,6 +829,62 @@ def test_transcription_proof_rejects_unrelated_ask_evidence() -> None:
 
     assert report.status == "failed"
     assert report.reason == "proof_validation_failed"
+
+
+def test_transcription_proof_insufficient_evidence_is_validation_failure() -> None:
+    result, matches, answer, environment = _proof_validation_inputs()
+    answer = replace(
+        answer,
+        answer_status="insufficient_evidence",
+        evidence=(),
+    )
+
+    report = validate_transcription_proof(
+        result,
+        matches,
+        answer,
+        expected_source_id="src_1",
+        environment=environment,
+        duration_ms=12,
+    )
+
+    assert report.status == "failed"
+    assert report.reason == "proof_validation_failed"
+    assert report.ask_status == "insufficient_evidence"
+
+
+def test_transcription_proof_runner_preserves_insufficient_evidence_status(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mke.application import KnowledgeEngine
+    from mke.proof.transcription import run_transcription_proof
+
+    _patch_successful_provider(monkeypatch)
+
+    def insufficient_answer(
+        self: KnowledgeEngine,
+        question: str,
+        limit: int = 5,
+    ) -> AskResult:
+        return AskResult(
+            ask_id="ask_none",
+            question=question,
+            answer_status="insufficient_evidence",
+            summary="No active Evidence matched.",
+            evidence=(),
+            limitations=("Evidence only.",),
+        )
+
+    monkeypatch.setattr(KnowledgeEngine, "ask", insufficient_answer)
+
+    report = run_transcription_proof(
+        VIDEO_FIXTURES / "spoken-evidence.mp4",
+        FasterWhisperTranscriptionConfig(model_revision="a" * 40),
+    )
+
+    assert report.status == "failed"
+    assert report.reason == "proof_validation_failed"
+    assert report.ask_status == "insufficient_evidence"
 
 
 @pytest.mark.parametrize(
@@ -791,6 +949,53 @@ def test_transcription_proof_allows_single_hugging_face_model_identifier() -> No
     )
 
     assert report.status == "passed"
+
+
+def test_transcription_proof_environment_allows_pep440_epoch_version() -> None:
+    environment = ProofEnvironment(
+        python_version="3.13.5",
+        os="Darwin",
+        architecture="arm64",
+        faster_whisper_version="1!2.0",
+        ctranslate2_version="4.6.0",
+        pyav_version="14.4.0",
+    )
+
+    assert environment.faster_whisper_version == "1!2.0"
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("run_state", "failed"),
+        ("evidence_count", 0),
+        ("timestamp_evidence", False),
+        ("search_keyword_matched", False),
+        ("ask_status", "not_run"),
+        ("transcript_intake_report", None),
+        ("environment", None),
+    ),
+)
+def test_transcription_proof_passed_report_requires_success_invariants(
+    field: str,
+    value: object,
+) -> None:
+    result, _, _, environment = _proof_validation_inputs()
+    values: dict[str, object] = {
+        "status": "passed",
+        "run_state": "published",
+        "evidence_count": 2,
+        "timestamp_evidence": True,
+        "search_keyword_matched": True,
+        "ask_status": "evidence_found",
+        "transcript_intake_report": result.transcript_intake_report,
+        "environment": environment,
+        "duration_ms": 12,
+    }
+    values[field] = value
+
+    with pytest.raises(ValueError, match="passed proof"):
+        TranscriptionProofReport(**values)  # pyright: ignore[reportArgumentType]
 
 
 def test_transcription_proof_validates_timestamp_order_without_exact_transcript(
