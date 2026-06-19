@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import platform
+import re
 import tempfile
 import time
 from dataclasses import dataclass
@@ -18,6 +19,9 @@ from mke.runtime import FasterWhisperTranscriptionConfig, RuntimeConfig, build_e
 
 _NOT_RUN = "not_run"
 _MODEL_NOT_CACHED = "model_not_cached"
+_SAFE_TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+()-]{0,255}\Z")
+_MODEL_PART_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,95}\Z")
+_COMMIT_SHA_RE = re.compile(r"[0-9a-f]{40}\Z")
 _NEXT_STEP_BY_REASON = {
     _MODEL_NOT_CACHED: "run_transcription_prepare",
     "fixture_unavailable": "choose_existing_fixture",
@@ -41,10 +45,8 @@ class ProofEnvironment:
 
     def __post_init__(self) -> None:
         for value in self.__dict__.values():
-            if not isinstance(value, str) or not value or len(value) > 128:
-                raise ValueError("proof environment fields must be bounded non-empty strings")
-            if any(character in value for character in ("\n", "\r", "\x00")):
-                raise ValueError("proof environment fields must be single-line strings")
+            if not _is_safe_token(value, max_length=128):
+                raise ValueError("proof environment fields must be public-safe tokens")
 
 
 @dataclass(frozen=True)
@@ -72,6 +74,8 @@ class TranscriptionProofReport:
                 raise ValueError("passed proof must not include a reason")
             if self.transcript_intake_report is None or self.environment is None:
                 raise ValueError("passed proof requires intake and environment reports")
+            if not _is_safe_intake_report(self.transcript_intake_report):
+                raise ValueError("passed proof requires a public-safe intake report")
         elif not self.reason:
             raise ValueError("failed proof requires a stable reason")
         elif self.reason not in _NEXT_STEP_BY_REASON:
@@ -83,7 +87,7 @@ def run_transcription_proof(
     transcription: FasterWhisperTranscriptionConfig,
 ) -> TranscriptionProofReport:
     """Run the first-party transcription path without preparing or downloading a model."""
-    started = time.monotonic()
+    started = _safe_monotonic()
     environment: ProofEnvironment | None = None
     try:
         environment = _proof_environment()
@@ -122,12 +126,14 @@ def run_transcription_proof(
             else:
                 try:
                     result = engine.ingest_video(fixture)
+                    run = engine.get_run(result.run_id)
                     matches = engine.search("evidence")
                     answer = engine.ask("evidence publication")
                     candidate = validate_transcription_proof(
                         result,
                         matches,
                         answer,
+                        expected_source_id=run.source_id,
                         environment=environment,
                         duration_ms=_elapsed_ms(started),
                     )
@@ -170,6 +176,7 @@ def validate_transcription_proof(
     matches: list[SearchResult],
     answer: AskResult,
     *,
+    expected_source_id: str | None = None,
     environment: ProofEnvironment,
     duration_ms: int,
 ) -> TranscriptionProofReport:
@@ -188,20 +195,38 @@ def validate_transcription_proof(
         "evidence" in match.text.casefold() for match in matches
     )
     intake_report = result.transcript_intake_report
+    safe_intake_report = (
+        intake_report
+        if intake_report is not None and _is_safe_intake_report(intake_report)
+        else None
+    )
+    source_id = expected_source_id or (matches[0].source_id if matches else None)
+    publication_ids = {match.publication_id for match in matches}
+    search_identities = {_evidence_identity(match) for match in matches}
+    ask_identities = {_evidence_identity(item) for item in answer.evidence}
+    consistent_search_identity = (
+        source_id is not None
+        and all(match.source_id == source_id for match in matches)
+        and len(publication_ids) == 1
+        and len(search_identities) == len(matches)
+    )
+    consistent_ask_identity = bool(answer.evidence) and ask_identities.issubset(
+        search_identities
+    )
     valid = (
         result.run_state.value == "published"
         and result.evidence_count > 0
-        and intake_report is not None
-        and intake_report.provider == "faster-whisper"
-        and intake_report.model_source == "cache"
-        and intake_report.segment_count == result.evidence_count
+        and safe_intake_report is not None
+        and safe_intake_report.provider == "faster-whisper"
+        and safe_intake_report.model_source == "cache"
+        and safe_intake_report.segment_count == result.evidence_count
         and len(matches) == result.evidence_count
+        and consistent_search_identity
         and timestamp_evidence
         and ordered_evidence
         and search_keyword_matched
         and answer.answer_status == "evidence_found"
-        and bool(answer.evidence)
-        and all(item.locator_kind == "timestamp_ms" for item in answer.evidence)
+        and consistent_ask_identity
     )
     if not valid:
         return TranscriptionProofReport(
@@ -211,7 +236,7 @@ def validate_transcription_proof(
             timestamp_evidence=timestamp_evidence and ordered_evidence,
             search_keyword_matched=search_keyword_matched,
             ask_status=answer.answer_status,
-            transcript_intake_report=intake_report,
+            transcript_intake_report=safe_intake_report,
             environment=environment,
             duration_ms=duration_ms,
             reason="proof_validation_failed",
@@ -223,7 +248,7 @@ def validate_transcription_proof(
         timestamp_evidence=True,
         search_keyword_matched=True,
         ask_status=answer.answer_status,
-        transcript_intake_report=intake_report,
+        transcript_intake_report=safe_intake_report,
         environment=environment,
         duration_ms=duration_ms,
     )
@@ -231,6 +256,12 @@ def validate_transcription_proof(
 
 def render_transcription_proof_json(report: TranscriptionProofReport) -> str:
     """Render exactly one public-safe JSON object."""
+    intake_report = (
+        report.transcript_intake_report
+        if report.transcript_intake_report is not None
+        and _is_safe_intake_report(report.transcript_intake_report)
+        else None
+    )
     payload: dict[str, object] = {
         "status": report.status,
         "run_state": report.run_state,
@@ -239,8 +270,8 @@ def render_transcription_proof_json(report: TranscriptionProofReport) -> str:
         "search_keyword_matched": report.search_keyword_matched,
         "ask_status": report.ask_status,
         "transcript_intake_report": (
-            transcript_intake_report_payload(report.transcript_intake_report)
-            if report.transcript_intake_report is not None
+            transcript_intake_report_payload(intake_report)
+            if intake_report is not None
             else None
         ),
         "environment": (
@@ -273,19 +304,25 @@ def render_transcription_proof_human(report: TranscriptionProofReport) -> str:
         f"ask_status={report.ask_status}",
         f"duration_ms={report.duration_ms}",
     ]
-    if report.transcript_intake_report is not None:
+    intake_report = (
+        report.transcript_intake_report
+        if report.transcript_intake_report is not None
+        and _is_safe_intake_report(report.transcript_intake_report)
+        else None
+    )
+    if intake_report is not None:
         fields.extend(
             (
-                f"provider={report.transcript_intake_report.provider}",
-                f"model={report.transcript_intake_report.model}",
-                f"model_revision={report.transcript_intake_report.model_revision}",
-                f"library_version={report.transcript_intake_report.library_version}",
-                f"device={report.transcript_intake_report.device}",
-                f"compute_type={report.transcript_intake_report.compute_type}",
-                f"language={report.transcript_intake_report.language}",
-                f"detected_language={report.transcript_intake_report.detected_language}",
-                f"model_source={report.transcript_intake_report.model_source}",
-                f"segment_count={report.transcript_intake_report.segment_count}",
+                f"provider={intake_report.provider}",
+                f"model={intake_report.model}",
+                f"model_revision={intake_report.model_revision}",
+                f"library_version={intake_report.library_version}",
+                f"device={intake_report.device}",
+                f"compute_type={intake_report.compute_type}",
+                f"language={intake_report.language}",
+                f"detected_language={intake_report.detected_language}",
+                f"model_source={intake_report.model_source}",
+                f"segment_count={intake_report.segment_count}",
             )
         )
     if report.environment is not None:
@@ -310,7 +347,7 @@ def render_transcription_proof_human(report: TranscriptionProofReport) -> str:
 
 
 def _failed_report(
-    started: float,
+    started: float | None,
     environment: ProofEnvironment | None,
     *,
     reason: str,
@@ -347,5 +384,57 @@ def _package_version(distribution: str) -> str:
         return "not-installed"
 
 
-def _elapsed_ms(started: float) -> int:
-    return int((time.monotonic() - started) * 1000)
+def _safe_monotonic() -> float | None:
+    try:
+        return time.monotonic()
+    except Exception:
+        return None
+
+
+def _elapsed_ms(started: float | None) -> int:
+    if started is None:
+        return 0
+    finished = _safe_monotonic()
+    if finished is None or finished < started:
+        return 0
+    return int((finished - started) * 1000)
+
+
+def _evidence_identity(match: SearchResult) -> tuple[str, str, str, str, int, int]:
+    return (
+        match.evidence_id,
+        match.source_id,
+        match.publication_id,
+        match.locator_kind,
+        match.locator_start,
+        match.locator_end,
+    )
+
+
+def _is_safe_intake_report(report: TranscriptIntakeReport) -> bool:
+    return (
+        _is_safe_token(report.provider)
+        and _is_safe_model(report.model)
+        and _COMMIT_SHA_RE.fullmatch(report.model_revision) is not None
+        and _is_safe_token(report.library_version)
+        and _is_safe_token(report.device)
+        and _is_safe_token(report.compute_type)
+        and _is_safe_token(report.language)
+        and _is_safe_token(report.detected_language)
+        and _is_safe_token(report.model_source)
+    )
+
+
+def _is_safe_model(value: str) -> bool:
+    if _is_safe_token(value):
+        return True
+    parts = value.split("/")
+    return len(parts) == 2 and all(_MODEL_PART_RE.fullmatch(part) for part in parts)
+
+
+def _is_safe_token(value: object, *, max_length: int = 256) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) <= max_length
+        and _SAFE_TOKEN_RE.fullmatch(value) is not None
+    )

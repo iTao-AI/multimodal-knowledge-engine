@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -15,7 +16,20 @@ from mke.runtime import FasterWhisperTranscriptionConfig
 from tests.conftest import VIDEO_FIXTURES
 
 
-def _first_party_transcript() -> bytes:
+def _first_party_transcript(**transcription_overrides: object) -> bytes:
+    transcription: dict[str, object] = {
+        "provider": "faster-whisper",
+        "model": "small",
+        "model_revision": "a" * 40,
+        "library_version": "1.2.3",
+        "device": "cpu",
+        "compute_type": "int8",
+        "language": "auto",
+        "detected_language": "en",
+        "model_source": "cache",
+        "transcription_duration_ms": 321,
+    }
+    transcription.update(transcription_overrides)
     return json.dumps(
         {
             "format": "mke.video_transcript.v1",
@@ -26,18 +40,7 @@ def _first_party_transcript() -> bytes:
                 "has_audio": True,
                 "duration_ms": 4000,
             },
-            "transcription": {
-                "provider": "faster-whisper",
-                "model": "small",
-                "model_revision": "a" * 40,
-                "library_version": "1.2.3",
-                "device": "cpu",
-                "compute_type": "int8",
-                "language": "auto",
-                "detected_language": "en",
-                "model_source": "cache",
-                "transcription_duration_ms": 321,
-            },
+            "transcription": transcription,
             "segments": [
                 {
                     "start_ms": 0,
@@ -277,6 +280,106 @@ def test_transcription_proof_environment_failure_is_stable_and_sanitized(
     assert "Traceback" not in rendered + human
 
 
+@pytest.mark.parametrize(
+    "unsafe_version",
+    (
+        "/Users/private/secret",
+        r"C:\private\secret",
+        "token=secret",
+    ),
+)
+def test_transcription_proof_rejects_unsafe_environment_versions(
+    unsafe_version: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mke.proof import transcription as proof_module
+    from mke.proof.transcription import (
+        render_transcription_proof_human,
+        render_transcription_proof_json,
+        run_transcription_proof,
+    )
+
+    def unsafe_package_version(distribution: str) -> str:
+        return unsafe_version
+
+    monkeypatch.setattr(proof_module.metadata, "version", unsafe_package_version)
+
+    report = run_transcription_proof(
+        VIDEO_FIXTURES / "spoken-evidence.mp4",
+        FasterWhisperTranscriptionConfig(model_revision="a" * 40),
+    )
+
+    rendered = render_transcription_proof_json(report)
+    human = render_transcription_proof_human(report)
+    assert report.status == "failed"
+    assert report.reason == "environment_unavailable"
+    assert report.environment is None
+    assert unsafe_version not in rendered + human
+
+
+def test_transcription_proof_initial_clock_failure_is_fail_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mke.proof import transcription as proof_module
+    from mke.proof.transcription import (
+        render_transcription_proof_json,
+        run_transcription_proof,
+    )
+
+    _patch_successful_provider(monkeypatch)
+
+    def fail_clock() -> float:
+        raise RuntimeError("/Users/private/clock secret")
+
+    monkeypatch.setattr(proof_module.time, "monotonic", fail_clock)
+
+    report = run_transcription_proof(
+        VIDEO_FIXTURES / "spoken-evidence.mp4",
+        FasterWhisperTranscriptionConfig(model_revision="a" * 40),
+    )
+
+    rendered = render_transcription_proof_json(report)
+    assert report.status == "passed"
+    assert report.duration_ms == 0
+    assert "/Users/private" not in rendered
+    assert "secret" not in rendered
+    assert "Traceback" not in rendered
+
+
+def test_transcription_proof_later_clock_failure_is_fail_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mke.proof import transcription as proof_module
+    from mke.proof.transcription import (
+        render_transcription_proof_json,
+        run_transcription_proof,
+    )
+
+    _patch_successful_provider(monkeypatch)
+    calls = 0
+
+    def fail_later_clock() -> float:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return 10.0
+        raise RuntimeError("/Users/private/clock secret")
+
+    monkeypatch.setattr(proof_module.time, "monotonic", fail_later_clock)
+
+    report = run_transcription_proof(
+        VIDEO_FIXTURES / "spoken-evidence.mp4",
+        FasterWhisperTranscriptionConfig(model_revision="a" * 40),
+    )
+
+    rendered = render_transcription_proof_json(report)
+    assert report.status == "passed"
+    assert report.duration_ms == 0
+    assert "/Users/private" not in rendered
+    assert "secret" not in rendered
+    assert "Traceback" not in rendered
+
+
 def test_transcription_proof_fixture_preflight_failure_is_stable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -417,6 +520,189 @@ def test_transcription_proof_rejects_search_subset_of_reported_evidence() -> Non
 
     assert report.status == "failed"
     assert report.reason == "proof_validation_failed"
+
+
+def _proof_validation_inputs() -> tuple[
+    IngestResult,
+    list[SearchResult],
+    AskResult,
+    ProofEnvironment,
+]:
+    intake_report = TranscriptIntakeReport(
+        provider="faster-whisper",
+        model="small",
+        model_revision="a" * 40,
+        library_version="1.2.3",
+        device="cpu",
+        compute_type="int8",
+        language="auto",
+        detected_language="en",
+        media_duration_ms=4000,
+        transcription_duration_ms=321,
+        segment_count=2,
+        model_source="cache",
+    )
+    matches = [
+        SearchResult(
+            evidence_id="ev_1",
+            publication_id="pub_1",
+            source_id="src_1",
+            locator_kind="timestamp_ms",
+            locator_start=0,
+            locator_end=1800,
+            text="Evidence publication remains traceable",
+        ),
+        SearchResult(
+            evidence_id="ev_2",
+            publication_id="pub_1",
+            source_id="src_1",
+            locator_kind="timestamp_ms",
+            locator_start=1800,
+            locator_end=4000,
+            text="Evidence stays linked after publication",
+        ),
+    ]
+    return (
+        IngestResult(
+            run_id="run_1",
+            run_state=RunState.PUBLISHED,
+            evidence_count=2,
+            transcript_intake_report=intake_report,
+        ),
+        matches,
+        AskResult(
+            ask_id="ask_1",
+            question="evidence publication",
+            answer_status="evidence_found",
+            summary="Evidence found.",
+            evidence=(matches[0],),
+            limitations=("Evidence only.",),
+        ),
+        ProofEnvironment(
+            python_version="3.13.5",
+            os="Darwin",
+            architecture="arm64",
+            faster_whisper_version="1.2.3",
+            ctranslate2_version="4.6.0",
+            pyav_version="14.4.0",
+        ),
+    )
+
+
+@pytest.mark.parametrize("identity_field", ("source_id", "publication_id"))
+def test_transcription_proof_rejects_mixed_search_identity(identity_field: str) -> None:
+    result, matches, answer, environment = _proof_validation_inputs()
+    matches[1] = replace(matches[1], **{identity_field: f"other_{identity_field}"})
+
+    report = validate_transcription_proof(
+        result,
+        matches,
+        answer,
+        expected_source_id="src_1",
+        environment=environment,
+        duration_ms=12,
+    )
+
+    assert report.status == "failed"
+    assert report.reason == "proof_validation_failed"
+
+
+def test_transcription_proof_rejects_search_source_unrelated_to_ingest_run() -> None:
+    result, matches, answer, environment = _proof_validation_inputs()
+
+    report = validate_transcription_proof(
+        result,
+        matches,
+        answer,
+        expected_source_id="src_from_ingest_run",
+        environment=environment,
+        duration_ms=12,
+    )
+
+    assert report.status == "failed"
+    assert report.reason == "proof_validation_failed"
+
+
+def test_transcription_proof_rejects_unrelated_ask_evidence() -> None:
+    result, matches, answer, environment = _proof_validation_inputs()
+    unrelated = replace(matches[0], evidence_id="ev_unrelated")
+    answer = replace(answer, evidence=(unrelated,))
+
+    report = validate_transcription_proof(
+        result,
+        matches,
+        answer,
+        expected_source_id="src_1",
+        environment=environment,
+        duration_ms=12,
+    )
+
+    assert report.status == "failed"
+    assert report.reason == "proof_validation_failed"
+
+
+@pytest.mark.parametrize(
+    ("field", "unsafe_value"),
+    (
+        ("library_version", "/Users/private/secret"),
+        ("library_version", r"C:\private\secret"),
+        ("device", "token=secret"),
+    ),
+)
+def test_transcription_proof_rejects_unsafe_intake_profile(
+    field: str,
+    unsafe_value: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mke.proof.transcription import (
+        render_transcription_proof_human,
+        render_transcription_proof_json,
+        run_transcription_proof,
+    )
+
+    def unsafe_provider(command: list[str], **_: object) -> SimpleNamespace:
+        return SimpleNamespace(
+            returncode=0,
+            stdout=_first_party_transcript(**{field: unsafe_value}),
+            stderr=b"",
+        )
+
+    monkeypatch.setattr("mke.adapters.video.providers._run_bounded_command", unsafe_provider)
+
+    report = run_transcription_proof(
+        VIDEO_FIXTURES / "spoken-evidence.mp4",
+        FasterWhisperTranscriptionConfig(model_revision="a" * 40),
+    )
+
+    rendered = render_transcription_proof_json(report)
+    human = render_transcription_proof_human(report)
+    assert report.status == "failed"
+    assert report.reason == "proof_validation_failed"
+    assert report.transcript_intake_report is None
+    assert unsafe_value not in rendered + human
+
+
+def test_transcription_proof_allows_single_hugging_face_model_identifier() -> None:
+    result, matches, answer, environment = _proof_validation_inputs()
+    assert result.transcript_intake_report is not None
+    result = replace(
+        result,
+        transcript_intake_report=replace(
+            result.transcript_intake_report,
+            model="Systran/faster-whisper-small",
+        ),
+    )
+
+    report = validate_transcription_proof(
+        result,
+        matches,
+        answer,
+        expected_source_id="src_1",
+        environment=environment,
+        duration_ms=12,
+    )
+
+    assert report.status == "passed"
 
 
 def test_transcription_proof_validates_timestamp_order_without_exact_transcript(
