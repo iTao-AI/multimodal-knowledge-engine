@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -11,7 +12,11 @@ import pytest
 from mke.adapters.video.contracts import AdapterExitCode
 from mke.application import AskResult
 from mke.domain import IngestResult, RunState, SearchResult, TranscriptIntakeReport
-from mke.proof.transcription import ProofEnvironment, validate_transcription_proof
+from mke.proof.transcription import (
+    ProofEnvironment,
+    TranscriptionProofReport,
+    validate_transcription_proof,
+)
 from mke.runtime import FasterWhisperTranscriptionConfig
 from tests.conftest import VIDEO_FIXTURES
 
@@ -378,6 +383,89 @@ def test_transcription_proof_later_clock_failure_is_fail_closed(
     assert "/Users/private" not in rendered
     assert "secret" not in rendered
     assert "Traceback" not in rendered
+
+
+@pytest.mark.parametrize("clock_value", (math.nan, math.inf, -math.inf, -1.0))
+def test_transcription_proof_initial_invalid_clock_is_unavailable(
+    clock_value: float,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mke.proof import transcription as proof_module
+    from mke.proof.transcription import (
+        render_transcription_proof_json,
+        run_transcription_proof,
+    )
+
+    _patch_successful_provider(monkeypatch)
+    monkeypatch.setattr(proof_module.time, "monotonic", lambda: clock_value)
+
+    report = run_transcription_proof(
+        VIDEO_FIXTURES / "spoken-evidence.mp4",
+        FasterWhisperTranscriptionConfig(model_revision="a" * 40),
+    )
+
+    rendered = render_transcription_proof_json(report)
+    assert report.status == "passed"
+    assert report.duration_ms == 0
+    assert "NaN" not in rendered
+    assert "Infinity" not in rendered
+
+
+@pytest.mark.parametrize(
+    "later_value",
+    (math.nan, math.inf, -math.inf, -1.0, 5.0),
+)
+def test_transcription_proof_later_invalid_or_reversed_clock_returns_zero_duration(
+    later_value: float,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mke.proof import transcription as proof_module
+    from mke.proof.transcription import run_transcription_proof
+
+    _patch_successful_provider(monkeypatch)
+    values = iter((10.0, later_value))
+    monkeypatch.setattr(proof_module.time, "monotonic", lambda: next(values))
+
+    report = run_transcription_proof(
+        VIDEO_FIXTURES / "spoken-evidence.mp4",
+        FasterWhisperTranscriptionConfig(model_revision="a" * 40),
+    )
+
+    assert report.status == "passed"
+    assert report.duration_ms == 0
+
+
+@pytest.mark.parametrize(
+    ("field", "unsafe_value"),
+    (
+        ("run_state", "/Users/private/run"),
+        ("run_state", "token=secret"),
+        ("run_state", "not_run"),
+        ("ask_status", "/Users/private/ask"),
+        ("ask_status", "token=secret"),
+        ("ask_status", "insufficient_evidence"),
+    ),
+)
+def test_transcription_proof_report_rejects_invalid_semantic_status_fields(
+    field: str,
+    unsafe_value: str,
+) -> None:
+    values: dict[str, object] = {
+        "status": "failed",
+        "run_state": "failed",
+        "evidence_count": 0,
+        "timestamp_evidence": False,
+        "search_keyword_matched": False,
+        "ask_status": "not_run",
+        "transcript_intake_report": None,
+        "environment": None,
+        "duration_ms": 0,
+        "reason": "unexpected_error",
+    }
+    values[field] = unsafe_value
+
+    with pytest.raises(ValueError, match=field.replace("_", " ")):
+        TranscriptionProofReport(**values)  # pyright: ignore[reportArgumentType]
 
 
 def test_transcription_proof_fixture_preflight_failure_is_stable(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import platform
 import re
 import tempfile
@@ -19,6 +20,8 @@ from mke.runtime import FasterWhisperTranscriptionConfig, RuntimeConfig, build_e
 
 _NOT_RUN = "not_run"
 _MODEL_NOT_CACHED = "model_not_cached"
+_RUN_STATES = frozenset({"published", "failed"})
+_ASK_STATUSES = frozenset({"evidence_found", _NOT_RUN})
 _SAFE_TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+()-]{0,255}\Z")
 _MODEL_PART_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,95}\Z")
 _COMMIT_SHA_RE = re.compile(r"[0-9a-f]{40}\Z")
@@ -65,6 +68,10 @@ class TranscriptionProofReport:
     def __post_init__(self) -> None:
         if self.status not in {"passed", "failed"}:
             raise ValueError("proof status must be passed or failed")
+        if self.run_state not in _RUN_STATES:
+            raise ValueError("proof run state must be published or failed")
+        if self.ask_status not in _ASK_STATUSES:
+            raise ValueError("proof ask status must be evidence_found or not_run")
         if type(self.evidence_count) is not int or self.evidence_count < 0:
             raise ValueError("proof evidence count must be a non-negative integer")
         if type(self.duration_ms) is not int or self.duration_ms < 0:
@@ -386,9 +393,10 @@ def _package_version(distribution: str) -> str:
 
 def _safe_monotonic() -> float | None:
     try:
-        return time.monotonic()
+        value = time.monotonic()
     except Exception:
         return None
+    return value if math.isfinite(value) and value >= 0 else None
 
 
 def _elapsed_ms(started: float | None) -> int:
