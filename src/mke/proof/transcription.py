@@ -21,7 +21,9 @@ _MODEL_NOT_CACHED = "model_not_cached"
 _NEXT_STEP_BY_REASON = {
     _MODEL_NOT_CACHED: "run_transcription_prepare",
     "fixture_unavailable": "choose_existing_fixture",
+    "environment_unavailable": "check_runtime_environment",
     "runtime_initialization_failed": "check_transcription_installation",
+    "proof_cleanup_failed": "retry_transcription_proof",
     "video_ingest_failed": "check_transcription_configuration",
     "proof_validation_failed": "inspect_proof_invariants",
     "unexpected_error": "check_server_logs",
@@ -82,10 +84,18 @@ def run_transcription_proof(
 ) -> TranscriptionProofReport:
     """Run the first-party transcription path without preparing or downloading a model."""
     started = time.monotonic()
-    environment = _proof_environment()
+    environment: ProofEnvironment | None = None
+    try:
+        environment = _proof_environment()
+    except Exception:
+        return _failed_report(
+            started,
+            None,
+            reason="environment_unavailable",
+        )
     try:
         fixture_exists = fixture.is_file()
-    except OSError:
+    except Exception:
         fixture_exists = False
     if not fixture_exists:
         return _failed_report(
@@ -94,53 +104,65 @@ def run_transcription_proof(
             reason="fixture_unavailable",
         )
 
-    with tempfile.TemporaryDirectory(prefix="mke-transcription-proof-") as temp_dir:
-        runtime = RuntimeConfig(
-            db_path=Path(temp_dir) / "proof.sqlite",
-            transcription=transcription,
-        )
-        try:
-            engine = build_engine(runtime)
-        except Exception:
-            return _failed_report(
-                started,
-                environment,
-                reason="runtime_initialization_failed",
+    candidate: TranscriptionProofReport | None = None
+    try:
+        with tempfile.TemporaryDirectory(prefix="mke-transcription-proof-") as temp_dir:
+            runtime = RuntimeConfig(
+                db_path=Path(temp_dir) / "proof.sqlite",
+                transcription=transcription,
             )
-        try:
             try:
-                result = engine.ingest_video(fixture)
-                matches = engine.search("evidence")
-                answer = engine.ask("evidence publication")
-                return validate_transcription_proof(
-                    result,
-                    matches,
-                    answer,
-                    environment=environment,
-                    duration_ms=_elapsed_ms(started),
-                )
-            except VideoIngestError as error:
-                reason = (
-                    _MODEL_NOT_CACHED
-                    if error.next_step == "run_transcription_prepare"
-                    else "video_ingest_failed"
-                )
-                return _failed_report(
+                engine = build_engine(runtime)
+            except Exception:
+                candidate = _failed_report(
                     started,
                     environment,
-                    reason=reason,
+                    reason="runtime_initialization_failed",
                 )
-            except Exception:
-                return _failed_report(
-                    started,
-                    environment,
-                    reason="unexpected_error",
-                )
-        finally:
-            try:
-                engine.close()
-            except Exception:
-                pass
+            else:
+                try:
+                    result = engine.ingest_video(fixture)
+                    matches = engine.search("evidence")
+                    answer = engine.ask("evidence publication")
+                    candidate = validate_transcription_proof(
+                        result,
+                        matches,
+                        answer,
+                        environment=environment,
+                        duration_ms=_elapsed_ms(started),
+                    )
+                except VideoIngestError as error:
+                    reason = (
+                        _MODEL_NOT_CACHED
+                        if error.next_step == "run_transcription_prepare"
+                        else "video_ingest_failed"
+                    )
+                    candidate = _failed_report(
+                        started,
+                        environment,
+                        reason=reason,
+                    )
+                except Exception:
+                    candidate = _failed_report(
+                        started,
+                        environment,
+                        reason="unexpected_error",
+                    )
+                try:
+                    engine.close()
+                except Exception:
+                    candidate = _failed_report(
+                        started,
+                        environment,
+                        reason="proof_cleanup_failed",
+                    )
+    except Exception:
+        return _failed_report(
+            started,
+            environment,
+            reason="proof_cleanup_failed",
+        )
+    return candidate
 
 
 def validate_transcription_proof(
@@ -173,6 +195,7 @@ def validate_transcription_proof(
         and intake_report.provider == "faster-whisper"
         and intake_report.model_source == "cache"
         and intake_report.segment_count == result.evidence_count
+        and len(matches) == result.evidence_count
         and timestamp_evidence
         and ordered_evidence
         and search_keyword_matched
@@ -254,6 +277,13 @@ def render_transcription_proof_human(report: TranscriptionProofReport) -> str:
         fields.extend(
             (
                 f"provider={report.transcript_intake_report.provider}",
+                f"model={report.transcript_intake_report.model}",
+                f"model_revision={report.transcript_intake_report.model_revision}",
+                f"library_version={report.transcript_intake_report.library_version}",
+                f"device={report.transcript_intake_report.device}",
+                f"compute_type={report.transcript_intake_report.compute_type}",
+                f"language={report.transcript_intake_report.language}",
+                f"detected_language={report.transcript_intake_report.detected_language}",
                 f"model_source={report.transcript_intake_report.model_source}",
                 f"segment_count={report.transcript_intake_report.segment_count}",
             )
@@ -281,7 +311,7 @@ def render_transcription_proof_human(report: TranscriptionProofReport) -> str:
 
 def _failed_report(
     started: float,
-    environment: ProofEnvironment,
+    environment: ProofEnvironment | None,
     *,
     reason: str,
 ) -> TranscriptionProofReport:

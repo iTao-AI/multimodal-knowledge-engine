@@ -3,10 +3,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
 from mke.adapters.video.contracts import AdapterExitCode
+from mke.application import AskResult
+from mke.domain import IngestResult, RunState, SearchResult, TranscriptIntakeReport
+from mke.proof.transcription import ProofEnvironment, validate_transcription_proof
 from mke.runtime import FasterWhisperTranscriptionConfig
 from tests.conftest import VIDEO_FIXTURES
 
@@ -147,6 +151,40 @@ def test_transcription_proof_reports_actual_non_sensitive_environment(
     assert all(value not in payload for value in forbidden)
 
 
+def test_transcription_proof_human_output_contains_complete_safe_runtime_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mke.proof.transcription import (
+        render_transcription_proof_human,
+        run_transcription_proof,
+    )
+
+    _patch_successful_provider(monkeypatch)
+    report = run_transcription_proof(
+        VIDEO_FIXTURES / "spoken-evidence.mp4",
+        FasterWhisperTranscriptionConfig(model_revision="a" * 40),
+    )
+
+    human = render_transcription_proof_human(report)
+    assert "model=small" in human
+    assert f"model_revision={'a' * 40}" in human
+    assert "library_version=1.2.3" in human
+    assert "device=cpu" in human
+    assert "compute_type=int8" in human
+    assert "language=auto" in human
+    assert "detected_language=en" in human
+    assert "python_version=" in human
+    assert "os=" in human
+    assert "architecture=" in human
+    assert "faster_whisper_version=" in human
+    assert "ctranslate2_version=" in human
+    assert "pyav_version=" in human
+    assert str(Path.home()) not in human
+    assert str(Path.cwd()) not in human
+    assert "argv=" not in human
+    assert "secret" not in human
+
+
 def test_transcription_proof_cache_miss_is_stable_failed_report(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -207,6 +245,178 @@ def test_transcription_proof_build_failure_is_sanitized(
     assert "/Users/private" not in rendered
     assert "secret-token" not in rendered
     assert "Traceback" not in rendered
+
+
+def test_transcription_proof_environment_failure_is_stable_and_sanitized(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mke.proof import transcription as proof_module
+    from mke.proof.transcription import (
+        render_transcription_proof_human,
+        render_transcription_proof_json,
+        run_transcription_proof,
+    )
+
+    def fail_version(distribution: str) -> str:
+        raise RuntimeError("/Users/private/site-packages secret-token")
+
+    monkeypatch.setattr(proof_module.metadata, "version", fail_version)
+
+    report = run_transcription_proof(
+        VIDEO_FIXTURES / "spoken-evidence.mp4",
+        FasterWhisperTranscriptionConfig(model_revision="a" * 40),
+    )
+
+    rendered = render_transcription_proof_json(report)
+    human = render_transcription_proof_human(report)
+    assert report.status == "failed"
+    assert report.reason == "environment_unavailable"
+    assert report.environment is None
+    assert "/Users/private" not in rendered + human
+    assert "secret-token" not in rendered + human
+    assert "Traceback" not in rendered + human
+
+
+def test_transcription_proof_fixture_preflight_failure_is_stable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mke.proof.transcription import run_transcription_proof
+
+    def fail_is_file(self: Path) -> bool:
+        raise RuntimeError("/Users/private/fixture secret-token")
+
+    monkeypatch.setattr(Path, "is_file", fail_is_file)
+
+    report = run_transcription_proof(
+        VIDEO_FIXTURES / "spoken-evidence.mp4",
+        FasterWhisperTranscriptionConfig(model_revision="a" * 40),
+    )
+
+    assert report.status == "failed"
+    assert report.reason == "fixture_unavailable"
+    assert report.run_state == "failed"
+
+
+def test_transcription_proof_temporary_workspace_cleanup_failure_is_stable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mke.proof import transcription as proof_module
+    from mke.proof.transcription import (
+        render_transcription_proof_json,
+        run_transcription_proof,
+    )
+
+    _patch_successful_provider(monkeypatch)
+
+    class CleanupFailure:
+        def __enter__(self) -> str:
+            return str(tmp_path)
+
+        def __exit__(self, *args: Any) -> None:
+            raise RuntimeError("/Users/private/cleanup secret-token")
+
+    def cleanup_failure_directory(**kwargs: object) -> CleanupFailure:
+        return CleanupFailure()
+
+    monkeypatch.setattr(
+        proof_module.tempfile,
+        "TemporaryDirectory",
+        cleanup_failure_directory,
+    )
+
+    report = run_transcription_proof(
+        VIDEO_FIXTURES / "spoken-evidence.mp4",
+        FasterWhisperTranscriptionConfig(model_revision="a" * 40),
+    )
+
+    rendered = render_transcription_proof_json(report)
+    assert report.status == "failed"
+    assert report.reason == "proof_cleanup_failed"
+    assert "/Users/private" not in rendered
+    assert "secret-token" not in rendered
+    assert "Traceback" not in rendered
+
+
+def test_transcription_proof_engine_close_failure_cannot_pass(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mke.application import KnowledgeEngine
+    from mke.proof.transcription import run_transcription_proof
+
+    _patch_successful_provider(monkeypatch)
+
+    def fail_close(self: KnowledgeEngine) -> None:
+        raise RuntimeError("/Users/private/database.sqlite secret-token")
+
+    monkeypatch.setattr(KnowledgeEngine, "close", fail_close)
+
+    report = run_transcription_proof(
+        VIDEO_FIXTURES / "spoken-evidence.mp4",
+        FasterWhisperTranscriptionConfig(model_revision="a" * 40),
+    )
+
+    assert report.status == "failed"
+    assert report.reason == "proof_cleanup_failed"
+    assert report.run_state == "failed"
+
+
+def test_transcription_proof_rejects_search_subset_of_reported_evidence() -> None:
+    intake_report = TranscriptIntakeReport(
+        provider="faster-whisper",
+        model="small",
+        model_revision="a" * 40,
+        library_version="1.2.3",
+        device="cpu",
+        compute_type="int8",
+        language="auto",
+        detected_language="en",
+        media_duration_ms=4000,
+        transcription_duration_ms=321,
+        segment_count=2,
+        model_source="cache",
+    )
+    first_match = SearchResult(
+        evidence_id="ev_1",
+        publication_id="pub_1",
+        source_id="src_1",
+        locator_kind="timestamp_ms",
+        locator_start=0,
+        locator_end=1800,
+        text="Evidence publication remains traceable",
+    )
+    result = IngestResult(
+        run_id="run_1",
+        run_state=RunState.PUBLISHED,
+        evidence_count=2,
+        transcript_intake_report=intake_report,
+    )
+    answer = AskResult(
+        ask_id="ask_1",
+        question="evidence publication",
+        answer_status="evidence_found",
+        summary="Evidence found.",
+        evidence=(first_match,),
+        limitations=("Evidence only.",),
+    )
+
+    report = validate_transcription_proof(
+        result,
+        [first_match],
+        answer,
+        environment=ProofEnvironment(
+            python_version="3.13.5",
+            os="Darwin",
+            architecture="arm64",
+            faster_whisper_version="1.2.3",
+            ctranslate2_version="4.6.0",
+            pyav_version="14.4.0",
+        ),
+        duration_ms=12,
+    )
+
+    assert report.status == "failed"
+    assert report.reason == "proof_validation_failed"
 
 
 def test_transcription_proof_validates_timestamp_order_without_exact_transcript(
