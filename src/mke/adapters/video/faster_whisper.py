@@ -240,13 +240,21 @@ def classify_model_resolution_error(
 
 def prepare_model(config: ModelPreparationConfig) -> ModelPreparationResult:
     try:
-        resolve_model_snapshot(config.transcription, allow_download=False)
+        snapshot = resolve_model_snapshot(config.transcription, allow_download=False)
+        _require_complete_model_snapshot(snapshot)
     except ModelResolutionError as error:
         if not config.allow_model_download or error.cause != (
             "configured transcription model is not cached"
         ):
             raise
-        resolve_model_snapshot(config.transcription, allow_download=True)
+        snapshot = resolve_model_snapshot(config.transcription, allow_download=True)
+        try:
+            _require_complete_model_snapshot(snapshot)
+        except ModelResolutionError as incomplete_error:
+            raise ModelResolutionError(
+                "transcription model download failed",
+                "check_network_and_model_configuration",
+            ) from incomplete_error
         status: Literal["already_cached", "downloaded"] = "downloaded"
     else:
         status = "already_cached"
@@ -286,6 +294,11 @@ def doctor_transcription(
         snapshot = resolve_model_snapshot(config, allow_download=False)
     except ModelResolutionError as error:
         checks.append(ReadinessCheck("model", "failed", "model snapshot unavailable"))
+        return _not_ready(tuple(checks), error.cause, error.next_step)
+    try:
+        _require_complete_model_snapshot(snapshot)
+    except ModelResolutionError as error:
+        checks.append(ReadinessCheck("model", "failed", "model snapshot incomplete"))
         return _not_ready(tuple(checks), error.cause, error.next_step)
 
     try:
@@ -329,6 +342,20 @@ def _import_optional_runtime() -> _WhisperModelFactory:
     import_module("av")
     faster_whisper = import_module("faster_whisper")
     return cast(_WhisperModelFactory, faster_whisper.WhisperModel)
+
+
+def _require_complete_model_snapshot(snapshot: Path) -> None:
+    required = ("config.json", "model.bin", "tokenizer.json")
+    if not all((snapshot / name).is_file() for name in required):
+        raise ModelResolutionError(
+            "configured transcription model is not cached",
+            "run_transcription_prepare",
+        )
+    if not any(path.is_file() for path in snapshot.glob("vocabulary.*")):
+        raise ModelResolutionError(
+            "configured transcription model is not cached",
+            "run_transcription_prepare",
+        )
 
 
 def _validate_runtime_profile(config: FasterWhisperTranscriptionConfig) -> str | None:
