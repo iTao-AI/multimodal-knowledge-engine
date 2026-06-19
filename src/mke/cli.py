@@ -23,7 +23,14 @@ from mke.domain import FailurePoint, PdfIntakeReport, SearchResult, TranscriptIn
 from mke.interfaces.mcp_contract import McpRuntimeConfig, transcript_intake_report_payload
 from mke.interfaces.mcp_server import run_mcp_server
 from mke.interfaces.public_errors import public_error_from_cause, render_public_error_line
-from mke.proof import render_human_report, render_json_report, run_product_proof
+from mke.proof import (
+    render_human_report,
+    render_json_report,
+    render_transcription_proof_human,
+    render_transcription_proof_json,
+    run_product_proof,
+    run_transcription_proof,
+)
 from mke.runtime import (
     DEFAULT_MODEL_REVISION,
     FasterWhisperTranscriptionConfig,
@@ -36,6 +43,7 @@ from mke.runtime import (
 _DEFAULT_PDF_FIXTURE = Path("tests/fixtures/pdf/text-layer.pdf")
 _DEFAULT_REVISED_PDF_FIXTURE = Path("tests/fixtures/pdf/text-layer-revised.pdf")
 _DEFAULT_VIDEO_FIXTURE = Path("tests/fixtures/video/short-audio.mp4")
+_DEFAULT_TRANSCRIPTION_PROOF_FIXTURE = Path("tests/fixtures/video/spoken-evidence.mp4")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -75,6 +83,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     proof_subcommands = proof.add_subparsers(dest="proof_command", required=True)
     proof_run = proof_subcommands.add_parser("run")
     proof_run.add_argument("--json", action="store_true", dest="json_output")
+    proof_transcription = proof_subcommands.add_parser("transcription-run")
+    proof_transcription.add_argument(
+        "--fixture",
+        type=Path,
+        default=_DEFAULT_TRANSCRIPTION_PROOF_FIXTURE,
+    )
+    proof_transcription.add_argument("--json", action="store_true", dest="json_output")
+    add_faster_whisper_runtime_arguments(proof_transcription)
     proof_smoke = proof_subcommands.add_parser("transcript-smoke")
     proof_smoke.add_argument("--fixture", type=Path, required=True)
     proof_smoke.add_argument("transcript_command", nargs=argparse.REMAINDER)
@@ -101,7 +117,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "proof":
         if args.proof_command == "run":
             return _proof_run(json_output=args.json_output)
-        return _proof_transcript_smoke(args.fixture, args.transcript_command)
+        if args.proof_command == "transcription-run":
+            try:
+                config = _faster_whisper_config_from_args(args)
+            except (TypeError, ValueError) as error:
+                parser.error(str(error))
+            return _proof_transcription_run(
+                args.fixture,
+                config,
+                json_output=args.json_output,
+            )
+        if args.proof_command == "transcript-smoke":
+            return _proof_transcript_smoke(args.fixture, args.transcript_command)
+        parser.error("unsupported proof command")
     if args.command == "mcp":
         try:
             runtime = runtime_config_from_args(args)
@@ -369,6 +397,20 @@ def _proof_run(*, json_output: bool) -> int:
     return 0 if report.status == "passed" else 1
 
 
+def _proof_transcription_run(
+    fixture: Path,
+    config: FasterWhisperTranscriptionConfig,
+    *,
+    json_output: bool,
+) -> int:
+    report = run_transcription_proof(fixture, config)
+    if json_output:
+        print(render_transcription_proof_json(report))
+    else:
+        print(render_transcription_proof_human(report))
+    return 0 if report.status == "passed" else 1
+
+
 def _proof_transcript_smoke(fixture: Path, command: Sequence[str]) -> int:
     print("mke proof transcript-smoke")
     normalized_command = _normalize_remainder_command(command)
@@ -435,6 +477,10 @@ def add_transcription_runtime_arguments(
         choices=("sidecar", "faster-whisper"),
         default=default_provider,
     )
+    add_faster_whisper_runtime_arguments(parser)
+
+
+def add_faster_whisper_runtime_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--model", default="small")
     parser.add_argument("--model-revision", default=DEFAULT_MODEL_REVISION)
     parser.add_argument("--device", default="cpu")

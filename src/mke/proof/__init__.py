@@ -9,6 +9,14 @@ from mke.proof.report import (
     render_json_report,
 )
 from mke.proof.runner import run_product_proof
+from mke.proof.transcription import (
+    ProofEnvironment,
+    TranscriptionProofReport,
+    render_transcription_proof_human,
+    render_transcription_proof_json,
+    run_transcription_proof,
+    validate_transcription_proof,
+)
 
 __all__ = [
     "ObservedField",
@@ -17,7 +25,13 @@ __all__ = [
     "ProofFixtures",
     "ProofManifest",
     "ProofReport",
+    "ProofEnvironment",
+    "TranscriptionProofReport",
     "render_human_report",
     "render_json_report",
+    "render_transcription_proof_human",
+    "render_transcription_proof_json",
     "run_product_proof",
+    "run_transcription_proof",
+    "validate_transcription_proof",
 ]
