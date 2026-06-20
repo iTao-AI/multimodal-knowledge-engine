@@ -23,6 +23,8 @@ jobs:
         python-version: ["3.12", "3.13"]
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
@@ -48,22 +50,11 @@ jobs:
           assert payload["integrity_failures"] == []
           print(json.dumps(payload["metrics"], sort_keys=True))
           PY
-          python - <<'PY'
-          import json
-          payload = json.load(
-              open("benchmarks/retrieval/retrieval-eval-v1-baseline.json")
-          )
-          assert payload["schema_version"] == "mke.retrieval_eval_baseline.v1"
-          assert payload["manifest_id"] == "retrieval-eval-v1"
-          assert len(payload["manifest_sha256"]) == 64
-          assert len(payload["fixtures"]) == 4
-          assert payload["environment"]["python"]
-          assert payload["environment"]["sqlite"]
-          assert payload["environment"]["pymupdf"]
-          assert payload["metrics"]
-          assert len(payload["results"]) == 24
-          assert "duration_ms" not in payload
-          PY
+          uv run python -m mke.evaluation.baseline \
+            --artifact benchmarks/retrieval/retrieval-eval-v1-baseline.json \
+            --manifest tests/fixtures/retrieval-eval-v1.json \
+            --repository . \
+            --main-ref origin/main
       - run: uv build
       - name: Verify spoken fixture with transcription extra
         env:

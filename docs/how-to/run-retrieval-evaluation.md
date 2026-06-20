@@ -51,9 +51,14 @@ workspaces.
 
 ## Recorded E1 Observation
 
-The reviewed baseline used base commit
-`3992b0e9371d1a8c9e019d3bbe2b32aac9665914` and evaluation-code commit
-`79bafb07ac592b684e6ceab15dc389dc33702978`.
+The reviewed baseline has three distinct code identities:
+
+- main merge base:
+  `721784eabcb9fbb737166578010c9e1a46a25fef`;
+- implementation start after the approved design commits:
+  `3992b0e9371d1a8c9e019d3bbe2b32aac9665914`;
+- evaluation-code commit:
+  `79bafb07ac592b684e6ceab15dc389dc33702978`.
 
 | Metric | Value |
 |---|---:|
@@ -77,6 +82,21 @@ semantic retrieval quality, or latency.
 The canonical machine-readable observation is
 `benchmarks/retrieval/retrieval-eval-v1-baseline.json`. CI validates its schema and provenance but
 does not require later scores to equal it.
+
+Validate the artifact locally with:
+
+```bash
+uv run python -m mke.evaluation.baseline \
+  --artifact benchmarks/retrieval/retrieval-eval-v1-baseline.json \
+  --manifest tests/fixtures/retrieval-eval-v1.json \
+  --repository . \
+  --main-ref main
+```
+
+The validator derives the manifest and fixture checksums from actual files, verifies code
+ancestry, checks the recorded environment shape, and recomputes aggregate consistency from the
+stored per-query results. It does not compare a current evaluation run's scores with the historical
+baseline.
 
 ## Compare A Retrieval Change
 

@@ -2,11 +2,13 @@
 
 ## Status
 
-- Review type: lightweight execution self-check.
-- Result: clear after targeted verification.
-- Full `gstack-review`: intentionally not run per implementation instruction.
+- Review type: lightweight execution self-check followed by authoritative `gstack-review`
+  remediation.
+- Result: targeted findings fixed; ready for targeted re-review.
+- Full `gstack-review`: not repeated after remediation.
 - Branch: `codex/retrieval-eval-baseline`.
-- Base: `3992b0e9371d1a8c9e019d3bbe2b32aac9665914`.
+- Main merge base: `721784eabcb9fbb737166578010c9e1a46a25fef`.
+- Implementation start: `3992b0e9371d1a8c9e019d3bbe2b32aac9665914`.
 
 ## Scope Check
 
@@ -31,13 +33,34 @@
 
 ## Verification
 
-- `uv run pytest -q`: `505 passed, 1 skipped`.
+- Targeted validator and mutation tests: `51 passed`.
+- `uv run pytest -q`: `523 passed, 1 skipped`.
 - `uv run ruff check .`: passed after mechanical import ordering fix.
 - `uv run pyright`: `0 errors`.
 - `uv build`: wheel and source distribution built.
 - Human and JSON retrieval evaluation: passed.
+- Canonical artifact validator: passed against actual manifest, fixture files, and Git history.
 - `uv run mke proof run`: 8/8 cases passed.
 - `uv run mke demo --verify`: passed.
+- `git diff --check`: passed.
+
+## Authoritative Review Findings
+
+1. Canonical code provenance previously mislabeled the implementation start as the main base.
+   The artifact and documentation now distinguish `main_merge_base`, `implementation_start`, and
+   `evaluation_commit`.
+2. CI previously checked only a few artifact fields. The project-owned validator now derives
+   manifest and fixture checksums from actual files, verifies Git ancestry and environment shape,
+   validates the complete metrics/result/query identity contract, and rejects malformed
+   provenance without turning historical scores into a quality gate.
+3. Snapshot mutation rejection existed in production but lacked direct regression coverage.
+   Tests now mutate fixture bytes after manifest validation and during snapshot copy and verify
+   `FixtureValidationError`.
+
+The validator tests also prove that incorrect code provenance, manifest/fixture checksums,
+environment shape, metric aggregates, result structure, and query identity fail validation. A
+self-consistent alternate historical score set remains valid, confirming the validator does not
+compare current run scores to the canonical observation.
 
 ## Remaining Risks
 

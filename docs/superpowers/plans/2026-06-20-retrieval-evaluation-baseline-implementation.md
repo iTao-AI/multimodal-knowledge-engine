@@ -1989,14 +1989,15 @@ Return:
 ## Implementation Results
 
 - Branch: `codex/retrieval-eval-baseline`.
-- Base: `3992b0e9371d1a8c9e019d3bbe2b32aac9665914`.
+- Main merge base: `721784eabcb9fbb737166578010c9e1a46a25fef`.
+- Implementation start: `3992b0e9371d1a8c9e019d3bbe2b32aac9665914`.
 - Evaluation-code commit: `79bafb07ac592b684e6ceab15dc389dc33702978`.
 - Corpus: 3 documents and 24 queries (`16` answerable, `8` unanswerable).
 - Metrics: Recall@1 `0.875000`; Recall@3/5 `0.937500`; MRR@5 `0.937500`;
   answerable zero-hit `0.062500`; unanswerable no-hit and Ask refusal `1.000000`.
 - Answerable miss at rank 5: `water-answerable-01`.
 - Unanswerable false positives: none.
-- Verification: `505 passed, 1 skipped`; Ruff passed; Pyright `0 errors`; build, human/JSON
+- Verification: `523 passed, 1 skipped`; Ruff passed; Pyright `0 errors`; build, human/JSON
   evaluation, product proof, demo, canonical artifact validation, CI YAML parse, and diff check
   passed.
 - Documentation audit: reference, how-to, README, docs navigation, architecture, fixture
@@ -2005,6 +2006,10 @@ Return:
   per user instruction.
 - Remaining risks: small English corpus, coarse macro resolution, page/timestamp segmentation
   dependency, and environment-specific SQLite determinism.
+- Authoritative review remediation: corrected canonical code provenance; added a project-owned
+  artifact validator that derives manifest/fixture identity and validates code, environment,
+  metrics, results, and query identity without score gating; added fixture mutation regression
+  coverage for the validation-to-snapshot interval.
 
 ## Autoplan Review Record
 

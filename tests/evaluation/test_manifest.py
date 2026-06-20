@@ -27,6 +27,19 @@ def _write_manifest(tmp_path: Path, payload: dict[str, object]) -> Path:
     return path
 
 
+def _copy_checked_in_corpus(tmp_path: Path) -> Path:
+    source = load_retrieval_manifest(MANIFEST)
+    root = tmp_path / "fixtures"
+    for document in source.documents:
+        for fixture in (document.primary_file, *document.supporting_files):
+            target = root / Path(*fixture.path.parts)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(source.resolve(fixture).read_bytes())
+    manifest = root / MANIFEST.name
+    manifest.write_bytes(MANIFEST.read_bytes())
+    return manifest
+
+
 def _minimal_payload() -> dict[str, object]:
     return {
         "schema_version": "mke.retrieval_eval.v1",
@@ -349,3 +362,47 @@ def test_snapshot_preserves_relative_paths_and_verified_bytes(tmp_path: Path) ->
             copied = snapshot.resolve(fixture)
             assert copied.is_file()
             assert hashlib.sha256(copied.read_bytes()).hexdigest() == fixture.sha256
+
+
+def test_snapshot_rejects_fixture_mutated_after_manifest_validation(
+    tmp_path: Path,
+) -> None:
+    manifest = load_retrieval_manifest(_copy_checked_in_corpus(tmp_path))
+    fixture = manifest.documents[0].primary_file
+    source = manifest.resolve(fixture)
+    source.write_bytes(b"x" * fixture.bytes)
+
+    with pytest.raises(FixtureValidationError, match="fixture checksum does not match"):
+        snapshot_retrieval_fixtures(manifest, tmp_path / "snapshot")
+
+
+def test_snapshot_rejects_fixture_mutated_when_snapshot_opens_source(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = load_retrieval_manifest(_copy_checked_in_corpus(tmp_path))
+    fixture = manifest.documents[0].primary_file
+    source = manifest.resolve(fixture)
+    original_open = Path.open
+    mutated = False
+
+    def mutate_then_open(
+        path: Path,
+        mode: str = "r",
+        buffering: int = -1,
+        encoding: str | None = None,
+        errors: str | None = None,
+        newline: str | None = None,
+    ) -> object:
+        nonlocal mutated
+        if path == source and mode == "rb" and not mutated:
+            mutated = True
+            with original_open(path, "wb") as stream:
+                stream.write(b"y" * fixture.bytes)
+        return original_open(path, mode, buffering, encoding, errors, newline)
+
+    monkeypatch.setattr(Path, "open", mutate_then_open)
+
+    with pytest.raises(FixtureValidationError, match="fixture checksum does not match"):
+        snapshot_retrieval_fixtures(manifest, tmp_path / "snapshot")
+    assert mutated
