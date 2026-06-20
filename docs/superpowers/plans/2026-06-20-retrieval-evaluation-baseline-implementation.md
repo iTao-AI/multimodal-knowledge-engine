@@ -631,7 +631,7 @@ uv run pyright
 
 Expected: all targeted tests pass; Pyright reports `0 errors`.
 
-- [ ] **Step 5: Commit the parser task**
+- [x] **Step 5: Commit the parser task**
 
 ```bash
 git add \
@@ -651,7 +651,7 @@ git commit -m "feat(eval): validate retrieval manifests"
 - Modify: `src/mke/application/__init__.py`
 - Modify: `tests/adapters/test_sqlite_fts.py`
 
-- [ ] **Step 1: Write the failing active-Evidence test**
+- [x] **Step 1: Write the failing active-Evidence test**
 
 Append to `tests/adapters/test_sqlite_fts.py`:
 
@@ -682,7 +682,7 @@ def test_list_active_evidence_returns_only_current_publication(tmp_path: Path) -
         engine.close()
 ```
 
-- [ ] **Step 2: Run the test to verify RED**
+- [x] **Step 2: Run the test to verify RED**
 
 Run:
 
@@ -692,7 +692,7 @@ uv run pytest tests/adapters/test_sqlite_fts.py::test_list_active_evidence_retur
 
 Expected: FAIL because `KnowledgeEngine.list_active_evidence` does not exist.
 
-- [ ] **Step 3: Add the store query without modifying Search**
+- [x] **Step 3: Add the store query without modifying Search**
 
 Add the project-owned DTO in `src/mke/domain/__init__.py`:
 
@@ -737,7 +737,7 @@ def list_active_evidence(self) -> list[ActiveEvidenceRef]:
 Import `ActiveEvidenceRef` from the domain module. Do not refactor or change existing Search
 SQL, conversion, or ordering.
 
-- [ ] **Step 4: Expose the read-only method through the application facade**
+- [x] **Step 4: Expose the read-only method through the application facade**
 
 Add immediately before `KnowledgeEngine.search`:
 
@@ -749,7 +749,7 @@ def list_active_evidence(self) -> list[ActiveEvidenceRef]:
 
 Do not expose this method through CLI, MCP, or public reference contracts.
 
-- [ ] **Step 5: Run targeted lifecycle and FTS tests**
+- [x] **Step 5: Run targeted lifecycle and FTS tests**
 
 Run:
 
