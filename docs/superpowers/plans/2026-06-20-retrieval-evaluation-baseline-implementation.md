@@ -953,7 +953,7 @@ uv run pyright
 
 Expected: all pass; Pyright reports `0 errors`.
 
-- [ ] **Step 5: Commit the metric task**
+- [x] **Step 5: Commit the metric task**
 
 ```bash
 git add src/mke/evaluation/metrics.py tests/evaluation/test_metrics.py
@@ -968,7 +968,7 @@ git commit -m "feat(eval): calculate retrieval baseline metrics"
 - Create: `src/mke/evaluation/report.py`
 - Create: `tests/evaluation/test_report.py`
 
-- [ ] **Step 1: Write failing report tests**
+- [x] **Step 1: Write failing report tests**
 
 Create `tests/evaluation/test_report.py` with a report fixture and assertions that:
 
@@ -1038,7 +1038,7 @@ Also assert:
 - failed reports include stable `problem`, `cause`, `next_step`, `subject_id`;
 - renderers never include Evidence text, random IDs, absolute paths, or traceback strings.
 
-- [ ] **Step 2: Run report tests to verify RED**
+- [x] **Step 2: Run report tests to verify RED**
 
 Run:
 
@@ -1048,7 +1048,7 @@ uv run pytest tests/evaluation/test_report.py -q
 
 Expected: collection FAIL because `mke.evaluation.report` does not exist.
 
-- [ ] **Step 3: Implement immutable report DTOs and renderers**
+- [x] **Step 3: Implement immutable report DTOs and renderers**
 
 Create `src/mke/evaluation/report.py` with:
 
@@ -1132,7 +1132,7 @@ Implement `render_retrieval_human_report` with:
 When `report.metrics is None`, omit metric fields and use
 `quality_status=not_recorded`.
 
-- [ ] **Step 4: Run report tests to verify GREEN**
+- [x] **Step 4: Run report tests to verify GREEN**
 
 Run:
 
