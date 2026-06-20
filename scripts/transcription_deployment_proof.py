@@ -39,6 +39,7 @@ _REPORT_IDENTITY_FIELDS = (
 _SAFE_TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9.!_+()-]{0,255}\Z")
 _MODEL_PART_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,95}\Z")
 _COMMIT_SHA_RE = re.compile(r"[0-9a-f]{40}\Z")
+_PYTHON_ENVIRONMENT_VARIABLES = ("PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV")
 
 
 class DeploymentProofError(RuntimeError):
@@ -163,6 +164,27 @@ def run_deployment_proof(config: DeploymentProofConfig) -> dict[str, object]:
             cwd=root,
         )
 
+        runtime_environment = _isolated_runtime_environment()
+        identity = _json_command(
+            [
+                str(installed_python),
+                "-c",
+                (
+                    "import json, mke, sys; "
+                    "print(json.dumps({'mke_file': mke.__file__, "
+                    "'sys_executable': sys.executable}))"
+                ),
+            ],
+            timeout_seconds=_COMMAND_TIMEOUT_SECONDS,
+            cwd=runtime_root,
+            env=runtime_environment,
+        )
+        validate_installed_identity(
+            identity,
+            environment=environment,
+            repository=root,
+        )
+
         runtime_args = _runtime_args(config, model_cache)
         doctor = _json_command(
             [
@@ -174,6 +196,8 @@ def run_deployment_proof(config: DeploymentProofConfig) -> dict[str, object]:
             ],
             accepted_returncodes=frozenset({0, 1}),
             timeout_seconds=_COMMAND_TIMEOUT_SECONDS,
+            cwd=runtime_root,
+            env=runtime_environment,
         )
         if config.allow_model_download:
             if doctor.get("status") != "ready":
@@ -187,6 +211,8 @@ def run_deployment_proof(config: DeploymentProofConfig) -> dict[str, object]:
                         "--json",
                     ],
                     timeout_seconds=config.provider_timeout_seconds,
+                    cwd=runtime_root,
+                    env=runtime_environment,
                 )
                 doctor = _json_command(
                     [
@@ -197,6 +223,8 @@ def run_deployment_proof(config: DeploymentProofConfig) -> dict[str, object]:
                         "--json",
                     ],
                     timeout_seconds=_COMMAND_TIMEOUT_SECONDS,
+                    cwd=runtime_root,
+                    env=runtime_environment,
                 )
         if doctor.get("status") != "ready":
             raise DeploymentProofError("installed transcription runtime is not ready")
@@ -215,6 +243,8 @@ def run_deployment_proof(config: DeploymentProofConfig) -> dict[str, object]:
                 "--json",
             ],
             timeout_seconds=config.provider_timeout_seconds,
+            cwd=runtime_root,
+            env=runtime_environment,
         )
         run_id = _required_string(cli_ingest, "run_id")
         cli_run = _json_command(
@@ -228,12 +258,16 @@ def run_deployment_proof(config: DeploymentProofConfig) -> dict[str, object]:
                 "--json",
             ],
             timeout_seconds=_COMMAND_TIMEOUT_SECONDS,
+            cwd=runtime_root,
+            env=runtime_environment,
         )
         search = run_command(
             [str(installed_mke), "--db", str(cli_db), "search", "evidence"],
             timeout_seconds=_COMMAND_TIMEOUT_SECONDS,
             max_stdout_bytes=_MAX_STDOUT_BYTES,
             max_stderr_bytes=_MAX_STDERR_BYTES,
+            cwd=runtime_root,
+            env=runtime_environment,
         )
         ask = run_command(
             [
@@ -247,6 +281,8 @@ def run_deployment_proof(config: DeploymentProofConfig) -> dict[str, object]:
             timeout_seconds=_COMMAND_TIMEOUT_SECONDS,
             max_stdout_bytes=_MAX_STDOUT_BYTES,
             max_stderr_bytes=_MAX_STDERR_BYTES,
+            cwd=runtime_root,
+            env=runtime_environment,
         )
         if b"timestamp_ms=" not in search.stdout or b"evidence" not in search.stdout.lower():
             raise DeploymentProofError("installed CLI Search proof failed")
@@ -275,6 +311,8 @@ def run_deployment_proof(config: DeploymentProofConfig) -> dict[str, object]:
         mcp = _json_command(
             client_command,
             timeout_seconds=config.provider_timeout_seconds + 60.0,
+            cwd=runtime_root,
+            env=runtime_environment,
         )
         if mcp.get("status") != "passed":
             raise DeploymentProofError("installed MCP proof failed")
@@ -325,6 +363,40 @@ def compare_report_identity(
     ):
         raise ValueError("CLI and MCP report identity mismatch")
     return cli_identity
+
+
+def validate_installed_identity(
+    identity: Mapping[str, object],
+    *,
+    environment: Path,
+    repository: Path,
+) -> None:
+    module_value = identity.get("mke_file")
+    executable_value = identity.get("sys_executable")
+    if not isinstance(module_value, str) or not isinstance(executable_value, str):
+        raise ValueError("installed package identity verification failed")
+    module_path = Path(module_value)
+    executable_path = Path(executable_value)
+    if not module_path.is_absolute() or not executable_path.is_absolute():
+        raise ValueError("installed package identity verification failed")
+    resolved_environment = environment.resolve()
+    resolved_repository = repository.resolve()
+    resolved_module = module_path.resolve()
+    normalized_executable = Path(os.path.abspath(executable_path))
+    if (
+        not _is_within(resolved_module, resolved_environment)
+        or _is_within(resolved_module, resolved_repository)
+        or not _is_within(normalized_executable, resolved_environment)
+        or _is_within(normalized_executable, resolved_repository)
+    ):
+        raise ValueError("installed package identity verification failed")
+
+
+def _isolated_runtime_environment() -> dict[str, str]:
+    environment = dict(os.environ)
+    for variable in _PYTHON_ENVIRONMENT_VARIABLES:
+        environment.pop(variable, None)
+    return environment
 
 
 def run_command(
@@ -430,6 +502,8 @@ def _json_command(
     *,
     timeout_seconds: float,
     accepted_returncodes: frozenset[int] = frozenset({0}),
+    cwd: Path | None = None,
+    env: dict[str, str] | None = None,
 ) -> dict[str, object]:
     result = run_command(
         command,
@@ -437,6 +511,8 @@ def _json_command(
         max_stdout_bytes=_MAX_STDOUT_BYTES,
         max_stderr_bytes=_MAX_STDERR_BYTES,
         accepted_returncodes=accepted_returncodes,
+        cwd=cwd,
+        env=env,
     )
     try:
         payload = json.loads(result.stdout)
@@ -444,7 +520,7 @@ def _json_command(
         raise DeploymentProofError("deployment command returned invalid JSON") from error
     if not isinstance(payload, dict):
         raise DeploymentProofError("deployment command returned invalid JSON")
-    return payload
+    return cast(dict[str, object], payload)
 
 
 def _runtime_args(
@@ -481,7 +557,7 @@ def _required_report(payload: Mapping[str, object]) -> dict[str, object]:
     report = payload.get("transcript_intake_report")
     if not isinstance(report, dict):
         raise DeploymentProofError("deployment result is missing transcript report")
-    return report
+    return cast(dict[str, object], report)
 
 
 def _is_within(path: Path, root: Path) -> bool:

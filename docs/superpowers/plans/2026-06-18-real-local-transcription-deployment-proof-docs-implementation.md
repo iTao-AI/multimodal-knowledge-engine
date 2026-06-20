@@ -556,7 +556,7 @@ git diff --check
 The two real-proof commands require the already authorized and prepared cache. Record actual
 results; never substitute mocked results.
 
-- [ ] **Step 2: Run a heavy pre-landing review**
+- [x] **Step 2: Run a heavy pre-landing review**
 
 Use `gstack-review` with emphasis on:
 
@@ -571,6 +571,13 @@ Use `gstack-review` with emphasis on:
 - unsupported platform claims.
 
 Persist the public-neutral review, fix blockers, and rerun all affected checks.
+
+The planning window supplied one authoritative `gstack-review` finding: the wheel deployment proof
+did not isolate installed CLI/MCP module resolution from the source repository. The finding was
+independently reproduced, fixed with external runtime cwd, sanitized Python environment variables,
+and an installed-package identity probe, then recorded in
+`docs/superpowers/reviews/2026-06-18-real-local-transcription-deployment-proof-review.md`. The full
+review was not rerun during remediation.
 
 - [ ] **Step 3: Mark the D3-B plans and design complete**
 
@@ -615,7 +622,7 @@ List actual model-free and real-proof results separately.
 Updated README, ADR status, architecture, CLI/contracts, tutorials, MCP guide, local transcription guide, fixture provenance, and proof guide.
 ```
 
-- [ ] **Step 5: Commit final review metadata**
+- [x] **Step 5: Commit final review metadata**
 
 ```bash
 git add docs/superpowers/reviews/2026-06-18-real-local-transcription-deployment-proof-review.md docs/superpowers/plans/2026-06-18-real-local-transcription-deployment-proof-docs-implementation.md docs/superpowers/specs/2026-06-18-real-local-transcription-deployment-proof-design.md

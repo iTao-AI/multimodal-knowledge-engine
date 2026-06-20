@@ -43,9 +43,14 @@ def test_deployment_orchestrator_runs_isolated_locked_cli_and_mcp_flow(
     wheel.write_bytes(b"wheel")
     runtime_root: list[Path] = []
     commands: list[tuple[str, ...]] = []
+    command_cwds: list[Path | None] = []
+    command_envs: list[dict[str, str] | None] = []
     timeouts: list[float] = []
     limits: list[tuple[int, int]] = []
     report = _report()
+    monkeypatch.setenv("PYTHONPATH", str(repo))
+    monkeypatch.setenv("PYTHONHOME", str(repo / "python-home"))
+    monkeypatch.setenv("VIRTUAL_ENV", str(repo / "source-venv"))
 
     def fake_tempdir(*, prefix: str) -> SimpleNamespace:
         path = tmp_path / "outside-runtime"
@@ -77,11 +82,35 @@ def test_deployment_orchestrator_runs_isolated_locked_cli_and_mcp_flow(
         accepted_returncodes: frozenset[int] = frozenset({0}),
     ) -> SimpleNamespace:
         commands.append(tuple(command))
+        command_cwds.append(cwd)
+        command_envs.append(env)
         timeouts.append(timeout_seconds)
         limits.append((max_stdout_bytes, max_stderr_bytes))
         if command[:2] == ["uv", "export"]:
             output_path = Path(command[command.index("--output-file") + 1])
             output_path.write_text("mcp==1.27.2\n")
+        if len(command) >= 3 and command[1] == "-c" and "mke.__file__" in command[2]:
+            module_file = (
+                runtime_root[0]
+                / "venv"
+                / "lib"
+                / "python3.12"
+                / "site-packages"
+                / "mke"
+                / "__init__.py"
+            )
+            module_file.parent.mkdir(parents=True)
+            module_file.write_text("")
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps(
+                    {
+                        "mke_file": str(module_file),
+                        "sys_executable": str(runtime_root[0] / "venv" / "bin" / "python"),
+                    }
+                ).encode(),
+                stderr=b"",
+            )
         if "doctor" in command:
             return SimpleNamespace(
                 returncode=0,
@@ -174,13 +203,22 @@ def test_deployment_orchestrator_runs_isolated_locked_cli_and_mcp_flow(
     assert commands[1][:2] == ("uv", "export")
     assert commands[2][:2] == ("uv", "venv")
     assert "[transcription]" in " ".join(commands[3])
-    assert "doctor" in commands[4]
+    assert "mke.__file__" in commands[4][2]
+    assert "doctor" in commands[5]
     assert "prepare" not in " ".join(" ".join(command) for command in commands)
     assert any("ingest" in command for command in commands)
     assert any("get" in command for command in commands)
     assert any("search" in command for command in commands)
     assert any("ask" in command for command in commands)
     assert any("mke.proof.mcp_deployment_client" in command for command in commands)
+    installed_command_indexes = range(4, len(commands))
+    assert all(command_cwds[index] == runtime_root[0] for index in installed_command_indexes)
+    for index in installed_command_indexes:
+        command_env = command_envs[index]
+        assert command_env is not None
+        assert "PYTHONPATH" not in command_env
+        assert "PYTHONHOME" not in command_env
+        assert "VIRTUAL_ENV" not in command_env
     rendered = json.dumps(result)
     for forbidden in (str(tmp_path), str(repo), str(model_cache), "argv", "stderr"):
         assert forbidden not in rendered
@@ -208,6 +246,22 @@ def test_deployment_orchestrator_only_prepares_with_explicit_authorization(
         commands.append(tuple(command))
         if command[:2] == ["uv", "export"]:
             Path(command[command.index("--output-file") + 1]).write_text("mcp==1.27.2\n")
+        if len(command) >= 3 and command[1] == "-c" and "mke.__file__" in command[2]:
+            runtime_root = cast(Path, kwargs["cwd"])
+            environment = runtime_root / "venv"
+            module_file = (
+                environment / "lib" / "python3.13" / "site-packages" / "mke" / "__init__.py"
+            )
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps(
+                    {
+                        "mke_file": str(module_file),
+                        "sys_executable": str(environment / "bin" / "python"),
+                    }
+                ).encode(),
+                stderr=b"",
+            )
         if "doctor" in command:
             status = "not_ready" if len([c for c in commands if "doctor" in c]) == 1 else "ready"
             return SimpleNamespace(
@@ -320,6 +374,34 @@ def test_deployment_orchestrator_rejects_unsafe_report_identity() -> None:
 
     with pytest.raises(ValueError, match="identity mismatch"):
         compare_report_identity(unsafe, unsafe)
+
+
+def test_installed_identity_probe_rejects_source_tree_module(
+    tmp_path: Path,
+) -> None:
+    from scripts.transcription_deployment_proof import validate_installed_identity
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    environment = tmp_path / "runtime" / "venv"
+    installed_python = environment / "bin" / "python"
+    installed_python.parent.mkdir(parents=True)
+    source_module = repo / "src" / "mke" / "__init__.py"
+    source_module.parent.mkdir(parents=True)
+    source_module.write_text("")
+
+    with pytest.raises(
+        ValueError,
+        match="installed package identity verification failed",
+    ):
+        validate_installed_identity(
+            {
+                "mke_file": str(source_module),
+                "sys_executable": str(installed_python),
+            },
+            environment=environment,
+            repository=repo,
+        )
 
 
 def test_bounded_command_enforces_output_limit_and_timeout() -> None:
