@@ -40,9 +40,10 @@ Ask validation/statuses, Publication semantics, or transcription behavior. Do no
 
 ### Existing product files
 
+- `src/mke/domain/__init__.py`: add the narrow project-owned `ActiveEvidenceRef` DTO.
 - `src/mke/adapters/sqlite/__init__.py`: add a read-only active-Evidence enumeration query; do not
   modify Search SQL.
-- `src/mke/application/__init__.py`: expose the enumeration through `KnowledgeEngine`.
+- `src/mke/application/__init__.py`: expose enumeration through `KnowledgeEngine`.
 - `src/mke/cli.py`: add `mke eval retrieval --manifest ... [--json]`.
 
 ### Fixtures
@@ -72,6 +73,7 @@ Ask validation/statuses, Publication semantics, or transcription behavior. Do no
 - `docs/README.md`
 - `docs/reference/cli.md`
 - `docs/how-to/run-retrieval-evaluation.md`
+- `benchmarks/retrieval/retrieval-eval-v1-baseline.json`
 - `docs/superpowers/reviews/2026-06-20-retrieval-evaluation-baseline-plan-review.md`
 - `docs/superpowers/reviews/2026-06-20-retrieval-evaluation-baseline-review.md`
 - `docs/superpowers/plans/2026-06-20-retrieval-evaluation-baseline-implementation.md`
@@ -133,6 +135,24 @@ def test_retrieval_eval_corpus_matches_approved_bytes_and_text_layers() -> None:
             assert tuple(len(page.get_text("text", sort=True)) for page in document) == (
                 expected_chars
             )
+
+
+def test_retrieval_eval_reuses_exact_video_fixture_bytes() -> None:
+    expected = {
+        "video/short-audio.mp4": (
+            13025,
+            "4e3c9feffa503e193165ddf27c40c0e0edf9f256c2e8e1e2d863bd7ba3e1fe49",
+        ),
+        "video/short-audio.mp4.mke-transcript.json": (
+            506,
+            "5688603821b9262f85592912ef957d852ea34448e7292c927ea5071a0668e995",
+        ),
+    }
+
+    for relative_path, (expected_bytes, expected_sha256) in expected.items():
+        path = FIXTURES / relative_path
+        assert path.stat().st_size == expected_bytes
+        assert _sha256(path) == expected_sha256
 
 
 def test_retrieval_eval_manifest_freezes_approved_inventory() -> None:
@@ -276,7 +296,7 @@ uv run pytest tests/evaluation/test_fixture_corpus.py -q
 git diff --check
 ```
 
-Expected: `2 passed`; no whitespace errors.
+Expected: `3 passed`; no whitespace errors.
 
 - [ ] **Step 8: Commit the fixture task**
 
@@ -387,7 +407,27 @@ def test_manifest_rejects_checksum_mismatch_before_ingest(tmp_path: Path) -> Non
                 "supporting_files": []
             }
         ],
-        "queries": []
+        "queries": [
+            {
+                "query_id": "answerable-one",
+                "text": "searchable token",
+                "category": "answerable",
+                "relevant_locators": [
+                    {
+                        "document_id": "document-one",
+                        "locator_kind": "page",
+                        "locator_start": 1,
+                        "locator_end": 1
+                    }
+                ]
+            },
+            {
+                "query_id": "unanswerable-one",
+                "text": "absent token",
+                "category": "out_of_corpus",
+                "relevant_locators": []
+            }
+        ]
     }
     path = tmp_path / "manifest.json"
     path.write_text(json.dumps(payload))
@@ -398,7 +438,9 @@ def test_manifest_rejects_checksum_mismatch_before_ingest(tmp_path: Path) -> Non
 
 Also add parameterized tests for malformed IDs, absolute paths, non-lowercase SHA-256, duplicate
 document IDs, unknown document/media/file/query/qrel fields, invalid page/timestamp ranges,
-unanswerable queries with qrels, and missing supporting sidecars.
+unanswerable queries with qrels, missing supporting sidecars, a sidecar path that is not exactly
+`<primary path>.mke-transcript.json`, duplicate primary paths or hashes, empty query groups,
+manifest count/size bounds, and missing manifest versus invalid JSON errors.
 
 - [ ] **Step 2: Run parser tests to verify RED**
 
@@ -426,8 +468,8 @@ from typing import Literal
 
 QueryCategory = Literal["answerable", "lexical_confuser", "out_of_corpus"]
 LocatorKind = Literal["page", "timestamp_ms"]
-_ID_RE = re.compile(r"[a-z0-9]+(?:[-_][a-z0-9]+)*\\Z")
-_SHA256_RE = re.compile(r"[0-9a-f]{64}\\Z")
+_ID_RE = re.compile(r"[a-z0-9]+(?:[-_][a-z0-9]+)*\Z")
+_SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 
 
 class ManifestValidationError(ValueError):
@@ -491,7 +533,11 @@ class RetrievalEvaluationManifest:
 def load_retrieval_manifest(path: Path) -> RetrievalEvaluationManifest:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+    except FileNotFoundError as error:
+        raise ManifestValidationError("manifest file is missing") from error
+    except OSError as error:
+        raise ManifestValidationError("manifest file is not readable") from error
+    except (UnicodeError, json.JSONDecodeError) as error:
         raise ManifestValidationError("manifest is not valid JSON") from error
     if not isinstance(raw, dict):
         raise ManifestValidationError("manifest must be a JSON object")
@@ -501,8 +547,17 @@ def load_retrieval_manifest(path: Path) -> RetrievalEvaluationManifest:
     manifest_id = _identifier(raw["manifest_id"], "manifest identifier is invalid")
     documents = tuple(_document(item) for item in _list(raw["documents"], "documents"))
     queries = tuple(_query(item) for item in _list(raw["queries"], "queries"))
+    _require_manifest_bounds(documents, queries)
     _unique((item.document_id for item in documents), "document identifiers must be unique")
     _unique((item.query_id for item in queries), "query identifiers must be unique")
+    _unique(
+        (str(item.primary_file.path) for item in documents),
+        "primary fixture paths must be unique",
+    )
+    _unique(
+        (item.primary_file.sha256 for item in documents),
+        "primary fixture checksums must be unique",
+    )
     document_ids = {item.document_id for item in documents}
     for query in queries:
         for locator in query.relevant_locators:
@@ -529,14 +584,21 @@ Implement the private helpers in the same file with these exact responsibilities
 - `_fixture_file`: validate role presence by context, relative `PurePosixPath`, SHA-256, and positive
   non-boolean integer byte size.
 - `_document`: support only `application/pdf` and `video/mp4`; PDF has no supporting files; video
-  has exactly one `transcript_sidecar`.
+  has exactly one `transcript_sidecar` whose path is exactly
+  `<primary path>.mke-transcript.json`.
 - `_query`: validate text type, stripped length 1–1000, current ASCII searchable token,
   category/qrel cardinality, and unique qrels.
 - `_locator`: validate exact keys and page/timestamp integer range rules.
 - `_unique`: reject duplicate values.
+- `_require_manifest_bounds`: require 1–32 documents, 2–1,000 queries, at least one answerable and
+  one unanswerable query, and at most 100 MiB of declared primary plus supporting fixture bytes.
 - `_validate_fixture_files`: require readable files, exact byte sizes, and streaming SHA-256
   matches. Raise `FixtureValidationError` for these fixture-state failures, while schema, identity,
   path, and qrel-shape failures remain `ManifestValidationError`.
+- `snapshot_retrieval_fixtures`: copy each validated file into an evaluator-owned destination while
+  hashing, preserve manifest-relative paths and video/sidecar adjacency, revalidate the copied
+  bytes, and return an equivalent manifest rooted at the immutable snapshot. If source bytes change
+  during the copy, raise `FixtureValidationError`.
 
 Create `src/mke/evaluation/__init__.py` exporting only:
 
@@ -546,6 +608,7 @@ from mke.evaluation.manifest import (
     ManifestValidationError,
     RetrievalEvaluationManifest,
     load_retrieval_manifest,
+    snapshot_retrieval_fixtures,
 )
 
 __all__ = [
@@ -553,6 +616,7 @@ __all__ = [
     "ManifestValidationError",
     "RetrievalEvaluationManifest",
     "load_retrieval_manifest",
+    "snapshot_retrieval_fixtures",
 ]
 ```
 
@@ -582,6 +646,7 @@ git commit -m "feat(eval): validate retrieval manifests"
 ### Task 3: Add Read-Only Active Evidence Enumeration
 
 **Files:**
+- Modify: `src/mke/domain/__init__.py`
 - Modify: `src/mke/adapters/sqlite/__init__.py`
 - Modify: `src/mke/application/__init__.py`
 - Modify: `tests/adapters/test_sqlite_fts.py`
@@ -594,6 +659,7 @@ Append to `tests/adapters/test_sqlite_fts.py`:
 from pathlib import Path
 
 from mke.application import KnowledgeEngine
+from mke.domain import ActiveEvidenceRef
 from tests.conftest import PDF_FIXTURES
 
 
@@ -608,12 +674,10 @@ def test_list_active_evidence_returns_only_current_publication(tmp_path: Path) -
 
         assert active
         assert {item.source_id for item in active} == {source_id}
-        assert all(item.publication_id for item in active)
-        assert [item.text for item in active] == [
-            "Revised trustworthy evidence replaces page one.",
-            "Retry publication keeps active search stable.",
+        assert active == [
+            ActiveEvidenceRef(source_id, "page", 1, 1),
+            ActiveEvidenceRef(source_id, "page", 2, 2),
         ]
-        assert not any("Publication search returns" in item.text for item in active)
     finally:
         engine.close()
 ```
@@ -630,15 +694,25 @@ Expected: FAIL because `KnowledgeEngine.list_active_evidence` does not exist.
 
 - [ ] **Step 3: Add the store query without modifying Search**
 
+Add the project-owned DTO in `src/mke/domain/__init__.py`:
+
+```python
+@dataclass(frozen=True)
+class ActiveEvidenceRef:
+    source_id: str
+    locator_kind: str
+    locator_start: int
+    locator_end: int
+```
+
 Add this method immediately before `SQLiteStore.search`:
 
 ```python
-def list_active_evidence(self) -> list[SearchResult]:
+def list_active_evidence(self) -> list[ActiveEvidenceRef]:
     rows = self._connection.execute(
         """
-        SELECT evidence.evidence_id, publications.publication_id,
-               evidence.source_id, evidence.locator_kind, evidence.locator_start,
-               evidence.locator_end, evidence.text
+        SELECT evidence.source_id, evidence.locator_kind,
+               evidence.locator_start, evidence.locator_end
         FROM sources
         JOIN publications
           ON publications.publication_id = sources.active_publication_id
@@ -646,41 +720,29 @@ def list_active_evidence(self) -> list[SearchResult]:
           ON evidence.run_id = publications.run_id
          AND evidence.source_id = sources.source_id
         ORDER BY evidence.source_id, evidence.locator_kind,
-                 evidence.locator_start, evidence.locator_end, evidence.evidence_id
+                 evidence.locator_start, evidence.locator_end
         """
     ).fetchall()
-    return [_search_result_from_row(row) for row in rows]
+    return [
+        ActiveEvidenceRef(
+            source_id=str(row["source_id"]),
+            locator_kind=str(row["locator_kind"]),
+            locator_start=int(row["locator_start"]),
+            locator_end=int(row["locator_end"]),
+        )
+        for row in rows
+    ]
 ```
 
-Extract the existing `SearchResult(...)` conversion at the end of `search()` into:
-
-```python
-def _search_result_from_row(row: sqlite3.Row) -> SearchResult:
-    return SearchResult(
-        evidence_id=str(row["evidence_id"]),
-        publication_id=str(row["publication_id"]),
-        source_id=str(row["source_id"]),
-        locator_kind=str(row["locator_kind"]),
-        locator_start=int(row["locator_start"]),
-        locator_end=int(row["locator_end"]),
-        text=str(row["text"]),
-    )
-```
-
-Change only the conversion in `search()` to:
-
-```python
-return [_search_result_from_row(row) for row in rows]
-```
-
-Do not change its SQL or ordering.
+Import `ActiveEvidenceRef` from the domain module. Do not refactor or change existing Search
+SQL, conversion, or ordering.
 
 - [ ] **Step 4: Expose the read-only method through the application facade**
 
 Add immediately before `KnowledgeEngine.search`:
 
 ```python
-def list_active_evidence(self) -> list[SearchResult]:
+def list_active_evidence(self) -> list[ActiveEvidenceRef]:
     """Return active Evidence for internal diagnostics and evaluation."""
     return self._store.list_active_evidence()
 ```
@@ -705,6 +767,7 @@ Expected: all pass; Pyright reports `0 errors`.
 
 ```bash
 git add \
+  src/mke/domain/__init__.py \
   src/mke/adapters/sqlite/__init__.py \
   src/mke/application/__init__.py \
   tests/adapters/test_sqlite_fts.py
@@ -782,8 +845,10 @@ def test_metrics_round_values_to_six_decimal_places() -> None:
     assert metrics.locator_recall_at_1.count == 1
 ```
 
-Add tests for multiple unanswerable categories, false-positive Search with refused Ask, first
-relevant rank after a non-relevant result, and empty answerable/unanswerable group rejection.
+Add tests for multiple unanswerable categories, first relevant rank after a non-relevant result,
+Search/Ask consistency, and empty answerable/unanswerable group rejection. Under the current
+application contract, a non-empty Search result with a refused Ask is impossible and must not be
+used as a metric fixture.
 
 - [ ] **Step 2: Run metric tests to verify RED**
 
@@ -915,8 +980,8 @@ from mke.evaluation.metrics import MetricValue, RetrievalMetrics
 from mke.evaluation.report import (
     QueryEvaluationResult,
     RetrievalEvaluationReport,
-    render_human_report,
-    render_json_report,
+    render_retrieval_human_report,
+    render_retrieval_json_report,
 )
 
 
@@ -928,6 +993,8 @@ def _metrics() -> RetrievalMetrics:
 def test_json_report_is_public_safe_and_complete() -> None:
     report = RetrievalEvaluationReport(
         manifest_id="retrieval-eval-v1",
+        benchmark_scope="small_english_page_timestamp_corpus",
+        quality_gate="none",
         status="passed",
         quality_status="baseline_recorded",
         document_count=3,
@@ -951,7 +1018,7 @@ def test_json_report_is_public_safe_and_complete() -> None:
         duration_ms=10,
     )
 
-    rendered = render_json_report(report)
+    rendered = render_retrieval_json_report(report)
     payload = json.loads(rendered)
 
     assert payload["schema_version"] == "mke.retrieval_eval_report.v1"
@@ -964,7 +1031,8 @@ def test_json_report_is_public_safe_and_complete() -> None:
 
 Also assert:
 
-- human first line contains every aggregate field from the approved spec;
+- the human aggregate line contains every aggregate field from the approved spec;
+- human output includes `scope=small_english_page_timestamp_corpus quality_gate=none`;
 - one result line per query uses only query ID, category, counts, rank, Ask status, and stable
   locators;
 - failed reports include stable `problem`, `cause`, `next_step`, `subject_id`;
@@ -1022,6 +1090,8 @@ class QueryEvaluationResult:
 @dataclass(frozen=True)
 class RetrievalEvaluationReport:
     manifest_id: str
+    benchmark_scope: str
+    quality_gate: Literal["none"]
     status: EvaluationStatus
     quality_status: QualityStatus
     document_count: int
@@ -1043,7 +1113,7 @@ class RetrievalEvaluationReport:
         return self.query_count - self.answerable_count
 
 
-def render_json_report(report: RetrievalEvaluationReport) -> str:
+def render_retrieval_json_report(report: RetrievalEvaluationReport) -> str:
     return json.dumps(_payload(report), indent=2, sort_keys=False)
 ```
 
@@ -1051,12 +1121,13 @@ Implement `_payload` explicitly rather than using unrestricted recursive seriali
 only the approved fields, include `"evaluation": "retrieval"`, and convert `StableLocator` to
 `document_id/locator_kind/locator_start/locator_end`.
 
-Implement `render_human_report` with:
+Implement `render_retrieval_human_report` with:
 
 1. `mke eval retrieval`
-2. the approved aggregate line,
-3. one bounded line per query result,
-4. one bounded line per integrity failure.
+2. the approved corpus-scope and quality-gate line,
+3. the approved aggregate line with all seven metrics,
+4. one bounded line per query result,
+5. one bounded line per integrity failure.
 
 When `report.metrics is None`, omit metric fields and use
 `quality_status=not_recorded`.
@@ -1130,6 +1201,10 @@ def test_low_quality_is_not_an_integrity_failure(
         "mke.evaluation.runner._search_locators",
         lambda *args, **kwargs: (),
     )
+    monkeypatch.setattr(
+        "mke.evaluation.runner._ask_status",
+        lambda *args, **kwargs: "insufficient_evidence",
+    )
 
     report = run_retrieval_evaluation(
         Path("tests/fixtures/retrieval-eval-v1.json")
@@ -1153,6 +1228,10 @@ def test_nondeterministic_order_fails_closed(
         return (StableLocator("usgs-volcano-hazards", "page", page, page),)
 
     monkeypatch.setattr("mke.evaluation.runner._search_locators", unstable)
+    monkeypatch.setattr(
+        "mke.evaluation.runner._ask_status",
+        lambda *args, **kwargs: "evidence_found",
+    )
 
     report = run_retrieval_evaluation(
         Path("tests/fixtures/retrieval-eval-v1.json")
@@ -1170,6 +1249,9 @@ Also add tests for:
 - failed ingest returns `retrieval_eval_ingest_failed`;
 - skipped query returns `retrieval_eval_incomplete`;
 - random Run/Source/Evidence IDs do not appear in report results;
+- duplicate active Evidence rows for one stable locator return `retrieval_eval_qrel_invalid`;
+- Search emptiness and Ask status disagreement returns `retrieval_eval_incomplete`;
+- the same immutable fixture snapshot feeds both workspaces;
 - temporary directories are removed after success and failure.
 
 - [ ] **Step 2: Run runner tests to verify RED**
@@ -1195,7 +1277,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from mke.application import KnowledgeEngine
-from mke.domain import RunState, SearchResult
+from mke.domain import ActiveEvidenceRef, RunState, SearchResult
 from mke.evaluation.manifest import (
     EvaluationDocument,
     EvaluationQuery,
@@ -1204,6 +1286,7 @@ from mke.evaluation.manifest import (
     RetrievalEvaluationManifest,
     StableLocator,
     load_retrieval_manifest,
+    snapshot_retrieval_fixtures,
 )
 from mke.evaluation.metrics import QueryMetricInput, RetrievalMetrics, calculate_metrics
 from mke.evaluation.report import (
@@ -1241,19 +1324,23 @@ def run_retrieval_evaluation(manifest_path: Path) -> RetrievalEvaluationReport:
     try:
         manifest = load_retrieval_manifest(manifest_path)
         manifest_id = manifest.manifest_id
-        first = _run_workspace(manifest)
-        second = _run_workspace(manifest)
-        _require_deterministic(first, second)
-        return RetrievalEvaluationReport(
-            manifest_id=manifest.manifest_id,
-            status="passed",
-            quality_status="baseline_recorded",
-            document_count=len(manifest.documents),
-            results=first.results,
-            metrics=first.metrics,
-            integrity_failures=(),
-            duration_ms=_elapsed_ms(started),
-        )
+        with tempfile.TemporaryDirectory(prefix="mke-retrieval-eval-snapshot-") as snapshot:
+            staged = snapshot_retrieval_fixtures(manifest, Path(snapshot))
+            first = _run_workspace(staged)
+            second = _run_workspace(staged)
+            _require_deterministic(first, second)
+            return RetrievalEvaluationReport(
+                manifest_id=manifest.manifest_id,
+                benchmark_scope="small_english_page_timestamp_corpus",
+                quality_gate="none",
+                status="passed",
+                quality_status="baseline_recorded",
+                document_count=len(manifest.documents),
+                results=first.results,
+                metrics=first.metrics,
+                integrity_failures=(),
+                duration_ms=_elapsed_ms(started),
+            )
     except FixtureValidationError as error:
         return _failed_report(
             manifest_id=manifest_id,
@@ -1301,8 +1388,8 @@ Implement `_run_workspace`:
 3. Ingest documents in manifest order.
 4. Require `RunState.PUBLISHED`.
 5. Record `source_id -> document_id` from `engine.get_run(result.run_id)`.
-6. Build the complete active locator set from `engine.list_active_evidence()`.
-7. Require every approved qrel in that set.
+6. Build the complete active locator multiset from `engine.list_active_evidence()`.
+7. Require exactly one active Evidence row per stable locator and every approved qrel in that set.
 8. Evaluate every query in manifest order with Search limit `5` and Ask limit `5`.
 9. Close the engine in `finally`.
 10. Require exactly one result per manifest query.
@@ -1331,10 +1418,12 @@ def _stable_locator(
 ```
 
 `_search_locators` must call only `engine.search(query.text, limit=5)`.
-Ask must call only `engine.ask(query.text, limit=5)`.
+`_ask_status` must call only `engine.ask(query.text, limit=5)` and return its status.
 
 For each query, calculate counts at 1/3/5 and first relevant rank from stable locators. Feed the
-same stable locators and Ask status to `calculate_metrics`.
+same stable locators and Ask status to `calculate_metrics`. Require
+`ask.status == "insufficient_evidence"` exactly when Search returns no rows; disagreement is
+`retrieval_eval_incomplete`.
 
 - [ ] **Step 4: Implement deterministic comparison and failed report helpers**
 
@@ -1353,6 +1442,8 @@ fixture checksum does not match
 fixture byte size does not match
 document ingest did not publish
 qrel does not resolve to active Evidence
+active Evidence locator is not unique
+Search and Ask results disagree
 retrieval evaluation did not execute every query
 retrieval evaluation results are nondeterministic
 retrieval evaluation failed
@@ -1360,6 +1451,8 @@ retrieval evaluation failed
 
 `_failed_report` must create a report with:
 
+- `benchmark_scope="small_english_page_timestamp_corpus"`
+- `quality_gate="none"`
 - `status="failed"`
 - `quality_status="not_recorded"`
 - no metrics,
@@ -1371,7 +1464,10 @@ retrieval evaluation failed
 Update `src/mke/evaluation/__init__.py` to export:
 
 ```python
-from mke.evaluation.report import render_human_report, render_json_report
+from mke.evaluation.report import (
+    render_retrieval_human_report,
+    render_retrieval_json_report,
+)
 from mke.evaluation.runner import run_retrieval_evaluation
 ```
 
@@ -1431,6 +1527,7 @@ def test_cli_eval_retrieval_outputs_human_baseline(
     output = capsys.readouterr()
     assert output.err == ""
     assert "mke eval retrieval" in output.out
+    assert "scope=small_english_page_timestamp_corpus quality_gate=none" in output.out
     assert "status=passed quality_status=baseline_recorded" in output.out
     assert "documents=3 queries=24 answerable=16 unanswerable=8" in output.out
     assert "query_id=volcano-answerable-01 category=answerable" in output.out
@@ -1447,6 +1544,8 @@ def test_cli_eval_retrieval_outputs_one_json_object(
     payload = json.loads(output.out)
     assert output.err == ""
     assert payload["evaluation"] == "retrieval"
+    assert payload["benchmark_scope"] == "small_english_page_timestamp_corpus"
+    assert payload["quality_gate"] == "none"
     assert payload["status"] == "passed"
     assert payload["quality_status"] == "baseline_recorded"
     assert payload["queries"] == 24
@@ -1492,7 +1591,16 @@ def test_cli_eval_retrieval_help_documents_required_manifest(
     output = capsys.readouterr()
     assert "--manifest" in output.out
     assert "--json" in output.out
+    assert "small English" in output.out
 ```
+
+Also add contract tests that:
+
+- explicit global `--db` with `eval` exits `2` instead of being silently ignored;
+- evaluation creates no current-directory `mke.sqlite`;
+- monkeypatched human and JSON renderers that raise return exit `1` with a fixed redacted failed
+  report, no traceback, and no absolute path;
+- missing manifest and invalid JSON return distinct stable causes.
 
 - [ ] **Step 2: Run CLI tests to verify RED**
 
@@ -1513,10 +1621,25 @@ evaluation = subcommands.add_parser("eval")
 evaluation_subcommands = evaluation.add_subparsers(
     dest="evaluation_command", required=True
 )
-retrieval = evaluation_subcommands.add_parser("retrieval")
-retrieval.add_argument("--manifest", type=Path, required=True)
+retrieval = evaluation_subcommands.add_parser(
+    "retrieval",
+    description=(
+        "Record the current baseline on a small English page/timestamp corpus; "
+        "no retrieval-quality threshold is applied."
+    ),
+)
+retrieval.add_argument(
+    "--manifest",
+    type=Path,
+    required=True,
+    help="external retrieval-evaluation manifest",
+)
 retrieval.add_argument("--json", action="store_true", dest="json_output")
 ```
+
+Capture the raw argv before parsing. If the parsed command is `eval` and raw argv contains `--db`
+or `--db=...`, call `parser.error("eval uses two temporary workspaces; --db is not supported")`.
+This keeps the E1 change local instead of moving the existing global option for every command.
 
 Dispatch before runtime configuration:
 
@@ -1524,16 +1647,26 @@ Dispatch before runtime configuration:
 if args.command == "eval":
     if args.evaluation_command == "retrieval":
         report = run_retrieval_evaluation(args.manifest)
-        print(
-            render_retrieval_json_report(report)
-            if args.json_output
-            else render_retrieval_human_report(report)
+        rendered, rendering_failed = _render_retrieval_report_safely(
+            report,
+            json_output=args.json_output,
         )
-        return 0 if report.status == "passed" else 1
+        print(rendered)
+        return 0 if report.status == "passed" and not rendering_failed else 1
     parser.error("unsupported evaluation command")
 ```
 
-Alias imports so retrieval report renderers do not collide with proof report renderers.
+Import the retrieval-specific renderer names directly; do not create generic renderer aliases.
+`_render_retrieval_report_safely` catches any renderer exception and returns one fixed failed
+human line or one fixed JSON object with:
+
+```text
+problem=retrieval_eval_incomplete
+cause=retrieval evaluation report could not be rendered
+next_step=inspect_retrieval_eval_inputs
+```
+
+The fallback contains no exception text, path, query, Evidence, or host detail.
 
 - [ ] **Step 4: Keep evaluation failures inside the evaluation report contract**
 
@@ -1577,6 +1710,7 @@ After `uv run pyright`, add:
           assert payload["answerable"] == 16
           assert payload["unanswerable"] == 8
           assert payload["integrity_failures"] == []
+          print(json.dumps(payload["metrics"], sort_keys=True))
           PY
 ```
 
@@ -1598,7 +1732,10 @@ After the core wheel install and `mke demo --verify`, add:
           PY
 ```
 
-Do not assert exact metric values.
+Validate `benchmarks/retrieval/retrieval-eval-v1-baseline.json` as JSON and require the expected
+baseline schema, manifest ID, manifest checksum, fixture checksums, environment fields, metrics,
+per-query results, and no duration. Do not compare current scores to the canonical artifact and do
+not assert exact metric values.
 
 - [ ] **Step 7: Run the complete local verification set**
 
@@ -1636,6 +1773,7 @@ git commit -m "feat(cli): add retrieval evaluation baseline"
 ### Task 8: Record The Baseline, Complete Documentation, And Prepare Review
 
 **Files:**
+- Create: `benchmarks/retrieval/retrieval-eval-v1-baseline.json`
 - Modify: `README.md`
 - Modify: `README_CN.md`
 - Modify: `docs/README.md`
@@ -1671,19 +1809,43 @@ PY
 Use these actual values in documentation. Do not record `duration_ms` as a product performance
 claim.
 
-- [ ] **Step 2: Write the operator how-to**
+- [ ] **Step 2: Write the canonical machine-readable baseline artifact**
+
+Create `benchmarks/retrieval/retrieval-eval-v1-baseline.json` from the successful final report.
+Use schema `mke.retrieval_eval_baseline.v1` and include only public-safe deterministic fields:
+
+- baseline schema and `retrieval-eval-v1` manifest ID;
+- manifest SHA-256 and all primary/supporting fixture SHA-256 values;
+- `main` base SHA and the Task 7 evaluation-code commit;
+- Python, SQLite, and PyMuPDF versions from the verified run;
+- report schema, corpus scope, quality gate, document/query counts, category counts, metrics, and
+  per-query outcomes;
+- known answerable queries with no relevant locator at rank 5 and unanswerable false positives.
+
+Omit duration, absolute paths, query text, Evidence text, random IDs, environment variables, and
+host identity. Validate the JSON and verify it contains none of those fields. This artifact is a
+reviewed observation for later comparison; CI validates shape and provenance but does not require
+future scores to match it.
+
+- [ ] **Step 3: Write the operator how-to**
 
 Create `docs/how-to/run-retrieval-evaluation.md` covering:
 
 - prerequisite `uv sync --locked`;
 - human and JSON commands;
 - `status` versus `quality_status`;
+- corpus scope and `quality_gate=none`;
 - metric definitions;
 - integrity exit codes `0/1/2`;
 - offline/checksum behavior;
 - how to read answerable misses, lexical confusers, and refusal rate;
+- that `ask_refusal_rate` is derived from Search no-hit behavior in E1;
 - why low baseline scores do not fail E1;
-- explicit non-scope: algorithm improvement, private corpus, CJK, OCR, latency benchmark.
+- explicit non-scope: algorithm improvement, private corpus, CJK, OCR, latency benchmark;
+- source-tree and wheel-installed commands with an explicit external manifest;
+- how to capture JSON before and after a retrieval change and compare only matching manifest/report
+  versions;
+- the canonical baseline artifact path and why it is not a quality gate.
 
 Include copy-paste commands:
 
@@ -1696,7 +1858,9 @@ uv run mke eval retrieval \
   --json | python -m json.tool
 ```
 
-- [ ] **Step 3: Update public navigation and CLI reference**
+Do not add a built-in default manifest, `--output`, or `--compare` command in E1.
+
+- [ ] **Step 4: Update public navigation and CLI reference**
 
 Update:
 
@@ -1708,14 +1872,14 @@ Update:
 Do not claim hybrid retrieval, semantic retrieval, stable product quality, private-corpus quality,
 or CJK support.
 
-- [ ] **Step 4: Record the observed baseline and known misses**
+- [ ] **Step 5: Record the observed baseline and known misses**
 
 Add a section to the how-to or a dedicated subsection in the durable review with:
 
 - `main` base SHA and E1 branch HEAD;
 - manifest ID and three document identities;
 - actual metrics;
-- every answerable zero-hit query ID;
+- every answerable query ID with no relevant locator in the first five results;
 - every unanswerable false-positive query ID;
 - whether Ask refused each unanswerable query;
 - explicit statement that scores apply only to `retrieval-eval-v1`.
@@ -1723,12 +1887,12 @@ Add a section to the how-to or a dedicated subsection in the durable review with
 Do not include query text in normal command output. Documentation may link to the committed manifest
 as the source of query text.
 
-- [ ] **Step 5: Run `gstack-document-release` audit**
+- [ ] **Step 6: Run `gstack-document-release` audit**
 
 Use the document-release skill against the complete branch diff. Apply only changes within E1
 scope. Do not let the audit create a PR, push, version bump, or release.
 
-- [ ] **Step 6: Run authoritative pre-landing review in the planning window**
+- [ ] **Step 7: Run authoritative pre-landing review in the planning window**
 
 Execution window stops with a clean local branch after implementation and full verification.
 Planning window runs one authoritative `gstack-review` against:
@@ -1746,7 +1910,7 @@ Persist public-neutral findings in:
 If findings exist, return them to the execution window for
 `superpowers:receiving-code-review`, targeted fixes, full verification, and targeted re-review.
 
-- [ ] **Step 7: Run final verification after all review fixes**
+- [ ] **Step 8: Run final verification after all review fixes**
 
 Run:
 
@@ -1759,6 +1923,7 @@ uv run mke eval retrieval --manifest tests/fixtures/retrieval-eval-v1.json
 uv run mke eval retrieval --manifest tests/fixtures/retrieval-eval-v1.json --json \
   > /tmp/mke-retrieval-eval-final.json
 python -m json.tool /tmp/mke-retrieval-eval-final.json >/dev/null
+python -m json.tool benchmarks/retrieval/retrieval-eval-v1-baseline.json >/dev/null
 uv run mke proof run
 uv run mke demo --verify
 git diff --check main...HEAD
@@ -1773,7 +1938,7 @@ Expected:
 - no model download or network access occurs during evaluation;
 - no exact metric threshold is required.
 
-- [ ] **Step 8: Mark the spec and plan complete**
+- [ ] **Step 9: Mark the spec and plan complete**
 
 Update the design status to the actual merged PR and date only after merge.
 
@@ -1785,10 +1950,11 @@ Before PR creation, update this plan with:
 - durable review result,
 - remaining risks.
 
-- [ ] **Step 9: Commit documentation and completion records**
+- [ ] **Step 10: Commit documentation and completion records**
 
 ```bash
 git add \
+  benchmarks/retrieval/retrieval-eval-v1-baseline.json \
   README.md \
   README_CN.md \
   docs/README.md \
@@ -1822,125 +1988,311 @@ Return:
 
 ## Autoplan Review Record
 
-### Scope And Product Decision
+### Premise Challenge And Scope Decision
 
-E1 holds scope at a versioned, offline baseline. It records what the current FTS5 Search and Ask
-contracts do; it does not improve ranking or introduce a new retrieval dependency. This is the
-smallest stage that converts later retrieval changes from intuition into comparable evidence.
+The premise “measure before improving retrieval” holds. The stronger premise “this E1 corpus can
+select among CJK tokenization, semantic retrieval, fusion, and reranking” does not. The corrected
+claim is:
+
+> E1 is a coarse, deterministic observation and regression baseline for the current English
+> page/timestamp retrieval contract. It is not an algorithm-selection benchmark.
+
+The stage remains the smallest useful step because no repository-visible query/qrel baseline
+currently exists. Expanding it into a large benchmark would delay evidence capture and blur the
+causal baseline.
+
+### What Already Exists
+
+- active-Publication-only FTS5 Search and evidence-only Ask;
+- page and timestamp Evidence through normal PDF/video ingest;
+- deterministic sidecar video fixture and completed real-transcription proof;
+- product proof with human/JSON reporting and redaction tests;
+- source-tree and isolated-wheel CI patterns;
+- strict Run/Publication failure isolation.
+
+E1 reuses these contracts. It does not duplicate FTS SQL, create a retrieval adapter, or depend on
+proof runner/report DTOs.
+
+### Dream State Delta
+
+```text
+today
+  product proof says lifecycle/contracts work
+  retrieval quality is anecdotal
+
+E1
+  fixed public corpus + qrels
+  deterministic current-behavior report
+  reviewed canonical baseline artifact
+
+later decision-specific evaluation
+  expanded development/holdout slices
+  candidate quality + local resource costs
+  explicit improvement/regression gates
+```
+
+E1 closes the first delta only.
+
+### CEO Review Coverage
+
+| Area | Result |
+|---|---|
+| User problem | Confirmed: contributors lack reproducible retrieval evidence. |
+| Scope | Held to baseline; algorithm implementation remains excluded. |
+| Evidence strength | Narrowed: small English corpus, coarse macro signal, no statistical inference. |
+| Existing leverage | Reuses normal ingest, Search, Ask, fixtures, proof/CI patterns. |
+| Alternatives | Proof integration, runtime downloads, private corpus, and large benchmark rejected or deferred. |
+| Temporal sequencing | Baseline first; expanded candidate protocol before tuning later algorithms. |
+| Reversibility | Additive package/CLI/docs; rollback removes the evaluator without migration. |
+| Public claims | Scores apply only to `retrieval-eval-v1`; no CJK/private-corpus/product-quality claim. |
+| Failure value | Low scores are useful observations; only integrity failures block completion. |
+| Six-month regret | Canonical artifact and versioned contracts preserve evidence without freezing quality. |
+
+### CEO Voice Consensus
+
+| Topic | Codex | Claude | Decision |
+|---|---|---|---|
+| Baseline before retrieval change | Agree | Agree | Keep E1. |
+| Broad algorithm-selection claim | Reject | Reject | Narrow the claim. |
+| Ask refusal independence | Derived | Derived | Keep only as contract observation. |
+| Small corpus limitation | Must be explicit | Must be explicit | Add coarse-signal boundary. |
+| Large benchmark expansion now | Recommend expansion or narrower claim | Prefer targeted corrections | Hold scope; defer expanded protocol. |
+| Public/private boundary | Remove local restore path | Verify all fixture provenance | Sanitize public docs and preserve local-only artifacts. |
+
+### Engineering Scope Challenge
+
+The original plan reused `SearchResult` for active-Evidence enumeration, validated source fixtures
+before reopening them for ingest, allowed ambiguous duplicate locators after future chunking, and
+listed renderer failure as a gate without a safe rendering boundary. Those are real contract gaps,
+not reasons to expand retrieval scope.
+
+The engineering correction adds only the seams required to make the approved baseline trustworthy:
+a narrow DTO, immutable fixture snapshot, locator uniqueness, Search/Ask consistency, safe renderer
+fallback, bounded manifests, and a canonical reviewed artifact.
 
 ### Architecture And Data Flow
 
 ```text
-checked-in JSON manifest + checksummed fixtures
-                    |
-                    v
-        strict schema / path / byte validation
-                    |
-          +---------+---------+
-          |                   |
-          v                   v
-  fresh workspace A   fresh workspace B
-          |                   |
-          v                   v
+external JSON manifest + checksummed fixtures
+                      |
+                      v
+ strict schema / limits / path / Asset validation
+                      |
+                      v
+      immutable revalidated fixture snapshot
+                      |
+            +---------+---------+
+            |                   |
+            v                   v
+    fresh workspace A   fresh workspace B
+            |                   |
  normal ingest -> active Publication/Evidence
-          |                   |
-          v                   v
- current Search + Ask  current Search + Ask
-          |                   |
-          +---------+---------+
-                    |
-       ordered stable-locator comparison
-                    |
-                    v
-       integrity verdict + report-only metrics
+            |                   |
+ ActiveEvidenceRef qrel/uniqueness validation
+            |                   |
+ current Search + current evidence-only Ask
+            +---------+---------+
+                      |
+ ordered stable-locator + non-duration comparison
+                      |
+ public-safe report + canonical baseline artifact
 ```
 
-The read-only active-Evidence enumeration is required only to validate that qrels identify
-currently published Evidence. Search and Ask remain the systems under evaluation.
+`mke.proof` stays separate because its cases, sequencing, and lifecycle assertions differ from
+external-manifest qrels and retrieval metrics.
 
 ### Test Coverage Flow
 
 ```text
-fixture bytes/provenance
-  -> manifest parser tests
-  -> active Publication enumeration tests
-  -> pure metric tests
-  -> report/redaction tests
-  -> two-workspace integration tests
-  -> public CLI tests
-  -> source-tree CI + isolated wheel CI
-  -> existing full suite / proof / demo
+exact PDF/video bytes and provenance
+  -> strict manifest, bounds, adjacency, duplicate Asset tests
+  -> immutable snapshot / mutation tests
+  -> active-Publication narrow DTO and stale exclusion
+  -> qrel existence / stable-locator uniqueness
+  -> pure metrics / derived Ask consistency
+  -> report completeness / redaction / renderer fallback
+  -> two-workspace determinism / cleanup
+  -> CLI human / JSON / help / exit / explicit --db rejection
+  -> source-tree CI / external-manifest isolated wheel CI
+  -> canonical artifact schema and provenance
+  -> full suite / Ruff / Pyright / build / proof / demo
 ```
+
+A detailed local engineering test-plan artifact was also produced outside the repository; the
+public plan above is the durable execution source.
 
 ### Failure Modes And Recovery
 
 | Failure mode | Detection | Public result | Recovery |
 |---|---|---|---|
-| Invalid manifest schema or qrel shape | Strict parser before ingest | `retrieval_eval_manifest_invalid` | Fix the manifest and rerun |
-| Missing or mismatched fixture bytes | Size and streaming SHA-256 validation | `retrieval_eval_fixture_invalid` | Restore the approved fixture bytes |
-| Ingest does not publish | Run-state check | `retrieval_eval_ingest_failed` | Inspect the named manifest document |
-| Qrel does not resolve to active Evidence | Read-only active-Evidence set | `retrieval_eval_qrel_invalid` | Correct locator or fixture |
-| Query execution is partial | Result-count and ID-order check | `retrieval_eval_incomplete` | Inspect evaluation inputs and runner |
-| Fresh workspaces disagree | Ordered stable-locator comparison | `retrieval_eval_nondeterministic` | Investigate ordering/state leakage |
-| Unexpected exception | Final redacted fallback | `retrieval_eval_incomplete` | Inspect local diagnostics; no raw exception is reported |
-| Low retrieval quality | Metrics only | `status=passed`, `quality_status=baseline_recorded` | Use the recorded misses to design the next stage |
+| Invalid manifest schema, limits, or qrel shape | Strict parser before snapshot | `retrieval_eval_manifest_invalid` | Fix the manifest and rerun |
+| Missing, mismatched, or mutating fixture bytes | Snapshot size/SHA-256 verification | `retrieval_eval_fixture_invalid` | Restore exact bytes |
+| Duplicate manifest Asset identity | Path/SHA uniqueness validation | `retrieval_eval_manifest_invalid` | Use distinct documents |
+| Ingest does not publish | Run-state check | `retrieval_eval_ingest_failed` | Inspect the named document |
+| Qrel missing or active locator duplicated | `ActiveEvidenceRef` multiset | `retrieval_eval_qrel_invalid` | Correct qrel/segmentation |
+| Search and Ask disagree | Per-query consistency gate | `retrieval_eval_incomplete` | Inspect current application contract |
+| Query execution is partial | Result count and ID order | `retrieval_eval_incomplete` | Inspect evaluator execution |
+| Fresh workspaces disagree | Ordered result/metric comparison | `retrieval_eval_nondeterministic` | Investigate ordering/state leakage |
+| Renderer raises | CLI safe-render boundary | Fixed redacted failed report | Inspect renderer locally |
+| Unexpected exception | Final redacted fallback | `retrieval_eval_incomplete` | Inspect local diagnostics |
+| Low retrieval quality | Metrics only | `status=passed`, `quality_status=baseline_recorded` | Use misses to design later evaluation |
 
 ### Error And Rescue Contract
 
 | Layer | Error boundary | Rescue behavior |
 |---|---|---|
-| argparse | Missing/invalid CLI arguments | Exit `2` with normal usage output |
-| manifest | Schema, identity, path, and qrel shape | Stable failed report; no engine construction |
-| fixture | Missing, unreadable, size, or checksum failure | Stable fixture-invalid report; no ingest |
-| runner | Ingest, qrel, completeness, determinism | Stable failed report; temporary workspace cleaned |
-| renderer | Approved DTO fields only | No query text, Evidence text, random IDs, absolute paths, or traceback |
-| unknown | Any unclassified exception | Redacted stable fallback and exit `1` |
+| argparse | Missing manifest, unsupported command, explicit `--db` | Exit `2` with usage |
+| manifest | JSON, schema, identity, bounds, paths, qrels | Stable failed report; no engine |
+| fixture snapshot | Readability, size, checksum, mutation | Stable fixture-invalid report; no ingest |
+| runner | Ingest, qrel, completeness, consistency, determinism | Stable failed report; cleanup |
+| renderer | Human/JSON serialization | Fixed redacted fallback and exit `1` |
+| unknown | Unclassified exception | Fixed redacted cause and exit `1` |
 
-### Developer Experience
+### Engineering Parallelization
 
-The primary persona is a repository contributor comparing retrieval behavior. After
-`uv sync --locked`, time to first baseline is one documented command. `--help`, human output, JSON
-output, and exit codes are contract-tested. The isolated wheel CI command runs outside the source
-tree with an absolute manifest path, proving the documented command does not depend on the current
-working directory or editable imports.
+After the fixture task, manifest/snapshot parsing, the active-Evidence DTO/query, and pure
+metrics/report DTOs can be implemented independently. Runner integration must follow those seams.
+CLI/CI and documentation/artifact work can then proceed in parallel before final verification and
+authoritative pre-landing review.
+
+### Engineering Voice Consensus
+
+| Topic | Codex | Claude | Decision |
+|---|---|---|---|
+| Active-Evidence type | Narrow DTO required | `SearchResult` acceptable but narrow DTO cleaner | Use narrow DTO. |
+| Renderer names | Retrieval-specific | Retrieval-specific | Rename. |
+| Canonical JSON artifact | Required | Required | Add reviewed artifact without score gate. |
+| Ask refusal | Derived and consistency-gated | Derived and document it | Add consistency gate. |
+| Exact locators after chunking | New contract required | New manifest version required | Limit E1 comparability. |
+| Proof/evaluation reuse | Keep separate | Keep separate | No shared base. |
+| Fixture mutation interval | Snapshot required | No blocker identified | Add snapshot as defense-in-depth. |
+
+### Developer Empathy Narrative
+
+A repository contributor wants one honest answer before editing retrieval. The expected path is
+`uv sync --locked` followed by one documented command with an explicit manifest. The result must
+make three facts immediate: integrity passed, no quality gate exists, and the corpus is a small
+English page/timestamp slice. The contributor can then capture JSON, inspect miss IDs without
+leaking content, and compare a later run only when manifest/report versions match.
+
+### Developer Journey
+
+| Stage | Required experience |
+|---|---|
+| Discover | README, docs index, and `mke --help` distinguish proof from evaluation. |
+| Install | Core dependencies only; no model or fixture download at runtime. |
+| Understand fixtures | Provenance, checksums, manifest identity, and narrow corpus are explicit. |
+| Run | Copy-paste source-tree and wheel commands use an explicit external manifest. |
+| Interpret | Scope line, all seven metrics, `quality_gate=none`, and exit semantics are visible. |
+| Debug | Stable query IDs, locator summaries, and `problem/cause/next_step`; no raw content. |
+| CI integrate | JSON integrity is validated and metrics are printed; exact scores are not gated. |
+| Compare | Canonical artifact and documented before/after JSON flow require matching versions. |
+| Upgrade | Manifest, report, environment, and Evidence-segmentation boundaries are explicit. |
+
+### DX Scores
+
+| Dimension | Before corrections | After plan corrections |
+|---|---:|---:|
+| Discoverability | 6/10 | 8/10 |
+| Time to first success | 7/10 | 8/10 |
+| Mental model | 6/10 | 9/10 |
+| Errors and recovery | 7/10 | 9/10 |
+| Output contract | 8/10 | 9/10 |
+| Documentation | 7/10 | 9/10 |
+| CI usability | 8/10 | 9/10 |
+| Upgrade comparability | 4/10 | 8/10 |
+
+Target time to first trustworthy baseline: one documented command after `uv sync --locked`.
+
+### DX Implementation Checklist
+
+- [ ] `--help` states the small English corpus and absence of a quality threshold.
+- [ ] Explicit manifest is required and documented for source-tree and wheel flows.
+- [ ] Explicit global `--db` with evaluation exits `2`.
+- [ ] Human output contains scope, quality gate, all metrics, query IDs, and stable locators.
+- [ ] JSON is one versioned object with no raw query/Evidence text or private paths.
+- [ ] Missing manifest and invalid JSON produce distinct stable causes.
+- [ ] Renderer failure produces a fixed redacted report and exit `1`.
+- [ ] Canonical baseline JSON is public-safe, deterministic, and duration-free.
+- [ ] How-to documents before/after comparison and version matching.
+- [ ] README and docs do not generalize scores to CJK, private corpora, OCR, or semantic retrieval.
+
+### DX Voice Consensus
+
+| Topic | Codex | Claude | Decision |
+|---|---|---|---|
+| Corpus limitations | Put in help/output/docs | Put in output/docs | Add across public surfaces. |
+| `--db` | Reject for eval | Do not silently ignore | Reject explicitly. |
+| Missing-manifest error | Distinguish it | Distinguish it | Add stable cause. |
+| Canonical artifact | Required | Useful and warranted | Add it. |
+| Default manifest | Prefer built-in | Keep explicit required path | Keep explicit path; avoid packaging expansion. |
+| Wheel corpus | Prefer self-contained | External path is acceptable | Wheel verifies installed code with external manifest. |
+| Default query detail | Prefer misses by default | Per-query lines acceptable | Keep approved per-query output. |
+
+### NOT In Scope
+
+- retrieval algorithm changes, embeddings, `sqlite-vec`, fusion, RRF, or reranking;
+- Unicode/CJK evaluation or claims;
+- Passage chunking, graded qrels, nDCG, large ranking corpora, or statistical significance;
+- built-in wheel corpus, default manifest discovery, `--output`, or `--compare`;
+- private corpus, OCR, real-ASR quality, latency/throughput benchmarking;
+- HTTP, UI, hosted evaluation, or external telemetry.
+
+### Cross-Phase Themes
+
+- **Claim discipline:** CEO and DX independently required the small-English/no-quality-gate
+  boundary to be visible.
+- **Comparability:** CEO, engineering, and DX independently required versioned limits and a durable
+  machine-readable baseline.
+- **Contract minimization:** engineering and DX independently favored narrow DTOs, specific
+  renderer names, explicit manifest input, and no hidden `--db` behavior.
+- **Future segmentation:** CEO and engineering independently found that exact locator qrels cannot
+  survive Passage chunking without a new protocol.
+
+### Completion Summary
+
+- CEO: scope held; broad algorithm-selection claim removed.
+- Design: skipped; no UI scope.
+- Engineering: data flow, contracts, failure modes, tests, performance, rollback, and execution
+  order reviewed against actual code.
+- DX: contributor journey, output semantics, errors, documentation, CI, and upgrade comparability
+  reviewed.
+- Independent voices: Codex and Claude completed for all applicable phases.
+- Remaining taste decisions: none; explicit-manifest source-checkout benchmark remains the approved
+  E1 product boundary.
 
 ### Decision Audit Trail
 
-| Decision | Outcome | Reason |
-|---|---|---|
-| Baseline versus algorithm change | Baseline only | Preserves causal evidence for later ranking work |
-| Quality scores in CI | Report only | E1 has no prior evidence for defensible thresholds |
-| Integrity gates | Required | Fixture, completeness, qrel, and determinism failures invalidate the baseline |
-| Corpus | Two public-domain English PDFs plus deterministic sidecar video | Offline, redistributable, page and timestamp coverage |
-| Real-ASR fixture | Excluded | Avoids model/runtime variance in retrieval CI |
-| Error serialization | Evaluation-owned report | Avoids coupling to unrelated CLI/MCP operation errors |
-| Active Evidence access | Internal read-only application seam | Validates qrels without changing Search behavior |
-| Module split | Four focused modules | Separates I/O validation, pure metrics, serialization, and orchestration without new infrastructure |
-| Design review | Skipped | No UI or visual surface |
-| External review voices | Unavailable | This review did not delegate to external agents |
-
-### Review Scores
-
-- CEO scope: `9/10` after holding E1 to evidence capture.
-- Engineering: `9/10` after separating fixture errors, bounding the Evidence enumeration seam,
-  removing global error-policy coupling, and making the examples type-complete.
-- Developer experience: `9/10` after adding help coverage, source-tree and isolated-wheel gates,
-  public-safe reports, and copy-paste documentation.
-- Design: skipped because the stage has no UI scope.
-
-No taste decision or unresolved architecture choice remains. The implementation window should
-execute the tasks in order and return the required evidence without expanding scope.
+| # | Phase | Decision | Classification | Principle | Rationale | Rejected |
+|---:|---|---|---|---|---|---|
+| 1 | CEO | Keep E1 baseline-only | Auto | Preserve causal evidence | Measure current FTS5 before changing it | Implement algorithm now |
+| 2 | CEO | Narrow follow-up claims | Auto | Claims follow evidence | Small English corpus cannot select broad algorithms | Treat E1 as universal benchmark |
+| 3 | CEO | Defer expanded dev/holdout sets | Auto | Smallest useful stage | Needed for later tuning, not current observation | Expand E1 immediately |
+| 4 | Eng | Add `ActiveEvidenceRef` | Auto | Least data exposure | Qrel validation needs locators, not text/random IDs | Reuse `SearchResult` |
+| 5 | Eng | Snapshot fixture bytes | Auto | Validate what is executed | Removes validation-to-ingest mutation interval | Reopen source files directly |
+| 6 | Eng | Require stable-locator uniqueness | Auto | Metrics must be unambiguous | Current qrels assume one Evidence per locator | Ignore future chunking ambiguity |
+| 7 | Eng | Treat Ask refusal as derived | Auto | Avoid duplicate claims | Ask delegates to Search at the same limit | Present as independent quality |
+| 8 | Eng | Add safe renderer fallback | Auto | Fail closed publicly | Serialization is an integrity boundary | Allow traceback/uncaught error |
+| 9 | Eng | Keep proof/eval separate | Auto | Avoid premature abstraction | Different sequencing and semantics | Shared report/runner base |
+| 10 | Eng/DX | Add canonical baseline JSON | Auto | Durable comparability | Prose and `/tmp` output are not sufficient | Exact-score CI gate |
+| 11 | DX | Keep explicit `--manifest` | Auto | Explicit provenance | Supports repo/private manifests without packaging corpus | Built-in default |
+| 12 | DX | Reject explicit `--db` | Auto | No silent configuration | Eval owns two fresh workspaces | Ignore global option |
+| 13 | DX | Surface corpus scope/no gate | Auto | Correct first-read mental model | `status=passed` is integrity, not quality | Rely only on deep docs |
+| 14 | DX | Keep per-query human rows | Auto | Approved diagnostic contract | 24 rows remain bounded and useful | Add `--verbose` now |
+| 15 | Cross-phase | No new ADR | Auto | ADRs record long-lived product architecture | E1 adds an internal evaluation seam without changing accepted runtime architecture | Create redundant ADR |
 
 ## GSTACK REVIEW REPORT
 
 | Review | Trigger | Why | Runs | Status | Findings |
 |--------|---------|-----|------|--------|----------|
-| CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | CLEAR | HOLD SCOPE: baseline before retrieval changes |
-| Codex Review | `/codex review` | Independent 2nd opinion | 0 | UNAVAILABLE | External agent delegation was not used |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR | 6 plan defects resolved; no architecture blocker |
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | CLEAR AFTER FIXES | HOLD SCOPE; narrow algorithm-selection claim |
+| CEO Voices | Codex + Claude | Independent premise challenge | 2 | CONSENSUS | Baseline valid; small corpus limits must be explicit |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR AFTER FIXES | DTO, snapshot, locator, renderer, artifact, and bounds corrected |
+| Eng Voices | Codex + Claude | Independent engineering review | 2 | CONSENSUS | Core contracts aligned; non-shared findings adjudicated |
 | Design Review | `/plan-design-review` | UI/UX gaps | 0 | SKIPPED | No UI scope |
-| DX Review | `/plan-devex-review` | Developer experience gaps | 1 | CLEAR | Help, docs, exits, redaction, source and wheel flows covered |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 1 | CLEAR AFTER FIXES | Scope/gate language, `--db`, errors, comparison flow corrected |
+| DX Voices | Codex + Claude | Independent developer-experience review | 2 | CONSENSUS | Explicit manifest retained; packaging expansion rejected |
 
-**VERDICT:** CEO + ENG + DX CLEARED — ready to implement
+**VERDICT:** CEO + ENG + DX CLEARED AFTER PLAN CORRECTIONS — ready for final approval
 
 NO UNRESOLVED DECISIONS

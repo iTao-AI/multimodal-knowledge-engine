@@ -19,7 +19,9 @@ E1 must answer a question that the existing product proof intentionally does not
 > the correct page or timestamp, and how often does evidence-only Ask refuse an unanswerable query?
 
 E1 records the current behavior honestly. It does not improve retrieval, set an arbitrary quality
-target, or turn a baseline score into a product claim.
+target, or turn a baseline score into a product claim. Its 16 answerable queries give a coarse
+macro signal: one query moves an answerable rate by 6.25 percentage points. E1 can expose large
+lexical failure classes and regressions, but it cannot resolve small quality differences.
 
 ## Current State
 
@@ -70,6 +72,11 @@ ordered locator results, calculates baseline metrics, and emits a public-safe re
 Low Recall, MRR, or refusal performance does not fail E1. Integrity, completeness, locator
 correctness, and determinism failures do.
 
+The checked-in corpus remains repository data rather than wheel package data. Source-tree and
+wheel-installed commands both accept an explicit external manifest path; the wheel gate proves
+installed-code identity and path independence, not that the benchmark corpus is bundled into the
+package.
+
 ## Rejected Alternatives
 
 | Alternative | Decision | Reason |
@@ -82,6 +89,8 @@ correctness, and determinism failures do.
 | Generate all PDF content locally | Rejected | Public real-world text-layer PDFs provide a more meaningful extraction and retrieval baseline. |
 | Use graded relevance in the first manifest | Deferred | Binary exact-locator qrels are less subjective and directly test MKE Evidence identity. |
 | Snapshot exact floating-point scores as the only CI assertion | Rejected | It produces brittle approval tests and hides whether a change is actually better or worse. |
+| Bundle the benchmark corpus into the wheel | Rejected for E1 | The evaluator supports explicit external manifests; test assets and public PDFs remain repository data. |
+| Reuse `mke.proof` report or runner DTOs | Rejected | Product proof and retrieval evaluation have different sequencing, metrics, and failure semantics; a shared base would be premature. |
 
 ## Corpus
 
@@ -239,8 +248,14 @@ The checked-in manifest is named `retrieval-eval-v1` and has this conceptual sha
   manifest directory.
 - SHA-256 values are exactly 64 lowercase hexadecimal characters.
 - Expected byte sizes are positive integers.
+- The manifest contains 1–32 documents, 2–1,000 queries, at least one answerable query, and at
+  least one unanswerable query.
+- The total declared fixture size is at most 100 MiB.
 - Each document has one primary file.
 - A video document used by the sidecar provider has exactly one `transcript_sidecar`.
+- The video sidecar path is exactly `<primary path>.mke-transcript.json`.
+- Primary paths and primary SHA-256 values are unique so application-level Asset deduplication
+  cannot collapse two manifest documents into one Source.
 - Query text is non-empty, at most 1,000 characters, and contains at least one currently searchable
   ASCII token.
 - Query categories are exactly `answerable`, `lexical_confuser`, or `out_of_corpus`.
@@ -341,12 +356,19 @@ only the stable locator identity.
 One query may have multiple relevant locators. A retrieved item counts as relevant only when all
 four identity fields match an approved qrel.
 
+E1 requires exactly one active Evidence row per stable locator. This makes Recall and MRR
+unambiguous for the current page/segment Evidence model. If later Passage chunking produces
+multiple searchable rows for one page or timestamp range, comparison with
+`retrieval-eval-v1` is invalid until a new manifest/report version defines deduplication or
+Passage-level qrels.
+
 ## Evaluation Data Flow
 
 ```text
 manifest path
   -> parse strict JSON
-  -> validate schema, IDs, paths, checksums, and byte sizes
+  -> validate schema, IDs, paths, limits, checksums, and byte sizes
+  -> copy and revalidate exact fixture bytes in an evaluator-owned snapshot
   -> create fresh temporary SQLite workspace A
   -> ingest all documents through KnowledgeEngine
   -> require every Run to reach published
@@ -365,6 +387,9 @@ Library, not isolated one-document searches.
 
 The runner uses the same `KnowledgeEngine.search()` and `KnowledgeEngine.ask()` methods as current
 CLI and MCP behavior. It must not reproduce FTS SQL or add evaluation-only query rewriting.
+
+The immutable snapshot closes the interval between validation and ingest. Both fresh workspaces
+ingest the same staged bytes, and MP4/sidecar adjacency is preserved.
 
 ## Metrics
 
@@ -400,6 +425,14 @@ Search returns no results.
 `ask_refusal_rate` is the fraction of unanswerable queries whose Ask result is
 `insufficient_evidence`.
 
+In E1, Ask delegates to Search with the same query and limit, so `ask_refusal_rate` is a derived
+contract observation and must equal `unanswerable_no_hit_rate`. It is retained to verify the
+public Ask contract, not presented as an independent answer-quality metric. The runner fails
+integrity if Search emptiness and Ask status disagree.
+
+`lexical_confuser` and `out_of_corpus` qrels intentionally encode expected exact-fact retrieval as
+empty. Their no-hit rate is not a general topical-relevance judgment.
+
 Metrics are rounded to six decimal places for serialized output. Each metric also includes its
 unrounded per-query sum and query count so the macro average remains auditable. Rate metrics use
 zero-or-one per-query values, so their sum is also the number of queries satisfying the condition.
@@ -415,9 +448,12 @@ The command exits `1` when any of these integrity gates fails:
 - invalid or unreadable manifest,
 - schema, ID, category, path, checksum, or byte-size validation failure,
 - missing primary or supporting fixture,
+- fixture bytes change while the evaluator creates its immutable snapshot,
 - a document Run does not reach `published`,
 - a qrel references a locator that does not exist in active Evidence,
+- more than one active Evidence row maps to the same stable locator,
 - a query or document is skipped,
+- Ask status disagrees with Search emptiness under the current evidence-only contract,
 - the two fresh runs produce different ordered stable locator results,
 - the two fresh runs produce different non-duration aggregate values,
 - report serialization fails,
@@ -445,10 +481,12 @@ E1 does not introduce `quality_status=passed` or a minimum Recall/MRR threshold.
 
 ## Public Report Contract
 
-Human output begins with one aggregate line:
+Human output begins with the command header, one scope line, and one aggregate line:
 
 ```text
-evaluation=retrieval manifest=retrieval-eval-v1 status=passed quality_status=baseline_recorded documents=3 queries=24 answerable=16 unanswerable=8 locator_recall_at_1=0.000000 locator_recall_at_3=0.000000 locator_recall_at_5=0.000000 mrr_at_5=0.000000 ask_refusal_rate=0.000000
+mke eval retrieval
+scope=small_english_page_timestamp_corpus quality_gate=none
+evaluation=retrieval manifest=retrieval-eval-v1 status=passed quality_status=baseline_recorded documents=3 queries=24 answerable=16 unanswerable=8 locator_recall_at_1=0.000000 locator_recall_at_3=0.000000 locator_recall_at_5=0.000000 mrr_at_5=0.000000 answerable_zero_hit_rate=0.000000 unanswerable_no_hit_rate=0.000000 ask_refusal_rate=0.000000
 ```
 
 It then prints one bounded line per query using stable IDs and locator summaries, followed by any
@@ -462,6 +500,8 @@ JSON has this conceptual shape:
   "evaluation": "retrieval",
   "schema_version": "mke.retrieval_eval_report.v1",
   "manifest_id": "retrieval-eval-v1",
+  "benchmark_scope": "small_english_page_timestamp_corpus",
+  "quality_gate": "none",
   "status": "passed",
   "quality_status": "baseline_recorded",
   "documents": 3,
@@ -567,17 +607,21 @@ Responsibilities:
 
 - `manifest.py`: strict JSON parsing, immutable evaluation DTOs, path/checksum validation.
 - `metrics.py`: pure binary-qrel metric calculations with no storage or filesystem access.
-- `report.py`: immutable result/report DTOs plus public-safe human and JSON serialization.
+- `report.py`: immutable result/report DTOs plus public-safe
+  `render_retrieval_human_report` and `render_retrieval_json_report` serialization.
 - `runner.py`: two-workspace orchestration, normal ingest/Search/Ask calls, stable runtime-to-
   manifest identity mapping, integrity gates, and determinism comparison.
 - `cli.py`: argument parsing and delegation only.
 
 The evaluator needs to prove that every qrel resolves to currently published Evidence, including
-qrels that Search does not return. E1 therefore adds one read-only
-`KnowledgeEngine.list_active_evidence()` method backed by `SQLiteStore.list_active_evidence()`.
-It returns only Evidence belonging to each Source's active Publication in stable locator order.
-This method is an internal diagnostics/evaluation seam: it is not exposed through CLI, MCP, or a
-new public service contract, and it must not alter the existing Search SQL or ordering.
+qrels that Search does not return. E1 therefore adds a project-owned `ActiveEvidenceRef` DTO and
+one read-only `KnowledgeEngine.list_active_evidence()` method backed by
+`SQLiteStore.list_active_evidence()`. The DTO contains only `source_id`, `locator_kind`,
+`locator_start`, and `locator_end`; it does not carry Evidence text or random Evidence/Publication
+IDs. The method returns only Evidence belonging to each Source's active Publication in stable
+locator order. This method is an internal diagnostics/evaluation seam: it is not exposed through
+CLI, MCP, or a new public service contract, and it must not alter the existing Search SQL or
+ordering.
 
 Evaluation code may depend on project-owned domain/application contracts. Domain and application
 code must not depend on evaluation code.
@@ -600,10 +644,13 @@ E1 must not:
 - duplicate and malformed IDs,
 - invalid paths and root escape prevention,
 - checksum and byte-size mismatch,
+- manifest count/size bounds, duplicate Asset identity, and sidecar adjacency,
+- immutable fixture snapshot identity,
 - invalid categories and qrel cardinality,
 - pure Recall@1/3/5 and MRR@5 calculations,
 - multiple relevant locators,
 - zero-hit and unanswerable rates,
+- Search/Ask consistency for the derived refusal metric,
 - six-decimal serialization,
 - report redaction.
 
@@ -615,7 +662,9 @@ E1 must not:
 - run the complete evaluation twice and compare stable ordered locators,
 - verify random Run/Evidence IDs do not affect comparison,
 - verify a corrupted fixture fails before ingest,
+- verify a fixture mutation during snapshot fails closed,
 - verify a nonexistent qrel fails after ingest,
+- verify duplicate active stable locators fail closed,
 - verify low synthetic metrics still return success when integrity passes,
 - verify skipped or partially executed queries fail closed.
 
@@ -623,8 +672,10 @@ E1 must not:
 
 - human success output,
 - JSON success output,
+- renderer failure fallback for human and JSON modes,
 - exit `1` for integrity failure,
 - exit `2` for usage errors,
+- explicit rejection of global `--db` for evaluation,
 - no traceback or absolute path,
 - no query or Evidence text in reports.
 
@@ -641,7 +692,9 @@ Required CI runs the checked-in manifest through the public CLI. CI asserts:
 - eight unanswerable queries,
 - no integrity failures.
 
-CI stores or prints the current metrics but does not assert exact score values in E1.
+CI prints the current metrics and validates the checked-in canonical baseline artifact's schema and
+provenance, but does not compare current scores to that artifact or assert exact score values in
+E1.
 
 ## Documentation
 
@@ -652,6 +705,7 @@ The implementation PR updates:
 - `docs/README.md`,
 - `docs/reference/cli.md`,
 - a new `docs/how-to/run-retrieval-evaluation.md`,
+- `benchmarks/retrieval/retrieval-eval-v1-baseline.json`,
 - fixture provenance in `tests/fixtures/eval/retrieval/README.md`,
 - the E1 implementation plan and durable review.
 
@@ -659,14 +713,18 @@ The baseline document records:
 
 - exact Git commit,
 - manifest ID and fixture checksums,
+- manifest checksum plus Python, SQLite, and PyMuPDF versions,
 - actual metric values,
+- every answerable query with no relevant locator at rank 5,
 - category-level misses and false positives,
 - what the baseline proves,
 - what it does not prove,
 - the next algorithm decision that the evidence supports.
 
-The baseline document must not describe an observed score as a stable product metric until the
-query set, corpus, and evaluation protocol are versioned and unchanged.
+The canonical JSON artifact omits duration, raw content, paths, and random IDs. It is a reviewed
+observation, not a CI threshold. The baseline document must not describe an observed score as a
+stable product metric until the query set, corpus, evaluation protocol, and Evidence segmentation
+are versioned and unchanged.
 
 ## Non-Goals
 
@@ -705,15 +763,24 @@ E1 is complete when:
    stable errors and exit `1`.
 7. Required CI runs the public CLI and gates evaluation integrity without freezing exact quality
    scores.
-8. The implementation PR records the observed FTS5 baseline and its known misses without changing
+8. A public-safe canonical JSON artifact records the manifest/fixture/environment identity,
+   observed metrics, and per-query outcomes without becoming a score gate.
+9. The implementation PR records the observed FTS5 baseline and its known misses without changing
    retrieval behavior.
-9. The existing full test suite, Ruff, Pyright, build, product proof, demo, and model-free package
+10. The existing full test suite, Ruff, Pyright, build, product proof, demo, and model-free package
    gates remain green.
 
 ## Follow-Up Decision
 
-After E1 records the baseline, the next design compares candidate retrieval changes against the
-same versioned manifest. Candidate work may include:
+After E1 records the baseline, the next design may use the same versioned manifest as a regression
+suite for English retrieval changes that preserve page/timestamp Evidence segmentation. The E1
+corpus can reveal coarse lexical failure classes, but it is not sufficient by itself to select or
+validate CJK tokenization, semantic retrieval, fusion, or reranking.
+
+A later candidate-comparison design must freeze an expanded development/holdout protocol before
+tuning. It must add the query and corpus slices required by the decision under test, including a
+separate CJK slice for Unicode/CJK work and hard negatives for ranking work. Candidate work may
+then include:
 
 - Unicode/CJK tokenization,
 - explicit AND/OR query policy,
@@ -722,5 +789,7 @@ same versioned manifest. Candidate work may include:
 - RRF,
 - reranking.
 
-That later design must set improvement and regression gates from observed E1 evidence. It must not
-assume hybrid retrieval is necessary before the baseline identifies the actual failure modes.
+That later design must set improvement and regression gates from observed evidence, report
+local-first resource cost changes, and avoid selecting and judging an algorithm only on the same
+visible E1 queries. It must not assume hybrid retrieval is necessary before the baseline identifies
+the actual failure modes.
