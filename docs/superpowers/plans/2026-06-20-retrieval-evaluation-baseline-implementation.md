@@ -91,7 +91,7 @@ Ask validation/statuses, Publication semantics, or transcription behavior. Do no
 - Create: `tests/fixtures/eval/retrieval/usgs-volcano-hazards.pdf`
 - Create: `tests/fixtures/eval/retrieval/usgs-water-use-2005.pdf`
 
-- [ ] **Step 1: Write the failing fixture-integrity test**
+- [x] **Step 1: Write the failing fixture-integrity test**
 
 Create `tests/evaluation/__init__.py` as an empty file.
 
@@ -167,7 +167,7 @@ def test_retrieval_eval_manifest_freezes_approved_inventory() -> None:
     assert sum(query["category"] == "out_of_corpus" for query in payload["queries"]) == 4
 ```
 
-- [ ] **Step 2: Run the fixture test to verify RED**
+- [x] **Step 2: Run the fixture test to verify RED**
 
 Run:
 
@@ -177,7 +177,7 @@ uv run pytest tests/evaluation/test_fixture_corpus.py -q
 
 Expected: FAIL because the E1 PDF fixtures and manifest do not exist.
 
-- [ ] **Step 3: Download the exact approved PDF bytes outside the repository**
+- [x] **Step 3: Download the exact approved PDF bytes outside the repository**
 
 Run:
 
@@ -204,7 +204,7 @@ ef27346a9f2eab19d438a0740d43c606a9b739147e09d89d1121df294ed3c585  .../usgs-water
 
 Stop without copying either file if any byte size or checksum differs.
 
-- [ ] **Step 4: Copy only the verified PDFs into the fixture directory**
+- [x] **Step 4: Copy only the verified PDFs into the fixture directory**
 
 Run:
 
@@ -216,7 +216,7 @@ cp /tmp/mke-retrieval-eval/usgs-water-use-2005.pdf \
   tests/fixtures/eval/retrieval/usgs-water-use-2005.pdf
 ```
 
-- [ ] **Step 5: Add the exact provenance README**
+- [x] **Step 5: Add the exact provenance README**
 
 Create `tests/fixtures/eval/retrieval/README.md` with:
 
@@ -259,7 +259,7 @@ inclusion. Preserve the checksums above; do not silently replace the files with 
 bytes.
 ```
 
-- [ ] **Step 6: Add the frozen manifest**
+- [x] **Step 6: Add the frozen manifest**
 
 Create `tests/fixtures/retrieval-eval-v1.json` using the exact document records, query text,
 categories, and qrels in the approved spec section `Approved Query And Qrel Inventory`.
@@ -287,7 +287,7 @@ Use these exact video file identities:
 Use no source URL or license fields in the runtime manifest. Provenance belongs in the fixture
 README so the runtime schema stays limited to evaluation execution data.
 
-- [ ] **Step 7: Run the fixture test to verify GREEN**
+- [x] **Step 7: Run the fixture test to verify GREEN**
 
 Run:
 
