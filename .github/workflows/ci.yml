@@ -32,6 +32,12 @@ jobs:
       - run: uv run ruff check .
       - run: uv run pyright
       - run: uv build
+      - name: Verify spoken fixture with transcription extra
+        env:
+          MKE_REQUIRE_TRANSCRIPTION_EXTRA: "1"
+        run: |
+          uv sync --locked --extra transcription
+          uv run pytest tests/adapters/test_spoken_video_fixture.py -q
       - run: |
           uv venv /tmp/mke-wheel-env --python "${{ matrix.python-version }}"
           uv pip install --python /tmp/mke-wheel-env/bin/python dist/*.whl
@@ -48,8 +54,10 @@ jobs:
             "${wheel}[transcription]"
           /tmp/mke-wheel-env/bin/python -c "import av, faster_whisper"
           set +e
-          doctor_output=$(HF_HOME="$RUNNER_TEMP/mke-empty-hf" \
-            /tmp/mke-wheel-env/bin/mke transcription doctor --json)
+          doctor_output=$(HF_HUB_OFFLINE=1 \
+            /tmp/mke-wheel-env/bin/mke transcription doctor \
+            --model-cache "$RUNNER_TEMP/mke-empty-model-cache" \
+            --json)
           doctor_status=$?
           set -e
           test "$doctor_status" -eq 1
