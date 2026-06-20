@@ -534,7 +534,7 @@ git commit -m "docs(video): publish transcription proof workflow"
 - Create: `docs/superpowers/reviews/2026-06-18-real-local-transcription-deployment-proof-review.md`
 - Modify: this plan
 
-- [ ] **Step 1: Run final verification from a clean worktree**
+- [x] **Step 1: Run final verification from a clean worktree**
 
 ```bash
 uv run pytest -q
