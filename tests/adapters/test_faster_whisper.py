@@ -53,6 +53,15 @@ def _install_fake_whisper(
     monkeypatch.setitem(sys.modules, "av", SimpleNamespace(__version__="17.1.0"))
 
 
+def _complete_snapshot(path: Path) -> Path:
+    path.mkdir()
+    (path / "config.json").write_text("{}")
+    (path / "model.bin").write_bytes(b"model")
+    (path / "tokenizer.json").write_text("{}")
+    (path / "vocabulary.txt").write_text("token")
+    return path
+
+
 def test_resolver_maps_small_and_passes_exact_cache_only_identity(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -82,13 +91,19 @@ def test_prepare_retries_with_network_only_after_explicit_opt_in(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     calls: list[bool] = []
+    snapshot = tmp_path / "downloaded"
 
     def snapshot_download(**kwargs: object) -> str:
         local_only = bool(kwargs["local_files_only"])
         calls.append(local_only)
         if local_only:
             raise FileNotFoundError("private cache path")
-        return str(tmp_path / "downloaded")
+        snapshot.mkdir()
+        (snapshot / "config.json").write_text("{}")
+        (snapshot / "model.bin").write_bytes(b"model")
+        (snapshot / "tokenizer.json").write_text("{}")
+        (snapshot / "vocabulary.txt").write_text("token")
+        return str(snapshot)
 
     _install_fake_hub(monkeypatch, snapshot_download)
     config = ModelPreparationConfig(FasterWhisperTranscriptionConfig(), allow_model_download=True)
@@ -104,10 +119,16 @@ def test_prepare_reports_already_cached_without_network(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     calls: list[bool] = []
+    snapshot = tmp_path / "cached"
+    snapshot.mkdir()
+    (snapshot / "config.json").write_text("{}")
+    (snapshot / "model.bin").write_bytes(b"model")
+    (snapshot / "tokenizer.json").write_text("{}")
+    (snapshot / "vocabulary.txt").write_text("token")
 
     def snapshot_download(**kwargs: object) -> str:
         calls.append(bool(kwargs["local_files_only"]))
-        return str(tmp_path / "cached")
+        return str(snapshot)
 
     _install_fake_hub(monkeypatch, snapshot_download)
 
@@ -117,6 +138,74 @@ def test_prepare_reports_already_cached_without_network(
 
     assert calls == [True]
     assert result.status == "already_cached"
+
+
+def test_prepare_retries_incomplete_cached_snapshot_with_explicit_download(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[bool] = []
+    snapshot = tmp_path / "cached"
+    snapshot.mkdir()
+    (snapshot / "config.json").write_text("{}")
+    (snapshot / "tokenizer.json").write_text("{}")
+    (snapshot / "vocabulary.txt").write_text("token")
+
+    def snapshot_download(**kwargs: object) -> str:
+        local_only = bool(kwargs["local_files_only"])
+        calls.append(local_only)
+        if not local_only:
+            (snapshot / "model.bin").write_bytes(b"model")
+        return str(snapshot)
+
+    _install_fake_hub(monkeypatch, snapshot_download)
+
+    result = prepare_model(
+        ModelPreparationConfig(
+            FasterWhisperTranscriptionConfig(),
+            allow_model_download=True,
+        )
+    )
+
+    assert calls == [True, False]
+    assert result.status == "downloaded"
+
+
+def test_prepare_rejects_incomplete_snapshot_without_download_permission(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    snapshot = tmp_path / "cached"
+    snapshot.mkdir()
+    (snapshot / "config.json").write_text("{}")
+
+    def snapshot_download(**kwargs: object) -> str:
+        return str(snapshot)
+
+    _install_fake_hub(monkeypatch, snapshot_download)
+
+    with pytest.raises(ModelResolutionError) as exc_info:
+        prepare_model(ModelPreparationConfig(FasterWhisperTranscriptionConfig()))
+
+    assert exc_info.value.cause == "configured transcription model is not cached"
+
+
+def test_doctor_classifies_incomplete_snapshot_as_cache_miss(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    snapshot = tmp_path / "cached"
+    snapshot.mkdir()
+    (snapshot / "config.json").write_text("{}")
+
+    def snapshot_download(**kwargs: object) -> str:
+        return str(snapshot)
+
+    _install_fake_hub(monkeypatch, snapshot_download)
+    _install_fake_whisper(monkeypatch)
+
+    result = doctor_transcription(FasterWhisperTranscriptionConfig())
+
+    assert result.status == "not_ready"
+    assert result.cause == "configured transcription model is not cached"
+    assert result.next_step == "run_transcription_prepare"
 
 
 def test_prepare_without_download_permission_returns_stable_cache_miss(
@@ -138,10 +227,11 @@ def test_doctor_is_cache_only_and_ready_for_supported_language(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     calls: list[bool] = []
+    snapshot = _complete_snapshot(tmp_path / "cached")
 
     def snapshot_download(**kwargs: object) -> str:
         calls.append(bool(kwargs["local_files_only"]))
-        return str(tmp_path / "cached")
+        return str(snapshot)
 
     _install_fake_hub(monkeypatch, snapshot_download)
     _install_fake_whisper(monkeypatch)
@@ -163,8 +253,10 @@ def test_doctor_rejects_language_not_supported_by_resolved_model(
         def __init__(self, *args: object, **kwargs: object) -> None:
             pass
 
+    snapshot = _complete_snapshot(tmp_path / "cached")
+
     def snapshot_download(**kwargs: object) -> str:
-        return str(tmp_path / "cached")
+        return str(snapshot)
 
     _install_fake_hub(monkeypatch, snapshot_download)
     _install_fake_whisper(monkeypatch, EnglishOnlyModel)

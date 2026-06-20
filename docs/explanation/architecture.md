@@ -86,6 +86,12 @@ through the provider and application layers so interfaces can return the correct
 Cancellation remains latched for the active MCP worker, closing the interval between worker start
 and child-process registration.
 
+The real transcription proof builds a temporary SQLite workspace and invokes the same application
+composition without calling model preparation. The deployment proof builds the project wheel,
+installs `wheel[transcription]` under lock-derived constraints in an external temporary
+environment, then compares installed CLI results with a real stdio MCP Python SDK client. Both
+paths require an already prepared exact model revision and remain cache-only.
+
 CLI and MCP errors share one project-owned `PublicError` serializer. Only allowlisted stable causes
 can reach public output; unknown exception text is replaced with
 `operation failed; details were redacted`. Public payloads contain `problem`, `cause`,
@@ -108,6 +114,8 @@ src/mke/
       process.py
   interfaces/
   proof/
+    transcription.py
+    mcp_deployment_client.py
 ```
 
 The domain and application layers must not depend on FastAPI, database implementations, model SDKs, LangChain, or LlamaIndex.

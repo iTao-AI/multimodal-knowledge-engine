@@ -51,6 +51,39 @@ Exit codes:
 
 Expected duration: a few seconds on a local development machine.
 
+## Real Transcription Proof
+
+```bash
+mke proof transcription-run \
+  --fixture <short-spoken-mp4> \
+  [trusted faster-whisper runtime flags] \
+  [--json]
+```
+
+This opt-in proof uses the first-party faster-whisper runtime against an already prepared exact
+model revision. It never calls preparation or enables model download. Success requires a published
+Run, non-empty ordered timestamp Evidence, a keyword Search match, evidence-only Ask, and a
+complete `transcript_intake_report`.
+
+JSON output contains one object with:
+
+```text
+status
+run_state
+evidence_count
+timestamp_evidence
+search_keyword_matched
+ask_status
+transcript_intake_report
+environment
+duration_ms
+reason
+```
+
+`environment` is limited to Python, OS, architecture, faster-whisper, CTranslate2, and PyAV
+versions. Reports do not expose paths, hostnames, usernames, cache locations, argv, endpoints,
+secrets, or the full transcript. Exit codes are `0` passed, `1` failed, and `2` invalid usage.
+
 ## Proof-Only Transcript Smoke
 
 ```bash
@@ -199,5 +232,4 @@ First-party adapter failures preserve stable recovery actions such as
 `mke init`, `mke serve`, and `mke library create` remain planned.
 
 Generative Ask, HTTP, workspace UI, OCR, scanned PDFs, long videos, bundled model weights, tables,
-page coordinates, hosted coordination, and multi-worker behavior remain outside scope. Real
-spoken-fixture and deployment proof are deferred to PR 3.
+page coordinates, hosted coordination, and multi-worker behavior remain outside scope.

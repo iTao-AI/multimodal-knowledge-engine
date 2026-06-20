@@ -19,8 +19,11 @@ OCR, arbitrary video processing, bundled model weights, hosted coordination, or
 external provider calls. D3-A adds an optional trusted-local `LocalCommandTranscriptProvider`
 boundary and a proof-only `mke proof transcript-smoke` command, but normal ingest, MCP ingest,
 `mke proof run`, and `mke demo --verify` remain sidecar-backed and deterministic. D3-B adds an
-optional cache-only faster-whisper runtime for configured CLI and owner-started MCP; real
-spoken-fixture proof remains deferred.
+optional cache-only faster-whisper runtime for configured CLI and owner-started MCP.
+`mke proof transcription-run` proves real local ASR with the redistribution-safe spoken fixture,
+and `scripts/transcription_deployment_proof.py` proves an isolated wheel-installed CLI plus stdio
+MCP SDK flow. Model acquisition remains an explicit opt-in preparation step; normal doctor,
+ingest, proof, and MCP execution are cache-only.
 
 PDF intake uses PyMuPDF behind the `src/mke/adapters/pdf/` boundary and exposes a
 `PdfIntakeReport` through `mke ingest`, `mke run get`, MCP `ingest_file`, and MCP `get_run`.
@@ -36,7 +39,9 @@ not call an LLM or generate natural-language answers in this slice.
 
 The current verified product slice processes text-layer PDFs and the documented short local video
 fixture through observable Runs, publishes only successful output, and returns page- or
-timestamp-addressable Evidence.
+timestamp-addressable Evidence. The real local transcription proof is verified on Darwin 25.4.0
+arm64 with Python 3.13.12; the isolated wheel-installed CLI/MCP proof is verified with Python 3.12.
+Other platforms remain unverified.
 
 ## Architecture
 
@@ -71,6 +76,16 @@ uv run mke proof run --json
 ```
 
 `mke demo --verify` remains available as a compatibility proof with its phase-oriented output.
+The optional real transcription proof requires the `transcription` extra and a separately prepared
+exact model revision. Set `MKE_MODEL_CACHE` to an operator-controlled directory outside the
+repository:
+
+```bash
+HF_HUB_OFFLINE=1 uv run mke proof transcription-run \
+  --fixture tests/fixtures/video/spoken-evidence.mp4 \
+  --model-cache "$MKE_MODEL_CACHE" \
+  --json
+```
 
 The development checks are:
 

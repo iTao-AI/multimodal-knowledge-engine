@@ -22,6 +22,26 @@ uv run mke --db .tmp/mke.sqlite mcp --allowed-root ./library \
 Startup runs the same read-only checks as `mke transcription doctor`. See
 [Use Local Transcription](./use-local-transcription.md).
 
+To verify the installed wheel rather than the repository environment, use the cache-only deployment
+proof:
+
+```bash
+HF_HUB_OFFLINE=1 uv run python scripts/transcription_deployment_proof.py \
+  --fixture tests/fixtures/video/spoken-evidence.mp4 \
+  --model-cache "$MKE_MODEL_CACHE" \
+  --python 3.12 \
+  --json
+```
+
+The proof builds a wheel, installs `mke[transcription]` into an isolated temporary environment, and
+uses the MCP Python SDK over stdio. It compares installed CLI and MCP results for ingest, Run
+inspection, Search, and evidence-only Ask. It does not prepare or download a model unless the
+operator explicitly supplies `--allow-model-download`.
+
+The verified run on Darwin 25.4.0 arm64 with Python 3.12 passed both CLI and MCP flows using
+`faster-whisper` 1.2.1 and the exact cached `small` revision
+`536b0662742c02347bc0e980a01041f333bce120`. Other platforms remain unverified.
+
 Example client configuration shape:
 
 ```json
@@ -72,8 +92,8 @@ timestamp Evidence when active Search matches the question terms.
 
 - HTTP and workspace UI are not implemented yet.
 - Generative Ask, model providers, prompt templates, and model retries are not implemented yet.
-- Scanned-PDF OCR, arbitrary videos, bundled model weights, and external providers
-  are outside this MCP slice.
+- Scanned-PDF OCR, arbitrary or long videos, audio-only ingest, bundled model weights, and external
+  providers are outside this MCP slice.
 - MCP `ingest_file(config, path)` cannot accept provider, model, cache, download, endpoint,
   credential, or command argv overrides. Provider policy is owner startup configuration.
 - The server rejects paths outside `--allowed-root`.

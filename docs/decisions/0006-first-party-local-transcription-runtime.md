@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for D3-B PR 2.
+Accepted and implemented across D3-B PR 2 and PR 3.
 
 ## Decision
 
@@ -26,7 +26,13 @@ initial cancellation signal is terminated immediately.
 Required Python 3.12/3.13 CI installs the core wheel and `wheel[transcription]` without a model.
 Rollback selects the default sidecar provider.
 
-## Deferred
+## Verified Deployment Evidence
 
-Real spoken-fixture evidence and real-model proof remain in PR 3. HTTP, remote/vendor ASR, queues,
-long-video processing, and request-time provider selection remain out of scope.
+The redistribution-safe spoken fixture, cache-only `mke proof transcription-run`, and isolated
+wheel-installed CLI plus stdio MCP SDK proof are implemented. Real ASR was verified on Darwin
+25.4.0 arm64 with Python 3.13.12, faster-whisper 1.2.1, CTranslate2 4.8.0, and PyAV 17.1.0. The
+isolated wheel proof was verified with Python 3.12. These observations establish deployment
+evidence for that environment only; they are not quality or performance benchmarks.
+
+HTTP, remote/vendor ASR, queues, long-video processing, audio-only ingest, diarization, GPU
+scheduling, request-time provider selection, and quality benchmarking remain out of scope.

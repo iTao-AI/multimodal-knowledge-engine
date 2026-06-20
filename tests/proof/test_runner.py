@@ -32,6 +32,20 @@ def test_product_proof_runner_does_not_require_local_command_provider(
     assert report.status == "passed"
 
 
+def test_product_proof_and_demo_never_invoke_real_transcription_proof(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mke.cli import main
+
+    def fail_if_used(*args: object, **kwargs: object) -> object:
+        pytest.fail("deterministic proof and demo must not invoke real transcription proof")
+
+    monkeypatch.setattr("mke.cli.run_transcription_proof", fail_if_used)
+
+    assert main(["proof", "run"]) == 0
+    assert main(["demo", "--verify"]) == 0
+
+
 def test_product_proof_runner_reports_cli_observed_fields() -> None:
     report = run_product_proof()
     by_case = {result.case: result for result in report.results}
