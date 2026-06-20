@@ -31,7 +31,70 @@
   "code": {
     "main_merge_base": "721784eabcb9fbb737166578010c9e1a46a25fef",
     "implementation_start": "3992b0e9371d1a8c9e019d3bbe2b32aac9665914",
-    "evaluation_commit": "79bafb07ac592b684e6ceab15dc389dc33702978"
+    "evaluation_commit": "79bafb07ac592b684e6ceab15dc389dc33702978",
+    "evaluation_content_sha256": "38756af630702c7aaa95ad306f1aeaa204bb8f2fd4af8cb1c39d99ad1435f361",
+    "evaluation_content_files": [
+      {
+        "path": "src/mke/adapters/pdf/extractor.py",
+        "bytes": 4139,
+        "sha256": "19d0590dd54c0e75fc68d5c305bf34f30e51fb22d6bdca8294a4efb968aa15e3"
+      },
+      {
+        "path": "src/mke/adapters/sqlite/__init__.py",
+        "bytes": 30568,
+        "sha256": "4571a311d65900fbf35b532ac209f5c3453a34cbf18b364c01e50aa481cbc638"
+      },
+      {
+        "path": "src/mke/adapters/video/transcript.py",
+        "bytes": 838,
+        "sha256": "8e9f3d8285bef9896421f1d6852710e81c4389da1383870336120886a848ec83"
+      },
+      {
+        "path": "src/mke/application/__init__.py",
+        "bytes": 17045,
+        "sha256": "a09a58e7c55c816f573de10c02d69d511a88cb2ee72219fbe3578464b9626f34"
+      },
+      {
+        "path": "src/mke/cli.py",
+        "bytes": 26468,
+        "sha256": "74d95d0efdfb84b367d9afc225e507f9425b1f40bdcdfbc75e3d3e43f03d7082"
+      },
+      {
+        "path": "src/mke/domain/__init__.py",
+        "bytes": 10478,
+        "sha256": "a9e2231ae15cdfa00aa148025bcae638a3546cc1a2650614ec77b4718fced378"
+      },
+      {
+        "path": "src/mke/evaluation/__init__.py",
+        "bytes": 640,
+        "sha256": "f9498e0cd09e8141ce4e227e0186d0710aba89204d7c113e73444e42f0c4ff7c"
+      },
+      {
+        "path": "src/mke/evaluation/manifest.py",
+        "bytes": 15118,
+        "sha256": "2df221e37e9cee1b84a144ca33b55d1cce6103f4d5ff005b696956738d0d9378"
+      },
+      {
+        "path": "src/mke/evaluation/metrics.py",
+        "bytes": 2894,
+        "sha256": "938db6922f79be1745198fb4c0b26f3d1b5868c0416ed08707a5659afbc1aa7d"
+      },
+      {
+        "path": "src/mke/evaluation/report.py",
+        "bytes": 7473,
+        "sha256": "ced2e09aefda720edfa2d4ca43b3b9fb3ab538236495a198ad2dae6e2e28ccbe"
+      },
+      {
+        "path": "src/mke/evaluation/runner.py",
+        "bytes": 13251,
+        "sha256": "54e85ece36d56a0522647d450825a9533f56d939be8d49d82d284ea56c62f954"
+      },
+      {
+        "path": "src/mke/runtime.py",
+        "bytes": 7574,
+        "sha256": "fe670381f66245bab70e2b71f9345fcc3172ff1a219428a2fbe5a7a20e07dc8e"
+      }
+    ]
   },
   "environment": {
     "python": "3.13.12",

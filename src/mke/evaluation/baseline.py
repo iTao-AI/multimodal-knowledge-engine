@@ -5,7 +5,6 @@ import hashlib
 import json
 import math
 import re
-import subprocess
 from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
@@ -21,6 +20,25 @@ from mke.evaluation.manifest import (
 _SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 _COMMIT_RE = re.compile(r"[0-9a-f]{40}\Z")
 _VERSION_RE = re.compile(r"[0-9]+(?:\.[0-9]+){1,3}\Z")
+_HISTORICAL_CODE_IDENTITY = {
+    "main_merge_base": "721784eabcb9fbb737166578010c9e1a46a25fef",
+    "implementation_start": "3992b0e9371d1a8c9e019d3bbe2b32aac9665914",
+    "evaluation_commit": "79bafb07ac592b684e6ceab15dc389dc33702978",
+}
+_EVALUATION_CONTENT_PATHS = (
+    "src/mke/adapters/pdf/extractor.py",
+    "src/mke/adapters/sqlite/__init__.py",
+    "src/mke/adapters/video/transcript.py",
+    "src/mke/application/__init__.py",
+    "src/mke/cli.py",
+    "src/mke/domain/__init__.py",
+    "src/mke/evaluation/__init__.py",
+    "src/mke/evaluation/manifest.py",
+    "src/mke/evaluation/metrics.py",
+    "src/mke/evaluation/report.py",
+    "src/mke/evaluation/runner.py",
+    "src/mke/runtime.py",
+)
 _TOP_LEVEL_FIELDS = {
     "schema_version",
     "manifest_id",
@@ -99,6 +117,7 @@ def _validate_identity_and_provenance(
     repository_root: Path,
     main_ref: str,
 ) -> None:
+    del main_ref
     if artifact["schema_version"] != "mke.retrieval_eval_baseline.v1":
         raise BaselineValidationError("baseline schema version is unsupported")
     if artifact["manifest_id"] != manifest.manifest_id:
@@ -136,37 +155,24 @@ def _validate_identity_and_provenance(
     code = _object(artifact["code"], "baseline code identity")
     _require_exact_fields(
         code,
-        {"main_merge_base", "implementation_start", "evaluation_commit"},
+        {
+            "main_merge_base",
+            "implementation_start",
+            "evaluation_commit",
+            "evaluation_content_sha256",
+            "evaluation_content_files",
+        },
         "baseline code identity",
     )
-    commits = {
+    historical_identity = {
         name: _commit_sha(code[name], name)
         for name in ("main_merge_base", "implementation_start", "evaluation_commit")
     }
-    for commit in commits.values():
-        _git(repository_root, "cat-file", "-e", f"{commit}^{{commit}}")
-    actual_merge_base = _git(
-        repository_root,
-        "merge-base",
-        commits["implementation_start"],
-        main_ref,
-    )
-    if commits["main_merge_base"] != actual_merge_base:
+    if historical_identity != _HISTORICAL_CODE_IDENTITY:
         raise BaselineValidationError(
-            "code main merge base is not the implementation fork point"
+            "baseline code historical metadata is invalid"
         )
-    _require_git_ancestor(
-        repository_root,
-        commits["implementation_start"],
-        commits["evaluation_commit"],
-        "evaluation commit does not descend from implementation start",
-    )
-    _require_git_ancestor(
-        repository_root,
-        commits["evaluation_commit"],
-        "HEAD",
-        "evaluation commit is not part of the current branch",
-    )
+    _validate_evaluation_content_identity(code, repository_root)
 
     environment = _object(artifact["environment"], "baseline environment")
     _require_exact_fields(
@@ -303,7 +309,7 @@ def _validate_result(
             raise BaselineValidationError
         if bool(retrieved_count) != (ask_status == "evidence_found"):
             raise BaselineValidationError
-    except (KeyError, TypeError, BaselineValidationError) as error:
+    except (KeyError, TypeError, ValueError, BaselineValidationError) as error:
         raise BaselineValidationError(
             "baseline results do not match manifest query identity"
         ) from error
@@ -452,6 +458,45 @@ def _commit_sha(value: object, name: str) -> str:
     return value
 
 
+def _validate_evaluation_content_identity(
+    code: dict[str, object], repository_root: Path
+) -> None:
+    raw_files = code["evaluation_content_files"]
+    if not isinstance(raw_files, list):
+        raise BaselineValidationError("baseline evaluation content identity is invalid")
+    file_items = cast(list[object], raw_files)
+    files = [_object(item, "baseline evaluation content file") for item in file_items]
+    expected_files: list[dict[str, object]] = []
+    try:
+        for relative_path in _EVALUATION_CONTENT_PATHS:
+            path = (repository_root / relative_path).resolve()
+            if not path.is_relative_to(repository_root) or not path.is_file():
+                raise BaselineValidationError
+            expected_files.append(
+                {
+                    "path": relative_path,
+                    "bytes": path.stat().st_size,
+                    "sha256": _sha256(path),
+                }
+            )
+    except (OSError, BaselineValidationError) as error:
+        raise BaselineValidationError(
+            "baseline evaluation content identity could not be verified"
+        ) from error
+    if files != expected_files:
+        raise BaselineValidationError("baseline evaluation content identity is invalid")
+    encoded_files = json.dumps(
+        expected_files, ensure_ascii=True, separators=(",", ":"), sort_keys=True
+    ).encode()
+    expected_sha256 = hashlib.sha256(encoded_files).hexdigest()
+    if (
+        not isinstance(code["evaluation_content_sha256"], str)
+        or _SHA256_RE.fullmatch(code["evaluation_content_sha256"]) is None
+        or code["evaluation_content_sha256"] != expected_sha256
+    ):
+        raise BaselineValidationError("baseline evaluation content identity is invalid")
+
+
 def _integer(value: object) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise BaselineValidationError
@@ -473,38 +518,6 @@ def _sha256(path: Path) -> str:
         while chunk := stream.read(1024 * 1024):
             digest.update(chunk)
     return digest.hexdigest()
-
-
-def _git(repository_root: Path, *args: str) -> str:
-    try:
-        completed = subprocess.run(
-            ["git", *args],
-            cwd=repository_root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except (OSError, subprocess.CalledProcessError) as error:
-        raise BaselineValidationError("baseline code identity could not be verified") from error
-    return completed.stdout.strip()
-
-
-def _require_git_ancestor(
-    repository_root: Path,
-    ancestor: str,
-    descendant: str,
-    cause: str,
-) -> None:
-    try:
-        subprocess.run(
-            ["git", "merge-base", "--is-ancestor", ancestor, descendant],
-            cwd=repository_root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except (OSError, subprocess.CalledProcessError) as error:
-        raise BaselineValidationError(cause) from error
 
 
 def main(argv: Sequence[str] | None = None) -> int:

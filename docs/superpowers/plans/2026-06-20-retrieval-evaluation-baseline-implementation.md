@@ -1997,7 +1997,7 @@ Return:
   answerable zero-hit `0.062500`; unanswerable no-hit and Ask refusal `1.000000`.
 - Answerable miss at rank 5: `water-answerable-01`.
 - Unanswerable false positives: none.
-- Verification: `523 passed, 1 skipped`; Ruff passed; Pyright `0 errors`; build, human/JSON
+- Verification: `527 passed, 1 skipped`; Ruff passed; Pyright `0 errors`; build, human/JSON
   evaluation, product proof, demo, canonical artifact validation, CI YAML parse, and diff check
   passed.
 - Documentation audit: reference, how-to, README, docs navigation, architecture, fixture
@@ -2010,6 +2010,11 @@ Return:
   artifact validator that derives manifest/fixture identity and validates code, environment,
   metrics, results, and query identity without score gating; added fixture mutation regression
   coverage for the validation-to-snapshot interval.
+- Targeted re-review remediation: replaced runtime Git ancestry requirements with fixed historical
+  audit metadata plus a durable content identity derived from the exact evaluation/retrieval files,
+  allowing validation after squash landing in a shallow fresh clone with deleted feature history;
+  converted malformed locator integer parsing into a redacted `BaselineValidationError` at the
+  module CLI boundary.
 
 ## Autoplan Review Record
 

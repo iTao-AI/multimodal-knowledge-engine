@@ -93,10 +93,14 @@ uv run python -m mke.evaluation.baseline \
   --main-ref main
 ```
 
-The validator derives the manifest and fixture checksums from actual files, verifies code
-ancestry, checks the recorded environment shape, and recomputes aggregate consistency from the
-stored per-query results. It does not compare a current evaluation run's scores with the historical
-baseline.
+The validator derives the manifest and fixture checksums from actual files, verifies the fixed
+historical code metadata plus the byte size and SHA-256 of the recorded evaluation content files,
+checks the recorded environment shape, and recomputes aggregate consistency from the stored
+per-query results. Historical commit IDs remain audit metadata; validation does not require the
+feature commits to exist locally or remain ancestors of `HEAD`, so the same artifact remains
+verifiable after a squash merge and feature-branch deletion. The retained `--main-ref` option is
+accepted for command compatibility but is not used to resolve historical commits. The validator
+does not compare a current evaluation run's scores with the historical baseline.
 
 ## Compare A Retrieval Change
 
