@@ -8,6 +8,15 @@
 
 **Tech Stack:** Python 3.12/3.13, faster-whisper, PyAV, MCP Python SDK, uv, pytest, ffmpeg for fixture generation only, GStack document-release and review.
 
+## Completion Record
+
+- Status: completed and merged through PR #18 as `cc4df1b`; post-merge CI passed.
+- Scope: D3-B PR 3 only. The redistribution-safe fixture, cache-only real transcription proof,
+  isolated wheel-installed CLI/MCP proof, verified deployment evidence, and public documentation
+  were delivered without adding HTTP, remote ASR, queue, long-video, or audio-only scope.
+- Review: the installed-package isolation finding was remediated and recorded in
+  `docs/superpowers/reviews/2026-06-18-real-local-transcription-deployment-proof-review.md`.
+
 ---
 
 ## Prerequisites And PR Boundary
@@ -579,7 +588,7 @@ and an installed-package identity probe, then recorded in
 `docs/superpowers/reviews/2026-06-18-real-local-transcription-deployment-proof-review.md`. The full
 review was not rerun during remediation.
 
-- [ ] **Step 3: Mark the D3-B plans and design complete**
+- [x] **Step 3: Mark the D3-B plans and design complete**
 
 After all three PRs are merged and real proof evidence exists:
 
@@ -588,7 +597,10 @@ After all three PRs are merged and real proof evidence exists:
 - retain all three plans as implementation history;
 - do not rewrite the earlier Autoplan review.
 
-- [ ] **Step 4: Prepare the Chinese PR body**
+Completed on 2026-06-20 after PR #16 (`98ac84f`), PR #17 (`7a8c82b`), and PR #18
+(`cc4df1b`) were merged and their post-merge CI runs passed.
+
+- [x] **Step 4: Prepare the Chinese PR body**
 
 ```markdown
 ## Summary
@@ -621,6 +633,8 @@ List actual model-free and real-proof results separately.
 
 Updated README, ADR status, architecture, CLI/contracts, tutorials, MCP guide, local transcription guide, fixture provenance, and proof guide.
 ```
+
+The result-focused Chinese PR body was completed for PR #18, which merged as `cc4df1b`.
 
 - [x] **Step 5: Commit final review metadata**
 

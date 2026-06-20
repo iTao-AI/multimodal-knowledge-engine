@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted and implemented across D3-B PR 2 and PR 3.
+Accepted and implemented across all three D3-B stages: protocol and lifecycle in PR #16
+(`98ac84f`), runtime and interfaces in PR #17 (`7a8c82b`), and deployment proof and documentation
+in PR #18 (`cc4df1b`).
 
 ## Decision
 

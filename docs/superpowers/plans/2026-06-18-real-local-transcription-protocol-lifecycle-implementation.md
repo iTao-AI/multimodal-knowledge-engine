@@ -10,7 +10,7 @@
 
 ## Completion Record
 
-- Status: complete locally on 2026-06-18; no PR created pending explicit authorization.
+- Status: completed and merged through PR #16 as `98ac84f`; post-merge CI passed.
 - Verification: `275 passed`, Ruff clean, Pyright clean, package build successful, product proof
   `8/8`, deterministic demo passed, and `git diff --check` passed.
 - Review: clean after fixing Run-start recovery, transcript result consistency validation, public
