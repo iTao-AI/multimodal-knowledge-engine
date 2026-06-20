@@ -18,7 +18,25 @@ Evidence text, or temporary directory names.
 the primary product proof entrypoint.
 
 `mke proof run` and `mke demo --verify` intentionally use the deterministic sidecar transcript
-provider. They do not require a local transcription command.
+provider. They do not load or download a speech model.
+
+## Optional Cache-Only Real Transcription Proof
+
+After explicitly preparing the exact model revision described in
+[Use Local Transcription](./use-local-transcription.md), run:
+
+```bash
+HF_HUB_OFFLINE=1 uv run mke proof transcription-run \
+  --fixture tests/fixtures/video/spoken-evidence.mp4 \
+  --model small \
+  --model-revision 536b0662742c02347bc0e980a01041f333bce120 \
+  --model-cache <external-model-cache> \
+  --json
+```
+
+This separate proof executes real local ASR and validates a published Run, timestamp Evidence,
+keyword Search, and evidence-only Ask. It is cache-only and does not change the deterministic
+eight-case proof.
 
 ## What This Proves
 
@@ -46,7 +64,7 @@ provider. They do not require a local transcription command.
 - Table extraction, page coordinates, or layout-aware chunking.
 - Unicode-aware retrieval beyond the current ASCII Search tokenization.
 - Arbitrary or long-video processing.
-- Bundled real speech-model transcription or speech-model quality evaluation.
+- Bundled model weights or speech-model quality evaluation.
 - HTTP or workspace UI.
 - stdio MCP server startup; see [Use MKE As A Local MCP Server](./use-mke-mcp.md).
 - Hosted coordination, multi-worker behavior, or external provider integration.
@@ -62,8 +80,9 @@ uv run mke --db .tmp/mke.sqlite ask "publication active"
 uv run mke --db .tmp/mke.sqlite run get <run_id>
 ```
 
-Remove `.tmp/mke.sqlite*` when done. The local proof does not require credentials, model downloads,
-external services, `ffmpeg`, or network calls at runtime.
+Remove `.tmp/mke.sqlite*` when done. The deterministic local proof does not require credentials,
+model downloads, external services, `ffmpeg`, or network calls at runtime. The optional real proof
+requires a separately prepared exact model revision but remains cache-only while it runs.
 
 ## Optional Local Transcript Smoke
 
