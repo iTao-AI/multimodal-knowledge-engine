@@ -298,7 +298,7 @@ git diff --check
 
 Expected: `3 passed`; no whitespace errors.
 
-- [ ] **Step 8: Commit the fixture task**
+- [x] **Step 8: Commit the fixture task**
 
 Stage only:
 
@@ -322,7 +322,7 @@ git commit -m "test(eval): add retrieval baseline corpus"
 - Create: `src/mke/evaluation/manifest.py`
 - Create: `tests/evaluation/test_manifest.py`
 
-- [ ] **Step 1: Write failing parser tests**
+- [x] **Step 1: Write failing parser tests**
 
 Create `tests/evaluation/test_manifest.py` covering:
 
@@ -442,7 +442,7 @@ unanswerable queries with qrels, missing supporting sidecars, a sidecar path tha
 `<primary path>.mke-transcript.json`, duplicate primary paths or hashes, empty query groups,
 manifest count/size bounds, and missing manifest versus invalid JSON errors.
 
-- [ ] **Step 2: Run parser tests to verify RED**
+- [x] **Step 2: Run parser tests to verify RED**
 
 Run:
 
@@ -452,7 +452,7 @@ uv run pytest tests/evaluation/test_manifest.py -q
 
 Expected: collection FAIL because `mke.evaluation.manifest` does not exist.
 
-- [ ] **Step 3: Implement immutable DTOs and strict parser**
+- [x] **Step 3: Implement immutable DTOs and strict parser**
 
 Create `src/mke/evaluation/manifest.py` with:
 
@@ -620,7 +620,7 @@ __all__ = [
 ]
 ```
 
-- [ ] **Step 4: Run parser tests to verify GREEN**
+- [x] **Step 4: Run parser tests to verify GREEN**
 
 Run:
 

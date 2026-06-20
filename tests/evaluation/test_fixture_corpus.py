@@ -1,8 +1,9 @@
 import hashlib
 import json
 from pathlib import Path
+from typing import cast
 
-import fitz
+import fitz  # pyright: ignore[reportMissingTypeStubs]
 
 FIXTURES = Path(__file__).parents[1] / "fixtures"
 MANIFEST = FIXTURES / "retrieval-eval-v1.json"
@@ -32,9 +33,17 @@ def test_retrieval_eval_corpus_matches_approved_bytes_and_text_layers() -> None:
         assert _sha256(path) == expected_sha256
         with fitz.open(path) as document:
             assert len(document) == 2
-            assert tuple(len(page.get_text("text", sort=True)) for page in document) == (
-                expected_chars
-            )
+            assert tuple(
+                len(
+                    cast(
+                        str,
+                        page.get_text(  # pyright: ignore[reportUnknownMemberType]
+                            "text", sort=True
+                        ),
+                    )
+                )
+                for page in document
+            ) == expected_chars
 
 
 def test_retrieval_eval_reuses_exact_video_fixture_bytes() -> None:
