@@ -1143,7 +1143,7 @@ uv run pyright
 
 Expected: all pass; Pyright reports `0 errors`.
 
-- [ ] **Step 5: Commit the report task**
+- [x] **Step 5: Commit the report task**
 
 ```bash
 git add src/mke/evaluation/report.py tests/evaluation/test_report.py
@@ -1159,7 +1159,7 @@ git commit -m "feat(eval): add retrieval evaluation reports"
 - Create: `tests/evaluation/test_runner.py`
 - Modify: `src/mke/evaluation/__init__.py`
 
-- [ ] **Step 1: Write failing runner tests**
+- [x] **Step 1: Write failing runner tests**
 
 Create `tests/evaluation/test_runner.py` covering:
 
@@ -1254,7 +1254,7 @@ Also add tests for:
 - the same immutable fixture snapshot feeds both workspaces;
 - temporary directories are removed after success and failure.
 
-- [ ] **Step 2: Run runner tests to verify RED**
+- [x] **Step 2: Run runner tests to verify RED**
 
 Run:
 
@@ -1264,7 +1264,7 @@ uv run pytest tests/evaluation/test_runner.py -q
 
 Expected: collection FAIL because `mke.evaluation.runner` does not exist.
 
-- [ ] **Step 3: Implement runner errors and one-workspace execution**
+- [x] **Step 3: Implement runner errors and one-workspace execution**
 
 Create `src/mke/evaluation/runner.py` with:
 
@@ -1425,7 +1425,7 @@ same stable locators and Ask status to `calculate_metrics`. Require
 `ask.status == "insufficient_evidence"` exactly when Search returns no rows; disagreement is
 `retrieval_eval_incomplete`.
 
-- [ ] **Step 4: Implement deterministic comparison and failed report helpers**
+- [x] **Step 4: Implement deterministic comparison and failed report helpers**
 
 Compare only:
 
@@ -1459,7 +1459,7 @@ retrieval evaluation failed
 - no query results,
 - one `IntegrityFailure`.
 
-- [ ] **Step 5: Export runner/report functions**
+- [x] **Step 5: Export runner/report functions**
 
 Update `src/mke/evaluation/__init__.py` to export:
 
@@ -1473,7 +1473,7 @@ from mke.evaluation.runner import run_retrieval_evaluation
 
 Add those names to `__all__`.
 
-- [ ] **Step 6: Run runner and full evaluation tests**
+- [x] **Step 6: Run runner and full evaluation tests**
 
 Run:
 
