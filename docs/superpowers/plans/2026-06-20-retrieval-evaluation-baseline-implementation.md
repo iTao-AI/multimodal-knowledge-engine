@@ -1484,7 +1484,7 @@ uv run pyright
 
 Expected: all pass; Pyright reports `0 errors`.
 
-- [ ] **Step 7: Commit the runner task**
+- [x] **Step 7: Commit the runner task**
 
 ```bash
 git add \
@@ -1503,7 +1503,7 @@ git commit -m "feat(eval): run deterministic retrieval baseline"
 - Create: `tests/interfaces/test_cli_evaluation.py`
 - Modify: `.github/workflows/ci.yml`
 
-- [ ] **Step 1: Write failing CLI tests**
+- [x] **Step 1: Write failing CLI tests**
 
 Create `tests/interfaces/test_cli_evaluation.py`:
 
@@ -1602,7 +1602,7 @@ Also add contract tests that:
   report, no traceback, and no absolute path;
 - missing manifest and invalid JSON return distinct stable causes.
 
-- [ ] **Step 2: Run CLI tests to verify RED**
+- [x] **Step 2: Run CLI tests to verify RED**
 
 Run:
 
@@ -1612,7 +1612,7 @@ uv run pytest tests/interfaces/test_cli_evaluation.py -q
 
 Expected: FAIL because `eval` is not a recognized subcommand.
 
-- [ ] **Step 3: Add the CLI parser and dispatch**
+- [x] **Step 3: Add the CLI parser and dispatch**
 
 Import the evaluation exports in `src/mke/cli.py`, then add:
 
@@ -1668,7 +1668,7 @@ next_step=inspect_retrieval_eval_inputs
 
 The fallback contains no exception text, path, query, Evidence, or host detail.
 
-- [ ] **Step 4: Keep evaluation failures inside the evaluation report contract**
+- [x] **Step 4: Keep evaluation failures inside the evaluation report contract**
 
 The evaluation runner already renders stable `problem`, `cause`, `next_step`, and optional
 `subject_id` fields. Do not route those failures through `interfaces/public_errors.py`: doing so
@@ -1676,7 +1676,7 @@ would couple a self-contained report to the CLI/MCP operation-error allowlist an
 the evaluation-specific problem classification. Keep dynamic IDs in `subject_id`; do not
 concatenate IDs or paths into `cause`.
 
-- [ ] **Step 5: Run CLI tests to verify GREEN**
+- [x] **Step 5: Run CLI tests to verify GREEN**
 
 Run:
 
@@ -1690,7 +1690,7 @@ uv run pyright
 
 Expected: all pass; Pyright reports `0 errors`.
 
-- [ ] **Step 6: Add required source-tree and wheel-installed CI evaluation**
+- [x] **Step 6: Add required source-tree and wheel-installed CI evaluation**
 
 After `uv run pyright`, add:
 
@@ -1737,7 +1737,7 @@ baseline schema, manifest ID, manifest checksum, fixture checksums, environment 
 per-query results, and no duration. Do not compare current scores to the canonical artifact and do
 not assert exact metric values.
 
-- [ ] **Step 7: Run the complete local verification set**
+- [x] **Step 7: Run the complete local verification set**
 
 Run:
 

@@ -20,6 +20,12 @@ from mke.adapters.video.faster_whisper import (
 )
 from mke.application import AskValidationError, KnowledgeEngine, PdfIngestError, VideoIngestError
 from mke.domain import FailurePoint, PdfIntakeReport, SearchResult, TranscriptIntakeReport
+from mke.evaluation import (
+    render_retrieval_human_report,
+    render_retrieval_json_report,
+    run_retrieval_evaluation,
+)
+from mke.evaluation.report import RetrievalEvaluationReport
 from mke.interfaces.mcp_contract import McpRuntimeConfig, transcript_intake_report_payload
 from mke.interfaces.mcp_server import run_mcp_server
 from mke.interfaces.public_errors import public_error_from_cause, render_public_error_line
@@ -52,6 +58,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("multimodal-knowledge-engine: bootstrap stage")
         return 0
 
+    raw_argv = tuple(argv)
     parser = argparse.ArgumentParser(prog="mke")
     parser.add_argument("--db", type=Path, default=Path("mke.sqlite"))
     subcommands = parser.add_subparsers(dest="command", required=True)
@@ -95,6 +102,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     proof_smoke.add_argument("--fixture", type=Path, required=True)
     proof_smoke.add_argument("transcript_command", nargs=argparse.REMAINDER)
 
+    evaluation = subcommands.add_parser("eval")
+    evaluation_subcommands = evaluation.add_subparsers(
+        dest="evaluation_command", required=True
+    )
+    retrieval = evaluation_subcommands.add_parser(
+        "retrieval",
+        description=(
+            "Record the current baseline on a small English page/timestamp corpus; "
+            "no retrieval-quality threshold is applied."
+        ),
+    )
+    retrieval.add_argument(
+        "--manifest",
+        type=Path,
+        required=True,
+        help="external retrieval-evaluation manifest",
+    )
+    retrieval.add_argument("--json", action="store_true", dest="json_output")
+
     mcp = subcommands.add_parser("mcp")
     mcp.add_argument("--allowed-root", type=Path, default=Path.cwd())
     add_transcription_runtime_arguments(mcp, default_provider="sidecar")
@@ -112,6 +138,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     add_transcription_runtime_arguments(doctor, default_provider="faster-whisper")
 
     args = parser.parse_args(argv)
+    if args.command == "eval" and any(
+        item == "--db" or item.startswith("--db=") for item in raw_argv
+    ):
+        parser.error("eval uses two temporary workspaces; --db is not supported")
+    if args.command == "eval":
+        if args.evaluation_command == "retrieval":
+            report = run_retrieval_evaluation(args.manifest)
+            rendered, rendering_failed = _render_retrieval_report_safely(
+                report,
+                json_output=args.json_output,
+            )
+            print(rendered)
+            return 0 if report.status == "passed" and not rendering_failed else 1
+        parser.error("unsupported evaluation command")
     if args.command == "demo":
         return _demo_verify(args.fixture, args.revised_fixture, args.video_fixture)
     if args.command == "proof":
@@ -185,6 +225,69 @@ def console_main() -> int:
     """Console script entrypoint."""
     argv = sys.argv[1:]
     return main(argv if argv else None)
+
+
+def _render_retrieval_report_safely(
+    report: RetrievalEvaluationReport,
+    *,
+    json_output: bool,
+) -> tuple[str, bool]:
+    try:
+        rendered = (
+            render_retrieval_json_report(report)
+            if json_output
+            else render_retrieval_human_report(report)
+        )
+        return rendered, False
+    except Exception:
+        if json_output:
+            return (
+                json.dumps(
+                    {
+                        "evaluation": "retrieval",
+                        "schema_version": "mke.retrieval_eval_report.v1",
+                        "manifest_id": "unknown",
+                        "benchmark_scope": "small_english_page_timestamp_corpus",
+                        "quality_gate": "none",
+                        "status": "failed",
+                        "quality_status": "not_recorded",
+                        "documents": 0,
+                        "queries": 0,
+                        "answerable": 0,
+                        "unanswerable": 0,
+                        "metrics": None,
+                        "category_counts": {
+                            "answerable": 0,
+                            "lexical_confuser": 0,
+                            "out_of_corpus": 0,
+                        },
+                        "results": [],
+                        "integrity_failures": [
+                            {
+                                "problem": "retrieval_eval_incomplete",
+                                "cause": (
+                                    "retrieval evaluation report could not be rendered"
+                                ),
+                                "next_step": "inspect_retrieval_eval_inputs",
+                                "subject_id": None,
+                            }
+                        ],
+                        "duration_ms": 0,
+                    }
+                ),
+                True,
+            )
+        return (
+            "mke eval retrieval\n"
+            "scope=small_english_page_timestamp_corpus quality_gate=none\n"
+            "evaluation=retrieval manifest=unknown status=failed "
+            "quality_status=not_recorded documents=0 queries=0 answerable=0 "
+            "unanswerable=0\n"
+            "problem=retrieval_eval_incomplete "
+            "cause=retrieval evaluation report could not be rendered "
+            "next_step=inspect_retrieval_eval_inputs",
+            True,
+        )
 
 
 def _ingest(engine: KnowledgeEngine, path: Path, *, json_output: bool = False) -> int:

@@ -10,8 +10,8 @@ from typing import Self
 from uuid import uuid4
 
 from mke.domain import (
-    ActiveEvidenceRef,
     ActivationResult,
+    ActiveEvidenceRef,
     CandidateEvidence,
     FailurePoint,
     ManifestValidationError,
