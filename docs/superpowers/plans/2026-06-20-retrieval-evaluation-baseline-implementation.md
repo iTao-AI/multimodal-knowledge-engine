@@ -763,7 +763,7 @@ uv run pyright
 
 Expected: all pass; Pyright reports `0 errors`.
 
-- [ ] **Step 6: Commit the enumeration task**
+- [x] **Step 6: Commit the enumeration task**
 
 ```bash
 git add \
@@ -782,7 +782,7 @@ git commit -m "feat(eval): expose active evidence for evaluation"
 - Create: `src/mke/evaluation/metrics.py`
 - Create: `tests/evaluation/test_metrics.py`
 
-- [ ] **Step 1: Write failing metric tests**
+- [x] **Step 1: Write failing metric tests**
 
 Create `tests/evaluation/test_metrics.py`:
 
@@ -850,7 +850,7 @@ Search/Ask consistency, and empty answerable/unanswerable group rejection. Under
 application contract, a non-empty Search result with a refused Ask is impossible and must not be
 used as a metric fixture.
 
-- [ ] **Step 2: Run metric tests to verify RED**
+- [x] **Step 2: Run metric tests to verify RED**
 
 Run:
 
@@ -860,7 +860,7 @@ uv run pytest tests/evaluation/test_metrics.py -q
 
 Expected: collection FAIL because `mke.evaluation.metrics` does not exist.
 
-- [ ] **Step 3: Implement pure metric DTOs and calculation**
+- [x] **Step 3: Implement pure metric DTOs and calculation**
 
 Create `src/mke/evaluation/metrics.py`:
 
@@ -942,7 +942,7 @@ def _mean(values: tuple[float, ...]) -> MetricValue:
     return MetricValue(value=round(total / len(values), 6), sum=total, count=len(values))
 ```
 
-- [ ] **Step 4: Run metric tests to verify GREEN**
+- [x] **Step 4: Run metric tests to verify GREEN**
 
 Run:
 
