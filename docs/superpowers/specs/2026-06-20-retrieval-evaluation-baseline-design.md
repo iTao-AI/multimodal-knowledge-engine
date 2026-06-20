@@ -545,7 +545,6 @@ Expected stable problems include:
 - `retrieval_eval_qrel_invalid`
 - `retrieval_eval_incomplete`
 - `retrieval_eval_nondeterministic`
-- `retrieval_eval_report_failed`
 
 Stable causes may name a manifest document ID, query ID, field name, expected checksum, or
 repository-relative fixture key. They must not include absolute paths or raw exception messages.
@@ -572,6 +571,13 @@ Responsibilities:
 - `runner.py`: two-workspace orchestration, normal ingest/Search/Ask calls, stable runtime-to-
   manifest identity mapping, integrity gates, and determinism comparison.
 - `cli.py`: argument parsing and delegation only.
+
+The evaluator needs to prove that every qrel resolves to currently published Evidence, including
+qrels that Search does not return. E1 therefore adds one read-only
+`KnowledgeEngine.list_active_evidence()` method backed by `SQLiteStore.list_active_evidence()`.
+It returns only Evidence belonging to each Source's active Publication in stable locator order.
+This method is an internal diagnostics/evaluation seam: it is not exposed through CLI, MCP, or a
+new public service contract, and it must not alter the existing Search SQL or ordering.
 
 Evaluation code may depend on project-owned domain/application contracts. Domain and application
 code must not depend on evaluation code.
