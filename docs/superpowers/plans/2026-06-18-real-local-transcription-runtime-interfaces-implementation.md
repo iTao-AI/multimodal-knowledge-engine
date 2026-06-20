@@ -10,8 +10,8 @@
 
 ## Completion Record
 
-- Status: complete locally on 2026-06-19 after authoritative review remediation; branch retained
-  without push or PR.
+- Status: completed and merged through PR #17 as `7a8c82b` after authoritative review
+  remediation; post-merge CI passed.
 - Scope: PR 2 only. No model, spoken fixture, real ASR proof, or PR 3 deployment proof was added.
 - Review: the authoritative gstack review identified eight findings. All eight were independently
   reproduced, fixed with regression coverage, and recorded in

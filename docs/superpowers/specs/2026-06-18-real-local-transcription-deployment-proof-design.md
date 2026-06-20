@@ -2,7 +2,8 @@
 
 ## Status
 
-- Stage: Approved after autoplan review; implementation plans ready.
+- Stage: Completed on 2026-06-20 through PR #16 (`98ac84f`), PR #17 (`7a8c82b`), and
+  PR #18 (`cc4df1b`); all three post-merge CI runs passed.
 - Slice: D3-B.
 - Depends on: D3-A `TranscriptProvider` port and trusted local command boundary.
 
