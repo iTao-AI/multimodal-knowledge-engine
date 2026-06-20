@@ -1,0 +1,89 @@
+{
+  "schema_version": "mke.retrieval_eval_baseline.v1",
+  "manifest_id": "retrieval-eval-v1",
+  "manifest_sha256": "a65b33e011c7a39245a2202fa741e57a268b42da9f68d8da0725955834dd4761",
+  "fixtures": [
+    {
+      "document_id": "usgs-volcano-hazards",
+      "role": "primary",
+      "bytes": 563382,
+      "sha256": "bdb8a5b6c648194e0fcc6f932b70976350bdc864c8187632c47f0cb64a21da4e"
+    },
+    {
+      "document_id": "usgs-water-use-2005",
+      "role": "primary",
+      "bytes": 400168,
+      "sha256": "ef27346a9f2eab19d438a0740d43c606a9b739147e09d89d1121df294ed3c585"
+    },
+    {
+      "document_id": "short-video-timestamp-proof",
+      "role": "primary",
+      "bytes": 13025,
+      "sha256": "4e3c9feffa503e193165ddf27c40c0e0edf9f256c2e8e1e2d863bd7ba3e1fe49"
+    },
+    {
+      "document_id": "short-video-timestamp-proof",
+      "role": "transcript_sidecar",
+      "bytes": 506,
+      "sha256": "5688603821b9262f85592912ef957d852ea34448e7292c927ea5071a0668e995"
+    }
+  ],
+  "code": {
+    "base_commit": "3992b0e9371d1a8c9e019d3bbe2b32aac9665914",
+    "evaluation_commit": "79bafb07ac592b684e6ceab15dc389dc33702978"
+  },
+  "environment": {
+    "python": "3.13.12",
+    "sqlite": "3.51.1",
+    "pymupdf": "1.27.2.3"
+  },
+  "report_schema_version": "mke.retrieval_eval_report.v1",
+  "benchmark_scope": "small_english_page_timestamp_corpus",
+  "quality_gate": "none",
+  "documents": 3,
+  "queries": 24,
+  "answerable": 16,
+  "unanswerable": 8,
+  "category_counts": {
+    "answerable": 16,
+    "lexical_confuser": 4,
+    "out_of_corpus": 4
+  },
+  "metrics": {
+    "locator_recall_at_1": {"value": 0.875, "sum": 14.0, "count": 16},
+    "locator_recall_at_3": {"value": 0.9375, "sum": 15.0, "count": 16},
+    "locator_recall_at_5": {"value": 0.9375, "sum": 15.0, "count": 16},
+    "mrr_at_5": {"value": 0.9375, "sum": 15.0, "count": 16},
+    "answerable_zero_hit_rate": {"value": 0.0625, "sum": 1.0, "count": 16},
+    "unanswerable_no_hit_rate": {"value": 1.0, "sum": 8.0, "count": 8},
+    "ask_refusal_rate": {"value": 1.0, "sum": 8.0, "count": 8}
+  },
+  "results": [
+    {"query_id":"volcano-answerable-01","category":"answerable","relevant_locator_count":1,"retrieved_locator_count":1,"relevant_retrieved_at_1":1,"relevant_retrieved_at_3":1,"relevant_retrieved_at_5":1,"first_relevant_rank":1,"ask_status":"evidence_found","retrieved_locators":["usgs-volcano-hazards:page:1..1"]},
+    {"query_id":"volcano-answerable-02","category":"answerable","relevant_locator_count":1,"retrieved_locator_count":1,"relevant_retrieved_at_1":1,"relevant_retrieved_at_3":1,"relevant_retrieved_at_5":1,"first_relevant_rank":1,"ask_status":"evidence_found","retrieved_locators":["usgs-volcano-hazards:page:1..1"]},
+    {"query_id":"volcano-answerable-03","category":"answerable","relevant_locator_count":2,"retrieved_locator_count":2,"relevant_retrieved_at_1":1,"relevant_retrieved_at_3":2,"relevant_retrieved_at_5":2,"first_relevant_rank":1,"ask_status":"evidence_found","retrieved_locators":["usgs-volcano-hazards:page:2..2","usgs-volcano-hazards:page:1..1"]},
+    {"query_id":"volcano-answerable-04","category":"answerable","relevant_locator_count":1,"retrieved_locator_count":1,"relevant_retrieved_at_1":1,"relevant_retrieved_at_3":1,"relevant_retrieved_at_5":1,"first_relevant_rank":1,"ask_status":"evidence_found","retrieved_locators":["usgs-volcano-hazards:page:2..2"]},
+    {"query_id":"volcano-answerable-05","category":"answerable","relevant_locator_count":1,"retrieved_locator_count":1,"relevant_retrieved_at_1":1,"relevant_retrieved_at_3":1,"relevant_retrieved_at_5":1,"first_relevant_rank":1,"ask_status":"evidence_found","retrieved_locators":["usgs-volcano-hazards:page:2..2"]},
+    {"query_id":"volcano-answerable-06","category":"answerable","relevant_locator_count":1,"retrieved_locator_count":1,"relevant_retrieved_at_1":1,"relevant_retrieved_at_3":1,"relevant_retrieved_at_5":1,"first_relevant_rank":1,"ask_status":"evidence_found","retrieved_locators":["usgs-volcano-hazards:page:2..2"]},
+    {"query_id":"water-answerable-01","category":"answerable","relevant_locator_count":1,"retrieved_locator_count":0,"relevant_retrieved_at_1":0,"relevant_retrieved_at_3":0,"relevant_retrieved_at_5":0,"first_relevant_rank":null,"ask_status":"insufficient_evidence","retrieved_locators":[]},
+    {"query_id":"water-answerable-02","category":"answerable","relevant_locator_count":1,"retrieved_locator_count":1,"relevant_retrieved_at_1":1,"relevant_retrieved_at_3":1,"relevant_retrieved_at_5":1,"first_relevant_rank":1,"ask_status":"evidence_found","retrieved_locators":["usgs-water-use-2005:page:1..1"]},
+    {"query_id":"water-answerable-03","category":"answerable","relevant_locator_count":1,"retrieved_locator_count":1,"relevant_retrieved_at_1":1,"relevant_retrieved_at_3":1,"relevant_retrieved_at_5":1,"first_relevant_rank":1,"ask_status":"evidence_found","retrieved_locators":["usgs-water-use-2005:page:1..1"]},
+    {"query_id":"water-answerable-04","category":"answerable","relevant_locator_count":1,"retrieved_locator_count":1,"relevant_retrieved_at_1":1,"relevant_retrieved_at_3":1,"relevant_retrieved_at_5":1,"first_relevant_rank":1,"ask_status":"evidence_found","retrieved_locators":["usgs-water-use-2005:page:2..2"]},
+    {"query_id":"water-answerable-05","category":"answerable","relevant_locator_count":1,"retrieved_locator_count":1,"relevant_retrieved_at_1":1,"relevant_retrieved_at_3":1,"relevant_retrieved_at_5":1,"first_relevant_rank":1,"ask_status":"evidence_found","retrieved_locators":["usgs-water-use-2005:page:2..2"]},
+    {"query_id":"water-answerable-06","category":"answerable","relevant_locator_count":1,"retrieved_locator_count":1,"relevant_retrieved_at_1":1,"relevant_retrieved_at_3":1,"relevant_retrieved_at_5":1,"first_relevant_rank":1,"ask_status":"evidence_found","retrieved_locators":["usgs-water-use-2005:page:2..2"]},
+    {"query_id":"video-answerable-01","category":"answerable","relevant_locator_count":1,"retrieved_locator_count":1,"relevant_retrieved_at_1":1,"relevant_retrieved_at_3":1,"relevant_retrieved_at_5":1,"first_relevant_rank":1,"ask_status":"evidence_found","retrieved_locators":["short-video-timestamp-proof:timestamp_ms:0..1200"]},
+    {"query_id":"video-answerable-02","category":"answerable","relevant_locator_count":2,"retrieved_locator_count":2,"relevant_retrieved_at_1":1,"relevant_retrieved_at_3":2,"relevant_retrieved_at_5":2,"first_relevant_rank":1,"ask_status":"evidence_found","retrieved_locators":["short-video-timestamp-proof:timestamp_ms:0..1200","short-video-timestamp-proof:timestamp_ms:1200..2200"]},
+    {"query_id":"video-answerable-03","category":"answerable","relevant_locator_count":1,"retrieved_locator_count":1,"relevant_retrieved_at_1":1,"relevant_retrieved_at_3":1,"relevant_retrieved_at_5":1,"first_relevant_rank":1,"ask_status":"evidence_found","retrieved_locators":["short-video-timestamp-proof:timestamp_ms:1200..2200"]},
+    {"query_id":"video-answerable-04","category":"answerable","relevant_locator_count":1,"retrieved_locator_count":1,"relevant_retrieved_at_1":1,"relevant_retrieved_at_3":1,"relevant_retrieved_at_5":1,"first_relevant_rank":1,"ask_status":"evidence_found","retrieved_locators":["short-video-timestamp-proof:timestamp_ms:1200..2200"]},
+    {"query_id":"confuser-01","category":"lexical_confuser","relevant_locator_count":0,"retrieved_locator_count":0,"relevant_retrieved_at_1":0,"relevant_retrieved_at_3":0,"relevant_retrieved_at_5":0,"first_relevant_rank":null,"ask_status":"insufficient_evidence","retrieved_locators":[]},
+    {"query_id":"confuser-02","category":"lexical_confuser","relevant_locator_count":0,"retrieved_locator_count":0,"relevant_retrieved_at_1":0,"relevant_retrieved_at_3":0,"relevant_retrieved_at_5":0,"first_relevant_rank":null,"ask_status":"insufficient_evidence","retrieved_locators":[]},
+    {"query_id":"confuser-03","category":"lexical_confuser","relevant_locator_count":0,"retrieved_locator_count":0,"relevant_retrieved_at_1":0,"relevant_retrieved_at_3":0,"relevant_retrieved_at_5":0,"first_relevant_rank":null,"ask_status":"insufficient_evidence","retrieved_locators":[]},
+    {"query_id":"confuser-04","category":"lexical_confuser","relevant_locator_count":0,"retrieved_locator_count":0,"relevant_retrieved_at_1":0,"relevant_retrieved_at_3":0,"relevant_retrieved_at_5":0,"first_relevant_rank":null,"ask_status":"insufficient_evidence","retrieved_locators":[]},
+    {"query_id":"out-of-corpus-01","category":"out_of_corpus","relevant_locator_count":0,"retrieved_locator_count":0,"relevant_retrieved_at_1":0,"relevant_retrieved_at_3":0,"relevant_retrieved_at_5":0,"first_relevant_rank":null,"ask_status":"insufficient_evidence","retrieved_locators":[]},
+    {"query_id":"out-of-corpus-02","category":"out_of_corpus","relevant_locator_count":0,"retrieved_locator_count":0,"relevant_retrieved_at_1":0,"relevant_retrieved_at_3":0,"relevant_retrieved_at_5":0,"first_relevant_rank":null,"ask_status":"insufficient_evidence","retrieved_locators":[]},
+    {"query_id":"out-of-corpus-03","category":"out_of_corpus","relevant_locator_count":0,"retrieved_locator_count":0,"relevant_retrieved_at_1":0,"relevant_retrieved_at_3":0,"relevant_retrieved_at_5":0,"first_relevant_rank":null,"ask_status":"insufficient_evidence","retrieved_locators":[]},
+    {"query_id":"out-of-corpus-04","category":"out_of_corpus","relevant_locator_count":0,"retrieved_locator_count":0,"relevant_retrieved_at_1":0,"relevant_retrieved_at_3":0,"relevant_retrieved_at_5":0,"first_relevant_rank":null,"ask_status":"insufficient_evidence","retrieved_locators":[]}
+  ],
+  "answerable_misses_at_5": ["water-answerable-01"],
+  "unanswerable_false_positives": []
+}

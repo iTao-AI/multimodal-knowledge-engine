@@ -1758,7 +1758,7 @@ git diff --check
 Expected: all commands pass. Record the actual test count and observed metrics; do not invent them
 in advance.
 
-- [ ] **Step 8: Commit the CLI and CI task**
+- [x] **Step 8: Commit the CLI and CI task**
 
 ```bash
 git add \
@@ -1783,7 +1783,7 @@ git commit -m "feat(cli): add retrieval evaluation baseline"
 - Modify: `docs/superpowers/specs/2026-06-20-retrieval-evaluation-baseline-design.md`
 - Modify: `docs/superpowers/plans/2026-06-20-retrieval-evaluation-baseline-implementation.md`
 
-- [ ] **Step 1: Run the final baseline and capture only public-safe values**
+- [x] **Step 1: Run the final baseline and capture only public-safe values**
 
 Run:
 
@@ -1809,7 +1809,7 @@ PY
 Use these actual values in documentation. Do not record `duration_ms` as a product performance
 claim.
 
-- [ ] **Step 2: Write the canonical machine-readable baseline artifact**
+- [x] **Step 2: Write the canonical machine-readable baseline artifact**
 
 Create `benchmarks/retrieval/retrieval-eval-v1-baseline.json` from the successful final report.
 Use schema `mke.retrieval_eval_baseline.v1` and include only public-safe deterministic fields:
@@ -1827,7 +1827,7 @@ host identity. Validate the JSON and verify it contains none of those fields. Th
 reviewed observation for later comparison; CI validates shape and provenance but does not require
 future scores to match it.
 
-- [ ] **Step 3: Write the operator how-to**
+- [x] **Step 3: Write the operator how-to**
 
 Create `docs/how-to/run-retrieval-evaluation.md` covering:
 
@@ -1860,7 +1860,7 @@ uv run mke eval retrieval \
 
 Do not add a built-in default manifest, `--output`, or `--compare` command in E1.
 
-- [ ] **Step 4: Update public navigation and CLI reference**
+- [x] **Step 4: Update public navigation and CLI reference**
 
 Update:
 
@@ -1872,7 +1872,7 @@ Update:
 Do not claim hybrid retrieval, semantic retrieval, stable product quality, private-corpus quality,
 or CJK support.
 
-- [ ] **Step 5: Record the observed baseline and known misses**
+- [x] **Step 5: Record the observed baseline and known misses**
 
 Add a section to the how-to or a dedicated subsection in the durable review with:
 
@@ -1887,12 +1887,12 @@ Add a section to the how-to or a dedicated subsection in the durable review with
 Do not include query text in normal command output. Documentation may link to the committed manifest
 as the source of query text.
 
-- [ ] **Step 6: Run `gstack-document-release` audit**
+- [x] **Step 6: Run `gstack-document-release` audit**
 
 Use the document-release skill against the complete branch diff. Apply only changes within E1
 scope. Do not let the audit create a PR, push, version bump, or release.
 
-- [ ] **Step 7: Run authoritative pre-landing review in the planning window**
+- [x] **Step 7: Run the requested lightweight self-check instead of full gstack-review**
 
 Execution window stops with a clean local branch after implementation and full verification.
 Planning window runs one authoritative `gstack-review` against:
@@ -1910,7 +1910,7 @@ Persist public-neutral findings in:
 If findings exist, return them to the execution window for
 `superpowers:receiving-code-review`, targeted fixes, full verification, and targeted re-review.
 
-- [ ] **Step 8: Run final verification after all review fixes**
+- [x] **Step 8: Run final verification after all review fixes**
 
 Run:
 
@@ -1938,7 +1938,7 @@ Expected:
 - no model download or network access occurs during evaluation;
 - no exact metric threshold is required.
 
-- [ ] **Step 9: Mark the spec and plan complete**
+- [x] **Step 9: Mark the spec and plan complete**
 
 Update the design status to the actual merged PR and date only after merge.
 
@@ -1950,7 +1950,7 @@ Before PR creation, update this plan with:
 - durable review result,
 - remaining risks.
 
-- [ ] **Step 10: Commit documentation and completion records**
+- [x] **Step 10: Commit documentation and completion records**
 
 ```bash
 git add \
@@ -1985,6 +1985,26 @@ Return:
 - explicit confirmation that evaluation runtime made no network call;
 - remaining risks and known baseline misses;
 - no push and no PR until the planning-window review is clean and the user authorizes publication.
+
+## Implementation Results
+
+- Branch: `codex/retrieval-eval-baseline`.
+- Base: `3992b0e9371d1a8c9e019d3bbe2b32aac9665914`.
+- Evaluation-code commit: `79bafb07ac592b684e6ceab15dc389dc33702978`.
+- Corpus: 3 documents and 24 queries (`16` answerable, `8` unanswerable).
+- Metrics: Recall@1 `0.875000`; Recall@3/5 `0.937500`; MRR@5 `0.937500`;
+  answerable zero-hit `0.062500`; unanswerable no-hit and Ask refusal `1.000000`.
+- Answerable miss at rank 5: `water-answerable-01`.
+- Unanswerable false positives: none.
+- Verification: `505 passed, 1 skipped`; Ruff passed; Pyright `0 errors`; build, human/JSON
+  evaluation, product proof, demo, canonical artifact validation, CI YAML parse, and diff check
+  passed.
+- Documentation audit: reference, how-to, README, docs navigation, architecture, fixture
+  provenance, and canonical artifact coverage present; no broken links or unresolved doc debt.
+- Review: lightweight execution self-check completed; full `gstack-review` intentionally not run
+  per user instruction.
+- Remaining risks: small English corpus, coarse macro resolution, page/timestamp segmentation
+  dependency, and environment-specific SQLite determinism.
 
 ## Autoplan Review Record
 
@@ -2206,16 +2226,16 @@ Target time to first trustworthy baseline: one documented command after `uv sync
 
 ### DX Implementation Checklist
 
-- [ ] `--help` states the small English corpus and absence of a quality threshold.
-- [ ] Explicit manifest is required and documented for source-tree and wheel flows.
-- [ ] Explicit global `--db` with evaluation exits `2`.
-- [ ] Human output contains scope, quality gate, all metrics, query IDs, and stable locators.
-- [ ] JSON is one versioned object with no raw query/Evidence text or private paths.
-- [ ] Missing manifest and invalid JSON produce distinct stable causes.
-- [ ] Renderer failure produces a fixed redacted report and exit `1`.
-- [ ] Canonical baseline JSON is public-safe, deterministic, and duration-free.
-- [ ] How-to documents before/after comparison and version matching.
-- [ ] README and docs do not generalize scores to CJK, private corpora, OCR, or semantic retrieval.
+- [x] `--help` states the small English corpus and absence of a quality threshold.
+- [x] Explicit manifest is required and documented for source-tree and wheel flows.
+- [x] Explicit global `--db` with evaluation exits `2`.
+- [x] Human output contains scope, quality gate, all metrics, query IDs, and stable locators.
+- [x] JSON is one versioned object with no raw query/Evidence text or private paths.
+- [x] Missing manifest and invalid JSON produce distinct stable causes.
+- [x] Renderer failure produces a fixed redacted report and exit `1`.
+- [x] Canonical baseline JSON is public-safe, deterministic, and duration-free.
+- [x] How-to documents before/after comparison and version matching.
+- [x] README and docs do not generalize scores to CJK, private corpora, OCR, or semantic retrieval.
 
 ### DX Voice Consensus
 

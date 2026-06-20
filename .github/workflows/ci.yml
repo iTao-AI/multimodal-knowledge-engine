@@ -48,6 +48,22 @@ jobs:
           assert payload["integrity_failures"] == []
           print(json.dumps(payload["metrics"], sort_keys=True))
           PY
+          python - <<'PY'
+          import json
+          payload = json.load(
+              open("benchmarks/retrieval/retrieval-eval-v1-baseline.json")
+          )
+          assert payload["schema_version"] == "mke.retrieval_eval_baseline.v1"
+          assert payload["manifest_id"] == "retrieval-eval-v1"
+          assert len(payload["manifest_sha256"]) == 64
+          assert len(payload["fixtures"]) == 4
+          assert payload["environment"]["python"]
+          assert payload["environment"]["sqlite"]
+          assert payload["environment"]["pymupdf"]
+          assert payload["metrics"]
+          assert len(payload["results"]) == 24
+          assert "duration_ms" not in payload
+          PY
       - run: uv build
       - name: Verify spoken fixture with transcription extra
         env:

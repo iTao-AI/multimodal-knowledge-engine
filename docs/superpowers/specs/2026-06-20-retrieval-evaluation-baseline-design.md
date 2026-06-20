@@ -2,7 +2,7 @@
 
 ## Status
 
-- Stage: Approved design; implementation not started.
+- Stage: Implemented and verified on local branch; not merged.
 - Slice: E1.
 - Date: 2026-06-20.
 - Depends on: the completed PDF/video lifecycle, evidence-only Ask, MCP contract, product proof,
