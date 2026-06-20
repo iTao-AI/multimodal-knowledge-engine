@@ -28,7 +28,7 @@ proof:
 ```bash
 HF_HUB_OFFLINE=1 uv run python scripts/transcription_deployment_proof.py \
   --fixture tests/fixtures/video/spoken-evidence.mp4 \
-  --model-cache <external-model-cache> \
+  --model-cache "$MKE_MODEL_CACHE" \
   --python 3.12 \
   --json
 ```

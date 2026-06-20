@@ -66,3 +66,21 @@ local transcript sidecar, active Publication Search, and local stdio MCP access 
 OCR, long videos, bundled speech-model transcription, generative Ask, HTTP, workspace UI, hosted
 coordination, or multi-worker runtime behavior. The optional local-command transcript smoke command
 is separate from this deterministic getting-started path.
+
+## Optional: Verify Real Local Transcription
+
+After the deterministic proof passes, follow
+[Use Local Transcription](../how-to/use-local-transcription.md) to install the optional
+`transcription` extra, set `MKE_MODEL_CACHE` to an operator-controlled directory outside the
+repository, and explicitly prepare the exact model revision. Then run the real proof cache-only:
+
+```bash
+HF_HUB_OFFLINE=1 uv run mke proof transcription-run \
+  --fixture tests/fixtures/video/spoken-evidence.mp4 \
+  --model-cache "$MKE_MODEL_CACHE" \
+  --json
+```
+
+This path is optional and separate from required CI. It validates real local ASR, timestamp
+Evidence, Search, and evidence-only Ask without turning one transcript or duration into a quality
+or performance claim.

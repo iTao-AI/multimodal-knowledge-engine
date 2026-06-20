@@ -5,13 +5,15 @@ The core install and deterministic product proof remain model-free.
 
 ## Install And Prepare
 
+Set `MKE_MODEL_CACHE` to an operator-controlled directory outside the repository, then run:
+
 ```bash
 uv sync --locked --extra transcription
 uv run mke transcription prepare \
   --allow-model-download \
   --model small \
   --model-revision 536b0662742c02347bc0e980a01041f333bce120 \
-  --model-cache <external-model-cache> \
+  --model-cache "$MKE_MODEL_CACHE" \
   --json
 ```
 
@@ -24,7 +26,7 @@ Preparation is the only download-capable path. It opens no database, creates no 
 HF_HUB_OFFLINE=1 uv run mke transcription doctor \
   --model small \
   --model-revision 536b0662742c02347bc0e980a01041f333bce120 \
-  --model-cache <external-model-cache> \
+  --model-cache "$MKE_MODEL_CACHE" \
   --json
 ```
 
@@ -42,7 +44,7 @@ HF_HUB_OFFLINE=1 uv run mke proof transcription-run \
   --fixture tests/fixtures/video/spoken-evidence.mp4 \
   --model small \
   --model-revision 536b0662742c02347bc0e980a01041f333bce120 \
-  --model-cache <external-model-cache> \
+  --model-cache "$MKE_MODEL_CACHE" \
   --json
 ```
 

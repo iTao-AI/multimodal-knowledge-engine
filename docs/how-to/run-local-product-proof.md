@@ -30,7 +30,7 @@ HF_HUB_OFFLINE=1 uv run mke proof transcription-run \
   --fixture tests/fixtures/video/spoken-evidence.mp4 \
   --model small \
   --model-revision 536b0662742c02347bc0e980a01041f333bce120 \
-  --model-cache <external-model-cache> \
+  --model-cache "$MKE_MODEL_CACHE" \
   --json
 ```
 

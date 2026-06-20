@@ -28,7 +28,10 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [CLI Reference](./reference/cli.md) documents implemented commands, proof output, compatibility demo output, and error fields.
 - [Run The Local Product Proof](./how-to/run-local-product-proof.md) explains the deterministic PDF and short-video proof plus the optional local transcript smoke command.
 - [Use MKE As A Local MCP Server](./how-to/use-mke-mcp.md) explains the first Agent-facing stdio interface.
-- [Use Local Transcription](./how-to/use-local-transcription.md) covers prepare, doctor, ingest, and recovery.
+- [Use Local Transcription](./how-to/use-local-transcription.md) covers prepare, doctor, ingest, real ASR proof, and recovery.
+- [Real Local Transcription Deployment Proof Design](./superpowers/specs/2026-06-18-real-local-transcription-deployment-proof-design.md) defines the redistribution-safe fixture, cache-only proof, and isolated wheel deployment evidence.
+- [Real Local Transcription Deployment Proof Implementation Plan](./superpowers/plans/2026-06-18-real-local-transcription-deployment-proof-docs-implementation.md) records the current PR 3 execution history.
+- [Real Local Transcription Deployment Proof Autoplan Review](./superpowers/reviews/2026-06-18-real-local-transcription-deployment-proof-autoplan-review.md) records the approved pre-implementation findings.
 - [Trustworthy PDF And Video Slice Design](./superpowers/specs/2026-06-15-trustworthy-pdf-video-slice-design.md) records the approved design.
 - [Trustworthy PDF And Video Slice Implementation Plan](./superpowers/plans/2026-06-15-trustworthy-pdf-video-slice-implementation.md) records the completed implementation plan.
 - [MCP Agent Interface Design](./superpowers/specs/2026-06-16-mcp-agent-interface-design.md) defines the first Agent-facing stdio interface.

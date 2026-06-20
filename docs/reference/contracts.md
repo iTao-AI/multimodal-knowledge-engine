@@ -31,6 +31,7 @@ Status:
 | `mke --db <path> run get <run_id>` | implemented in PR 3, extended in D1 | Prints Run state, retry lineage, PDF intake summary when present, and append-only Run events. |
 | `mke proof run` | implemented in D2 | Runs the deterministic product proof harness across CLI-equivalent application behavior and MCP contract behavior. |
 | `mke proof transcript-smoke --fixture <short-mp4> -- <command> {input}` | implemented in D3-A | Proof-only trusted-local smoke for `LocalCommandTranscriptProvider`; not part of normal ingest and not exposed through MCP. |
+| `mke proof transcription-run --fixture <short-spoken-mp4>` | implemented in D3-B PR 3 | Runs cache-only real ASR and validates published timestamp Evidence, Search, Ask, and the transcription intake report. |
 | `mke demo --verify` | implemented in PR 3, extended in PR 4 | Compatibility-oriented deterministic offline PDF and short-video proof using temporary SQLite workspace and repository fixtures. |
 | `mke --db <path> mcp --allowed-root <path>` | implemented in C1 | Runs a local stdio MCP server for Agent-facing ingest, Run inspection, and active Evidence Search. |
 | `mke --db <path> ask <question>` | implemented in C2 | Returns deterministic evidence-only Ask output using active Publication Search. |
@@ -115,6 +116,12 @@ First-party adapter exit mappings retain the complete project-owned
 `problem`/`cause`/`next_step` triple through provider, application, CLI, and MCP boundaries.
 Owner configuration failures occur before ingest and are reported as CLI usage errors. Explicit
 language support is checked cache-only before CLI faster-whisper ingest creates a Run.
+
+The real transcription proof report contains `status`, `run_state`, `evidence_count`,
+`timestamp_evidence`, `search_keyword_matched`, `ask_status`, `transcript_intake_report`,
+`environment`, `duration_ms`, and an optional stable `reason`. Its environment fields are limited
+to public-safe platform and dependency versions. The proof never emits local paths, cache
+locations, host identity, argv, secrets, or a complete transcript.
 
 Ask validation failures use `invalid_question` for empty, overlong, or no-searchable-token
 questions and `invalid_query` for invalid limits. CJK-only and punctuation-only Ask inputs return
