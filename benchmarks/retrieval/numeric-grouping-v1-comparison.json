@@ -1,0 +1,2242 @@
+{
+  "schema_version": "mke.retrieval_numeric_comparison_artifact.v1",
+  "protocol": {
+    "id": "retrieval-numeric-v1",
+    "path": "tests/fixtures/retrieval-numeric-v1/protocol-lock.json",
+    "sha256": "56d86586eaab18de662664d789adde7d971e88ead271e9f9755fdb195c112b23"
+  },
+  "manifests": {
+    "development": {
+      "id": "retrieval-numeric-v1-development",
+      "path": "tests/fixtures/retrieval-numeric-v1/development.json",
+      "sha256": "e9249d8afd375fb16a962fbb1a1e65e7b8d3fb3a2643aa50a2823811dfc8bb51"
+    },
+    "holdout": {
+      "id": "retrieval-numeric-v1-holdout",
+      "path": "tests/fixtures/retrieval-numeric-v1/holdout.json",
+      "sha256": "317e7822e18680c84b531f5c85bd75c0de22a1afc0fb0f4a49342bb64fc75f5b"
+    },
+    "e1": {
+      "id": "retrieval-eval-v1",
+      "path": "tests/fixtures/retrieval-eval-v1.json",
+      "sha256": "a65b33e011c7a39245a2202fa741e57a268b42da9f68d8da0725955834dd4761"
+    }
+  },
+  "fixtures": [
+    {
+      "partition": "development",
+      "path": "development.pdf",
+      "bytes": 2091,
+      "sha256": "721890756c2bbf9f53e391755dc507ae9cadc0de80f54e7e9b23c8a00667ee51"
+    },
+    {
+      "partition": "holdout",
+      "path": "holdout.pdf",
+      "bytes": 2045,
+      "sha256": "769ae9e6bb2a57f1cea5c23bc72d9fa6135d9c41783f04b9e5eb7cac8a6a9931"
+    }
+  ],
+  "candidate": {
+    "id": "numeric-grouping-v1",
+    "revision": 1
+  },
+  "source": {
+    "sha256": "ae1901a956ef34cfbddbe2cb9c9cff8bbd0ac2575ccd449f9fb977d530d53e18",
+    "files": [
+      {
+        "path": "src/mke/__init__.py",
+        "bytes": 58,
+        "sha256": "410f505cd66963e75f3fec80e8b1a4a5e0f89ccc6a8430ebf422d311a4bbea77"
+      },
+      {
+        "path": "src/mke/adapters/pdf/__init__.py",
+        "bytes": 246,
+        "sha256": "1f4abf24d36ceeb788ef260e4cb484827e3a7395fa7213cc203e587a6ff7b42a"
+      },
+      {
+        "path": "src/mke/adapters/pdf/extractor.py",
+        "bytes": 4139,
+        "sha256": "19d0590dd54c0e75fc68d5c305bf34f30e51fb22d6bdca8294a4efb968aa15e3"
+      },
+      {
+        "path": "src/mke/adapters/sqlite/__init__.py",
+        "bytes": 30853,
+        "sha256": "b16e3636dffbefb71b99f9da89a881a08830efd68dc6010898d5eda02700768b"
+      },
+      {
+        "path": "src/mke/adapters/video/__init__.py",
+        "bytes": 703,
+        "sha256": "a10f4d8a0ad5df108fccc7818bac26de0df2eac22b17bf53d78765d3db92d648"
+      },
+      {
+        "path": "src/mke/adapters/video/contracts.py",
+        "bytes": 3267,
+        "sha256": "a69c0dbb960b9ded75fc10fa58ffa9c33923ca1a8882ba2f9a7ff9ac7847befd"
+      },
+      {
+        "path": "src/mke/adapters/video/errors.py",
+        "bytes": 473,
+        "sha256": "57c7d983cb11a6162a732512aefe22bdfe589f42b5d013c420ab76e799cc1265"
+      },
+      {
+        "path": "src/mke/adapters/video/faster_whisper.py",
+        "bytes": 16872,
+        "sha256": "2e9c99653fb32631fb5a77ad94950dcf5271fb746be17dbce469cf08508e7b63"
+      },
+      {
+        "path": "src/mke/adapters/video/faster_whisper_cli.py",
+        "bytes": 3894,
+        "sha256": "7157a8c01a313b6a55fb28b980dba0b9943dfc6c8123769142065b77ddf24217"
+      },
+      {
+        "path": "src/mke/adapters/video/process.py",
+        "bytes": 1802,
+        "sha256": "1e3e38b104cee5b6f698536b8b0e49de8160297f4717ef799bdc11008bf80342"
+      },
+      {
+        "path": "src/mke/adapters/video/providers.py",
+        "bytes": 9462,
+        "sha256": "68a9bd70c34cf05bc0fc7a7ffb2409d007d657a22f47cd2335e2c8bebe243fc1"
+      },
+      {
+        "path": "src/mke/adapters/video/schema.py",
+        "bytes": 8498,
+        "sha256": "cbb889a9392356345aed7d3c8d80feda2066f1eb1d20d64715ccbda925ac2c34"
+      },
+      {
+        "path": "src/mke/adapters/video/transcript.py",
+        "bytes": 838,
+        "sha256": "8e9f3d8285bef9896421f1d6852710e81c4389da1383870336120886a848ec83"
+      },
+      {
+        "path": "src/mke/application/__init__.py",
+        "bytes": 17239,
+        "sha256": "f784e1a75afa7073f61f89afdb938166e6968b0678c8376895ad4fd3150fd314"
+      },
+      {
+        "path": "src/mke/cli.py",
+        "bytes": 30250,
+        "sha256": "0fd5f0d39f54efb247f3a33174ed856fb5de046828e4383fc31854ab5a1b849c"
+      },
+      {
+        "path": "src/mke/domain/__init__.py",
+        "bytes": 10478,
+        "sha256": "a9e2231ae15cdfa00aa148025bcae638a3546cc1a2650614ec77b4718fced378"
+      },
+      {
+        "path": "src/mke/evaluation/__init__.py",
+        "bytes": 898,
+        "sha256": "18433b666cadf5296e1359f459a44677e57da0b13832b136f16ea76a3f34844b"
+      },
+      {
+        "path": "src/mke/evaluation/baseline.py",
+        "bytes": 20181,
+        "sha256": "fd5b7feda1e0bc9f5dbbfbc9cd8a7d1932727eb54032aed7ad14ca4c8033040e"
+      },
+      {
+        "path": "src/mke/evaluation/manifest.py",
+        "bytes": 15118,
+        "sha256": "2df221e37e9cee1b84a144ca33b55d1cce6103f4d5ff005b696956738d0d9378"
+      },
+      {
+        "path": "src/mke/evaluation/metrics.py",
+        "bytes": 2894,
+        "sha256": "938db6922f79be1745198fb4c0b26f3d1b5868c0416ed08707a5659afbc1aa7d"
+      },
+      {
+        "path": "src/mke/evaluation/numeric_artifact.py",
+        "bytes": 9277,
+        "sha256": "591fff9262fcd14c6e0f0826fcf1161abcb5635830bbc662ffc2ac93757081ea"
+      },
+      {
+        "path": "src/mke/evaluation/numeric_comparison.py",
+        "bytes": 24440,
+        "sha256": "8f2d8d95d8a50c0ce9cfdaee6317324eeb885c51d8a614d01965bd42c1dfcfe4"
+      },
+      {
+        "path": "src/mke/evaluation/report.py",
+        "bytes": 7473,
+        "sha256": "ced2e09aefda720edfa2d4ca43b3b9fb3ab538236495a198ad2dae6e2e28ccbe"
+      },
+      {
+        "path": "src/mke/evaluation/runner.py",
+        "bytes": 14205,
+        "sha256": "8a263bae32d2693077b9455e6d2a22b87d9b0d254c7101d36475be3ed01d1c3a"
+      },
+      {
+        "path": "src/mke/interfaces/__init__.py",
+        "bytes": 60,
+        "sha256": "d9fa04c3715bae8e02f008cefe27678b945bfe2ea828a786868025c04ad5a7cc"
+      },
+      {
+        "path": "src/mke/interfaces/mcp_contract.py",
+        "bytes": 10339,
+        "sha256": "7f013569c2f871c7287f6c3d0bd732d731d52f2abeaf02d5db2791cf051f3c8b"
+      },
+      {
+        "path": "src/mke/interfaces/mcp_server.py",
+        "bytes": 4794,
+        "sha256": "973d0d5d26e731739e97b9a748c4ed0a4ecc4895c6901f43b59b1d32119f03c1"
+      },
+      {
+        "path": "src/mke/interfaces/public_errors.py",
+        "bytes": 4756,
+        "sha256": "d44d337f2a94896e03ba3242ee9f759f150bd5207db9e484913e6e28ba076f0c"
+      },
+      {
+        "path": "src/mke/proof/__init__.py",
+        "bytes": 974,
+        "sha256": "346f2eef17fc54bc774e00672a4df1fe0044d7911d2f680f48f8afd917d6f11c"
+      },
+      {
+        "path": "src/mke/proof/manifest.py",
+        "bytes": 1012,
+        "sha256": "c934e6d8cd397ddb51e8ec413c02ff185fdc1a8d3624a37d2dcfc6a57d9e1cb9"
+      },
+      {
+        "path": "src/mke/proof/mcp_deployment_client.py",
+        "bytes": 12068,
+        "sha256": "ae8617801a97492f0d7c259ea60ac703f0a3806a6bb2a267afe672b3e053d035"
+      },
+      {
+        "path": "src/mke/proof/report.py",
+        "bytes": 2631,
+        "sha256": "61f017965f4cd5d15a16dc70aa73a26874457065e3b910cda7104bd071f41634"
+      },
+      {
+        "path": "src/mke/proof/runner.py",
+        "bytes": 11101,
+        "sha256": "f0b6e2c407e33e3e9a5759d20ea1b8d45b4c2860ca96c924b5fe9d89af0c6e4b"
+      },
+      {
+        "path": "src/mke/proof/transcription.py",
+        "bytes": 17523,
+        "sha256": "d6f8ca1db913491c37db33437a630552fc193cfd9a0d8ce2ca2d842b414a6ee5"
+      },
+      {
+        "path": "src/mke/retrieval/__init__.py",
+        "bytes": 291,
+        "sha256": "cb0c06c96f4b218e3b9567340f50f27f85492d0c5e0ab332e07a57d09169233d"
+      },
+      {
+        "path": "src/mke/retrieval/query_policy.py",
+        "bytes": 2769,
+        "sha256": "c1dc7dfee3d56b029f866b0d8a78cac78b206969ed6580eb9704738870a35fde"
+      },
+      {
+        "path": "src/mke/runtime.py",
+        "bytes": 7574,
+        "sha256": "fe670381f66245bab70e2b71f9345fcc3172ff1a219428a2fbe5a7a20e07dc8e"
+      }
+    ]
+  },
+  "environment": {
+    "python": "3.13.12",
+    "sqlite": "3.51.1",
+    "pymupdf": "1.27.2.3"
+  },
+  "comparison": {
+    "schema_version": "mke.retrieval_numeric_comparison.v1",
+    "protocol_id": "retrieval-numeric-v1",
+    "candidate_id": "numeric-grouping-v1",
+    "candidate_revision": 1,
+    "integrity_status": "passed",
+    "candidate_status": "passed",
+    "development": {
+      "manifest_id": "retrieval-numeric-v1-development",
+      "current": {
+        "status": "passed",
+        "quality_status": "baseline_recorded",
+        "documents": 1,
+        "queries": 7,
+        "answerable": 5,
+        "unanswerable": 2,
+        "metrics": {
+          "locator_recall_at_1": {
+            "value": 0.8,
+            "sum": 4.0,
+            "count": 5
+          },
+          "locator_recall_at_3": {
+            "value": 0.8,
+            "sum": 4.0,
+            "count": 5
+          },
+          "locator_recall_at_5": {
+            "value": 0.8,
+            "sum": 4.0,
+            "count": 5
+          },
+          "mrr_at_5": {
+            "value": 0.8,
+            "sum": 4.0,
+            "count": 5
+          },
+          "answerable_zero_hit_rate": {
+            "value": 0.2,
+            "sum": 1.0,
+            "count": 5
+          },
+          "unanswerable_no_hit_rate": {
+            "value": 1.0,
+            "sum": 2.0,
+            "count": 2
+          },
+          "ask_refusal_rate": {
+            "value": 1.0,
+            "sum": 2.0,
+            "count": 2
+          }
+        },
+        "category_counts": {
+          "answerable": 5,
+          "lexical_confuser": 1,
+          "out_of_corpus": 1
+        },
+        "results": [
+          {
+            "query_id": "numeric-dev-grouped-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          },
+          {
+            "query_id": "numeric-dev-compact-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "numeric-development",
+                "locator_kind": "page",
+                "locator_start": 2,
+                "locator_end": 2
+              }
+            ]
+          },
+          {
+            "query_id": "numeric-dev-non-adjacent-01",
+            "category": "lexical_confuser",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          },
+          {
+            "query_id": "numeric-dev-leading-zero-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "numeric-development",
+                "locator_kind": "page",
+                "locator_start": 4,
+                "locator_end": 4
+              }
+            ]
+          },
+          {
+            "query_id": "numeric-dev-identifier-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "numeric-development",
+                "locator_kind": "page",
+                "locator_start": 4,
+                "locator_end": 4
+              }
+            ]
+          },
+          {
+            "query_id": "numeric-dev-short-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "numeric-development",
+                "locator_kind": "page",
+                "locator_start": 4,
+                "locator_end": 4
+              }
+            ]
+          },
+          {
+            "query_id": "numeric-dev-outside-01",
+            "category": "out_of_corpus",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          }
+        ],
+        "integrity_failures": []
+      },
+      "candidate": {
+        "status": "passed",
+        "quality_status": "baseline_recorded",
+        "documents": 1,
+        "queries": 7,
+        "answerable": 5,
+        "unanswerable": 2,
+        "metrics": {
+          "locator_recall_at_1": {
+            "value": 1.0,
+            "sum": 5.0,
+            "count": 5
+          },
+          "locator_recall_at_3": {
+            "value": 1.0,
+            "sum": 5.0,
+            "count": 5
+          },
+          "locator_recall_at_5": {
+            "value": 1.0,
+            "sum": 5.0,
+            "count": 5
+          },
+          "mrr_at_5": {
+            "value": 1.0,
+            "sum": 5.0,
+            "count": 5
+          },
+          "answerable_zero_hit_rate": {
+            "value": 0.0,
+            "sum": 0.0,
+            "count": 5
+          },
+          "unanswerable_no_hit_rate": {
+            "value": 1.0,
+            "sum": 2.0,
+            "count": 2
+          },
+          "ask_refusal_rate": {
+            "value": 1.0,
+            "sum": 2.0,
+            "count": 2
+          }
+        },
+        "category_counts": {
+          "answerable": 5,
+          "lexical_confuser": 1,
+          "out_of_corpus": 1
+        },
+        "results": [
+          {
+            "query_id": "numeric-dev-grouped-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "numeric-development",
+                "locator_kind": "page",
+                "locator_start": 1,
+                "locator_end": 1
+              }
+            ]
+          },
+          {
+            "query_id": "numeric-dev-compact-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "numeric-development",
+                "locator_kind": "page",
+                "locator_start": 2,
+                "locator_end": 2
+              }
+            ]
+          },
+          {
+            "query_id": "numeric-dev-non-adjacent-01",
+            "category": "lexical_confuser",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          },
+          {
+            "query_id": "numeric-dev-leading-zero-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "numeric-development",
+                "locator_kind": "page",
+                "locator_start": 4,
+                "locator_end": 4
+              }
+            ]
+          },
+          {
+            "query_id": "numeric-dev-identifier-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "numeric-development",
+                "locator_kind": "page",
+                "locator_start": 4,
+                "locator_end": 4
+              }
+            ]
+          },
+          {
+            "query_id": "numeric-dev-short-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "numeric-development",
+                "locator_kind": "page",
+                "locator_start": 4,
+                "locator_end": 4
+              }
+            ]
+          },
+          {
+            "query_id": "numeric-dev-outside-01",
+            "category": "out_of_corpus",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          }
+        ],
+        "integrity_failures": []
+      }
+    },
+    "holdout": {
+      "manifest_id": "retrieval-numeric-v1-holdout",
+      "current": {
+        "status": "passed",
+        "quality_status": "baseline_recorded",
+        "documents": 1,
+        "queries": 7,
+        "answerable": 5,
+        "unanswerable": 2,
+        "metrics": {
+          "locator_recall_at_1": {
+            "value": 0.8,
+            "sum": 4.0,
+            "count": 5
+          },
+          "locator_recall_at_3": {
+            "value": 0.8,
+            "sum": 4.0,
+            "count": 5
+          },
+          "locator_recall_at_5": {
+            "value": 0.8,
+            "sum": 4.0,
+            "count": 5
+          },
+          "mrr_at_5": {
+            "value": 0.8,
+            "sum": 4.0,
+            "count": 5
+          },
+          "answerable_zero_hit_rate": {
+            "value": 0.2,
+            "sum": 1.0,
+            "count": 5
+          },
+          "unanswerable_no_hit_rate": {
+            "value": 1.0,
+            "sum": 2.0,
+            "count": 2
+          },
+          "ask_refusal_rate": {
+            "value": 1.0,
+            "sum": 2.0,
+            "count": 2
+          }
+        },
+        "category_counts": {
+          "answerable": 5,
+          "lexical_confuser": 1,
+          "out_of_corpus": 1
+        },
+        "results": [
+          {
+            "query_id": "numeric-holdout-grouped-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          },
+          {
+            "query_id": "numeric-holdout-compact-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "numeric-holdout",
+                "locator_kind": "page",
+                "locator_start": 2,
+                "locator_end": 2
+              }
+            ]
+          },
+          {
+            "query_id": "numeric-holdout-non-adjacent-01",
+            "category": "lexical_confuser",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          },
+          {
+            "query_id": "numeric-holdout-leading-zero-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "numeric-holdout",
+                "locator_kind": "page",
+                "locator_start": 4,
+                "locator_end": 4
+              }
+            ]
+          },
+          {
+            "query_id": "numeric-holdout-identifier-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "numeric-holdout",
+                "locator_kind": "page",
+                "locator_start": 4,
+                "locator_end": 4
+              }
+            ]
+          },
+          {
+            "query_id": "numeric-holdout-short-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "numeric-holdout",
+                "locator_kind": "page",
+                "locator_start": 4,
+                "locator_end": 4
+              }
+            ]
+          },
+          {
+            "query_id": "numeric-holdout-outside-01",
+            "category": "out_of_corpus",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          }
+        ],
+        "integrity_failures": []
+      },
+      "candidate": {
+        "status": "passed",
+        "quality_status": "baseline_recorded",
+        "documents": 1,
+        "queries": 7,
+        "answerable": 5,
+        "unanswerable": 2,
+        "metrics": {
+          "locator_recall_at_1": {
+            "value": 1.0,
+            "sum": 5.0,
+            "count": 5
+          },
+          "locator_recall_at_3": {
+            "value": 1.0,
+            "sum": 5.0,
+            "count": 5
+          },
+          "locator_recall_at_5": {
+            "value": 1.0,
+            "sum": 5.0,
+            "count": 5
+          },
+          "mrr_at_5": {
+            "value": 1.0,
+            "sum": 5.0,
+            "count": 5
+          },
+          "answerable_zero_hit_rate": {
+            "value": 0.0,
+            "sum": 0.0,
+            "count": 5
+          },
+          "unanswerable_no_hit_rate": {
+            "value": 1.0,
+            "sum": 2.0,
+            "count": 2
+          },
+          "ask_refusal_rate": {
+            "value": 1.0,
+            "sum": 2.0,
+            "count": 2
+          }
+        },
+        "category_counts": {
+          "answerable": 5,
+          "lexical_confuser": 1,
+          "out_of_corpus": 1
+        },
+        "results": [
+          {
+            "query_id": "numeric-holdout-grouped-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "numeric-holdout",
+                "locator_kind": "page",
+                "locator_start": 1,
+                "locator_end": 1
+              }
+            ]
+          },
+          {
+            "query_id": "numeric-holdout-compact-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "numeric-holdout",
+                "locator_kind": "page",
+                "locator_start": 2,
+                "locator_end": 2
+              }
+            ]
+          },
+          {
+            "query_id": "numeric-holdout-non-adjacent-01",
+            "category": "lexical_confuser",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          },
+          {
+            "query_id": "numeric-holdout-leading-zero-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "numeric-holdout",
+                "locator_kind": "page",
+                "locator_start": 4,
+                "locator_end": 4
+              }
+            ]
+          },
+          {
+            "query_id": "numeric-holdout-identifier-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "numeric-holdout",
+                "locator_kind": "page",
+                "locator_start": 4,
+                "locator_end": 4
+              }
+            ]
+          },
+          {
+            "query_id": "numeric-holdout-short-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "numeric-holdout",
+                "locator_kind": "page",
+                "locator_start": 4,
+                "locator_end": 4
+              }
+            ]
+          },
+          {
+            "query_id": "numeric-holdout-outside-01",
+            "category": "out_of_corpus",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          }
+        ],
+        "integrity_failures": []
+      }
+    },
+    "e1": {
+      "manifest_id": "retrieval-eval-v1",
+      "current": {
+        "status": "passed",
+        "quality_status": "baseline_recorded",
+        "documents": 3,
+        "queries": 24,
+        "answerable": 16,
+        "unanswerable": 8,
+        "metrics": {
+          "locator_recall_at_1": {
+            "value": 0.875,
+            "sum": 14.0,
+            "count": 16
+          },
+          "locator_recall_at_3": {
+            "value": 0.9375,
+            "sum": 15.0,
+            "count": 16
+          },
+          "locator_recall_at_5": {
+            "value": 0.9375,
+            "sum": 15.0,
+            "count": 16
+          },
+          "mrr_at_5": {
+            "value": 0.9375,
+            "sum": 15.0,
+            "count": 16
+          },
+          "answerable_zero_hit_rate": {
+            "value": 0.0625,
+            "sum": 1.0,
+            "count": 16
+          },
+          "unanswerable_no_hit_rate": {
+            "value": 1.0,
+            "sum": 8.0,
+            "count": 8
+          },
+          "ask_refusal_rate": {
+            "value": 1.0,
+            "sum": 8.0,
+            "count": 8
+          }
+        },
+        "category_counts": {
+          "answerable": 16,
+          "lexical_confuser": 4,
+          "out_of_corpus": 4
+        },
+        "results": [
+          {
+            "query_id": "volcano-answerable-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-volcano-hazards",
+                "locator_kind": "page",
+                "locator_start": 1,
+                "locator_end": 1
+              }
+            ]
+          },
+          {
+            "query_id": "volcano-answerable-02",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-volcano-hazards",
+                "locator_kind": "page",
+                "locator_start": 1,
+                "locator_end": 1
+              }
+            ]
+          },
+          {
+            "query_id": "volcano-answerable-03",
+            "category": "answerable",
+            "relevant_locator_count": 2,
+            "retrieved_locator_count": 2,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 2,
+            "relevant_retrieved_at_5": 2,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-volcano-hazards",
+                "locator_kind": "page",
+                "locator_start": 2,
+                "locator_end": 2
+              },
+              {
+                "document_id": "usgs-volcano-hazards",
+                "locator_kind": "page",
+                "locator_start": 1,
+                "locator_end": 1
+              }
+            ]
+          },
+          {
+            "query_id": "volcano-answerable-04",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-volcano-hazards",
+                "locator_kind": "page",
+                "locator_start": 2,
+                "locator_end": 2
+              }
+            ]
+          },
+          {
+            "query_id": "volcano-answerable-05",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-volcano-hazards",
+                "locator_kind": "page",
+                "locator_start": 2,
+                "locator_end": 2
+              }
+            ]
+          },
+          {
+            "query_id": "volcano-answerable-06",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-volcano-hazards",
+                "locator_kind": "page",
+                "locator_start": 2,
+                "locator_end": 2
+              }
+            ]
+          },
+          {
+            "query_id": "water-answerable-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          },
+          {
+            "query_id": "water-answerable-02",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-water-use-2005",
+                "locator_kind": "page",
+                "locator_start": 1,
+                "locator_end": 1
+              }
+            ]
+          },
+          {
+            "query_id": "water-answerable-03",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-water-use-2005",
+                "locator_kind": "page",
+                "locator_start": 1,
+                "locator_end": 1
+              }
+            ]
+          },
+          {
+            "query_id": "water-answerable-04",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-water-use-2005",
+                "locator_kind": "page",
+                "locator_start": 2,
+                "locator_end": 2
+              }
+            ]
+          },
+          {
+            "query_id": "water-answerable-05",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-water-use-2005",
+                "locator_kind": "page",
+                "locator_start": 2,
+                "locator_end": 2
+              }
+            ]
+          },
+          {
+            "query_id": "water-answerable-06",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-water-use-2005",
+                "locator_kind": "page",
+                "locator_start": 2,
+                "locator_end": 2
+              }
+            ]
+          },
+          {
+            "query_id": "video-answerable-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "short-video-timestamp-proof",
+                "locator_kind": "timestamp_ms",
+                "locator_start": 0,
+                "locator_end": 1200
+              }
+            ]
+          },
+          {
+            "query_id": "video-answerable-02",
+            "category": "answerable",
+            "relevant_locator_count": 2,
+            "retrieved_locator_count": 2,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 2,
+            "relevant_retrieved_at_5": 2,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "short-video-timestamp-proof",
+                "locator_kind": "timestamp_ms",
+                "locator_start": 0,
+                "locator_end": 1200
+              },
+              {
+                "document_id": "short-video-timestamp-proof",
+                "locator_kind": "timestamp_ms",
+                "locator_start": 1200,
+                "locator_end": 2200
+              }
+            ]
+          },
+          {
+            "query_id": "video-answerable-03",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "short-video-timestamp-proof",
+                "locator_kind": "timestamp_ms",
+                "locator_start": 1200,
+                "locator_end": 2200
+              }
+            ]
+          },
+          {
+            "query_id": "video-answerable-04",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "short-video-timestamp-proof",
+                "locator_kind": "timestamp_ms",
+                "locator_start": 1200,
+                "locator_end": 2200
+              }
+            ]
+          },
+          {
+            "query_id": "confuser-01",
+            "category": "lexical_confuser",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          },
+          {
+            "query_id": "confuser-02",
+            "category": "lexical_confuser",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          },
+          {
+            "query_id": "confuser-03",
+            "category": "lexical_confuser",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          },
+          {
+            "query_id": "confuser-04",
+            "category": "lexical_confuser",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          },
+          {
+            "query_id": "out-of-corpus-01",
+            "category": "out_of_corpus",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          },
+          {
+            "query_id": "out-of-corpus-02",
+            "category": "out_of_corpus",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          },
+          {
+            "query_id": "out-of-corpus-03",
+            "category": "out_of_corpus",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          },
+          {
+            "query_id": "out-of-corpus-04",
+            "category": "out_of_corpus",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          }
+        ],
+        "integrity_failures": []
+      },
+      "candidate": {
+        "status": "passed",
+        "quality_status": "baseline_recorded",
+        "documents": 3,
+        "queries": 24,
+        "answerable": 16,
+        "unanswerable": 8,
+        "metrics": {
+          "locator_recall_at_1": {
+            "value": 0.9375,
+            "sum": 15.0,
+            "count": 16
+          },
+          "locator_recall_at_3": {
+            "value": 1.0,
+            "sum": 16.0,
+            "count": 16
+          },
+          "locator_recall_at_5": {
+            "value": 1.0,
+            "sum": 16.0,
+            "count": 16
+          },
+          "mrr_at_5": {
+            "value": 1.0,
+            "sum": 16.0,
+            "count": 16
+          },
+          "answerable_zero_hit_rate": {
+            "value": 0.0,
+            "sum": 0.0,
+            "count": 16
+          },
+          "unanswerable_no_hit_rate": {
+            "value": 1.0,
+            "sum": 8.0,
+            "count": 8
+          },
+          "ask_refusal_rate": {
+            "value": 1.0,
+            "sum": 8.0,
+            "count": 8
+          }
+        },
+        "category_counts": {
+          "answerable": 16,
+          "lexical_confuser": 4,
+          "out_of_corpus": 4
+        },
+        "results": [
+          {
+            "query_id": "volcano-answerable-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-volcano-hazards",
+                "locator_kind": "page",
+                "locator_start": 1,
+                "locator_end": 1
+              }
+            ]
+          },
+          {
+            "query_id": "volcano-answerable-02",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-volcano-hazards",
+                "locator_kind": "page",
+                "locator_start": 1,
+                "locator_end": 1
+              }
+            ]
+          },
+          {
+            "query_id": "volcano-answerable-03",
+            "category": "answerable",
+            "relevant_locator_count": 2,
+            "retrieved_locator_count": 2,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 2,
+            "relevant_retrieved_at_5": 2,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-volcano-hazards",
+                "locator_kind": "page",
+                "locator_start": 2,
+                "locator_end": 2
+              },
+              {
+                "document_id": "usgs-volcano-hazards",
+                "locator_kind": "page",
+                "locator_start": 1,
+                "locator_end": 1
+              }
+            ]
+          },
+          {
+            "query_id": "volcano-answerable-04",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-volcano-hazards",
+                "locator_kind": "page",
+                "locator_start": 2,
+                "locator_end": 2
+              }
+            ]
+          },
+          {
+            "query_id": "volcano-answerable-05",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-volcano-hazards",
+                "locator_kind": "page",
+                "locator_start": 2,
+                "locator_end": 2
+              }
+            ]
+          },
+          {
+            "query_id": "volcano-answerable-06",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-volcano-hazards",
+                "locator_kind": "page",
+                "locator_start": 2,
+                "locator_end": 2
+              }
+            ]
+          },
+          {
+            "query_id": "water-answerable-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-water-use-2005",
+                "locator_kind": "page",
+                "locator_start": 1,
+                "locator_end": 1
+              }
+            ]
+          },
+          {
+            "query_id": "water-answerable-02",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-water-use-2005",
+                "locator_kind": "page",
+                "locator_start": 1,
+                "locator_end": 1
+              }
+            ]
+          },
+          {
+            "query_id": "water-answerable-03",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-water-use-2005",
+                "locator_kind": "page",
+                "locator_start": 1,
+                "locator_end": 1
+              }
+            ]
+          },
+          {
+            "query_id": "water-answerable-04",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-water-use-2005",
+                "locator_kind": "page",
+                "locator_start": 2,
+                "locator_end": 2
+              }
+            ]
+          },
+          {
+            "query_id": "water-answerable-05",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-water-use-2005",
+                "locator_kind": "page",
+                "locator_start": 2,
+                "locator_end": 2
+              }
+            ]
+          },
+          {
+            "query_id": "water-answerable-06",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "usgs-water-use-2005",
+                "locator_kind": "page",
+                "locator_start": 2,
+                "locator_end": 2
+              }
+            ]
+          },
+          {
+            "query_id": "video-answerable-01",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "short-video-timestamp-proof",
+                "locator_kind": "timestamp_ms",
+                "locator_start": 0,
+                "locator_end": 1200
+              }
+            ]
+          },
+          {
+            "query_id": "video-answerable-02",
+            "category": "answerable",
+            "relevant_locator_count": 2,
+            "retrieved_locator_count": 2,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 2,
+            "relevant_retrieved_at_5": 2,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "short-video-timestamp-proof",
+                "locator_kind": "timestamp_ms",
+                "locator_start": 0,
+                "locator_end": 1200
+              },
+              {
+                "document_id": "short-video-timestamp-proof",
+                "locator_kind": "timestamp_ms",
+                "locator_start": 1200,
+                "locator_end": 2200
+              }
+            ]
+          },
+          {
+            "query_id": "video-answerable-03",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "short-video-timestamp-proof",
+                "locator_kind": "timestamp_ms",
+                "locator_start": 1200,
+                "locator_end": 2200
+              }
+            ]
+          },
+          {
+            "query_id": "video-answerable-04",
+            "category": "answerable",
+            "relevant_locator_count": 1,
+            "retrieved_locator_count": 1,
+            "relevant_retrieved_at_1": 1,
+            "relevant_retrieved_at_3": 1,
+            "relevant_retrieved_at_5": 1,
+            "first_relevant_rank": 1,
+            "ask_status": "evidence_found",
+            "retrieved_locators": [
+              {
+                "document_id": "short-video-timestamp-proof",
+                "locator_kind": "timestamp_ms",
+                "locator_start": 1200,
+                "locator_end": 2200
+              }
+            ]
+          },
+          {
+            "query_id": "confuser-01",
+            "category": "lexical_confuser",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          },
+          {
+            "query_id": "confuser-02",
+            "category": "lexical_confuser",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          },
+          {
+            "query_id": "confuser-03",
+            "category": "lexical_confuser",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          },
+          {
+            "query_id": "confuser-04",
+            "category": "lexical_confuser",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          },
+          {
+            "query_id": "out-of-corpus-01",
+            "category": "out_of_corpus",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          },
+          {
+            "query_id": "out-of-corpus-02",
+            "category": "out_of_corpus",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          },
+          {
+            "query_id": "out-of-corpus-03",
+            "category": "out_of_corpus",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          },
+          {
+            "query_id": "out-of-corpus-04",
+            "category": "out_of_corpus",
+            "relevant_locator_count": 0,
+            "retrieved_locator_count": 0,
+            "relevant_retrieved_at_1": 0,
+            "relevant_retrieved_at_3": 0,
+            "relevant_retrieved_at_5": 0,
+            "first_relevant_rank": null,
+            "ask_status": "insufficient_evidence",
+            "retrieved_locators": []
+          }
+        ],
+        "integrity_failures": []
+      }
+    },
+    "compiled_queries": [
+      {
+        "partition": "development",
+        "query_id": "numeric-dev-grouped-01",
+        "current": "\"410000\" \"grouped\" \"daily\" \"withdrawal\"",
+        "candidate": "(\"410000\" OR \"410 000\") AND \"grouped\" AND \"daily\" AND \"withdrawal\"",
+        "eligible_tokens": [
+          "410000"
+        ]
+      },
+      {
+        "partition": "development",
+        "query_id": "numeric-dev-compact-01",
+        "current": "\"730000\" \"compact\" \"inventory\"",
+        "candidate": "(\"730000\" OR \"730 000\") AND \"compact\" AND \"inventory\"",
+        "eligible_tokens": [
+          "730000"
+        ]
+      },
+      {
+        "partition": "development",
+        "query_id": "numeric-dev-non-adjacent-01",
+        "current": "\"410000\" \"non\" \"adjacent\" \"ledger\"",
+        "candidate": "(\"410000\" OR \"410 000\") AND \"non\" AND \"adjacent\" AND \"ledger\"",
+        "eligible_tokens": [
+          "410000"
+        ]
+      },
+      {
+        "partition": "development",
+        "query_id": "numeric-dev-leading-zero-01",
+        "current": "\"02139\" \"postal\" \"district\"",
+        "candidate": "\"02139\" \"postal\" \"district\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "development",
+        "query_id": "numeric-dev-identifier-01",
+        "current": "\"zx410000\" \"equipment\" \"model\"",
+        "candidate": "\"zx410000\" \"equipment\" \"model\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "development",
+        "query_id": "numeric-dev-short-01",
+        "current": "\"2005\" \"reporting\" \"year\"",
+        "candidate": "\"2005\" \"reporting\" \"year\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "development",
+        "query_id": "numeric-dev-outside-01",
+        "current": "\"quantum\" \"entanglement\" \"photon\" \"experiment\"",
+        "candidate": "\"quantum\" \"entanglement\" \"photon\" \"experiment\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "holdout",
+        "query_id": "numeric-holdout-grouped-01",
+        "current": "\"57600\" \"grouped\" \"reserve\" \"capacity\"",
+        "candidate": "(\"57600\" OR \"57 600\") AND \"grouped\" AND \"reserve\" AND \"capacity\"",
+        "eligible_tokens": [
+          "57600"
+        ]
+      },
+      {
+        "partition": "holdout",
+        "query_id": "numeric-holdout-compact-01",
+        "current": "\"880000\" \"compact\" \"shipment\" \"count\"",
+        "candidate": "(\"880000\" OR \"880 000\") AND \"compact\" AND \"shipment\" AND \"count\"",
+        "eligible_tokens": [
+          "880000"
+        ]
+      },
+      {
+        "partition": "holdout",
+        "query_id": "numeric-holdout-non-adjacent-01",
+        "current": "\"57600\" \"non\" \"adjacent\" \"audit\" \"values\"",
+        "candidate": "(\"57600\" OR \"57 600\") AND \"non\" AND \"adjacent\" AND \"audit\" AND \"values\"",
+        "eligible_tokens": [
+          "57600"
+        ]
+      },
+      {
+        "partition": "holdout",
+        "query_id": "numeric-holdout-leading-zero-01",
+        "current": "\"00701\" \"postal\" \"district\"",
+        "candidate": "\"00701\" \"postal\" \"district\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "holdout",
+        "query_id": "numeric-holdout-identifier-01",
+        "current": "\"ab57600\" \"sensor\" \"model\"",
+        "candidate": "\"ab57600\" \"sensor\" \"model\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "holdout",
+        "query_id": "numeric-holdout-short-01",
+        "current": "\"1997\" \"reporting\" \"year\"",
+        "candidate": "\"1997\" \"reporting\" \"year\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "holdout",
+        "query_id": "numeric-holdout-outside-01",
+        "current": "\"roman\" \"empire\" \"tax\" \"policy\"",
+        "candidate": "\"roman\" \"empire\" \"tax\" \"policy\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "volcano-answerable-01",
+        "current": "\"eruption\" \"clouds\" \"aviation\"",
+        "candidate": "\"eruption\" \"clouds\" \"aviation\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "volcano-answerable-02",
+        "current": "\"volcanic\" \"gas\" \"acid\" \"rain\"",
+        "candidate": "\"volcanic\" \"gas\" \"acid\" \"rain\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "volcano-answerable-03",
+        "current": "\"mount\" \"st\" \"helens\" \"eruption\"",
+        "candidate": "\"mount\" \"st\" \"helens\" \"eruption\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "volcano-answerable-04",
+        "current": "\"basalt\" \"lava\" \"fast\" \"moving\" \"streams\"",
+        "candidate": "\"basalt\" \"lava\" \"fast\" \"moving\" \"streams\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "volcano-answerable-05",
+        "current": "\"pyroclastic\" \"flows\" \"valleys\"",
+        "candidate": "\"pyroclastic\" \"flows\" \"valleys\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "volcano-answerable-06",
+        "current": "\"lahars\" \"wet\" \"concrete\"",
+        "candidate": "\"lahars\" \"wet\" \"concrete\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "water-answerable-01",
+        "current": "\"410000\" \"million\" \"gallons\" \"withdrawals\"",
+        "candidate": "(\"410000\" OR \"410 000\") AND \"million\" AND \"gallons\" AND \"withdrawals\"",
+        "eligible_tokens": [
+          "410000"
+        ]
+      },
+      {
+        "partition": "e1",
+        "query_id": "water-answerable-02",
+        "current": "\"california\" \"irrigation\" \"withdrawals\"",
+        "candidate": "\"california\" \"irrigation\" \"withdrawals\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "water-answerable-03",
+        "current": "\"self\" \"supplied\" \"domestic\" \"42\" \"9\" \"million\" \"people\"",
+        "candidate": "\"self\" \"supplied\" \"domestic\" \"42\" \"9\" \"million\" \"people\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "water-answerable-04",
+        "current": "\"thermoelectric\" \"once\" \"through\" \"cooling\"",
+        "candidate": "\"thermoelectric\" \"once\" \"through\" \"cooling\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "water-answerable-05",
+        "current": "\"water\" \"use\" \"trends\" \"1950\" \"2005\"",
+        "candidate": "\"water\" \"use\" \"trends\" \"1950\" \"2005\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "water-answerable-06",
+        "current": "\"public\" \"supply\" \"increased\" \"steadily\"",
+        "candidate": "\"public\" \"supply\" \"increased\" \"steadily\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "video-answerable-01",
+        "current": "\"video\" \"evidence\" \"timestamp\"",
+        "candidate": "\"video\" \"evidence\" \"timestamp\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "video-answerable-02",
+        "current": "\"timestamp\" \"search\"",
+        "candidate": "\"timestamp\" \"search\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "video-answerable-03",
+        "current": "\"active\" \"publication\" \"spoken\"",
+        "candidate": "\"active\" \"publication\" \"spoken\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "video-answerable-04",
+        "current": "\"finds\" \"spoken\" \"timestamp\" \"proof\"",
+        "candidate": "\"finds\" \"spoken\" \"timestamp\" \"proof\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "confuser-01",
+        "current": "\"volcano\" \"evacuation\" \"shelter\" \"locations\"",
+        "candidate": "\"volcano\" \"evacuation\" \"shelter\" \"locations\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "confuser-02",
+        "current": "\"mount\" \"st\" \"helens\" \"casualty\" \"count\"",
+        "candidate": "\"mount\" \"st\" \"helens\" \"casualty\" \"count\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "confuser-03",
+        "current": "\"california\" \"groundwater\" \"contamination\" \"2005\"",
+        "candidate": "\"california\" \"groundwater\" \"contamination\" \"2005\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "confuser-04",
+        "current": "\"timestamp\" \"proof\" \"speaker\" \"identity\"",
+        "candidate": "\"timestamp\" \"proof\" \"speaker\" \"identity\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "out-of-corpus-01",
+        "current": "\"photosynthesis\" \"chlorophyll\" \"wavelength\"",
+        "candidate": "\"photosynthesis\" \"chlorophyll\" \"wavelength\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "out-of-corpus-02",
+        "current": "\"roman\" \"empire\" \"tax\" \"policy\"",
+        "candidate": "\"roman\" \"empire\" \"tax\" \"policy\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "out-of-corpus-03",
+        "current": "\"quantum\" \"entanglement\" \"photon\" \"experiment\"",
+        "candidate": "\"quantum\" \"entanglement\" \"photon\" \"experiment\"",
+        "eligible_tokens": []
+      },
+      {
+        "partition": "e1",
+        "query_id": "out-of-corpus-04",
+        "current": "\"database\" \"transaction\" \"isolation\" \"levels\"",
+        "candidate": "\"database\" \"transaction\" \"isolation\" \"levels\"",
+        "eligible_tokens": []
+      }
+    ],
+    "gates": [
+      {
+        "gate_id": "protocol_integrity",
+        "status": "passed",
+        "observed": "locked_inputs_valid",
+        "required": "locked_inputs_valid",
+        "next_step": "none"
+      },
+      {
+        "gate_id": "all_evaluations_deterministic",
+        "status": "passed",
+        "observed": "six_deterministic_observations",
+        "required": "six_deterministic_observations",
+        "next_step": "none"
+      },
+      {
+        "gate_id": "development_grouped_improves",
+        "status": "passed",
+        "observed": "current_miss_candidate_rank_1",
+        "required": "current_miss_candidate_rank_1",
+        "next_step": "none"
+      },
+      {
+        "gate_id": "development_controls_preserved",
+        "status": "passed",
+        "observed": "controls_identical",
+        "required": "controls_identical",
+        "next_step": "none"
+      },
+      {
+        "gate_id": "development_non_adjacent_no_hit",
+        "status": "passed",
+        "observed": "no_hit",
+        "required": "no_hit",
+        "next_step": "none"
+      },
+      {
+        "gate_id": "holdout_grouped_improves",
+        "status": "passed",
+        "observed": "current_miss_candidate_rank_1",
+        "required": "current_miss_candidate_rank_1",
+        "next_step": "none"
+      },
+      {
+        "gate_id": "holdout_controls_preserved",
+        "status": "passed",
+        "observed": "controls_identical",
+        "required": "controls_identical",
+        "next_step": "none"
+      },
+      {
+        "gate_id": "holdout_non_adjacent_no_hit",
+        "status": "passed",
+        "observed": "no_hit",
+        "required": "no_hit",
+        "next_step": "none"
+      },
+      {
+        "gate_id": "noneligible_compilation_identity",
+        "status": "passed",
+        "observed": "byte_identical",
+        "required": "byte_identical",
+        "next_step": "none"
+      },
+      {
+        "gate_id": "e1_unrelated_exact",
+        "status": "passed",
+        "observed": "ordered_results_identical",
+        "required": "ordered_results_identical",
+        "next_step": "none"
+      },
+      {
+        "gate_id": "e1_water_answerable_rank_1",
+        "status": "passed",
+        "observed": "current_miss_candidate_rank_1",
+        "required": "current_miss_candidate_rank_1",
+        "next_step": "none"
+      },
+      {
+        "gate_id": "e1_aggregate_non_regression",
+        "status": "passed",
+        "observed": "metrics_non_decreasing",
+        "required": "metrics_non_decreasing",
+        "next_step": "none"
+      },
+      {
+        "gate_id": "single_match_per_search",
+        "status": "passed",
+        "observed": "one_match_statement",
+        "required": "one_match_statement",
+        "next_step": "none"
+      },
+      {
+        "gate_id": "scope_fence",
+        "status": "passed",
+        "observed": "no_scope_expansion",
+        "required": "no_scope_expansion",
+        "next_step": "none"
+      }
+    ],
+    "integrity_failures": [],
+    "limitations": [
+      "public_holdout_not_blind",
+      "small_engineering_challenge_set",
+      "ascii_compact_integers_only",
+      "tokenizer_adjacent_separator_equivalence",
+      "no_general_retrieval_quality_claim"
+    ]
+  }
+}

@@ -29,6 +29,8 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [Run The Local Product Proof](./how-to/run-local-product-proof.md) explains the deterministic PDF and short-video proof plus the optional local transcript smoke command.
 - [Run Retrieval Evaluation](./how-to/run-retrieval-evaluation.md) records the deterministic
   English page/timestamp FTS5 baseline and explains its integrity-versus-quality boundary.
+- [Evaluate The Numeric Retrieval Candidate](./how-to/evaluate-numeric-retrieval.md) compares the
+  off-default numeric grouping policy against frozen development, public holdout, and E1 inputs.
 - [Use MKE As A Local MCP Server](./how-to/use-mke-mcp.md) explains the first Agent-facing stdio interface.
 - [Use Local Transcription](./how-to/use-local-transcription.md) covers prepare, doctor, ingest, real ASR proof, and recovery.
 - [Real Local Transcription Deployment Proof Design](./superpowers/specs/2026-06-18-real-local-transcription-deployment-proof-design.md) defines the redistribution-safe fixture, cache-only proof, and isolated wheel deployment evidence.
@@ -54,6 +56,9 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [Retrieval Evaluation Baseline Implementation Plan](./superpowers/plans/2026-06-20-retrieval-evaluation-baseline-implementation.md) records the E1 execution checklist and verification.
 - [Retrieval Evaluation Baseline Plan Review](./superpowers/reviews/2026-06-20-retrieval-evaluation-baseline-plan-review.md) records the approved pre-implementation findings.
 - [Retrieval Evaluation Baseline Implementation Review](./superpowers/reviews/2026-06-20-retrieval-evaluation-baseline-review.md) records the lightweight final scope and evidence check.
+- [Numeric Retrieval Candidate Comparison Design](./superpowers/specs/2026-06-21-retrieval-candidate-comparison-design.md) defines the frozen E2 protocol and promotion boundary.
+- [Numeric Retrieval Candidate Comparison Implementation Plan](./superpowers/plans/2026-06-21-retrieval-candidate-comparison-implementation.md) records the PR 1 execution checklist.
+- [Numeric Retrieval Candidate Comparison Autoplan Review](./superpowers/reviews/2026-06-21-retrieval-candidate-comparison-autoplan-review.md) records the approved scope, engineering, and DX findings.
 
 ## Development Verification
 

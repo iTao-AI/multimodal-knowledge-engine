@@ -54,7 +54,9 @@ class SQLiteStore:
         query_policy: RetrievalQueryPolicy = DEFAULT_RETRIEVAL_QUERY_POLICY,
     ) -> None:
         self.db_path = db_path
-        self._query_policy = require_retrieval_query_policy(query_policy)
+        self._query_policy: RetrievalQueryPolicy = require_retrieval_query_policy(
+            query_policy
+        )
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._connection = sqlite3.connect(self.db_path)
         self._connection.row_factory = sqlite3.Row

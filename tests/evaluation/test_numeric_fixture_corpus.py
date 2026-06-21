@@ -2,14 +2,17 @@ import hashlib
 import json
 import re
 import shutil
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import cast
 
 import fitz  # pyright: ignore[reportMissingTypeStubs]
 import pytest
 
-from mke.evaluation.manifest import load_retrieval_manifest
+from mke.evaluation.manifest import (
+    RetrievalEvaluationManifest,
+    load_retrieval_manifest,
+)
 
 FIXTURE_ROOT = Path(__file__).parents[1] / "fixtures" / "retrieval-numeric-v1"
 E1_MANIFEST = FIXTURE_ROOT.parent / "retrieval-eval-v1.json"
@@ -21,7 +24,10 @@ EXPECTED_PAGES = {
     "development.pdf": (
         "Grouped daily withdrawal total: 410,000 million gallons.",
         "Compact inventory total: 730000 storage units.",
-        "Non-adjacent ledger values: 410 units were accepted; after review, 000 units were rejected.",
+        (
+            "Non-adjacent ledger values: 410 units were accepted; "
+            "after review, 000 units were rejected."
+        ),
         "Identifiers: postal district 02139; equipment model ZX410000; reporting year 2005.",
     ),
     "holdout.pdf": (
@@ -106,7 +112,7 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _require_exact_keys(payload: dict[str, object], expected: set[str]) -> None:
+def _require_exact_keys(payload: Mapping[str, object], expected: set[str]) -> None:
     if set(payload) != expected:
         raise ValueError("protocol validation failed")
 
@@ -183,7 +189,7 @@ def _validate_protocol(path: Path) -> None:
 
     required_query_ids = cast(dict[str, list[str]], payload["required_query_ids"])
     _require_exact_keys(required_query_ids, {"development", "holdout", "e1"})
-    loaded_manifests = {}
+    loaded_manifests: dict[str, RetrievalEvaluationManifest] = {}
     for partition in ("development", "holdout"):
         manifest = load_retrieval_manifest(manifest_paths[partition])
         loaded_manifests[partition] = manifest
@@ -205,27 +211,37 @@ def _validate_protocol(path: Path) -> None:
 
 
 def test_numeric_manifests_freeze_inventory_and_disjoint_holdout() -> None:
-    development = json.loads((FIXTURE_ROOT / "development.json").read_text(encoding="utf-8"))
-    holdout = json.loads((FIXTURE_ROOT / "holdout.json").read_text(encoding="utf-8"))
+    development = cast(
+        dict[str, object],
+        json.loads((FIXTURE_ROOT / "development.json").read_text(encoding="utf-8")),
+    )
+    holdout = cast(
+        dict[str, object],
+        json.loads((FIXTURE_ROOT / "holdout.json").read_text(encoding="utf-8")),
+    )
+    development_queries = cast(list[dict[str, object]], development["queries"])
+    holdout_queries = cast(list[dict[str, object]], holdout["queries"])
 
     assert development["manifest_id"] == "retrieval-numeric-v1-development"
     assert holdout["manifest_id"] == "retrieval-numeric-v1-holdout"
-    assert tuple(query["query_id"] for query in development["queries"]) == EXPECTED_QUERY_IDS[
+    assert tuple(query["query_id"] for query in development_queries) == EXPECTED_QUERY_IDS[
         "development"
     ]
-    assert tuple(query["query_id"] for query in holdout["queries"]) == EXPECTED_QUERY_IDS["holdout"]
-    assert {query["query_id"] for query in development["queries"]}.isdisjoint(
-        query["query_id"] for query in holdout["queries"]
+    assert tuple(query["query_id"] for query in holdout_queries) == EXPECTED_QUERY_IDS[
+        "holdout"
+    ]
+    assert {query["query_id"] for query in development_queries}.isdisjoint(
+        query["query_id"] for query in holdout_queries
     )
-    assert {query["text"] for query in development["queries"]}.isdisjoint(
-        query["text"] for query in holdout["queries"]
+    assert {query["text"] for query in development_queries}.isdisjoint(
+        query["text"] for query in holdout_queries
     )
-    assert sum(query["category"] == "answerable" for query in development["queries"]) == 5
-    assert sum(query["category"] == "answerable" for query in holdout["queries"]) == 5
+    assert sum(query["category"] == "answerable" for query in development_queries) == 5
+    assert sum(query["category"] == "answerable" for query in holdout_queries) == 5
     assert all(
-        len(query["relevant_locators"]) == 1
-        for manifest in (development, holdout)
-        for query in manifest["queries"]
+        len(cast(list[object], query["relevant_locators"])) == 1
+        for queries in (development_queries, holdout_queries)
+        for query in queries
         if query["category"] == "answerable"
     )
 
@@ -260,57 +276,73 @@ def _copy_protocol(tmp_path: Path) -> Path:
     return protocol
 
 
+def _add_unknown(payload: dict[str, object]) -> None:
+    payload["unexpected"] = True
+
+
+def _change_candidate_id(payload: dict[str, object]) -> None:
+    cast(dict[str, object], payload["candidate"])["id"] = "unknown"
+
+
+def _change_candidate_revision(payload: dict[str, object]) -> None:
+    cast(dict[str, object], payload["candidate"])["revision"] = 2
+
+
+def _change_claim(payload: dict[str, object]) -> None:
+    payload["claim"] = "broader_claim"
+
+
+def _change_development_path(payload: dict[str, object], path: str) -> None:
+    manifests = cast(dict[str, dict[str, object]], payload["manifests"])
+    manifests["development"]["path"] = path
+
+
+def _absolute_development_path(payload: dict[str, object]) -> None:
+    _change_development_path(payload, "/tmp/development.json")
+
+
+def _parent_development_path(payload: dict[str, object]) -> None:
+    _change_development_path(payload, "../development.json")
+
+
+def _alternate_development_path(payload: dict[str, object]) -> None:
+    _change_development_path(payload, "retrieval-numeric-v1/alternate.json")
+
+
+def _change_e1_checksum(payload: dict[str, object]) -> None:
+    manifests = cast(dict[str, dict[str, object]], payload["manifests"])
+    manifests["e1"]["sha256"] = "0" * 64
+
+
+def _change_fixture_bytes(payload: dict[str, object]) -> None:
+    fixtures = cast(list[dict[str, object]], payload["fixtures"])
+    fixtures[0]["bytes"] = 1
+
+
 @pytest.mark.parametrize(
     ("mutation", "cause"),
     [
-        (lambda payload: payload.update({"unexpected": True}), "protocol validation failed"),
-        (
-            lambda payload: payload["candidate"].update({"id": "unknown"}),
-            "protocol validation failed",
-        ),
-        (
-            lambda payload: payload["candidate"].update({"revision": 2}),
-            "protocol validation failed",
-        ),
-        (
-            lambda payload: payload.update({"claim": "broader_claim"}),
-            "protocol validation failed",
-        ),
-        (
-            lambda payload: payload["manifests"]["development"].update(
-                {"path": "/tmp/development.json"}
-            ),
-            "protocol validation failed",
-        ),
-        (
-            lambda payload: payload["manifests"]["development"].update(
-                {"path": "../development.json"}
-            ),
-            "protocol validation failed",
-        ),
-        (
-            lambda payload: payload["manifests"]["development"].update(
-                {"path": "retrieval-numeric-v1/alternate.json"}
-            ),
-            "protocol validation failed",
-        ),
-        (
-            lambda payload: payload["manifests"]["e1"].update({"sha256": "0" * 64}),
-            "protocol-bound input identity mismatch",
-        ),
-        (
-            lambda payload: payload["fixtures"][0].update({"bytes": 1}),
-            "protocol-bound input identity mismatch",
-        ),
+        (_add_unknown, "protocol validation failed"),
+        (_change_candidate_id, "protocol validation failed"),
+        (_change_candidate_revision, "protocol validation failed"),
+        (_change_claim, "protocol validation failed"),
+        (_absolute_development_path, "protocol validation failed"),
+        (_parent_development_path, "protocol validation failed"),
+        (_alternate_development_path, "protocol validation failed"),
+        (_change_e1_checksum, "protocol-bound input identity mismatch"),
+        (_change_fixture_bytes, "protocol-bound input identity mismatch"),
     ],
 )
 def test_protocol_lock_rejects_mutations(
     tmp_path: Path,
-    mutation: Callable[[dict[str, object]], object],
+    mutation: Callable[[dict[str, object]], None],
     cause: str,
 ) -> None:
     protocol = _copy_protocol(tmp_path)
-    payload = json.loads(protocol.read_text(encoding="utf-8"))
+    payload = cast(
+        dict[str, object],
+        json.loads(protocol.read_text(encoding="utf-8")),
+    )
     mutation(payload)
     protocol.write_text(json.dumps(payload), encoding="utf-8")
 
@@ -320,7 +352,6 @@ def test_protocol_lock_rejects_mutations(
 
 def test_protocol_lock_rejects_symlink_escape(tmp_path: Path) -> None:
     protocol = _copy_protocol(tmp_path)
-    fixture_root = protocol.parent.parent
     outside = tmp_path / "outside.json"
     outside.write_bytes((protocol.parent / "development.json").read_bytes())
     (protocol.parent / "development.json").unlink()

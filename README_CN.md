@@ -16,6 +16,12 @@ workspace 中，用 24 个冻结 query 评估两个公开英文 PDF 和现有 si
 `status=passed` 只表示 evaluation integrity 通过；`quality_gate=none` 表示观测到的
 Recall、MRR、no-hit 与 Ask refusal 不是产品质量门槛。
 
+E2 新增 comparison-only numeric retrieval protocol：
+`mke eval retrieval-numeric --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json`。
+off-default `numeric-grouping-v1` candidate 通过了冻结的 development、公开 holdout 和完整 E1
+门槛，使 E1 Recall@1 从 `0.875000` 提升到 `0.937500`。正常 Search 与 Ask 仍使用
+`current`；默认策略 promotion 需要独立的 ADR-backed PR。
+
 这个 proof 验证的是生命周期边界，不代表已经支持广泛媒体处理。当前不包含扫描 PDF OCR、任意视频处理、托管协调或外部 provider 调用。D3-A 增加了 trusted-local `LocalCommandTranscriptProvider`；D3-B 增加了供 CLI 和 owner-started MCP 显式选择的 optional cache-only faster-whisper runtime。`mke proof run` 与 `mke demo --verify` 仍保持 sidecar-backed、deterministic；`mke proof transcription-run` 使用可再分发的 spoken fixture 证明真实本地 ASR，`scripts/transcription_deployment_proof.py` 则证明隔离安装 wheel 后的 CLI 与 stdio MCP SDK 流程。只有显式 preparation 可以下载模型，doctor、ingest、proof 和 MCP 正常运行均为 cache-only。
 
 PDF intake 使用位于 `src/mke/adapters/pdf/` 边界内的 PyMuPDF，并通过 `mke ingest`、`mke run get`、MCP `ingest_file` 和 MCP `get_run` 暴露 `PdfIntakeReport`。PyMuPDF 许可边界和未来 sidecar 替换路径见 [ADR-0004](./docs/decisions/0004-pymupdf-pdf-intake-adapter.md)。MCP 会在打开 extractor 前拒绝超过 100 MB 的 PDF 输入。
@@ -44,6 +50,8 @@ C2 Ask 只返回 Evidence：`ask_library` 和 `mke ask` 会在 active Search 命
 [Use MKE As A Local MCP Server](./docs/how-to/use-mke-mcp.md)；本地转录准备与 proof 见
 [Use Local Transcription](./docs/how-to/use-local-transcription.md)；记录当前 retrieval
 行为见 [Run Retrieval Evaluation](./docs/how-to/run-retrieval-evaluation.md)。批准后的
+numeric candidate 对比流程见
+[Evaluate The Numeric Retrieval Candidate](./docs/how-to/evaluate-numeric-retrieval.md)。
 实施历史保存在 `docs/superpowers/`；长期架构决策保存在 `docs/decisions/`。
 
 开发流程见 [CONTRIBUTING.md](./CONTRIBUTING.md)，安全漏洞报告方式见 [SECURITY.md](./SECURITY.md)。
@@ -57,6 +65,8 @@ uv sync --locked
 uv run mke proof run
 uv run mke proof run --json
 uv run mke eval retrieval --manifest tests/fixtures/retrieval-eval-v1.json
+uv run mke eval retrieval-numeric \
+  --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json
 ```
 
 `mke demo --verify` 仍作为 compatibility proof 可用，并保留 phase-oriented 输出。

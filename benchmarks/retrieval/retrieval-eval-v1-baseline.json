@@ -32,7 +32,7 @@
     "main_merge_base": "721784eabcb9fbb737166578010c9e1a46a25fef",
     "implementation_start": "3992b0e9371d1a8c9e019d3bbe2b32aac9665914",
     "evaluation_commit": "79bafb07ac592b684e6ceab15dc389dc33702978",
-    "evaluation_content_sha256": "e07868fce3cefb8ef5f6492f95d1914070d753ea2091d2009394d123f5dce462",
+    "evaluation_content_sha256": "ae1901a956ef34cfbddbe2cb9c9cff8bbd0ac2575ccd449f9fb977d530d53e18",
     "evaluation_content_files": [
       {
         "path": "src/mke/__init__.py",
@@ -51,8 +51,8 @@
       },
       {
         "path": "src/mke/adapters/sqlite/__init__.py",
-        "bytes": 30568,
-        "sha256": "4571a311d65900fbf35b532ac209f5c3453a34cbf18b364c01e50aa481cbc638"
+        "bytes": 30853,
+        "sha256": "b16e3636dffbefb71b99f9da89a881a08830efd68dc6010898d5eda02700768b"
       },
       {
         "path": "src/mke/adapters/video/__init__.py",
@@ -101,13 +101,13 @@
       },
       {
         "path": "src/mke/application/__init__.py",
-        "bytes": 17045,
-        "sha256": "a09a58e7c55c816f573de10c02d69d511a88cb2ee72219fbe3578464b9626f34"
+        "bytes": 17239,
+        "sha256": "f784e1a75afa7073f61f89afdb938166e6968b0678c8376895ad4fd3150fd314"
       },
       {
         "path": "src/mke/cli.py",
-        "bytes": 26468,
-        "sha256": "74d95d0efdfb84b367d9afc225e507f9425b1f40bdcdfbc75e3d3e43f03d7082"
+        "bytes": 30250,
+        "sha256": "0fd5f0d39f54efb247f3a33174ed856fb5de046828e4383fc31854ab5a1b849c"
       },
       {
         "path": "src/mke/domain/__init__.py",
@@ -116,13 +116,13 @@
       },
       {
         "path": "src/mke/evaluation/__init__.py",
-        "bytes": 640,
-        "sha256": "f9498e0cd09e8141ce4e227e0186d0710aba89204d7c113e73444e42f0c4ff7c"
+        "bytes": 898,
+        "sha256": "18433b666cadf5296e1359f459a44677e57da0b13832b136f16ea76a3f34844b"
       },
       {
         "path": "src/mke/evaluation/baseline.py",
-        "bytes": 19981,
-        "sha256": "6ef623b038c008488e8c10198a919afaba5135e4edf1095b56123d5d85dd3928"
+        "bytes": 20181,
+        "sha256": "fd5b7feda1e0bc9f5dbbfbc9cd8a7d1932727eb54032aed7ad14ca4c8033040e"
       },
       {
         "path": "src/mke/evaluation/manifest.py",
@@ -135,14 +135,24 @@
         "sha256": "938db6922f79be1745198fb4c0b26f3d1b5868c0416ed08707a5659afbc1aa7d"
       },
       {
+        "path": "src/mke/evaluation/numeric_artifact.py",
+        "bytes": 9277,
+        "sha256": "591fff9262fcd14c6e0f0826fcf1161abcb5635830bbc662ffc2ac93757081ea"
+      },
+      {
+        "path": "src/mke/evaluation/numeric_comparison.py",
+        "bytes": 24440,
+        "sha256": "8f2d8d95d8a50c0ce9cfdaee6317324eeb885c51d8a614d01965bd42c1dfcfe4"
+      },
+      {
         "path": "src/mke/evaluation/report.py",
         "bytes": 7473,
         "sha256": "ced2e09aefda720edfa2d4ca43b3b9fb3ab538236495a198ad2dae6e2e28ccbe"
       },
       {
         "path": "src/mke/evaluation/runner.py",
-        "bytes": 13251,
-        "sha256": "54e85ece36d56a0522647d450825a9533f56d939be8d49d82d284ea56c62f954"
+        "bytes": 14205,
+        "sha256": "8a263bae32d2693077b9455e6d2a22b87d9b0d254c7101d36475be3ed01d1c3a"
       },
       {
         "path": "src/mke/interfaces/__init__.py",
@@ -193,6 +203,16 @@
         "path": "src/mke/proof/transcription.py",
         "bytes": 17523,
         "sha256": "d6f8ca1db913491c37db33437a630552fc193cfd9a0d8ce2ca2d842b414a6ee5"
+      },
+      {
+        "path": "src/mke/retrieval/__init__.py",
+        "bytes": 291,
+        "sha256": "cb0c06c96f4b218e3b9567340f50f27f85492d0c5e0ab332e07a57d09169233d"
+      },
+      {
+        "path": "src/mke/retrieval/query_policy.py",
+        "bytes": 2769,
+        "sha256": "c1dc7dfee3d56b029f866b0d8a78cac78b206969ed6580eb9704738870a35fde"
       },
       {
         "path": "src/mke/runtime.py",
