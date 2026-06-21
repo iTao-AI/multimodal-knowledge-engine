@@ -1,0 +1,83 @@
+{
+  "schema_version": "mke.retrieval_numeric_protocol.v1",
+  "protocol_id": "retrieval-numeric-v1",
+  "candidate": {
+    "id": "numeric-grouping-v1",
+    "revision": 1
+  },
+  "claim": "compact_query_adjacent_right_grouped_tokens_without_unrelated_change",
+  "manifests": {
+    "development": {
+      "path": "retrieval-numeric-v1/development.json",
+      "sha256": "e9249d8afd375fb16a962fbb1a1e65e7b8d3fb3a2643aa50a2823811dfc8bb51"
+    },
+    "holdout": {
+      "path": "retrieval-numeric-v1/holdout.json",
+      "sha256": "317e7822e18680c84b531f5c85bd75c0de22a1afc0fb0f4a49342bb64fc75f5b"
+    },
+    "e1": {
+      "path": "retrieval-eval-v1.json",
+      "sha256": "a65b33e011c7a39245a2202fa741e57a268b42da9f68d8da0725955834dd4761"
+    }
+  },
+  "fixtures": [
+    {
+      "partition": "development",
+      "path": "retrieval-numeric-v1/development.pdf",
+      "bytes": 2091,
+      "sha256": "721890756c2bbf9f53e391755dc507ae9cadc0de80f54e7e9b23c8a00667ee51"
+    },
+    {
+      "partition": "holdout",
+      "path": "retrieval-numeric-v1/holdout.pdf",
+      "bytes": 2045,
+      "sha256": "769ae9e6bb2a57f1cea5c23bc72d9fa6135d9c41783f04b9e5eb7cac8a6a9931"
+    }
+  ],
+  "required_query_ids": {
+    "development": [
+      "numeric-dev-grouped-01",
+      "numeric-dev-compact-01",
+      "numeric-dev-non-adjacent-01",
+      "numeric-dev-leading-zero-01",
+      "numeric-dev-identifier-01",
+      "numeric-dev-short-01",
+      "numeric-dev-outside-01"
+    ],
+    "holdout": [
+      "numeric-holdout-grouped-01",
+      "numeric-holdout-compact-01",
+      "numeric-holdout-non-adjacent-01",
+      "numeric-holdout-leading-zero-01",
+      "numeric-holdout-identifier-01",
+      "numeric-holdout-short-01",
+      "numeric-holdout-outside-01"
+    ],
+    "e1": [
+      "volcano-answerable-01",
+      "volcano-answerable-02",
+      "volcano-answerable-03",
+      "volcano-answerable-04",
+      "volcano-answerable-05",
+      "volcano-answerable-06",
+      "water-answerable-01",
+      "water-answerable-02",
+      "water-answerable-03",
+      "water-answerable-04",
+      "water-answerable-05",
+      "water-answerable-06",
+      "video-answerable-01",
+      "video-answerable-02",
+      "video-answerable-03",
+      "video-answerable-04",
+      "confuser-01",
+      "confuser-02",
+      "confuser-03",
+      "confuser-04",
+      "out-of-corpus-01",
+      "out-of-corpus-02",
+      "out-of-corpus-03",
+      "out-of-corpus-04"
+    ]
+  }
+}

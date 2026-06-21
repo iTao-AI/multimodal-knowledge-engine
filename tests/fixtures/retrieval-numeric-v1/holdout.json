@@ -1,0 +1,95 @@
+{
+  "schema_version": "mke.retrieval_eval.v1",
+  "manifest_id": "retrieval-numeric-v1-holdout",
+  "documents": [
+    {
+      "document_id": "numeric-holdout",
+      "media_type": "application/pdf",
+      "primary_file": {
+        "path": "holdout.pdf",
+        "sha256": "769ae9e6bb2a57f1cea5c23bc72d9fa6135d9c41783f04b9e5eb7cac8a6a9931",
+        "bytes": 2045
+      },
+      "supporting_files": []
+    }
+  ],
+  "queries": [
+    {
+      "query_id": "numeric-holdout-grouped-01",
+      "text": "57600 grouped reserve capacity",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "numeric-holdout",
+          "locator_kind": "page",
+          "locator_start": 1,
+          "locator_end": 1
+        }
+      ]
+    },
+    {
+      "query_id": "numeric-holdout-compact-01",
+      "text": "880000 compact shipment count",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "numeric-holdout",
+          "locator_kind": "page",
+          "locator_start": 2,
+          "locator_end": 2
+        }
+      ]
+    },
+    {
+      "query_id": "numeric-holdout-non-adjacent-01",
+      "text": "57600 non-adjacent audit values",
+      "category": "lexical_confuser",
+      "relevant_locators": []
+    },
+    {
+      "query_id": "numeric-holdout-leading-zero-01",
+      "text": "00701 postal district",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "numeric-holdout",
+          "locator_kind": "page",
+          "locator_start": 4,
+          "locator_end": 4
+        }
+      ]
+    },
+    {
+      "query_id": "numeric-holdout-identifier-01",
+      "text": "AB57600 sensor model",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "numeric-holdout",
+          "locator_kind": "page",
+          "locator_start": 4,
+          "locator_end": 4
+        }
+      ]
+    },
+    {
+      "query_id": "numeric-holdout-short-01",
+      "text": "1997 reporting year",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "numeric-holdout",
+          "locator_kind": "page",
+          "locator_start": 4,
+          "locator_end": 4
+        }
+      ]
+    },
+    {
+      "query_id": "numeric-holdout-outside-01",
+      "text": "Roman empire tax policy",
+      "category": "out_of_corpus",
+      "relevant_locators": []
+    }
+  ]
+}
