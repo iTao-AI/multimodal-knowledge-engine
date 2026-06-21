@@ -11,6 +11,7 @@ from uuid import uuid4
 
 from mke.domain import (
     ActivationResult,
+    ActiveEvidenceRef,
     CandidateEvidence,
     FailurePoint,
     ManifestValidationError,
@@ -661,6 +662,31 @@ class SQLiteStore:
             """,
             (_new_id("evt"), run_id, event_index, event_type),
         )
+
+    def list_active_evidence(self) -> list[ActiveEvidenceRef]:
+        rows = self._connection.execute(
+            """
+            SELECT evidence.source_id, evidence.locator_kind,
+                   evidence.locator_start, evidence.locator_end
+            FROM sources
+            JOIN publications
+              ON publications.publication_id = sources.active_publication_id
+            JOIN evidence
+              ON evidence.run_id = publications.run_id
+             AND evidence.source_id = sources.source_id
+            ORDER BY evidence.source_id, evidence.locator_kind,
+                     evidence.locator_start, evidence.locator_end
+            """
+        ).fetchall()
+        return [
+            ActiveEvidenceRef(
+                source_id=str(row["source_id"]),
+                locator_kind=str(row["locator_kind"]),
+                locator_start=int(row["locator_start"]),
+                locator_end=int(row["locator_end"]),
+            )
+            for row in rows
+        ]
 
     def search(self, query: str, limit: int | None = None) -> list[SearchResult]:
         match_query = _to_fts_query(query)

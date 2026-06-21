@@ -51,6 +51,42 @@ Exit codes:
 
 Expected duration: a few seconds on a local development machine.
 
+## Retrieval Evaluation
+
+```bash
+mke eval retrieval --manifest <manifest.json> [--json]
+```
+
+The manifest is required. Evaluation validates and snapshots exact fixture bytes, ingests the
+corpus into two fresh temporary SQLite workspaces, calls the current Search and evidence-only Ask
+contracts at limit 5, and compares ordered stable locator outcomes. It does not use the global
+`--db`; explicitly supplying `--db` with `eval` is a usage error.
+
+Human output begins with:
+
+```text
+mke eval retrieval
+scope=small_english_page_timestamp_corpus quality_gate=none
+evaluation=retrieval manifest=<id> status=<passed|failed> quality_status=<baseline_recorded|not_recorded> ...
+```
+
+Successful reports include document/query/category counts, Recall@1/3/5, MRR@5, answerable
+zero-hit rate, unanswerable no-hit rate, Ask refusal rate, and one bounded stable-locator line per
+query. JSON uses schema `mke.retrieval_eval_report.v1`. Neither format includes query text,
+Evidence text, random IDs, absolute paths, tracebacks, or temporary directory names.
+
+Evaluation failure fields are `problem`, `cause`, `next_step`, and optional `subject_id`.
+
+| Code | Meaning |
+|---|---|
+| `0` | Integrity gates passed and the baseline was recorded. |
+| `1` | A trustworthy complete baseline was not produced. |
+| `2` | Invalid CLI usage. |
+
+`quality_gate=none` is intentional: low retrieval scores are observations, not E1 failures. See
+[Run Retrieval Evaluation](../how-to/run-retrieval-evaluation.md) for metric definitions,
+recorded values, and comparison guidance.
+
 ## Real Transcription Proof
 
 ```bash

@@ -27,6 +27,8 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [Public Contracts](./reference/contracts.md) tracks implemented versus planned interfaces.
 - [CLI Reference](./reference/cli.md) documents implemented commands, proof output, compatibility demo output, and error fields.
 - [Run The Local Product Proof](./how-to/run-local-product-proof.md) explains the deterministic PDF and short-video proof plus the optional local transcript smoke command.
+- [Run Retrieval Evaluation](./how-to/run-retrieval-evaluation.md) records the deterministic
+  English page/timestamp FTS5 baseline and explains its integrity-versus-quality boundary.
 - [Use MKE As A Local MCP Server](./how-to/use-mke-mcp.md) explains the first Agent-facing stdio interface.
 - [Use Local Transcription](./how-to/use-local-transcription.md) covers prepare, doctor, ingest, real ASR proof, and recovery.
 - [Real Local Transcription Deployment Proof Design](./superpowers/specs/2026-06-18-real-local-transcription-deployment-proof-design.md) defines the redistribution-safe fixture, cache-only proof, and isolated wheel deployment evidence.
@@ -48,6 +50,10 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [Real Video Intake Provider Port Design](./superpowers/specs/2026-06-17-real-video-intake-provider-port-design.md) defines the D3-A transcript provider boundary and local-command smoke scope.
 - [Real Video Intake Provider Port Implementation Plan](./superpowers/plans/2026-06-17-real-video-intake-provider-port-implementation.md) records the D3-A execution plan.
 - [Real Video Intake Provider Port Engineering Review](./superpowers/reviews/2026-06-17-real-video-intake-eng-review.md) records the approved D3-A review findings.
+- [Retrieval Evaluation Baseline Design](./superpowers/specs/2026-06-20-retrieval-evaluation-baseline-design.md) defines the E1 corpus, qrels, metrics, and integrity gates.
+- [Retrieval Evaluation Baseline Implementation Plan](./superpowers/plans/2026-06-20-retrieval-evaluation-baseline-implementation.md) records the E1 execution checklist and verification.
+- [Retrieval Evaluation Baseline Plan Review](./superpowers/reviews/2026-06-20-retrieval-evaluation-baseline-plan-review.md) records the approved pre-implementation findings.
+- [Retrieval Evaluation Baseline Implementation Review](./superpowers/reviews/2026-06-20-retrieval-evaluation-baseline-review.md) records the lightweight final scope and evidence check.
 
 ## Development Verification
 

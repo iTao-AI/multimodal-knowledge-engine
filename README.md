@@ -14,6 +14,12 @@ timestamp Evidence. The first Agent-facing interface is a local stdio MCP server
 inspection, active Evidence Search, and evidence-only Ask. HTTP and the workspace are not
 implemented yet.
 
+E1 adds a separate deterministic offline retrieval baseline:
+`mke eval retrieval --manifest tests/fixtures/retrieval-eval-v1.json`. It evaluates 24 frozen
+queries against two public English PDFs and the existing sidecar-backed short video in two fresh
+workspaces. `status=passed` means evaluation integrity passed; `quality_gate=none` means the
+observed Recall, MRR, no-hit, and Ask-refusal values are not product quality thresholds.
+
 The proof covers the lifecycle boundary, not broad media support. It does not perform scanned-PDF
 OCR, arbitrary video processing, bundled model weights, hosted coordination, or
 external provider calls. D3-A adds an optional trusted-local `LocalCommandTranscriptProvider`
@@ -59,8 +65,10 @@ See [Architecture](./docs/explanation/architecture.md) and [ADR-0001](./docs/dec
 Start at [docs/README.md](./docs/README.md). To verify the current proof directly, see
 [Run The Local Product Proof](./docs/how-to/run-local-product-proof.md). To connect a local Agent,
 see [Use MKE As A Local MCP Server](./docs/how-to/use-mke-mcp.md) and
-[Use Local Transcription](./docs/how-to/use-local-transcription.md). Approved implementation history
-is kept under `docs/superpowers/`; long-lived architecture decisions are kept under
+[Use Local Transcription](./docs/how-to/use-local-transcription.md). To record the current
+retrieval behavior, see
+[Run Retrieval Evaluation](./docs/how-to/run-retrieval-evaluation.md). Approved implementation
+history is kept under `docs/superpowers/`; long-lived architecture decisions are kept under
 `docs/decisions/`.
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for the development workflow and [SECURITY.md](./SECURITY.md) for responsible vulnerability reporting.
@@ -73,6 +81,7 @@ The primary local proof is:
 uv sync --locked
 uv run mke proof run
 uv run mke proof run --json
+uv run mke eval retrieval --manifest tests/fixtures/retrieval-eval-v1.json
 ```
 
 `mke demo --verify` remains available as a compatibility proof with its phase-oriented output.

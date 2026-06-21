@@ -1,0 +1,313 @@
+{
+  "schema_version": "mke.retrieval_eval.v1",
+  "manifest_id": "retrieval-eval-v1",
+  "documents": [
+    {
+      "document_id": "usgs-volcano-hazards",
+      "media_type": "application/pdf",
+      "primary_file": {
+        "path": "eval/retrieval/usgs-volcano-hazards.pdf",
+        "sha256": "bdb8a5b6c648194e0fcc6f932b70976350bdc864c8187632c47f0cb64a21da4e",
+        "bytes": 563382
+      },
+      "supporting_files": []
+    },
+    {
+      "document_id": "usgs-water-use-2005",
+      "media_type": "application/pdf",
+      "primary_file": {
+        "path": "eval/retrieval/usgs-water-use-2005.pdf",
+        "sha256": "ef27346a9f2eab19d438a0740d43c606a9b739147e09d89d1121df294ed3c585",
+        "bytes": 400168
+      },
+      "supporting_files": []
+    },
+    {
+      "document_id": "short-video-timestamp-proof",
+      "media_type": "video/mp4",
+      "primary_file": {
+        "path": "video/short-audio.mp4",
+        "sha256": "4e3c9feffa503e193165ddf27c40c0e0edf9f256c2e8e1e2d863bd7ba3e1fe49",
+        "bytes": 13025
+      },
+      "supporting_files": [
+        {
+          "role": "transcript_sidecar",
+          "path": "video/short-audio.mp4.mke-transcript.json",
+          "sha256": "5688603821b9262f85592912ef957d852ea34448e7292c927ea5071a0668e995",
+          "bytes": 506
+        }
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "query_id": "volcano-answerable-01",
+      "text": "eruption clouds aviation",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "usgs-volcano-hazards",
+          "locator_kind": "page",
+          "locator_start": 1,
+          "locator_end": 1
+        }
+      ]
+    },
+    {
+      "query_id": "volcano-answerable-02",
+      "text": "volcanic gas acid rain",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "usgs-volcano-hazards",
+          "locator_kind": "page",
+          "locator_start": 1,
+          "locator_end": 1
+        }
+      ]
+    },
+    {
+      "query_id": "volcano-answerable-03",
+      "text": "Mount St Helens eruption",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "usgs-volcano-hazards",
+          "locator_kind": "page",
+          "locator_start": 1,
+          "locator_end": 1
+        },
+        {
+          "document_id": "usgs-volcano-hazards",
+          "locator_kind": "page",
+          "locator_start": 2,
+          "locator_end": 2
+        }
+      ]
+    },
+    {
+      "query_id": "volcano-answerable-04",
+      "text": "basalt lava fast moving streams",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "usgs-volcano-hazards",
+          "locator_kind": "page",
+          "locator_start": 2,
+          "locator_end": 2
+        }
+      ]
+    },
+    {
+      "query_id": "volcano-answerable-05",
+      "text": "pyroclastic flows valleys",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "usgs-volcano-hazards",
+          "locator_kind": "page",
+          "locator_start": 2,
+          "locator_end": 2
+        }
+      ]
+    },
+    {
+      "query_id": "volcano-answerable-06",
+      "text": "lahars wet concrete",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "usgs-volcano-hazards",
+          "locator_kind": "page",
+          "locator_start": 2,
+          "locator_end": 2
+        }
+      ]
+    },
+    {
+      "query_id": "water-answerable-01",
+      "text": "410000 million gallons withdrawals",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "usgs-water-use-2005",
+          "locator_kind": "page",
+          "locator_start": 1,
+          "locator_end": 1
+        }
+      ]
+    },
+    {
+      "query_id": "water-answerable-02",
+      "text": "California irrigation withdrawals",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "usgs-water-use-2005",
+          "locator_kind": "page",
+          "locator_start": 1,
+          "locator_end": 1
+        }
+      ]
+    },
+    {
+      "query_id": "water-answerable-03",
+      "text": "self supplied domestic 42.9 million people",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "usgs-water-use-2005",
+          "locator_kind": "page",
+          "locator_start": 1,
+          "locator_end": 1
+        }
+      ]
+    },
+    {
+      "query_id": "water-answerable-04",
+      "text": "thermoelectric once through cooling",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "usgs-water-use-2005",
+          "locator_kind": "page",
+          "locator_start": 2,
+          "locator_end": 2
+        }
+      ]
+    },
+    {
+      "query_id": "water-answerable-05",
+      "text": "water use trends 1950 2005",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "usgs-water-use-2005",
+          "locator_kind": "page",
+          "locator_start": 2,
+          "locator_end": 2
+        }
+      ]
+    },
+    {
+      "query_id": "water-answerable-06",
+      "text": "public supply increased steadily",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "usgs-water-use-2005",
+          "locator_kind": "page",
+          "locator_start": 2,
+          "locator_end": 2
+        }
+      ]
+    },
+    {
+      "query_id": "video-answerable-01",
+      "text": "video evidence timestamp",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "short-video-timestamp-proof",
+          "locator_kind": "timestamp_ms",
+          "locator_start": 0,
+          "locator_end": 1200
+        }
+      ]
+    },
+    {
+      "query_id": "video-answerable-02",
+      "text": "timestamp search",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "short-video-timestamp-proof",
+          "locator_kind": "timestamp_ms",
+          "locator_start": 0,
+          "locator_end": 1200
+        },
+        {
+          "document_id": "short-video-timestamp-proof",
+          "locator_kind": "timestamp_ms",
+          "locator_start": 1200,
+          "locator_end": 2200
+        }
+      ]
+    },
+    {
+      "query_id": "video-answerable-03",
+      "text": "active publication spoken",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "short-video-timestamp-proof",
+          "locator_kind": "timestamp_ms",
+          "locator_start": 1200,
+          "locator_end": 2200
+        }
+      ]
+    },
+    {
+      "query_id": "video-answerable-04",
+      "text": "finds spoken timestamp proof",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "short-video-timestamp-proof",
+          "locator_kind": "timestamp_ms",
+          "locator_start": 1200,
+          "locator_end": 2200
+        }
+      ]
+    },
+    {
+      "query_id": "confuser-01",
+      "text": "volcano evacuation shelter locations",
+      "category": "lexical_confuser",
+      "relevant_locators": []
+    },
+    {
+      "query_id": "confuser-02",
+      "text": "Mount St Helens casualty count",
+      "category": "lexical_confuser",
+      "relevant_locators": []
+    },
+    {
+      "query_id": "confuser-03",
+      "text": "California groundwater contamination 2005",
+      "category": "lexical_confuser",
+      "relevant_locators": []
+    },
+    {
+      "query_id": "confuser-04",
+      "text": "timestamp proof speaker identity",
+      "category": "lexical_confuser",
+      "relevant_locators": []
+    },
+    {
+      "query_id": "out-of-corpus-01",
+      "text": "photosynthesis chlorophyll wavelength",
+      "category": "out_of_corpus",
+      "relevant_locators": []
+    },
+    {
+      "query_id": "out-of-corpus-02",
+      "text": "Roman empire tax policy",
+      "category": "out_of_corpus",
+      "relevant_locators": []
+    },
+    {
+      "query_id": "out-of-corpus-03",
+      "text": "quantum entanglement photon experiment",
+      "category": "out_of_corpus",
+      "relevant_locators": []
+    },
+    {
+      "query_id": "out-of-corpus-04",
+      "text": "database transaction isolation levels",
+      "category": "out_of_corpus",
+      "relevant_locators": []
+    }
+  ]
+}

@@ -265,6 +265,14 @@ class IngestResult:
 
 
 @dataclass(frozen=True)
+class ActiveEvidenceRef:
+    source_id: str
+    locator_kind: str
+    locator_start: int
+    locator_end: int
+
+
+@dataclass(frozen=True)
 class SearchResult:
     evidence_id: str
     publication_id: str

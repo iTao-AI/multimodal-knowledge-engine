@@ -92,6 +92,12 @@ installs `wheel[transcription]` under lock-derived constraints in an external te
 environment, then compares installed CLI results with a real stdio MCP Python SDK client. Both
 paths require an already prepared exact model revision and remain cache-only.
 
+The retrieval evaluator is a separate offline diagnostics surface. It validates a strict external
+manifest, snapshots exact fixture bytes, ingests through the same application service into two
+fresh temporary SQLite workspaces, and compares stable page/timestamp locator outcomes from the
+existing Search and evidence-only Ask contracts. It does not duplicate retrieval SQL, change
+Publication behavior, or impose a quality threshold.
+
 CLI and MCP errors share one project-owned `PublicError` serializer. Only allowlisted stable causes
 can reach public output; unknown exception text is replaced with
 `operation failed; details were redacted`. Public payloads contain `problem`, `cause`,
@@ -116,6 +122,11 @@ src/mke/
   proof/
     transcription.py
     mcp_deployment_client.py
+  evaluation/
+    manifest.py
+    metrics.py
+    report.py
+    runner.py
 ```
 
 The domain and application layers must not depend on FastAPI, database implementations, model SDKs, LangChain, or LlamaIndex.

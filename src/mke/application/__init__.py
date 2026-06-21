@@ -21,6 +21,7 @@ from mke.domain import (
     REQUIRED_PDF_STAGES,
     REQUIRED_VIDEO_STAGES,
     ActivationResult,
+    ActiveEvidenceRef,
     AskResult,
     CandidateEvidence,
     FailurePoint,
@@ -143,6 +144,10 @@ class KnowledgeEngine:
         self, run_id: str, failure_point: FailurePoint | None = None
     ) -> ActivationResult:
         return self._store.activate_publication(run_id, failure_point=failure_point)
+
+    def list_active_evidence(self) -> list[ActiveEvidenceRef]:
+        """Return active Evidence for internal diagnostics and evaluation."""
+        return self._store.list_active_evidence()
 
     def search(self, query: str, limit: int | None = None) -> list[SearchResult]:
         return self._store.search(query, limit=limit)

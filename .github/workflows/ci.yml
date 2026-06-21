@@ -23,6 +23,8 @@ jobs:
         python-version: ["3.12", "3.13"]
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
@@ -31,6 +33,28 @@ jobs:
       - run: uv run pytest -q
       - run: uv run ruff check .
       - run: uv run pyright
+      - name: Run retrieval evaluation baseline
+        run: |
+          uv run mke eval retrieval \
+            --manifest tests/fixtures/retrieval-eval-v1.json \
+            --json > /tmp/mke-retrieval-eval.json
+          python - <<'PY'
+          import json
+          payload = json.load(open("/tmp/mke-retrieval-eval.json"))
+          assert payload["status"] == "passed"
+          assert payload["quality_status"] == "baseline_recorded"
+          assert payload["documents"] == 3
+          assert payload["queries"] == 24
+          assert payload["answerable"] == 16
+          assert payload["unanswerable"] == 8
+          assert payload["integrity_failures"] == []
+          print(json.dumps(payload["metrics"], sort_keys=True))
+          PY
+          uv run python -m mke.evaluation.baseline \
+            --artifact benchmarks/retrieval/retrieval-eval-v1-baseline.json \
+            --manifest tests/fixtures/retrieval-eval-v1.json \
+            --repository . \
+            --main-ref origin/main
       - run: uv build
       - name: Verify spoken fixture with transcription extra
         env:
@@ -43,6 +67,19 @@ jobs:
           uv pip install --python /tmp/mke-wheel-env/bin/python dist/*.whl
           /tmp/mke-wheel-env/bin/mke
           /tmp/mke-wheel-env/bin/mke demo --verify
+          (
+            cd "$RUNNER_TEMP"
+            /tmp/mke-wheel-env/bin/mke eval retrieval \
+              --manifest "$GITHUB_WORKSPACE/tests/fixtures/retrieval-eval-v1.json" \
+              --json > /tmp/mke-wheel-retrieval-eval.json
+          )
+          python - <<'PY'
+          import json
+          payload = json.load(open("/tmp/mke-wheel-retrieval-eval.json"))
+          assert payload["status"] == "passed"
+          assert payload["quality_status"] == "baseline_recorded"
+          assert payload["queries"] == 24
+          PY
       - name: Verify transcription wheel extra without a model
         run: |
           uv export --locked --extra transcription --no-dev --no-emit-project \
