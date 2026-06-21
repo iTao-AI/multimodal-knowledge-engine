@@ -30,8 +30,8 @@
 
 | Check | Result |
 |---|---|
-| Targeted regression and affected suites | `99 passed` |
-| `uv run pytest -q` | `648 passed, 1 skipped` |
+| Targeted regression and affected suites | `118 passed` |
+| `uv run pytest -q` | `650 passed, 1 skipped` |
 | `uv run ruff check .` | passed |
 | `uv run pyright` | `0 errors, 0 warnings` |
 | `uv build` | sdist and wheel built |
@@ -48,9 +48,9 @@
 Artifact identities:
 
 - comparison artifact SHA-256:
-  `65b01f139e6bf0242e3be0c5131434763315123c74106d82916636da5aa9abbe`;
+  `60e2d8a974942d572f40ea50e811785096c2823e13439b6eb1d8c8f8ceebf2d6`;
 - complete source content SHA-256:
-  `f58f83757b4f75d576552eab5aa8e3fce5bec2f68e5db4a8488fe0078a678470`;
+  `ba17dad428445548888bd8ebd6f0dc64b3b43594250c401f6a63d34dcca44f8b`;
 - protocol lock SHA-256:
   `1c82bcecb59c6dfa8b7afddf5bf2a7fc311d155c43f02784c1f0384c3d37aa47`.
 
@@ -73,6 +73,8 @@ merge-backed durable evidence unchecked. No PR 2 was created.
 |---|---|---|
 | Recorded gate status could contradict validated observations. | The artifact validator independently recomputes every derivable gate from validated per-query results, compiled queries, and metrics before accepting the recorded status and verdict. | Replacing the E1 candidate observation with current while claiming rank-1 improvement is rejected. |
 | Nested integer fields accepted JSON booleans through Python equality. | Revisions, corpus/category counts, result counts, relevance counts, ranks, locators, and metric counts now use explicit non-bool integer parsing with bounded ranges. | Self-consistent bool mutations across eight integer/count/rank positions are rejected. |
+| Retrieved locators could name documents outside the frozen manifest. | Locator validation now receives the corresponding manifest document inventory and rejects any unknown `document_id`. | Adding the same `not-in-manifest` locator to both sides of a preserved control is rejected. |
+| Protocol candidate revision accepted `true` as revision `1`. | Protocol loading now requires a non-bool integer revision exactly equal to `1` before fixture access or evaluation. | A protocol with `candidate.revision=true` returns the fixed protocol-invalid result. |
 | The durable review ended with an implementation-window Verdict. | The tail now reports the actual local implementation and verification state while leaving targeted re-review, PR, and merge status pending. | Plan completion and targeted remediation checklists preserve the remaining review gate. |
 
 ## Executive Verdict

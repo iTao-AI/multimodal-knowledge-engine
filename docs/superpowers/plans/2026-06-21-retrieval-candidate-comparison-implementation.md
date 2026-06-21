@@ -1086,8 +1086,11 @@ push/PR until authorized.
   metrics instead of trusting recorded gate status.
 - [x] Reject bool-as-int values and enforce explicit ranges for nested counts, ranks, locators,
   revisions, and metric fields.
+- [x] Validate every retrieved locator document ID against its frozen manifest inventory.
+- [x] Reject boolean protocol candidate revisions before any fixture or evaluation work.
 - [x] Replace the stale implementation-window Verdict in the durable review.
-- [x] Complete the full requested verification set and record fresh artifact identities.
+- [x] Complete the full requested verification set and record fresh artifact identities for the
+  final targeted remediation.
 - [ ] Targeted re-review cleared.
 
 ## Decision Audit Trail

@@ -426,3 +426,19 @@ def test_protocol_loader_accepts_only_the_frozen_candidate() -> None:
 
     assert protocol.candidate_id == "numeric-grouping-v1"
     assert protocol.candidate_revision == 1
+
+
+def test_protocol_rejects_bool_candidate_revision(tmp_path: Path) -> None:
+    payload = json.loads(PROTOCOL.read_text())
+    payload["candidate"]["revision"] = True
+    invalid = tmp_path / "protocol-lock.json"
+    invalid.write_text(json.dumps(payload), encoding="utf-8")
+
+    report = run_numeric_comparison(invalid)
+
+    assert report.integrity_status == "failed"
+    assert report.candidate_status == "not_recorded"
+    assert report.integrity_failures[0].problem == (
+        "retrieval_numeric_protocol_invalid"
+    )
+    assert report.integrity_failures[0].cause == "protocol validation failed"

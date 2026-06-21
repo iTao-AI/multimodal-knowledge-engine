@@ -176,7 +176,13 @@ def load_numeric_protocol(
         raise _ProtocolValidationError
     candidate = _object(payload["candidate"])
     _require_keys(candidate, {"id", "revision"})
-    if candidate != {"id": CANDIDATE_ID, "revision": CANDIDATE_REVISION}:
+    revision = candidate["revision"]
+    if (
+        candidate["id"] != CANDIDATE_ID
+        or isinstance(revision, bool)
+        or not isinstance(revision, int)
+        or revision != CANDIDATE_REVISION
+    ):
         raise _ProtocolValidationError
     if payload["claim"] != PROTOCOL_CLAIM:
         raise _ProtocolValidationError

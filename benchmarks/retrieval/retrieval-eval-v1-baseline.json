@@ -32,7 +32,7 @@
     "main_merge_base": "721784eabcb9fbb737166578010c9e1a46a25fef",
     "implementation_start": "3992b0e9371d1a8c9e019d3bbe2b32aac9665914",
     "evaluation_commit": "79bafb07ac592b684e6ceab15dc389dc33702978",
-    "evaluation_content_sha256": "f58f83757b4f75d576552eab5aa8e3fce5bec2f68e5db4a8488fe0078a678470",
+    "evaluation_content_sha256": "ba17dad428445548888bd8ebd6f0dc64b3b43594250c401f6a63d34dcca44f8b",
     "evaluation_content_files": [
       {
         "path": "src/mke/__init__.py",
@@ -136,13 +136,13 @@
       },
       {
         "path": "src/mke/evaluation/numeric_artifact.py",
-        "bytes": 31618,
-        "sha256": "5b2ca867bd7be78fe1b6c6ee0303801340c15f6e649b0165d2a5dc0b73ee3ee3"
+        "bytes": 31899,
+        "sha256": "7c7936b80a8736f4f18decf85db732132deff6269aa3c2112a819ec5b856684a"
       },
       {
         "path": "src/mke/evaluation/numeric_comparison.py",
-        "bytes": 32851,
-        "sha256": "7bdac3706d83b99f4e0fb92b1e647fceb75bd290c4ce886dc5e6e10ec72d4d78"
+        "bytes": 32991,
+        "sha256": "72c98ac53e3da28f12b3b0179146a9d79cf7bb2b2d845065b75e63007fb0b54e"
       },
       {
         "path": "src/mke/evaluation/report.py",

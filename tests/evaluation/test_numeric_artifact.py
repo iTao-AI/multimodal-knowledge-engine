@@ -199,6 +199,31 @@ def _bool_locator_start(payload: dict[str, object]) -> None:
     locators[0]["locator_end"] = True
 
 
+def _add_unknown_locator_to_preserved_control(
+    payload: dict[str, object],
+) -> None:
+    comparison = _comparison(payload)
+    development = cast(dict[str, object], comparison["development"])
+    for policy in ("current", "candidate"):
+        observation = cast(dict[str, object], development[policy])
+        results = cast(list[dict[str, object]], observation["results"])
+        result = next(
+            item
+            for item in results
+            if item["query_id"] == "numeric-dev-compact-01"
+        )
+        locators = cast(list[dict[str, object]], result["retrieved_locators"])
+        locators.append(
+            {
+                "document_id": "not-in-manifest",
+                "locator_kind": "page",
+                "locator_start": 1,
+                "locator_end": 1,
+            }
+        )
+        result["retrieved_locator_count"] = len(locators)
+
+
 def test_recorded_artifact_validates_against_fresh_observation(
     tmp_path: Path,
 ) -> None:
@@ -340,6 +365,29 @@ def test_validator_rejects_self_consistent_bool_as_nested_integer(
     observed_payload = json.loads(observed.read_text())
     mutation(artifact_payload)
     mutation(observed_payload)
+    artifact.write_text(json.dumps(artifact_payload), encoding="utf-8")
+    observed.write_text(json.dumps(observed_payload), encoding="utf-8")
+
+    with pytest.raises(
+        NumericArtifactValidationError,
+        match="numeric comparison artifact is invalid",
+    ):
+        validate_numeric_artifact(
+            artifact_path=artifact,
+            observed_path=observed,
+            protocol_path=PROTOCOL,
+            repository_root=REPOSITORY,
+        )
+
+
+def test_validator_rejects_self_consistent_locator_outside_manifest_inventory(
+    tmp_path: Path,
+) -> None:
+    artifact, observed = _record(tmp_path)
+    artifact_payload = json.loads(artifact.read_text())
+    observed_payload = json.loads(observed.read_text())
+    _add_unknown_locator_to_preserved_control(artifact_payload)
+    _add_unknown_locator_to_preserved_control(observed_payload)
     artifact.write_text(json.dumps(artifact_payload), encoding="utf-8")
     observed.write_text(json.dumps(observed_payload), encoding="utf-8")
 

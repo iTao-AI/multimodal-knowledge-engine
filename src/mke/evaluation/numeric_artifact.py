@@ -434,8 +434,12 @@ def _validate_observation(
         raise NumericArtifactValidationError
     if len(results) != len(manifest.queries):
         raise NumericArtifactValidationError
+    document_ids = frozenset(
+        document.document_id
+        for document in manifest.documents
+    )
     parsed_results = tuple(
-        _validate_result(raw, query)
+        _validate_result(raw, query, document_ids)
         for raw, query in zip(
             results,
             manifest.queries,
@@ -485,6 +489,7 @@ def _validate_observation(
 def _validate_result(
     value: object,
     query: object,
+    document_ids: frozenset[str],
 ) -> tuple[tuple[StableLocator, ...], AskStatus]:
     from mke.evaluation.manifest import EvaluationQuery
 
@@ -504,7 +509,7 @@ def _validate_result(
     if relevant_count != len(relevant):
         raise NumericArtifactValidationError
     locators = tuple(
-        _validate_locator(item)
+        _validate_locator(item, document_ids)
         for item in _require_list(payload["retrieved_locators"])
     )
     if len(locators) != len(set(locators)):
@@ -557,12 +562,18 @@ def _validate_result(
     return locators, cast(AskStatus, ask_status)
 
 
-def _validate_locator(value: object) -> StableLocator:
+def _validate_locator(
+    value: object,
+    document_ids: frozenset[str],
+) -> StableLocator:
     payload = _require_object_fields(
         value,
         {"document_id", "locator_kind", "locator_start", "locator_end"},
     )
-    if not _is_nonempty_string(payload["document_id"]):
+    if (
+        not _is_nonempty_string(payload["document_id"])
+        or payload["document_id"] not in document_ids
+    ):
         raise NumericArtifactValidationError
     if payload["locator_kind"] not in {"page", "timestamp_ms"}:
         raise NumericArtifactValidationError
