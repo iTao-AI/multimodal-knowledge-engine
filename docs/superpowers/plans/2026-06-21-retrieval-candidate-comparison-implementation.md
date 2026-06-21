@@ -1080,6 +1080,16 @@ push/PR until authorized.
 - [x] `retrieval_numeric_nondeterministic` retains its fixed public mapping.
 - [x] Completion and durable review records distinguish local completion from merge completion.
 
+## Targeted Re-review Remediation
+
+- [x] Recompute every derivable promotion gate from validated observations, compiled queries, and
+  metrics instead of trusting recorded gate status.
+- [x] Reject bool-as-int values and enforce explicit ranges for nested counts, ranks, locators,
+  revisions, and metric fields.
+- [x] Replace the stale implementation-window Verdict in the durable review.
+- [x] Complete the full requested verification set and record fresh artifact identities.
+- [ ] Targeted re-review cleared.
+
 ## Decision Audit Trail
 
 | Decision | Outcome | Basis |

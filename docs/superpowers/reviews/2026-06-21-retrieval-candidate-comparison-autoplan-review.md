@@ -30,8 +30,8 @@
 
 | Check | Result |
 |---|---|
-| Targeted regression and affected suites | `117 passed` |
-| `uv run pytest -q` | `639 passed, 1 skipped` |
+| Targeted regression and affected suites | `99 passed` |
+| `uv run pytest -q` | `648 passed, 1 skipped` |
 | `uv run ruff check .` | passed |
 | `uv run pyright` | `0 errors, 0 warnings` |
 | `uv build` | sdist and wheel built |
@@ -48,9 +48,9 @@
 Artifact identities:
 
 - comparison artifact SHA-256:
-  `6ade2be7c19cd647e39c0ec7428fefbcfc4afd3d9cad976d8647d09d007caf8d`;
+  `65b01f139e6bf0242e3be0c5131434763315123c74106d82916636da5aa9abbe`;
 - complete source content SHA-256:
-  `c1bc8719dab6de6e45f95458d88fbbfa9d8e40bbb54899029c531fbe8d80b69a`;
+  `f58f83757b4f75d576552eab5aa8e3fce5bec2f68e5db4a8488fe0078a678470`;
 - protocol lock SHA-256:
   `1c82bcecb59c6dfa8b7afddf5bf2a7fc311d155c43f02784c1f0384c3d37aa47`.
 
@@ -66,6 +66,14 @@ merge-backed durable evidence unchecked. No PR 2 was created.
 | `single_match_per_search` and `scope_fence` were constants. | Evaluation evidence records actual per-Search FTS5 `MATCH` counts, SQLite schema identity, and concrete PDF/sidecar provider identities; the protocol binds dependency and execution source identities. | Injected two-MATCH evidence rejects `single_match_per_search`; an invalid schema identity rejects `scope_fence`. |
 | Numeric nondeterminism lost its fixed public mapping. | Any evaluator `retrieval_eval_nondeterministic` failure maps to `retrieval_numeric_nondeterministic`, fixed cause, and fixed next step. | Dedicated redaction-safe mapping regression passes. |
 | Completion and durable review state were premature. | Local result, targeted re-review, PR creation, merge, PR 2, and merge-backed evidence are now represented separately. | PR 1 merge remains unchecked and this review states targeted re-review is pending. |
+
+## Targeted Re-review Remediation
+
+| Finding | Resolution | Regression evidence |
+|---|---|---|
+| Recorded gate status could contradict validated observations. | The artifact validator independently recomputes every derivable gate from validated per-query results, compiled queries, and metrics before accepting the recorded status and verdict. | Replacing the E1 candidate observation with current while claiming rank-1 improvement is rejected. |
+| Nested integer fields accepted JSON booleans through Python equality. | Revisions, corpus/category counts, result counts, relevance counts, ranks, locators, and metric counts now use explicit non-bool integer parsing with bounded ranges. | Self-consistent bool mutations across eight integer/count/rank positions are rejected. |
+| The durable review ended with an implementation-window Verdict. | The tail now reports the actual local implementation and verification state while leaving targeted re-review, PR, and merge status pending. | Plan completion and targeted remediation checklists preserve the remaining review gate. |
 
 ## Executive Verdict
 
@@ -199,8 +207,10 @@ fixture identity and exact text
   remain outside the claim.
 - E1 and E2 page qrels require a new protocol if Evidence segmentation changes.
 
-## Verdict
+## Current Verdict
 
-The corrected E2 design and two-PR implementation plan are coherent and ready for a separate
-implementation window. No retrieval runtime code or implementation worktree was created by this
-review.
+PR 1 is implemented locally and the latest targeted findings have been remediated. The numeric
+artifact validator now independently recomputes every derivable promotion gate and rejects
+bool-as-int nested values with explicit integer ranges. Full verification and refreshed artifact
+identities are recorded above; targeted re-review has not cleared the branch. Runtime default
+remains `current`; no PR 2, ADR-0007, push, PR, or merge exists.

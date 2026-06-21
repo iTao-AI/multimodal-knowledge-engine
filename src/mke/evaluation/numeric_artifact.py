@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 import sqlite3
 import sys
@@ -287,7 +288,10 @@ def _validate_artifact_schema(artifact: dict[str, object]) -> None:
             raise NumericArtifactValidationError
         _require_sha256(fixture["sha256"])
     candidate = _require_object_fields(artifact["candidate"], {"id", "revision"})
-    if candidate != {"id": CANDIDATE_ID, "revision": CANDIDATE_REVISION}:
+    if candidate["id"] != CANDIDATE_ID or (
+        _require_integer(candidate["revision"], minimum=1)
+        != CANDIDATE_REVISION
+    ):
         raise NumericArtifactValidationError
     source = _require_object_fields(artifact["source"], {"sha256", "files"})
     _require_sha256(source["sha256"])
@@ -358,7 +362,10 @@ def _validate_comparison_state(
         raise NumericArtifactValidationError
     if comparison.get("candidate_id") != CANDIDATE_ID:
         raise NumericArtifactValidationError
-    if comparison.get("candidate_revision") != CANDIDATE_REVISION:
+    if (
+        _require_integer(comparison.get("candidate_revision"), minimum=1)
+        != CANDIDATE_REVISION
+    ):
         raise NumericArtifactValidationError
     if comparison.get("integrity_status") != "passed":
         raise NumericArtifactValidationError
@@ -374,6 +381,7 @@ def _validate_comparison_state(
         )
     _validate_compiled_queries(comparison["compiled_queries"], protocol)
     gates = _validate_gates(comparison["gates"])
+    _validate_derivable_gates(comparison, gates)
     all_passed = all(gate["status"] == "passed" for gate in gates)
     candidate_status = comparison.get("candidate_status")
     if candidate_status == "passed" and not all_passed:
@@ -417,9 +425,12 @@ def _validate_observation(
     results = _require_list(payload["results"])
     if payload["integrity_failures"] != []:
         raise NumericArtifactValidationError
-    if payload["documents"] != len(manifest.documents):
+    if (
+        _require_integer(payload["documents"], minimum=0)
+        != len(manifest.documents)
+    ):
         raise NumericArtifactValidationError
-    if payload["queries"] != len(manifest.queries):
+    if _require_integer(payload["queries"], minimum=0) != len(manifest.queries):
         raise NumericArtifactValidationError
     if len(results) != len(manifest.queries):
         raise NumericArtifactValidationError
@@ -432,9 +443,12 @@ def _validate_observation(
         )
     )
     answerable = sum(query.category == "answerable" for query in manifest.queries)
-    if payload["answerable"] != answerable:
+    if _require_integer(payload["answerable"], minimum=0) != answerable:
         raise NumericArtifactValidationError
-    if payload["unanswerable"] != len(manifest.queries) - answerable:
+    if (
+        _require_integer(payload["unanswerable"], minimum=0)
+        != len(manifest.queries) - answerable
+    ):
         raise NumericArtifactValidationError
     category_counts = _require_object_fields(
         payload["category_counts"],
@@ -444,7 +458,11 @@ def _validate_observation(
         category: sum(query.category == category for query in manifest.queries)
         for category in ("answerable", "lexical_confuser", "out_of_corpus")
     }
-    if category_counts != expected_category_counts:
+    parsed_category_counts = {
+        category: _require_integer(category_counts[category], minimum=0)
+        for category in ("answerable", "lexical_confuser", "out_of_corpus")
+    }
+    if parsed_category_counts != expected_category_counts:
         raise NumericArtifactValidationError
     expected_metrics = calculate_metrics(
         tuple(
@@ -479,7 +497,11 @@ def _validate_result(
     ):
         raise NumericArtifactValidationError
     relevant = set(query.relevant_locators)
-    if payload["relevant_locator_count"] != len(relevant):
+    relevant_count = _require_integer(
+        payload["relevant_locator_count"],
+        minimum=0,
+    )
+    if relevant_count != len(relevant):
         raise NumericArtifactValidationError
     locators = tuple(
         _validate_locator(item)
@@ -487,18 +509,28 @@ def _validate_result(
     )
     if len(locators) != len(set(locators)):
         raise NumericArtifactValidationError
-    if payload["retrieved_locator_count"] != len(locators):
+    retrieved_count = _require_integer(
+        payload["retrieved_locator_count"],
+        minimum=0,
+        maximum=5,
+    )
+    if retrieved_count != len(locators):
         raise NumericArtifactValidationError
     expected_counts = (
         len(relevant.intersection(locators[:1])),
         len(relevant.intersection(locators[:3])),
         len(relevant.intersection(locators[:5])),
     )
-    actual_counts = (
-        payload["relevant_retrieved_at_1"],
-        payload["relevant_retrieved_at_3"],
-        payload["relevant_retrieved_at_5"],
+    actual_counts = tuple(
+        _require_integer(value, minimum=0, maximum=relevant_count)
+        for value in (
+            payload["relevant_retrieved_at_1"],
+            payload["relevant_retrieved_at_3"],
+            payload["relevant_retrieved_at_5"],
+        )
     )
+    if not actual_counts[0] <= actual_counts[1] <= actual_counts[2]:
+        raise NumericArtifactValidationError
     if actual_counts != expected_counts:
         raise NumericArtifactValidationError
     expected_rank = next(
@@ -509,7 +541,13 @@ def _validate_result(
         ),
         None,
     )
-    if payload["first_relevant_rank"] != expected_rank:
+    raw_rank = payload["first_relevant_rank"]
+    first_relevant_rank = (
+        None
+        if raw_rank is None
+        else _require_integer(raw_rank, minimum=1, maximum=5)
+    )
+    if first_relevant_rank != expected_rank:
         raise NumericArtifactValidationError
     ask_status = payload["ask_status"]
     if ask_status not in {"evidence_found", "insufficient_evidence"}:
@@ -554,13 +592,15 @@ def _validate_metrics(value: object, expected: object) -> None:
     for name in _METRIC_NAMES:
         metric = _require_object_fields(metrics[name], {"value", "sum", "count"})
         expected_metric = getattr(expected, name)
+        value_number = _require_ratio(metric["value"])
+        sum_number = _require_finite_number(metric["sum"])
+        count = _require_integer(metric["count"], minimum=1)
+        if not 0.0 <= sum_number <= float(count):
+            raise NumericArtifactValidationError
         if (
-            not _is_number(metric["value"])
-            or not _is_number(metric["sum"])
-            or not _is_int(metric["count"])
-            or metric["value"] != expected_metric.value
-            or metric["sum"] != expected_metric.sum
-            or metric["count"] != expected_metric.count
+            value_number != expected_metric.value
+            or sum_number != expected_metric.sum
+            or count != expected_metric.count
         ):
             raise NumericArtifactValidationError
 
@@ -631,6 +671,152 @@ def _validate_gates(value: object) -> list[dict[str, object]]:
     return gates
 
 
+def _validate_derivable_gates(
+    comparison: dict[str, object],
+    gates: list[dict[str, object]],
+) -> None:
+    partitions = {
+        partition: cast(dict[str, object], comparison[partition])
+        for partition in ("development", "holdout", "e1")
+    }
+    results = {
+        partition: {
+            policy: _result_map(
+                cast(dict[str, object], payload[policy])["results"]
+            )
+            for policy in ("current", "candidate")
+        }
+        for partition, payload in partitions.items()
+    }
+    development = results["development"]
+    holdout = results["holdout"]
+    e1 = results["e1"]
+    development_controls = (
+        "numeric-dev-compact-01",
+        "numeric-dev-leading-zero-01",
+        "numeric-dev-identifier-01",
+        "numeric-dev-short-01",
+        "numeric-dev-outside-01",
+    )
+    holdout_controls = (
+        "numeric-holdout-compact-01",
+        "numeric-holdout-leading-zero-01",
+        "numeric-holdout-identifier-01",
+        "numeric-holdout-short-01",
+        "numeric-holdout-outside-01",
+    )
+    compiled_queries = cast(
+        list[dict[str, object]],
+        comparison["compiled_queries"],
+    )
+    e1_current = cast(
+        dict[str, object],
+        cast(dict[str, object], partitions["e1"]["current"])["metrics"],
+    )
+    e1_candidate = cast(
+        dict[str, object],
+        cast(dict[str, object], partitions["e1"]["candidate"])["metrics"],
+    )
+    derivable = {
+        "protocol_integrity": True,
+        "all_evaluations_deterministic": all(
+            cast(dict[str, object], partitions[partition][policy])["status"]
+            == "passed"
+            for partition in ("development", "holdout", "e1")
+            for policy in ("current", "candidate")
+        ),
+        "development_grouped_improves": (
+            development["current"][
+                "numeric-dev-grouped-01"
+            ]["first_relevant_rank"]
+            is None
+            and development["candidate"][
+                "numeric-dev-grouped-01"
+            ]["first_relevant_rank"]
+            == 1
+        ),
+        "development_controls_preserved": all(
+            development["current"][query_id]
+            == development["candidate"][query_id]
+            for query_id in development_controls
+        ),
+        "development_non_adjacent_no_hit": (
+            development["candidate"][
+                "numeric-dev-non-adjacent-01"
+            ]["retrieved_locator_count"]
+            == 0
+        ),
+        "holdout_grouped_improves": (
+            holdout["current"][
+                "numeric-holdout-grouped-01"
+            ]["first_relevant_rank"]
+            is None
+            and holdout["candidate"][
+                "numeric-holdout-grouped-01"
+            ]["first_relevant_rank"]
+            == 1
+        ),
+        "holdout_controls_preserved": all(
+            holdout["current"][query_id] == holdout["candidate"][query_id]
+            for query_id in holdout_controls
+        ),
+        "holdout_non_adjacent_no_hit": (
+            holdout["candidate"][
+                "numeric-holdout-non-adjacent-01"
+            ]["retrieved_locator_count"]
+            == 0
+        ),
+        "noneligible_compilation_identity": all(
+            item["current"] == item["candidate"]
+            for item in compiled_queries
+            if item["eligible_tokens"] == []
+        ),
+        "e1_unrelated_exact": all(
+            e1["current"][query_id] == e1["candidate"][query_id]
+            for query_id in e1["current"]
+            if query_id != "water-answerable-01"
+        ),
+        "e1_water_answerable_rank_1": (
+            e1["current"]["water-answerable-01"]["first_relevant_rank"]
+            is None
+            and e1["candidate"][
+                "water-answerable-01"
+            ]["first_relevant_rank"]
+            == 1
+        ),
+        "e1_aggregate_non_regression": all(
+            _metric_value(e1_candidate, name)
+            >= _metric_value(e1_current, name)
+            for name in (
+                "locator_recall_at_1",
+                "locator_recall_at_3",
+                "locator_recall_at_5",
+                "mrr_at_5",
+            )
+        ),
+    }
+    gate_by_id = {
+        cast(str, gate["gate_id"]): gate
+        for gate in gates
+    }
+    for gate_id, passed in derivable.items():
+        expected_status = "passed" if passed else "failed"
+        if gate_by_id[gate_id]["status"] != expected_status:
+            raise NumericArtifactValidationError
+
+
+def _result_map(value: object) -> dict[str, dict[str, object]]:
+    return {
+        cast(str, result["query_id"]): result
+        for result in cast(list[dict[str, object]], value)
+    }
+
+
+def _metric_value(metrics: dict[str, object], name: str) -> float:
+    metric = cast(dict[str, object], metrics[name])
+    return _require_ratio(metric["value"])
+
+
 def _require_object_fields(
     value: object,
     fields: set[str],
@@ -658,8 +844,34 @@ def _is_int(value: object) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
 
 
-def _is_number(value: object) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
+def _require_integer(
+    value: object,
+    *,
+    minimum: int,
+    maximum: int | None = None,
+) -> int:
+    if not _is_int(value):
+        raise NumericArtifactValidationError
+    result = cast(int, value)
+    if result < minimum or (maximum is not None and result > maximum):
+        raise NumericArtifactValidationError
+    return result
+
+
+def _require_finite_number(value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise NumericArtifactValidationError
+    result = float(value)
+    if not math.isfinite(result):
+        raise NumericArtifactValidationError
+    return result
+
+
+def _require_ratio(value: object) -> float:
+    result = _require_finite_number(value)
+    if not 0.0 <= result <= 1.0:
+        raise NumericArtifactValidationError
+    return result
 
 
 def _is_nonempty_string(value: object) -> bool:

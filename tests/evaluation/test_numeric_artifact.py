@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import sys
 from collections.abc import Callable
+from copy import deepcopy
 from pathlib import Path
 from typing import cast
 
@@ -135,6 +136,69 @@ def _reverse_compiled_query_order(payload: dict[str, object]) -> None:
     queries.reverse()
 
 
+def _replace_e1_candidate_with_current(payload: dict[str, object]) -> None:
+    comparison = _comparison(payload)
+    e1 = cast(dict[str, object], comparison["e1"])
+    e1["candidate"] = deepcopy(e1["current"])
+
+
+def _candidate_result(payload: dict[str, object]) -> dict[str, object]:
+    comparison = _comparison(payload)
+    development = cast(dict[str, object], comparison["development"])
+    candidate = cast(dict[str, object], development["candidate"])
+    results = cast(list[dict[str, object]], candidate["results"])
+    return next(
+        result
+        for result in results
+        if result["query_id"] == "numeric-dev-grouped-01"
+    )
+
+
+def _bool_candidate_revision(payload: dict[str, object]) -> None:
+    comparison = _comparison(payload)
+    comparison["candidate_revision"] = True
+    if "candidate" in payload:
+        cast(dict[str, object], payload["candidate"])["revision"] = True
+
+
+def _bool_document_count(payload: dict[str, object]) -> None:
+    comparison = _comparison(payload)
+    development = cast(dict[str, object], comparison["development"])
+    current = cast(dict[str, object], development["current"])
+    current["documents"] = True
+
+
+def _bool_category_count(payload: dict[str, object]) -> None:
+    comparison = _comparison(payload)
+    development = cast(dict[str, object], comparison["development"])
+    current = cast(dict[str, object], development["current"])
+    counts = cast(dict[str, object], current["category_counts"])
+    counts["lexical_confuser"] = True
+
+
+def _bool_relevant_locator_count(payload: dict[str, object]) -> None:
+    _candidate_result(payload)["relevant_locator_count"] = True
+
+
+def _bool_retrieved_locator_count(payload: dict[str, object]) -> None:
+    _candidate_result(payload)["retrieved_locator_count"] = True
+
+
+def _bool_relevant_retrieved_at_1(payload: dict[str, object]) -> None:
+    _candidate_result(payload)["relevant_retrieved_at_1"] = True
+
+
+def _bool_first_relevant_rank(payload: dict[str, object]) -> None:
+    _candidate_result(payload)["first_relevant_rank"] = True
+
+
+def _bool_locator_start(payload: dict[str, object]) -> None:
+    result = _candidate_result(payload)
+    locators = cast(list[dict[str, object]], result["retrieved_locators"])
+    locators[0]["locator_start"] = True
+    locators[0]["locator_end"] = True
+
+
 def test_recorded_artifact_validates_against_fresh_observation(
     tmp_path: Path,
 ) -> None:
@@ -231,6 +295,66 @@ def test_validator_rejects_self_consistent_malformed_nested_payload(
         )
 
 
+def test_validator_rejects_claimed_e1_improvement_when_candidate_equals_current(
+    tmp_path: Path,
+) -> None:
+    artifact, observed = _record(tmp_path)
+    artifact_payload = json.loads(artifact.read_text())
+    observed_payload = json.loads(observed.read_text())
+    _replace_e1_candidate_with_current(artifact_payload)
+    _replace_e1_candidate_with_current(observed_payload)
+    artifact.write_text(json.dumps(artifact_payload), encoding="utf-8")
+    observed.write_text(json.dumps(observed_payload), encoding="utf-8")
+
+    with pytest.raises(
+        NumericArtifactValidationError,
+        match="numeric comparison artifact is invalid",
+    ):
+        validate_numeric_artifact(
+            artifact_path=artifact,
+            observed_path=observed,
+            protocol_path=PROTOCOL,
+            repository_root=REPOSITORY,
+        )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        _bool_candidate_revision,
+        _bool_document_count,
+        _bool_category_count,
+        _bool_relevant_locator_count,
+        _bool_retrieved_locator_count,
+        _bool_relevant_retrieved_at_1,
+        _bool_first_relevant_rank,
+        _bool_locator_start,
+    ],
+)
+def test_validator_rejects_self_consistent_bool_as_nested_integer(
+    tmp_path: Path,
+    mutation: Callable[[dict[str, object]], None],
+) -> None:
+    artifact, observed = _record(tmp_path)
+    artifact_payload = json.loads(artifact.read_text())
+    observed_payload = json.loads(observed.read_text())
+    mutation(artifact_payload)
+    mutation(observed_payload)
+    artifact.write_text(json.dumps(artifact_payload), encoding="utf-8")
+    observed.write_text(json.dumps(observed_payload), encoding="utf-8")
+
+    with pytest.raises(
+        NumericArtifactValidationError,
+        match="numeric comparison artifact is invalid",
+    ):
+        validate_numeric_artifact(
+            artifact_path=artifact,
+            observed_path=observed,
+            protocol_path=PROTOCOL,
+            repository_root=REPOSITORY,
+        )
+
+
 def test_validator_rejects_source_content_change(tmp_path: Path) -> None:
     artifact, observed = _record(tmp_path)
     repository = tmp_path / "repository"
@@ -274,7 +398,7 @@ def test_self_consistent_rejected_candidate_artifact_is_valid(
     observed = _observed(tmp_path)
     payload = json.loads(observed.read_text())
     payload["candidate_status"] = "rejected"
-    payload["gates"][2].update(
+    payload["gates"][12].update(
         {
             "status": "failed",
             "observed": "requirement_not_met",

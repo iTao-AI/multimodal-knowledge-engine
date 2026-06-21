@@ -32,7 +32,7 @@
     "main_merge_base": "721784eabcb9fbb737166578010c9e1a46a25fef",
     "implementation_start": "3992b0e9371d1a8c9e019d3bbe2b32aac9665914",
     "evaluation_commit": "79bafb07ac592b684e6ceab15dc389dc33702978",
-    "evaluation_content_sha256": "c1bc8719dab6de6e45f95458d88fbbfa9d8e40bbb54899029c531fbe8d80b69a",
+    "evaluation_content_sha256": "f58f83757b4f75d576552eab5aa8e3fce5bec2f68e5db4a8488fe0078a678470",
     "evaluation_content_files": [
       {
         "path": "src/mke/__init__.py",
@@ -136,8 +136,8 @@
       },
       {
         "path": "src/mke/evaluation/numeric_artifact.py",
-        "bytes": 24808,
-        "sha256": "994e3a4d4b271a74c1dff7b4a2a72c4694412dccd33394d58f58e124ca2ac306"
+        "bytes": 31618,
+        "sha256": "5b2ca867bd7be78fe1b6c6ee0303801340c15f6e649b0165d2a5dc0b73ee3ee3"
       },
       {
         "path": "src/mke/evaluation/numeric_comparison.py",
