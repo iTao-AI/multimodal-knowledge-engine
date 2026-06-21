@@ -21,10 +21,14 @@ from mke.adapters.video.faster_whisper import (
 from mke.application import AskValidationError, KnowledgeEngine, PdfIngestError, VideoIngestError
 from mke.domain import FailurePoint, PdfIntakeReport, SearchResult, TranscriptIntakeReport
 from mke.evaluation import (
+    render_numeric_comparison_human,
+    render_numeric_comparison_json,
     render_retrieval_human_report,
     render_retrieval_json_report,
+    run_numeric_comparison,
     run_retrieval_evaluation,
 )
+from mke.evaluation.numeric_comparison import NumericComparisonReport
 from mke.evaluation.report import RetrievalEvaluationReport
 from mke.interfaces.mcp_contract import McpRuntimeConfig, transcript_intake_report_payload
 from mke.interfaces.mcp_server import run_mcp_server
@@ -120,6 +124,25 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="external retrieval-evaluation manifest",
     )
     retrieval.add_argument("--json", action="store_true", dest="json_output")
+    numeric_retrieval = evaluation_subcommands.add_parser(
+        "retrieval-numeric",
+        description=(
+            "Run the comparison-only public-holdout numeric protocol. "
+            "The runtime default remains current, the holdout is public rather than blind, "
+            "and promotion is conditional."
+        ),
+    )
+    numeric_retrieval.add_argument(
+        "--protocol",
+        type=Path,
+        required=True,
+        help="locked numeric retrieval comparison protocol",
+    )
+    numeric_retrieval.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
 
     mcp = subcommands.add_parser("mcp")
     mcp.add_argument("--allowed-root", type=Path, default=Path.cwd())
@@ -151,6 +174,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             print(rendered)
             return 0 if report.status == "passed" and not rendering_failed else 1
+        if args.evaluation_command == "retrieval-numeric":
+            report = run_numeric_comparison(args.protocol)
+            rendered, rendering_failed = _render_numeric_comparison_safely(
+                report,
+                json_output=args.json_output,
+            )
+            print(rendered)
+            return (
+                0
+                if report.integrity_status == "passed"
+                and report.candidate_status == "passed"
+                and not rendering_failed
+                else 1
+            )
         parser.error("unsupported evaluation command")
     if args.command == "demo":
         return _demo_verify(args.fixture, args.revised_fixture, args.video_fixture)
@@ -286,6 +323,67 @@ def _render_retrieval_report_safely(
             "problem=retrieval_eval_incomplete "
             "cause=retrieval evaluation report could not be rendered "
             "next_step=inspect_retrieval_eval_inputs",
+            True,
+        )
+
+
+def _render_numeric_comparison_safely(
+    report: NumericComparisonReport,
+    *,
+    json_output: bool,
+) -> tuple[str, bool]:
+    try:
+        rendered = (
+            render_numeric_comparison_json(report)
+            if json_output
+            else render_numeric_comparison_human(report)
+        )
+        return rendered, False
+    except Exception:
+        if json_output:
+            return (
+                json.dumps(
+                    {
+                        "schema_version": "mke.retrieval_numeric_comparison.v1",
+                        "protocol_id": "unknown",
+                        "candidate_id": "numeric-grouping-v1",
+                        "candidate_revision": 1,
+                        "integrity_status": "failed",
+                        "candidate_status": "not_recorded",
+                        "development": {},
+                        "holdout": {},
+                        "e1": {},
+                        "compiled_queries": [],
+                        "gates": [],
+                        "integrity_failures": [
+                            {
+                                "problem": "retrieval_numeric_comparison_incomplete",
+                                "cause": (
+                                    "numeric comparison report could not be rendered"
+                                ),
+                                "next_step": "inspect_numeric_comparison_inputs",
+                                "subject_id": None,
+                            }
+                        ],
+                        "duration_ms": 0,
+                        "limitations": [
+                            "public_holdout_not_blind",
+                            "small_engineering_challenge_set",
+                            "ascii_compact_integers_only",
+                            "tokenizer_adjacent_separator_equivalence",
+                            "no_general_retrieval_quality_claim",
+                        ],
+                    }
+                ),
+                True,
+            )
+        return (
+            "mke eval retrieval-numeric\n"
+            "protocol=unknown candidate=numeric-grouping-v1 revision=1\n"
+            "integrity_status=failed candidate_status=not_recorded\n"
+            "problem=retrieval_numeric_comparison_incomplete "
+            "cause=numeric comparison report could not be rendered "
+            "next_step=inspect_numeric_comparison_inputs",
             True,
         )
 

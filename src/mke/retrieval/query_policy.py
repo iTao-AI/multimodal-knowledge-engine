@@ -53,6 +53,16 @@ def _compile_numeric_grouping(query: str) -> str:
     return " AND ".join(clauses)
 
 
+def numeric_grouping_eligible_tokens(query: str) -> tuple[str, ...]:
+    normalized = query.casefold()
+    return tuple(
+        match.group()
+        for match in re.finditer(r"[A-Za-z0-9_]+", normalized)
+        if _is_standalone_numeric_token(normalized, match.start(), match.end())
+        and _group_compact_integer(match.group()) is not None
+    )
+
+
 def _group_compact_integer(token: str) -> tuple[str, ...] | None:
     if (
         not token.isascii()
