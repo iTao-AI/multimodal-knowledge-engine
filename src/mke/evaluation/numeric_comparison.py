@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,7 +20,8 @@ from mke.evaluation.report import (
     render_retrieval_json_report,
 )
 from mke.evaluation.runner import (
-    _run_retrieval_evaluation,  # pyright: ignore[reportPrivateUsage]
+    RetrievalEvaluationObservation,
+    _observe_retrieval_evaluation,  # pyright: ignore[reportPrivateUsage]
 )
 from mke.retrieval import compile_fts5_query
 from mke.retrieval.query_policy import numeric_grouping_eligible_tokens
@@ -66,6 +68,20 @@ _EXPECTED_MANIFEST_IDS = {
     "holdout": "retrieval-numeric-v1-holdout",
     "e1": "retrieval-eval-v1",
 }
+_EXPECTED_SCOPE_PATHS = (
+    "pyproject.toml",
+    "uv.lock",
+    "src/mke/adapters/pdf/__init__.py",
+    "src/mke/adapters/sqlite/__init__.py",
+    "src/mke/adapters/video/__init__.py",
+    "src/mke/application/__init__.py",
+    "src/mke/evaluation/runner.py",
+    "src/mke/retrieval/query_policy.py",
+)
+_EXPECTED_PDF_EXTRACTOR = "mke.adapters.pdf.extractor.PyMuPDFPdfExtractor"
+_EXPECTED_TRANSCRIPT_PROVIDER = (
+    "mke.adapters.video.providers.SidecarTranscriptProvider"
+)
 
 
 class _ProtocolMissingError(ValueError):
@@ -89,6 +105,7 @@ class NumericProtocol:
     path: Path
     manifests: dict[str, Path]
     loaded_manifests: dict[str, RetrievalEvaluationManifest]
+    sqlite_schema_sha256: str
 
 
 @dataclass(frozen=True)
@@ -126,7 +143,11 @@ class NumericComparisonReport:
     limitations: tuple[str, ...] = LIMITATIONS
 
 
-def load_numeric_protocol(path: Path) -> NumericProtocol:
+def load_numeric_protocol(
+    path: Path,
+    *,
+    snapshot_root: Path | None = None,
+) -> NumericProtocol:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError as error:
@@ -146,6 +167,7 @@ def load_numeric_protocol(path: Path) -> NumericProtocol:
             "manifests",
             "fixtures",
             "required_query_ids",
+            "scope_fence",
         },
     )
     if payload["schema_version"] != PROTOCOL_SCHEMA:
@@ -163,6 +185,7 @@ def load_numeric_protocol(path: Path) -> NumericProtocol:
     manifest_records = _object(payload["manifests"])
     _require_keys(manifest_records, set(_EXPECTED_MANIFEST_PATHS))
     manifests: dict[str, Path] = {}
+    manifest_sha256s: dict[str, str] = {}
     loaded: dict[str, RetrievalEvaluationManifest] = {}
     for partition, expected_path in _EXPECTED_MANIFEST_PATHS.items():
         record = _object(manifest_records[partition])
@@ -174,6 +197,7 @@ def load_numeric_protocol(path: Path) -> NumericProtocol:
         )
         if record["sha256"] != _sha256_bound(manifest_path):
             raise _ProtocolFixtureError
+        manifest_sha256s[partition] = cast(str, record["sha256"])
         manifests[partition] = manifest_path
         try:
             loaded_manifest = load_retrieval_manifest(manifest_path)
@@ -186,6 +210,17 @@ def load_numeric_protocol(path: Path) -> NumericProtocol:
     _validate_fixture_records(payload["fixtures"], protocol_root, loaded)
     _validate_query_inventory(payload["required_query_ids"], loaded)
     _validate_partition_independence(loaded["development"], loaded["holdout"])
+    sqlite_schema_sha256 = _validate_scope_fence(
+        payload["scope_fence"],
+        protocol_root.parent.parent,
+    )
+    if snapshot_root is not None:
+        manifests, loaded = _snapshot_protocol_inputs(
+            manifests,
+            loaded,
+            manifest_sha256s,
+            snapshot_root,
+        )
     return NumericProtocol(
         protocol_id="retrieval-numeric-v1",
         candidate_id=CANDIDATE_ID,
@@ -194,92 +229,126 @@ def load_numeric_protocol(path: Path) -> NumericProtocol:
         path=path.resolve(),
         manifests=manifests,
         loaded_manifests=loaded,
+        sqlite_schema_sha256=sqlite_schema_sha256,
     )
 
 
 def run_numeric_comparison(protocol_path: Path) -> NumericComparisonReport:
     started = time.monotonic()
-    try:
-        protocol = load_numeric_protocol(protocol_path)
-    except _ProtocolMissingError:
-        return _failed_report(
-            started,
-            problem="retrieval_numeric_protocol_invalid",
-            cause="protocol file is missing",
-            next_step="restore_numeric_protocol",
-        )
-    except _ProtocolFixtureError:
-        return _failed_report(
-            started,
-            problem="retrieval_numeric_fixture_invalid",
-            cause="protocol-bound input identity mismatch",
-            next_step="restore_numeric_protocol_inputs",
-        )
-    except Exception:
-        return _failed_report(
-            started,
-            problem="retrieval_numeric_protocol_invalid",
-            cause="protocol validation failed",
-            next_step="fix_numeric_protocol",
-        )
-
-    reports: dict[str, dict[str, RetrievalEvaluationReport]] = {}
-    for partition in ("development", "holdout", "e1"):
-        reports[partition] = {}
-        for policy in ("current", CANDIDATE_ID):
-            try:
-                report = _run_retrieval_evaluation(
-                    protocol.manifests[partition],
-                    query_policy=policy,
-                )
-            except Exception:
-                report = _empty_evaluation_report(partition)
-            if report.status != "passed":
-                return _failed_report(
-                    started,
-                    problem="retrieval_numeric_evaluation_incomplete",
-                    cause=f"{partition} {policy} evaluation failed",
-                    next_step="inspect_numeric_comparison_inputs",
-                    protocol=protocol,
-                )
-            reports[partition][policy] = report
-
-    try:
-        compiled = _compiled_queries(protocol)
-        observations = {
-            partition: _partition_observation(
-                protocol.loaded_manifests[partition],
-                reports[partition]["current"],
-                reports[partition][CANDIDATE_ID],
+    with tempfile.TemporaryDirectory(
+        prefix="mke-numeric-protocol-snapshot-"
+    ) as snapshot_root:
+        try:
+            protocol = load_numeric_protocol(
+                protocol_path,
+                snapshot_root=Path(snapshot_root),
             )
-            for partition in ("development", "holdout", "e1")
-        }
-        gates = _evaluate_gates(protocol, reports, compiled)
-        candidate_status: CandidateStatus = (
-            "passed" if all(gate.status == "passed" for gate in gates) else "rejected"
-        )
-        return NumericComparisonReport(
-            protocol_id=protocol.protocol_id,
-            candidate_id=protocol.candidate_id,
-            candidate_revision=protocol.candidate_revision,
-            integrity_status="passed",
-            candidate_status=candidate_status,
-            development=observations["development"],
-            holdout=observations["holdout"],
-            e1=observations["e1"],
-            compiled_queries=compiled,
-            gates=gates,
-            integrity_failures=(),
-            duration_ms=_elapsed_ms(started),
-        )
-    except Exception:
-        return _failed_report(
-            started,
-            problem="retrieval_numeric_comparison_incomplete",
-            cause="numeric comparison evaluation failed",
-            next_step="inspect_numeric_comparison_inputs",
-            protocol=protocol,
-        )
+        except _ProtocolMissingError:
+            return _failed_report(
+                started,
+                problem="retrieval_numeric_protocol_invalid",
+                cause="protocol file is missing",
+                next_step="restore_numeric_protocol",
+            )
+        except _ProtocolFixtureError:
+            return _failed_report(
+                started,
+                problem="retrieval_numeric_fixture_invalid",
+                cause="protocol-bound input identity mismatch",
+                next_step="restore_numeric_protocol_inputs",
+            )
+        except Exception:
+            return _failed_report(
+                started,
+                problem="retrieval_numeric_protocol_invalid",
+                cause="protocol validation failed",
+                next_step="fix_numeric_protocol",
+            )
+
+        reports: dict[str, dict[str, RetrievalEvaluationReport]] = {}
+        observations: dict[str, dict[str, RetrievalEvaluationObservation]] = {}
+        for partition in ("development", "holdout", "e1"):
+            reports[partition] = {}
+            observations[partition] = {}
+            for policy in ("current", CANDIDATE_ID):
+                try:
+                    observation = _observe_retrieval_evaluation(
+                        protocol.manifests[partition],
+                        query_policy=policy,
+                    )
+                except Exception:
+                    observation = RetrievalEvaluationObservation(
+                        report=_empty_evaluation_report(partition),
+                        evidence=None,
+                    )
+                report = observation.report
+                if report.status != "passed":
+                    if any(
+                        failure.problem == "retrieval_eval_nondeterministic"
+                        for failure in report.integrity_failures
+                    ):
+                        return _failed_report(
+                            started,
+                            problem="retrieval_numeric_nondeterministic",
+                            cause=(
+                                "numeric comparison results were not deterministic"
+                            ),
+                            next_step="inspect_numeric_comparison_runtime",
+                            protocol=protocol,
+                        )
+                    return _failed_report(
+                        started,
+                        problem="retrieval_numeric_evaluation_incomplete",
+                        cause=f"{partition} {policy} evaluation failed",
+                        next_step="inspect_numeric_comparison_inputs",
+                        protocol=protocol,
+                    )
+                reports[partition][policy] = report
+                observations[partition][policy] = observation
+
+        try:
+            compiled = _compiled_queries(protocol)
+            partition_observations = {
+                partition: _partition_observation(
+                    protocol.loaded_manifests[partition],
+                    reports[partition]["current"],
+                    reports[partition][CANDIDATE_ID],
+                )
+                for partition in ("development", "holdout", "e1")
+            }
+            gates = _evaluate_gates(
+                protocol,
+                reports,
+                observations,
+                compiled,
+            )
+            candidate_status: CandidateStatus = (
+                "passed"
+                if all(gate.status == "passed" for gate in gates)
+                else "rejected"
+            )
+            return NumericComparisonReport(
+                protocol_id=protocol.protocol_id,
+                candidate_id=protocol.candidate_id,
+                candidate_revision=protocol.candidate_revision,
+                integrity_status="passed",
+                candidate_status=candidate_status,
+                development=partition_observations["development"],
+                holdout=partition_observations["holdout"],
+                e1=partition_observations["e1"],
+                compiled_queries=compiled,
+                gates=gates,
+                integrity_failures=(),
+                duration_ms=_elapsed_ms(started),
+            )
+        except Exception:
+            return _failed_report(
+                started,
+                problem="retrieval_numeric_comparison_incomplete",
+                cause="numeric comparison evaluation failed",
+                next_step="inspect_numeric_comparison_inputs",
+                protocol=protocol,
+            )
 
 
 def render_numeric_comparison_json(report: NumericComparisonReport) -> str:
@@ -318,9 +387,9 @@ def render_numeric_comparison_human(report: NumericComparisonReport) -> str:
 def _evaluate_gates(
     protocol: NumericProtocol,
     reports: dict[str, dict[str, RetrievalEvaluationReport]],
+    observations: dict[str, dict[str, RetrievalEvaluationObservation]],
     compiled: tuple[CompiledQuery, ...],
 ) -> tuple[NumericComparisonGate, ...]:
-    del protocol
     results = {
         partition: {
             policy: {item.query_id: item for item in report.results}
@@ -359,9 +428,46 @@ def _evaluate_gates(
             "mrr_at_5",
         )
     )
+    runtime_evidence = tuple(
+        observations[partition][policy].evidence
+        for partition in ("development", "holdout", "e1")
+        for policy in ("current", CANDIDATE_ID)
+    )
+    expected_search_calls = sum(
+        reports[partition][policy].query_count * 4
+        for partition in ("development", "holdout", "e1")
+        for policy in ("current", CANDIDATE_ID)
+    )
+    match_counts = tuple(
+        count
+        for evidence in runtime_evidence
+        if evidence is not None
+        for count in evidence.match_statements_per_search
+    )
+    all_evidence_recorded = all(evidence is not None for evidence in runtime_evidence)
+    one_match_per_search = (
+        all_evidence_recorded
+        and len(match_counts) == expected_search_calls
+        and all(count == 1 for count in match_counts)
+    )
+    scope_fence = (
+        all_evidence_recorded
+        and len(match_counts) == expected_search_calls
+        and all(
+            evidence is not None
+            and evidence.sqlite_schema_sha256 == protocol.sqlite_schema_sha256
+            and evidence.pdf_extractor == _EXPECTED_PDF_EXTRACTOR
+            and evidence.transcript_provider == _EXPECTED_TRANSCRIPT_PROVIDER
+            for evidence in runtime_evidence
+        )
+    )
     checks = (
         (True, "locked_inputs_valid", "locked_inputs_valid"),
-        (True, "six_deterministic_observations", "six_deterministic_observations"),
+        (
+            all_evidence_recorded,
+            "six_deterministic_observations",
+            "six_deterministic_observations",
+        ),
         (
             dev["current"]["numeric-dev-grouped-01"].first_relevant_rank is None
             and dev[CANDIDATE_ID]["numeric-dev-grouped-01"].first_relevant_rank == 1,
@@ -430,8 +536,8 @@ def _evaluate_gates(
             "current_miss_candidate_rank_1",
         ),
         (aggregate_ok, "metrics_non_decreasing", "metrics_non_decreasing"),
-        (True, "one_match_statement", "one_match_statement"),
-        (True, "no_scope_expansion", "no_scope_expansion"),
+        (one_match_per_search, "one_match_statement", "one_match_statement"),
+        (scope_fence, "no_scope_expansion", "no_scope_expansion"),
     )
     return tuple(
         _gate(gate_id, passed, observed, required)
@@ -699,6 +805,98 @@ def _validate_partition_independence(
         raise _ProtocolValidationError
 
 
+def _validate_scope_fence(value: object, repository_root: Path) -> str:
+    payload = _object(value)
+    _require_keys(payload, {"files", "sqlite_schema_sha256"})
+    raw_schema_sha256 = payload["sqlite_schema_sha256"]
+    if not _is_sha256(raw_schema_sha256):
+        raise _ProtocolValidationError
+    raw_files = payload["files"]
+    if not isinstance(raw_files, list):
+        raise _ProtocolValidationError
+    files = cast(list[object], raw_files)
+    if len(files) != len(_EXPECTED_SCOPE_PATHS):
+        raise _ProtocolValidationError
+    for raw, expected_path in zip(files, _EXPECTED_SCOPE_PATHS, strict=True):
+        record = _object(raw)
+        _require_keys(record, {"path", "sha256"})
+        path = _resolve_repository_path(
+            repository_root,
+            record["path"],
+            expected_path,
+        )
+        if not _is_sha256(record["sha256"]):
+            raise _ProtocolValidationError
+        if record["sha256"] != _sha256_bound(path):
+            raise _ProtocolFixtureError
+    return cast(str, raw_schema_sha256)
+
+
+def _snapshot_protocol_inputs(
+    manifests: dict[str, Path],
+    loaded: dict[str, RetrievalEvaluationManifest],
+    manifest_sha256s: dict[str, str],
+    snapshot_root: Path,
+) -> tuple[dict[str, Path], dict[str, RetrievalEvaluationManifest]]:
+    snapshot_root = snapshot_root.resolve()
+    snapshot_manifests: dict[str, Path] = {}
+    snapshot_loaded: dict[str, RetrievalEvaluationManifest] = {}
+    for partition, expected_path in _EXPECTED_MANIFEST_PATHS.items():
+        source_manifest = manifests[partition]
+        target_manifest = snapshot_root / expected_path
+        _copy_bound_file(
+            source_manifest,
+            target_manifest,
+            expected_sha256=manifest_sha256s[partition],
+        )
+        for document in loaded[partition].documents:
+            for fixture in (
+                document.primary_file,
+                *document.supporting_files,
+            ):
+                _copy_bound_file(
+                    loaded[partition].resolve(fixture),
+                    target_manifest.parent / Path(*fixture.path.parts),
+                    expected_sha256=fixture.sha256,
+                    expected_bytes=fixture.bytes,
+                )
+        try:
+            snapshot_manifest = load_retrieval_manifest(target_manifest)
+        except Exception as error:
+            raise _ProtocolFixtureError from error
+        if snapshot_manifest.manifest_id != _EXPECTED_MANIFEST_IDS[partition]:
+            raise _ProtocolValidationError
+        snapshot_manifests[partition] = target_manifest
+        snapshot_loaded[partition] = snapshot_manifest
+    _validate_partition_independence(
+        snapshot_loaded["development"],
+        snapshot_loaded["holdout"],
+    )
+    return snapshot_manifests, snapshot_loaded
+
+
+def _copy_bound_file(
+    source: Path,
+    target: Path,
+    *,
+    expected_sha256: str,
+    expected_bytes: int | None = None,
+) -> None:
+    try:
+        content = source.read_bytes()
+    except OSError as error:
+        raise _ProtocolFixtureError from error
+    if expected_bytes is not None and len(content) != expected_bytes:
+        raise _ProtocolFixtureError
+    if hashlib.sha256(content).hexdigest() != expected_sha256:
+        raise _ProtocolFixtureError
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
+    except OSError as error:
+        raise _ProtocolFixtureError from error
+
+
 def _pdf_pages(manifest: RetrievalEvaluationManifest) -> tuple[str, ...]:
     path = manifest.resolve(manifest.documents[0].primary_file)
     try:
@@ -730,6 +928,23 @@ def _resolve_locked_path(root: Path, value: object, expected: str) -> Path:
     return resolved
 
 
+def _resolve_repository_path(
+    root: Path,
+    value: object,
+    expected: str,
+) -> Path:
+    if not isinstance(value, str) or value != expected:
+        raise _ProtocolValidationError
+    relative = Path(value)
+    if relative.is_absolute() or ".." in relative.parts or "\\" in value:
+        raise _ProtocolValidationError
+    resolved_root = root.resolve()
+    resolved = (resolved_root / relative).resolve()
+    if not resolved.is_relative_to(resolved_root):
+        raise _ProtocolValidationError
+    return resolved
+
+
 def _require_keys(payload: dict[str, object], expected: set[str]) -> None:
     if set(payload) != expected:
         raise _ProtocolValidationError
@@ -746,6 +961,14 @@ def _sha256_bound(path: Path) -> str:
         return hashlib.sha256(path.read_bytes()).hexdigest()
     except OSError as error:
         raise _ProtocolFixtureError from error
+
+
+def _is_sha256(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
 
 
 def _elapsed_ms(started: float) -> int:

@@ -141,6 +141,7 @@ def _validate_protocol(path: Path) -> None:
             "manifests",
             "fixtures",
             "required_query_ids",
+            "scope_fence",
         },
     )
     if payload["schema_version"] != "mke.retrieval_numeric_protocol.v1":
@@ -208,6 +209,42 @@ def _validate_protocol(path: Path) -> None:
     e1 = load_retrieval_manifest(manifest_paths["e1"])
     if tuple(required_query_ids["e1"]) != tuple(query.query_id for query in e1.queries):
         raise ValueError("protocol validation failed")
+    scope_fence = cast(dict[str, object], payload["scope_fence"])
+    _require_exact_keys(scope_fence, {"files", "sqlite_schema_sha256"})
+    schema_sha256 = scope_fence["sqlite_schema_sha256"]
+    if (
+        not isinstance(schema_sha256, str)
+        or len(schema_sha256) != 64
+        or any(character not in "0123456789abcdef" for character in schema_sha256)
+    ):
+        raise ValueError("protocol validation failed")
+    repository_root = root.parent.parent
+    expected_scope_paths = (
+        "pyproject.toml",
+        "uv.lock",
+        "src/mke/adapters/pdf/__init__.py",
+        "src/mke/adapters/sqlite/__init__.py",
+        "src/mke/adapters/video/__init__.py",
+        "src/mke/application/__init__.py",
+        "src/mke/evaluation/runner.py",
+        "src/mke/retrieval/query_policy.py",
+    )
+    scope_files = cast(list[dict[str, object]], scope_fence["files"])
+    if len(scope_files) != len(expected_scope_paths):
+        raise ValueError("protocol validation failed")
+    for record, expected_path in zip(
+        scope_files,
+        expected_scope_paths,
+        strict=True,
+    ):
+        _require_exact_keys(record, {"path", "sha256"})
+        scope_path = _resolve_protocol_path(
+            repository_root,
+            record["path"],
+            expected_path,
+        )
+        if record["sha256"] != _sha256(scope_path):
+            raise ValueError("protocol-bound input identity mismatch")
 
 
 def test_numeric_manifests_freeze_inventory_and_disjoint_holdout() -> None:
@@ -251,7 +288,8 @@ def test_protocol_lock_binds_all_inputs() -> None:
 
 
 def _copy_protocol(tmp_path: Path) -> Path:
-    root = tmp_path / "fixtures"
+    repository = tmp_path / "repository"
+    root = repository / "tests/fixtures"
     shutil.copytree(FIXTURE_ROOT, root / "retrieval-numeric-v1")
     shutil.copy2(E1_MANIFEST, root / E1_MANIFEST.name)
     for manifest_name in ("development.json", "holdout.json"):
@@ -265,6 +303,11 @@ def _copy_protocol(tmp_path: Path) -> Path:
         )
     protocol = root / "retrieval-numeric-v1" / "protocol-lock.json"
     payload = json.loads(PROTOCOL.read_text(encoding="utf-8"))
+    for record in payload["scope_fence"]["files"]:
+        source = Path(record["path"])
+        target = repository / source
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
     for partition, manifest_name in {
         "development": "development.json",
         "holdout": "holdout.json",

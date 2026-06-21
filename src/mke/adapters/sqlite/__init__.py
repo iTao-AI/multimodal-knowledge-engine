@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Callable
+from hashlib import sha256
 from pathlib import Path
 from typing import Self
 from uuid import uuid4
@@ -52,11 +54,13 @@ class SQLiteStore:
         db_path: Path,
         *,
         query_policy: RetrievalQueryPolicy = DEFAULT_RETRIEVAL_QUERY_POLICY,
+        search_observer: Callable[[int], None] | None = None,
     ) -> None:
         self.db_path = db_path
         self._query_policy: RetrievalQueryPolicy = require_retrieval_query_policy(
             query_policy
         )
+        self._search_observer = search_observer
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._connection = sqlite3.connect(self.db_path)
         self._connection.row_factory = sqlite3.Row
@@ -701,6 +705,29 @@ class SQLiteStore:
             for row in rows
         ]
 
+    def schema_sha256(self) -> str:
+        rows = self._connection.execute(
+            """
+            SELECT type, name, tbl_name, sql
+            FROM sqlite_master
+            WHERE sql IS NOT NULL
+              AND name NOT LIKE 'sqlite_%'
+            ORDER BY type, name, tbl_name, sql
+            """
+        ).fetchall()
+        payload = [
+            {
+                "type": str(row["type"]),
+                "name": str(row["name"]),
+                "table": str(row["tbl_name"]),
+                "sql": str(row["sql"]),
+            }
+            for row in rows
+        ]
+        return sha256(
+            json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
+        ).hexdigest()
+
     def search(self, query: str, limit: int | None = None) -> list[SearchResult]:
         match_query = compile_fts5_query(query, policy=self._query_policy)
         if not match_query:
@@ -720,7 +747,20 @@ class SQLiteStore:
         if limit is not None:
             sql += " LIMIT ?"
             params.append(limit)
-        rows = self._connection.execute(sql, params).fetchall()
+        statements: list[str] = []
+        if self._search_observer is not None:
+            self._connection.set_trace_callback(statements.append)
+        try:
+            rows = self._connection.execute(sql, params).fetchall()
+        finally:
+            if self._search_observer is not None:
+                self._connection.set_trace_callback(None)
+                self._search_observer(
+                    sum(
+                        "active_evidence_fts MATCH" in statement
+                        for statement in statements
+                    )
+                )
         return [
             SearchResult(
                 evidence_id=str(row["evidence_id"]),

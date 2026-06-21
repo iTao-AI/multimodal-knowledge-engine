@@ -2,11 +2,13 @@
 
 ## Status
 
-- Result: approved after corrections; PR 1 implemented locally.
+- Result: PR 1 implemented and authoritative implementation-review findings remediated locally;
+  targeted re-review is pending.
 - Review mode: CEO scope hold, full engineering review, and DX polish.
 - Independent voice: Codex CLI; no parallel reviewer was used.
 - Design review: skipped because E2 has no graphical interface.
 - Baseline: `main@e3a3f3656be8889e8e54e06a1de09ebd6412384f`.
+- Merge status: local branch only; no PR, push, merge commit, PR 2, or ADR-0007 exists.
 
 ## Implementation Evidence
 
@@ -18,12 +20,18 @@
 - Artifact:
   `benchmarks/retrieval/numeric-grouping-v1-comparison.json`.
 - Runtime default remains `current`; PR 2 and ADR-0007 were not implemented.
+- All six evaluations, compiled queries, and gates use one protocol-bound immutable snapshot.
+- `single_match_per_search` uses traced SQL evidence; `scope_fence` uses protocol-bound
+  dependency/execution identities plus observed schema and local-provider identities.
+- Artifact validation independently checks exact nested fields, types, order, result/locator
+  consistency, recomputed metrics, gates, and verdict before fresh-observation equality.
 
 ## Implementation Verification
 
 | Check | Result |
 |---|---|
-| `uv run pytest -q` | `629 passed, 1 skipped` |
+| Targeted regression and affected suites | `117 passed` |
+| `uv run pytest -q` | `639 passed, 1 skipped` |
 | `uv run ruff check .` | passed |
 | `uv run pyright` | `0 errors, 0 warnings` |
 | `uv build` | sdist and wheel built |
@@ -35,18 +43,29 @@
 | `uv run mke proof run` | 8/8 cases passed |
 | `uv run mke demo --verify` | passed |
 | `git diff --check` | passed |
-| Documentation audit | local offline audit passed; no missing links or doc gaps |
+| Documentation audit | 58 Markdown files checked; feature coverage complete; 2 unrelated historical-plan links remain pre-existing |
 
 Artifact identities:
 
 - comparison artifact SHA-256:
-  `233e40217f575ef76610f7df44c51f575a60497d3b54d14851f924cb4dcff886`;
+  `6ade2be7c19cd647e39c0ec7428fefbcfc4afd3d9cad976d8647d09d007caf8d`;
 - complete source content SHA-256:
-  `ae1901a956ef34cfbddbe2cb9c9cff8bbd0ac2575ccd449f9fb977d530d53e18`;
+  `c1bc8719dab6de6e45f95458d88fbbfa9d8e40bbb54899029c531fbe8d80b69a`;
 - protocol lock SHA-256:
-  `56d86586eaab18de662664d789adde7d971e88ead271e9f9755fdb195c112b23`.
+  `1c82bcecb59c6dfa8b7afddf5bf2a7fc311d155c43f02784c1f0384c3d37aa47`.
 
-The branch remains local and unmerged. No PR 2 was created.
+The branch remains local and unmerged. The completion record intentionally leaves PR 1 merge and
+merge-backed durable evidence unchecked. No PR 2 was created.
+
+## Authoritative Implementation Review Remediation
+
+| Finding | Resolution | Regression evidence |
+|---|---|---|
+| Protocol validation had a mutation interval before six evaluations. | The comparator copies and revalidates every locked manifest and fixture into one temporary protocol snapshot; all six observations and compiled queries use only that snapshot. | Source manifest mutation after the first observation does not alter the comparison. |
+| Artifact validation accepted self-consistent malformed nested payloads. | The validator now enforces exact nested schemas and reconstructs result, locator, count, metric, compiled-query, gate, and verdict consistency from the frozen protocol. | Missing fields, wrong types, reversed order, inconsistent counts/metrics, and reordered compiled queries fail. |
+| `single_match_per_search` and `scope_fence` were constants. | Evaluation evidence records actual per-Search FTS5 `MATCH` counts, SQLite schema identity, and concrete PDF/sidecar provider identities; the protocol binds dependency and execution source identities. | Injected two-MATCH evidence rejects `single_match_per_search`; an invalid schema identity rejects `scope_fence`. |
+| Numeric nondeterminism lost its fixed public mapping. | Any evaluator `retrieval_eval_nondeterministic` failure maps to `retrieval_numeric_nondeterministic`, fixed cause, and fixed next step. | Dedicated redaction-safe mapping regression passes. |
+| Completion and durable review state were premature. | Local result, targeted re-review, PR creation, merge, PR 2, and merge-backed evidence are now represented separately. | PR 1 merge remains unchecked and this review states targeted re-review is pending. |
 
 ## Executive Verdict
 
@@ -171,6 +190,7 @@ fixture identity and exact text
 
 ## Remaining Risks
 
+- Targeted authoritative re-review is still pending; no merge-backed evidence exists yet.
 - The public holdout is independently authored and locked, but not blind.
 - Five answerable controls per partition are engineering evidence, not statistical inference.
 - The candidate only covers ASCII compact integers with conventional three-digit right grouping.

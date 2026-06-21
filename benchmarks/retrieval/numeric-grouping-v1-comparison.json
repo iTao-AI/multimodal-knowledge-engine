@@ -3,7 +3,7 @@
   "protocol": {
     "id": "retrieval-numeric-v1",
     "path": "tests/fixtures/retrieval-numeric-v1/protocol-lock.json",
-    "sha256": "56d86586eaab18de662664d789adde7d971e88ead271e9f9755fdb195c112b23"
+    "sha256": "1c82bcecb59c6dfa8b7afddf5bf2a7fc311d155c43f02784c1f0384c3d37aa47"
   },
   "manifests": {
     "development": {
@@ -41,7 +41,7 @@
     "revision": 1
   },
   "source": {
-    "sha256": "ae1901a956ef34cfbddbe2cb9c9cff8bbd0ac2575ccd449f9fb977d530d53e18",
+    "sha256": "c1bc8719dab6de6e45f95458d88fbbfa9d8e40bbb54899029c531fbe8d80b69a",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -60,8 +60,8 @@
       },
       {
         "path": "src/mke/adapters/sqlite/__init__.py",
-        "bytes": 30853,
-        "sha256": "b16e3636dffbefb71b99f9da89a881a08830efd68dc6010898d5eda02700768b"
+        "bytes": 32251,
+        "sha256": "32730ee9f40dc5d97153e795cf8d6a413c52681f207de97c7a814a668342c803"
       },
       {
         "path": "src/mke/adapters/video/__init__.py",
@@ -110,8 +110,8 @@
       },
       {
         "path": "src/mke/application/__init__.py",
-        "bytes": 17239,
-        "sha256": "f784e1a75afa7073f61f89afdb938166e6968b0678c8376895ad4fd3150fd314"
+        "bytes": 17418,
+        "sha256": "7b2266d777afb05a6052e214a10d18c6e15ca2162bb52180afd121be0d3fb899"
       },
       {
         "path": "src/mke/cli.py",
@@ -145,13 +145,13 @@
       },
       {
         "path": "src/mke/evaluation/numeric_artifact.py",
-        "bytes": 9277,
-        "sha256": "591fff9262fcd14c6e0f0826fcf1161abcb5635830bbc662ffc2ac93757081ea"
+        "bytes": 24808,
+        "sha256": "994e3a4d4b271a74c1dff7b4a2a72c4694412dccd33394d58f58e124ca2ac306"
       },
       {
         "path": "src/mke/evaluation/numeric_comparison.py",
-        "bytes": 24440,
-        "sha256": "8f2d8d95d8a50c0ce9cfdaee6317324eeb885c51d8a614d01965bd42c1dfcfe4"
+        "bytes": 32851,
+        "sha256": "7bdac3706d83b99f4e0fb92b1e647fceb75bd290c4ce886dc5e6e10ec72d4d78"
       },
       {
         "path": "src/mke/evaluation/report.py",
@@ -160,8 +160,8 @@
       },
       {
         "path": "src/mke/evaluation/runner.py",
-        "bytes": 14205,
-        "sha256": "8a263bae32d2693077b9455e6d2a22b87d9b0d254c7101d36475be3ed01d1c3a"
+        "bytes": 16906,
+        "sha256": "412e7b6fd2b1d9ee8df0a1ca39c63f5017b61424f848069ab779b3e1afce17ba"
       },
       {
         "path": "src/mke/interfaces/__init__.py",

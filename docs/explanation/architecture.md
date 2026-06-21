@@ -104,7 +104,10 @@ select off-default `numeric-grouping-v1`, which preserves the compact numeric to
 right-grouped adjacent-token phrase inside the same FTS5 `MATCH` statement. It does not change
 indexed text, tokenizer configuration, ranking SQL, Publication semantics, result DTOs, or Search
 limits. Development, public holdout, and E1 observations are compared through the existing
-evaluation runner and bound into a source-content-addressed artifact.
+evaluation runner from one protocol-bound immutable snapshot. The comparator traces the actual
+FTS5 statements executed by Search and checks the observed SQLite schema and local provider
+identities before passing its scope gates. The result is bound into a source-content-addressed
+artifact whose nested observations and metrics are independently validated.
 
 CLI and MCP errors share one project-owned `PublicError` serializer. Only allowlisted stable causes
 can reach public output; unknown exception text is replaced with

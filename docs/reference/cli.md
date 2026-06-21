@@ -112,6 +112,11 @@ integrity failure, and `2` invalid usage. Explicit `--db`, candidate overrides, 
 providers, URLs, models, SQL, regex, import paths, tokenizer expressions, and executable commands
 are not accepted.
 
+If either repeated evaluator observation differs, the fixed public failure is
+`retrieval_numeric_nondeterministic` with cause
+`numeric comparison results were not deterministic` and next step
+`inspect_numeric_comparison_runtime`.
+
 See [Evaluate The Numeric Retrieval Candidate](../how-to/evaluate-numeric-retrieval.md).
 
 ## Real Transcription Proof

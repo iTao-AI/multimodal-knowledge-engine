@@ -1066,10 +1066,19 @@ push/PR until authorized.
 ## Plan Completion Record
 
 - [ ] PR 1 comparison merged.
-- [x] Candidate result recorded as passed or rejected.
-- [x] PR 2 promotion approved, merged, or explicitly not created.
-- [x] Durable review contains actual metrics, commands, artifact identities, merge commits, and
-  remaining risks.
+- [x] Candidate result recorded as passed on the local PR 1 branch.
+- [x] PR 2 promotion explicitly not created; promotion remains outside this implementation.
+- [ ] Durable review finalized with merge commit evidence; local implementation evidence is
+  current, but targeted re-review and merge are still pending.
+
+## Authoritative Review Remediation
+
+- [x] All six evaluations, compiled queries, and gates use one protocol-bound immutable snapshot.
+- [x] Numeric observed/artifact payloads have independent exact nested schema and consistency
+  validation.
+- [x] `single_match_per_search` and `scope_fence` are produced from runtime and protocol evidence.
+- [x] `retrieval_numeric_nondeterministic` retains its fixed public mapping.
+- [x] Completion and durable review records distinguish local completion from merge completion.
 
 ## Decision Audit Trail
 

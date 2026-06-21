@@ -20,7 +20,9 @@ uv run mke eval retrieval-numeric \
 ```
 
 The protocol binds the development and holdout manifests/PDFs, the complete E1 manifest,
-candidate ID `numeric-grouping-v1`, and semantic candidate revision `1`. The evaluator runs
+candidate ID `numeric-grouping-v1`, semantic candidate revision `1`, dependency identities,
+retrieval execution source identities, and the expected SQLite schema identity. One immutable
+protocol snapshot feeds all six observations, compiled queries, and gates. The evaluator runs
 development, holdout, and E1 under both policies in fresh temporary workspaces.
 
 ## Candidate Boundary
@@ -58,6 +60,10 @@ The checked-in comparison records `integrity_status=passed`, `candidate_status=p
 passing gates. E1 Recall@1 changes from `0.875000` to `0.937500`; the only E1 result delta is
 `water-answerable-01`, which changes from no hit to rank 1.
 
+The last two gates are evidence-backed. `single_match_per_search` counts the actual FTS5 `MATCH`
+statements traced for every Search call. `scope_fence` checks the protocol-bound dependency and
+execution identities plus the observed SQLite schema and local PDF/sidecar provider identities.
+
 ## Validate The Reviewed Artifact
 
 ```bash
@@ -74,7 +80,9 @@ uv run python -m mke.evaluation.numeric_artifact validate \
 
 The artifact binds the protocol, manifests, fixture identities, complete `src/mke/**/*.py`
 content identity, environment, compiled queries, ordered per-query observations, metrics, gates,
-and verdict. Duration is excluded from semantic equality.
+and verdict. Validation independently checks every nested field, type, order, locator/result
+relationship, recomputed metric, gate, and verdict before comparing with the fresh observation.
+Duration is excluded from semantic equality.
 
 The holdout is independently authored and locked, but public rather than blind. The result is a
 small engineering challenge-set observation, not a general retrieval-quality claim.

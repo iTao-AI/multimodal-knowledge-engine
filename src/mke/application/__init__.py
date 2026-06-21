@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from hashlib import sha256
 from pathlib import Path
 from typing import Protocol
@@ -108,8 +109,13 @@ class KnowledgeEngine:
         transcript_provider: TranscriptProvider | None = None,
         *,
         query_policy: RetrievalQueryPolicy = DEFAULT_RETRIEVAL_QUERY_POLICY,
+        search_observer: Callable[[int], None] | None = None,
     ) -> None:
-        self._store = SQLiteStore(db_path, query_policy=query_policy)
+        self._store = SQLiteStore(
+            db_path,
+            query_policy=query_policy,
+            search_observer=search_observer,
+        )
         self._pdf_extractor = pdf_extractor or PyMuPDFPdfExtractor()
         self._transcript_provider = transcript_provider or SidecarTranscriptProvider()
 

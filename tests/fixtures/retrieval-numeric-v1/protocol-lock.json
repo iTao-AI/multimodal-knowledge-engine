@@ -79,5 +79,42 @@
       "out-of-corpus-03",
       "out-of-corpus-04"
     ]
+  },
+  "scope_fence": {
+    "files": [
+      {
+        "path": "pyproject.toml",
+        "sha256": "d6edb366e9ee12a089916c3825ac2bba9abdeb44da128d6bd2c9f29c861c332f"
+      },
+      {
+        "path": "uv.lock",
+        "sha256": "eb124876a1aac71f8257eae4340c2fdf10362951c4c67eca725f24db17d594a0"
+      },
+      {
+        "path": "src/mke/adapters/pdf/__init__.py",
+        "sha256": "1f4abf24d36ceeb788ef260e4cb484827e3a7395fa7213cc203e587a6ff7b42a"
+      },
+      {
+        "path": "src/mke/adapters/sqlite/__init__.py",
+        "sha256": "32730ee9f40dc5d97153e795cf8d6a413c52681f207de97c7a814a668342c803"
+      },
+      {
+        "path": "src/mke/adapters/video/__init__.py",
+        "sha256": "a10f4d8a0ad5df108fccc7818bac26de0df2eac22b17bf53d78765d3db92d648"
+      },
+      {
+        "path": "src/mke/application/__init__.py",
+        "sha256": "7b2266d777afb05a6052e214a10d18c6e15ca2162bb52180afd121be0d3fb899"
+      },
+      {
+        "path": "src/mke/evaluation/runner.py",
+        "sha256": "412e7b6fd2b1d9ee8df0a1ca39c63f5017b61424f848069ab779b3e1afce17ba"
+      },
+      {
+        "path": "src/mke/retrieval/query_policy.py",
+        "sha256": "c1dc7dfee3d56b029f866b0d8a78cac78b206969ed6580eb9704738870a35fde"
+      }
+    ],
+    "sqlite_schema_sha256": "2f6b60f2c5e21da4599a91e5a207473e3dc048b56a3d702de493ef5c3d4284d0"
   }
 }

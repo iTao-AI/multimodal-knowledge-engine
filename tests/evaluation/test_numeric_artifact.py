@@ -84,6 +84,57 @@ def _mutate_verdict(payload: dict[str, object]) -> None:
     comparison["candidate_status"] = "rejected"
 
 
+def _comparison(payload: dict[str, object]) -> dict[str, object]:
+    value = payload.get("comparison", payload)
+    return cast(dict[str, object], value)
+
+
+def _remove_nested_result_field(payload: dict[str, object]) -> None:
+    comparison = _comparison(payload)
+    development = cast(dict[str, object], comparison["development"])
+    current = cast(dict[str, object], development["current"])
+    results = cast(list[dict[str, object]], current["results"])
+    del results[0]["ask_status"]
+
+
+def _replace_nested_result_type(payload: dict[str, object]) -> None:
+    comparison = _comparison(payload)
+    development = cast(dict[str, object], comparison["development"])
+    current = cast(dict[str, object], development["current"])
+    results = cast(list[dict[str, object]], current["results"])
+    results[0]["retrieved_locator_count"] = "1"
+
+
+def _reverse_nested_result_order(payload: dict[str, object]) -> None:
+    comparison = _comparison(payload)
+    development = cast(dict[str, object], comparison["development"])
+    current = cast(dict[str, object], development["current"])
+    results = cast(list[dict[str, object]], current["results"])
+    results.reverse()
+
+
+def _break_nested_result_consistency(payload: dict[str, object]) -> None:
+    comparison = _comparison(payload)
+    development = cast(dict[str, object], comparison["development"])
+    current = cast(dict[str, object], development["current"])
+    results = cast(list[dict[str, object]], current["results"])
+    results[0]["retrieved_locator_count"] = 99
+
+
+def _break_nested_metric_consistency(payload: dict[str, object]) -> None:
+    comparison = _comparison(payload)
+    development = cast(dict[str, object], comparison["development"])
+    current = cast(dict[str, object], development["current"])
+    metrics = cast(dict[str, dict[str, object]], current["metrics"])
+    metrics["locator_recall_at_1"]["count"] = 99
+
+
+def _reverse_compiled_query_order(payload: dict[str, object]) -> None:
+    comparison = _comparison(payload)
+    queries = cast(list[dict[str, object]], comparison["compiled_queries"])
+    queries.reverse()
+
+
 def test_recorded_artifact_validates_against_fresh_observation(
     tmp_path: Path,
 ) -> None:
@@ -132,6 +183,41 @@ def test_validator_rejects_mutated_bound_fields(
     payload = json.loads(artifact.read_text())
     mutation(payload)
     artifact.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(
+        NumericArtifactValidationError,
+        match="numeric comparison artifact is invalid",
+    ):
+        validate_numeric_artifact(
+            artifact_path=artifact,
+            observed_path=observed,
+            protocol_path=PROTOCOL,
+            repository_root=REPOSITORY,
+        )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        _remove_nested_result_field,
+        _replace_nested_result_type,
+        _reverse_nested_result_order,
+        _break_nested_result_consistency,
+        _break_nested_metric_consistency,
+        _reverse_compiled_query_order,
+    ],
+)
+def test_validator_rejects_self_consistent_malformed_nested_payload(
+    tmp_path: Path,
+    mutation: Callable[[dict[str, object]], None],
+) -> None:
+    artifact, observed = _record(tmp_path)
+    artifact_payload = json.loads(artifact.read_text())
+    observed_payload = json.loads(observed.read_text())
+    mutation(artifact_payload)
+    mutation(observed_payload)
+    artifact.write_text(json.dumps(artifact_payload), encoding="utf-8")
+    observed.write_text(json.dumps(observed_payload), encoding="utf-8")
 
     with pytest.raises(
         NumericArtifactValidationError,
@@ -256,6 +342,8 @@ def test_validation_does_not_require_feature_commit_ancestry(
     repository.mkdir()
     for relative in ("src", "tests/fixtures"):
         shutil.copytree(relative, repository / relative)
+    shutil.copy2("pyproject.toml", repository / "pyproject.toml")
+    shutil.copy2("uv.lock", repository / "uv.lock")
     (repository / "benchmarks/retrieval").mkdir(parents=True)
     shutil.copy2(artifact, repository / "benchmarks/retrieval/artifact.json")
     shutil.copy2(observed, repository / "observed.json")
@@ -271,7 +359,16 @@ def test_validation_does_not_require_feature_commit_ancestry(
         check=True,
     )
     subprocess.run(
-        ["git", "add", "src", "tests", "benchmarks", "observed.json"],
+        [
+            "git",
+            "add",
+            "src",
+            "tests",
+            "benchmarks",
+            "observed.json",
+            "pyproject.toml",
+            "uv.lock",
+        ],
         cwd=repository,
         check=True,
     )
