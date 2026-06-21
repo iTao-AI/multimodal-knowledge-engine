@@ -2,8 +2,8 @@
 
 ## Status
 
-- Result: PR 1 implemented and authoritative implementation-review findings remediated locally;
-  targeted re-review is pending.
+- Result: PR 1 implemented locally; targeted authoritative re-review passed `CLEAN` with
+  0 findings.
 - Review mode: CEO scope hold, full engineering review, and DX polish.
 - Independent voice: Codex CLI; no parallel reviewer was used.
 - Design review: skipped because E2 has no graphical interface.
@@ -65,7 +65,7 @@ merge-backed durable evidence unchecked. No PR 2 was created.
 | Artifact validation accepted self-consistent malformed nested payloads. | The validator now enforces exact nested schemas and reconstructs result, locator, count, metric, compiled-query, gate, and verdict consistency from the frozen protocol. | Missing fields, wrong types, reversed order, inconsistent counts/metrics, and reordered compiled queries fail. |
 | `single_match_per_search` and `scope_fence` were constants. | Evaluation evidence records actual per-Search FTS5 `MATCH` counts, SQLite schema identity, and concrete PDF/sidecar provider identities; the protocol binds dependency and execution source identities. | Injected two-MATCH evidence rejects `single_match_per_search`; an invalid schema identity rejects `scope_fence`. |
 | Numeric nondeterminism lost its fixed public mapping. | Any evaluator `retrieval_eval_nondeterministic` failure maps to `retrieval_numeric_nondeterministic`, fixed cause, and fixed next step. | Dedicated redaction-safe mapping regression passes. |
-| Completion and durable review state were premature. | Local result, targeted re-review, PR creation, merge, PR 2, and merge-backed evidence are now represented separately. | PR 1 merge remains unchecked and this review states targeted re-review is pending. |
+| Completion and durable review state were premature. | Local result, targeted re-review, PR creation, merge, PR 2, and merge-backed evidence are now represented separately. | Targeted re-review passed with 0 findings; PR 1 merge remains unchecked. |
 
 ## Targeted Re-review Remediation
 
@@ -75,7 +75,7 @@ merge-backed durable evidence unchecked. No PR 2 was created.
 | Nested integer fields accepted JSON booleans through Python equality. | Revisions, corpus/category counts, result counts, relevance counts, ranks, locators, and metric counts now use explicit non-bool integer parsing with bounded ranges. | Self-consistent bool mutations across eight integer/count/rank positions are rejected. |
 | Retrieved locators could name documents outside the frozen manifest. | Locator validation now receives the corresponding manifest document inventory and rejects any unknown `document_id`. | Adding the same `not-in-manifest` locator to both sides of a preserved control is rejected. |
 | Protocol candidate revision accepted `true` as revision `1`. | Protocol loading now requires a non-bool integer revision exactly equal to `1` before fixture access or evaluation. | A protocol with `candidate.revision=true` returns the fixed protocol-invalid result. |
-| The durable review ended with an implementation-window Verdict. | The tail now reports the actual local implementation and verification state while leaving targeted re-review, PR, and merge status pending. | Plan completion and targeted remediation checklists preserve the remaining review gate. |
+| The durable review ended with an implementation-window Verdict. | The tail now reports the actual local implementation and verification state while keeping PR and merge status pending. | Plan completion records targeted re-review as cleared and preserves the remaining PR/merge gates. |
 
 ## Executive Verdict
 
@@ -200,7 +200,7 @@ fixture identity and exact text
 
 ## Remaining Risks
 
-- Targeted authoritative re-review is still pending; no merge-backed evidence exists yet.
+- PR creation and merge remain pending; no merge-backed evidence exists yet.
 - The public holdout is independently authored and locked, but not blind.
 - Five answerable controls per partition are engineering evidence, not statistical inference.
 - The candidate only covers ASCII compact integers with conventional three-digit right grouping.
@@ -211,8 +211,8 @@ fixture identity and exact text
 
 ## Current Verdict
 
-PR 1 is implemented locally and the latest targeted findings have been remediated. The numeric
-artifact validator now independently recomputes every derivable promotion gate and rejects
-bool-as-int nested values with explicit integer ranges. Full verification and refreshed artifact
-identities are recorded above; targeted re-review has not cleared the branch. Runtime default
-remains `current`; no PR 2, ADR-0007, push, PR, or merge exists.
+PR 1 is implemented locally, and the targeted authoritative re-review passed `CLEAN` with
+0 findings. The numeric artifact validator independently recomputes every derivable promotion gate
+and rejects bool-as-int nested values with explicit integer ranges. Full verification and refreshed
+artifact identities are recorded above. Runtime default remains `current`; PR creation and merge
+remain pending, and no PR 2, ADR-0007, push, PR, or merge exists.

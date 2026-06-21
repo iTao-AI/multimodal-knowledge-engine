@@ -1069,7 +1069,7 @@ push/PR until authorized.
 - [x] Candidate result recorded as passed on the local PR 1 branch.
 - [x] PR 2 promotion explicitly not created; promotion remains outside this implementation.
 - [ ] Durable review finalized with merge commit evidence; local implementation evidence is
-  current, but targeted re-review and merge are still pending.
+  current and targeted re-review is cleared, but PR creation and merge remain pending.
 
 ## Authoritative Review Remediation
 
@@ -1091,7 +1091,7 @@ push/PR until authorized.
 - [x] Replace the stale implementation-window Verdict in the durable review.
 - [x] Complete the full requested verification set and record fresh artifact identities for the
   final targeted remediation.
-- [ ] Targeted re-review cleared.
+- [x] Targeted re-review cleared.
 
 ## Decision Audit Trail
 
