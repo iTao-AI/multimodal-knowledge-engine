@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 import sqlite3
 from pathlib import Path
 from typing import Self
@@ -27,6 +26,12 @@ from mke.domain import (
     is_recognized_video_fingerprint,
     validate_manifest,
 )
+from mke.retrieval import (
+    DEFAULT_RETRIEVAL_QUERY_POLICY,
+    RetrievalQueryPolicy,
+    compile_fts5_query,
+)
+from mke.retrieval.query_policy import require_retrieval_query_policy
 
 _BUSY_TIMEOUT_MS = 5000
 
@@ -42,8 +47,14 @@ class InjectedStorageFailure(RuntimeError):
 class SQLiteStore:
     """Persistence adapter for Source-level Publication semantics."""
 
-    def __init__(self, db_path: Path) -> None:
+    def __init__(
+        self,
+        db_path: Path,
+        *,
+        query_policy: RetrievalQueryPolicy = DEFAULT_RETRIEVAL_QUERY_POLICY,
+    ) -> None:
         self.db_path = db_path
+        self._query_policy = require_retrieval_query_policy(query_policy)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._connection = sqlite3.connect(self.db_path)
         self._connection.row_factory = sqlite3.Row
@@ -689,7 +700,7 @@ class SQLiteStore:
         ]
 
     def search(self, query: str, limit: int | None = None) -> list[SearchResult]:
-        match_query = _to_fts_query(query)
+        match_query = compile_fts5_query(query, policy=self._query_policy)
         if not match_query:
             return []
         sql = """
@@ -744,13 +755,6 @@ def _run_from_row(row: sqlite3.Row) -> RunRecord:
         based_on_active_revision=int(row["based_on_active_revision"]),
         retry_of_run_id=str(retry_of_run_id) if retry_of_run_id is not None else None,
     )
-
-
-def _to_fts_query(query: str) -> str:
-    terms = re.findall(r"[A-Za-z0-9_]+", query.casefold())
-    return " ".join(f'"{term}"' for term in terms)
-
-
 def _locator_label(locator_kind: str, locator_start: int, locator_end: int) -> str:
     if locator_kind == "page":
         return f"page:{locator_start}"

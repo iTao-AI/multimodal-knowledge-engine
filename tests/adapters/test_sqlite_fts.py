@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from mke.adapters.sqlite import _to_fts_query  # pyright: ignore[reportPrivateUsage]
 from mke.application import KnowledgeEngine
 from mke.domain import ActiveEvidenceRef
+from mke.retrieval import compile_fts5_query
 from tests.conftest import PDF_FIXTURES
 
 
@@ -21,8 +21,8 @@ from tests.conftest import PDF_FIXTURES
         ("trustworthy", '"trustworthy"'),
     ],
 )
-def test_to_fts_query(query: str, expected: str) -> None:
-    assert _to_fts_query(query) == expected
+def test_current_query_policy(query: str, expected: str) -> None:
+    assert compile_fts5_query(query, policy="current") == expected
 
 
 def test_list_active_evidence_returns_only_current_publication(tmp_path: Path) -> None:

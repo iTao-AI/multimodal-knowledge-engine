@@ -38,6 +38,7 @@ from mke.domain import (
     TranscriptExtractionResult,
     TranscriptIntakeReport,
 )
+from mke.retrieval import DEFAULT_RETRIEVAL_QUERY_POLICY, RetrievalQueryPolicy
 
 _SHA256_CHUNK_BYTES = 1024 * 1024
 DEFAULT_ASK_LIMIT = 5
@@ -105,8 +106,10 @@ class KnowledgeEngine:
         db_path: Path,
         pdf_extractor: PdfExtractor | None = None,
         transcript_provider: TranscriptProvider | None = None,
+        *,
+        query_policy: RetrievalQueryPolicy = DEFAULT_RETRIEVAL_QUERY_POLICY,
     ) -> None:
-        self._store = SQLiteStore(db_path)
+        self._store = SQLiteStore(db_path, query_policy=query_policy)
         self._pdf_extractor = pdf_extractor or PyMuPDFPdfExtractor()
         self._transcript_provider = transcript_provider or SidecarTranscriptProvider()
 
