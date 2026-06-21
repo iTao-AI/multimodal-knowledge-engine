@@ -13,7 +13,12 @@ from mke.evaluation.manifest import (
     load_retrieval_manifest,
 )
 from mke.evaluation.metrics import AskStatus
-from mke.evaluation.runner import run_retrieval_evaluation
+from mke.evaluation.report import render_retrieval_json_report
+from mke.evaluation.runner import (
+    _run_retrieval_evaluation,  # pyright: ignore[reportPrivateUsage]
+    run_retrieval_evaluation,
+)
+from mke.retrieval import RetrievalQueryPolicy
 
 MANIFEST = Path("tests/fixtures/retrieval-eval-v1.json")
 
@@ -64,6 +69,69 @@ def test_checked_in_evaluation_records_complete_deterministic_baseline() -> None
     assert [item.query_id for item in report.results] == [
         query.query_id for query in load_retrieval_manifest(MANIFEST).queries
     ]
+
+
+def test_public_runner_is_identical_to_explicit_current_policy() -> None:
+    current = run_retrieval_evaluation(MANIFEST)
+    explicit_current = _run_retrieval_evaluation(MANIFEST, query_policy="current")
+    candidate = _run_retrieval_evaluation(
+        MANIFEST,
+        query_policy="numeric-grouping-v1",
+    )
+
+    assert current.results == explicit_current.results
+    assert current.metrics == explicit_current.metrics
+    assert current.status == explicit_current.status == "passed"
+    assert candidate.status == "passed"
+
+
+def test_unknown_query_policy_fails_before_engine_construction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unexpected_engine(*args: object, **kwargs: object) -> KnowledgeEngine:
+        raise AssertionError("engine must not be constructed")
+
+    monkeypatch.setattr("mke.evaluation.runner.KnowledgeEngine", unexpected_engine)
+
+    report = _run_retrieval_evaluation(
+        MANIFEST,
+        query_policy="unknown",  # type: ignore[arg-type]
+    )
+
+    assert report.status == "failed"
+    assert report.integrity_failures[0].problem == "retrieval_eval_incomplete"
+    assert report.integrity_failures[0].cause == "retrieval query policy is unsupported"
+
+
+def test_current_policy_matches_canonical_e1_semantics() -> None:
+    report = _run_retrieval_evaluation(MANIFEST, query_policy="current")
+    observed = json.loads(render_retrieval_json_report(report))
+    canonical = json.loads(
+        Path("benchmarks/retrieval/retrieval-eval-v1-baseline.json").read_text()
+    )
+
+    assert report.status == "passed"
+    assert report.quality_status == "baseline_recorded"
+    for key in (
+        "documents",
+        "queries",
+        "answerable",
+        "unanswerable",
+        "category_counts",
+        "metrics",
+    ):
+        assert observed[key] == canonical[key]
+    assert [
+        {
+            **item,
+            "retrieved_locators": [
+                f"{locator['document_id']}:{locator['locator_kind']}:"
+                f"{locator['locator_start']}..{locator['locator_end']}"
+                for locator in item["retrieved_locators"]
+            ],
+        }
+        for item in observed["results"]
+    ] == canonical["results"]
 
 
 def test_low_quality_is_not_an_integrity_failure(
@@ -186,9 +254,13 @@ def test_same_snapshot_feeds_both_workspaces_and_is_cleaned(
     roots: list[Path] = []
     original = runner._run_workspace  # pyright: ignore[reportPrivateUsage]
 
-    def capture_root(manifest: RetrievalEvaluationManifest) -> object:
+    def capture_root(
+        manifest: RetrievalEvaluationManifest,
+        *,
+        query_policy: RetrievalQueryPolicy,
+    ) -> object:
         roots.append(manifest.root)
-        return original(manifest)
+        return original(manifest, query_policy=query_policy)
 
     monkeypatch.setattr(runner, "_run_workspace", capture_root)
 

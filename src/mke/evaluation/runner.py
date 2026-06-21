@@ -31,6 +31,8 @@ from mke.evaluation.report import (
     QueryEvaluationResult,
     RetrievalEvaluationReport,
 )
+from mke.retrieval import RetrievalQueryPolicy
+from mke.retrieval.query_policy import require_retrieval_query_policy
 
 
 class EvaluationIntegrityError(RuntimeError):
@@ -56,9 +58,29 @@ class _WorkspaceResult:
 
 
 def run_retrieval_evaluation(manifest_path: Path) -> RetrievalEvaluationReport:
+    return _run_retrieval_evaluation(manifest_path, query_policy="current")
+
+
+def _run_retrieval_evaluation(
+    manifest_path: Path,
+    *,
+    query_policy: RetrievalQueryPolicy,
+) -> RetrievalEvaluationReport:
     started = time.monotonic()
     manifest_id = "unknown"
     document_count = 0
+    try:
+        validated_policy = require_retrieval_query_policy(query_policy)
+    except ValueError:
+        return _failed_report(
+            manifest_id=manifest_id,
+            document_count=document_count,
+            problem="retrieval_eval_incomplete",
+            cause="retrieval query policy is unsupported",
+            next_step="inspect_retrieval_eval_inputs",
+            subject_id=None,
+            started=started,
+        )
     try:
         manifest = load_retrieval_manifest(manifest_path)
         manifest_id = manifest.manifest_id
@@ -69,8 +91,8 @@ def run_retrieval_evaluation(manifest_path: Path) -> RetrievalEvaluationReport:
             staged = snapshot_retrieval_fixtures(
                 manifest, Path(snapshot_root) / "fixtures"
             )
-            first = _run_workspace(staged)
-            second = _run_workspace(staged)
+            first = _run_workspace(staged, query_policy=validated_policy)
+            second = _run_workspace(staged, query_policy=validated_policy)
             _require_deterministic(first, second)
             return RetrievalEvaluationReport(
                 manifest_id=manifest.manifest_id,
@@ -126,9 +148,16 @@ def run_retrieval_evaluation(manifest_path: Path) -> RetrievalEvaluationReport:
         )
 
 
-def _run_workspace(manifest: RetrievalEvaluationManifest) -> _WorkspaceResult:
+def _run_workspace(
+    manifest: RetrievalEvaluationManifest,
+    *,
+    query_policy: RetrievalQueryPolicy,
+) -> _WorkspaceResult:
     with tempfile.TemporaryDirectory(prefix="mke-retrieval-eval-") as workspace:
-        engine = KnowledgeEngine(Path(workspace) / "mke.sqlite")
+        engine = KnowledgeEngine(
+            Path(workspace) / "mke.sqlite",
+            query_policy=query_policy,
+        )
         try:
             source_documents: dict[str, str] = {}
             for document in manifest.documents:
