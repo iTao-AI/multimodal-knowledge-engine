@@ -4,7 +4,7 @@
 
 - Review type: lightweight execution self-check followed by authoritative `gstack-review`
   remediation.
-- Result: second targeted findings fixed; ready for targeted re-review.
+- Result: third targeted finding fixed; ready for targeted re-review.
 - Full `gstack-review`: not repeated after remediation.
 - Branch: `codex/retrieval-eval-baseline`.
 - Main merge base: `721784eabcb9fbb737166578010c9e1a46a25fef`.
@@ -33,14 +33,14 @@
 
 ## Verification
 
-- Targeted validator and mutation tests: `55 passed`.
-- `uv run pytest -q`: `527 passed, 1 skipped`.
+- Targeted validator and mutation tests: `57 passed`.
+- `uv run pytest -q`: `529 passed, 1 skipped`.
 - `uv run ruff check .`: passed after mechanical import ordering fix.
 - `uv run pyright`: `0 errors`.
 - `uv build`: wheel and source distribution built.
 - Human and JSON retrieval evaluation: passed.
-- Canonical artifact validator: passed against actual manifest, fixture files, durable evaluation
-  content identity, and stored result structure.
+- Canonical artifact validator: passed against actual manifest, fixture files, the complete sorted
+  33-file `src/mke/**/*.py` identity, and stored result structure.
 - `uv run mke proof run`: 8/8 cases passed.
 - `uv run mke demo --verify`: passed.
 - CI YAML parse: passed.
@@ -68,6 +68,12 @@
 5. A non-integer retrieved locator range previously escaped as `ValueError`. The result validator
    now converts it to `BaselineValidationError`; a module-main subprocess test requires exit `1`,
    stable redacted output, empty stderr, and no traceback.
+6. The first durable content identity covered only 12 hand-selected files and omitted runtime
+   dependencies including `src/mke/adapters/video/schema.py` and `providers.py`. The validator now
+   derives a sorted inventory of the complete `src/mke/**/*.py` source tree, recording byte sizes,
+   per-file SHA-256 values, and an aggregate SHA-256. Regression tests mutate both omitted examples
+   and require fail-closed validation while retaining squash-landed shallow-clone and malformed
+   locator CLI coverage.
 
 The validator tests also prove that incorrect historical metadata, durable evaluation content,
 manifest/fixture checksums, environment shape, metric aggregates, result structure, and query

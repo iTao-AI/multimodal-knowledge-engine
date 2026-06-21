@@ -1997,7 +1997,7 @@ Return:
   answerable zero-hit `0.062500`; unanswerable no-hit and Ask refusal `1.000000`.
 - Answerable miss at rank 5: `water-answerable-01`.
 - Unanswerable false positives: none.
-- Verification: `527 passed, 1 skipped`; Ruff passed; Pyright `0 errors`; build, human/JSON
+- Verification: `529 passed, 1 skipped`; Ruff passed; Pyright `0 errors`; build, human/JSON
   evaluation, product proof, demo, canonical artifact validation, CI YAML parse, and diff check
   passed.
 - Documentation audit: reference, how-to, README, docs navigation, architecture, fixture
@@ -2015,6 +2015,10 @@ Return:
   allowing validation after squash landing in a shallow fresh clone with deleted feature history;
   converted malformed locator integer parsing into a redacted `BaselineValidationError` at the
   module CLI boundary.
+- Follow-up targeted remediation: expanded durable content identity from a hand-maintained narrow
+  list to the sorted complete `src/mke/**/*.py` source tree with file count, byte sizes, per-file
+  SHA-256 values, and an aggregate SHA-256; added fail-closed regression coverage for changes to
+  `src/mke/adapters/video/schema.py` and `providers.py`.
 
 ## Autoplan Review Record
 

@@ -94,13 +94,17 @@ uv run python -m mke.evaluation.baseline \
 ```
 
 The validator derives the manifest and fixture checksums from actual files, verifies the fixed
-historical code metadata plus the byte size and SHA-256 of the recorded evaluation content files,
-checks the recorded environment shape, and recomputes aggregate consistency from the stored
-per-query results. Historical commit IDs remain audit metadata; validation does not require the
-feature commits to exist locally or remain ancestors of `HEAD`, so the same artifact remains
-verifiable after a squash merge and feature-branch deletion. The retained `--main-ref` option is
-accepted for command compatibility but is not used to resolve historical commits. The validator
-does not compare a current evaluation run's scores with the historical baseline.
+historical code metadata, and derives a sorted inventory of every `src/mke/**/*.py` source file
+with byte size, per-file SHA-256, and an aggregate SHA-256. Using the complete project Python
+source tree makes the identity boundary closed under current and future runtime imports rather
+than relying on a hand-maintained dependency list. The validator also checks the recorded
+environment shape and recomputes aggregate consistency from the stored per-query results.
+
+Historical commit IDs remain audit metadata; validation does not require the feature commits to
+exist locally or remain ancestors of `HEAD`, so the same artifact remains verifiable after a
+squash merge and feature-branch deletion. The retained `--main-ref` option is accepted for command
+compatibility but is not used to resolve historical commits. The validator does not compare a
+current evaluation run's scores with the historical baseline.
 
 ## Compare A Retrieval Change
 

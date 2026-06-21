@@ -25,20 +25,6 @@ _HISTORICAL_CODE_IDENTITY = {
     "implementation_start": "3992b0e9371d1a8c9e019d3bbe2b32aac9665914",
     "evaluation_commit": "79bafb07ac592b684e6ceab15dc389dc33702978",
 }
-_EVALUATION_CONTENT_PATHS = (
-    "src/mke/adapters/pdf/extractor.py",
-    "src/mke/adapters/sqlite/__init__.py",
-    "src/mke/adapters/video/transcript.py",
-    "src/mke/application/__init__.py",
-    "src/mke/cli.py",
-    "src/mke/domain/__init__.py",
-    "src/mke/evaluation/__init__.py",
-    "src/mke/evaluation/manifest.py",
-    "src/mke/evaluation/metrics.py",
-    "src/mke/evaluation/report.py",
-    "src/mke/evaluation/runner.py",
-    "src/mke/runtime.py",
-)
 _TOP_LEVEL_FIELDS = {
     "schema_version",
     "manifest_id",
@@ -468,10 +454,14 @@ def _validate_evaluation_content_identity(
     files = [_object(item, "baseline evaluation content file") for item in file_items]
     expected_files: list[dict[str, object]] = []
     try:
-        for relative_path in _EVALUATION_CONTENT_PATHS:
-            path = (repository_root / relative_path).resolve()
+        source_paths = sorted(repository_root.glob("src/mke/**/*.py"))
+        if not source_paths:
+            raise BaselineValidationError
+        for source_path in source_paths:
+            path = source_path.resolve()
             if not path.is_relative_to(repository_root) or not path.is_file():
                 raise BaselineValidationError
+            relative_path = path.relative_to(repository_root).as_posix()
             expected_files.append(
                 {
                     "path": relative_path,

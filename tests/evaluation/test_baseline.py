@@ -17,20 +17,6 @@ from mke.evaluation.baseline import (
 ARTIFACT = Path("benchmarks/retrieval/retrieval-eval-v1-baseline.json")
 MANIFEST = Path("tests/fixtures/retrieval-eval-v1.json")
 REPOSITORY = Path(".")
-EVALUATION_CONTENT_PATHS = (
-    "src/mke/adapters/pdf/extractor.py",
-    "src/mke/adapters/sqlite/__init__.py",
-    "src/mke/adapters/video/transcript.py",
-    "src/mke/application/__init__.py",
-    "src/mke/cli.py",
-    "src/mke/domain/__init__.py",
-    "src/mke/evaluation/__init__.py",
-    "src/mke/evaluation/manifest.py",
-    "src/mke/evaluation/metrics.py",
-    "src/mke/evaluation/report.py",
-    "src/mke/evaluation/runner.py",
-    "src/mke/runtime.py",
-)
 
 
 def _artifact_payload() -> dict[str, object]:
@@ -47,6 +33,13 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _evaluation_content_paths(repository: Path) -> tuple[str, ...]:
+    return tuple(
+        path.relative_to(repository).as_posix()
+        for path in sorted(repository.glob("src/mke/**/*.py"))
+    )
+
+
 def _add_durable_content_identity(
     payload: dict[str, object], repository: Path
 ) -> None:
@@ -56,7 +49,7 @@ def _add_durable_content_identity(
             "bytes": (repository / relative_path).stat().st_size,
             "sha256": _sha256(repository / relative_path),
         }
-        for relative_path in EVALUATION_CONTENT_PATHS
+        for relative_path in _evaluation_content_paths(repository)
     ]
     encoded_files = json.dumps(
         files, ensure_ascii=True, separators=(",", ":"), sort_keys=True
@@ -154,7 +147,8 @@ def test_validator_accepts_squash_landed_main_in_fresh_clone(
 
     payload = _artifact_payload()
     _add_durable_content_identity(payload, REPOSITORY)
-    for relative_path in EVALUATION_CONTENT_PATHS:
+    evaluation_content_paths = _evaluation_content_paths(REPOSITORY)
+    for relative_path in evaluation_content_paths:
         destination = source / relative_path
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(REPOSITORY / relative_path, destination)
@@ -166,7 +160,7 @@ def test_validator_accepts_squash_landed_main_in_fresh_clone(
     _git(
         source,
         "add",
-        *EVALUATION_CONTENT_PATHS,
+        *evaluation_content_paths,
         "tests/fixtures",
         ARTIFACT.as_posix(),
     )
@@ -288,6 +282,40 @@ def test_validator_derives_evaluation_content_identity(
         match="baseline evaluation content identity is invalid",
     ):
         _validate(_write_artifact(tmp_path, payload))
+
+
+@pytest.mark.parametrize(
+    "relative_path",
+    [
+        "src/mke/adapters/video/schema.py",
+        "src/mke/adapters/video/providers.py",
+    ],
+)
+def test_validator_rejects_changes_to_runtime_source_tree(
+    tmp_path: Path,
+    relative_path: str,
+) -> None:
+    repository = tmp_path / "repository"
+    shutil.copytree(REPOSITORY / "src/mke", repository / "src/mke")
+    shutil.copytree(REPOSITORY / "tests/fixtures", repository / "tests/fixtures")
+    artifact = repository / ARTIFACT
+    artifact.parent.mkdir(parents=True)
+    shutil.copy2(ARTIFACT, artifact)
+    changed_source = repository / relative_path
+    changed_source.write_text(
+        changed_source.read_text(encoding="utf-8") + "\n# identity regression\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        BaselineValidationError,
+        match="baseline evaluation content identity is invalid",
+    ):
+        validate_retrieval_baseline(
+            artifact_path=artifact,
+            manifest_path=repository / MANIFEST,
+            repository_root=repository,
+        )
 
 
 @pytest.mark.parametrize(
