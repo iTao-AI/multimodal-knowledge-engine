@@ -20,6 +20,11 @@ PyMuPDF through the existing adapter, pytest, argparse, GitHub Actions.
 **Approved design:**
 `docs/superpowers/specs/2026-06-20-retrieval-evaluation-baseline-design.md`
 
+**Completion status:** Completed through
+[PR #23](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/23), squash merged on
+2026-06-21 as
+[`98f02cca11d88e081106a89889a4f60376fad217`](https://github.com/iTao-AI/multimodal-knowledge-engine/commit/98f02cca11d88e081106a89889a4f60376fad217).
+
 **Implementation boundary:** Do not change `SQLiteStore.search`, `_to_fts_query`, Search ordering,
 Ask validation/statuses, Publication semantics, or transcription behavior. Do not add embeddings,
 `sqlite-vec`, RRF, reranking, network access at evaluation runtime, or exact-score CI assertions.
@@ -1988,7 +1993,12 @@ Return:
 
 ## Implementation Results
 
-- Branch: `codex/retrieval-eval-baseline`.
+- Final state: completed and squash merged through
+  [PR #23](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/23) on 2026-06-21.
+- Merge commit:
+  [`98f02cca11d88e081106a89889a4f60376fad217`](https://github.com/iTao-AI/multimodal-knowledge-engine/commit/98f02cca11d88e081106a89889a4f60376fad217).
+- Historical implementation branch: `codex/retrieval-eval-baseline`; the branch and worktree were
+  removed after merge.
 - Main merge base: `721784eabcb9fbb737166578010c9e1a46a25fef`.
 - Implementation start: `3992b0e9371d1a8c9e019d3bbe2b32aac9665914`.
 - Evaluation-code commit: `79bafb07ac592b684e6ceab15dc389dc33702978`.
@@ -2002,8 +2012,13 @@ Return:
   passed.
 - Documentation audit: reference, how-to, README, docs navigation, architecture, fixture
   provenance, and canonical artifact coverage present; no broken links or unresolved doc debt.
-- Review: lightweight execution self-check completed; full `gstack-review` intentionally not run
-  per user instruction.
+- Execution review: lightweight self-check completed; the execution window did not run a full
+  `gstack-review`.
+- Review closeout: the planning window ran one authoritative `gstack-review`, followed by targeted
+  remediation and a clean targeted re-review.
+- Post-merge verification: CI passed for Python 3.12 and 3.13, CodeQL passed for Python and GitHub
+  Actions, Dependabot Updates passed, and the canonical artifact validator passed against the
+  squash-landed `main` state.
 - Remaining risks: small English corpus, coarse macro resolution, page/timestamp segmentation
   dependency, and environment-specific SQLite determinism.
 - Authoritative review remediation: corrected canonical code provenance; added a project-owned
