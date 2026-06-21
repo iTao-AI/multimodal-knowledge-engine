@@ -2,9 +2,13 @@
 
 ## Status
 
-- Stage: Implemented and verified on local branch; not merged.
+- Stage: Completed and merged through
+  [PR #23](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/23).
 - Slice: E1.
-- Date: 2026-06-20.
+- Design date: 2026-06-20.
+- Merge date: 2026-06-21.
+- Merge commit:
+  [`98f02cca11d88e081106a89889a4f60376fad217`](https://github.com/iTao-AI/multimodal-knowledge-engine/commit/98f02cca11d88e081106a89889a4f60376fad217).
 - Depends on: the completed PDF/video lifecycle, evidence-only Ask, MCP contract, product proof,
   real PDF intake, and D3-B local transcription milestones.
 

@@ -2,13 +2,17 @@
 
 ## Status
 
-- Review type: lightweight execution self-check followed by authoritative `gstack-review`
-  remediation.
-- Result: third targeted finding fixed; ready for targeted re-review.
-- Full `gstack-review`: not repeated after remediation.
-- Branch: `codex/retrieval-eval-baseline`.
+- Review type: lightweight execution self-check, one authoritative `gstack-review`, and targeted
+  re-reviews after remediation.
+- Result: authoritative findings remediated; final targeted re-review clean.
+- Full `gstack-review`: one authoritative pass; no redundant full rerun after targeted fixes.
+- Historical implementation branch: `codex/retrieval-eval-baseline` (deleted after merge).
 - Main merge base: `721784eabcb9fbb737166578010c9e1a46a25fef`.
 - Implementation start: `3992b0e9371d1a8c9e019d3bbe2b32aac9665914`.
+- Merged through:
+  [PR #23](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/23) on 2026-06-21.
+- Merge commit:
+  [`98f02cca11d88e081106a89889a4f60376fad217`](https://github.com/iTao-AI/multimodal-knowledge-engine/commit/98f02cca11d88e081106a89889a4f60376fad217).
 
 ## Scope Check
 
@@ -45,6 +49,22 @@
 - `uv run mke demo --verify`: passed.
 - CI YAML parse: passed.
 - `git diff --check`: passed.
+
+## Post-Merge Checks
+
+The squash-landed `main` commit
+[`98f02cca11d88e081106a89889a4f60376fad217`](https://github.com/iTao-AI/multimodal-knowledge-engine/commit/98f02cca11d88e081106a89889a4f60376fad217)
+passed:
+
+- [CI](https://github.com/iTao-AI/multimodal-knowledge-engine/actions/runs/27893532842) for
+  Python 3.12 and 3.13;
+- [CodeQL](https://github.com/iTao-AI/multimodal-knowledge-engine/actions/runs/27893532567)
+  for Python and GitHub Actions;
+- [Dependabot Updates](https://github.com/iTao-AI/multimodal-knowledge-engine/actions/runs/27893559244);
+- the canonical baseline artifact validator against the squash-landed repository state.
+
+The feature branch and implementation worktree were removed after merge. The historical
+implementation SHAs remain audit metadata and are not required to exist in the landed branch.
 
 ## Authoritative Review Findings
 
