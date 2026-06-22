@@ -31,11 +31,12 @@ and `scripts/transcription_deployment_proof.py` proves an isolated wheel-install
 MCP SDK flow. Model acquisition remains an explicit opt-in preparation step; normal doctor,
 ingest, proof, and MCP execution are cache-only.
 
-E2 adds a comparison-only numeric retrieval protocol:
+E2 adds a numeric retrieval protocol:
 `mke eval retrieval-numeric --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json`.
-The off-default `numeric-grouping-v1` candidate passes the frozen development, public holdout, and
-full E1 gates, improving E1 Recall@1 from `0.875000` to `0.937500`. Normal Search and Ask still use
-`current`; promotion requires a separate ADR-backed PR.
+The `numeric-grouping-v1` candidate passed the frozen development, public holdout, and full E1
+gates, improving E1 Recall@1 from `0.875000` to `0.937500`. ADR-0007 promotes it as the normal
+Search and Ask default. Owners can select `--retrieval-query-policy current` for rollback without
+a database migration or index rebuild.
 
 PDF intake uses PyMuPDF behind the `src/mke/adapters/pdf/` boundary and exposes a
 `PdfIntakeReport` through `mke ingest`, `mke run get`, MCP `ingest_file`, and MCP `get_run`.
@@ -52,8 +53,9 @@ not call an LLM or generate natural-language answers in this slice.
 The current verified product slice processes text-layer PDFs and the documented short local video
 fixture through observable Runs, publishes only successful output, and returns page- or
 timestamp-addressable Evidence. The real local transcription proof is verified on Darwin 25.4.0
-arm64 with Python 3.13.12; the isolated wheel-installed CLI/MCP proof is verified with Python 3.12.
-Other platforms remain unverified.
+arm64 with Python 3.13.12; the transcription isolated wheel-installed CLI/MCP proof is verified
+with Python 3.12. Numeric retrieval promotion includes an isolated installed-wheel CLI/MCP proof
+for Python 3.12 and 3.13.
 
 ## Architecture
 
@@ -125,6 +127,7 @@ uv run mke --db .tmp/mke.sqlite search timestamp
 uv run mke --db .tmp/mke.sqlite ask "publication active"
 uv run mke --db .tmp/mke.sqlite run get <run_id>
 uv run mke --db .tmp/mke.sqlite mcp --allowed-root .
+uv run mke --db .tmp/mke.sqlite --retrieval-query-policy current search "410000 withdrawals"
 ```
 
 The default no-argument `mke` command still reports bootstrap status for compatibility.

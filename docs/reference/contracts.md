@@ -43,6 +43,9 @@ Status:
 
 The PDF CLI uses a local SQLite database path supplied with `--db`. It does not expose a general
 FTS query language: Search tokenizes user input into escaped terms before querying FTS5. The
+default `numeric-grouping-v1` policy preserves compact numeric tokens and adds a tokenizer-adjacent
+right-grouped alternative for eligible standalone ASCII integers. The owner may select `current`
+with `--retrieval-query-policy current`; policy changes require no migration or index rebuild. The
 built-in PDF extractor uses PyMuPDF behind the adapter boundary and extracts text-layer page text
 with `page.get_text("text", sort=True)`. Successful PDF ingest and Run inspection expose
 `PdfIntakeReport` summary fields: total pages, extracted pages, empty pages, extracted characters,
@@ -159,10 +162,13 @@ an error: it returns `ok=true`, `answer_status="insufficient_evidence"`, an empt
 and a limitation explaining that no active Evidence matched the search terms.
 
 The MCP server runs over stdio through `mke mcp --allowed-root <path>`. It uses the same typed
-runtime composition root as CLI ingest, Run inspection, and Search. `ingest_file`
+runtime composition root as CLI ingest, Run inspection, Search, and Ask. The owner startup command
+may select `--retrieval-query-policy current` for rollback; MCP requests cannot select or override
+retrieval policy. `ingest_file`
 has the stable contract `ingest_file(config, path)`, only accepts files under the configured
 allowed root, and currently supports `.pdf` and `.mp4`. MCP requests cannot include transcription
-command argv or override provider, model, cache, endpoint, credential, or download policy.
+command argv or override retrieval policy, provider, model, cache, endpoint, credential, or
+download policy.
 MCP rejects PDF inputs larger than 100 MB with `problem="input_file_too_large"` before opening the
 PDF extractor. PDF `ingest_file` success and `get_run` responses include `intake_report` when a
 Run has one.

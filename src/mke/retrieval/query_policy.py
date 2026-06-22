@@ -3,17 +3,21 @@
 from __future__ import annotations
 
 import re
-from typing import Literal, cast
+from typing import Literal
 
 RetrievalQueryPolicy = Literal["current", "numeric-grouping-v1"]
-DEFAULT_RETRIEVAL_QUERY_POLICY: RetrievalQueryPolicy = "current"
-_SUPPORTED_POLICIES = frozenset({"current", "numeric-grouping-v1"})
+DEFAULT_RETRIEVAL_QUERY_POLICY: RetrievalQueryPolicy = "numeric-grouping-v1"
+SUPPORTED_RETRIEVAL_QUERY_POLICIES: tuple[RetrievalQueryPolicy, ...] = (
+    "current",
+    "numeric-grouping-v1",
+)
+_SUPPORTED_POLICIES = frozenset(SUPPORTED_RETRIEVAL_QUERY_POLICIES)
 
 
 def require_retrieval_query_policy(policy: str) -> RetrievalQueryPolicy:
     if policy not in _SUPPORTED_POLICIES:
         raise ValueError("retrieval query policy is unsupported")
-    return cast(RetrievalQueryPolicy, policy)
+    return policy
 
 
 def compile_fts5_query(

@@ -20,6 +20,8 @@ from mke.adapters.video.providers import (
     SidecarTranscriptProvider,
 )
 from mke.application import KnowledgeEngine, TranscriptProvider
+from mke.retrieval import DEFAULT_RETRIEVAL_QUERY_POLICY, RetrievalQueryPolicy
+from mke.retrieval.query_policy import require_retrieval_query_policy
 
 DEFAULT_MODEL_REVISION = "536b0662742c02347bc0e980a01041f333bce120"
 
@@ -118,6 +120,7 @@ TranscriptionConfig = SidecarTranscriptionConfig | FasterWhisperTranscriptionCon
 @dataclass(frozen=True)
 class RuntimeConfig:
     db_path: Path
+    retrieval_query_policy: RetrievalQueryPolicy = DEFAULT_RETRIEVAL_QUERY_POLICY
     transcription: TranscriptionConfig = SidecarTranscriptionConfig()
     process_controller: ActiveProcessController = field(
         default_factory=ActiveProcessController,
@@ -125,6 +128,11 @@ class RuntimeConfig:
     )
 
     def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "retrieval_query_policy",
+            require_retrieval_query_policy(self.retrieval_query_policy),
+        )
         if type(self.transcription) not in {
             SidecarTranscriptionConfig,
             FasterWhisperTranscriptionConfig,
@@ -198,4 +206,5 @@ def build_engine(config: RuntimeConfig) -> KnowledgeEngine:
     return KnowledgeEngine(
         config.db_path,
         transcript_provider=build_transcript_provider(config),
+        query_policy=config.retrieval_query_policy,
     )

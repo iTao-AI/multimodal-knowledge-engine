@@ -23,9 +23,11 @@ def test_current_policy_preserves_existing_compilation(query: str, expected: str
     assert compile_fts5_query(query, policy="current") == expected
 
 
-def test_current_policy_remains_runtime_default() -> None:
-    assert DEFAULT_RETRIEVAL_QUERY_POLICY == "current"
-    assert compile_fts5_query("410000 withdrawals") == '"410000" "withdrawals"'
+def test_numeric_grouping_policy_is_runtime_default() -> None:
+    assert DEFAULT_RETRIEVAL_QUERY_POLICY == "numeric-grouping-v1"
+    assert compile_fts5_query("410000 withdrawals") == (
+        '("410000" OR "410 000") AND "withdrawals"'
+    )
 
 
 def test_unknown_policy_fails_closed() -> None:

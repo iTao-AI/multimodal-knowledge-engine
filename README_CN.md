@@ -16,11 +16,12 @@ workspace 中，用 24 个冻结 query 评估两个公开英文 PDF 和现有 si
 `status=passed` 只表示 evaluation integrity 通过；`quality_gate=none` 表示观测到的
 Recall、MRR、no-hit 与 Ask refusal 不是产品质量门槛。
 
-E2 新增 comparison-only numeric retrieval protocol：
+E2 新增 numeric retrieval protocol：
 `mke eval retrieval-numeric --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json`。
-off-default `numeric-grouping-v1` candidate 通过了冻结的 development、公开 holdout 和完整 E1
-门槛，使 E1 Recall@1 从 `0.875000` 提升到 `0.937500`。正常 Search 与 Ask 仍使用
-`current`；默认策略 promotion 需要独立的 ADR-backed PR。
+`numeric-grouping-v1` candidate 通过了冻结的 development、公开 holdout 和完整 E1
+门槛，使 E1 Recall@1 从 `0.875000` 提升到 `0.937500`。ADR-0007 将其提升为正常 Search
+与 Ask 的默认策略。owner 可使用 `--retrieval-query-policy current` 回滚，无需数据库
+migration 或 index rebuild。
 
 这个 proof 验证的是生命周期边界，不代表已经支持广泛媒体处理。当前不包含扫描 PDF OCR、任意视频处理、托管协调或外部 provider 调用。D3-A 增加了 trusted-local `LocalCommandTranscriptProvider`；D3-B 增加了供 CLI 和 owner-started MCP 显式选择的 optional cache-only faster-whisper runtime。`mke proof run` 与 `mke demo --verify` 仍保持 sidecar-backed、deterministic；`mke proof transcription-run` 使用可再分发的 spoken fixture 证明真实本地 ASR，`scripts/transcription_deployment_proof.py` 则证明隔离安装 wheel 后的 CLI 与 stdio MCP SDK 流程。只有显式 preparation 可以下载模型，doctor、ingest、proof 和 MCP 正常运行均为 cache-only。
 
@@ -30,7 +31,7 @@ C2 Ask 只返回 Evidence：`ask_library` 和 `mke ask` 会在 active Search 命
 
 ## 已验证产品切片
 
-当前经过验证的产品切片会让 text-layer PDF 和文档化的短本地视频 fixture 经过可观察 Run，只发布成功输出，并返回带稳定页码或时间戳的 Evidence。真实本地转录 proof 已在 Darwin 25.4.0 arm64、Python 3.13.12 上验证；隔离 wheel-installed CLI/MCP proof 已使用 Python 3.12 验证。其他平台尚未验证。
+当前经过验证的产品切片会让 text-layer PDF 和文档化的短本地视频 fixture 经过可观察 Run，只发布成功输出，并返回带稳定页码或时间戳的 Evidence。真实本地转录 proof 已在 Darwin 25.4.0 arm64、Python 3.13.12 上验证；转录的隔离 wheel-installed CLI/MCP proof 已使用 Python 3.12 验证。numeric retrieval promotion 包含 Python 3.12/3.13 的隔离 installed-wheel CLI/MCP proof。
 
 ## 架构原则
 
@@ -100,6 +101,7 @@ uv run mke --db .tmp/mke.sqlite search timestamp
 uv run mke --db .tmp/mke.sqlite ask "publication active"
 uv run mke --db .tmp/mke.sqlite run get <run_id>
 uv run mke --db .tmp/mke.sqlite mcp --allowed-root .
+uv run mke --db .tmp/mke.sqlite --retrieval-query-policy current search "410000 withdrawals"
 ```
 
 无参数 `mke` 命令仍报告 bootstrap 状态以保持兼容。

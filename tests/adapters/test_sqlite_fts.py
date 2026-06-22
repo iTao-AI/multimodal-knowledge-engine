@@ -138,3 +138,30 @@ def test_numeric_grouping_executes_one_match_statement_per_search(
         assert sum("active_evidence_fts MATCH" in statement for statement in statements) == 1
     finally:
         engine.close()
+
+
+def test_policy_rollback_reuses_existing_database_without_index_rebuild(
+    tmp_path: Path,
+) -> None:
+    fixture = tmp_path / "numeric.pdf"
+    db_path = tmp_path / "mke.sqlite"
+    _write_numeric_pdf(fixture)
+    promoted = KnowledgeEngine(db_path, query_policy="numeric-grouping-v1")
+    try:
+        promoted.ingest_pdf(fixture)
+        schema_version = promoted._store._connection.execute(  # pyright: ignore[reportPrivateUsage]
+            "PRAGMA schema_version"
+        ).fetchone()[0]
+        assert promoted.search("410000 grouped comma control")
+    finally:
+        promoted.close()
+
+    rollback = KnowledgeEngine(db_path, query_policy="current")
+    try:
+        assert rollback._store._connection.execute(  # pyright: ignore[reportPrivateUsage]
+            "PRAGMA schema_version"
+        ).fetchone()[0] == schema_version
+        assert rollback.search("410000 grouped comma control") == []
+        assert rollback.search("410 000 grouped comma control")
+    finally:
+        rollback.close()

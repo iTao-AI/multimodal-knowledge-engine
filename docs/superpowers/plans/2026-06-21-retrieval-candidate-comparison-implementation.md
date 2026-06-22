@@ -947,14 +947,14 @@ authorizes publication.
 - Modify: Search/Ask reference and architecture documentation
 - Refresh E1 and numeric comparison source identities
 
-- [ ] **Step 1: Write failing promotion and rollback tests**
+- [x] **Step 1: Write failing promotion and rollback tests**
 
 Require normal `KnowledgeEngine` composition to use `numeric-grouping-v1`.
 `RuntimeConfig(retrieval_query_policy="current")` and installed CLI/MCP startup with
 `--retrieval-query-policy current` must reproduce old results with no database migration or index
 rebuild. Unknown values must fail as usage errors before engine construction.
 
-- [ ] **Step 2: Run tests to verify RED**
+- [x] **Step 2: Run tests to verify RED**
 
 Run:
 
@@ -972,7 +972,7 @@ uv run pytest \
 
 Expected: new default, rollback-selector, and invalid-policy cases fail before implementation.
 
-- [ ] **Step 3: Add ADR-0007**
+- [x] **Step 3: Add ADR-0007**
 
 Record:
 
@@ -984,7 +984,7 @@ Record:
 - limitations;
 - default and rollback identifiers.
 
-- [ ] **Step 4: Change the default and add the rollback selector**
+- [x] **Step 4: Change the default and add the rollback selector**
 
 Set:
 
@@ -1014,12 +1014,12 @@ Parse the option into `RuntimeConfig` for normal CLI Search/Ask and owner-starte
 Reject an explicit retrieval-policy option with `mke eval ...`, whose candidate remains
 protocol-locked.
 
-- [ ] **Step 5: Update contracts and artifacts**
+- [x] **Step 5: Update contracts and artifacts**
 
 Document compact/grouped numeric equivalence. Refresh source identities without replacing
 historical observations.
 
-- [ ] **Step 6: Run final verification**
+- [x] **Step 6: Run final verification**
 
 Run the complete PR 1 verification set, then:
 
@@ -1056,10 +1056,19 @@ CLI plus stdio MCP Search checks for:
 - non-adjacent-token rejection and documented adjacent punctuation equivalence;
 - explicit `current` rollback behavior.
 
-- [ ] **Step 7: Run final review and stop before publication**
+- [x] **Step 7: Run final review and stop before publication**
 
 Run documentation audit and authoritative `gstack-review`, remediate findings, and stop before
 push/PR until authorized.
+
+Execution-window note (2026-06-22): the documentation audit completed locally. The following
+authoritative `gstack-review` reported three findings: promoted installed-wheel paths overrode the
+policy instead of proving the default, installation was not offline, and numeric comparison help
+retained PR 1 wording. All three were reproduced with regression tests and remediated locally.
+The targeted re-review passed `CLEAN` with 0 findings. Its evidence recorded 172 passing targeted
+tests, passing E1 baseline and numeric artifact validators, all 14/14 numeric gates passing,
+Python 3.12/3.13 offline installed-wheel proofs passing, and passing build, CLI help contract, and
+`git diff --check`. No push or PR was created.
 
 ---
 
@@ -1069,7 +1078,8 @@ push/PR until authorized.
   [#25](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/25) at
   `1c27afc12eb3a3dd0d1555d52941352177cc434d`.
 - [x] Candidate result recorded as passed and validated after squash landing.
-- [x] PR 2 promotion explicitly not created; promotion remains outside this implementation.
+- [x] PR 2 promotion implemented locally on `codex/retrieval-numeric-promotion`; targeted
+  authoritative re-review passed `CLEAN` with 0 findings. Publication remains pending.
 - [x] Durable review finalized with merge evidence. Dependency PR
   [#22](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/22) refreshed the
   protocol/artifact dependency identities without changing candidate results.
@@ -1082,6 +1092,12 @@ push/PR until authorized.
 - [x] `single_match_per_search` and `scope_fence` are produced from runtime and protocol evidence.
 - [x] `retrieval_numeric_nondeterministic` retains its fixed public mapping.
 - [x] Completion and durable review records distinguish local completion from merge completion.
+- [x] Installed-wheel promoted CLI/MCP paths omit retrieval-policy overrides and reject a wheel
+  whose default still behaves as `current`; only rollback explicitly selects `current`.
+- [x] Wheel installation uses uv offline mode through both `--offline` and `UV_OFFLINE=1`; missing
+  cache content fails closed.
+- [x] `mke eval retrieval-numeric --help` describes the promoted runtime default while retaining
+  comparison-only, public-holdout, and protocol-owned boundaries.
 
 ## Targeted Re-review Remediation
 

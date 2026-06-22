@@ -112,7 +112,7 @@
       },
       {
         "path": "src/mke/retrieval/query_policy.py",
-        "sha256": "c1dc7dfee3d56b029f866b0d8a78cac78b206969ed6580eb9704738870a35fde"
+        "sha256": "529608b03b3fb7e8f838fef26593aafde2f7cdce89c7ab8dbfe7a90182013416"
       }
     ],
     "sqlite_schema_sha256": "2f6b60f2c5e21da4599a91e5a207473e3dc048b56a3d702de493ef5c3d4284d0"

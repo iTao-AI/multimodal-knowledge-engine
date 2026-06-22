@@ -98,16 +98,22 @@ fresh temporary SQLite workspaces, and compares stable page/timestamp locator ou
 existing Search and evidence-only Ask contracts. It does not duplicate retrieval SQL, change
 Publication behavior, or impose a quality threshold.
 
-The E2 numeric comparator adds a project-owned query-policy compiler at the SQLite composition
-boundary. Normal runtime composition still selects `current`. The protocol-locked evaluator may
-select off-default `numeric-grouping-v1`, which preserves the compact numeric token and adds one
-right-grouped adjacent-token phrase inside the same FTS5 `MATCH` statement. It does not change
-indexed text, tokenizer configuration, ranking SQL, Publication semantics, result DTOs, or Search
-limits. Development, public holdout, and E1 observations are compared through the existing
-evaluation runner from one protocol-bound immutable snapshot. The comparator traces the actual
-FTS5 statements executed by Search and checks the observed SQLite schema and local provider
-identities before passing its scope gates. The result is bound into a source-content-addressed
-artifact whose nested observations and metrics are independently validated.
+The E2 numeric comparator added a project-owned query-policy compiler at the SQLite composition
+boundary. After the frozen candidate passed all 14 gates, ADR-0007 promoted
+`numeric-grouping-v1` as the normal runtime default. It preserves the compact numeric token and
+adds one right-grouped adjacent-token phrase inside the same FTS5 `MATCH` statement. Owner
+configuration may select allowlisted `current` rollback through typed `RuntimeConfig` and the
+global CLI/MCP startup option. The selector is fixed before engine construction and is not exposed
+through Search, Ask, or MCP request DTOs.
+
+Policy selection changes query compilation only. It does not change indexed text, tokenizer
+configuration, ranking SQL, Publication semantics, result DTOs, Search limits, database schema, or
+index contents, so rollback requires no migration or rebuild. Development, public holdout, and E1
+observations are compared through the existing evaluation runner from one protocol-bound immutable
+snapshot. The comparator traces the actual FTS5 statements executed by Search and checks the
+observed SQLite schema and local provider identities before passing its scope gates. The result is
+bound into a source-content-addressed artifact whose nested observations and metrics are
+independently validated.
 
 CLI and MCP errors share one project-owned `PublicError` serializer. Only allowlisted stable causes
 can reach public output; unknown exception text is replaced with

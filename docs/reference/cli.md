@@ -93,9 +93,10 @@ recorded values, and comparison guidance.
 mke eval retrieval-numeric --protocol <protocol-lock.json> [--json]
 ```
 
-This comparison-only command reads candidate identity from the strict protocol, owns temporary
-workspaces, and leaves the runtime default as `current`. The public holdout is locked but not
-blind; promotion is conditional on every gate passing.
+This historical comparison command reads candidate identity from the strict protocol and owns
+temporary workspaces. The public holdout is locked but not blind. Its passing artifact supported
+ADR-0007 promotion; the command remains protocol-owned and does not accept the runtime policy
+selector.
 
 Human output begins with:
 
@@ -186,12 +187,16 @@ mke --db <path> run get <run_id>
 `ingest` and `run get` accept `--json` and emit exactly one JSON object.
 
 - `--db` defaults to `mke.sqlite` in the current working directory.
+- `--retrieval-query-policy` is a global owner option with allowlisted values
+  `numeric-grouping-v1` and `current`. The default is `numeric-grouping-v1`; `current` is the
+  rollback selector.
 - The SQLite schema is created automatically when the database is opened.
 - `ingest` supports PyMuPDF text-layer PDFs and the documented short MP4 fixture profile.
 - Video ingest defaults to `<video>.mke-transcript.json`. Selecting
   `--transcript-provider faster-whisper` uses the cache-only first-party adapter. It does not run a
   system `ffmpeg`, download during ingest, or accept command argv.
-- `search` reads only active Publication rows in SQLite FTS5.
+- `search` reads only active Publication rows in SQLite FTS5. Eligible standalone compact ASCII
+  integers also match tokenizer-adjacent conventional right-grouped document tokens.
 - PDF results print `page=<number>`.
 - Successful PDF ingest prints stable intake summary fields:
   `pdf_pages`, `extracted_pages`, `empty_pages`, `extracted_chars`, and
@@ -254,7 +259,7 @@ an unsupported explicit language returns `problem=transcription_not_ready` with
 ## MCP Server Command
 
 ```bash
-mke --db <path> mcp --allowed-root <path>
+mke --db <path> [--retrieval-query-policy <policy>] mcp --allowed-root <path>
 ```
 
 - Runs a local stdio MCP server.
@@ -262,6 +267,9 @@ mke --db <path> mcp --allowed-root <path>
 - `ingest_file` rejects paths outside `--allowed-root`.
 - Implemented MCP tools are `list_libraries`, `ingest_file`, `get_run`, `search_library`, and
   `ask_library`.
+- Retrieval policy is owner startup configuration. It is not present in MCP tool schemas.
+- `--retrieval-query-policy current` rolls Search and Ask query compilation back without changing
+  the database or rebuilding the FTS5 projection.
 - HTTP and workspace UI remain planned.
 
 `mke mcp --help` prints the command-specific options. Databases created by `mke ingest` can be

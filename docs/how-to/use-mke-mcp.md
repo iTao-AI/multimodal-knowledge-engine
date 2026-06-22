@@ -12,6 +12,18 @@ uv run mke --db .tmp/mke.sqlite mcp --allowed-root .
 The server uses stdio. Configure the Agent client to run the command above from the repository
 root. It can reuse a database created by `mke --db <path> ingest <file>`.
 
+Normal Search and Ask use `numeric-grouping-v1`. To operate the previous query compiler during
+rollback, restart the owner process with the same database:
+
+```bash
+uv run mke --db .tmp/mke.sqlite \
+  --retrieval-query-policy current \
+  mcp --allowed-root .
+```
+
+This changes query compilation only. It does not migrate the database or rebuild the FTS5
+projection, and MCP tool requests cannot override the owner-selected policy.
+
 After explicit model preparation, start cache-only local transcription with:
 
 ```bash
@@ -95,6 +107,7 @@ timestamp Evidence when active Search matches the question terms.
 - Scanned-PDF OCR, arbitrary or long videos, audio-only ingest, bundled model weights, and external
   providers are outside this MCP slice.
 - MCP `ingest_file(config, path)` cannot accept provider, model, cache, download, endpoint,
-  credential, or command argv overrides. Provider policy is owner startup configuration.
+  credential, command argv, or retrieval-policy overrides. Provider and retrieval policy are
+  owner startup configuration.
 - The server rejects paths outside `--allowed-root`.
 - The server rejects PDF inputs above 100 MB before opening the PDF extractor.
