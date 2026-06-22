@@ -1,0 +1,95 @@
+{
+  "schema_version": "mke.retrieval_eval.v1",
+  "manifest_id": "retrieval-numeric-v1-development",
+  "documents": [
+    {
+      "document_id": "numeric-development",
+      "media_type": "application/pdf",
+      "primary_file": {
+        "path": "development.pdf",
+        "sha256": "721890756c2bbf9f53e391755dc507ae9cadc0de80f54e7e9b23c8a00667ee51",
+        "bytes": 2091
+      },
+      "supporting_files": []
+    }
+  ],
+  "queries": [
+    {
+      "query_id": "numeric-dev-grouped-01",
+      "text": "410000 grouped daily withdrawal",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "numeric-development",
+          "locator_kind": "page",
+          "locator_start": 1,
+          "locator_end": 1
+        }
+      ]
+    },
+    {
+      "query_id": "numeric-dev-compact-01",
+      "text": "730000 compact inventory",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "numeric-development",
+          "locator_kind": "page",
+          "locator_start": 2,
+          "locator_end": 2
+        }
+      ]
+    },
+    {
+      "query_id": "numeric-dev-non-adjacent-01",
+      "text": "410000 non-adjacent ledger",
+      "category": "lexical_confuser",
+      "relevant_locators": []
+    },
+    {
+      "query_id": "numeric-dev-leading-zero-01",
+      "text": "02139 postal district",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "numeric-development",
+          "locator_kind": "page",
+          "locator_start": 4,
+          "locator_end": 4
+        }
+      ]
+    },
+    {
+      "query_id": "numeric-dev-identifier-01",
+      "text": "ZX410000 equipment model",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "numeric-development",
+          "locator_kind": "page",
+          "locator_start": 4,
+          "locator_end": 4
+        }
+      ]
+    },
+    {
+      "query_id": "numeric-dev-short-01",
+      "text": "2005 reporting year",
+      "category": "answerable",
+      "relevant_locators": [
+        {
+          "document_id": "numeric-development",
+          "locator_kind": "page",
+          "locator_start": 4,
+          "locator_end": 4
+        }
+      ]
+    },
+    {
+      "query_id": "numeric-dev-outside-01",
+      "text": "quantum entanglement photon experiment",
+      "category": "out_of_corpus",
+      "relevant_locators": []
+    }
+  ]
+}

@@ -55,6 +55,25 @@ jobs:
             --manifest tests/fixtures/retrieval-eval-v1.json \
             --repository . \
             --main-ref origin/main
+      - name: Validate numeric retrieval candidate comparison
+        run: |
+          set +e
+          uv run mke eval retrieval-numeric \
+            --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json \
+            --json > /tmp/numeric-comparison.json
+          comparison_status=$?
+          set -e
+          case "$comparison_status" in
+            0|1) ;;
+            *) exit "$comparison_status" ;;
+          esac
+          COMPARISON_STATUS="$comparison_status" uv run python -c \
+            'import json, os; p=json.load(open("/tmp/numeric-comparison.json")); assert p["integrity_status"] == "passed"; assert (p["candidate_status"] == "passed") == (int(os.environ["COMPARISON_STATUS"]) == 0)'
+          uv run python -m mke.evaluation.numeric_artifact validate \
+            --artifact benchmarks/retrieval/numeric-grouping-v1-comparison.json \
+            --observed /tmp/numeric-comparison.json \
+            --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json \
+            --repository .
       - run: uv build
       - name: Verify spoken fixture with transcription extra
         env:

@@ -87,6 +87,38 @@ Evaluation failure fields are `problem`, `cause`, `next_step`, and optional `sub
 [Run Retrieval Evaluation](../how-to/run-retrieval-evaluation.md) for metric definitions,
 recorded values, and comparison guidance.
 
+## Numeric Retrieval Comparison
+
+```bash
+mke eval retrieval-numeric --protocol <protocol-lock.json> [--json]
+```
+
+This comparison-only command reads candidate identity from the strict protocol, owns temporary
+workspaces, and leaves the runtime default as `current`. The public holdout is locked but not
+blind; promotion is conditional on every gate passing.
+
+Human output begins with:
+
+```text
+mke eval retrieval-numeric
+protocol=<id> candidate=numeric-grouping-v1 revision=1
+integrity_status=<passed|failed> candidate_status=<passed|rejected|not_recorded>
+```
+
+JSON uses schema `mke.retrieval_numeric_comparison.v1` and includes current/candidate observations
+for development, holdout, and E1; compiled query pairs; ordered gates; fixed integrity failures;
+duration; and limitations. Exit codes are `0` passing comparison, `1` trustworthy rejection or
+integrity failure, and `2` invalid usage. Explicit `--db`, candidate overrides, output paths,
+providers, URLs, models, SQL, regex, import paths, tokenizer expressions, and executable commands
+are not accepted.
+
+If either repeated evaluator observation differs, the fixed public failure is
+`retrieval_numeric_nondeterministic` with cause
+`numeric comparison results were not deterministic` and next step
+`inspect_numeric_comparison_runtime`.
+
+See [Evaluate The Numeric Retrieval Candidate](../how-to/evaluate-numeric-retrieval.md).
+
 ## Real Transcription Proof
 
 ```bash

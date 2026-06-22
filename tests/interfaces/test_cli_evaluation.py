@@ -7,6 +7,9 @@ from pytest import CaptureFixture
 from mke.cli import main
 
 MANIFEST = Path("tests/fixtures/retrieval-eval-v1.json")
+NUMERIC_PROTOCOL = Path(
+    "tests/fixtures/retrieval-numeric-v1/protocol-lock.json"
+)
 
 
 def test_cli_eval_retrieval_outputs_human_baseline(
@@ -164,3 +167,163 @@ def test_cli_eval_distinguishes_invalid_json_from_missing_manifest(
 
     payload = json.loads(capsys.readouterr().out)
     assert payload["integrity_failures"][0]["cause"] == "manifest is not valid JSON"
+
+
+def test_cli_eval_numeric_outputs_passing_json(
+    capsys: CaptureFixture[str],
+) -> None:
+    assert main(
+        [
+            "eval",
+            "retrieval-numeric",
+            "--protocol",
+            str(NUMERIC_PROTOCOL),
+            "--json",
+        ]
+    ) == 0
+
+    output = capsys.readouterr()
+    payload = json.loads(output.out)
+    assert output.err == ""
+    assert payload["schema_version"] == "mke.retrieval_numeric_comparison.v1"
+    assert payload["integrity_status"] == "passed"
+    assert payload["candidate_status"] == "passed"
+    assert len(payload["gates"]) == 14
+    assert "/Users/" not in output.out
+    assert "Traceback" not in output.out
+
+
+def test_cli_eval_numeric_outputs_human_status_first(
+    capsys: CaptureFixture[str],
+) -> None:
+    assert main(
+        [
+            "eval",
+            "retrieval-numeric",
+            "--protocol",
+            str(NUMERIC_PROTOCOL),
+        ]
+    ) == 0
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == "mke eval retrieval-numeric"
+    assert "protocol=retrieval-numeric-v1" in lines[1]
+    assert "candidate=numeric-grouping-v1 revision=1" in lines[1]
+    assert lines[2] == "integrity_status=passed candidate_status=passed"
+
+
+def test_cli_eval_numeric_missing_protocol_path_is_exit_one_and_redacted(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    missing = tmp_path / "private" / "protocol.json"
+
+    assert main(
+        [
+            "eval",
+            "retrieval-numeric",
+            "--protocol",
+            str(missing),
+            "--json",
+        ]
+    ) == 1
+
+    output = capsys.readouterr()
+    payload = json.loads(output.out)
+    assert output.err == ""
+    assert payload["integrity_status"] == "failed"
+    assert payload["candidate_status"] == "not_recorded"
+    assert str(tmp_path) not in output.out
+
+
+def test_cli_eval_numeric_requires_protocol_as_usage_error(
+    capsys: CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as error:
+        main(["eval", "retrieval-numeric"])
+
+    assert error.value.code == 2
+    assert "--protocol" in capsys.readouterr().err
+
+
+def test_cli_eval_numeric_rejects_db_and_candidate_override(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as error:
+        main(
+            [
+                "--db",
+                str(tmp_path / "ignored.sqlite"),
+                "eval",
+                "retrieval-numeric",
+                "--protocol",
+                str(NUMERIC_PROTOCOL),
+            ]
+        )
+    assert error.value.code == 2
+    assert "--db is not supported" in capsys.readouterr().err
+
+    with pytest.raises(SystemExit) as error:
+        main(
+            [
+                "eval",
+                "retrieval-numeric",
+                "--protocol",
+                str(NUMERIC_PROTOCOL),
+                "--candidate",
+                "current",
+            ]
+        )
+    assert error.value.code == 2
+    assert "unrecognized arguments" in capsys.readouterr().err
+
+
+def test_cli_eval_numeric_help_documents_comparison_boundary(
+    capsys: CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as error:
+        main(["eval", "retrieval-numeric", "--help"])
+
+    assert error.value.code == 0
+    normalized = " ".join(capsys.readouterr().out.split())
+    assert "--protocol" in normalized
+    assert "--json" in normalized
+    assert "comparison-only" in normalized
+    assert "runtime default remains current" in normalized
+    assert "public rather than blind" in normalized
+    assert "promotion is conditional" in normalized
+
+
+@pytest.mark.parametrize("json_output", [False, True])
+def test_cli_eval_numeric_renderer_failure_is_redacted(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: CaptureFixture[str],
+    json_output: bool,
+) -> None:
+    def fail_renderer(*args: object, **kwargs: object) -> str:
+        raise RuntimeError("Traceback SECRET /Users/mac/private")
+
+    name = (
+        "render_numeric_comparison_json"
+        if json_output
+        else "render_numeric_comparison_human"
+    )
+    monkeypatch.setattr(f"mke.cli.{name}", fail_renderer)
+    argv = [
+        "eval",
+        "retrieval-numeric",
+        "--protocol",
+        str(NUMERIC_PROTOCOL),
+    ]
+    if json_output:
+        argv.append("--json")
+
+    assert main(argv) == 1
+
+    output = capsys.readouterr()
+    assert output.err == ""
+    assert "numeric comparison report could not be rendered" in output.out
+    assert "Traceback" not in output.out
+    assert "SECRET" not in output.out
+    assert "/Users/" not in output.out

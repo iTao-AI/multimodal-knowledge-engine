@@ -98,6 +98,17 @@ fresh temporary SQLite workspaces, and compares stable page/timestamp locator ou
 existing Search and evidence-only Ask contracts. It does not duplicate retrieval SQL, change
 Publication behavior, or impose a quality threshold.
 
+The E2 numeric comparator adds a project-owned query-policy compiler at the SQLite composition
+boundary. Normal runtime composition still selects `current`. The protocol-locked evaluator may
+select off-default `numeric-grouping-v1`, which preserves the compact numeric token and adds one
+right-grouped adjacent-token phrase inside the same FTS5 `MATCH` statement. It does not change
+indexed text, tokenizer configuration, ranking SQL, Publication semantics, result DTOs, or Search
+limits. Development, public holdout, and E1 observations are compared through the existing
+evaluation runner from one protocol-bound immutable snapshot. The comparator traces the actual
+FTS5 statements executed by Search and checks the observed SQLite schema and local provider
+identities before passing its scope gates. The result is bound into a source-content-addressed
+artifact whose nested observations and metrics are independently validated.
+
 CLI and MCP errors share one project-owned `PublicError` serializer. Only allowlisted stable causes
 can reach public output; unknown exception text is replaced with
 `operation failed; details were redacted`. Public payloads contain `problem`, `cause`,
@@ -125,8 +136,12 @@ src/mke/
   evaluation/
     manifest.py
     metrics.py
+    numeric_artifact.py
+    numeric_comparison.py
     report.py
     runner.py
+  retrieval/
+    query_policy.py
 ```
 
 The domain and application layers must not depend on FastAPI, database implementations, model SDKs, LangChain, or LlamaIndex.

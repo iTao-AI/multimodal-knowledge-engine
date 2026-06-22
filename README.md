@@ -31,6 +31,12 @@ and `scripts/transcription_deployment_proof.py` proves an isolated wheel-install
 MCP SDK flow. Model acquisition remains an explicit opt-in preparation step; normal doctor,
 ingest, proof, and MCP execution are cache-only.
 
+E2 adds a comparison-only numeric retrieval protocol:
+`mke eval retrieval-numeric --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json`.
+The off-default `numeric-grouping-v1` candidate passes the frozen development, public holdout, and
+full E1 gates, improving E1 Recall@1 from `0.875000` to `0.937500`. Normal Search and Ask still use
+`current`; promotion requires a separate ADR-backed PR.
+
 PDF intake uses PyMuPDF behind the `src/mke/adapters/pdf/` boundary and exposes a
 `PdfIntakeReport` through `mke ingest`, `mke run get`, MCP `ingest_file`, and MCP `get_run`.
 PyMuPDF licensing and the future sidecar escape route are documented in
@@ -67,7 +73,9 @@ Start at [docs/README.md](./docs/README.md). To verify the current proof directl
 see [Use MKE As A Local MCP Server](./docs/how-to/use-mke-mcp.md) and
 [Use Local Transcription](./docs/how-to/use-local-transcription.md). To record the current
 retrieval behavior, see
-[Run Retrieval Evaluation](./docs/how-to/run-retrieval-evaluation.md). Approved implementation
+[Run Retrieval Evaluation](./docs/how-to/run-retrieval-evaluation.md). To reproduce the bounded
+candidate comparison, see
+[Evaluate The Numeric Retrieval Candidate](./docs/how-to/evaluate-numeric-retrieval.md). Approved implementation
 history is kept under `docs/superpowers/`; long-lived architecture decisions are kept under
 `docs/decisions/`.
 
@@ -82,6 +90,8 @@ uv sync --locked
 uv run mke proof run
 uv run mke proof run --json
 uv run mke eval retrieval --manifest tests/fixtures/retrieval-eval-v1.json
+uv run mke eval retrieval-numeric \
+  --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json
 ```
 
 `mke demo --verify` remains available as a compatibility proof with its phase-oriented output.

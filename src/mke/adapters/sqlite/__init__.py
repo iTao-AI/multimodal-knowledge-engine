@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
-import re
 import sqlite3
+from collections.abc import Callable
+from hashlib import sha256
 from pathlib import Path
 from typing import Self
 from uuid import uuid4
@@ -27,6 +28,12 @@ from mke.domain import (
     is_recognized_video_fingerprint,
     validate_manifest,
 )
+from mke.retrieval import (
+    DEFAULT_RETRIEVAL_QUERY_POLICY,
+    RetrievalQueryPolicy,
+    compile_fts5_query,
+)
+from mke.retrieval.query_policy import require_retrieval_query_policy
 
 _BUSY_TIMEOUT_MS = 5000
 
@@ -42,8 +49,18 @@ class InjectedStorageFailure(RuntimeError):
 class SQLiteStore:
     """Persistence adapter for Source-level Publication semantics."""
 
-    def __init__(self, db_path: Path) -> None:
+    def __init__(
+        self,
+        db_path: Path,
+        *,
+        query_policy: RetrievalQueryPolicy = DEFAULT_RETRIEVAL_QUERY_POLICY,
+        search_observer: Callable[[int], None] | None = None,
+    ) -> None:
         self.db_path = db_path
+        self._query_policy: RetrievalQueryPolicy = require_retrieval_query_policy(
+            query_policy
+        )
+        self._search_observer = search_observer
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._connection = sqlite3.connect(self.db_path)
         self._connection.row_factory = sqlite3.Row
@@ -688,8 +705,31 @@ class SQLiteStore:
             for row in rows
         ]
 
+    def schema_sha256(self) -> str:
+        rows = self._connection.execute(
+            """
+            SELECT type, name, tbl_name, sql
+            FROM sqlite_master
+            WHERE sql IS NOT NULL
+              AND name NOT LIKE 'sqlite_%'
+            ORDER BY type, name, tbl_name, sql
+            """
+        ).fetchall()
+        payload = [
+            {
+                "type": str(row["type"]),
+                "name": str(row["name"]),
+                "table": str(row["tbl_name"]),
+                "sql": str(row["sql"]),
+            }
+            for row in rows
+        ]
+        return sha256(
+            json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
+        ).hexdigest()
+
     def search(self, query: str, limit: int | None = None) -> list[SearchResult]:
-        match_query = _to_fts_query(query)
+        match_query = compile_fts5_query(query, policy=self._query_policy)
         if not match_query:
             return []
         sql = """
@@ -707,7 +747,20 @@ class SQLiteStore:
         if limit is not None:
             sql += " LIMIT ?"
             params.append(limit)
-        rows = self._connection.execute(sql, params).fetchall()
+        statements: list[str] = []
+        if self._search_observer is not None:
+            self._connection.set_trace_callback(statements.append)
+        try:
+            rows = self._connection.execute(sql, params).fetchall()
+        finally:
+            if self._search_observer is not None:
+                self._connection.set_trace_callback(None)
+                self._search_observer(
+                    sum(
+                        "active_evidence_fts MATCH" in statement
+                        for statement in statements
+                    )
+                )
         return [
             SearchResult(
                 evidence_id=str(row["evidence_id"]),
@@ -744,13 +797,6 @@ def _run_from_row(row: sqlite3.Row) -> RunRecord:
         based_on_active_revision=int(row["based_on_active_revision"]),
         retry_of_run_id=str(retry_of_run_id) if retry_of_run_id is not None else None,
     )
-
-
-def _to_fts_query(query: str) -> str:
-    terms = re.findall(r"[A-Za-z0-9_]+", query.casefold())
-    return " ".join(f'"{term}"' for term in terms)
-
-
 def _locator_label(locator_kind: str, locator_start: int, locator_end: int) -> str:
     if locator_kind == "page":
         return f"page:{locator_start}"

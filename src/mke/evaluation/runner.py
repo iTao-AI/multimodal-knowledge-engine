@@ -31,6 +31,8 @@ from mke.evaluation.report import (
     QueryEvaluationResult,
     RetrievalEvaluationReport,
 )
+from mke.retrieval import RetrievalQueryPolicy
+from mke.retrieval.query_policy import require_retrieval_query_policy
 
 
 class EvaluationIntegrityError(RuntimeError):
@@ -53,12 +55,64 @@ class EvaluationIntegrityError(RuntimeError):
 class _WorkspaceResult:
     results: tuple[QueryEvaluationResult, ...]
     metrics: RetrievalMetrics
+    match_statements_per_search: tuple[int, ...]
+    sqlite_schema_sha256: str
+    pdf_extractor: str
+    transcript_provider: str
+
+
+@dataclass(frozen=True)
+class RetrievalEvaluationEvidence:
+    match_statements_per_search: tuple[int, ...]
+    sqlite_schema_sha256: str
+    pdf_extractor: str
+    transcript_provider: str
+
+
+@dataclass(frozen=True)
+class RetrievalEvaluationObservation:
+    report: RetrievalEvaluationReport
+    evidence: RetrievalEvaluationEvidence | None
 
 
 def run_retrieval_evaluation(manifest_path: Path) -> RetrievalEvaluationReport:
+    return _run_retrieval_evaluation(manifest_path, query_policy="current")
+
+
+def _run_retrieval_evaluation(
+    manifest_path: Path,
+    *,
+    query_policy: RetrievalQueryPolicy,
+) -> RetrievalEvaluationReport:
+    return _observe_retrieval_evaluation(
+        manifest_path,
+        query_policy=query_policy,
+    ).report
+
+
+def _observe_retrieval_evaluation(
+    manifest_path: Path,
+    *,
+    query_policy: RetrievalQueryPolicy,
+) -> RetrievalEvaluationObservation:
     started = time.monotonic()
     manifest_id = "unknown"
     document_count = 0
+    try:
+        validated_policy = require_retrieval_query_policy(query_policy)
+    except ValueError:
+        return RetrievalEvaluationObservation(
+            report=_failed_report(
+                manifest_id=manifest_id,
+                document_count=document_count,
+                problem="retrieval_eval_incomplete",
+                cause="retrieval query policy is unsupported",
+                next_step="inspect_retrieval_eval_inputs",
+                subject_id=None,
+                started=started,
+            ),
+            evidence=None,
+        )
     try:
         manifest = load_retrieval_manifest(manifest_path)
         manifest_id = manifest.manifest_id
@@ -69,66 +123,98 @@ def run_retrieval_evaluation(manifest_path: Path) -> RetrievalEvaluationReport:
             staged = snapshot_retrieval_fixtures(
                 manifest, Path(snapshot_root) / "fixtures"
             )
-            first = _run_workspace(staged)
-            second = _run_workspace(staged)
+            first = _run_workspace(staged, query_policy=validated_policy)
+            second = _run_workspace(staged, query_policy=validated_policy)
             _require_deterministic(first, second)
-            return RetrievalEvaluationReport(
-                manifest_id=manifest.manifest_id,
-                benchmark_scope="small_english_page_timestamp_corpus",
-                quality_gate="none",
-                status="passed",
-                quality_status="baseline_recorded",
-                document_count=len(manifest.documents),
-                results=first.results,
-                metrics=first.metrics,
-                integrity_failures=(),
-                duration_ms=_elapsed_ms(started),
+            return RetrievalEvaluationObservation(
+                report=RetrievalEvaluationReport(
+                    manifest_id=manifest.manifest_id,
+                    benchmark_scope="small_english_page_timestamp_corpus",
+                    quality_gate="none",
+                    status="passed",
+                    quality_status="baseline_recorded",
+                    document_count=len(manifest.documents),
+                    results=first.results,
+                    metrics=first.metrics,
+                    integrity_failures=(),
+                    duration_ms=_elapsed_ms(started),
+                ),
+                evidence=RetrievalEvaluationEvidence(
+                    match_statements_per_search=(
+                        *first.match_statements_per_search,
+                        *second.match_statements_per_search,
+                    ),
+                    sqlite_schema_sha256=first.sqlite_schema_sha256,
+                    pdf_extractor=first.pdf_extractor,
+                    transcript_provider=first.transcript_provider,
+                ),
             )
     except FixtureValidationError as error:
-        return _failed_report(
-            manifest_id=manifest_id,
-            document_count=document_count,
-            problem="retrieval_eval_fixture_invalid",
-            cause=error.cause,
-            next_step="restore_retrieval_eval_fixture",
-            subject_id=error.subject_id,
-            started=started,
+        return RetrievalEvaluationObservation(
+            report=_failed_report(
+                manifest_id=manifest_id,
+                document_count=document_count,
+                problem="retrieval_eval_fixture_invalid",
+                cause=error.cause,
+                next_step="restore_retrieval_eval_fixture",
+                subject_id=error.subject_id,
+                started=started,
+            ),
+            evidence=None,
         )
     except ManifestValidationError as error:
-        return _failed_report(
-            manifest_id=manifest_id,
-            document_count=document_count,
-            problem="retrieval_eval_manifest_invalid",
-            cause=error.cause,
-            next_step="fix_retrieval_eval_manifest",
-            subject_id=error.subject_id,
-            started=started,
+        return RetrievalEvaluationObservation(
+            report=_failed_report(
+                manifest_id=manifest_id,
+                document_count=document_count,
+                problem="retrieval_eval_manifest_invalid",
+                cause=error.cause,
+                next_step="fix_retrieval_eval_manifest",
+                subject_id=error.subject_id,
+                started=started,
+            ),
+            evidence=None,
         )
     except EvaluationIntegrityError as error:
-        return _failed_report(
-            manifest_id=manifest_id,
-            document_count=document_count,
-            problem=error.problem,
-            cause=error.cause,
-            next_step=error.next_step,
-            subject_id=error.subject_id,
-            started=started,
+        return RetrievalEvaluationObservation(
+            report=_failed_report(
+                manifest_id=manifest_id,
+                document_count=document_count,
+                problem=error.problem,
+                cause=error.cause,
+                next_step=error.next_step,
+                subject_id=error.subject_id,
+                started=started,
+            ),
+            evidence=None,
         )
     except Exception:
-        return _failed_report(
-            manifest_id=manifest_id,
-            document_count=document_count,
-            problem="retrieval_eval_incomplete",
-            cause="retrieval evaluation failed",
-            next_step="inspect_retrieval_eval_inputs",
-            subject_id=None,
-            started=started,
+        return RetrievalEvaluationObservation(
+            report=_failed_report(
+                manifest_id=manifest_id,
+                document_count=document_count,
+                problem="retrieval_eval_incomplete",
+                cause="retrieval evaluation failed",
+                next_step="inspect_retrieval_eval_inputs",
+                subject_id=None,
+                started=started,
+            ),
+            evidence=None,
         )
 
 
-def _run_workspace(manifest: RetrievalEvaluationManifest) -> _WorkspaceResult:
+def _run_workspace(
+    manifest: RetrievalEvaluationManifest,
+    *,
+    query_policy: RetrievalQueryPolicy,
+) -> _WorkspaceResult:
     with tempfile.TemporaryDirectory(prefix="mke-retrieval-eval-") as workspace:
-        engine = KnowledgeEngine(Path(workspace) / "mke.sqlite")
+        match_statements_per_search: list[int] = []
+        engine = KnowledgeEngine(
+            Path(workspace) / "mke.sqlite",
+            query_policy=query_policy,
+            search_observer=match_statements_per_search.append,
+        )
         try:
             source_documents: dict[str, str] = {}
             for document in manifest.documents:
@@ -169,7 +255,18 @@ def _run_workspace(manifest: RetrievalEvaluationManifest) -> _WorkspaceResult:
                     for query, result in zip(manifest.queries, results, strict=True)
                 )
             )
-            return _WorkspaceResult(results=results, metrics=metrics)
+            return _WorkspaceResult(
+                results=results,
+                metrics=metrics,
+                match_statements_per_search=tuple(match_statements_per_search),
+                sqlite_schema_sha256=engine._store.schema_sha256(),  # pyright: ignore[reportPrivateUsage]
+                pdf_extractor=_type_identity(
+                    engine._pdf_extractor  # pyright: ignore[reportPrivateUsage]
+                ),
+                transcript_provider=_type_identity(
+                    engine._transcript_provider  # pyright: ignore[reportPrivateUsage]
+                ),
+            )
         except EvaluationIntegrityError:
             raise
         except Exception as error:
@@ -357,6 +454,11 @@ def _require_deterministic(
             "retrieval evaluation results are nondeterministic",
             "inspect_retrieval_eval_inputs",
         )
+
+
+def _type_identity(value: object) -> str:
+    value_type = type(value)
+    return f"{value_type.__module__}.{value_type.__qualname__}"
 
 
 def _failed_report(
