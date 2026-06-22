@@ -33,9 +33,12 @@ uv run python scripts/numeric_retrieval_deployment_proof.py \
   --python 3.13
 ```
 
-The proof creates an external temporary virtual environment, installs the wheel and its declared
-dependencies, clears source-tree Python import variables, and then exercises installed CLI plus
-stdio MCP Search using only local fixtures and SQLite. It checks the promoted
+The proof creates an external temporary virtual environment and installs the wheel with
+`uv pip install --offline`. Both `--offline` and `UV_OFFLINE=1` prohibit network access; missing
+cached dependencies fail the proof rather than falling back to an index. It then clears
+source-tree Python import variables and exercises installed CLI plus stdio MCP Search using only
+local fixtures and SQLite. The promoted paths omit `--retrieval-query-policy`, while rollback
+explicitly selects `current`. The proof checks the promoted
 grouped-document/compact-query behavior, compact-document preservation,
 non-adjacent-token rejection, tokenizer-equivalent adjacent punctuation, and explicit `current`
 rollback. The MCP tool schemas must not expose retrieval policy as request input.

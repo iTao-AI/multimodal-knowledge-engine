@@ -137,8 +137,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "retrieval-numeric",
         description=(
             "Run the comparison-only public-holdout numeric protocol. "
-            "The runtime default remains current, the holdout is public rather than blind, "
-            "and promotion is conditional."
+            "The runtime default is numeric-grouping-v1, the holdout is public rather "
+            "than blind, and comparison policy is protocol-owned."
         ),
     )
     numeric_retrieval.add_argument(

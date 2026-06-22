@@ -41,7 +41,7 @@
     "revision": 1
   },
   "source": {
-    "sha256": "b8f6afb8d99f75747ded860b80d7ed596d9833a2bacd034b3430c31ef8d78aa2",
+    "sha256": "9409a9b1837f5d59d520c291067b97969f26dba3023065b2380807665a771516",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -115,8 +115,8 @@
       },
       {
         "path": "src/mke/cli.py",
-        "bytes": 30926,
-        "sha256": "e97cf1dc8be01d9dc2ca617757f25336a5234fa0af3c7a85060c61546e52752f"
+        "bytes": 30944,
+        "sha256": "a6da04676bb02d43ae97bc9d5dfbb7ccd9145008a56db3636d657e3191d14d48"
       },
       {
         "path": "src/mke/domain/__init__.py",

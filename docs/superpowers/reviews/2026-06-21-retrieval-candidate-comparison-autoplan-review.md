@@ -2,14 +2,16 @@
 
 ## Status
 
-- Result: PR 1 merged after targeted authoritative re-review passed `CLEAN` with 0 findings.
+- Result: PR 1 merged after targeted authoritative re-review passed `CLEAN` with 0 findings; PR 2
+  promotion is implemented locally and its authoritative review findings are remediated pending
+  targeted re-review.
 - Review mode: CEO scope hold, full engineering review, and DX polish.
 - Independent voice: Codex CLI; no parallel reviewer was used.
 - Design review: skipped because E2 has no graphical interface.
 - Baseline: `main@e3a3f3656be8889e8e54e06a1de09ebd6412384f`.
 - Merge status: PR
   [#25](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/25) squash merged at
-  `1c27afc12eb3a3dd0d1555d52941352177cc434d`. PR 2 and ADR-0007 were not created.
+  `1c27afc12eb3a3dd0d1555d52941352177cc434d`. PR 2 remains local and unpublished.
 
 ## Implementation Evidence
 
@@ -212,12 +214,20 @@ fixture identity and exact text
   remain outside the claim.
 - E1 and E2 page qrels require a new protocol if Evidence segmentation changes.
 
+## PR 2 Authoritative Review Findings
+
+| Finding | Verdict | Remediation evidence |
+|---|---|---|
+| Promoted installed-wheel CLI/MCP paths explicitly selected `numeric-grouping-v1`, so they did not prove the wheel default. | Confirmed | Default CLI and MCP commands now omit the selector; rollback alone passes `current`. Regression tests require omission and reject a simulated `current` default. |
+| Installed-wheel dependency installation was allowed to access the network despite the approved offline proof. | Confirmed | `uv pip install --offline` runs with `UV_OFFLINE=1`. A nonzero offline resolution result is fail-closed, and Python 3.12/3.13 proofs pass from cache. |
+| Numeric comparison help retained PR 1 wording after promotion. | Confirmed | Help now states that the runtime default is `numeric-grouping-v1`, while preserving comparison-only, public-holdout, and protocol-owned boundaries. |
+
 ## Current Verdict
 
-PR 1 is merged through
+PR 1 remains merged through
 [#25](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/25), and its targeted
-authoritative re-review passed `CLEAN` with 0 findings. The numeric artifact validator independently
-recomputes every derivable promotion gate and rejects bool-as-int nested values with explicit
-integer ranges. PR #22 subsequently refreshed dependency-bound protocol/artifact identities
-without changing the candidate result. Runtime default remains `current`; no PR 2 or ADR-0007
-exists.
+authoritative re-review passed `CLEAN` with 0 findings. PR 2 promotes `numeric-grouping-v1` as the
+runtime default through ADR-0007, retains `current` for owner-controlled rollback, and requires no
+migration or index rebuild. The three PR 2 authoritative review findings above are remediated
+locally with RED/GREEN regression evidence. Publication remains blocked on targeted re-review and
+explicit user authorization.

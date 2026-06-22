@@ -1056,14 +1056,16 @@ CLI plus stdio MCP Search checks for:
 - non-adjacent-token rejection and documented adjacent punctuation equivalence;
 - explicit `current` rollback behavior.
 
-- [ ] **Step 7: Run final review and stop before publication**
+- [x] **Step 7: Run final review and stop before publication**
 
 Run documentation audit and authoritative `gstack-review`, remediate findings, and stop before
 push/PR until authorized.
 
-Execution-window note (2026-06-22): the documentation audit completed locally. Per the explicit
-execution instruction, authoritative `gstack-review` is deferred to the following review window;
-no push or PR was created.
+Execution-window note (2026-06-22): the documentation audit completed locally. The following
+authoritative `gstack-review` reported three findings: promoted installed-wheel paths overrode the
+policy instead of proving the default, installation was not offline, and numeric comparison help
+retained PR 1 wording. All three were reproduced with regression tests and remediated locally.
+Targeted re-review remains pending; no push or PR was created.
 
 ---
 
@@ -1074,7 +1076,7 @@ no push or PR was created.
   `1c27afc12eb3a3dd0d1555d52941352177cc434d`.
 - [x] Candidate result recorded as passed and validated after squash landing.
 - [x] PR 2 promotion implemented locally on `codex/retrieval-numeric-promotion`; publication and
-  authoritative review remain deferred.
+  targeted authoritative re-review remains pending.
 - [x] Durable review finalized with merge evidence. Dependency PR
   [#22](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/22) refreshed the
   protocol/artifact dependency identities without changing candidate results.
@@ -1087,6 +1089,12 @@ no push or PR was created.
 - [x] `single_match_per_search` and `scope_fence` are produced from runtime and protocol evidence.
 - [x] `retrieval_numeric_nondeterministic` retains its fixed public mapping.
 - [x] Completion and durable review records distinguish local completion from merge completion.
+- [x] Installed-wheel promoted CLI/MCP paths omit retrieval-policy overrides and reject a wheel
+  whose default still behaves as `current`; only rollback explicitly selects `current`.
+- [x] Wheel installation uses uv offline mode through both `--offline` and `UV_OFFLINE=1`; missing
+  cache content fails closed.
+- [x] `mke eval retrieval-numeric --help` describes the promoted runtime default while retaining
+  comparison-only, public-holdout, and protocol-owned boundaries.
 
 ## Targeted Re-review Remediation
 

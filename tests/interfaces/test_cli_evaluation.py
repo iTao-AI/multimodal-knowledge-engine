@@ -290,9 +290,11 @@ def test_cli_eval_numeric_help_documents_comparison_boundary(
     assert "--protocol" in normalized
     assert "--json" in normalized
     assert "comparison-only" in normalized
-    assert "runtime default remains current" in normalized
+    assert "runtime default is numeric-grouping-v1" in normalized
     assert "public rather than blind" in normalized
-    assert "promotion is conditional" in normalized
+    assert "policy is protocol-owned" in normalized
+    assert "runtime default remains current" not in normalized
+    assert "promotion is conditional" not in normalized
 
 
 @pytest.mark.parametrize("json_output", [False, True])
