@@ -21,6 +21,8 @@ from mke.runtime import RuntimeConfig
 from tests.application.test_video_provider_injection import FakeFasterWhisperProvider
 from tests.conftest import PDF_FIXTURES, VIDEO_FIXTURES
 
+NUMERIC_FIXTURES = Path("tests/fixtures/retrieval-numeric-v1")
+
 
 def _config(tmp_path: Path, allowed_root: Path) -> McpRuntimeConfig:
     return McpRuntimeConfig(
@@ -60,6 +62,39 @@ def test_ingest_file_publishes_pdf_and_search_returns_page_evidence(tmp_path: Pa
     result = search["results"][0]
     assert result["locator"] == {"kind": "page", "start": 2, "end": 2}
     assert "Publication search returns only active page two." in result["text"]
+
+
+def test_mcp_search_and_ask_use_owner_retrieval_policy_without_request_override(
+    tmp_path: Path,
+) -> None:
+    default_config = McpRuntimeConfig(
+        runtime=RuntimeConfig(tmp_path / "mke.sqlite"),
+        allowed_root=NUMERIC_FIXTURES,
+    )
+    ingest = ingest_file(default_config, "development.pdf")
+    assert ingest["ok"] is True
+
+    search = search_library(default_config, "410000 grouped daily withdrawal")
+    ask = ask_library(default_config, "410000 grouped daily withdrawal")
+    assert search["results"][0]["locator"]["start"] == 1
+    assert ask["answer_status"] == "evidence_found"
+
+    rollback_config = McpRuntimeConfig(
+        runtime=RuntimeConfig(
+            tmp_path / "mke.sqlite",
+            retrieval_query_policy="current",
+        ),
+        allowed_root=NUMERIC_FIXTURES,
+    )
+    assert search_library(
+        rollback_config, "410000 grouped daily withdrawal"
+    )["results"] == []
+    assert (
+        ask_library(rollback_config, "410000 grouped daily withdrawal")[
+            "answer_status"
+        ]
+        == "insufficient_evidence"
+    )
 
 
 def test_mcp_ingest_file_returns_pdf_intake_summary(tmp_path: Path) -> None:

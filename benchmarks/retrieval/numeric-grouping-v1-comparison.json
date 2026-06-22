@@ -3,7 +3,7 @@
   "protocol": {
     "id": "retrieval-numeric-v1",
     "path": "tests/fixtures/retrieval-numeric-v1/protocol-lock.json",
-    "sha256": "5ab8505c41a8be561654392f756d78853a52d55a684004ee481c275a6e26f4d9"
+    "sha256": "aa8b6a430ef2613e15b7f670b1f6b6ae86b6b9324d35961688b21d26252495c0"
   },
   "manifests": {
     "development": {
@@ -41,7 +41,7 @@
     "revision": 1
   },
   "source": {
-    "sha256": "ba17dad428445548888bd8ebd6f0dc64b3b43594250c401f6a63d34dcca44f8b",
+    "sha256": "b8f6afb8d99f75747ded860b80d7ed596d9833a2bacd034b3430c31ef8d78aa2",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -115,8 +115,8 @@
       },
       {
         "path": "src/mke/cli.py",
-        "bytes": 30250,
-        "sha256": "0fd5f0d39f54efb247f3a33174ed856fb5de046828e4383fc31854ab5a1b849c"
+        "bytes": 30926,
+        "sha256": "e97cf1dc8be01d9dc2ca617757f25336a5234fa0af3c7a85060c61546e52752f"
       },
       {
         "path": "src/mke/domain/__init__.py",
@@ -215,18 +215,18 @@
       },
       {
         "path": "src/mke/retrieval/__init__.py",
-        "bytes": 291,
-        "sha256": "cb0c06c96f4b218e3b9567340f50f27f85492d0c5e0ab332e07a57d09169233d"
+        "bytes": 373,
+        "sha256": "8632c3c2d1ba5f210bc2a0d1f74d5f7cf480765dd9e3124fe9bfefa39eed6e99"
       },
       {
         "path": "src/mke/retrieval/query_policy.py",
-        "bytes": 2769,
-        "sha256": "c1dc7dfee3d56b029f866b0d8a78cac78b206969ed6580eb9704738870a35fde"
+        "bytes": 2864,
+        "sha256": "529608b03b3fb7e8f838fef26593aafde2f7cdce89c7ab8dbfe7a90182013416"
       },
       {
         "path": "src/mke/runtime.py",
-        "bytes": 7574,
-        "sha256": "fe670381f66245bab70e2b71f9345fcc3172ff1a219428a2fbe5a7a20e07dc8e"
+        "bytes": 8024,
+        "sha256": "416f5ad534105b173889e5a474eb7068380c38761f8f14e6e104beeed3909d22"
       }
     ]
   },

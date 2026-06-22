@@ -41,6 +41,10 @@ from mke.proof import (
     run_product_proof,
     run_transcription_proof,
 )
+from mke.retrieval import (
+    DEFAULT_RETRIEVAL_QUERY_POLICY,
+    SUPPORTED_RETRIEVAL_QUERY_POLICIES,
+)
 from mke.runtime import (
     DEFAULT_MODEL_REVISION,
     FasterWhisperTranscriptionConfig,
@@ -65,6 +69,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     raw_argv = tuple(argv)
     parser = argparse.ArgumentParser(prog="mke")
     parser.add_argument("--db", type=Path, default=Path("mke.sqlite"))
+    parser.add_argument(
+        "--retrieval-query-policy",
+        choices=SUPPORTED_RETRIEVAL_QUERY_POLICIES,
+        default=DEFAULT_RETRIEVAL_QUERY_POLICY,
+    )
     subcommands = parser.add_subparsers(dest="command", required=True)
 
     ingest = subcommands.add_parser("ingest")
@@ -165,6 +174,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         item == "--db" or item.startswith("--db=") for item in raw_argv
     ):
         parser.error("eval uses two temporary workspaces; --db is not supported")
+    if args.command == "eval" and any(
+        item == "--retrieval-query-policy"
+        or item.startswith("--retrieval-query-policy=")
+        for item in raw_argv
+    ):
+        parser.error(
+            "eval uses protocol-owned retrieval policy; "
+            "--retrieval-query-policy is not supported"
+        )
     if args.command == "eval":
         if args.evaluation_command == "retrieval":
             report = run_retrieval_evaluation(args.manifest)
@@ -698,7 +716,11 @@ def runtime_config_from_args(args: argparse.Namespace) -> RuntimeConfig:
         if provider == "faster-whisper"
         else SidecarTranscriptionConfig()
     )
-    return RuntimeConfig(db_path=args.db, transcription=transcription)
+    return RuntimeConfig(
+        db_path=args.db,
+        retrieval_query_policy=args.retrieval_query_policy,
+        transcription=transcription,
+    )
 
 
 def _faster_whisper_config_from_args(

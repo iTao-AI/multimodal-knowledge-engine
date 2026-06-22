@@ -25,6 +25,7 @@ def test_runtime_defaults_to_sidecar_and_owns_one_process_controller(tmp_path: P
     runtime = RuntimeConfig(db_path=tmp_path / "mke.sqlite")
 
     assert runtime.transcription == SidecarTranscriptionConfig()
+    assert runtime.retrieval_query_policy == "numeric-grouping-v1"
     assert runtime.process_controller is runtime.process_controller
 
 
@@ -111,6 +112,14 @@ def test_runtime_rejects_non_typed_transcription_config(tmp_path: Path) -> None:
         )
 
 
+def test_runtime_rejects_unknown_retrieval_query_policy(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="retrieval query policy is unsupported"):
+        RuntimeConfig(
+            db_path=tmp_path / "mke.sqlite",
+            retrieval_query_policy="unknown",  # type: ignore[arg-type]
+        )
+
+
 def test_first_party_argv_uses_current_interpreter_module_and_one_placeholder() -> None:
     argv = first_party_adapter_argv(FasterWhisperTranscriptionConfig())
 
@@ -148,5 +157,21 @@ def test_build_engine_uses_shared_provider_factory(
     engine = build_engine(runtime)
     try:
         assert engine._transcript_provider is sentinel  # pyright: ignore[reportPrivateUsage]
+        assert engine._store._query_policy == (  # pyright: ignore[reportPrivateUsage]
+            "numeric-grouping-v1"
+        )
+    finally:
+        engine.close()
+
+
+def test_build_engine_accepts_current_policy_for_rollback(tmp_path: Path) -> None:
+    engine = build_engine(
+        RuntimeConfig(
+            tmp_path / "mke.sqlite",
+            retrieval_query_policy="current",
+        )
+    )
+    try:
+        assert engine._store._query_policy == "current"  # pyright: ignore[reportPrivateUsage]
     finally:
         engine.close()

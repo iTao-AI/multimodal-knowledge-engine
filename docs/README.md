@@ -23,6 +23,7 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [ADR-0004](./decisions/0004-pymupdf-pdf-intake-adapter.md) defines the PyMuPDF PDF intake adapter and licensing boundary.
 - [ADR-0005](./decisions/0005-optional-local-command-transcription-provider.md) defines the optional local-command transcription provider boundary.
 - [ADR-0006](./decisions/0006-first-party-local-transcription-runtime.md) defines the cache-only faster-whisper runtime.
+- [ADR-0007](./decisions/0007-numeric-grouping-query-policy.md) promotes the bounded numeric grouping query policy and defines rollback.
 - [Architecture](./explanation/architecture.md) explains the current domain flow and projection boundary.
 - [Public Contracts](./reference/contracts.md) tracks implemented versus planned interfaces.
 - [CLI Reference](./reference/cli.md) documents implemented commands, proof output, compatibility demo output, and error fields.
@@ -30,7 +31,7 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [Run Retrieval Evaluation](./how-to/run-retrieval-evaluation.md) records the deterministic
   English page/timestamp FTS5 baseline and explains its integrity-versus-quality boundary.
 - [Evaluate The Numeric Retrieval Candidate](./how-to/evaluate-numeric-retrieval.md) compares the
-  off-default numeric grouping policy against frozen development, public holdout, and E1 inputs.
+  promoted numeric grouping policy against frozen development, public holdout, and E1 inputs.
 - [Use MKE As A Local MCP Server](./how-to/use-mke-mcp.md) explains the first Agent-facing stdio interface.
 - [Use Local Transcription](./how-to/use-local-transcription.md) covers prepare, doctor, ingest, real ASR proof, and recovery.
 - [Real Local Transcription Deployment Proof Design](./superpowers/specs/2026-06-18-real-local-transcription-deployment-proof-design.md) defines the redistribution-safe fixture, cache-only proof, and isolated wheel deployment evidence.

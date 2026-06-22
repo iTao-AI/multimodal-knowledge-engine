@@ -5,6 +5,8 @@ from pytest import CaptureFixture
 from mke.cli import main
 from tests.conftest import PDF_FIXTURES, VIDEO_FIXTURES
 
+NUMERIC_FIXTURE = Path("tests/fixtures/retrieval-numeric-v1/development.pdf")
+
 
 def test_cli_ask_returns_evidence_packet(tmp_path: Path, capsys: CaptureFixture[str]) -> None:
     db_path = tmp_path / "mke.sqlite"
@@ -82,3 +84,29 @@ def test_cli_ask_overlong_question_preserves_stable_cause(
     assert "cause=question must be 1000 characters or fewer" in output
     assert "details were redacted" not in output
     assert "next_step=shorten_question" in output
+
+
+def test_cli_ask_uses_numeric_grouping_default_and_current_rollback(
+    tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "mke.sqlite"
+    assert main(["--db", str(db_path), "ingest", str(NUMERIC_FIXTURE)]) == 0
+    capsys.readouterr()
+
+    assert main(["--db", str(db_path), "ask", "410000 grouped daily withdrawal"]) == 0
+    assert "answer_status=evidence_found" in capsys.readouterr().out
+
+    assert (
+        main(
+            [
+                "--db",
+                str(db_path),
+                "--retrieval-query-policy",
+                "current",
+                "ask",
+                "410000 grouped daily withdrawal",
+            ]
+        )
+        == 0
+    )
+    assert "answer_status=insufficient_evidence" in capsys.readouterr().out

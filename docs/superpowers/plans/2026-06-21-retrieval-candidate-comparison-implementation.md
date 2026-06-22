@@ -947,14 +947,14 @@ authorizes publication.
 - Modify: Search/Ask reference and architecture documentation
 - Refresh E1 and numeric comparison source identities
 
-- [ ] **Step 1: Write failing promotion and rollback tests**
+- [x] **Step 1: Write failing promotion and rollback tests**
 
 Require normal `KnowledgeEngine` composition to use `numeric-grouping-v1`.
 `RuntimeConfig(retrieval_query_policy="current")` and installed CLI/MCP startup with
 `--retrieval-query-policy current` must reproduce old results with no database migration or index
 rebuild. Unknown values must fail as usage errors before engine construction.
 
-- [ ] **Step 2: Run tests to verify RED**
+- [x] **Step 2: Run tests to verify RED**
 
 Run:
 
@@ -972,7 +972,7 @@ uv run pytest \
 
 Expected: new default, rollback-selector, and invalid-policy cases fail before implementation.
 
-- [ ] **Step 3: Add ADR-0007**
+- [x] **Step 3: Add ADR-0007**
 
 Record:
 
@@ -984,7 +984,7 @@ Record:
 - limitations;
 - default and rollback identifiers.
 
-- [ ] **Step 4: Change the default and add the rollback selector**
+- [x] **Step 4: Change the default and add the rollback selector**
 
 Set:
 
@@ -1014,12 +1014,12 @@ Parse the option into `RuntimeConfig` for normal CLI Search/Ask and owner-starte
 Reject an explicit retrieval-policy option with `mke eval ...`, whose candidate remains
 protocol-locked.
 
-- [ ] **Step 5: Update contracts and artifacts**
+- [x] **Step 5: Update contracts and artifacts**
 
 Document compact/grouped numeric equivalence. Refresh source identities without replacing
 historical observations.
 
-- [ ] **Step 6: Run final verification**
+- [x] **Step 6: Run final verification**
 
 Run the complete PR 1 verification set, then:
 
@@ -1061,6 +1061,10 @@ CLI plus stdio MCP Search checks for:
 Run documentation audit and authoritative `gstack-review`, remediate findings, and stop before
 push/PR until authorized.
 
+Execution-window note (2026-06-22): the documentation audit completed locally. Per the explicit
+execution instruction, authoritative `gstack-review` is deferred to the following review window;
+no push or PR was created.
+
 ---
 
 ## Plan Completion Record
@@ -1069,7 +1073,8 @@ push/PR until authorized.
   [#25](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/25) at
   `1c27afc12eb3a3dd0d1555d52941352177cc434d`.
 - [x] Candidate result recorded as passed and validated after squash landing.
-- [x] PR 2 promotion explicitly not created; promotion remains outside this implementation.
+- [x] PR 2 promotion implemented locally on `codex/retrieval-numeric-promotion`; publication and
+  authoritative review remain deferred.
 - [x] Durable review finalized with merge evidence. Dependency PR
   [#22](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/22) refreshed the
   protocol/artifact dependency identities without changing candidate results.

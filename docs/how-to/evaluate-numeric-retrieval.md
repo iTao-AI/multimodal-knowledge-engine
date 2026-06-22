@@ -1,15 +1,44 @@
 # Evaluate The Numeric Retrieval Candidate
 
-Use the frozen E2 protocol to compare the off-default `numeric-grouping-v1` query policy with the
-current policy:
+Use the frozen E2 protocol to reproduce the comparison that approved
+`numeric-grouping-v1` for promotion over the previous `current` policy:
 
 ```bash
 uv run mke eval retrieval-numeric \
   --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json
 ```
 
-PR 1 is comparison-only. It does not change normal Search or Ask behavior; the runtime default
-remains `current`.
+The comparison remains protocol-owned and historical. Normal Search and Ask now default to
+`numeric-grouping-v1` under ADR-0007. Owners can select `current` at startup for rollback:
+
+```bash
+uv run mke --db .tmp/mke.sqlite \
+  --retrieval-query-policy current \
+  search "410000 million gallons withdrawals"
+```
+
+Rollback changes query compilation only. It requires no database migration or index rebuild.
+
+## Verify Installed CLI And MCP Composition
+
+Build the wheel, then run the isolated proof for both supported Python lines:
+
+```bash
+uv build
+uv run python scripts/numeric_retrieval_deployment_proof.py \
+  --wheel dist/multimodal_knowledge_engine-0.0.0-py3-none-any.whl \
+  --python 3.12
+uv run python scripts/numeric_retrieval_deployment_proof.py \
+  --wheel dist/multimodal_knowledge_engine-0.0.0-py3-none-any.whl \
+  --python 3.13
+```
+
+The proof creates an external temporary virtual environment, installs the wheel and its declared
+dependencies, clears source-tree Python import variables, and then exercises installed CLI plus
+stdio MCP Search using only local fixtures and SQLite. It checks the promoted
+grouped-document/compact-query behavior, compact-document preservation,
+non-adjacent-token rejection, tokenizer-equivalent adjacent punctuation, and explicit `current`
+rollback. The MCP tool schemas must not expose retrieval policy as request input.
 
 JSON output:
 
@@ -87,6 +116,6 @@ Duration is excluded from semantic equality.
 The holdout is independently authored and locked, but public rather than blind. The result is a
 small engineering challenge-set observation, not a general retrieval-quality claim.
 
-Promotion is a separate decision. Only a valid passing artifact permits an ADR-backed PR 2 that
-changes the runtime default and proves the `current` rollback selector. A rejected artifact
-completes E2 without promotion.
+The passing artifact permitted ADR-0007 and the separate promotion change. The checked-in artifact
+keeps the historical observations, metrics, gates, and verdict; source identities are refreshed
+when implementation source changes.
