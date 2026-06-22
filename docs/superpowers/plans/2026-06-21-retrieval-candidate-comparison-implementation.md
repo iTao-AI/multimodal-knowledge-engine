@@ -1068,7 +1068,9 @@ retained PR 1 wording. All three were reproduced with regression tests and remed
 The targeted re-review passed `CLEAN` with 0 findings. Its evidence recorded 172 passing targeted
 tests, passing E1 baseline and numeric artifact validators, all 14/14 numeric gates passing,
 Python 3.12/3.13 offline installed-wheel proofs passing, and passing build, CLI help contract, and
-`git diff --check`. No push or PR was created.
+`git diff --check`. PR 2 subsequently squash merged through
+[#27](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/27) at
+`e6ea789dfe256f4df70ad2e6c384753c25fefeca`; post-merge CI and CodeQL passed.
 
 ---
 
@@ -1078,8 +1080,12 @@ Python 3.12/3.13 offline installed-wheel proofs passing, and passing build, CLI 
   [#25](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/25) at
   `1c27afc12eb3a3dd0d1555d52941352177cc434d`.
 - [x] Candidate result recorded as passed and validated after squash landing.
-- [x] PR 2 promotion implemented locally on `codex/retrieval-numeric-promotion`; targeted
-  authoritative re-review passed `CLEAN` with 0 findings. Publication remains pending.
+- [x] PR 2 promotion squash merged through
+  [#27](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/27) at
+  `e6ea789dfe256f4df70ad2e6c384753c25fefeca`; targeted authoritative re-review
+  passed `CLEAN` with 0 findings.
+- [x] Post-merge CI passed on Python 3.12/3.13 and post-merge CodeQL passed for actions/python.
+- [x] E2 comparison and promotion stages are complete.
 - [x] Durable review finalized with merge evidence. Dependency PR
   [#22](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/22) refreshed the
   protocol/artifact dependency identities without changing candidate results.
@@ -1138,6 +1144,7 @@ Python 3.12/3.13 offline installed-wheel proofs passing, and passing build, CLI 
 **CODEX:** Independent Codex voices completed CEO, engineering, DX, and targeted re-review; no
 parallel reviewer was used.
 
-**VERDICT:** CEO + ENG + DX CLEARED — ready for a separate implementation window.
+**VERDICT:** E2 COMPLETE — PR 1 comparison and PR 2 promotion are squash merged; authoritative
+review, targeted re-review, post-merge CI, and post-merge CodeQL are clear.
 
 NO UNRESOLVED DECISIONS
