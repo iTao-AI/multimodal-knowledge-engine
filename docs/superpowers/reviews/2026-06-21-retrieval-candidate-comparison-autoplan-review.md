@@ -3,8 +3,8 @@
 ## Status
 
 - Result: PR 1 merged after targeted authoritative re-review passed `CLEAN` with 0 findings; PR 2
-  promotion is implemented locally and its authoritative review findings are remediated pending
-  targeted re-review.
+  promotion is implemented locally and its targeted authoritative re-review also passed `CLEAN`
+  with 0 findings.
 - Review mode: CEO scope hold, full engineering review, and DX polish.
 - Independent voice: Codex CLI; no parallel reviewer was used.
 - Design review: skipped because E2 has no graphical interface.
@@ -22,7 +22,8 @@
 - Allowed E1 delta: `water-answerable-01` improved from no hit to rank 1.
 - Artifact:
   `benchmarks/retrieval/numeric-grouping-v1-comparison.json`.
-- Runtime default remains `current`; PR 2 and ADR-0007 were not implemented.
+- At PR 1 closeout, the runtime default remained `current`; PR 2 and ADR-0007 had not yet been
+  implemented.
 - All six evaluations, compiled queries, and gates use one protocol-bound immutable snapshot.
 - `single_match_per_search` uses traced SQL evidence; `scope_fence` uses protocol-bound
   dependency/execution identities plus observed schema and local-provider identities.
@@ -61,7 +62,8 @@ PR 1 merge-backed evidence is complete. Dependency PR
 [#22](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/22), squash merge
 `8d4c267ca078a6a1b209e4da335c7207817b774d`, refreshed the frozen protocol hashes for
 `pyproject.toml` and `uv.lock` and re-recorded the artifact's protocol binding. Candidate metrics,
-ordered observations, gates, and verdict did not change. No PR 2 was created.
+ordered observations, gates, and verdict did not change. At that PR 1 closeout point, no PR 2 had
+been created.
 
 ## Authoritative Implementation Review Remediation
 
@@ -222,6 +224,20 @@ fixture identity and exact text
 | Installed-wheel dependency installation was allowed to access the network despite the approved offline proof. | Confirmed | `uv pip install --offline` runs with `UV_OFFLINE=1`. A nonzero offline resolution result is fail-closed, and Python 3.12/3.13 proofs pass from cache. |
 | Numeric comparison help retained PR 1 wording after promotion. | Confirmed | Help now states that the runtime default is `numeric-grouping-v1`, while preserving comparison-only, public-holdout, and protocol-owned boundaries. |
 
+## PR 2 Targeted Re-review Evidence
+
+| Check | Result |
+|---|---|
+| Targeted tests | `172 passed` |
+| E1 baseline validator | passed |
+| Numeric artifact validator | passed; 14/14 gates |
+| Python 3.12 offline installed-wheel CLI/MCP proof | passed |
+| Python 3.13 offline installed-wheel CLI/MCP proof | passed |
+| Build | passed |
+| CLI help contract | passed |
+| `git diff --check` | passed |
+| Targeted authoritative re-review | `CLEAN`; 0 findings |
+
 ## Current Verdict
 
 PR 1 remains merged through
@@ -229,5 +245,6 @@ PR 1 remains merged through
 authoritative re-review passed `CLEAN` with 0 findings. PR 2 promotes `numeric-grouping-v1` as the
 runtime default through ADR-0007, retains `current` for owner-controlled rollback, and requires no
 migration or index rebuild. The three PR 2 authoritative review findings above are remediated
-locally with RED/GREEN regression evidence. Publication remains blocked on targeted re-review and
-explicit user authorization.
+locally with RED/GREEN regression evidence, and the targeted re-review passed `CLEAN` with 0
+findings. PR 2 remains local: it has not been pushed, created, or merged. Publication remains
+blocked on explicit user authorization.

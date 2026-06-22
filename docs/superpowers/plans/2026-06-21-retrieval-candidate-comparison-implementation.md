@@ -1065,7 +1065,10 @@ Execution-window note (2026-06-22): the documentation audit completed locally. T
 authoritative `gstack-review` reported three findings: promoted installed-wheel paths overrode the
 policy instead of proving the default, installation was not offline, and numeric comparison help
 retained PR 1 wording. All three were reproduced with regression tests and remediated locally.
-Targeted re-review remains pending; no push or PR was created.
+The targeted re-review passed `CLEAN` with 0 findings. Its evidence recorded 172 passing targeted
+tests, passing E1 baseline and numeric artifact validators, all 14/14 numeric gates passing,
+Python 3.12/3.13 offline installed-wheel proofs passing, and passing build, CLI help contract, and
+`git diff --check`. No push or PR was created.
 
 ---
 
@@ -1075,8 +1078,8 @@ Targeted re-review remains pending; no push or PR was created.
   [#25](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/25) at
   `1c27afc12eb3a3dd0d1555d52941352177cc434d`.
 - [x] Candidate result recorded as passed and validated after squash landing.
-- [x] PR 2 promotion implemented locally on `codex/retrieval-numeric-promotion`; publication and
-  targeted authoritative re-review remains pending.
+- [x] PR 2 promotion implemented locally on `codex/retrieval-numeric-promotion`; targeted
+  authoritative re-review passed `CLEAN` with 0 findings. Publication remains pending.
 - [x] Durable review finalized with merge evidence. Dependency PR
   [#22](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/22) refreshed the
   protocol/artifact dependency identities without changing candidate results.
