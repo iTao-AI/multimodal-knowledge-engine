@@ -1065,11 +1065,14 @@ push/PR until authorized.
 
 ## Plan Completion Record
 
-- [ ] PR 1 comparison merged.
-- [x] Candidate result recorded as passed on the local PR 1 branch.
+- [x] PR 1 comparison merged through
+  [#25](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/25) at
+  `1c27afc12eb3a3dd0d1555d52941352177cc434d`.
+- [x] Candidate result recorded as passed and validated after squash landing.
 - [x] PR 2 promotion explicitly not created; promotion remains outside this implementation.
-- [ ] Durable review finalized with merge commit evidence; local implementation evidence is
-  current and targeted re-review is cleared, but PR creation and merge remain pending.
+- [x] Durable review finalized with merge evidence. Dependency PR
+  [#22](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/22) refreshed the
+  protocol/artifact dependency identities without changing candidate results.
 
 ## Authoritative Review Remediation
 

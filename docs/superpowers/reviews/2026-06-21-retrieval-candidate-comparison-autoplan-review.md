@@ -2,13 +2,14 @@
 
 ## Status
 
-- Result: PR 1 implemented locally; targeted authoritative re-review passed `CLEAN` with
-  0 findings.
+- Result: PR 1 merged after targeted authoritative re-review passed `CLEAN` with 0 findings.
 - Review mode: CEO scope hold, full engineering review, and DX polish.
 - Independent voice: Codex CLI; no parallel reviewer was used.
 - Design review: skipped because E2 has no graphical interface.
 - Baseline: `main@e3a3f3656be8889e8e54e06a1de09ebd6412384f`.
-- Merge status: local branch only; no PR, push, merge commit, PR 2, or ADR-0007 exists.
+- Merge status: PR
+  [#25](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/25) squash merged at
+  `1c27afc12eb3a3dd0d1555d52941352177cc434d`. PR 2 and ADR-0007 were not created.
 
 ## Implementation Evidence
 
@@ -48,14 +49,17 @@
 Artifact identities:
 
 - comparison artifact SHA-256:
-  `60e2d8a974942d572f40ea50e811785096c2823e13439b6eb1d8c8f8ceebf2d6`;
+  `019ad6aae0d1a46b3784eee64ea7f220488b530daef5ee40f0d7a7d78802d361`;
 - complete source content SHA-256:
   `ba17dad428445548888bd8ebd6f0dc64b3b43594250c401f6a63d34dcca44f8b`;
 - protocol lock SHA-256:
-  `1c82bcecb59c6dfa8b7afddf5bf2a7fc311d155c43f02784c1f0384c3d37aa47`.
+  `5ab8505c41a8be561654392f756d78853a52d55a684004ee481c275a6e26f4d9`.
 
-The branch remains local and unmerged. The completion record intentionally leaves PR 1 merge and
-merge-backed durable evidence unchecked. No PR 2 was created.
+PR 1 merge-backed evidence is complete. Dependency PR
+[#22](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/22), squash merge
+`8d4c267ca078a6a1b209e4da335c7207817b774d`, refreshed the frozen protocol hashes for
+`pyproject.toml` and `uv.lock` and re-recorded the artifact's protocol binding. Candidate metrics,
+ordered observations, gates, and verdict did not change. No PR 2 was created.
 
 ## Authoritative Implementation Review Remediation
 
@@ -65,7 +69,7 @@ merge-backed durable evidence unchecked. No PR 2 was created.
 | Artifact validation accepted self-consistent malformed nested payloads. | The validator now enforces exact nested schemas and reconstructs result, locator, count, metric, compiled-query, gate, and verdict consistency from the frozen protocol. | Missing fields, wrong types, reversed order, inconsistent counts/metrics, and reordered compiled queries fail. |
 | `single_match_per_search` and `scope_fence` were constants. | Evaluation evidence records actual per-Search FTS5 `MATCH` counts, SQLite schema identity, and concrete PDF/sidecar provider identities; the protocol binds dependency and execution source identities. | Injected two-MATCH evidence rejects `single_match_per_search`; an invalid schema identity rejects `scope_fence`. |
 | Numeric nondeterminism lost its fixed public mapping. | Any evaluator `retrieval_eval_nondeterministic` failure maps to `retrieval_numeric_nondeterministic`, fixed cause, and fixed next step. | Dedicated redaction-safe mapping regression passes. |
-| Completion and durable review state were premature. | Local result, targeted re-review, PR creation, merge, PR 2, and merge-backed evidence are now represented separately. | Targeted re-review passed with 0 findings; PR 1 merge remains unchecked. |
+| Completion and durable review state were premature. | Local result, targeted re-review, PR creation, merge, PR 2, and merge-backed evidence are represented separately. | Targeted re-review passed with 0 findings; this closeout records the later PR 1 merge evidence. |
 
 ## Targeted Re-review Remediation
 
@@ -75,7 +79,7 @@ merge-backed durable evidence unchecked. No PR 2 was created.
 | Nested integer fields accepted JSON booleans through Python equality. | Revisions, corpus/category counts, result counts, relevance counts, ranks, locators, and metric counts now use explicit non-bool integer parsing with bounded ranges. | Self-consistent bool mutations across eight integer/count/rank positions are rejected. |
 | Retrieved locators could name documents outside the frozen manifest. | Locator validation now receives the corresponding manifest document inventory and rejects any unknown `document_id`. | Adding the same `not-in-manifest` locator to both sides of a preserved control is rejected. |
 | Protocol candidate revision accepted `true` as revision `1`. | Protocol loading now requires a non-bool integer revision exactly equal to `1` before fixture access or evaluation. | A protocol with `candidate.revision=true` returns the fixed protocol-invalid result. |
-| The durable review ended with an implementation-window Verdict. | The tail now reports the actual local implementation and verification state while keeping PR and merge status pending. | Plan completion records targeted re-review as cleared and preserves the remaining PR/merge gates. |
+| The durable review ended with an implementation-window Verdict. | The tail reports the actual implementation, verification, and merge state. | Plan completion records targeted re-review as cleared, PR 1 as merged, and PR 2 as explicitly not created. |
 
 ## Executive Verdict
 
@@ -200,7 +204,6 @@ fixture identity and exact text
 
 ## Remaining Risks
 
-- PR creation and merge remain pending; no merge-backed evidence exists yet.
 - The public holdout is independently authored and locked, but not blind.
 - Five answerable controls per partition are engineering evidence, not statistical inference.
 - The candidate only covers ASCII compact integers with conventional three-digit right grouping.
@@ -211,8 +214,10 @@ fixture identity and exact text
 
 ## Current Verdict
 
-PR 1 is implemented locally, and the targeted authoritative re-review passed `CLEAN` with
-0 findings. The numeric artifact validator independently recomputes every derivable promotion gate
-and rejects bool-as-int nested values with explicit integer ranges. Full verification and refreshed
-artifact identities are recorded above. Runtime default remains `current`; PR creation and merge
-remain pending, and no PR 2, ADR-0007, push, PR, or merge exists.
+PR 1 is merged through
+[#25](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/25), and its targeted
+authoritative re-review passed `CLEAN` with 0 findings. The numeric artifact validator independently
+recomputes every derivable promotion gate and rejects bool-as-int nested values with explicit
+integer ranges. PR #22 subsequently refreshed dependency-bound protocol/artifact identities
+without changing the candidate result. Runtime default remains `current`; no PR 2 or ADR-0007
+exists.
