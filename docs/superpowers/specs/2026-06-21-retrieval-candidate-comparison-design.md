@@ -2,7 +2,7 @@
 
 ## Status
 
-- Stage: PR 1 implemented locally; candidate passed comparison gates.
+- Stage: PR 1 merged; candidate passed comparison gates.
 - Slice: E2.
 - Design date: 2026-06-21.
 - Baseline: `main@e3a3f3656be8889e8e54e06a1de09ebd6412384f`.
@@ -18,6 +18,12 @@
 - Reviewed artifact:
   `benchmarks/retrieval/numeric-grouping-v1-comparison.json`.
 - Runtime default: unchanged at `current`.
+- PR 1: [#25](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/25),
+  squash merge `1c27afc12eb3a3dd0d1555d52941352177cc434d`.
+- Dependency follow-up: PR
+  [#22](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/22) refreshed only the
+  protocol-bound dependency identities and canonical artifact binding; metrics, observations,
+  gates, and verdict remained unchanged.
 
 This result permits a separately reviewed PR 2. It does not itself approve ADR-0007 or a default
 policy change.
