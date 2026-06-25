@@ -1,0 +1,1022 @@
+{
+  "schema_version": "mke.retrieval_chinese_protocol.v1",
+  "protocol_id": "retrieval-chinese-v1",
+  "rank_probe_query_id": "zh-dev-exact-02",
+  "qrel_adjudication": {
+    "path": "qrel-adjudication.json",
+    "sha256": "b638a7729725d495e809bb52a93b071e65a51b0f0ebcb218d3ee3298a04bd0c4"
+  },
+  "documents": [
+    {
+      "document_id": "ub-service-core",
+      "split": "development",
+      "media_type": "application/pdf",
+      "primary_file": {
+        "path": "development/ub-service-core-2.0-zh.pdf",
+        "bytes": 1168641,
+        "sha256": "13e8f1da824de892931653e17df2a8b20f77fe84b2a7472b13113405efbf296d"
+      },
+      "supporting_files": []
+    },
+    {
+      "document_id": "development-adversarial",
+      "split": "development",
+      "media_type": "application/pdf",
+      "primary_file": {
+        "path": "development/adversarial.pdf",
+        "bytes": 4350,
+        "sha256": "be3b88352b0a80d6d165de146ff81be224b706d3eb3721d969266e64505af8dd"
+      },
+      "supporting_files": []
+    },
+    {
+      "document_id": "copyright-law",
+      "split": "holdout",
+      "media_type": "application/pdf",
+      "primary_file": {
+        "path": "holdout/copyright-law-2020.pdf",
+        "bytes": 182479,
+        "sha256": "e1217f1df0bb98586a883819505f17a29140fb114ce5f1a444ea0a60d22c9d2b"
+      },
+      "supporting_files": []
+    },
+    {
+      "document_id": "administrative-compulsion-law",
+      "split": "holdout",
+      "media_type": "application/pdf",
+      "primary_file": {
+        "path": "holdout/administrative-compulsion-law-2011.pdf",
+        "bytes": 198629,
+        "sha256": "80d1a49a1641f73f53df7f2cfe008b4f8e8419a538f37d183f9758ec52e90d0d"
+      },
+      "supporting_files": []
+    },
+    {
+      "document_id": "holdout-adversarial",
+      "split": "holdout",
+      "media_type": "application/pdf",
+      "primary_file": {
+        "path": "holdout/adversarial.pdf",
+        "bytes": 4399,
+        "sha256": "52d2319515195c7a0b8572f4a6f86eec6856cb189a24f3272c2792ad5fe76924"
+      },
+      "supporting_files": []
+    }
+  ],
+  "queries": [
+    {
+      "query_id": "zh-dev-exact-01",
+      "split": "development",
+      "category": "chinese_exact_lexical",
+      "text": "MemFabric 内存统一编址 数据访问",
+      "qrels": [
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 13,
+          "locator_end": 13,
+          "grade": 2
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 14,
+          "locator_end": 14,
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "query_id": "zh-dev-exact-02",
+      "split": "development",
+      "category": "chinese_exact_lexical",
+      "text": "HCOM 高带宽 低延迟 通信框架",
+      "qrels": [
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 16,
+          "locator_end": 16,
+          "grade": 1
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 17,
+          "locator_end": 17,
+          "grade": 2
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 26,
+          "locator_end": 26,
+          "grade": 0
+        }
+      ]
+    },
+    {
+      "query_id": "zh-dev-exact-03",
+      "split": "development",
+      "category": "chinese_exact_lexical",
+      "text": "UBS IO 全局数据读写缓存",
+      "qrels": [
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 6,
+          "locator_end": 6,
+          "grade": 0
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 19,
+          "locator_end": 19,
+          "grade": 2
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 20,
+          "locator_end": 20,
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "query_id": "zh-dev-exact-04",
+      "split": "development",
+      "category": "chinese_exact_lexical",
+      "text": "蓝湖缓存服务 不完整索引",
+      "qrels": [
+        {
+          "document_id": "development-adversarial",
+          "locator_kind": "page",
+          "locator_start": 5,
+          "locator_end": 5,
+          "grade": 2
+        },
+        {
+          "document_id": "development-adversarial",
+          "locator_kind": "page",
+          "locator_start": 6,
+          "locator_end": 6,
+          "grade": 0
+        }
+      ]
+    },
+    {
+      "query_id": "zh-dev-boundary-01",
+      "split": "development",
+      "category": "chinese_word_boundary",
+      "text": "高阶服务软件架构分成几层",
+      "qrels": [
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 7,
+          "locator_end": 7,
+          "grade": 1
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 8,
+          "locator_end": 8,
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "query_id": "zh-dev-boundary-02",
+      "split": "development",
+      "category": "chinese_word_boundary",
+      "text": "共享内存服务由哪个组件提供",
+      "qrels": [
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 13,
+          "locator_end": 13,
+          "grade": 2
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 14,
+          "locator_end": 14,
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "query_id": "zh-dev-boundary-03",
+      "split": "development",
+      "category": "chinese_word_boundary",
+      "text": "来源校验通过且索引构建完成",
+      "qrels": [
+        {
+          "document_id": "development-adversarial",
+          "locator_kind": "page",
+          "locator_start": 7,
+          "locator_end": 7,
+          "grade": 2
+        },
+        {
+          "document_id": "development-adversarial",
+          "locator_kind": "page",
+          "locator_start": 8,
+          "locator_end": 8,
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "query_id": "zh-dev-mixed-01",
+      "split": "development",
+      "category": "proper_noun_mixed",
+      "text": "UBS Engine 负责什么",
+      "qrels": [
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 10,
+          "locator_end": 10,
+          "grade": 2
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 11,
+          "locator_end": 11,
+          "grade": 1
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 12,
+          "locator_end": 12,
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "query_id": "zh-dev-mixed-02",
+      "split": "development",
+      "category": "proper_noun_mixed",
+      "text": "RoUB 如何迁移 RDMA 应用",
+      "qrels": [
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 16,
+          "locator_end": 16,
+          "grade": 2
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 18,
+          "locator_end": 18,
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "query_id": "zh-dev-mixed-03",
+      "split": "development",
+      "category": "proper_noun_mixed",
+      "text": "DataBridge X7 网关写入什么队列",
+      "qrels": [
+        {
+          "document_id": "development-adversarial",
+          "locator_kind": "page",
+          "locator_start": 3,
+          "locator_end": 3,
+          "grade": 2
+        },
+        {
+          "document_id": "development-adversarial",
+          "locator_kind": "page",
+          "locator_start": 4,
+          "locator_end": 4,
+          "grade": 0
+        }
+      ]
+    },
+    {
+      "query_id": "zh-dev-number-01",
+      "split": "development",
+      "category": "number_date_unit",
+      "text": "应用加速 30 50 百分比",
+      "qrels": [
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 8,
+          "locator_end": 8,
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "query_id": "zh-dev-number-02",
+      "split": "development",
+      "category": "number_date_unit",
+      "text": "3T 以上超大规模虚机",
+      "qrels": [
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 12,
+          "locator_end": 12,
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "query_id": "zh-dev-number-03",
+      "split": "development",
+      "category": "number_date_unit",
+      "text": "45秒 2026年3月15日 240个任务",
+      "qrels": [
+        {
+          "document_id": "development-adversarial",
+          "locator_kind": "page",
+          "locator_start": 1,
+          "locator_end": 1,
+          "grade": 2
+        },
+        {
+          "document_id": "development-adversarial",
+          "locator_kind": "page",
+          "locator_start": 2,
+          "locator_end": 2,
+          "grade": 0
+        }
+      ]
+    },
+    {
+      "query_id": "zh-dev-semantic-01",
+      "split": "development",
+      "category": "semantic_paraphrase",
+      "text": "哪个模块把剩余内存组成全局 IO 缓存池",
+      "qrels": [
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 11,
+          "locator_end": 11,
+          "grade": 2
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 19,
+          "locator_end": 19,
+          "grade": 0
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 20,
+          "locator_end": 20,
+          "grade": 0
+        }
+      ]
+    },
+    {
+      "query_id": "zh-dev-semantic-02",
+      "split": "development",
+      "category": "semantic_paraphrase",
+      "text": "怎样避免虚机因节点内存不足退出",
+      "qrels": [
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 12,
+          "locator_end": 12,
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "query_id": "zh-dev-semantic-03",
+      "split": "development",
+      "category": "semantic_paraphrase",
+      "text": "哪个组件提供多副本强一致低延迟内存存储",
+      "qrels": [
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 13,
+          "locator_end": 13,
+          "grade": 1
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 15,
+          "locator_end": 15,
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "query_id": "zh-dev-semantic-04",
+      "split": "development",
+      "category": "semantic_paraphrase",
+      "text": "节点断开后如何防止发布半成品索引",
+      "qrels": [
+        {
+          "document_id": "development-adversarial",
+          "locator_kind": "page",
+          "locator_start": 5,
+          "locator_end": 5,
+          "grade": 2
+        },
+        {
+          "document_id": "development-adversarial",
+          "locator_kind": "page",
+          "locator_start": 6,
+          "locator_end": 6,
+          "grade": 0
+        }
+      ]
+    },
+    {
+      "query_id": "zh-dev-multi-01",
+      "split": "development",
+      "category": "multi_condition",
+      "text": "哪个通信框架同时屏蔽 RDMA TCP URMA SHM 低级 API 差异",
+      "qrels": [
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 16,
+          "locator_end": 16,
+          "grade": 1
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 17,
+          "locator_end": 17,
+          "grade": 2
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 26,
+          "locator_end": 26,
+          "grade": 0
+        }
+      ]
+    },
+    {
+      "query_id": "zh-dev-multi-02",
+      "split": "development",
+      "category": "multi_condition",
+      "text": "哪个服务同时支持共享内存和池化内存",
+      "qrels": [
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 9,
+          "locator_end": 9,
+          "grade": 2
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 13,
+          "locator_end": 13,
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "query_id": "zh-dev-multi-03",
+      "split": "development",
+      "category": "multi_condition",
+      "text": "什么条件下青岚分析引擎切换活动版本",
+      "qrels": [
+        {
+          "document_id": "development-adversarial",
+          "locator_kind": "page",
+          "locator_start": 7,
+          "locator_end": 7,
+          "grade": 2
+        },
+        {
+          "document_id": "development-adversarial",
+          "locator_kind": "page",
+          "locator_start": 8,
+          "locator_end": 8,
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "query_id": "zh-dev-hard-01",
+      "split": "development",
+      "category": "ranking_hard_negative",
+      "text": "弱一致缓存和强一致存储分别由哪些组件提供",
+      "qrels": [
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 13,
+          "locator_end": 13,
+          "grade": 1
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 14,
+          "locator_end": 14,
+          "grade": 0
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_kind": "page",
+          "locator_start": 15,
+          "locator_end": 15,
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "query_id": "zh-dev-hard-02",
+      "split": "development",
+      "category": "ranking_hard_negative",
+      "text": "哪个星河任务每45秒检查一次",
+      "qrels": [
+        {
+          "document_id": "development-adversarial",
+          "locator_kind": "page",
+          "locator_start": 1,
+          "locator_end": 1,
+          "grade": 2
+        },
+        {
+          "document_id": "development-adversarial",
+          "locator_kind": "page",
+          "locator_start": 2,
+          "locator_end": 2,
+          "grade": 0
+        }
+      ]
+    },
+    {
+      "query_id": "zh-dev-unanswerable-01",
+      "split": "development",
+      "category": "unanswerable",
+      "text": "灵衢系统是否支持量子密钥分发",
+      "qrels": []
+    },
+    {
+      "query_id": "zh-dev-unanswerable-02",
+      "split": "development",
+      "category": "unanswerable",
+      "text": "DataBridge X7 是否提供生物识别登录",
+      "qrels": []
+    },
+    {
+      "query_id": "zh-hold-exact-01",
+      "split": "holdout",
+      "category": "chinese_exact_lexical",
+      "text": "著作权即版权",
+      "qrels": [
+        {
+          "document_id": "copyright-law",
+          "locator_kind": "page",
+          "locator_start": 14,
+          "locator_end": 14,
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "query_id": "zh-hold-exact-02",
+      "split": "holdout",
+      "category": "chinese_exact_lexical",
+      "text": "查封扣押期限不得超过三十日",
+      "qrels": [
+        {
+          "document_id": "administrative-compulsion-law",
+          "locator_kind": "page",
+          "locator_start": 6,
+          "locator_end": 6,
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "query_id": "zh-hold-exact-03",
+      "split": "holdout",
+      "category": "chinese_exact_lexical",
+      "text": "信息网络传播权",
+      "qrels": [
+        {
+          "document_id": "copyright-law",
+          "locator_kind": "page",
+          "locator_start": 3,
+          "locator_end": 3,
+          "grade": 2
+        },
+        {
+          "document_id": "copyright-law",
+          "locator_kind": "page",
+          "locator_start": 14,
+          "locator_end": 14,
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "query_id": "zh-hold-exact-04",
+      "split": "holdout",
+      "category": "chinese_exact_lexical",
+      "text": "冻结决定书三日内交付",
+      "qrels": [
+        {
+          "document_id": "administrative-compulsion-law",
+          "locator_kind": "page",
+          "locator_start": 7,
+          "locator_end": 7,
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "query_id": "zh-hold-boundary-01",
+      "split": "holdout",
+      "category": "chinese_word_boundary",
+      "text": "受委托创作作品未约定归属",
+      "qrels": [
+        {
+          "document_id": "copyright-law",
+          "locator_kind": "page",
+          "locator_start": 5,
+          "locator_end": 5,
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "query_id": "zh-hold-boundary-02",
+      "split": "holdout",
+      "category": "chinese_word_boundary",
+      "text": "教育与强制相结合",
+      "qrels": [
+        {
+          "document_id": "administrative-compulsion-law",
+          "locator_kind": "page",
+          "locator_start": 2,
+          "locator_end": 2,
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "query_id": "zh-hold-boundary-03",
+      "split": "holdout",
+      "category": "chinese_word_boundary",
+      "text": "主副本校验一致且审批通过",
+      "qrels": [
+        {
+          "document_id": "holdout-adversarial",
+          "locator_kind": "page",
+          "locator_start": 5,
+          "locator_end": 5,
+          "grade": 2
+        },
+        {
+          "document_id": "holdout-adversarial",
+          "locator_kind": "page",
+          "locator_start": 6,
+          "locator_end": 6,
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "query_id": "zh-hold-mixed-01",
+      "split": "holdout",
+      "category": "proper_noun_mixed",
+      "text": "AuditNode R5 日志保留期",
+      "qrels": [
+        {
+          "document_id": "holdout-adversarial",
+          "locator_kind": "page",
+          "locator_start": 1,
+          "locator_end": 1,
+          "grade": 2
+        },
+        {
+          "document_id": "holdout-adversarial",
+          "locator_kind": "page",
+          "locator_start": 2,
+          "locator_end": 2,
+          "grade": 0
+        }
+      ]
+    },
+    {
+      "query_id": "zh-hold-mixed-02",
+      "split": "holdout",
+      "category": "proper_noun_mixed",
+      "text": "RouteKey ZH-2048 跨区域路由",
+      "qrels": [
+        {
+          "document_id": "holdout-adversarial",
+          "locator_kind": "page",
+          "locator_start": 3,
+          "locator_end": 3,
+          "grade": 2
+        },
+        {
+          "document_id": "holdout-adversarial",
+          "locator_kind": "page",
+          "locator_start": 4,
+          "locator_end": 4,
+          "grade": 0
+        }
+      ]
+    },
+    {
+      "query_id": "zh-hold-mixed-03",
+      "split": "holdout",
+      "category": "proper_noun_mixed",
+      "text": "PolicySync V2 何时上报心跳",
+      "qrels": [
+        {
+          "document_id": "holdout-adversarial",
+          "locator_kind": "page",
+          "locator_start": 7,
+          "locator_end": 7,
+          "grade": 2
+        },
+        {
+          "document_id": "holdout-adversarial",
+          "locator_kind": "page",
+          "locator_start": 8,
+          "locator_end": 8,
+          "grade": 0
+        }
+      ]
+    },
+    {
+      "query_id": "zh-hold-number-01",
+      "split": "holdout",
+      "category": "number_date_unit",
+      "text": "30日 查封扣押 延长期限",
+      "qrels": [
+        {
+          "document_id": "administrative-compulsion-law",
+          "locator_kind": "page",
+          "locator_start": 6,
+          "locator_end": 6,
+          "grade": 2
+        },
+        {
+          "document_id": "administrative-compulsion-law",
+          "locator_kind": "page",
+          "locator_start": 7,
+          "locator_end": 7,
+          "grade": 0
+        }
+      ]
+    },
+    {
+      "query_id": "zh-hold-number-02",
+      "split": "holdout",
+      "category": "number_date_unit",
+      "text": "1倍 5倍 故意侵权赔偿",
+      "qrels": [
+        {
+          "document_id": "copyright-law",
+          "locator_kind": "page",
+          "locator_start": 12,
+          "locator_end": 12,
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "query_id": "zh-hold-number-03",
+      "split": "holdout",
+      "category": "number_date_unit",
+      "text": "12秒 320条 2025年11月8日",
+      "qrels": [
+        {
+          "document_id": "holdout-adversarial",
+          "locator_kind": "page",
+          "locator_start": 7,
+          "locator_end": 7,
+          "grade": 2
+        },
+        {
+          "document_id": "holdout-adversarial",
+          "locator_kind": "page",
+          "locator_start": 8,
+          "locator_end": 8,
+          "grade": 0
+        }
+      ]
+    },
+    {
+      "query_id": "zh-hold-semantic-01",
+      "split": "holdout",
+      "category": "semantic_paraphrase",
+      "text": "非强制手段能达到目的时怎么办",
+      "qrels": [
+        {
+          "document_id": "administrative-compulsion-law",
+          "locator_kind": "page",
+          "locator_start": 2,
+          "locator_end": 2,
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "query_id": "zh-hold-semantic-02",
+      "split": "holdout",
+      "category": "semantic_paraphrase",
+      "text": "查封扣押保管费用由谁承担",
+      "qrels": [
+        {
+          "document_id": "administrative-compulsion-law",
+          "locator_kind": "page",
+          "locator_start": 6,
+          "locator_end": 6,
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "query_id": "zh-hold-semantic-03",
+      "split": "holdout",
+      "category": "semantic_paraphrase",
+      "text": "委托作品没有合同约定归谁",
+      "qrels": [
+        {
+          "document_id": "copyright-law",
+          "locator_kind": "page",
+          "locator_start": 5,
+          "locator_end": 5,
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "query_id": "zh-hold-semantic-04",
+      "split": "holdout",
+      "category": "semantic_paraphrase",
+      "text": "版权和著作权是不是同一个概念",
+      "qrels": [
+        {
+          "document_id": "copyright-law",
+          "locator_kind": "page",
+          "locator_start": 14,
+          "locator_end": 14,
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "query_id": "zh-hold-multi-01",
+      "split": "holdout",
+      "category": "multi_condition",
+      "text": "冻结金额应当相当且不得重复冻结",
+      "qrels": [
+        {
+          "document_id": "administrative-compulsion-law",
+          "locator_kind": "page",
+          "locator_start": 7,
+          "locator_end": 7,
+          "grade": 2
+        },
+        {
+          "document_id": "administrative-compulsion-law",
+          "locator_kind": "page",
+          "locator_start": 8,
+          "locator_end": 8,
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "query_id": "zh-hold-multi-02",
+      "split": "holdout",
+      "category": "multi_condition",
+      "text": "合理使用作品时必须满足哪些限制",
+      "qrels": [
+        {
+          "document_id": "copyright-law",
+          "locator_kind": "page",
+          "locator_start": 6,
+          "locator_end": 6,
+          "grade": 2
+        },
+        {
+          "document_id": "copyright-law",
+          "locator_kind": "page",
+          "locator_start": 7,
+          "locator_end": 7,
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "query_id": "zh-hold-multi-03",
+      "split": "holdout",
+      "category": "multi_condition",
+      "text": "松涛归档器发布索引需要同时满足什么条件",
+      "qrels": [
+        {
+          "document_id": "holdout-adversarial",
+          "locator_kind": "page",
+          "locator_start": 5,
+          "locator_end": 5,
+          "grade": 2
+        },
+        {
+          "document_id": "holdout-adversarial",
+          "locator_kind": "page",
+          "locator_start": 6,
+          "locator_end": 6,
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "query_id": "zh-hold-hard-01",
+      "split": "holdout",
+      "category": "ranking_hard_negative",
+      "text": "延长查封扣押期限需要什么程序",
+      "qrels": [
+        {
+          "document_id": "administrative-compulsion-law",
+          "locator_kind": "page",
+          "locator_start": 6,
+          "locator_end": 6,
+          "grade": 2
+        },
+        {
+          "document_id": "administrative-compulsion-law",
+          "locator_kind": "page",
+          "locator_start": 7,
+          "locator_end": 7,
+          "grade": 0
+        },
+        {
+          "document_id": "administrative-compulsion-law",
+          "locator_kind": "page",
+          "locator_start": 8,
+          "locator_end": 8,
+          "grade": 0
+        }
+      ]
+    },
+    {
+      "query_id": "zh-hold-hard-02",
+      "split": "holdout",
+      "category": "ranking_hard_negative",
+      "text": "哪个北辰代理每12秒上报心跳",
+      "qrels": [
+        {
+          "document_id": "holdout-adversarial",
+          "locator_kind": "page",
+          "locator_start": 7,
+          "locator_end": 7,
+          "grade": 2
+        },
+        {
+          "document_id": "holdout-adversarial",
+          "locator_kind": "page",
+          "locator_start": 8,
+          "locator_end": 8,
+          "grade": 0
+        }
+      ]
+    },
+    {
+      "query_id": "zh-hold-unanswerable-01",
+      "split": "holdout",
+      "category": "unanswerable",
+      "text": "著作权法是否要求区块链存证使用国密算法",
+      "qrels": []
+    },
+    {
+      "query_id": "zh-hold-unanswerable-02",
+      "split": "holdout",
+      "category": "unanswerable",
+      "text": "AuditNode R5 是否支持人脸识别",
+      "qrels": []
+    }
+  ]
+}
