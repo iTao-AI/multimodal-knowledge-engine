@@ -1,6 +1,9 @@
 # Chinese Retrieval Baseline Implementation Plan
 
-**Status:** Implemented through Task 10; Task 11 final verification and handoff pending.
+**Status:** Completed locally on `codex/e3a-chinese-retrieval-baseline`; stopped before push/PR.
+
+**Completion:** Tasks 1–11 were executed. The inline checkboxes below are retained as the approved
+historical execution procedure, not as pending work.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use

@@ -4,8 +4,7 @@
 
 - Review type: lightweight pre-handoff self-review.
 - Scope: E3-A only.
-- Result: implementation matches the approved HOLD SCOPE plan; final Task 11 verification remains
-  to be recorded before PR preparation.
+- Result: implementation and Task 11 verification match the approved HOLD SCOPE plan.
 - Branch: `codex/e3a-chinese-retrieval-baseline`.
 - Base: `89deeab`.
 
@@ -41,6 +40,45 @@
 
 No unresolved scope or architecture decision was found. Final authoritative `gstack-review` is
 deliberately deferred to the PR preparation window.
+
+## Verification
+
+- Targeted E3-A suite: `166 passed`.
+- Full suite: `802 passed, 1 skipped`.
+- `uv run ruff check .`: passed.
+- `uv run pyright`: `0 errors`.
+- `uv build`: sdist and wheel built.
+- E1, E2, and E3-A commands plus all three artifact validators: passed.
+- E1 and E2 final observations are semantically equal to the pre-refresh observations after
+  excluding runtime duration only.
+- `uv run mke proof run --json`: `8/8` passed.
+- `uv run mke demo --verify`: passed.
+- Offline installed-wheel proof: Python 3.12 in `3621 ms`; Python 3.13 in `4158 ms`.
+- Python 3.12 measurement: sync `12 ms`, evaluator `525 ms`, first report `537 ms`, wheel proof
+  `2959 ms`, peak RSS `213893120` bytes, maximum SQLite `910552` bytes.
+- Python 3.13 measurement: sync `12 ms`, evaluator `532 ms`, first report `544 ms`, wheel proof
+  `3005 ms`, peak RSS `213565440` bytes, maximum SQLite `807552` bytes.
+- All fixed time, RSS, and SQLite budgets passed.
+- CI YAML, changed-doc links, public-boundary scan, and `git diff --check`: passed.
+
+## Artifact Identity
+
+- E3-A artifact SHA-256:
+  `b9fd67678c9f1ac6ad3391e51f9f43affd85b4dabc9d87c646244e401a053136`.
+- Protocol SHA-256:
+  `00f72934018a52b5b5f5591fba119050882aee9b782e5dac199702b0cf995944`.
+- Qrel adjudication SHA-256:
+  `b638a7729725d495e809bb52a93b071e65a51b0f0ebcb218d3ee3298a04bd0c4`.
+- All 30 observed grade-`2` misses contain a mechanical miss-symptom classification.
+
+## Remaining Risks
+
+- The corpus is small, public, text-layer-only, and page-level; the holdout is not blind.
+- Current query compilation is ASCII-oriented, producing zero Recall@5 for the 27-query
+  zero-ASCII-token stratum.
+- E3-B eligibility is a planning gate, not authorization to implement or promote a candidate.
+- Cross-platform SQLite determinism is covered by Python 3.12/3.13 CI and local proof, not every
+  SQLite build.
 
 ## Documentation Audit
 
