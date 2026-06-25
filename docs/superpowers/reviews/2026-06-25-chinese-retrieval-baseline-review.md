@@ -5,7 +5,7 @@
 - Review type: lightweight pre-handoff self-review.
 - Scope: E3-A only.
 - Result: implementation and Task 11 verification match the approved HOLD SCOPE plan.
-- Follow-up: six findings across two targeted review passes were verified and closed with TDD;
+- Follow-up: seven findings across three targeted review passes were verified and closed with TDD;
   no complete `gstack-review` was repeated in this implementation window.
 - Branch: `codex/e3a-chinese-retrieval-baseline`.
 - Base: `89deeab`.
@@ -75,11 +75,19 @@ deliberately deferred to the PR preparation window.
    partition inventory and Search prefix, then independently recomputes every non-empty query's
    result count, ordered identity digest, and score-pair digest. Adversarial re-record tests mutate
    arbitrary non-probe counts and digests and require rejection.
+7. The complete scorer fields were still treated as their own expected evidence: coordinated
+   changes to a score or locator plus every dependent result and digest could pass. The validator
+   now extracts frozen page text, creates separate development and holdout databases with the
+   production `SQLiteStore` schema, directly fills domain/projection rows without normal ingest,
+   recompiles each query, and replays the production full-result `rank`/`bm25()` diagnostic.
+   Observed locator order and exact score pairs must equal that independent replay before their
+   digests are accepted. Regression tests coordinate score-plus-digest and
+   locator-plus-result-plus-score-plus-digest mutations; both fail.
 
 ## Verification
 
-- Targeted E3-A suite: `187 passed`.
-- Full suite: `823 passed, 1 skipped`.
+- Targeted E3-A suite: `186 passed`.
+- Full suite: `825 passed, 1 skipped`.
 - `uv run ruff check .`: passed.
 - `uv run pyright`: `0 errors`.
 - `uv build`: sdist and wheel built.
@@ -88,20 +96,20 @@ deliberately deferred to the PR preparation window.
   excluding runtime duration only.
 - `uv run mke proof run --json`: `8/8` passed.
 - `uv run mke demo --verify`: passed.
-- Offline installed-wheel proof: Python 3.12 in `3460 ms`; Python 3.13 in `3782 ms`.
+- Offline installed-wheel proof: Python 3.12 in `3812 ms`; Python 3.13 in `3581 ms`.
 - Chinese artifact validation passed in isolated Python 3.12 and 3.13 environments using the same
   checked-in artifact and observed report.
-- Python 3.12 measurement: sync `12 ms`, evaluator `525 ms`, first report `537 ms`, wheel proof
-  `2959 ms`, peak RSS `213893120` bytes, maximum SQLite `910552` bytes.
-- Python 3.13 measurement: sync `12 ms`, evaluator `532 ms`, first report `544 ms`, wheel proof
-  `3005 ms`, peak RSS `213565440` bytes, maximum SQLite `807552` bytes.
+- Python 3.12 measurement: sync `15 ms`, evaluator `613 ms`, first report `628 ms`, wheel proof
+  `3496 ms`, peak RSS `213843968` bytes, maximum SQLite `844632` bytes.
+- Python 3.13 measurement: sync `16 ms`, evaluator `627 ms`, first report `643 ms`, wheel proof
+  `3584 ms`, peak RSS `206880768` bytes, maximum SQLite `910552` bytes.
 - All fixed time, RSS, and SQLite budgets passed.
 - CI YAML, changed-doc links, public-boundary scan, and `git diff --check`: passed.
 
 ## Artifact Identity
 
 - E3-A artifact SHA-256:
-  `e8b9546c4a3de1dcc8a499e05a3cf0ba4432e86291defe6f536098eed3e58704`.
+  `da9eee5495aa440e02c09ccd92b3c491a6e27f3ad123aee97d0c96a11d4c1a7a`.
 - Protocol SHA-256:
   `00f72934018a52b5b5f5591fba119050882aee9b782e5dac199702b0cf995944`.
 - Qrel adjudication SHA-256:

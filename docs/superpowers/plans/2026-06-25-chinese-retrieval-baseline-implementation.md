@@ -5,7 +5,7 @@
 **Completion:** Tasks 1–11 were executed. The inline checkboxes below are retained as the approved
 historical execution procedure, not as pending work.
 
-**Review follow-up:** Six implementation findings returned across two targeted review passes were
+**Review follow-up:** Seven implementation findings returned across three targeted review passes were
 verified and remediated with TDD. Canonical environment validation now compares the artifact
 against an exact repository-derived contract sourced from `pyproject.toml`, the CI Python matrix,
 `uv.lock`, and the approved SQLite rank profile; well-formed but impossible version mutations
@@ -14,10 +14,14 @@ runtimes. Rank proof requires real production-equivalent SQL traces, complete re
 non-empty predeclared probe, and Search-prefix equality. The canonical report also records enough
 scorer evidence for the artifact validator to independently recompute every non-empty query's
 result count, ordered Evidence identity digest, and rank/`bm25()` score-pair digest without
-re-ingestion. Artifact recording independently recomputes miss classifications while enforcing
-partition locator inventory and strict JSON scalar types; qrel `review_date` is locked to the
-approved `2026-06-25` record. The E1, E2, and E3-A canonical artifacts were refreshed through the
-durable recovery journal with semantic observations unchanged.
+re-ingestion. Validation does not derive expected rank evidence from those report fields: it
+extracts frozen partition page text, directly fills the production `SQLiteStore` schema without
+normal ingest, replays every non-empty compiled query through the production rank diagnostic, and
+compares the complete locator order and exact rank/`bm25()` score pairs before checking digests.
+Artifact recording independently recomputes miss classifications while enforcing partition
+locator inventory and strict JSON scalar types; qrel `review_date` is locked to the approved
+`2026-06-25` record. The E1, E2, and E3-A canonical artifacts were refreshed through the durable
+recovery journal with semantic observations unchanged.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use
@@ -1365,6 +1369,13 @@ Require:
   query/document/page judgment inventory, derived count, qrels, and review status;
 - the artifact records, for every non-empty compiled query, result count, ordered Evidence-ID
   digest, rank/bm25 score-pair digest, and absent-override observation; mutation fails validation;
+- the validator independently rebuilds one production-schema FTS5 projection per frozen corpus
+  partition directly from extracted fixture page text, recompiles each query with
+  `numeric-grouping-v1`, and replays the complete production rank/`bm25()` diagnostic without
+  normal ingest or observed-rank inputs;
+- validation compares the replayed complete locator order and exact score pairs before validating
+  their digests; coordinated score-plus-digest and locator-plus-result-plus-score-plus-digest
+  mutations fail;
 - validation labels this as adjudication-record and scorer-evidence integrity, not independent
   machine proof that human relevance grades are semantically correct;
 - validation works after squash landing in a shallow fresh clone without feature commit ancestry;
