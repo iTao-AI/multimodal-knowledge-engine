@@ -48,7 +48,7 @@
     "integrity_claim": "adjudication_record_integrity"
   },
   "source_identity": {
-    "sha256": "b90a9224f5698733ed6686d16a9b9d967619b2e8138af459ecf6215d9dabc593",
+    "sha256": "2917dc906f4c5c111ee7dd737d7b904e0e664aadb30f12ece61c82eae01ac958",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -147,8 +147,8 @@
       },
       {
         "path": "src/mke/evaluation/chinese_artifact.py",
-        "bytes": 32491,
-        "sha256": "a2c8149d7115ff4761f18eed41df76242657eb482cc8b428b00559df1e8908cc"
+        "bytes": 40903,
+        "sha256": "e97dc071bd62fea71ff4a63d88b07f48ec79eddce63a93234427528a2927a829"
       },
       {
         "path": "src/mke/evaluation/chinese_diagnostics.py",
