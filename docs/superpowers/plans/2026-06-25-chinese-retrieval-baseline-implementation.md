@@ -1,12 +1,14 @@
 # Chinese Retrieval Baseline Implementation Plan
 
-**Status:** Completed locally on `codex/e3a-chinese-retrieval-baseline`; stopped before push/PR.
+**Status:** Completed on `codex/e3a-chinese-retrieval-baseline`; PR #29 CI follow-up completed
+locally and stopped before push.
 
 **Completion:** Tasks 1–11 were executed. The inline checkboxes below are retained as the approved
 historical execution procedure, not as pending work.
 
-**Review follow-up:** Seven implementation findings returned across three targeted review passes were
-verified and remediated with TDD. Canonical environment validation now compares the artifact
+**Review follow-up:** Seven implementation findings returned across three targeted review passes
+and two later CI failures were verified and remediated with TDD. Canonical environment validation
+now compares the artifact
 against an exact repository-derived contract sourced from `pyproject.toml`, the CI Python matrix,
 `uv.lock`, and the approved SQLite rank profile; well-formed but impossible version mutations
 remain fail-closed while the same artifact validates under supported Python 3.12 and 3.13
@@ -18,6 +20,12 @@ re-ingestion. Validation does not derive expected rank evidence from those repor
 extracts frozen partition page text, directly fills the production `SQLiteStore` schema without
 normal ingest, replays every non-empty compiled query through the production rank diagnostic, and
 compares the complete locator order and exact rank/`bm25()` score pairs before checking digests.
+The scorer comparison permits only an observed one-ULP SQLite build difference, while canonical
+artifacts round finite scores to 15 significant decimal digits before storing hexadecimal values
+and recomputing score-pair digests. Coordinated substantive score mutations still fail the
+independent replay gate. Snapshot mutation tests inject a byte change on the source `rb` open,
+which guarantees the mutation occurs after the production `before` stat and before the `after`
+stat without sleeps or platform-dependent call counts.
 Artifact recording independently recomputes miss classifications while enforcing partition
 locator inventory and strict JSON scalar types; qrel `review_date` is locked to the approved
 `2026-06-25` record. The E1, E2, and E3-A canonical artifacts were refreshed through the durable

@@ -1,10 +1,9 @@
 import hashlib
 import json
-import os
 import shutil
 from collections.abc import Callable
 from pathlib import Path
-from typing import cast
+from typing import IO, Any, cast
 
 import pytest
 
@@ -407,27 +406,36 @@ def test_snapshot_rejects_fixture_mutation_during_copy(
     path = _copy_protocol(tmp_path)
     protocol = load_chinese_retrieval_protocol(path)
     source = protocol.resolve(protocol.documents[0].primary_file)
-    original_stat = Path.stat
-    source_stat_calls = 0
+    original_open = Path.open
+    mutation_count = 0
 
-    def mutating_stat(
-        target: Path, *, follow_symlinks: bool = True
-    ) -> os.stat_result:
-        nonlocal source_stat_calls
-        if target == source:
-            source_stat_calls += 1
-            if source_stat_calls == 2:
-                observed = original_stat(target, follow_symlinks=follow_symlinks)
-                os.utime(
-                    target,
-                    ns=(observed.st_atime_ns, observed.st_mtime_ns + 1),
-                )
-        return original_stat(target, follow_symlinks=follow_symlinks)
+    def mutating_open(
+        target: Path,
+        mode: str = "r",
+        buffering: int = -1,
+        encoding: str | None = None,
+        errors: str | None = None,
+        newline: str | None = None,
+    ) -> IO[Any]:
+        nonlocal mutation_count
+        if target == source and mode == "rb":
+            mutation_count += 1
+            with original_open(target, "ab") as stream:
+                stream.write(b"x")
+        return original_open(
+            target,
+            mode,
+            buffering=buffering,
+            encoding=encoding,
+            errors=errors,
+            newline=newline,
+        )
 
-    monkeypatch.setattr(Path, "stat", mutating_stat)
+    monkeypatch.setattr(Path, "open", mutating_open)
 
     with pytest.raises(
         ChineseProtocolValidationError, match="fixture changed during snapshot"
     ):
         snapshot_chinese_retrieval_fixtures(protocol, tmp_path / "snapshot")
+    assert mutation_count == 1
     assert not (tmp_path / "snapshot").exists()

@@ -32,7 +32,7 @@
     "main_merge_base": "721784eabcb9fbb737166578010c9e1a46a25fef",
     "implementation_start": "3992b0e9371d1a8c9e019d3bbe2b32aac9665914",
     "evaluation_commit": "79bafb07ac592b684e6ceab15dc389dc33702978",
-    "evaluation_content_sha256": "2917dc906f4c5c111ee7dd737d7b904e0e664aadb30f12ece61c82eae01ac958",
+    "evaluation_content_sha256": "3ea1f93b4845ae257b3e469ff6e985f52fa6e50d6ffcc888a5fabe0081d871f7",
     "evaluation_content_files": [
       {
         "path": "src/mke/__init__.py",
@@ -131,8 +131,8 @@
       },
       {
         "path": "src/mke/evaluation/chinese_artifact.py",
-        "bytes": 40903,
-        "sha256": "e97dc071bd62fea71ff4a63d88b07f48ec79eddce63a93234427528a2927a829"
+        "bytes": 43702,
+        "sha256": "e240a64b6e969f742209caff659d6b4c0059f4def06a210ca71854bf266f6764"
       },
       {
         "path": "src/mke/evaluation/chinese_diagnostics.py",

@@ -87,6 +87,12 @@ _ARTIFACT_FIELDS = {
 class ChineseArtifactValidationError(ValueError):
     """The canonical E3-A artifact or its bound evidence is invalid."""
 
+    def __init__(
+        self, message: str, *, category: str = "artifact_invalid"
+    ) -> None:
+        super().__init__(message)
+        self.category = category
+
 
 @dataclass(frozen=True)
 class _ReplayedRankEvidence:
@@ -248,7 +254,9 @@ def _canonical_artifact(
         "e3b_evidence": observed["e3b_evidence"],
         "e3b_reason": observed["e3b_reason"],
         "fts5_rank_profile": observed["fts5_rank_profile"],
-        "fts5_rank_observations": observed["fts5_rank_observations"],
+        "fts5_rank_observations": _canonical_rank_observations(
+            observed["fts5_rank_observations"]
+        ),
         "results": results,
         "limitations": observed["limitations"],
     }
@@ -586,17 +594,17 @@ def _validate_rank_observations(
             raise ChineseArtifactValidationError(
                 "Chinese retrieval baseline artifact is invalid"
             )
-        expected_stable_ids = tuple(
+        observed_stable_ids = tuple(
             _stable_evidence_identity(locator)
-            for locator in expected.ordered_evidence
+            for locator in ordered_evidence
         )
-        expected_score_pairs = tuple(
+        observed_score_pairs = tuple(
             (
                 _stable_evidence_identity(locator),
                 rank_score_hex,
                 bm25_score_hex,
             )
-            for locator, rank_score_hex, bm25_score_hex in expected.score_pairs
+            for locator, rank_score_hex, bm25_score_hex in score_pairs
         )
         retrieved = inputs_by_query[query.query_id].retrieved
         if (
@@ -617,21 +625,94 @@ def _validate_rank_observations(
                 locator not in locator_inventory[query.split]
                 for locator in ordered_evidence
             )
-            or ordered_evidence != expected.ordered_evidence
-            or score_pairs != expected.score_pairs
             or record["result_count"] != len(expected.ordered_evidence)
             or len(retrieved) != min(10, len(expected.ordered_evidence))
             or retrieved != expected.ordered_evidence[: len(retrieved)]
-            or record["ordered_evidence_ids_sha256"]
-            != _digest(expected_stable_ids)
-            or record["score_pairs_sha256"]
-            != _digest(expected_score_pairs)
         ):
             raise ChineseArtifactValidationError(
-                "Chinese retrieval baseline artifact is invalid"
+                "Chinese retrieval baseline artifact is invalid",
+                category="fts5_rank_structure_mismatch",
+            )
+        if ordered_evidence != expected.ordered_evidence:
+            raise ChineseArtifactValidationError(
+                "Chinese retrieval baseline artifact is invalid",
+                category="fts5_rank_locator_mismatch",
+            )
+        if any(
+            actual_locator != expected_locator
+            or not _same_portable_score(actual_rank, expected_rank)
+            or not _same_portable_score(actual_bm25, expected_bm25)
+            for (
+                actual_locator,
+                actual_rank,
+                actual_bm25,
+            ), (
+                expected_locator,
+                expected_rank,
+                expected_bm25,
+            ) in zip(score_pairs, expected.score_pairs, strict=True)
+        ):
+            raise ChineseArtifactValidationError(
+                "Chinese retrieval baseline artifact is invalid",
+                category="fts5_rank_score_mismatch",
+            )
+        if (
+            record["ordered_evidence_ids_sha256"]
+            != _digest(observed_stable_ids)
+            or record["score_pairs_sha256"]
+            != _digest(observed_score_pairs)
+        ):
+            raise ChineseArtifactValidationError(
+                "Chinese retrieval baseline artifact is invalid",
+                category="fts5_rank_digest_mismatch",
             )
         _require_sha256(record["ordered_evidence_ids_sha256"])
         _require_sha256(record["score_pairs_sha256"])
+
+
+def _canonical_rank_observations(value: object) -> list[dict[str, object]]:
+    canonical: list[dict[str, object]] = []
+    for raw in _list(value):
+        record = _object(raw)
+        score_pairs = tuple(
+            _rank_score_pair(item) for item in _list(record["score_pairs"])
+        )
+        portable_pairs = [
+            {
+                "locator": _jsonable(asdict(locator)),
+                "rank_score_hex": _portable_score_hex(rank_score_hex),
+                "bm25_score_hex": _portable_score_hex(bm25_score_hex),
+            }
+            for locator, rank_score_hex, bm25_score_hex in score_pairs
+        ]
+        digest_pairs = tuple(
+            (
+                _stable_evidence_identity(locator),
+                _portable_score_hex(rank_score_hex),
+                _portable_score_hex(bm25_score_hex),
+            )
+            for locator, rank_score_hex, bm25_score_hex in score_pairs
+        )
+        canonical.append(
+            {
+                **record,
+                "score_pairs": portable_pairs,
+                "score_pairs_sha256": _digest(digest_pairs),
+            }
+        )
+    return canonical
+
+
+def _portable_score_hex(value: str) -> str:
+    return float(format(float.fromhex(value), ".15g")).hex()
+
+
+def _same_portable_score(actual_hex: str, expected_hex: str) -> bool:
+    actual = float.fromhex(actual_hex)
+    expected = float.fromhex(expected_hex)
+    return actual == expected or abs(actual - expected) <= max(
+        math.ulp(actual), math.ulp(expected)
+    )
 
 
 def _replay_rank_observations(

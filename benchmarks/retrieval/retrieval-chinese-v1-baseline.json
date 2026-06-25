@@ -48,7 +48,7 @@
     "integrity_claim": "adjudication_record_integrity"
   },
   "source_identity": {
-    "sha256": "2917dc906f4c5c111ee7dd737d7b904e0e664aadb30f12ece61c82eae01ac958",
+    "sha256": "3ea1f93b4845ae257b3e469ff6e985f52fa6e50d6ffcc888a5fabe0081d871f7",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -147,8 +147,8 @@
       },
       {
         "path": "src/mke/evaluation/chinese_artifact.py",
-        "bytes": 40903,
-        "sha256": "e97dc071bd62fea71ff4a63d88b07f48ec79eddce63a93234427528a2927a829"
+        "bytes": 43702,
+        "sha256": "e240a64b6e969f742209caff659d6b4c0059f4def06a210ca71854bf266f6764"
       },
       {
         "path": "src/mke/evaluation/chinese_diagnostics.py",
@@ -1244,27 +1244,27 @@
       "result_count": 2,
       "score_pairs": [
         {
-          "bm25_score_hex": "-0x1.76da9144a9472p+1",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 14,
             "locator_kind": "page",
             "locator_start": 14
           },
-          "rank_score_hex": "-0x1.76da9144a9472p+1"
+          "rank_score_hex": "-0x1.76da9144a9479p+1",
+          "bm25_score_hex": "-0x1.76da9144a9479p+1"
         },
         {
-          "bm25_score_hex": "-0x1.65a326b8cf120p+1",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 13,
             "locator_kind": "page",
             "locator_start": 13
           },
-          "rank_score_hex": "-0x1.65a326b8cf120p+1"
+          "rank_score_hex": "-0x1.65a326b8cf118p+1",
+          "bm25_score_hex": "-0x1.65a326b8cf118p+1"
         }
       ],
-      "score_pairs_sha256": "ac521d7f5a18fd5a035033075c199ecd9552d1827e98c693fa250372fee13d57",
+      "score_pairs_sha256": "acdf685cd8e049bde5b7e7d802b540e6b680542297bd0820653d85bf521e6d82",
       "split": "development"
     },
     {
@@ -1294,37 +1294,37 @@
       "result_count": 3,
       "score_pairs": [
         {
-          "bm25_score_hex": "-0x1.d6798a616c49fp+1",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 17,
             "locator_kind": "page",
             "locator_start": 17
           },
-          "rank_score_hex": "-0x1.d6798a616c49fp+1"
+          "rank_score_hex": "-0x1.d6798a616c496p+1",
+          "bm25_score_hex": "-0x1.d6798a616c496p+1"
         },
         {
-          "bm25_score_hex": "-0x1.fd9122207969dp+0",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 16,
             "locator_kind": "page",
             "locator_start": 16
           },
-          "rank_score_hex": "-0x1.fd9122207969dp+0"
+          "rank_score_hex": "-0x1.fd9122207969cp+0",
+          "bm25_score_hex": "-0x1.fd9122207969cp+0"
         },
         {
-          "bm25_score_hex": "-0x1.aa4ebf5a860d5p+0",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 26,
             "locator_kind": "page",
             "locator_start": 26
           },
-          "rank_score_hex": "-0x1.aa4ebf5a860d5p+0"
+          "rank_score_hex": "-0x1.aa4ebf5a860c0p+0",
+          "bm25_score_hex": "-0x1.aa4ebf5a860c0p+0"
         }
       ],
-      "score_pairs_sha256": "c2869e219230303edf12dd0ccf67e97f13c16fdf4b986505e46148152af10ccf",
+      "score_pairs_sha256": "3fffb180b11396616f684ab85d87fefd38e2ed2a42009048f6509995f30ec7b1",
       "split": "development"
     },
     {
@@ -1372,67 +1372,67 @@
       "result_count": 6,
       "score_pairs": [
         {
-          "bm25_score_hex": "-0x1.3222f35fc6532p+1",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 19,
             "locator_kind": "page",
             "locator_start": 19
           },
-          "rank_score_hex": "-0x1.3222f35fc6532p+1"
+          "rank_score_hex": "-0x1.3222f35fc652ap+1",
+          "bm25_score_hex": "-0x1.3222f35fc652ap+1"
         },
         {
-          "bm25_score_hex": "-0x1.f7120065bc9f0p+0",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 20,
             "locator_kind": "page",
             "locator_start": 20
           },
-          "rank_score_hex": "-0x1.f7120065bc9f0p+0"
+          "rank_score_hex": "-0x1.f7120065bc9f0p+0",
+          "bm25_score_hex": "-0x1.f7120065bc9f0p+0"
         },
         {
-          "bm25_score_hex": "-0x1.bd6b2b4de2f89p+0",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 6,
             "locator_kind": "page",
             "locator_start": 6
           },
-          "rank_score_hex": "-0x1.bd6b2b4de2f89p+0"
+          "rank_score_hex": "-0x1.bd6b2b4de2f83p+0",
+          "bm25_score_hex": "-0x1.bd6b2b4de2f83p+0"
         },
         {
-          "bm25_score_hex": "-0x1.9f6dae51de66ap+0",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 21,
             "locator_kind": "page",
             "locator_start": 21
           },
-          "rank_score_hex": "-0x1.9f6dae51de66ap+0"
+          "rank_score_hex": "-0x1.9f6dae51de673p+0",
+          "bm25_score_hex": "-0x1.9f6dae51de673p+0"
         },
         {
-          "bm25_score_hex": "-0x1.56c13850e1340p+0",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 12,
             "locator_kind": "page",
             "locator_start": 12
           },
-          "rank_score_hex": "-0x1.56c13850e1340p+0"
+          "rank_score_hex": "-0x1.56c13850e1335p+0",
+          "bm25_score_hex": "-0x1.56c13850e1335p+0"
         },
         {
-          "bm25_score_hex": "-0x1.257ba8801375bp+0",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 11,
             "locator_kind": "page",
             "locator_start": 11
           },
-          "rank_score_hex": "-0x1.257ba8801375bp+0"
+          "rank_score_hex": "-0x1.257ba88013758p+0",
+          "bm25_score_hex": "-0x1.257ba88013758p+0"
         }
       ],
-      "score_pairs_sha256": "bd2c52d2e4dbbee8d20d20b761d57456cbd897cf1af843f20b214cfe7bb82f48",
+      "score_pairs_sha256": "e0e0db42cfc7951e626728c063e81acc2bb71ff07a8d82526dcd754ebbc966a6",
       "split": "development"
     },
     {
@@ -1468,47 +1468,47 @@
       "result_count": 4,
       "score_pairs": [
         {
-          "bm25_score_hex": "-0x1.409304ae48836p+1",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 10,
             "locator_kind": "page",
             "locator_start": 10
           },
-          "rank_score_hex": "-0x1.409304ae48836p+1"
+          "rank_score_hex": "-0x1.409304ae4883bp+1",
+          "bm25_score_hex": "-0x1.409304ae4883bp+1"
         },
         {
-          "bm25_score_hex": "-0x1.3b82966efa071p+1",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 12,
             "locator_kind": "page",
             "locator_start": 12
           },
-          "rank_score_hex": "-0x1.3b82966efa071p+1"
+          "rank_score_hex": "-0x1.3b82966efa06dp+1",
+          "bm25_score_hex": "-0x1.3b82966efa06dp+1"
         },
         {
-          "bm25_score_hex": "-0x1.f194a0fd4d8d6p+0",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 11,
             "locator_kind": "page",
             "locator_start": 11
           },
-          "rank_score_hex": "-0x1.f194a0fd4d8d6p+0"
+          "rank_score_hex": "-0x1.f194a0fd4d8d5p+0",
+          "bm25_score_hex": "-0x1.f194a0fd4d8d5p+0"
         },
         {
-          "bm25_score_hex": "-0x1.ea1edc77ed784p+0",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 6,
             "locator_kind": "page",
             "locator_start": 6
           },
-          "rank_score_hex": "-0x1.ea1edc77ed784p+0"
+          "rank_score_hex": "-0x1.ea1edc77ed786p+0",
+          "bm25_score_hex": "-0x1.ea1edc77ed786p+0"
         }
       ],
-      "score_pairs_sha256": "dab9f5b50afda5069f8ec160d326363bece9d21c2a710557b97e12d48fc0fd7e",
+      "score_pairs_sha256": "4488d9201339d8aa8cc12d694aacda434a8cf92fb4509a0b2bd3f492c6e82739",
       "split": "development"
     },
     {
@@ -1526,17 +1526,17 @@
       "result_count": 1,
       "score_pairs": [
         {
-          "bm25_score_hex": "-0x1.141a8497f6d09p+2",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 16,
             "locator_kind": "page",
             "locator_start": 16
           },
-          "rank_score_hex": "-0x1.141a8497f6d09p+2"
+          "rank_score_hex": "-0x1.141a8497f6d0dp+2",
+          "bm25_score_hex": "-0x1.141a8497f6d0dp+2"
         }
       ],
-      "score_pairs_sha256": "48562255258527acfcb9a980158cf1d71dfb9f01a350cdbeb3ccda8085dd4e5d",
+      "score_pairs_sha256": "2e7b14363f370467c493b725798f6b8e28a3d62645cc35a809f52a75718d54e9",
       "split": "development"
     },
     {
@@ -1554,17 +1554,17 @@
       "result_count": 1,
       "score_pairs": [
         {
-          "bm25_score_hex": "-0x1.1706820c275eep+3",
           "locator": {
             "document_id": "development-adversarial",
             "locator_end": 3,
             "locator_kind": "page",
             "locator_start": 3
           },
-          "rank_score_hex": "-0x1.1706820c275eep+3"
+          "rank_score_hex": "-0x1.1706820c275f0p+3",
+          "bm25_score_hex": "-0x1.1706820c275f0p+3"
         }
       ],
-      "score_pairs_sha256": "3f9d239ad9108198e3c7a8fd083320b097be74e327092ac1a11146aa1e213ae4",
+      "score_pairs_sha256": "20810e4fde7e785cb1e4ebba8e038550f7adf5bafb36bebf1c52d69626631841",
       "split": "development"
     },
     {
@@ -1602,17 +1602,17 @@
       "result_count": 1,
       "score_pairs": [
         {
-          "bm25_score_hex": "-0x1.07f0dc14ef8a5p+4",
           "locator": {
             "document_id": "development-adversarial",
             "locator_end": 1,
             "locator_kind": "page",
             "locator_start": 1
           },
-          "rank_score_hex": "-0x1.07f0dc14ef8a5p+4"
+          "rank_score_hex": "-0x1.07f0dc14ef8a9p+4",
+          "bm25_score_hex": "-0x1.07f0dc14ef8a9p+4"
         }
       ],
-      "score_pairs_sha256": "970475b2b24a3de604cde8ccaa41ca9d870b067b4e3045d763ac8116e55f0074",
+      "score_pairs_sha256": "480b470bdebf90740e95852569d59e4c3f398ad658f34405ec0265c55ac1c99a",
       "split": "development"
     },
     {
@@ -1678,97 +1678,97 @@
       "result_count": 9,
       "score_pairs": [
         {
-          "bm25_score_hex": "-0x1.d25f3ab673693p+0",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 19,
             "locator_kind": "page",
             "locator_start": 19
           },
-          "rank_score_hex": "-0x1.d25f3ab673693p+0"
+          "rank_score_hex": "-0x1.d25f3ab6736a0p+0",
+          "bm25_score_hex": "-0x1.d25f3ab6736a0p+0"
         },
         {
-          "bm25_score_hex": "-0x1.8b76c94dee333p+0",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 20,
             "locator_kind": "page",
             "locator_start": 20
           },
-          "rank_score_hex": "-0x1.8b76c94dee333p+0"
+          "rank_score_hex": "-0x1.8b76c94dee345p+0",
+          "bm25_score_hex": "-0x1.8b76c94dee345p+0"
         },
         {
-          "bm25_score_hex": "-0x1.4c52e38ecae1ap+0",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 21,
             "locator_kind": "page",
             "locator_start": 21
           },
-          "rank_score_hex": "-0x1.4c52e38ecae1ap+0"
+          "rank_score_hex": "-0x1.4c52e38ecae1ap+0",
+          "bm25_score_hex": "-0x1.4c52e38ecae1ap+0"
         },
         {
-          "bm25_score_hex": "-0x1.3016cc9a54753p+0",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 9,
             "locator_kind": "page",
             "locator_start": 9
           },
-          "rank_score_hex": "-0x1.3016cc9a54753p+0"
+          "rank_score_hex": "-0x1.3016cc9a54749p+0",
+          "bm25_score_hex": "-0x1.3016cc9a54749p+0"
         },
         {
-          "bm25_score_hex": "-0x1.26dc073458c01p+0",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 6,
             "locator_kind": "page",
             "locator_start": 6
           },
-          "rank_score_hex": "-0x1.26dc073458c01p+0"
+          "rank_score_hex": "-0x1.26dc073458bebp+0",
+          "bm25_score_hex": "-0x1.26dc073458bebp+0"
         },
         {
-          "bm25_score_hex": "-0x1.1bc903d2bef4dp+0",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 5,
             "locator_kind": "page",
             "locator_start": 5
           },
-          "rank_score_hex": "-0x1.1bc903d2bef4dp+0"
+          "rank_score_hex": "-0x1.1bc903d2bef60p+0",
+          "bm25_score_hex": "-0x1.1bc903d2bef60p+0"
         },
         {
-          "bm25_score_hex": "-0x1.c9fa35e2c4adfp-1",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 12,
             "locator_kind": "page",
             "locator_start": 12
           },
-          "rank_score_hex": "-0x1.c9fa35e2c4adfp-1"
+          "rank_score_hex": "-0x1.c9fa35e2c4addp-1",
+          "bm25_score_hex": "-0x1.c9fa35e2c4addp-1"
         },
         {
-          "bm25_score_hex": "-0x1.b2907f711e12dp-1",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 11,
             "locator_kind": "page",
             "locator_start": 11
           },
-          "rank_score_hex": "-0x1.b2907f711e12dp-1"
+          "rank_score_hex": "-0x1.b2907f711e129p-1",
+          "bm25_score_hex": "-0x1.b2907f711e129p-1"
         },
         {
-          "bm25_score_hex": "-0x1.5a18fc907b9aep-1",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 3,
             "locator_kind": "page",
             "locator_start": 3
           },
-          "rank_score_hex": "-0x1.5a18fc907b9aep-1"
+          "rank_score_hex": "-0x1.5a18fc907b9adp-1",
+          "bm25_score_hex": "-0x1.5a18fc907b9adp-1"
         }
       ],
-      "score_pairs_sha256": "0f98507a1cc502e7772db99efb7f08f7009ff4ac5915a4062103ebe548ea9464",
+      "score_pairs_sha256": "8eed49e4cf03bf67be9974a6ad9472ab5f27618afb425567f2c51254c3ad2c07",
       "split": "development"
     },
     {
@@ -1786,17 +1786,17 @@
       "result_count": 1,
       "score_pairs": [
         {
-          "bm25_score_hex": "-0x1.25327691faf13p+3",
           "locator": {
             "document_id": "ub-service-core",
             "locator_end": 26,
             "locator_kind": "page",
             "locator_start": 26
           },
-          "rank_score_hex": "-0x1.25327691faf13p+3"
+          "rank_score_hex": "-0x1.25327691faf14p+3",
+          "bm25_score_hex": "-0x1.25327691faf14p+3"
         }
       ],
-      "score_pairs_sha256": "d1198811b3e1103507accafebf1ad3f57945428ff34a52160d28b398480d84a3",
+      "score_pairs_sha256": "505c4b437175be8aeebd5db931b20a87a655170c8b18447e16182f63abff2f01",
       "split": "development"
     },
     {
@@ -1820,27 +1820,27 @@
       "result_count": 2,
       "score_pairs": [
         {
-          "bm25_score_hex": "-0x1.024e469ee9f98p+2",
           "locator": {
             "document_id": "development-adversarial",
             "locator_end": 2,
             "locator_kind": "page",
             "locator_start": 2
           },
-          "rank_score_hex": "-0x1.024e469ee9f98p+2"
+          "rank_score_hex": "-0x1.024e469ee9f9ap+2",
+          "bm25_score_hex": "-0x1.024e469ee9f9ap+2"
         },
         {
-          "bm25_score_hex": "-0x1.dd82d6019e0aep+1",
           "locator": {
             "document_id": "development-adversarial",
             "locator_end": 1,
             "locator_kind": "page",
             "locator_start": 1
           },
-          "rank_score_hex": "-0x1.dd82d6019e0aep+1"
+          "rank_score_hex": "-0x1.dd82d6019e0a8p+1",
+          "bm25_score_hex": "-0x1.dd82d6019e0a8p+1"
         }
       ],
-      "score_pairs_sha256": "4107859ad49fc3c7ec0ca158bef7bfa6e84e201b26e23157df835dad31fda7b6",
+      "score_pairs_sha256": "4603850e7f563de410aa1ad1d623e4f68f691cd71e83441f689a1f394747e47b",
       "split": "development"
     },
     {
@@ -1858,17 +1858,17 @@
       "result_count": 1,
       "score_pairs": [
         {
-          "bm25_score_hex": "-0x1.1706820c275eep+3",
           "locator": {
             "document_id": "development-adversarial",
             "locator_end": 3,
             "locator_kind": "page",
             "locator_start": 3
           },
-          "rank_score_hex": "-0x1.1706820c275eep+3"
+          "rank_score_hex": "-0x1.1706820c275f0p+3",
+          "bm25_score_hex": "-0x1.1706820c275f0p+3"
         }
       ],
-      "score_pairs_sha256": "3f9d239ad9108198e3c7a8fd083320b097be74e327092ac1a11146aa1e213ae4",
+      "score_pairs_sha256": "20810e4fde7e785cb1e4ebba8e038550f7adf5bafb36bebf1c52d69626631841",
       "split": "development"
     },
     {
@@ -1886,17 +1886,17 @@
       "result_count": 1,
       "score_pairs": [
         {
-          "bm25_score_hex": "-0x1.23cf39d516b27p+3",
           "locator": {
             "document_id": "holdout-adversarial",
             "locator_end": 1,
             "locator_kind": "page",
             "locator_start": 1
           },
-          "rank_score_hex": "-0x1.23cf39d516b27p+3"
+          "rank_score_hex": "-0x1.23cf39d516b29p+3",
+          "bm25_score_hex": "-0x1.23cf39d516b29p+3"
         }
       ],
-      "score_pairs_sha256": "86f863e11de423dcd204aa5b5530b289579b2b00236ad4496647a7777723c865",
+      "score_pairs_sha256": "2d5e70ac1ec16ec3f64c85ca57747d0b54ac3ba9e00ea7bd9385c8ce4bf4c532",
       "split": "holdout"
     },
     {
@@ -1914,17 +1914,17 @@
       "result_count": 1,
       "score_pairs": [
         {
-          "bm25_score_hex": "-0x1.ac596c23cb748p+3",
           "locator": {
             "document_id": "holdout-adversarial",
             "locator_end": 3,
             "locator_kind": "page",
             "locator_start": 3
           },
-          "rank_score_hex": "-0x1.ac596c23cb748p+3"
+          "rank_score_hex": "-0x1.ac596c23cb74ap+3",
+          "bm25_score_hex": "-0x1.ac596c23cb74ap+3"
         }
       ],
-      "score_pairs_sha256": "147f479ead6571225c7db4fe92ebd5a71d0e94fd7e64976b82113ae8e6e1c275",
+      "score_pairs_sha256": "9183c23ed2d0df90cd93efeb7ca9d5bfe8bad25dffad16ecc81f9eecd0e67a01",
       "split": "holdout"
     },
     {
@@ -1942,17 +1942,17 @@
       "result_count": 1,
       "score_pairs": [
         {
-          "bm25_score_hex": "-0x1.0bfd00ddd0ed0p+3",
           "locator": {
             "document_id": "holdout-adversarial",
             "locator_end": 7,
             "locator_kind": "page",
             "locator_start": 7
           },
-          "rank_score_hex": "-0x1.0bfd00ddd0ed0p+3"
+          "rank_score_hex": "-0x1.0bfd00ddd0ecep+3",
+          "bm25_score_hex": "-0x1.0bfd00ddd0ecep+3"
         }
       ],
-      "score_pairs_sha256": "6a4626d5de4fcf66356b20d443eb53985c7d9b952066b44ca25862e91d7d8de9",
+      "score_pairs_sha256": "ce70c05a75f87958ec3225d6357772a4445c7f1a5dfb679bfdbfd40061cc62c7",
       "split": "holdout"
     },
     {
@@ -1990,17 +1990,17 @@
       "result_count": 1,
       "score_pairs": [
         {
-          "bm25_score_hex": "-0x1.3462d34dd6966p+4",
           "locator": {
             "document_id": "holdout-adversarial",
             "locator_end": 7,
             "locator_kind": "page",
             "locator_start": 7
           },
-          "rank_score_hex": "-0x1.3462d34dd6966p+4"
+          "rank_score_hex": "-0x1.3462d34dd696ep+4",
+          "bm25_score_hex": "-0x1.3462d34dd696ep+4"
         }
       ],
-      "score_pairs_sha256": "346a2962194098202b763b920b28000efa7704f2478ee243a62a0ddce3f0c9cd",
+      "score_pairs_sha256": "409bde9557f69e823ff74cc03fd27aa3584f1dc9e9ea249057ad0abf314626e4",
       "split": "holdout"
     },
     {
@@ -2042,57 +2042,57 @@
       "result_count": 5,
       "score_pairs": [
         {
-          "bm25_score_hex": "-0x1.5917b33216541p+1",
           "locator": {
             "document_id": "holdout-adversarial",
             "locator_end": 8,
             "locator_kind": "page",
             "locator_start": 8
           },
-          "rank_score_hex": "-0x1.5917b33216541p+1"
+          "rank_score_hex": "-0x1.5917b33216538p+1",
+          "bm25_score_hex": "-0x1.5917b33216538p+1"
         },
         {
-          "bm25_score_hex": "-0x1.432e93802d4aap+1",
           "locator": {
             "document_id": "holdout-adversarial",
             "locator_end": 7,
             "locator_kind": "page",
             "locator_start": 7
           },
-          "rank_score_hex": "-0x1.432e93802d4aap+1"
+          "rank_score_hex": "-0x1.432e93802d4a2p+1",
+          "bm25_score_hex": "-0x1.432e93802d4a2p+1"
         },
         {
-          "bm25_score_hex": "-0x1.788c29ff310cdp+0",
           "locator": {
             "document_id": "copyright-law",
             "locator_end": 5,
             "locator_kind": "page",
             "locator_start": 5
           },
-          "rank_score_hex": "-0x1.788c29ff310cdp+0"
+          "rank_score_hex": "-0x1.788c29ff310cap+0",
+          "bm25_score_hex": "-0x1.788c29ff310cap+0"
         },
         {
-          "bm25_score_hex": "-0x1.67740bae85a9dp+0",
           "locator": {
             "document_id": "copyright-law",
             "locator_end": 12,
             "locator_kind": "page",
             "locator_start": 12
           },
-          "rank_score_hex": "-0x1.67740bae85a9dp+0"
+          "rank_score_hex": "-0x1.67740bae85a9ap+0",
+          "bm25_score_hex": "-0x1.67740bae85a9ap+0"
         },
         {
-          "bm25_score_hex": "-0x1.65a636aa1cec2p+0",
           "locator": {
             "document_id": "copyright-law",
             "locator_end": 6,
             "locator_kind": "page",
             "locator_start": 6
           },
-          "rank_score_hex": "-0x1.65a636aa1cec2p+0"
+          "rank_score_hex": "-0x1.65a636aa1cecfp+0",
+          "bm25_score_hex": "-0x1.65a636aa1cecfp+0"
         }
       ],
-      "score_pairs_sha256": "3b75105475f6a4591cfa7619b26c1b5a17fa1fbadcdeb39abc65ca78c4e3321e",
+      "score_pairs_sha256": "1ee5c43c5eca9f406499256d8b8805f650ba2a89e4354780709c46d06df91794",
       "split": "holdout"
     },
     {
@@ -2110,17 +2110,17 @@
       "result_count": 1,
       "score_pairs": [
         {
-          "bm25_score_hex": "-0x1.23cf39d516b27p+3",
           "locator": {
             "document_id": "holdout-adversarial",
             "locator_end": 1,
             "locator_kind": "page",
             "locator_start": 1
           },
-          "rank_score_hex": "-0x1.23cf39d516b27p+3"
+          "rank_score_hex": "-0x1.23cf39d516b29p+3",
+          "bm25_score_hex": "-0x1.23cf39d516b29p+3"
         }
       ],
-      "score_pairs_sha256": "86f863e11de423dcd204aa5b5530b289579b2b00236ad4496647a7777723c865",
+      "score_pairs_sha256": "2d5e70ac1ec16ec3f64c85ca57747d0b54ac3ba9e00ea7bd9385c8ce4bf4c532",
       "split": "holdout"
     }
   ],

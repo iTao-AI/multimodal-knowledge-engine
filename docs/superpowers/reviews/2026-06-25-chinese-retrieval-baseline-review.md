@@ -5,8 +5,8 @@
 - Review type: lightweight pre-handoff self-review.
 - Scope: E3-A only.
 - Result: implementation and Task 11 verification match the approved HOLD SCOPE plan.
-- Follow-up: seven findings across three targeted review passes were verified and closed with TDD;
-  no complete `gstack-review` was repeated in this implementation window.
+- Follow-up: seven findings across three targeted review passes and two PR #29 CI failures were
+  verified and closed with TDD; no complete `gstack-review` was repeated.
 - Branch: `codex/e3a-chinese-retrieval-baseline`.
 - Base: `89deeab`.
 
@@ -83,11 +83,25 @@ deliberately deferred to the PR preparation window.
    Observed locator order and exact score pairs must equal that independent replay before their
    digests are accepted. Regression tests coordinate score-plus-digest and
    locator-plus-result-plus-score-plus-digest mutations; both fail.
+8. The fixture-mutation regression test counted `Path.stat()` calls. Linux path resolution made
+   the mutation occur before snapshot's explicit `before` stat, so the production before/after
+   check correctly saw no change. The test now mutates the temporary source when snapshot opens it
+   for `rb`, guaranteeing the mutation occurs between the two production stats without sleeping,
+   skipping, or weakening fail-closed behavior.
+9. PR #29 Python 3.13 Linux used SQLite 3.40.1 while the checked-in artifact was recorded with
+   SQLite 3.51.1. Frozen page text (70 pages, aggregate digest
+   `8732310f89e112315b3683382233c30d2a6b3673d205979160c708da328bc56d`), results, metrics,
+   result counts, and complete locator order were identical. Three scores differed by exactly one
+   ULP; the first was `zh-hold-mixed-03` result 1,
+   `-0x1.0bfd00ddd0ed0p+3` versus `-0x1.0bfd00ddd0ed1p+3`. Validation now exposes an internal
+   mismatch category while retaining redacted CLI output, permits at most one ULP against
+   independent replay, and stores portable 15-significant-digit canonical score evidence.
+   Substantive coordinated score mutation remains rejected.
 
 ## Verification
 
-- Targeted E3-A suite: `186 passed`.
-- Full suite: `825 passed, 1 skipped`.
+- Targeted E3-A suite: `188 passed`.
+- Full suite: `827 passed, 1 skipped`.
 - `uv run ruff check .`: passed.
 - `uv run pyright`: `0 errors`.
 - `uv build`: sdist and wheel built.
@@ -109,7 +123,7 @@ deliberately deferred to the PR preparation window.
 ## Artifact Identity
 
 - E3-A artifact SHA-256:
-  `da9eee5495aa440e02c09ccd92b3c491a6e27f3ad123aee97d0c96a11d4c1a7a`.
+  `8e912fb18005efd0e60ef6493753f4f9308374349d56f1dde37f7bfcdeb284c2`.
 - Protocol SHA-256:
   `00f72934018a52b5b5f5591fba119050882aee9b782e5dac199702b0cf995944`.
 - Qrel adjudication SHA-256:
@@ -122,8 +136,10 @@ deliberately deferred to the PR preparation window.
 - Current query compilation is ASCII-oriented, producing zero Recall@5 for the 27-query
   zero-ASCII-token stratum.
 - E3-B eligibility is a planning gate, not authorization to implement or promote a candidate.
-- Cross-platform SQLite determinism is covered by Python 3.12/3.13 CI and local proof, not every
-  SQLite build.
+- PR #29 hosted CI at `c586215` failed before this follow-up. The exact failure shapes now pass in
+  isolated Linux Python 3.12/SQLite 3.50.4 and Python 3.13/SQLite 3.40.1 containers, but hosted
+  GitHub Actions confirmation remains pending because this implementation window stops before
+  push.
 
 ## Documentation Audit
 

@@ -1,5 +1,6 @@
 import hashlib
 import json
+import math
 from collections.abc import Callable
 from pathlib import Path
 from typing import cast
@@ -301,6 +302,33 @@ def _mutate_rank_score_and_refresh_digest(payload: dict[str, object]) -> None:
     _refresh_rank_digests(observation)
 
 
+def _mutate_linux_one_ulp_rank_score(payload: dict[str, object]) -> None:
+    observations = cast(
+        list[dict[str, object]], payload["fts5_rank_observations"]
+    )
+    observation = next(
+        item for item in observations if item["query_id"] == "zh-hold-mixed-03"
+    )
+    score_pair = cast(
+        dict[str, object],
+        cast(list[object], observation["score_pairs"])[0],
+    )
+    observed_pair = {
+        "-0x1.0bfd00ddd0ed0p+3",
+        "-0x1.0bfd00ddd0ed1p+3",
+    }
+    score_hex = cast(str, score_pair["rank_score_hex"])
+    assert score_hex in observed_pair
+    changed_hex = next(item for item in observed_pair if item != score_hex)
+    assert math.nextafter(
+        float.fromhex(score_hex),
+        float.fromhex(changed_hex),
+    ).hex() == changed_hex
+    score_pair["rank_score_hex"] = changed_hex
+    score_pair["bm25_score_hex"] = changed_hex
+    _refresh_rank_digests(observation)
+
+
 def _replace_rank_locator_and_refresh_all_evidence(
     payload: dict[str, object],
 ) -> None:
@@ -332,6 +360,62 @@ def _replace_rank_locator_and_refresh_all_evidence(
         cast(list[object], result["retrieved"])[0],
     )
     retrieved["locator"] = replacement
+
+
+def test_record_canonicalizes_linux_one_ulp_score_variation(
+    tmp_path: Path,
+) -> None:
+    original_payload = _observed_payload()
+    original_observed = tmp_path / "original-observed.json"
+    original_observed.write_text(
+        json.dumps(original_payload), encoding="utf-8"
+    )
+    original_artifact = tmp_path / "original-artifact.json"
+    record_chinese_artifact(
+        observed_path=original_observed,
+        artifact_path=original_artifact,
+        protocol_path=PROTOCOL,
+        repository_root=REPOSITORY,
+    )
+
+    mutated_payload = cast(
+        dict[str, object],
+        json.loads(json.dumps(original_payload)),
+    )
+    _mutate_linux_one_ulp_rank_score(mutated_payload)
+    mutated_observed = tmp_path / "mutated-observed.json"
+    mutated_observed.write_text(
+        json.dumps(mutated_payload), encoding="utf-8"
+    )
+    mutated_artifact = tmp_path / "mutated-artifact.json"
+
+    record_chinese_artifact(
+        observed_path=mutated_observed,
+        artifact_path=mutated_artifact,
+        protocol_path=PROTOCOL,
+        repository_root=REPOSITORY,
+    )
+
+    assert mutated_artifact.read_bytes() == original_artifact.read_bytes()
+
+
+def test_substantive_rank_score_mismatch_exposes_internal_category(
+    tmp_path: Path,
+) -> None:
+    payload = _observed_payload()
+    _mutate_rank_score_and_refresh_digest(payload)
+    observed = tmp_path / "observed.json"
+    observed.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ChineseArtifactValidationError) as caught:
+        record_chinese_artifact(
+            observed_path=observed,
+            artifact_path=tmp_path / "artifact.json",
+            protocol_path=PROTOCOL,
+            repository_root=REPOSITORY,
+        )
+
+    assert caught.value.category == "fts5_rank_score_mismatch"
 
 
 OBSERVED_RERECORD_MUTATIONS: list[
