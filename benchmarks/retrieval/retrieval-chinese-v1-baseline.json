@@ -48,7 +48,7 @@
     "integrity_claim": "adjudication_record_integrity"
   },
   "source_identity": {
-    "sha256": "9575f755ca4ed2d839ae00f669e46174c2552714a7d5b7cd76d30b8d16f5da4d",
+    "sha256": "38dcc518eaef92237a0aa4ef5e450c5da7549506472dd2c7148baddd705c2b85",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -67,8 +67,8 @@
       },
       {
         "path": "src/mke/adapters/sqlite/__init__.py",
-        "bytes": 36934,
-        "sha256": "20e70cd96d8ca94b3e3dabe145525ca1737e18ed23bed8e4aae61c222b6180da"
+        "bytes": 37229,
+        "sha256": "a8300357f3518d813742bd00fd408414c16d6040572aa579e3006217fd2b799c"
       },
       {
         "path": "src/mke/adapters/video/__init__.py",
@@ -147,8 +147,8 @@
       },
       {
         "path": "src/mke/evaluation/chinese_artifact.py",
-        "bytes": 23835,
-        "sha256": "d74167d8a1d6d6c650f4c998e2f3f640672692a0e958a308731ef952065207c3"
+        "bytes": 28143,
+        "sha256": "0714a27d679f06cfc413288cec0a5d36a03f3d770356c19b5ff2dd749fea5793"
       },
       {
         "path": "src/mke/evaluation/chinese_diagnostics.py",
@@ -157,8 +157,8 @@
       },
       {
         "path": "src/mke/evaluation/chinese_protocol.py",
-        "bytes": 28005,
-        "sha256": "89dcd30c4ca3444b8148bf93fd8825eb6d7cc97afcea91faad329bbd1b30729a"
+        "bytes": 28237,
+        "sha256": "19022f5ff261507ed57f04fedab164a44f6d26aa609a3ccfd6297b63fb127d1d"
       },
       {
         "path": "src/mke/evaluation/chinese_report.py",
@@ -167,13 +167,13 @@
       },
       {
         "path": "src/mke/evaluation/chinese_runner.py",
-        "bytes": 27320,
-        "sha256": "39fbd596a2acf84841970ba35ec554e726f91120a4c9221e6abd6993245aa264"
+        "bytes": 29395,
+        "sha256": "86048cd8bda6440b901c60b50046216e7c39101c93701920842e893d3cb7ee45"
       },
       {
         "path": "src/mke/evaluation/diagnostic_ports.py",
-        "bytes": 2420,
-        "sha256": "f070c1b38a88f6c3c0fd0d23b956d533e2d473c8f4e8fe18d186b9d1deb4d6d3"
+        "bytes": 2451,
+        "sha256": "5f97edfdbf7f33de90bcd84f9e6f674014f9def54b5256dfc02c36471790bfd6"
       },
       {
         "path": "src/mke/evaluation/graded_metrics.py",
