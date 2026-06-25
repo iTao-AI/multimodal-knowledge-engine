@@ -103,6 +103,7 @@ def test_refresh_artifact_set_rolls_back_on_replace_failure(
         root / "benchmarks/retrieval/retrieval-eval-v1-baseline.json",
         root / "tests/fixtures/retrieval-numeric-v1/protocol-lock.json",
         root / "benchmarks/retrieval/numeric-grouping-v1-comparison.json",
+        root / "benchmarks/retrieval/retrieval-chinese-v1-baseline.json",
     )
     before = {path: path.read_bytes() for path in targets}
     original_replace = os.replace
@@ -126,9 +127,6 @@ def test_refresh_artifact_set_rolls_back_on_replace_failure(
         )
 
     assert {path: path.read_bytes() for path in targets} == before
-    assert not (
-        root / "benchmarks/retrieval/retrieval-chinese-v1-baseline.json"
-    ).exists()
 
 
 def test_recover_restores_checksum_verified_backups(tmp_path: Path) -> None:

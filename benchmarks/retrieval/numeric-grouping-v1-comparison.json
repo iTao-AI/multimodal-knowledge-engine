@@ -3,7 +3,7 @@
   "protocol": {
     "id": "retrieval-numeric-v1",
     "path": "tests/fixtures/retrieval-numeric-v1/protocol-lock.json",
-    "sha256": "aa8b6a430ef2613e15b7f670b1f6b6ae86b6b9324d35961688b21d26252495c0"
+    "sha256": "9817acd338f829c225d8147810c54637efb77dfe62f24deb4fa0d9bc56c3274a"
   },
   "manifests": {
     "development": {
@@ -41,7 +41,7 @@
     "revision": 1
   },
   "source": {
-    "sha256": "9409a9b1837f5d59d520c291067b97969f26dba3023065b2380807665a771516",
+    "sha256": "9575f755ca4ed2d839ae00f669e46174c2552714a7d5b7cd76d30b8d16f5da4d",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -60,8 +60,8 @@
       },
       {
         "path": "src/mke/adapters/sqlite/__init__.py",
-        "bytes": 32251,
-        "sha256": "32730ee9f40dc5d97153e795cf8d6a413c52681f207de97c7a814a668342c803"
+        "bytes": 36934,
+        "sha256": "20e70cd96d8ca94b3e3dabe145525ca1737e18ed23bed8e4aae61c222b6180da"
       },
       {
         "path": "src/mke/adapters/video/__init__.py",
@@ -115,8 +115,8 @@
       },
       {
         "path": "src/mke/cli.py",
-        "bytes": 30944,
-        "sha256": "a6da04676bb02d43ae97bc9d5dfbb7ccd9145008a56db3636d657e3191d14d48"
+        "bytes": 35396,
+        "sha256": "855c6945c2f6dde04a73ca80dd49d32f778349bc60e9c2baa4b298213dd34692"
       },
       {
         "path": "src/mke/domain/__init__.py",
@@ -125,13 +125,53 @@
       },
       {
         "path": "src/mke/evaluation/__init__.py",
-        "bytes": 898,
-        "sha256": "18433b666cadf5296e1359f459a44677e57da0b13832b136f16ea76a3f34844b"
+        "bytes": 1205,
+        "sha256": "e0cbf20508a4f13ab697afb081179261f6b787d2ccb69246a1eb846d29ec9923"
+      },
+      {
+        "path": "src/mke/evaluation/artifact_refresh.py",
+        "bytes": 16782,
+        "sha256": "ef9b455649fc945dd47b49c90eafd2017f2c977862d3cca1c84a0678bd8f45df"
       },
       {
         "path": "src/mke/evaluation/baseline.py",
-        "bytes": 20181,
-        "sha256": "fd5b7feda1e0bc9f5dbbfbc9cd8a7d1932727eb54032aed7ad14ca4c8033040e"
+        "bytes": 23160,
+        "sha256": "057206d9aa076d489ff353f5cc70a38949846d108cfdb899dee8c29996233512"
+      },
+      {
+        "path": "src/mke/evaluation/chinese_artifact.py",
+        "bytes": 23835,
+        "sha256": "d74167d8a1d6d6c650f4c998e2f3f640672692a0e958a308731ef952065207c3"
+      },
+      {
+        "path": "src/mke/evaluation/chinese_diagnostics.py",
+        "bytes": 4399,
+        "sha256": "17d36be007705b37194bd77c5b67f2df600cc2172cd47675e8f139eb27af2835"
+      },
+      {
+        "path": "src/mke/evaluation/chinese_protocol.py",
+        "bytes": 28005,
+        "sha256": "89dcd30c4ca3444b8148bf93fd8825eb6d7cc97afcea91faad329bbd1b30729a"
+      },
+      {
+        "path": "src/mke/evaluation/chinese_report.py",
+        "bytes": 14001,
+        "sha256": "92f0679d8d7e73d042a3be800f13a2f8ff432a5483296ce423eb27a727c11003"
+      },
+      {
+        "path": "src/mke/evaluation/chinese_runner.py",
+        "bytes": 27320,
+        "sha256": "39fbd596a2acf84841970ba35ec554e726f91120a4c9221e6abd6993245aa264"
+      },
+      {
+        "path": "src/mke/evaluation/diagnostic_ports.py",
+        "bytes": 2420,
+        "sha256": "f070c1b38a88f6c3c0fd0d23b956d533e2d473c8f4e8fe18d186b9d1deb4d6d3"
+      },
+      {
+        "path": "src/mke/evaluation/graded_metrics.py",
+        "bytes": 8849,
+        "sha256": "7e28e8e53044d0dc92c721e0c3b554b2c89bcb92efa52bf073a9f9f5185c1ba5"
       },
       {
         "path": "src/mke/evaluation/manifest.py",
@@ -150,8 +190,8 @@
       },
       {
         "path": "src/mke/evaluation/numeric_comparison.py",
-        "bytes": 32991,
-        "sha256": "72c98ac53e3da28f12b3b0179146a9d79cf7bb2b2d845065b75e63007fb0b54e"
+        "bytes": 36269,
+        "sha256": "341306d6f7ef89eed0e06418e1f6a0ac2fdc6480b3f843a272a85a3ccc58d4bc"
       },
       {
         "path": "src/mke/evaluation/report.py",
@@ -220,8 +260,8 @@
       },
       {
         "path": "src/mke/retrieval/query_policy.py",
-        "bytes": 2864,
-        "sha256": "529608b03b3fb7e8f838fef26593aafde2f7cdce89c7ab8dbfe7a90182013416"
+        "bytes": 4166,
+        "sha256": "b4bd2547b2b658d9eb2d2fb96107e9bfe89c9197f2f097fb8d150f678e13b6fa"
       },
       {
         "path": "src/mke/runtime.py",
