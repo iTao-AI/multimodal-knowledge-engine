@@ -329,6 +329,27 @@ def _mutate_linux_one_ulp_rank_score(payload: dict[str, object]) -> None:
     _refresh_rank_digests(observation)
 
 
+def _mutate_two_ulp_rank_score(payload: dict[str, object]) -> None:
+    observations = cast(
+        list[dict[str, object]], payload["fts5_rank_observations"]
+    )
+    observation = next(item for item in observations if item["result_count"])
+    score_pair = cast(
+        dict[str, object],
+        cast(list[object], observation["score_pairs"])[0],
+    )
+    original = float.fromhex(cast(str, score_pair["rank_score_hex"]))
+    first_step = math.nextafter(original, math.inf)
+    second_step = math.nextafter(first_step, math.inf)
+    assert first_step != original
+    assert second_step != first_step
+    assert abs(second_step - original) == 2 * math.ulp(original)
+    changed_hex = second_step.hex()
+    score_pair["rank_score_hex"] = changed_hex
+    score_pair["bm25_score_hex"] = changed_hex
+    _refresh_rank_digests(observation)
+
+
 def _replace_rank_locator_and_refresh_all_evidence(
     payload: dict[str, object],
 ) -> None:
@@ -414,6 +435,53 @@ def test_substantive_rank_score_mismatch_exposes_internal_category(
             protocol_path=PROTOCOL,
             repository_root=REPOSITORY,
         )
+
+    assert caught.value.category == "fts5_rank_score_mismatch"
+
+
+@pytest.mark.parametrize("operation", ["record", "validate"])
+def test_two_ulp_rank_score_mismatch_is_rejected(
+    tmp_path: Path, operation: str
+) -> None:
+    original_payload = _observed_payload()
+    mutated_payload = cast(
+        dict[str, object],
+        json.loads(json.dumps(original_payload)),
+    )
+    _mutate_two_ulp_rank_score(mutated_payload)
+    mutated_observed = tmp_path / "mutated-observed.json"
+    mutated_observed.write_text(
+        json.dumps(mutated_payload), encoding="utf-8"
+    )
+    artifact = tmp_path / "artifact.json"
+
+    if operation == "validate":
+        original_observed = tmp_path / "original-observed.json"
+        original_observed.write_text(
+            json.dumps(original_payload), encoding="utf-8"
+        )
+        record_chinese_artifact(
+            observed_path=original_observed,
+            artifact_path=artifact,
+            protocol_path=PROTOCOL,
+            repository_root=REPOSITORY,
+        )
+
+    with pytest.raises(ChineseArtifactValidationError) as caught:
+        if operation == "record":
+            record_chinese_artifact(
+                observed_path=mutated_observed,
+                artifact_path=artifact,
+                protocol_path=PROTOCOL,
+                repository_root=REPOSITORY,
+            )
+        else:
+            validate_chinese_artifact(
+                artifact_path=artifact,
+                observed_path=mutated_observed,
+                protocol_path=PROTOCOL,
+                repository_root=REPOSITORY,
+            )
 
     assert caught.value.category == "fts5_rank_score_mismatch"
 

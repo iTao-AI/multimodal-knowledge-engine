@@ -5,8 +5,8 @@
 - Review type: lightweight pre-handoff self-review.
 - Scope: E3-A only.
 - Result: implementation and Task 11 verification match the approved HOLD SCOPE plan.
-- Follow-up: seven findings across three targeted review passes and two PR #29 CI failures were
-  verified and closed with TDD; no complete `gstack-review` was repeated.
+- Follow-up: seven findings across three targeted review passes, two PR #29 CI failures, and one
+  final targeted P2 were verified and closed with TDD; no complete `gstack-review` was repeated.
 - Branch: `codex/e3a-chinese-retrieval-baseline`.
 - Base: `89deeab`.
 
@@ -80,9 +80,10 @@ deliberately deferred to the PR preparation window.
    now extracts frozen page text, creates separate development and holdout databases with the
    production `SQLiteStore` schema, directly fills domain/projection rows without normal ingest,
    recompiles each query, and replays the production full-result `rank`/`bm25()` diagnostic.
-   Observed locator order and exact score pairs must equal that independent replay before their
-   digests are accepted. Regression tests coordinate score-plus-digest and
-   locator-plus-result-plus-score-plus-digest mutations; both fail.
+   Observed locator order must exactly equal that independent replay. Each observed rank and
+   `bm25()` score may differ from replay by at most one ULP before its digest is accepted.
+   Regression tests coordinate score-plus-digest and locator-plus-result-plus-score-plus-digest
+   mutations; both fail.
 8. The fixture-mutation regression test counted `Path.stat()` calls. Linux path resolution made
    the mutation occur before snapshot's explicit `before` stat, so the production before/after
    check correctly saw no change. The test now mutates the temporary source when snapshot opens it
@@ -95,11 +96,21 @@ deliberately deferred to the PR preparation window.
    ULP; the first was `zh-hold-mixed-03` result 1,
    `-0x1.0bfd00ddd0ed0p+3` versus `-0x1.0bfd00ddd0ed1p+3`. Validation now exposes an internal
    mismatch category while retaining redacted CLI output, permits at most one ULP against
-   independent replay, and stores portable 15-significant-digit canonical score evidence.
-   Substantive coordinated score mutation remains rejected.
+   independent replay, and stores a portable, quantized 15-significant-digit canonical score
+   representation rather than exact replay scores. Substantive coordinated score mutation remains
+   rejected.
+10. The one-ULP portability rule lacked an exact upper-bound regression. A new test starts from a
+    real observed score, applies `math.nextafter` twice to create exactly two ULP of difference,
+    synchronizes `rank_score_hex`, `bm25_score_hex`, and the score-pair digest, and requires both
+    record and validate paths to reject it with `fts5_rank_score_mismatch`. The existing known
+    one-ULP acceptance regression remains unchanged; locator/order equality and the production
+    tolerance are unchanged.
 
 ## Verification
 
+- Final P2 affected suite (`test_chinese_artifact.py` and
+  `test_chinese_documentation.py`): `33 passed`.
+- Fresh E3-A evaluation plus canonical artifact validator: passed.
 - Targeted E3-A suite: `188 passed`.
 - Full suite: `827 passed, 1 skipped`.
 - `uv run ruff check .`: passed.
