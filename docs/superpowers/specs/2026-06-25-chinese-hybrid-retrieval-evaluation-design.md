@@ -2,7 +2,7 @@
 
 ## Status
 
-- Stage: Approved for E3-A implementation after autoplan review.
+- Stage: E3-A implemented locally; E3-B through E3-F remain unimplemented and evidence-gated.
 - Slice: E3.
 - Design date: 2026-06-25.
 - Baseline: `main@b04df63a1c07b8df3dcd1284cdbea42dd4e31e1c`.
