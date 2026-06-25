@@ -48,7 +48,7 @@
     "integrity_claim": "adjudication_record_integrity"
   },
   "source_identity": {
-    "sha256": "38dcc518eaef92237a0aa4ef5e450c5da7549506472dd2c7148baddd705c2b85",
+    "sha256": "b90a9224f5698733ed6686d16a9b9d967619b2e8138af459ecf6215d9dabc593",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -147,8 +147,8 @@
       },
       {
         "path": "src/mke/evaluation/chinese_artifact.py",
-        "bytes": 28143,
-        "sha256": "0714a27d679f06cfc413288cec0a5d36a03f3d770356c19b5ff2dd749fea5793"
+        "bytes": 32491,
+        "sha256": "a2c8149d7115ff4761f18eed41df76242657eb482cc8b428b00559df1e8908cc"
       },
       {
         "path": "src/mke/evaluation/chinese_diagnostics.py",
@@ -162,13 +162,13 @@
       },
       {
         "path": "src/mke/evaluation/chinese_report.py",
-        "bytes": 14001,
-        "sha256": "92f0679d8d7e73d042a3be800f13a2f8ff432a5483296ce423eb27a727c11003"
+        "bytes": 14726,
+        "sha256": "ef5b9f514c76e8c58f8e39be591d812b3cdc7e47cff0bde15fae5cd96e76ded6"
       },
       {
         "path": "src/mke/evaluation/chinese_runner.py",
-        "bytes": 29395,
-        "sha256": "86048cd8bda6440b901c60b50046216e7c39101c93701920842e893d3cb7ee45"
+        "bytes": 29855,
+        "sha256": "428ec7ac99c1f6b936d3781cc4bfb9cd020e0b6a9cefb3df0f9f51506ce72130"
       },
       {
         "path": "src/mke/evaluation/diagnostic_ports.py",
@@ -278,9 +278,14 @@
     ]
   },
   "environment": {
-    "python": "3.13.12",
-    "sqlite": "3.51.1",
-    "pymupdf": "1.27.2.3"
+    "schema_version": "mke.retrieval_environment_contract.v1",
+    "python_requires": ">=3.12,<3.14",
+    "ci_python_versions": [
+      "3.12",
+      "3.13"
+    ],
+    "pymupdf_lock_version": "1.27.2.3",
+    "sqlite_profile": "sqlite_fts5_default_bm25"
   },
   "report_schema_version": "mke.retrieval_chinese_report.v1",
   "benchmark_scope": "small_public_chinese_page_corpus",
@@ -1219,170 +1224,902 @@
   "fts5_rank_profile": "sqlite_fts5_default_bm25",
   "fts5_rank_observations": [
     {
+      "ordered_evidence": [
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 14,
+          "locator_kind": "page",
+          "locator_start": 14
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 13,
+          "locator_kind": "page",
+          "locator_start": 13
+        }
+      ],
       "ordered_evidence_ids_sha256": "8059983d69648b35b36705bd74b6b3b744396439730f2b39664c505c59e63f28",
       "query_id": "zh-dev-exact-01",
       "rank_override_present": false,
       "result_count": 2,
+      "score_pairs": [
+        {
+          "bm25_score_hex": "-0x1.76da9144a9472p+1",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 14,
+            "locator_kind": "page",
+            "locator_start": 14
+          },
+          "rank_score_hex": "-0x1.76da9144a9472p+1"
+        },
+        {
+          "bm25_score_hex": "-0x1.65a326b8cf120p+1",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 13,
+            "locator_kind": "page",
+            "locator_start": 13
+          },
+          "rank_score_hex": "-0x1.65a326b8cf120p+1"
+        }
+      ],
       "score_pairs_sha256": "ac521d7f5a18fd5a035033075c199ecd9552d1827e98c693fa250372fee13d57",
       "split": "development"
     },
     {
+      "ordered_evidence": [
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 17,
+          "locator_kind": "page",
+          "locator_start": 17
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 16,
+          "locator_kind": "page",
+          "locator_start": 16
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 26,
+          "locator_kind": "page",
+          "locator_start": 26
+        }
+      ],
       "ordered_evidence_ids_sha256": "597dd3d65cadefe08391e4f6756ea06cf4b27f1e5a7b18f4e9e089d0f51a7249",
       "query_id": "zh-dev-exact-02",
       "rank_override_present": false,
       "result_count": 3,
+      "score_pairs": [
+        {
+          "bm25_score_hex": "-0x1.d6798a616c49fp+1",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 17,
+            "locator_kind": "page",
+            "locator_start": 17
+          },
+          "rank_score_hex": "-0x1.d6798a616c49fp+1"
+        },
+        {
+          "bm25_score_hex": "-0x1.fd9122207969dp+0",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 16,
+            "locator_kind": "page",
+            "locator_start": 16
+          },
+          "rank_score_hex": "-0x1.fd9122207969dp+0"
+        },
+        {
+          "bm25_score_hex": "-0x1.aa4ebf5a860d5p+0",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 26,
+            "locator_kind": "page",
+            "locator_start": 26
+          },
+          "rank_score_hex": "-0x1.aa4ebf5a860d5p+0"
+        }
+      ],
       "score_pairs_sha256": "c2869e219230303edf12dd0ccf67e97f13c16fdf4b986505e46148152af10ccf",
       "split": "development"
     },
     {
+      "ordered_evidence": [
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 19,
+          "locator_kind": "page",
+          "locator_start": 19
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 20,
+          "locator_kind": "page",
+          "locator_start": 20
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 6,
+          "locator_kind": "page",
+          "locator_start": 6
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 21,
+          "locator_kind": "page",
+          "locator_start": 21
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 12,
+          "locator_kind": "page",
+          "locator_start": 12
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 11,
+          "locator_kind": "page",
+          "locator_start": 11
+        }
+      ],
       "ordered_evidence_ids_sha256": "85079b813d064e933f7e3a5019ca57dda1b84ceecb32beab522a2859695bcd6f",
       "query_id": "zh-dev-exact-03",
       "rank_override_present": false,
       "result_count": 6,
+      "score_pairs": [
+        {
+          "bm25_score_hex": "-0x1.3222f35fc6532p+1",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 19,
+            "locator_kind": "page",
+            "locator_start": 19
+          },
+          "rank_score_hex": "-0x1.3222f35fc6532p+1"
+        },
+        {
+          "bm25_score_hex": "-0x1.f7120065bc9f0p+0",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 20,
+            "locator_kind": "page",
+            "locator_start": 20
+          },
+          "rank_score_hex": "-0x1.f7120065bc9f0p+0"
+        },
+        {
+          "bm25_score_hex": "-0x1.bd6b2b4de2f89p+0",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 6,
+            "locator_kind": "page",
+            "locator_start": 6
+          },
+          "rank_score_hex": "-0x1.bd6b2b4de2f89p+0"
+        },
+        {
+          "bm25_score_hex": "-0x1.9f6dae51de66ap+0",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 21,
+            "locator_kind": "page",
+            "locator_start": 21
+          },
+          "rank_score_hex": "-0x1.9f6dae51de66ap+0"
+        },
+        {
+          "bm25_score_hex": "-0x1.56c13850e1340p+0",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 12,
+            "locator_kind": "page",
+            "locator_start": 12
+          },
+          "rank_score_hex": "-0x1.56c13850e1340p+0"
+        },
+        {
+          "bm25_score_hex": "-0x1.257ba8801375bp+0",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 11,
+            "locator_kind": "page",
+            "locator_start": 11
+          },
+          "rank_score_hex": "-0x1.257ba8801375bp+0"
+        }
+      ],
       "score_pairs_sha256": "bd2c52d2e4dbbee8d20d20b761d57456cbd897cf1af843f20b214cfe7bb82f48",
       "split": "development"
     },
     {
+      "ordered_evidence": [
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 10,
+          "locator_kind": "page",
+          "locator_start": 10
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 12,
+          "locator_kind": "page",
+          "locator_start": 12
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 11,
+          "locator_kind": "page",
+          "locator_start": 11
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 6,
+          "locator_kind": "page",
+          "locator_start": 6
+        }
+      ],
       "ordered_evidence_ids_sha256": "5a33f71f2403aab94c5b93e26fc1918bb217e5a9dba0a9b7a4f3d409f7c144c3",
       "query_id": "zh-dev-mixed-01",
       "rank_override_present": false,
       "result_count": 4,
+      "score_pairs": [
+        {
+          "bm25_score_hex": "-0x1.409304ae48836p+1",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 10,
+            "locator_kind": "page",
+            "locator_start": 10
+          },
+          "rank_score_hex": "-0x1.409304ae48836p+1"
+        },
+        {
+          "bm25_score_hex": "-0x1.3b82966efa071p+1",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 12,
+            "locator_kind": "page",
+            "locator_start": 12
+          },
+          "rank_score_hex": "-0x1.3b82966efa071p+1"
+        },
+        {
+          "bm25_score_hex": "-0x1.f194a0fd4d8d6p+0",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 11,
+            "locator_kind": "page",
+            "locator_start": 11
+          },
+          "rank_score_hex": "-0x1.f194a0fd4d8d6p+0"
+        },
+        {
+          "bm25_score_hex": "-0x1.ea1edc77ed784p+0",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 6,
+            "locator_kind": "page",
+            "locator_start": 6
+          },
+          "rank_score_hex": "-0x1.ea1edc77ed784p+0"
+        }
+      ],
       "score_pairs_sha256": "dab9f5b50afda5069f8ec160d326363bece9d21c2a710557b97e12d48fc0fd7e",
       "split": "development"
     },
     {
+      "ordered_evidence": [
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 16,
+          "locator_kind": "page",
+          "locator_start": 16
+        }
+      ],
       "ordered_evidence_ids_sha256": "2e6e0242a76285e3b120d55ed85c7d87a392012548a86435425b02eaac64a3a0",
       "query_id": "zh-dev-mixed-02",
       "rank_override_present": false,
       "result_count": 1,
+      "score_pairs": [
+        {
+          "bm25_score_hex": "-0x1.141a8497f6d09p+2",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 16,
+            "locator_kind": "page",
+            "locator_start": 16
+          },
+          "rank_score_hex": "-0x1.141a8497f6d09p+2"
+        }
+      ],
       "score_pairs_sha256": "48562255258527acfcb9a980158cf1d71dfb9f01a350cdbeb3ccda8085dd4e5d",
       "split": "development"
     },
     {
+      "ordered_evidence": [
+        {
+          "document_id": "development-adversarial",
+          "locator_end": 3,
+          "locator_kind": "page",
+          "locator_start": 3
+        }
+      ],
       "ordered_evidence_ids_sha256": "d4b7484edb8b11c96b38695491f4770e55c316cf0634fc55a0310e15b450e27a",
       "query_id": "zh-dev-mixed-03",
       "rank_override_present": false,
       "result_count": 1,
+      "score_pairs": [
+        {
+          "bm25_score_hex": "-0x1.1706820c275eep+3",
+          "locator": {
+            "document_id": "development-adversarial",
+            "locator_end": 3,
+            "locator_kind": "page",
+            "locator_start": 3
+          },
+          "rank_score_hex": "-0x1.1706820c275eep+3"
+        }
+      ],
       "score_pairs_sha256": "3f9d239ad9108198e3c7a8fd083320b097be74e327092ac1a11146aa1e213ae4",
       "split": "development"
     },
     {
+      "ordered_evidence": [],
       "ordered_evidence_ids_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
       "query_id": "zh-dev-number-01",
       "rank_override_present": false,
       "result_count": 0,
+      "score_pairs": [],
       "score_pairs_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
       "split": "development"
     },
     {
+      "ordered_evidence": [],
       "ordered_evidence_ids_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
       "query_id": "zh-dev-number-02",
       "rank_override_present": false,
       "result_count": 0,
+      "score_pairs": [],
       "score_pairs_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
       "split": "development"
     },
     {
+      "ordered_evidence": [
+        {
+          "document_id": "development-adversarial",
+          "locator_end": 1,
+          "locator_kind": "page",
+          "locator_start": 1
+        }
+      ],
       "ordered_evidence_ids_sha256": "a05428d8046e380e89ab386cff9f2f3817b545d7a724b837b823f01d3f5f42c8",
       "query_id": "zh-dev-number-03",
       "rank_override_present": false,
       "result_count": 1,
+      "score_pairs": [
+        {
+          "bm25_score_hex": "-0x1.07f0dc14ef8a5p+4",
+          "locator": {
+            "document_id": "development-adversarial",
+            "locator_end": 1,
+            "locator_kind": "page",
+            "locator_start": 1
+          },
+          "rank_score_hex": "-0x1.07f0dc14ef8a5p+4"
+        }
+      ],
       "score_pairs_sha256": "970475b2b24a3de604cde8ccaa41ca9d870b067b4e3045d763ac8116e55f0074",
       "split": "development"
     },
     {
+      "ordered_evidence": [
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 19,
+          "locator_kind": "page",
+          "locator_start": 19
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 20,
+          "locator_kind": "page",
+          "locator_start": 20
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 21,
+          "locator_kind": "page",
+          "locator_start": 21
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 9,
+          "locator_kind": "page",
+          "locator_start": 9
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 6,
+          "locator_kind": "page",
+          "locator_start": 6
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 5,
+          "locator_kind": "page",
+          "locator_start": 5
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 12,
+          "locator_kind": "page",
+          "locator_start": 12
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 11,
+          "locator_kind": "page",
+          "locator_start": 11
+        },
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 3,
+          "locator_kind": "page",
+          "locator_start": 3
+        }
+      ],
       "ordered_evidence_ids_sha256": "2aad535491a6cdf90ef1242f78924d4686b32cca7d1fe6b0854105737fb443db",
       "query_id": "zh-dev-semantic-01",
       "rank_override_present": false,
       "result_count": 9,
+      "score_pairs": [
+        {
+          "bm25_score_hex": "-0x1.d25f3ab673693p+0",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 19,
+            "locator_kind": "page",
+            "locator_start": 19
+          },
+          "rank_score_hex": "-0x1.d25f3ab673693p+0"
+        },
+        {
+          "bm25_score_hex": "-0x1.8b76c94dee333p+0",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 20,
+            "locator_kind": "page",
+            "locator_start": 20
+          },
+          "rank_score_hex": "-0x1.8b76c94dee333p+0"
+        },
+        {
+          "bm25_score_hex": "-0x1.4c52e38ecae1ap+0",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 21,
+            "locator_kind": "page",
+            "locator_start": 21
+          },
+          "rank_score_hex": "-0x1.4c52e38ecae1ap+0"
+        },
+        {
+          "bm25_score_hex": "-0x1.3016cc9a54753p+0",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 9,
+            "locator_kind": "page",
+            "locator_start": 9
+          },
+          "rank_score_hex": "-0x1.3016cc9a54753p+0"
+        },
+        {
+          "bm25_score_hex": "-0x1.26dc073458c01p+0",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 6,
+            "locator_kind": "page",
+            "locator_start": 6
+          },
+          "rank_score_hex": "-0x1.26dc073458c01p+0"
+        },
+        {
+          "bm25_score_hex": "-0x1.1bc903d2bef4dp+0",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 5,
+            "locator_kind": "page",
+            "locator_start": 5
+          },
+          "rank_score_hex": "-0x1.1bc903d2bef4dp+0"
+        },
+        {
+          "bm25_score_hex": "-0x1.c9fa35e2c4adfp-1",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 12,
+            "locator_kind": "page",
+            "locator_start": 12
+          },
+          "rank_score_hex": "-0x1.c9fa35e2c4adfp-1"
+        },
+        {
+          "bm25_score_hex": "-0x1.b2907f711e12dp-1",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 11,
+            "locator_kind": "page",
+            "locator_start": 11
+          },
+          "rank_score_hex": "-0x1.b2907f711e12dp-1"
+        },
+        {
+          "bm25_score_hex": "-0x1.5a18fc907b9aep-1",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 3,
+            "locator_kind": "page",
+            "locator_start": 3
+          },
+          "rank_score_hex": "-0x1.5a18fc907b9aep-1"
+        }
+      ],
       "score_pairs_sha256": "0f98507a1cc502e7772db99efb7f08f7009ff4ac5915a4062103ebe548ea9464",
       "split": "development"
     },
     {
+      "ordered_evidence": [
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 26,
+          "locator_kind": "page",
+          "locator_start": 26
+        }
+      ],
       "ordered_evidence_ids_sha256": "6bd9d0a009eb8d83996884de1a326c40be7e0f6a5d9f58cef1924a2eb69ee9a8",
       "query_id": "zh-dev-multi-01",
       "rank_override_present": false,
       "result_count": 1,
+      "score_pairs": [
+        {
+          "bm25_score_hex": "-0x1.25327691faf13p+3",
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 26,
+            "locator_kind": "page",
+            "locator_start": 26
+          },
+          "rank_score_hex": "-0x1.25327691faf13p+3"
+        }
+      ],
       "score_pairs_sha256": "d1198811b3e1103507accafebf1ad3f57945428ff34a52160d28b398480d84a3",
       "split": "development"
     },
     {
+      "ordered_evidence": [
+        {
+          "document_id": "development-adversarial",
+          "locator_end": 2,
+          "locator_kind": "page",
+          "locator_start": 2
+        },
+        {
+          "document_id": "development-adversarial",
+          "locator_end": 1,
+          "locator_kind": "page",
+          "locator_start": 1
+        }
+      ],
       "ordered_evidence_ids_sha256": "5480e37f541131350181f5f6e501da391c4fbd5a4ce36b0e008c2d90a23f35a3",
       "query_id": "zh-dev-hard-02",
       "rank_override_present": false,
       "result_count": 2,
+      "score_pairs": [
+        {
+          "bm25_score_hex": "-0x1.024e469ee9f98p+2",
+          "locator": {
+            "document_id": "development-adversarial",
+            "locator_end": 2,
+            "locator_kind": "page",
+            "locator_start": 2
+          },
+          "rank_score_hex": "-0x1.024e469ee9f98p+2"
+        },
+        {
+          "bm25_score_hex": "-0x1.dd82d6019e0aep+1",
+          "locator": {
+            "document_id": "development-adversarial",
+            "locator_end": 1,
+            "locator_kind": "page",
+            "locator_start": 1
+          },
+          "rank_score_hex": "-0x1.dd82d6019e0aep+1"
+        }
+      ],
       "score_pairs_sha256": "4107859ad49fc3c7ec0ca158bef7bfa6e84e201b26e23157df835dad31fda7b6",
       "split": "development"
     },
     {
+      "ordered_evidence": [
+        {
+          "document_id": "development-adversarial",
+          "locator_end": 3,
+          "locator_kind": "page",
+          "locator_start": 3
+        }
+      ],
       "ordered_evidence_ids_sha256": "d4b7484edb8b11c96b38695491f4770e55c316cf0634fc55a0310e15b450e27a",
       "query_id": "zh-dev-unanswerable-02",
       "rank_override_present": false,
       "result_count": 1,
+      "score_pairs": [
+        {
+          "bm25_score_hex": "-0x1.1706820c275eep+3",
+          "locator": {
+            "document_id": "development-adversarial",
+            "locator_end": 3,
+            "locator_kind": "page",
+            "locator_start": 3
+          },
+          "rank_score_hex": "-0x1.1706820c275eep+3"
+        }
+      ],
       "score_pairs_sha256": "3f9d239ad9108198e3c7a8fd083320b097be74e327092ac1a11146aa1e213ae4",
       "split": "development"
     },
     {
+      "ordered_evidence": [
+        {
+          "document_id": "holdout-adversarial",
+          "locator_end": 1,
+          "locator_kind": "page",
+          "locator_start": 1
+        }
+      ],
       "ordered_evidence_ids_sha256": "ebc824e3743e7cdaa1df59ae267552f4129dc5892868dd25968de774c3ba9b4f",
       "query_id": "zh-hold-mixed-01",
       "rank_override_present": false,
       "result_count": 1,
+      "score_pairs": [
+        {
+          "bm25_score_hex": "-0x1.23cf39d516b27p+3",
+          "locator": {
+            "document_id": "holdout-adversarial",
+            "locator_end": 1,
+            "locator_kind": "page",
+            "locator_start": 1
+          },
+          "rank_score_hex": "-0x1.23cf39d516b27p+3"
+        }
+      ],
       "score_pairs_sha256": "86f863e11de423dcd204aa5b5530b289579b2b00236ad4496647a7777723c865",
       "split": "holdout"
     },
     {
+      "ordered_evidence": [
+        {
+          "document_id": "holdout-adversarial",
+          "locator_end": 3,
+          "locator_kind": "page",
+          "locator_start": 3
+        }
+      ],
       "ordered_evidence_ids_sha256": "acf02ec3a77043110ce7b34c5558f74fd119f4d28e770f3f187c9da52102617b",
       "query_id": "zh-hold-mixed-02",
       "rank_override_present": false,
       "result_count": 1,
+      "score_pairs": [
+        {
+          "bm25_score_hex": "-0x1.ac596c23cb748p+3",
+          "locator": {
+            "document_id": "holdout-adversarial",
+            "locator_end": 3,
+            "locator_kind": "page",
+            "locator_start": 3
+          },
+          "rank_score_hex": "-0x1.ac596c23cb748p+3"
+        }
+      ],
       "score_pairs_sha256": "147f479ead6571225c7db4fe92ebd5a71d0e94fd7e64976b82113ae8e6e1c275",
       "split": "holdout"
     },
     {
+      "ordered_evidence": [
+        {
+          "document_id": "holdout-adversarial",
+          "locator_end": 7,
+          "locator_kind": "page",
+          "locator_start": 7
+        }
+      ],
       "ordered_evidence_ids_sha256": "75b5a23040d3d5c692b4acea6fe939d5bcc8565d78ffe921e001518a2cf90988",
       "query_id": "zh-hold-mixed-03",
       "rank_override_present": false,
       "result_count": 1,
+      "score_pairs": [
+        {
+          "bm25_score_hex": "-0x1.0bfd00ddd0ed0p+3",
+          "locator": {
+            "document_id": "holdout-adversarial",
+            "locator_end": 7,
+            "locator_kind": "page",
+            "locator_start": 7
+          },
+          "rank_score_hex": "-0x1.0bfd00ddd0ed0p+3"
+        }
+      ],
       "score_pairs_sha256": "6a4626d5de4fcf66356b20d443eb53985c7d9b952066b44ca25862e91d7d8de9",
       "split": "holdout"
     },
     {
+      "ordered_evidence": [],
       "ordered_evidence_ids_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
       "query_id": "zh-hold-number-01",
       "rank_override_present": false,
       "result_count": 0,
+      "score_pairs": [],
       "score_pairs_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
       "split": "holdout"
     },
     {
+      "ordered_evidence": [],
       "ordered_evidence_ids_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
       "query_id": "zh-hold-number-02",
       "rank_override_present": false,
       "result_count": 0,
+      "score_pairs": [],
       "score_pairs_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
       "split": "holdout"
     },
     {
+      "ordered_evidence": [
+        {
+          "document_id": "holdout-adversarial",
+          "locator_end": 7,
+          "locator_kind": "page",
+          "locator_start": 7
+        }
+      ],
       "ordered_evidence_ids_sha256": "75b5a23040d3d5c692b4acea6fe939d5bcc8565d78ffe921e001518a2cf90988",
       "query_id": "zh-hold-number-03",
       "rank_override_present": false,
       "result_count": 1,
+      "score_pairs": [
+        {
+          "bm25_score_hex": "-0x1.3462d34dd6966p+4",
+          "locator": {
+            "document_id": "holdout-adversarial",
+            "locator_end": 7,
+            "locator_kind": "page",
+            "locator_start": 7
+          },
+          "rank_score_hex": "-0x1.3462d34dd6966p+4"
+        }
+      ],
       "score_pairs_sha256": "346a2962194098202b763b920b28000efa7704f2478ee243a62a0ddce3f0c9cd",
       "split": "holdout"
     },
     {
+      "ordered_evidence": [
+        {
+          "document_id": "holdout-adversarial",
+          "locator_end": 8,
+          "locator_kind": "page",
+          "locator_start": 8
+        },
+        {
+          "document_id": "holdout-adversarial",
+          "locator_end": 7,
+          "locator_kind": "page",
+          "locator_start": 7
+        },
+        {
+          "document_id": "copyright-law",
+          "locator_end": 5,
+          "locator_kind": "page",
+          "locator_start": 5
+        },
+        {
+          "document_id": "copyright-law",
+          "locator_end": 12,
+          "locator_kind": "page",
+          "locator_start": 12
+        },
+        {
+          "document_id": "copyright-law",
+          "locator_end": 6,
+          "locator_kind": "page",
+          "locator_start": 6
+        }
+      ],
       "ordered_evidence_ids_sha256": "75981327103f8c8c182c5f95f9cc46468a782a9194b1392a61a3ea5a8981adfe",
       "query_id": "zh-hold-hard-02",
       "rank_override_present": false,
       "result_count": 5,
+      "score_pairs": [
+        {
+          "bm25_score_hex": "-0x1.5917b33216541p+1",
+          "locator": {
+            "document_id": "holdout-adversarial",
+            "locator_end": 8,
+            "locator_kind": "page",
+            "locator_start": 8
+          },
+          "rank_score_hex": "-0x1.5917b33216541p+1"
+        },
+        {
+          "bm25_score_hex": "-0x1.432e93802d4aap+1",
+          "locator": {
+            "document_id": "holdout-adversarial",
+            "locator_end": 7,
+            "locator_kind": "page",
+            "locator_start": 7
+          },
+          "rank_score_hex": "-0x1.432e93802d4aap+1"
+        },
+        {
+          "bm25_score_hex": "-0x1.788c29ff310cdp+0",
+          "locator": {
+            "document_id": "copyright-law",
+            "locator_end": 5,
+            "locator_kind": "page",
+            "locator_start": 5
+          },
+          "rank_score_hex": "-0x1.788c29ff310cdp+0"
+        },
+        {
+          "bm25_score_hex": "-0x1.67740bae85a9dp+0",
+          "locator": {
+            "document_id": "copyright-law",
+            "locator_end": 12,
+            "locator_kind": "page",
+            "locator_start": 12
+          },
+          "rank_score_hex": "-0x1.67740bae85a9dp+0"
+        },
+        {
+          "bm25_score_hex": "-0x1.65a636aa1cec2p+0",
+          "locator": {
+            "document_id": "copyright-law",
+            "locator_end": 6,
+            "locator_kind": "page",
+            "locator_start": 6
+          },
+          "rank_score_hex": "-0x1.65a636aa1cec2p+0"
+        }
+      ],
       "score_pairs_sha256": "3b75105475f6a4591cfa7619b26c1b5a17fa1fbadcdeb39abc65ca78c4e3321e",
       "split": "holdout"
     },
     {
+      "ordered_evidence": [
+        {
+          "document_id": "holdout-adversarial",
+          "locator_end": 1,
+          "locator_kind": "page",
+          "locator_start": 1
+        }
+      ],
       "ordered_evidence_ids_sha256": "ebc824e3743e7cdaa1df59ae267552f4129dc5892868dd25968de774c3ba9b4f",
       "query_id": "zh-hold-unanswerable-02",
       "rank_override_present": false,
       "result_count": 1,
+      "score_pairs": [
+        {
+          "bm25_score_hex": "-0x1.23cf39d516b27p+3",
+          "locator": {
+            "document_id": "holdout-adversarial",
+            "locator_end": 1,
+            "locator_kind": "page",
+            "locator_start": 1
+          },
+          "rank_score_hex": "-0x1.23cf39d516b27p+3"
+        }
+      ],
       "score_pairs_sha256": "86f863e11de423dcd204aa5b5530b289579b2b00236ad4496647a7777723c865",
       "split": "holdout"
     }

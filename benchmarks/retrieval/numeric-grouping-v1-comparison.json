@@ -41,7 +41,7 @@
     "revision": 1
   },
   "source": {
-    "sha256": "38dcc518eaef92237a0aa4ef5e450c5da7549506472dd2c7148baddd705c2b85",
+    "sha256": "b90a9224f5698733ed6686d16a9b9d967619b2e8138af459ecf6215d9dabc593",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -140,8 +140,8 @@
       },
       {
         "path": "src/mke/evaluation/chinese_artifact.py",
-        "bytes": 28143,
-        "sha256": "0714a27d679f06cfc413288cec0a5d36a03f3d770356c19b5ff2dd749fea5793"
+        "bytes": 32491,
+        "sha256": "a2c8149d7115ff4761f18eed41df76242657eb482cc8b428b00559df1e8908cc"
       },
       {
         "path": "src/mke/evaluation/chinese_diagnostics.py",
@@ -155,13 +155,13 @@
       },
       {
         "path": "src/mke/evaluation/chinese_report.py",
-        "bytes": 14001,
-        "sha256": "92f0679d8d7e73d042a3be800f13a2f8ff432a5483296ce423eb27a727c11003"
+        "bytes": 14726,
+        "sha256": "ef5b9f514c76e8c58f8e39be591d812b3cdc7e47cff0bde15fae5cd96e76ded6"
       },
       {
         "path": "src/mke/evaluation/chinese_runner.py",
-        "bytes": 29395,
-        "sha256": "86048cd8bda6440b901c60b50046216e7c39101c93701920842e893d3cb7ee45"
+        "bytes": 29855,
+        "sha256": "428ec7ac99c1f6b936d3781cc4bfb9cd020e0b6a9cefb3df0f9f51506ce72130"
       },
       {
         "path": "src/mke/evaluation/diagnostic_ports.py",
