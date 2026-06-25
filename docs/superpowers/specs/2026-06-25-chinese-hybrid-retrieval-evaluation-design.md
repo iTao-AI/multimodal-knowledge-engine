@@ -2,7 +2,7 @@
 
 ## Status
 
-- Stage: Approved for E3-A implementation planning.
+- Stage: Approved for E3-A implementation after autoplan review.
 - Slice: E3.
 - Design date: 2026-06-25.
 - Baseline: `main@b04df63a1c07b8df3dcd1284cdbea42dd4e31e1c`.
@@ -11,7 +11,7 @@
   - the completed E2 numeric candidate comparison and promotion;
   - the existing active-Publication-only Search and evidence-only Ask contracts.
 
-Only E3-A is approved for immediate implementation planning. E3-B through E3-F remain
+Only E3-A is approved for immediate implementation. E3-B through E3-F remain
 evidence-gated follow-up stages. Their implementation plans must not be written until the
 preceding canonical artifact exists and the next candidate boundary is approved.
 
@@ -340,6 +340,20 @@ The holdout is frozen and independently authored before candidate code, but rema
 public repository. It protects against editing the target after implementation; it is not a blind
 test or statistical generalization claim.
 
+Future candidate stages use this public holdout under a one-observation rule:
+
+- candidate identity, revision, parameters, development gates, and promotion gates are frozen
+  before the holdout observation;
+- implementation and tuning use only development queries against the development corpus;
+- holdout queries run only against the holdout corpus, so development work cannot observe holdout
+  documents or their retrieval behavior;
+- each frozen candidate receives one canonical holdout observation, with the evaluator's required
+  duplicate holdout workspace run used only to prove determinism;
+- changing candidate code, parameters, gates, qrels, or fixture bytes after observing holdout
+  results marks that holdout observation as contaminated for promotion;
+- a contaminated candidate requires a new protocol version or is reported as development-only
+  evidence.
+
 Each side has the same category allocation:
 
 | Category | Per side | Total |
@@ -368,6 +382,22 @@ Answerable queries use page-level graded qrels:
 
 Unanswerable queries have no relevant Evidence.
 
+Before protocol freeze, every query receives a complete ordered judgment inventory against its
+own corpus partition:
+
+- 24 development queries against 34 development pages;
+- 24 holdout queries against 36 holdout pages;
+- 1,680 recorded query-page judgments in total.
+
+Each judgment records the exact page locator and one of `0`, `1`, `2`, or `non_relevant`.
+Answerable-query review must confirm that every independently answer-capable page is grade `2`,
+every relevant but insufficient page is grade `1`, and every designated confuser is grade `0`.
+Unanswerable-query review must confirm that every page in its partition is non-relevant. The
+validator derives coverage and counts from the ordered judgment records rather than trusting
+summary fields. The protocol provenance records the review method, review date, bounded
+public-safe decision basis, and `review_status=complete`. E3-A does not claim independent
+inter-rater agreement because the protocol does not require two separate annotators.
+
 Metric semantics are fixed:
 
 - Recall@1/3/5 and MRR@5 treat only grade `2` as relevant;
@@ -376,7 +406,8 @@ Metric semantics are fixed:
 - hard-negative failure records a designated grade-`0` distractor ranked ahead of every grade-`2`
   target, or a distractor returned when the direct target is absent;
 - unanswerable no-hit records whether Search returns no Evidence;
-- evidence-only Ask refusal is observed separately from Search quality.
+- Ask input rejection, Ask insufficient-Evidence refusal, and Ask evidence-found outcomes are
+  reported separately from Search quality and are not E3-B promotion gates.
 
 A baseline quality failure does not make E3-A execution fail. E3-A fails only on protocol,
 fixture, qrel, ingestion, active-Evidence, determinism, completeness, or reporting-integrity
@@ -392,19 +423,24 @@ The exact CLI name and schema version are selected in the E3-A plan, but the com
 2. snapshot immutable fixture bytes before ingest;
 3. ingest through normal application and Publication behavior;
 4. enumerate and validate active Evidence locators;
-5. execute the current default FTS5 lexical strategy in two fresh SQLite workspaces;
+5. execute the current default FTS5 lexical strategy in two fresh SQLite workspaces per corpus
+   partition;
 6. compare deterministic ordered locator results;
 7. calculate the approved graded metrics and category breakdowns;
-8. emit human-readable and JSON reports;
-9. produce a public-safe canonical artifact;
-10. leave `mke proof run`, E1, E2, Search, Ask, CLI, and MCP runtime behavior unchanged.
+8. report compiled-query emptiness and ASCII-token-count strata separately from the protocol's
+   human-authored linguistic categories;
+9. emit human-readable and JSON reports;
+10. produce a public-safe canonical artifact;
+11. leave `mke proof run`, E1, E2, Search, Ask, CLI, and MCP runtime behavior unchanged.
 
 The canonical artifact records:
 
 - protocol, fixture, qrel, query-ID, environment, SQLite, PDF adapter, and source-code identity;
 - aggregate and per-category metrics;
+- compiled-query-empty and ASCII-token-count strata;
 - per-query ordered locator outcomes and grades;
-- failure taxonomy counts;
+- mechanically observed miss-symptom counts;
+- per-query FTS5 `rank`/`bm25()` ordering and score-digest evidence;
 - verified FTS5 scorer semantics;
 - determinism and integrity results;
 - explicit limits on what the observation proves.
@@ -414,26 +450,30 @@ unstable random IDs, and unsupported product-quality claims.
 
 Required CI gates protocol and artifact integrity, not a minimum Chinese retrieval score.
 
-## E3-A Failure Taxonomy
+## E3-A Miss-Symptom Taxonomy
 
-Every answerable miss must receive one primary, evidence-backed classification:
+Every answerable miss must receive one primary mechanically observed classification:
 
-- `no_searchable_cjk_terms`;
-- `word_boundary_mismatch`;
-- `proper_noun_or_mixed_language_mismatch`;
-- `number_date_or_unit_mismatch`;
-- `semantic_vocabulary_mismatch`;
-- `multi_condition_overconstraint`;
-- `ranking_distractor_ahead`;
-- `segmentation_or_locator_limitation`;
-- `other_observed_failure`.
+- `compiled_query_empty`;
+- `distractor_ranked_ahead`;
+- `compiled_clauses_absent_from_direct_page`;
+- `compiled_clauses_overconstrained`;
+- `matching_direct_page_not_returned`;
+- `other_observed_miss`.
 
-`other_observed_failure` requires a public-safe explanation. The evaluator must not infer a cause
-only from the query category; classification must inspect the compiled lexical query, relevant
-Evidence text, and returned ordered locators.
+The query compiler exposes an evaluation-only structured diagnostic for its actual `AND` clauses
+and parenthesized `OR` alternatives. The classifier inspects whether each grade-`2` page satisfies
+every required clause under the compiler's exact semantics, together with returned ordered
+locators. It must not infer word-boundary, semantic, segmentation, or other causal claims from the
+human-authored query category. A separate reviewed note may discuss hypotheses, but those
+hypotheses are not canonical artifact facts.
 
-E3-A completion includes a reviewed mapping from observed failure classes to the narrow CJK
-lexical candidate questions E3-B is permitted to test.
+E3-B may proceed only when E3-A integrity passes, qrel review is complete, and the development
+split contains at least one answerable grade-`2` miss with `compiled_query_empty`. E3-B may target
+only deterministic CJK lexical compilation/index coverage. Misses classified as
+`compiled_clauses_overconstrained`, `matching_direct_page_not_returned`, or
+`other_observed_miss` do not by themselves justify E3-B and must not be used to broaden that
+candidate into semantic retrieval, query rewrite, or segmentation work.
 
 ## E3-B CJK Lexical Candidate
 
@@ -573,7 +613,7 @@ arbitrary-document support, hosted availability, or a candidate capability that 
 - E3-F requires an ADR for the promoted strategy, model/projection lifecycle, readiness, and
   rollback.
 - Public docs must remain neutral and must not mention private planning, recruiting objectives,
-  Career paths, or raw GStack artifacts.
+  private workspace paths, or raw planning-tool artifacts.
 
 ## E3-A Acceptance Criteria
 
@@ -586,19 +626,21 @@ E3-A is complete when:
    category allocation.
 3. Every answerable grade-`2` or grade-`1` qrel resolves to an active page Evidence locator, and
    every designated grade-`0` distractor exists.
-4. Two fresh workspaces produce identical ordered locator outcomes for the current default lexical
-   strategy.
+4. Two fresh workspaces per corpus partition produce identical ordered locator outcomes for the
+   current default lexical strategy, and development execution never ingests holdout documents.
 5. Reports include Recall@1/3/5, MRR@5, nDCG@5/10, answerable zero-hit, hard-negative failure,
-   unanswerable no-hit, Ask refusal, and category breakdowns.
-6. Every grade-`2` miss has one reviewed primary failure classification.
+   unanswerable no-hit, separate Ask input-rejection/insufficient-Evidence/evidence-found rates,
+   category breakdowns, compiled-query-empty strata, and ASCII-token-count strata.
+6. Every grade-`2` miss has one mechanically observed primary miss-symptom classification.
 7. The canonical artifact validator independently verifies protocol, source, environment, result,
-   metric, classification, and report consistency.
+   metric, classification, adjudication-record coverage, FTS scorer evidence, and report
+   consistency; it does not claim to machine-verify human relevance judgment correctness.
 8. Required CI gates integrity and determinism without turning observed quality values into fixed
    thresholds.
 9. Existing Search, Ask, E1, E2, Publication, CLI, MCP, product proof, transcription, and runtime
    defaults remain unchanged.
-10. The implementation plan and durable review record which observed failure classes, if any,
-    justify a bounded E3-B CJK lexical candidate.
+10. The implementation plan and durable review apply the predeclared E3-B start rule and record
+    whether the development observation justifies a bounded CJK lexical candidate.
 
 ## E3-A Planning And Review Sequence
 
