@@ -5,6 +5,15 @@
 **Completion:** Tasks 1–11 were executed. The inline checkboxes below are retained as the approved
 historical execution procedure, not as pending work.
 
+**Review follow-up:** Four implementation findings returned by the separate review window were
+verified and remediated with TDD. Artifact environment validation is portable across supported
+Python/platform runtimes; rank proof now requires real production-equivalent SQL traces, complete
+result ordering, a non-empty predeclared probe, and Search-prefix equality; artifact recording
+independently recomputes miss classifications while enforcing partition locator inventory and
+strict JSON scalar types; and qrel `review_date` is locked to the approved `2026-06-25` record.
+The E1, E2, and E3-A canonical artifacts were refreshed through the durable recovery journal with
+semantic observations unchanged.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use
 > checkbox (`- [ ]`) syntax for tracking.

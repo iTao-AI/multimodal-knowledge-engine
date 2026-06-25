@@ -5,6 +5,8 @@
 - Review type: lightweight pre-handoff self-review.
 - Scope: E3-A only.
 - Result: implementation and Task 11 verification match the approved HOLD SCOPE plan.
+- Follow-up: four findings from the separate review window were verified and closed with TDD;
+  no complete `gstack-review` was repeated in this implementation window.
 - Branch: `codex/e3a-chinese-retrieval-baseline`.
 - Base: `89deeab`.
 
@@ -41,10 +43,30 @@
 No unresolved scope or architecture decision was found. Final authoritative `gstack-review` is
 deliberately deferred to the PR preparation window.
 
+## Review Follow-Up Findings
+
+1. The Chinese artifact validator rebuilt the expected artifact with the current process
+   environment, so a valid artifact recorded on another supported Python/SQLite/PyMuPDF runtime
+   failed validation. The validator now accepts the artifact's recorded environment after strict
+   version-shape validation. Python 3.12 and 3.13 isolated validators cover this path.
+2. Rank evidence trusted a synthetic statement count and accepted empty rank result sets. The
+   SQLite diagnostic now returns the actual SQL trace. The runner requires exactly two unbounded,
+   production-equivalent MATCH queries, full `rank`/`bm25()` equality, Search top-10 prefix
+   equality, and a non-empty result for the predeclared rank probe.
+3. Artifact recording trusted observed miss fields and allowed locators outside the query
+   partition; Python booleans could also compare equal to integer grades/counts. The validator
+   now extracts the frozen fixture page inventory independently, restricts each result to its
+   partition and limit, recomputes `classify_miss()` from fixture text/qrels/retrieved locators,
+   and uses recursive type-strict JSON equality. Regression tests mutate the observed report and
+   exercise the re-record path, not only a finished artifact.
+4. Qrel adjudication required a `review_date` field but did not validate it. The protocol now
+   requires the exact approved ISO date `2026-06-25` and rejects booleans, malformed/impossible
+   dates, and alternate dates.
+
 ## Verification
 
-- Targeted E3-A suite: `166 passed`.
-- Full suite: `802 passed, 1 skipped`.
+- Targeted E3-A suite: `181 passed`.
+- Full suite: `817 passed, 1 skipped`.
 - `uv run ruff check .`: passed.
 - `uv run pyright`: `0 errors`.
 - `uv build`: sdist and wheel built.
@@ -53,7 +75,9 @@ deliberately deferred to the PR preparation window.
   excluding runtime duration only.
 - `uv run mke proof run --json`: `8/8` passed.
 - `uv run mke demo --verify`: passed.
-- Offline installed-wheel proof: Python 3.12 in `3621 ms`; Python 3.13 in `4158 ms`.
+- Offline installed-wheel proof: Python 3.12 in `6511 ms`; Python 3.13 in `6523 ms`.
+- Chinese artifact validation passed in isolated Python 3.12 and 3.13 environments using the same
+  checked-in artifact and observed report.
 - Python 3.12 measurement: sync `12 ms`, evaluator `525 ms`, first report `537 ms`, wheel proof
   `2959 ms`, peak RSS `213893120` bytes, maximum SQLite `910552` bytes.
 - Python 3.13 measurement: sync `12 ms`, evaluator `532 ms`, first report `544 ms`, wheel proof
@@ -64,7 +88,7 @@ deliberately deferred to the PR preparation window.
 ## Artifact Identity
 
 - E3-A artifact SHA-256:
-  `b9fd67678c9f1ac6ad3391e51f9f43affd85b4dabc9d87c646244e401a053136`.
+  `d201ffed051cef2973ec833295d0779f4613693a892a73bfd2eaa4ef4d907ef6`.
 - Protocol SHA-256:
   `00f72934018a52b5b5f5591fba119050882aee9b782e5dac199702b0cf995944`.
 - Qrel adjudication SHA-256:
