@@ -5,15 +5,17 @@ import hashlib
 import json
 import math
 import re
+import tempfile
 import tomllib
 from collections import Counter
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import cast
 
 import fitz  # pyright: ignore[reportMissingTypeStubs]
 
+from mke.adapters.sqlite import SQLiteStore
 from mke.evaluation.chinese_diagnostics import classify_miss
 from mke.evaluation.chinese_protocol import (
     ChineseEvaluationQuery,
@@ -84,6 +86,12 @@ _ARTIFACT_FIELDS = {
 
 class ChineseArtifactValidationError(ValueError):
     """The canonical E3-A artifact or its bound evidence is invalid."""
+
+
+@dataclass(frozen=True)
+class _ReplayedRankEvidence:
+    ordered_evidence: tuple[StableLocator, ...]
+    score_pairs: tuple[tuple[StableLocator, str, str], ...]
 
 
 def record_chinese_artifact(
@@ -331,6 +339,7 @@ def _validate_observed(
         protocol,
         metric_inputs=metric_inputs,
         locator_inventory=locator_inventory,
+        replayed=_replay_rank_observations(protocol, page_text),
     )
     e3b_evidence = _require_fields(
         observed["e3b_evidence"],
@@ -532,6 +541,7 @@ def _validate_rank_observations(
     *,
     metric_inputs: tuple[GradedQueryMetricInput, ...],
     locator_inventory: Mapping[str, frozenset[StableLocator]],
+    replayed: Mapping[str, _ReplayedRankEvidence],
 ) -> None:
     observations = _list(value)
     expected_queries = tuple(
@@ -571,17 +581,22 @@ def _validate_rank_observations(
         score_pairs = tuple(
             _rank_score_pair(item) for item in _list(record["score_pairs"])
         )
-        stable_ids = tuple(
+        expected = replayed.get(query.query_id)
+        if expected is None:
+            raise ChineseArtifactValidationError(
+                "Chinese retrieval baseline artifact is invalid"
+            )
+        expected_stable_ids = tuple(
             _stable_evidence_identity(locator)
-            for locator in ordered_evidence
+            for locator in expected.ordered_evidence
         )
-        canonical_score_pairs = tuple(
+        expected_score_pairs = tuple(
             (
                 _stable_evidence_identity(locator),
                 rank_score_hex,
                 bm25_score_hex,
             )
-            for locator, rank_score_hex, bm25_score_hex in score_pairs
+            for locator, rank_score_hex, bm25_score_hex in expected.score_pairs
         )
         retrieved = inputs_by_query[query.query_id].retrieved
         if (
@@ -602,18 +617,215 @@ def _validate_rank_observations(
                 locator not in locator_inventory[query.split]
                 for locator in ordered_evidence
             )
-            or len(retrieved) != min(10, len(ordered_evidence))
-            or retrieved != ordered_evidence[: len(retrieved)]
+            or ordered_evidence != expected.ordered_evidence
+            or score_pairs != expected.score_pairs
+            or record["result_count"] != len(expected.ordered_evidence)
+            or len(retrieved) != min(10, len(expected.ordered_evidence))
+            or retrieved != expected.ordered_evidence[: len(retrieved)]
             or record["ordered_evidence_ids_sha256"]
-            != _digest(stable_ids)
+            != _digest(expected_stable_ids)
             or record["score_pairs_sha256"]
-            != _digest(canonical_score_pairs)
+            != _digest(expected_score_pairs)
         ):
             raise ChineseArtifactValidationError(
                 "Chinese retrieval baseline artifact is invalid"
             )
         _require_sha256(record["ordered_evidence_ids_sha256"])
         _require_sha256(record["score_pairs_sha256"])
+
+
+def _replay_rank_observations(
+    protocol: ChineseRetrievalProtocol,
+    page_text: Mapping[StableLocator, str],
+) -> dict[str, _ReplayedRankEvidence]:
+    replayed: dict[str, _ReplayedRankEvidence] = {}
+    try:
+        for split in ("development", "holdout"):
+            with tempfile.TemporaryDirectory(
+                prefix=f"mke-retrieval-chinese-replay-{split}-"
+            ) as workspace:
+                store = SQLiteStore(
+                    Path(workspace) / "mke.sqlite",
+                    query_policy="numeric-grouping-v1",
+                )
+                try:
+                    evidence_by_id = _seed_replay_partition(
+                        store,
+                        protocol,
+                        page_text=page_text,
+                        split=split,
+                    )
+                    for query in protocol.queries:
+                        if query.split != split:
+                            continue
+                        diagnostic = compile_fts5_query_diagnostic(
+                            query.text, policy="numeric-grouping-v1"
+                        )
+                        if not diagnostic.compiled_query:
+                            continue
+                        profile = store.observe_fts5_rank(
+                            diagnostic.compiled_query
+                        )
+                        rank_ids = tuple(
+                            item.evidence_id for item in profile.rank_order
+                        )
+                        bm25_ids = tuple(
+                            item.evidence_id for item in profile.bm25_order
+                        )
+                        if (
+                            profile.rank_override_present
+                            or rank_ids != bm25_ids
+                            or any(
+                                not math.isfinite(item.rank_score)
+                                or not math.isfinite(item.bm25_score)
+                                or not math.isclose(
+                                    item.rank_score,
+                                    item.bm25_score,
+                                    rel_tol=0.0,
+                                    abs_tol=1e-12,
+                                )
+                                for item in profile.rank_order
+                            )
+                        ):
+                            raise ChineseArtifactValidationError(
+                                "Chinese retrieval baseline artifact is invalid"
+                            )
+                        ordered = tuple(
+                            evidence_by_id[evidence_id]
+                            for evidence_id in rank_ids
+                        )
+                        replayed[query.query_id] = _ReplayedRankEvidence(
+                            ordered_evidence=ordered,
+                            score_pairs=tuple(
+                                (
+                                    evidence_by_id[item.evidence_id],
+                                    item.rank_score.hex(),
+                                    item.bm25_score.hex(),
+                                )
+                                for item in profile.rank_order
+                            ),
+                        )
+                finally:
+                    store.close()
+    except ChineseArtifactValidationError:
+        raise
+    except Exception as error:
+        raise ChineseArtifactValidationError(
+            "Chinese retrieval baseline artifact is invalid"
+        ) from error
+    return replayed
+
+
+def _seed_replay_partition(
+    store: SQLiteStore,
+    protocol: ChineseRetrievalProtocol,
+    *,
+    page_text: Mapping[StableLocator, str],
+    split: str,
+) -> dict[str, StableLocator]:
+    connection = store._connection  # pyright: ignore[reportPrivateUsage]
+    library_id = f"replay-library-{split}"
+    evidence_by_id: dict[str, StableLocator] = {}
+    with connection:
+        connection.execute(
+            "INSERT INTO libraries(library_id, name) VALUES (?, ?)",
+            (library_id, f"replay-{split}"),
+        )
+        for document in protocol.documents:
+            if document.split != split:
+                continue
+            asset_id = f"replay-asset-{document.document_id}"
+            source_id = f"replay-source-{document.document_id}"
+            run_id = f"replay-run-{document.document_id}"
+            publication_id = f"replay-publication-{document.document_id}"
+            connection.execute(
+                """
+                INSERT INTO assets(asset_id, sha256, media_type)
+                VALUES (?, ?, ?)
+                """,
+                (
+                    asset_id,
+                    document.primary_file.sha256,
+                    document.media_type,
+                ),
+            )
+            connection.execute(
+                """
+                INSERT INTO sources(
+                  source_id, library_id, asset_id, display_name,
+                  active_publication_id, active_revision, requested_generation
+                ) VALUES (?, ?, ?, ?, ?, 1, 1)
+                """,
+                (
+                    source_id,
+                    library_id,
+                    asset_id,
+                    document.document_id,
+                    publication_id,
+                ),
+            )
+            connection.execute(
+                """
+                INSERT INTO runs(
+                  run_id, source_id, state, source_generation,
+                  based_on_active_revision
+                ) VALUES (?, ?, 'published', 1, 0)
+                """,
+                (run_id, source_id),
+            )
+            connection.execute(
+                """
+                INSERT INTO publications(
+                  publication_id, source_id, run_id, revision
+                ) VALUES (?, ?, ?, 1)
+                """,
+                (publication_id, source_id, run_id),
+            )
+            locators = sorted(
+                locator
+                for locator in page_text
+                if locator.document_id == document.document_id
+            )
+            for locator in locators:
+                evidence_id = (
+                    f"replay-evidence-{document.document_id}-"
+                    f"{locator.locator_start:04d}"
+                )
+                text = page_text[locator]
+                connection.execute(
+                    """
+                    INSERT INTO evidence(
+                      evidence_id, run_id, source_id, locator_kind,
+                      locator_start, locator_end, text
+                    ) VALUES (?, ?, ?, 'page', ?, ?, ?)
+                    """,
+                    (
+                        evidence_id,
+                        run_id,
+                        source_id,
+                        locator.locator_start,
+                        locator.locator_end,
+                        text,
+                    ),
+                )
+                connection.execute(
+                    """
+                    INSERT INTO active_evidence_fts(
+                      library_id, source_id, publication_id, evidence_id,
+                      locator_label, text
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        library_id,
+                        source_id,
+                        publication_id,
+                        evidence_id,
+                        f"page:{locator.locator_start}",
+                        text,
+                    ),
+                )
+                evidence_by_id[evidence_id] = locator
+    return evidence_by_id
 
 
 def _source_identity(repository_root: Path) -> dict[str, object]:

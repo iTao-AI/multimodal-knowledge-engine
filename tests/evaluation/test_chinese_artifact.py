@@ -1,3 +1,4 @@
+import hashlib
 import json
 from collections.abc import Callable
 from pathlib import Path
@@ -253,6 +254,86 @@ def _mutate_non_probe_rank_digest(payload: dict[str, object]) -> None:
     observation["ordered_evidence_ids_sha256"] = "0" * 64
 
 
+def _stable_identity(locator: dict[str, object]) -> str:
+    return (
+        f"{locator['document_id']}|{locator['locator_kind']}|"
+        f"{locator['locator_start']}|{locator['locator_end']}"
+    )
+
+
+def _digest(value: object) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            value, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def _refresh_rank_digests(observation: dict[str, object]) -> None:
+    ordered = cast(list[dict[str, object]], observation["ordered_evidence"])
+    score_pairs = cast(list[dict[str, object]], observation["score_pairs"])
+    observation["ordered_evidence_ids_sha256"] = _digest(
+        tuple(_stable_identity(locator) for locator in ordered)
+    )
+    observation["score_pairs_sha256"] = _digest(
+        tuple(
+            (
+                _stable_identity(cast(dict[str, object], pair["locator"])),
+                pair["rank_score_hex"],
+                pair["bm25_score_hex"],
+            )
+            for pair in score_pairs
+        )
+    )
+
+
+def _mutate_rank_score_and_refresh_digest(payload: dict[str, object]) -> None:
+    observations = cast(
+        list[dict[str, object]], payload["fts5_rank_observations"]
+    )
+    observation = next(item for item in observations if item["result_count"])
+    score_pair = cast(
+        dict[str, object],
+        cast(list[object], observation["score_pairs"])[0],
+    )
+    score_pair["rank_score_hex"] = "-0x1.0000000000000p+0"
+    score_pair["bm25_score_hex"] = "-0x1.0000000000000p+0"
+    _refresh_rank_digests(observation)
+
+
+def _replace_rank_locator_and_refresh_all_evidence(
+    payload: dict[str, object],
+) -> None:
+    query_id = "zh-dev-unanswerable-02"
+    replacement = {
+        "document_id": "development-adversarial",
+        "locator_kind": "page",
+        "locator_start": 4,
+        "locator_end": 4,
+    }
+    observations = cast(
+        list[dict[str, object]], payload["fts5_rank_observations"]
+    )
+    observation = next(
+        item for item in observations if item["query_id"] == query_id
+    )
+    cast(list[object], observation["ordered_evidence"])[0] = replacement
+    score_pair = cast(
+        dict[str, object],
+        cast(list[object], observation["score_pairs"])[0],
+    )
+    score_pair["locator"] = replacement
+    _refresh_rank_digests(observation)
+
+    results = cast(list[dict[str, object]], payload["results"])
+    result = next(item for item in results if item["query_id"] == query_id)
+    retrieved = cast(
+        dict[str, object],
+        cast(list[object], result["retrieved"])[0],
+    )
+    retrieved["locator"] = replacement
+
+
 OBSERVED_RERECORD_MUTATIONS: list[
     Callable[[dict[str, object]], object]
 ] = [
@@ -270,6 +351,8 @@ OBSERVED_RERECORD_MUTATIONS: list[
     _mutate_bool_qrel_count,
     _mutate_non_probe_rank_count,
     _mutate_non_probe_rank_digest,
+    _mutate_rank_score_and_refresh_digest,
+    _replace_rank_locator_and_refresh_all_evidence,
 ]
 
 
