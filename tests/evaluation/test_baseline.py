@@ -11,6 +11,7 @@ import pytest
 
 from mke.evaluation.baseline import (
     BaselineValidationError,
+    refresh_retrieval_baseline_source,
     validate_retrieval_baseline,
 )
 
@@ -424,3 +425,64 @@ def test_module_cli_redacts_malformed_locator_parse_error(tmp_path: Path) -> Non
         "baseline results do not match manifest query identity\n"
     )
     assert completed.stderr == ""
+
+
+def test_refresh_source_changes_only_current_source_identity(tmp_path: Path) -> None:
+    artifact = tmp_path / "baseline.json"
+    payload = _artifact_payload()
+    code = cast(dict[str, object], payload["code"])
+    code["evaluation_content_sha256"] = "0" * 64
+    cast(list[dict[str, object]], code["evaluation_content_files"])[0][
+        "sha256"
+    ] = "0" * 64
+    artifact.write_text(json.dumps(payload), encoding="utf-8")
+    before = json.loads(artifact.read_text(encoding="utf-8"))
+
+    refresh_retrieval_baseline_source(
+        artifact_path=artifact,
+        manifest_path=MANIFEST,
+        repository_root=REPOSITORY,
+        main_ref="main",
+    )
+
+    after = json.loads(artifact.read_text(encoding="utf-8"))
+    before_code = before["code"]
+    after_code = after["code"]
+    assert {
+        key: value
+        for key, value in before_code.items()
+        if key
+        not in {"evaluation_content_sha256", "evaluation_content_files"}
+    } == {
+        key: value
+        for key, value in after_code.items()
+        if key
+        not in {"evaluation_content_sha256", "evaluation_content_files"}
+    }
+    before["code"] = {
+        **before_code,
+        "evaluation_content_sha256": after_code["evaluation_content_sha256"],
+        "evaluation_content_files": after_code["evaluation_content_files"],
+    }
+    assert after == before
+    _validate(artifact)
+
+
+def test_refresh_source_leaves_invalid_artifact_byte_identical(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "baseline.json"
+    payload = _artifact_payload()
+    payload["metrics"] = {}
+    artifact.write_text(json.dumps(payload), encoding="utf-8")
+    before = artifact.read_bytes()
+
+    with pytest.raises(BaselineValidationError):
+        refresh_retrieval_baseline_source(
+            artifact_path=artifact,
+            manifest_path=MANIFEST,
+            repository_root=REPOSITORY,
+            main_ref="main",
+        )
+
+    assert artifact.read_bytes() == before

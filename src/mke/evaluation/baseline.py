@@ -5,6 +5,7 @@ import hashlib
 import json
 import math
 import re
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
@@ -70,6 +71,59 @@ _RESULT_FIELDS = {
 
 class BaselineValidationError(ValueError):
     """The canonical baseline artifact is malformed or has invalid provenance."""
+
+
+def refresh_retrieval_baseline_source(
+    *,
+    artifact_path: Path,
+    manifest_path: Path,
+    repository_root: Path,
+    main_ref: str = "main",
+) -> None:
+    original = artifact_path.read_bytes()
+    try:
+        payload = _load_json_object(artifact_path, "baseline artifact")
+        code = _object(payload["code"], "baseline code identity")
+        identity = _source_content_identity(repository_root.resolve())
+        candidate = cast(
+            dict[str, object],
+            json.loads(json.dumps(payload)),
+        )
+        candidate_code = _object(
+            candidate["code"], "baseline code identity"
+        )
+        candidate_code["evaluation_content_sha256"] = identity["sha256"]
+        candidate_code["evaluation_content_files"] = identity["files"]
+        temporary = artifact_path.with_name(f".{artifact_path.name}.refresh")
+        temporary.write_text(
+            json.dumps(candidate, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        try:
+            validate_retrieval_baseline(
+                artifact_path=temporary,
+                manifest_path=manifest_path,
+                repository_root=repository_root,
+                main_ref=main_ref,
+            )
+            if any(
+                candidate_code[name] != code[name]
+                for name in (
+                    "main_merge_base",
+                    "implementation_start",
+                    "evaluation_commit",
+                )
+            ):
+                raise BaselineValidationError(
+                    "baseline code historical metadata is invalid"
+                )
+            temporary.replace(artifact_path)
+        finally:
+            temporary.unlink(missing_ok=True)
+    except Exception:
+        if artifact_path.read_bytes() != original:
+            artifact_path.write_bytes(original)
+        raise
 
 
 def validate_retrieval_baseline(
@@ -519,6 +573,29 @@ def _sha256(path: Path) -> str:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if arguments and arguments[0] == "refresh-source":
+        parser = argparse.ArgumentParser(
+            description="Refresh only canonical E1 source-content identity."
+        )
+        parser.add_argument("command")
+        parser.add_argument("--artifact", type=Path, required=True)
+        parser.add_argument("--manifest", type=Path, required=True)
+        parser.add_argument("--repository", type=Path, default=Path("."))
+        parser.add_argument("--main-ref", default="main")
+        args = parser.parse_args(arguments)
+        try:
+            refresh_retrieval_baseline_source(
+                artifact_path=args.artifact,
+                manifest_path=args.manifest,
+                repository_root=args.repository,
+                main_ref=args.main_ref,
+            )
+        except (BaselineValidationError, OSError, KeyError) as error:
+            print(f"retrieval baseline source refresh invalid: {error}")
+            return 1
+        print("retrieval baseline source identity refreshed")
+        return 0
     parser = argparse.ArgumentParser(
         description="Validate the canonical retrieval baseline artifact."
     )
@@ -526,7 +603,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--repository", type=Path, default=Path("."))
     parser.add_argument("--main-ref", default="main")
-    args = parser.parse_args(argv)
+    args = parser.parse_args(arguments)
     try:
         validate_retrieval_baseline(
             artifact_path=args.artifact,

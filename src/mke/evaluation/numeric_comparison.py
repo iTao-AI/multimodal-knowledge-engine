@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
+import sys
 import tempfile
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast
@@ -141,6 +144,72 @@ class NumericComparisonReport:
     integrity_failures: tuple[IntegrityFailure, ...]
     duration_ms: int
     limitations: tuple[str, ...] = LIMITATIONS
+
+
+def refresh_numeric_protocol_scope(
+    *,
+    protocol_path: Path,
+    repository_root: Path,
+) -> None:
+    original = protocol_path.read_bytes()
+    temporary = protocol_path.with_name(f".{protocol_path.name}.refresh")
+    try:
+        raw = json.loads(original.decode("utf-8"))
+        if not isinstance(raw, dict):
+            raise _ProtocolValidationError
+        payload = cast(dict[str, object], raw)
+        _require_keys(
+            payload,
+            {
+                "schema_version",
+                "protocol_id",
+                "candidate",
+                "claim",
+                "manifests",
+                "fixtures",
+                "required_query_ids",
+                "scope_fence",
+            },
+        )
+        scope = _object(payload["scope_fence"])
+        _require_keys(scope, {"files", "sqlite_schema_sha256"})
+        raw_files = scope["files"]
+        if not isinstance(raw_files, list):
+            raise _ProtocolValidationError
+        files = cast(list[object], raw_files)
+        if len(files) != len(_EXPECTED_SCOPE_PATHS):
+            raise _ProtocolValidationError
+        for raw_record, expected_path in zip(
+            files, _EXPECTED_SCOPE_PATHS, strict=True
+        ):
+            record = _object(raw_record)
+            _require_keys(record, {"path", "sha256"})
+            path = _resolve_repository_path(
+                repository_root, record["path"], expected_path
+            )
+            record["sha256"] = _sha256_bound(path)
+        from mke.adapters.sqlite import SQLiteStore
+
+        with tempfile.TemporaryDirectory(
+            prefix="mke-numeric-scope-refresh-"
+        ) as workspace:
+            store = SQLiteStore(Path(workspace) / "mke.sqlite")
+            try:
+                scope["sqlite_schema_sha256"] = store.schema_sha256()
+            finally:
+                store.close()
+        temporary.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        load_numeric_protocol(temporary)
+        temporary.replace(protocol_path)
+    except Exception:
+        if protocol_path.read_bytes() != original:
+            protocol_path.write_bytes(original)
+        raise
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def load_numeric_protocol(
@@ -979,3 +1048,31 @@ def _is_sha256(value: object) -> bool:
 
 def _elapsed_ms(started: float) -> int:
     return max(0, round((time.monotonic() - started) * 1000))
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Numeric retrieval comparison operations."
+    )
+    commands = parser.add_subparsers(dest="command", required=True)
+    refresh = commands.add_parser(
+        "refresh-scope",
+        description="Refresh only the locked E2 scope-fence hashes.",
+    )
+    refresh.add_argument("--protocol", type=Path, required=True)
+    refresh.add_argument("--repository", type=Path, default=Path("."))
+    args = parser.parse_args(sys.argv[1:] if argv is None else argv)
+    try:
+        refresh_numeric_protocol_scope(
+            protocol_path=args.protocol,
+            repository_root=args.repository,
+        )
+    except Exception:
+        print("numeric retrieval scope refresh invalid")
+        return 1
+    print("numeric retrieval scope identity refreshed")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
