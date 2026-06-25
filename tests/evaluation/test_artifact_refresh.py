@@ -23,7 +23,12 @@ from mke.evaluation.runner import run_retrieval_evaluation
 
 def _repository(tmp_path: Path) -> Path:
     root = tmp_path / "repo"
-    for directory in ("src", "tests/fixtures", "benchmarks"):
+    for directory in (
+        ".github/workflows",
+        "src",
+        "tests/fixtures",
+        "benchmarks",
+    ):
         shutil.copytree(Path(directory), root / directory)
     for file_name in ("pyproject.toml", "uv.lock"):
         shutil.copy2(file_name, root / file_name)

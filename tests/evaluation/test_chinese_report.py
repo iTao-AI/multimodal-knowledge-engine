@@ -9,6 +9,7 @@ from mke.evaluation.chinese_report import (
     ChineseRetrievalReport,
     E3BDecisionEvidence,
     FtsRankEvidence,
+    FtsRankScoreEvidence,
     IntegrityFailure,
     render_chinese_retrieval_human,
     render_chinese_retrieval_json,
@@ -108,6 +109,19 @@ def _report() -> ChineseRetrievalReport:
                 ordered_evidence_ids_sha256="b" * 64,
                 score_pairs_sha256="c" * 64,
                 rank_override_present=False,
+                ordered_evidence=(direct, _page("document", 2)),
+                score_pairs=(
+                    FtsRankScoreEvidence(
+                        locator=direct,
+                        rank_score_hex="-0x1.0p+0",
+                        bm25_score_hex="-0x1.0p+0",
+                    ),
+                    FtsRankScoreEvidence(
+                        locator=_page("document", 2),
+                        rank_score_hex="-0x1.0p-1",
+                        bm25_score_hex="-0x1.0p-1",
+                    ),
+                ),
             ),
         ),
         integrity_failures=(),
@@ -180,6 +194,21 @@ def test_json_report_has_exact_schema_and_public_safe_payload() -> None:
         "development_answerable_compiled_query_empty_misses"
     ] == 1
     assert payload["fts5_rank_observations"][0]["result_count"] == 2
+    assert payload["fts5_rank_observations"][0]["ordered_evidence"] == [
+        {
+            "document_id": "document",
+            "locator_kind": "page",
+            "locator_start": 1,
+            "locator_end": 1,
+        },
+        {
+            "document_id": "document",
+            "locator_kind": "page",
+            "locator_start": 2,
+            "locator_end": 2,
+        },
+    ]
+    assert len(payload["fts5_rank_observations"][0]["score_pairs"]) == 2
     assert payload["results"][0]["miss"]["symptom"] == "compiled_query_empty"
     assert "/private/" not in rendered
     assert "raw Evidence" not in rendered

@@ -47,6 +47,13 @@ class IntegrityFailure:
 
 
 @dataclass(frozen=True)
+class FtsRankScoreEvidence:
+    locator: StableLocator
+    rank_score_hex: str
+    bm25_score_hex: str
+
+
+@dataclass(frozen=True)
 class FtsRankEvidence:
     query_id: str
     split: ChineseSplit
@@ -54,6 +61,8 @@ class FtsRankEvidence:
     ordered_evidence_ids_sha256: str
     score_pairs_sha256: str
     rank_override_present: bool
+    ordered_evidence: tuple[StableLocator, ...]
+    score_pairs: tuple[FtsRankScoreEvidence, ...]
 
 
 @dataclass(frozen=True)
@@ -205,6 +214,18 @@ def render_chinese_retrieval_json(report: ChineseRetrievalReport) -> str:
                 "ordered_evidence_ids_sha256": item.ordered_evidence_ids_sha256,
                 "score_pairs_sha256": item.score_pairs_sha256,
                 "rank_override_present": item.rank_override_present,
+                "ordered_evidence": [
+                    _locator_payload(locator)
+                    for locator in item.ordered_evidence
+                ],
+                "score_pairs": [
+                    {
+                        "locator": _locator_payload(pair.locator),
+                        "rank_score_hex": pair.rank_score_hex,
+                        "bm25_score_hex": pair.bm25_score_hex,
+                    }
+                    for pair in item.score_pairs
+                ],
             }
             for item in report.fts5_rank_observations
         ],

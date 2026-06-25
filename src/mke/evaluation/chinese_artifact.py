@@ -3,9 +3,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
-import sqlite3
-import sys
+import tomllib
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict
@@ -32,7 +32,6 @@ from mke.retrieval.query_policy import compile_fts5_query_diagnostic
 ARTIFACT_SCHEMA = "mke.retrieval_chinese_baseline.v1"
 REPORT_SCHEMA = "mke.retrieval_chinese_report.v1"
 _SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
-_VERSION_RE = re.compile(r"\d+(?:\.\d+){1,3}\Z")
 _REPORT_FIELDS = {
     "schema_version",
     "protocol_id",
@@ -141,8 +140,6 @@ def validate_chinese_artifact(
             protocol_path=protocol_path,
             repository_root=repository_root.resolve(),
         )
-        _validate_environment(artifact["environment"])
-        expected["environment"] = artifact["environment"]
         if not _same_json_value(artifact, expected):
             raise ChineseArtifactValidationError(
                 "Chinese retrieval baseline artifact is invalid"
@@ -203,11 +200,7 @@ def _canonical_artifact(
             "integrity_claim": "adjudication_record_integrity",
         },
         "source_identity": _source_identity(repository_root),
-        "environment": {
-            "python": ".".join(str(item) for item in sys.version_info[:3]),
-            "sqlite": sqlite3.sqlite_version,
-            "pymupdf": fitz.VersionBind,
-        },
+        "environment": _repository_environment_contract(repository_root),
         "report_schema_version": REPORT_SCHEMA,
         "benchmark_scope": observed["benchmark_scope"],
         "quality_gate": observed["quality_gate"],
@@ -333,7 +326,12 @@ def _validate_observed(
         raise ChineseArtifactValidationError(
             "Chinese retrieval baseline artifact is invalid"
         )
-    _validate_rank_observations(observed["fts5_rank_observations"], protocol)
+    _validate_rank_observations(
+        observed["fts5_rank_observations"],
+        protocol,
+        metric_inputs=metric_inputs,
+        locator_inventory=locator_inventory,
+    )
     e3b_evidence = _require_fields(
         observed["e3b_evidence"],
         {
@@ -529,7 +527,11 @@ def _validate_result(
 
 
 def _validate_rank_observations(
-    value: object, protocol: ChineseRetrievalProtocol
+    value: object,
+    protocol: ChineseRetrievalProtocol,
+    *,
+    metric_inputs: tuple[GradedQueryMetricInput, ...],
+    locator_inventory: Mapping[str, frozenset[StableLocator]],
 ) -> None:
     observations = _list(value)
     expected_queries = tuple(
@@ -543,6 +545,12 @@ def _validate_rank_observations(
         raise ChineseArtifactValidationError(
             "Chinese retrieval baseline artifact is invalid"
         )
+    inputs_by_query = {
+        query.query_id: metric_input
+        for query, metric_input in zip(
+            protocol.queries, metric_inputs, strict=True
+        )
+    }
     for raw, query in zip(observations, expected_queries, strict=True):
         record = _require_fields(
             raw,
@@ -553,8 +561,29 @@ def _validate_rank_observations(
                 "ordered_evidence_ids_sha256",
                 "score_pairs_sha256",
                 "rank_override_present",
+                "ordered_evidence",
+                "score_pairs",
             },
         )
+        ordered_evidence = tuple(
+            _locator(item) for item in _list(record["ordered_evidence"])
+        )
+        score_pairs = tuple(
+            _rank_score_pair(item) for item in _list(record["score_pairs"])
+        )
+        stable_ids = tuple(
+            _stable_evidence_identity(locator)
+            for locator in ordered_evidence
+        )
+        canonical_score_pairs = tuple(
+            (
+                _stable_evidence_identity(locator),
+                rank_score_hex,
+                bm25_score_hex,
+            )
+            for locator, rank_score_hex, bm25_score_hex in score_pairs
+        )
+        retrieved = inputs_by_query[query.query_id].retrieved
         if (
             record["query_id"] != query.query_id
             or record["split"] != query.split
@@ -565,6 +594,20 @@ def _validate_rank_observations(
                 and record["result_count"] == 0
             )
             or record["rank_override_present"] is not False
+            or record["result_count"] != len(ordered_evidence)
+            or len(score_pairs) != len(ordered_evidence)
+            or tuple(item[0] for item in score_pairs) != ordered_evidence
+            or len(set(ordered_evidence)) != len(ordered_evidence)
+            or any(
+                locator not in locator_inventory[query.split]
+                for locator in ordered_evidence
+            )
+            or len(retrieved) != min(10, len(ordered_evidence))
+            or retrieved != ordered_evidence[: len(retrieved)]
+            or record["ordered_evidence_ids_sha256"]
+            != _digest(stable_ids)
+            or record["score_pairs_sha256"]
+            != _digest(canonical_score_pairs)
         ):
             raise ChineseArtifactValidationError(
                 "Chinese retrieval baseline artifact is invalid"
@@ -629,16 +672,86 @@ def _page_text_inventory(
     return inventory
 
 
-def _validate_environment(value: object) -> None:
-    environment = _object(value)
-    if set(environment) != {"python", "sqlite", "pymupdf"} or any(
-        not isinstance(environment[name], str)
-        or _VERSION_RE.fullmatch(cast(str, environment[name])) is None
-        for name in ("python", "sqlite", "pymupdf")
+def _repository_environment_contract(
+    repository_root: Path,
+) -> dict[str, object]:
+    try:
+        pyproject = tomllib.loads(
+            (repository_root / "pyproject.toml").read_text(encoding="utf-8")
+        )
+        requires_python = pyproject["project"]["requires-python"]
+        workflow = (
+            repository_root / ".github/workflows/ci.yml"
+        ).read_text(encoding="utf-8")
+        matrix = re.search(
+            r'python-version:\s*\[([^\]]+)\]',
+            workflow,
+        )
+        if matrix is None:
+            raise ValueError
+        ci_versions = re.findall(r'"(\d+\.\d+)"', matrix.group(1))
+        lock = tomllib.loads(
+            (repository_root / "uv.lock").read_text(encoding="utf-8")
+        )
+        packages = cast(list[dict[str, object]], lock["package"])
+        pymupdf = next(
+            package["version"]
+            for package in packages
+            if package.get("name") == "pymupdf"
+        )
+    except (KeyError, OSError, TypeError, ValueError, StopIteration) as error:
+        raise ChineseArtifactValidationError(
+            "Chinese retrieval baseline artifact is invalid"
+        ) from error
+    if (
+        not isinstance(requires_python, str)
+        or not isinstance(pymupdf, str)
+        or ci_versions != ["3.12", "3.13"]
     ):
         raise ChineseArtifactValidationError(
             "Chinese retrieval baseline artifact is invalid"
         )
+    return {
+        "schema_version": "mke.retrieval_environment_contract.v1",
+        "python_requires": requires_python,
+        "ci_python_versions": ci_versions,
+        "pymupdf_lock_version": pymupdf,
+        "sqlite_profile": "sqlite_fts5_default_bm25",
+    }
+
+
+def _rank_score_pair(
+    value: object,
+) -> tuple[StableLocator, str, str]:
+    record = _require_fields(
+        value,
+        {"locator", "rank_score_hex", "bm25_score_hex"},
+    )
+    locator = _locator(record["locator"])
+    rank_hex = record["rank_score_hex"]
+    bm25_hex = record["bm25_score_hex"]
+    if not isinstance(rank_hex, str) or not isinstance(bm25_hex, str):
+        raise ChineseArtifactValidationError(
+            "Chinese retrieval baseline artifact is invalid"
+        )
+    try:
+        rank_score = float.fromhex(rank_hex)
+        bm25_score = float.fromhex(bm25_hex)
+    except ValueError as error:
+        raise ChineseArtifactValidationError(
+            "Chinese retrieval baseline artifact is invalid"
+        ) from error
+    if (
+        not math.isfinite(rank_score)
+        or not math.isfinite(bm25_score)
+        or not math.isclose(
+            rank_score, bm25_score, rel_tol=0.0, abs_tol=1e-12
+        )
+    ):
+        raise ChineseArtifactValidationError(
+            "Chinese retrieval baseline artifact is invalid"
+        )
+    return locator, rank_hex, bm25_hex
 
 
 def _hard_negative_failure(
@@ -769,6 +882,21 @@ def _jsonable(value: object) -> object:
     return json.loads(
         json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
     )
+
+
+def _stable_evidence_identity(locator: StableLocator) -> str:
+    return (
+        f"{locator.document_id}|{locator.locator_kind}|"
+        f"{locator.locator_start}|{locator.locator_end}"
+    )
+
+
+def _digest(value: object) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            value, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+        ).encode("utf-8")
+    ).hexdigest()
 
 
 def _sha256(path: Path) -> str:

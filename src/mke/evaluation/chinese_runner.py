@@ -28,6 +28,7 @@ from mke.evaluation.chinese_report import (
     ChineseRetrievalReport,
     E3BDecisionEvidence,
     FtsRankEvidence,
+    FtsRankScoreEvidence,
     IntegrityFailure,
 )
 from mke.evaluation.diagnostic_ports import (
@@ -604,6 +605,17 @@ def _validate_rank_profile(
         ordered_evidence_ids_sha256=_digest(stable_ids),
         score_pairs_sha256=_digest(score_pairs),
         rank_override_present=False,
+        ordered_evidence=tuple(
+            evidence_by_id[evidence_id] for evidence_id in rank_ids
+        ),
+        score_pairs=tuple(
+            FtsRankScoreEvidence(
+                locator=evidence_by_id[observation.evidence_id],
+                rank_score_hex=observation.rank_score.hex(),
+                bm25_score_hex=observation.bm25_score.hex(),
+            )
+            for observation in profile.rank_order
+        ),
     )
 
 

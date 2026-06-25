@@ -57,7 +57,9 @@ def test_recorded_chinese_artifact_validates_without_reingest(
     ] >= 1
     assert payload["fts5_rank_profile"] == "sqlite_fts5_default_bm25"
     assert "duration_ms" not in payload
-    assert set(payload["environment"]) == {"python", "sqlite", "pymupdf"}
+    assert payload["environment"]["schema_version"] == (
+        "mke.retrieval_environment_contract.v1"
+    )
     assert payload["source_identity"]["files"]
 
 
@@ -75,6 +77,9 @@ MUTATIONS: list[Callable[[dict[str, object]], object]] = [
     lambda payload: payload["limitations"].append("unsupported_claim"),  # type: ignore[union-attr]
     lambda payload: payload["source_identity"]["files"][0].update(  # type: ignore[index]
         {"sha256": "0" * 64}
+    ),
+    lambda payload: payload["environment"].update(  # type: ignore[union-attr]
+        {"pymupdf_lock_version": "9.9.9"}
     ),
 ]
 
@@ -120,17 +125,18 @@ def test_record_rejects_failed_or_malformed_observation(tmp_path: Path) -> None:
         )
 
 
-def test_validation_accepts_recorded_environment_from_another_ci_runtime(
+def test_recorded_environment_is_repository_derived(
     tmp_path: Path,
 ) -> None:
     artifact, observed = _record(tmp_path)
     payload = json.loads(artifact.read_text(encoding="utf-8"))
-    payload["environment"] = {
-        "python": "3.12.0",
-        "sqlite": "3.45.1",
-        "pymupdf": "1.26.0",
+    assert payload["environment"] == {
+        "schema_version": "mke.retrieval_environment_contract.v1",
+        "python_requires": ">=3.12,<3.14",
+        "ci_python_versions": ["3.12", "3.13"],
+        "pymupdf_lock_version": "1.27.2.3",
+        "sqlite_profile": "sqlite_fts5_default_bm25",
     }
-    artifact.write_text(json.dumps(payload), encoding="utf-8")
 
     validate_chinese_artifact(
         artifact_path=artifact,
@@ -140,12 +146,21 @@ def test_validation_accepts_recorded_environment_from_another_ci_runtime(
     )
 
 
-def test_validation_rejects_malformed_recorded_environment(
-    tmp_path: Path,
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("python_requires", ">=3.11,<3.14"),
+        ("ci_python_versions", ["3.12", "3.14"]),
+        ("pymupdf_lock_version", "9.9.9"),
+        ("sqlite_profile", "sqlite_fts5_default_bm26"),
+    ],
+)
+def test_validation_rejects_impossible_well_formed_environment_contract(
+    tmp_path: Path, field: str, value: object
 ) -> None:
     artifact, observed = _record(tmp_path)
     payload = json.loads(artifact.read_text(encoding="utf-8"))
-    payload["environment"]["python"] = "unknown"
+    payload["environment"][field] = value
     artifact.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(ChineseArtifactValidationError):
@@ -218,6 +233,26 @@ def _mutate_bool_qrel_count(payload: dict[str, object]) -> None:
     counts["grade_1"] = True
 
 
+def _mutate_non_probe_rank_count(payload: dict[str, object]) -> None:
+    observations = cast(
+        list[dict[str, object]], payload["fts5_rank_observations"]
+    )
+    observation = next(
+        item for item in observations if item["query_id"] != "zh-dev-exact-02"
+    )
+    observation["result_count"] = cast(int, observation["result_count"]) + 1
+
+
+def _mutate_non_probe_rank_digest(payload: dict[str, object]) -> None:
+    observations = cast(
+        list[dict[str, object]], payload["fts5_rank_observations"]
+    )
+    observation = next(
+        item for item in observations if item["query_id"] != "zh-dev-exact-02"
+    )
+    observation["ordered_evidence_ids_sha256"] = "0" * 64
+
+
 OBSERVED_RERECORD_MUTATIONS: list[
     Callable[[dict[str, object]], object]
 ] = [
@@ -233,6 +268,8 @@ OBSERVED_RERECORD_MUTATIONS: list[
     _mutate_out_of_inventory_locator,
     _mutate_bool_grade,
     _mutate_bool_qrel_count,
+    _mutate_non_probe_rank_count,
+    _mutate_non_probe_rank_digest,
 ]
 
 
