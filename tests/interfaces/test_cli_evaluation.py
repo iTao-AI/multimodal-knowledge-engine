@@ -488,6 +488,7 @@ def test_cli_eval_chinese_low_quality_still_exits_zero(
     monkeypatch: pytest.MonkeyPatch,
     capsys: CaptureFixture[str],
 ) -> None:
+    from mke.evaluation.chinese_report import ChineseRetrievalReport
     from mke.evaluation.chinese_runner import run_chinese_retrieval_evaluation
 
     report = run_chinese_retrieval_evaluation(CHINESE_PROTOCOL)
@@ -496,9 +497,16 @@ def test_cli_eval_chinese_low_quality_still_exits_zero(
         e3b_decision="not_justified",
         e3b_reason="no_development_compiled_query_empty_miss",
     )
+
+    def return_low_quality(
+        *args: object, **kwargs: object
+    ) -> ChineseRetrievalReport:
+        del args, kwargs
+        return low_quality
+
     monkeypatch.setattr(
         "mke.cli.run_chinese_retrieval_evaluation",
-        lambda *args, **kwargs: low_quality,
+        return_low_quality,
     )
 
     assert main(

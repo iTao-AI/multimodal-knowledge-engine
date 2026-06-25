@@ -73,3 +73,24 @@ def test_measurement_rejects_budget_overrun() -> None:
     )
 
     assert not any(budgets.values())
+
+
+def test_sqlite_sampler_records_peak_before_cleanup(tmp_path: Path) -> None:
+    import threading
+
+    from scripts import chinese_retrieval_measurement as measurement
+
+    stop = threading.Event()
+    sample = {"max_sqlite_bytes": 0}
+    database = tmp_path / "mke.sqlite"
+    database.write_bytes(b"x" * 4096)
+    stop.set()
+
+    measurement._sample_sqlite_sizes(  # pyright: ignore[reportPrivateUsage]
+        tmp_path,
+        stop,
+        sample,
+    )
+
+    database.unlink()
+    assert sample["max_sqlite_bytes"] == 4096

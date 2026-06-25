@@ -9,8 +9,9 @@ import os
 import resource
 import subprocess
 import tempfile
+import threading
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping, MutableMapping, Sequence
 from pathlib import Path
 from typing import cast
 
@@ -73,8 +74,23 @@ def run_timed_command(
     cwd: Path,
     environment: Mapping[str, str],
     timeout: float = _STEP_TIMEOUT_SECONDS,
+    resource_sample: MutableMapping[str, int] | None = None,
 ) -> tuple[int, subprocess.CompletedProcess[str]]:
     started = time.monotonic()
+    stop_sampling = threading.Event()
+    sampler: threading.Thread | None = None
+    temporary_root = environment.get("TMPDIR")
+    if resource_sample is not None and temporary_root is not None:
+        sampler = threading.Thread(
+            target=_sample_sqlite_sizes,
+            args=(
+                Path(temporary_root),
+                stop_sampling,
+                resource_sample,
+            ),
+            daemon=True,
+        )
+        sampler.start()
     try:
         result = subprocess.run(
             list(command),
@@ -87,6 +103,10 @@ def run_timed_command(
         )
     except (OSError, subprocess.TimeoutExpired) as error:
         raise RuntimeError("measurement command failed") from error
+    finally:
+        stop_sampling.set()
+        if sampler is not None:
+            sampler.join(timeout=1.0)
     elapsed_ms = round((time.monotonic() - started) * 1000)
     output_size = len(result.stdout.encode()) + len(result.stderr.encode())
     if output_size > _OUTPUT_LIMIT_BYTES:
@@ -116,6 +136,22 @@ def _maximum_sqlite_bytes(root: Path) -> int:
     return max(sizes, default=0)
 
 
+def _sample_sqlite_sizes(
+    root: Path,
+    stop: threading.Event,
+    sample: MutableMapping[str, int],
+) -> None:
+    while not stop.wait(0.005):
+        sample["max_sqlite_bytes"] = max(
+            sample.get("max_sqlite_bytes", 0),
+            _maximum_sqlite_bytes(root),
+        )
+    sample["max_sqlite_bytes"] = max(
+        sample.get("max_sqlite_bytes", 0),
+        _maximum_sqlite_bytes(root),
+    )
+
+
 def run_measurement(
     *,
     repository: Path,
@@ -130,10 +166,12 @@ def run_measurement(
     with tempfile.TemporaryDirectory(prefix="mke-chinese-measurement-") as temp:
         temp_root = Path(temp)
         environment["TMPDIR"] = str(temp_root)
+        resource_sample = {"max_sqlite_bytes": 0}
         warm_cache_sync_ms, _ = run_timed_command(
             ("uv", "sync", "--locked", "--offline"),
             cwd=repository,
             environment=environment,
+            resource_sample=resource_sample,
         )
         evaluator_ms, evaluator = run_timed_command(
             (
@@ -147,6 +185,7 @@ def run_measurement(
             ),
             cwd=repository,
             environment=environment,
+            resource_sample=resource_sample,
         )
         if not evaluator.stdout.startswith("mke eval retrieval-chinese\n"):
             raise RuntimeError("measurement command failed")
@@ -165,6 +204,7 @@ def run_measurement(
             ),
             cwd=repository,
             environment=environment,
+            resource_sample=resource_sample,
         )
         if json.loads(proof.stdout).get("status") != "passed":
             raise RuntimeError("measurement command failed")
@@ -174,7 +214,7 @@ def run_measurement(
             evaluator_ms=evaluator_ms,
             installed_wheel_proof_ms=proof_ms,
             peak_rss_bytes=_peak_child_rss_bytes(),
-            max_sqlite_bytes=_maximum_sqlite_bytes(temp_root),
+            max_sqlite_bytes=resource_sample["max_sqlite_bytes"],
         )
     budgets = cast(dict[str, bool], summary["budgets"])
     if not all(budgets.values()):
