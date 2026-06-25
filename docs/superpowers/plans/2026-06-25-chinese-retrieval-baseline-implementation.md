@@ -5,14 +5,19 @@
 **Completion:** Tasks 1–11 were executed. The inline checkboxes below are retained as the approved
 historical execution procedure, not as pending work.
 
-**Review follow-up:** Four implementation findings returned by the separate review window were
-verified and remediated with TDD. Artifact environment validation is portable across supported
-Python/platform runtimes; rank proof now requires real production-equivalent SQL traces, complete
-result ordering, a non-empty predeclared probe, and Search-prefix equality; artifact recording
-independently recomputes miss classifications while enforcing partition locator inventory and
-strict JSON scalar types; and qrel `review_date` is locked to the approved `2026-06-25` record.
-The E1, E2, and E3-A canonical artifacts were refreshed through the durable recovery journal with
-semantic observations unchanged.
+**Review follow-up:** Six implementation findings returned across two targeted review passes were
+verified and remediated with TDD. Canonical environment validation now compares the artifact
+against an exact repository-derived contract sourced from `pyproject.toml`, the CI Python matrix,
+`uv.lock`, and the approved SQLite rank profile; well-formed but impossible version mutations
+remain fail-closed while the same artifact validates under supported Python 3.12 and 3.13
+runtimes. Rank proof requires real production-equivalent SQL traces, complete result ordering, a
+non-empty predeclared probe, and Search-prefix equality. The canonical report also records enough
+scorer evidence for the artifact validator to independently recompute every non-empty query's
+result count, ordered Evidence identity digest, and rank/`bm25()` score-pair digest without
+re-ingestion. Artifact recording independently recomputes miss classifications while enforcing
+partition locator inventory and strict JSON scalar types; qrel `review_date` is locked to the
+approved `2026-06-25` record. The E1, E2, and E3-A canonical artifacts were refreshed through the
+durable recovery journal with semantic observations unchanged.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use
@@ -1439,8 +1444,12 @@ Artifact top-level fields:
 }
 ```
 
-Environment is limited to Python, SQLite, and PyMuPDF versions. Do not record OS username,
-hostname, paths, duration, or Git commit ancestry.
+Environment is an exact repository-derived contract, not a snapshot of the recording process. It
+records the supported Python requirement and CI matrix, the locked PyMuPDF version, and the
+approved SQLite rank profile. Validation must recompute those values from repository sources and
+reject any artifact mutation, including well-formed but impossible version values. Do not record
+OS username, hostname, paths, duration, current interpreter version, current SQLite library
+version, or Git commit ancestry.
 
 - [ ] **Step 4: Implement restricted E1 and E2 identity refresh primitives**
 

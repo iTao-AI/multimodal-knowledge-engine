@@ -5,7 +5,7 @@
 - Review type: lightweight pre-handoff self-review.
 - Scope: E3-A only.
 - Result: implementation and Task 11 verification match the approved HOLD SCOPE plan.
-- Follow-up: four findings from the separate review window were verified and closed with TDD;
+- Follow-up: six findings across two targeted review passes were verified and closed with TDD;
   no complete `gstack-review` was repeated in this implementation window.
 - Branch: `codex/e3a-chinese-retrieval-baseline`.
 - Base: `89deeab`.
@@ -45,10 +45,13 @@ deliberately deferred to the PR preparation window.
 
 ## Review Follow-Up Findings
 
-1. The Chinese artifact validator rebuilt the expected artifact with the current process
-   environment, so a valid artifact recorded on another supported Python/SQLite/PyMuPDF runtime
-   failed validation. The validator now accepts the artifact's recorded environment after strict
-   version-shape validation. Python 3.12 and 3.13 isolated validators cover this path.
+1. The Chinese artifact validator originally rebuilt the expected artifact with the current
+   process environment. The first follow-up replaced that behavior with version-shape validation,
+   but a second targeted review correctly found that well-formed impossible versions could still
+   pass. That intermediate behavior is superseded. The validator now derives one exact contract
+   from `pyproject.toml`, the CI Python matrix, `uv.lock`, and the approved SQLite rank profile.
+   Artifact environment mutations fail closed, while isolated Python 3.12 and 3.13 validators
+   accept the same repository-bound artifact.
 2. Rank evidence trusted a synthetic statement count and accepted empty rank result sets. The
    SQLite diagnostic now returns the actual SQL trace. The runner requires exactly two unbounded,
    production-equivalent MATCH queries, full `rank`/`bm25()` equality, Search top-10 prefix
@@ -62,11 +65,21 @@ deliberately deferred to the PR preparation window.
 4. Qrel adjudication required a `review_date` field but did not validate it. The protocol now
    requires the exact approved ISO date `2026-06-25` and rejects booleans, malformed/impossible
    dates, and alternate dates.
+5. The environment schema still trusted plausible artifact strings rather than repository truth.
+   Adversarial observed-report-to-record-to-validate tests now replace Python requirements, CI
+   versions, the locked PyMuPDF version, and the SQLite profile with well-formed impossible values;
+   every mutation is rejected by the repository-derived exact contract.
+6. Rank observations exposed only digests, so the validator could not independently recompute
+   arbitrary non-probe query evidence. The canonical report now includes each full ordered stable
+   Evidence locator and corresponding rank/`bm25()` hexadecimal score pair. Validation checks the
+   partition inventory and Search prefix, then independently recomputes every non-empty query's
+   result count, ordered identity digest, and score-pair digest. Adversarial re-record tests mutate
+   arbitrary non-probe counts and digests and require rejection.
 
 ## Verification
 
-- Targeted E3-A suite: `181 passed`.
-- Full suite: `817 passed, 1 skipped`.
+- Targeted E3-A suite: `187 passed`.
+- Full suite: `823 passed, 1 skipped`.
 - `uv run ruff check .`: passed.
 - `uv run pyright`: `0 errors`.
 - `uv build`: sdist and wheel built.
@@ -75,7 +88,7 @@ deliberately deferred to the PR preparation window.
   excluding runtime duration only.
 - `uv run mke proof run --json`: `8/8` passed.
 - `uv run mke demo --verify`: passed.
-- Offline installed-wheel proof: Python 3.12 in `6511 ms`; Python 3.13 in `6523 ms`.
+- Offline installed-wheel proof: Python 3.12 in `3460 ms`; Python 3.13 in `3782 ms`.
 - Chinese artifact validation passed in isolated Python 3.12 and 3.13 environments using the same
   checked-in artifact and observed report.
 - Python 3.12 measurement: sync `12 ms`, evaluator `525 ms`, first report `537 ms`, wheel proof
@@ -88,7 +101,7 @@ deliberately deferred to the PR preparation window.
 ## Artifact Identity
 
 - E3-A artifact SHA-256:
-  `d201ffed051cef2973ec833295d0779f4613693a892a73bfd2eaa4ef4d907ef6`.
+  `e8b9546c4a3de1dcc8a499e05a3cf0ba4432e86291defe6f536098eed3e58704`.
 - Protocol SHA-256:
   `00f72934018a52b5b5f5591fba119050882aee9b782e5dac199702b0cf995944`.
 - Qrel adjudication SHA-256:
