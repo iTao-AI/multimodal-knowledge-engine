@@ -74,6 +74,16 @@ jobs:
             --observed /tmp/numeric-comparison.json \
             --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json \
             --repository .
+      - name: Run Chinese retrieval baseline
+        run: |
+          uv run mke eval retrieval-chinese \
+            --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
+            --json > /tmp/mke-retrieval-chinese.json
+          uv run python -m mke.evaluation.chinese_artifact validate \
+            --artifact benchmarks/retrieval/retrieval-chinese-v1-baseline.json \
+            --observed /tmp/mke-retrieval-chinese.json \
+            --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
+            --repository .
       - run: uv build
       - name: Verify spoken fixture with transcription extra
         env:
@@ -99,6 +109,17 @@ jobs:
           assert payload["quality_status"] == "baseline_recorded"
           assert payload["queries"] == 24
           PY
+      - name: Measure Chinese retrieval delivery
+        run: |
+          wheel=$(echo dist/*.whl)
+          uv run python scripts/chinese_retrieval_measurement.py \
+            --repository "$GITHUB_WORKSPACE" \
+            --protocol "$GITHUB_WORKSPACE/tests/fixtures/retrieval-chinese-v1/protocol.json" \
+            --wheel "$wheel" \
+            --python "${{ matrix.python-version }}" \
+            > /tmp/mke-chinese-measurement.json
+          python -c 'import json; p=json.load(open("/tmp/mke-chinese-measurement.json")); assert p["status"] == "passed"; print("```json"); print(json.dumps(p, indent=2, sort_keys=True)); print("```")' \
+            >> "$GITHUB_STEP_SUMMARY"
       - name: Verify transcription wheel extra without a model
         run: |
           uv export --locked --extra transcription --no-dev --no-emit-project \

@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,7 @@ MANIFEST = Path("tests/fixtures/retrieval-eval-v1.json")
 NUMERIC_PROTOCOL = Path(
     "tests/fixtures/retrieval-numeric-v1/protocol-lock.json"
 )
+CHINESE_PROTOCOL = Path("tests/fixtures/retrieval-chinese-v1/protocol.json")
 
 
 def test_cli_eval_retrieval_outputs_human_baseline(
@@ -329,3 +331,183 @@ def test_cli_eval_numeric_renderer_failure_is_redacted(
     assert "Traceback" not in output.out
     assert "SECRET" not in output.out
     assert "/Users/" not in output.out
+
+
+def test_cli_eval_chinese_outputs_human_report_and_progress(
+    capsys: CaptureFixture[str],
+) -> None:
+    assert main(
+        ["eval", "retrieval-chinese", "--protocol", str(CHINESE_PROTOCOL)]
+    ) == 0
+
+    output = capsys.readouterr()
+    lines = output.out.splitlines()
+    assert lines[0] == "mke eval retrieval-chinese"
+    assert "quality_status=baseline_recorded quality_gate=none" in lines[1]
+    assert any(line.startswith("category=") for line in lines)
+    assert any(line.startswith("compiled_query_empty=") for line in lines)
+    assert any(line.startswith("ascii_token_count=") for line in lines)
+    assert output.err.splitlines() == [
+        "protocol_validated",
+        "development_ingested",
+        "holdout_ingested",
+        "determinism_verified",
+    ]
+
+
+def test_cli_eval_chinese_outputs_one_json_object_without_progress(
+    capsys: CaptureFixture[str],
+) -> None:
+    assert main(
+        [
+            "eval",
+            "retrieval-chinese",
+            "--protocol",
+            str(CHINESE_PROTOCOL),
+            "--json",
+        ]
+    ) == 0
+
+    output = capsys.readouterr()
+    payload = json.loads(output.out)
+    assert output.err == ""
+    assert payload["schema_version"] == "mke.retrieval_chinese_report.v1"
+    assert payload["integrity_status"] == "passed"
+    assert payload["quality_status"] == "baseline_recorded"
+    assert payload["documents"] == 5
+    assert payload["queries"] == 48
+    assert payload["split_counts"] == {"development": 24, "holdout": 24}
+    assert payload["fts5_rank_profile"] == "sqlite_fts5_default_bm25"
+
+
+def test_cli_eval_chinese_help_documents_baseline_boundary(
+    capsys: CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as error:
+        main(["eval", "retrieval-chinese", "--help"])
+
+    assert error.value.code == 0
+    normalized = " ".join(capsys.readouterr().out.split()).lower()
+    assert "--protocol" in normalized
+    assert "--json" in normalized
+    assert "fts5 lexical baseline" in normalized
+    assert "public chinese" in normalized
+    assert "no retrieval-quality threshold" in normalized
+    assert "no dense, hybrid, or reranker claim" in normalized
+
+
+@pytest.mark.parametrize("option", ["--db", "--retrieval-query-policy"])
+def test_cli_eval_chinese_rejects_global_runtime_overrides(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+    option: str,
+) -> None:
+    value = str(tmp_path / "ignored.sqlite") if option == "--db" else "current"
+    with pytest.raises(SystemExit) as error:
+        main(
+            [
+                option,
+                value,
+                "eval",
+                "retrieval-chinese",
+                "--protocol",
+                str(CHINESE_PROTOCOL),
+            ]
+        )
+
+    assert error.value.code == 2
+    assert "not supported" in capsys.readouterr().err
+
+
+def test_cli_eval_chinese_missing_protocol_is_safe_exit_one(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    missing = tmp_path / "private" / "protocol.json"
+
+    assert main(
+        [
+            "eval",
+            "retrieval-chinese",
+            "--protocol",
+            str(missing),
+            "--json",
+        ]
+    ) == 1
+
+    output = capsys.readouterr()
+    payload = json.loads(output.out)
+    assert output.err == ""
+    assert payload["integrity_status"] == "failed"
+    assert payload["quality_status"] == "not_recorded"
+    assert payload["integrity_failures"] == [
+        {
+            "problem": "retrieval_chinese_protocol_invalid",
+            "cause": "Chinese retrieval protocol is invalid",
+            "next_step": "restore_checked_in_protocol",
+        }
+    ]
+    assert str(tmp_path) not in output.out
+    assert "Traceback" not in output.out
+
+
+@pytest.mark.parametrize("json_output", [False, True])
+def test_cli_eval_chinese_renderer_failure_is_redacted(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: CaptureFixture[str],
+    json_output: bool,
+) -> None:
+    def fail_renderer(*args: object, **kwargs: object) -> str:
+        raise RuntimeError("Traceback SECRET /Users/mac/private")
+
+    name = (
+        "render_chinese_retrieval_json"
+        if json_output
+        else "render_chinese_retrieval_human"
+    )
+    monkeypatch.setattr(f"mke.cli.{name}", fail_renderer)
+    argv = ["eval", "retrieval-chinese", "--protocol", str(CHINESE_PROTOCOL)]
+    if json_output:
+        argv.append("--json")
+
+    assert main(argv) == 1
+
+    output = capsys.readouterr()
+    assert "retrieval Chinese report could not be rendered" in output.out
+    assert "Traceback" not in output.out
+    assert "SECRET" not in output.out
+    assert "/Users/" not in output.out
+    if json_output:
+        payload = json.loads(output.out)
+        assert payload["schema_version"] == "mke.retrieval_chinese_report.v1"
+        assert payload["integrity_status"] == "failed"
+        assert output.err == ""
+
+
+def test_cli_eval_chinese_low_quality_still_exits_zero(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: CaptureFixture[str],
+) -> None:
+    from mke.evaluation.chinese_runner import run_chinese_retrieval_evaluation
+
+    report = run_chinese_retrieval_evaluation(CHINESE_PROTOCOL)
+    low_quality = replace(
+        report,
+        e3b_decision="not_justified",
+        e3b_reason="no_development_compiled_query_empty_miss",
+    )
+    monkeypatch.setattr(
+        "mke.cli.run_chinese_retrieval_evaluation",
+        lambda *args, **kwargs: low_quality,
+    )
+
+    assert main(
+        [
+            "eval",
+            "retrieval-chinese",
+            "--protocol",
+            str(CHINESE_PROTOCOL),
+            "--json",
+        ]
+    ) == 0
+    assert json.loads(capsys.readouterr().out)["e3b_decision"] == "not_justified"

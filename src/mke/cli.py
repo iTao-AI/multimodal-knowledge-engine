@@ -21,13 +21,17 @@ from mke.adapters.video.faster_whisper import (
 from mke.application import AskValidationError, KnowledgeEngine, PdfIngestError, VideoIngestError
 from mke.domain import FailurePoint, PdfIntakeReport, SearchResult, TranscriptIntakeReport
 from mke.evaluation import (
+    render_chinese_retrieval_human,
+    render_chinese_retrieval_json,
     render_numeric_comparison_human,
     render_numeric_comparison_json,
     render_retrieval_human_report,
     render_retrieval_json_report,
+    run_chinese_retrieval_evaluation,
     run_numeric_comparison,
     run_retrieval_evaluation,
 )
+from mke.evaluation.chinese_report import ChineseRetrievalReport
 from mke.evaluation.numeric_comparison import NumericComparisonReport
 from mke.evaluation.report import RetrievalEvaluationReport
 from mke.interfaces.mcp_contract import McpRuntimeConfig, transcript_intake_report_payload
@@ -152,6 +156,25 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         dest="json_output",
     )
+    chinese_retrieval = evaluation_subcommands.add_parser(
+        "retrieval-chinese",
+        description=(
+            "Record the current FTS5 lexical baseline on a small public Chinese "
+            "development/holdout corpus; no retrieval-quality threshold is applied "
+            "and no dense, hybrid, or reranker claim is made."
+        ),
+    )
+    chinese_retrieval.add_argument(
+        "--protocol",
+        type=Path,
+        required=True,
+        help="locked Chinese retrieval evaluation protocol",
+    )
+    chinese_retrieval.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
 
     mcp = subcommands.add_parser("mcp")
     mcp.add_argument("--allowed-root", type=Path, default=Path.cwd())
@@ -204,6 +227,24 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if report.integrity_status == "passed"
                 and report.candidate_status == "passed"
                 and not rendering_failed
+                else 1
+            )
+        if args.evaluation_command == "retrieval-chinese":
+            progress = None
+            if not args.json_output:
+                progress = _print_evaluation_progress
+            report = run_chinese_retrieval_evaluation(
+                args.protocol,
+                progress=progress,
+            )
+            rendered, rendering_failed = _render_chinese_report_safely(
+                report,
+                json_output=args.json_output,
+            )
+            print(rendered, end="" if rendered.endswith("\n") else "\n")
+            return (
+                0
+                if report.integrity_status == "passed" and not rendering_failed
                 else 1
             )
         parser.error("unsupported evaluation command")
@@ -280,6 +321,10 @@ def console_main() -> int:
     """Console script entrypoint."""
     argv = sys.argv[1:]
     return main(argv if argv else None)
+
+
+def _print_evaluation_progress(phase: str) -> None:
+    print(phase, file=sys.stderr)
 
 
 def _render_retrieval_report_safely(
@@ -402,6 +447,75 @@ def _render_numeric_comparison_safely(
             "problem=retrieval_numeric_comparison_incomplete "
             "cause=numeric comparison report could not be rendered "
             "next_step=inspect_numeric_comparison_inputs",
+            True,
+        )
+
+
+def _render_chinese_report_safely(
+    report: ChineseRetrievalReport,
+    *,
+    json_output: bool,
+) -> tuple[str, bool]:
+    try:
+        rendered = (
+            render_chinese_retrieval_json(report)
+            if json_output
+            else render_chinese_retrieval_human(report)
+        )
+        return rendered, False
+    except Exception:
+        failure = {
+            "problem": "retrieval_chinese_incomplete",
+            "cause": "retrieval Chinese report could not be rendered",
+            "next_step": "rerun_evaluation",
+        }
+        if json_output:
+            return (
+                json.dumps(
+                    {
+                        "schema_version": "mke.retrieval_chinese_report.v1",
+                        "protocol_id": "unknown",
+                        "benchmark_scope": "small_public_chinese_page_corpus",
+                        "quality_gate": "none",
+                        "integrity_status": "failed",
+                        "quality_status": "not_recorded",
+                        "documents": 0,
+                        "queries": 0,
+                        "split_counts": {"development": 0, "holdout": 0},
+                        "results": [],
+                        "metrics": None,
+                        "qrel_adjudication": {
+                            "sha256": "unknown",
+                            "review_status": "incomplete",
+                            "reviewed_query_count": 0,
+                            "query_page_judgment_count": 0,
+                        },
+                        "e3b_decision": "not_justified",
+                        "e3b_evidence": {
+                            "development_answerable_compiled_query_empty_misses": 0,
+                            "qrel_review_status": "incomplete",
+                            "query_page_judgment_count": 0,
+                        },
+                        "e3b_reason": "evaluation_integrity_failed",
+                        "fts5_rank_profile": None,
+                        "fts5_rank_observations": [],
+                        "integrity_failures": [failure],
+                        "duration_ms": 0,
+                        "limitations": [],
+                    },
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ),
+                True,
+            )
+        return (
+            "mke eval retrieval-chinese\n"
+            "integrity_status=failed quality_status=not_recorded quality_gate=none\n"
+            "e3b_decision=not_justified reason=evaluation_integrity_failed\n"
+            "documents=0 queries=0 development=0 holdout=0 duration_ms=0\n"
+            "failure problem=retrieval_chinese_incomplete "
+            "cause=retrieval Chinese report could not be rendered "
+            "next_step=rerun_evaluation\n",
             True,
         )
 
