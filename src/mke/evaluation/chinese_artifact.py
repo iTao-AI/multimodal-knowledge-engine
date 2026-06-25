@@ -7,13 +7,14 @@ import re
 import sqlite3
 import sys
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict
 from pathlib import Path
 from typing import cast
 
 import fitz  # pyright: ignore[reportMissingTypeStubs]
 
+from mke.evaluation.chinese_diagnostics import classify_miss
 from mke.evaluation.chinese_protocol import (
     ChineseEvaluationQuery,
     ChineseRetrievalProtocol,
@@ -31,6 +32,7 @@ from mke.retrieval.query_policy import compile_fts5_query_diagnostic
 ARTIFACT_SCHEMA = "mke.retrieval_chinese_baseline.v1"
 REPORT_SCHEMA = "mke.retrieval_chinese_report.v1"
 _SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
+_VERSION_RE = re.compile(r"\d+(?:\.\d+){1,3}\Z")
 _REPORT_FIELDS = {
     "schema_version",
     "protocol_id",
@@ -139,7 +141,9 @@ def validate_chinese_artifact(
             protocol_path=protocol_path,
             repository_root=repository_root.resolve(),
         )
-        if artifact != expected:
+        _validate_environment(artifact["environment"])
+        expected["environment"] = artifact["environment"]
+        if not _same_json_value(artifact, expected):
             raise ChineseArtifactValidationError(
                 "Chinese retrieval baseline artifact is invalid"
             )
@@ -301,12 +305,31 @@ def _validate_observed(
         raise ChineseArtifactValidationError(
             "Chinese retrieval baseline artifact is invalid"
         )
+    page_text = _page_text_inventory(protocol)
+    locator_inventory = {
+        split: frozenset(
+            locator
+            for locator in page_text
+            if next(
+                document.split
+                for document in protocol.documents
+                if document.document_id == locator.document_id
+            )
+            == split
+        )
+        for split in ("development", "holdout")
+    }
     metric_inputs = tuple(
-        _validate_result(raw, query)
+        _validate_result(
+            raw,
+            query,
+            locator_inventory=locator_inventory[query.split],
+            page_text=page_text,
+        )
         for raw, query in zip(raw_results, protocol.queries, strict=True)
     )
     expected_metrics = _jsonable(asdict(calculate_graded_metrics(metric_inputs)))
-    if observed["metrics"] != expected_metrics:
+    if not _same_json_value(observed["metrics"], expected_metrics):
         raise ChineseArtifactValidationError(
             "Chinese retrieval baseline artifact is invalid"
         )
@@ -329,13 +352,13 @@ def _validate_observed(
         )
         for item, input_item in zip(protocol.queries, metric_inputs, strict=True)
     )
-    if e3b_evidence != {
+    if not _same_json_value(e3b_evidence, {
         "development_answerable_compiled_query_empty_misses": (
             expected_empty_misses
         ),
         "qrel_review_status": "complete",
         "query_page_judgment_count": 1680,
-    }:
+    }):
         raise ChineseArtifactValidationError(
             "Chinese retrieval baseline artifact is invalid"
         )
@@ -356,7 +379,11 @@ def _validate_observed(
 
 
 def _validate_result(
-    value: object, query: ChineseEvaluationQuery
+    value: object,
+    query: ChineseEvaluationQuery,
+    *,
+    locator_inventory: frozenset[StableLocator],
+    page_text: Mapping[StableLocator, str],
 ) -> GradedQueryMetricInput:
     result = _require_fields(
         value,
@@ -383,7 +410,9 @@ def _validate_result(
         or result["split"] != query.split
         or result["category"] != query.category
         or result["compiled_query"] != diagnostic.compiled_query
+        or type(result["ascii_token_count"]) is not int
         or result["ascii_token_count"] != diagnostic.ascii_token_count
+        or type(result["compiled_query_empty"]) is not bool
         or result["compiled_query_empty"] != diagnostic.compiled_query_empty
     ):
         raise ChineseArtifactValidationError(
@@ -394,16 +423,25 @@ def _validate_result(
         "grade_1": sum(item.grade == 1 for item in query.qrels),
         "grade_2": sum(item.grade == 2 for item in query.qrels),
     }
-    if result["qrel_counts"] != expected_qrel_counts:
+    if not _same_json_value(result["qrel_counts"], expected_qrel_counts):
         raise ChineseArtifactValidationError(
             "Chinese retrieval baseline artifact is invalid"
         )
     qrel_by_locator = {item.locator: item.grade for item in query.qrels}
     retrieved: list[StableLocator] = []
-    for raw in _list(result["retrieved"]):
+    raw_retrieved = _list(result["retrieved"])
+    if len(raw_retrieved) > 10:
+        raise ChineseArtifactValidationError(
+            "Chinese retrieval baseline artifact is invalid"
+        )
+    for raw in raw_retrieved:
         record = _require_fields(raw, {"locator", "grade"})
         locator = _locator(record["locator"])
-        if record["grade"] != qrel_by_locator.get(locator):
+        expected_grade = qrel_by_locator.get(locator)
+        if (
+            locator not in locator_inventory
+            or not _same_json_value(record["grade"], expected_grade)
+        ):
             raise ChineseArtifactValidationError(
                 "Chinese retrieval baseline artifact is invalid"
             )
@@ -418,7 +456,7 @@ def _validate_result(
         for rank, locator in enumerate(retrieved, start=1)
         if locator in direct
     ]
-    if result["direct_ranks"] != expected_direct_ranks:
+    if not _same_json_value(result["direct_ranks"], expected_direct_ranks):
         raise ChineseArtifactValidationError(
             "Chinese retrieval baseline artifact is invalid"
         )
@@ -458,16 +496,19 @@ def _validate_result(
                 "observation",
             },
         )
-        if (
-            miss_record["compiled_query"] != diagnostic.compiled_query
-            or miss_record["ascii_token_count"] != diagnostic.ascii_token_count
-            or miss_record["compiled_query_empty"]
-            != diagnostic.compiled_query_empty
-            or miss_record["returned_direct_ranks"] != []
-            or [
-                _locator(item) for item in _list(miss_record["direct_locators"])
-            ]
-            != [item.locator for item in query.qrels if item.grade == 2]
+        expected_miss = classify_miss(
+            diagnostic,
+            qrels=query.qrels,
+            retrieved=tuple(retrieved),
+            direct_page_text={
+                item.locator: page_text[item.locator]
+                for item in query.qrels
+                if item.grade == 2
+            },
+        )
+        if not _same_json_value(
+            miss_record,
+            _jsonable(asdict(expected_miss)),
         ):
             raise ChineseArtifactValidationError(
                 "Chinese retrieval baseline artifact is invalid"
@@ -519,6 +560,10 @@ def _validate_rank_observations(
             or record["split"] != query.split
             or type(record["result_count"]) is not int
             or record["result_count"] < 0
+            or (
+                query.query_id == protocol.rank_probe_query_id
+                and record["result_count"] == 0
+            )
             or record["rank_override_present"] is not False
         ):
             raise ChineseArtifactValidationError(
@@ -549,6 +594,51 @@ def _source_identity(repository_root: Path) -> dict[str, object]:
         "sha256": hashlib.sha256(encoded).hexdigest(),
         "files": files,
     }
+
+
+def _page_text_inventory(
+    protocol: ChineseRetrievalProtocol,
+) -> dict[StableLocator, str]:
+    inventory: dict[StableLocator, str] = {}
+    try:
+        for document in protocol.documents:
+            with fitz.open(protocol.resolve(document.primary_file)) as pdf:
+                for index in range(1, len(pdf) + 1):
+                    page = pdf[index - 1]  # pyright: ignore[reportUnknownVariableType]
+                    locator = StableLocator(
+                        document_id=document.document_id,
+                        locator_kind="page",
+                        locator_start=index,
+                        locator_end=index,
+                    )
+                    text = cast(
+                        object,
+                        page.get_text(  # pyright: ignore[reportUnknownMemberType]
+                            "text", sort=True
+                        ),
+                    )
+                    if not isinstance(text, str):
+                        raise ChineseArtifactValidationError(
+                            "Chinese retrieval baseline artifact is invalid"
+                        )
+                    inventory[locator] = text
+    except Exception as error:
+        raise ChineseArtifactValidationError(
+            "Chinese retrieval baseline artifact is invalid"
+        ) from error
+    return inventory
+
+
+def _validate_environment(value: object) -> None:
+    environment = _object(value)
+    if set(environment) != {"python", "sqlite", "pymupdf"} or any(
+        not isinstance(environment[name], str)
+        or _VERSION_RE.fullmatch(cast(str, environment[name])) is None
+        for name in ("python", "sqlite", "pymupdf")
+    ):
+        raise ChineseArtifactValidationError(
+            "Chinese retrieval baseline artifact is invalid"
+        )
 
 
 def _hard_negative_failure(
@@ -645,6 +735,34 @@ def _require_sha256(value: object) -> None:
         raise ChineseArtifactValidationError(
             "Chinese retrieval baseline artifact is invalid"
         )
+
+
+def _same_json_value(actual: object, expected: object) -> bool:
+    if type(actual) is not type(expected):
+        return False
+    if isinstance(expected, dict):
+        if not isinstance(actual, dict):
+            return False
+        actual_record = cast(dict[str, object], actual)
+        expected_record = cast(dict[str, object], expected)
+        if set(actual_record) != set(expected_record):
+            return False
+        return all(
+            _same_json_value(actual_record[key], expected_record[key])
+            for key in expected_record
+        )
+    if isinstance(expected, list):
+        if not isinstance(actual, list):
+            return False
+        actual_items = cast(list[object], actual)
+        expected_items = cast(list[object], expected)
+        return len(actual_items) == len(expected_items) and all(
+            _same_json_value(left, right)
+            for left, right in zip(
+                actual_items, expected_items, strict=True
+            )
+        )
+    return actual == expected
 
 
 def _jsonable(value: object) -> object:

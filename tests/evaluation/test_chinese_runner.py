@@ -2,8 +2,12 @@ import json
 import shutil
 from pathlib import Path
 
+import pytest
+
+from mke.adapters.sqlite import SQLiteStore
 from mke.evaluation.chinese_protocol import load_chinese_retrieval_protocol
 from mke.evaluation.chinese_runner import run_chinese_retrieval_evaluation
+from mke.evaluation.diagnostic_ports import FtsRankProfile
 
 PROTOCOL = Path("tests/fixtures/retrieval-chinese-v1/protocol.json")
 
@@ -86,3 +90,76 @@ def test_runner_returns_stable_failure_for_fixture_identity_error(
     assert report.integrity_failures[0].problem == "retrieval_chinese_fixture_invalid"
     assert report.integrity_failures[0].next_step == "verify_fixture_identity"
     assert str(tmp_path) not in json.dumps(report.integrity_failures[0].__dict__)
+
+
+def test_runner_rejects_empty_rank_proof(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = SQLiteStore.observe_fts5_rank
+
+    def empty_rank_proof(
+        store: SQLiteStore, compiled_query: str
+    ) -> FtsRankProfile:
+        observed = original(store, compiled_query)
+        return FtsRankProfile(
+            rank_order=(),
+            bm25_order=(),
+            rank_override_present=observed.rank_override_present,
+            sql_trace=observed.sql_trace,
+        )
+
+    monkeypatch.setattr(SQLiteStore, "observe_fts5_rank", empty_rank_proof)
+
+    report = run_chinese_retrieval_evaluation(PROTOCOL)
+
+    assert report.integrity_status == "failed"
+    assert report.integrity_failures[0].problem == "retrieval_chinese_rank_invalid"
+
+
+def test_runner_rejects_rank_proof_without_real_sql_trace(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = SQLiteStore.observe_fts5_rank
+
+    def trace_free_rank_proof(
+        store: SQLiteStore, compiled_query: str
+    ) -> FtsRankProfile:
+        observed = original(store, compiled_query)
+        return FtsRankProfile(
+            rank_order=observed.rank_order,
+            bm25_order=observed.bm25_order,
+            rank_override_present=observed.rank_override_present,
+            sql_trace=(),
+        )
+
+    monkeypatch.setattr(SQLiteStore, "observe_fts5_rank", trace_free_rank_proof)
+
+    report = run_chinese_retrieval_evaluation(PROTOCOL)
+
+    assert report.integrity_status == "failed"
+    assert report.integrity_failures[0].problem == "retrieval_chinese_rank_invalid"
+
+
+def test_runner_rejects_rank_order_that_does_not_match_search_prefix(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = SQLiteStore.observe_fts5_rank
+
+    def reversed_rank_proof(
+        store: SQLiteStore, compiled_query: str
+    ) -> FtsRankProfile:
+        observed = original(store, compiled_query)
+        reversed_order = tuple(reversed(observed.rank_order))
+        return FtsRankProfile(
+            rank_order=reversed_order,
+            bm25_order=reversed_order,
+            rank_override_present=observed.rank_override_present,
+            sql_trace=observed.sql_trace,
+        )
+
+    monkeypatch.setattr(SQLiteStore, "observe_fts5_rank", reversed_rank_proof)
+
+    report = run_chinese_retrieval_evaluation(PROTOCOL)
+
+    assert report.integrity_status == "failed"
+    assert report.integrity_failures[0].problem == "retrieval_chinese_rank_invalid"

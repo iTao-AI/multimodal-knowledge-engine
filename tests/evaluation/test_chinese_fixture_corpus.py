@@ -164,6 +164,7 @@ def test_chinese_qrel_adjudication_covers_every_partition_page() -> None:
     )
     assert adjudication["protocol_id"] == "retrieval-chinese-v1"
     assert adjudication["method"] == "complete_partition_page_review"
+    assert adjudication["review_date"] == "2026-06-25"
     assert adjudication["review_status"] == "complete"
     assert adjudication["document_page_counts"] == {
         "ub-service-core": 26,

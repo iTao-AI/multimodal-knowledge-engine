@@ -39,6 +39,7 @@ class FtsRankProfile:
     rank_order: tuple[FtsRankObservation, ...]
     bm25_order: tuple[FtsRankObservation, ...]
     rank_override_present: bool
+    sql_trace: tuple[str, ...]
 
 
 class FtsProjectionIntegrityError(ValueError):

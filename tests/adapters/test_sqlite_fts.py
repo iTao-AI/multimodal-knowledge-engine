@@ -314,6 +314,23 @@ def test_rank_observation_matches_complete_production_order_and_scores(
             for item in observation.rank_order
         )
         assert observation.rank_override_present is False
+        match_statements = tuple(
+            statement
+            for statement in observation.sql_trace
+            if "active_evidence_fts MATCH" in statement
+        )
+        assert len(match_statements) == 2
+        assert all(" LIMIT " not in statement.upper() for statement in match_statements)
+        assert any("rank AS score" in statement for statement in match_statements)
+        assert any(
+            "bm25(active_evidence_fts) AS score" in statement
+            for statement in match_statements
+        )
+        assert all(
+            "sources.active_publication_id = active_evidence_fts.publication_id"
+            in statement
+            for statement in match_statements
+        )
     finally:
         engine.close()
 

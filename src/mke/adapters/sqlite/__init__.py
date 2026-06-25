@@ -790,12 +790,22 @@ class SQLiteStore:
               AND sources.active_publication_id = active_evidence_fts.publication_id
             ORDER BY {score}, evidence.locator_start, evidence.evidence_id
         """
-        rank_rows = self._connection.execute(
-            base.format(score="rank"), (compiled_query,)
-        ).fetchall()
-        bm25_rows = self._connection.execute(
-            base.format(score="bm25(active_evidence_fts)"), (compiled_query,)
-        ).fetchall()
+        statements: list[str] = []
+        self._connection.set_trace_callback(statements.append)
+        try:
+            rank_rows = self._connection.execute(
+                base.format(score="rank"), (compiled_query,)
+            ).fetchall()
+            bm25_rows = self._connection.execute(
+                base.format(score="bm25(active_evidence_fts)"),
+                (compiled_query,),
+            ).fetchall()
+            override = self._connection.execute(
+                "SELECT 1 FROM active_evidence_fts_config "
+                "WHERE k = 'rank' LIMIT 1"
+            ).fetchone()
+        finally:
+            self._connection.set_trace_callback(None)
         rank_scores = {
             str(row["evidence_id"]): float(row["score"]) for row in rank_rows
         }
@@ -812,13 +822,11 @@ class SQLiteStore:
                 bm25_score=bm25_scores[evidence_id],
             )
 
-        override = self._connection.execute(
-            "SELECT 1 FROM active_evidence_fts_config WHERE k = 'rank' LIMIT 1"
-        ).fetchone()
         return FtsRankProfile(
             rank_order=tuple(observation(row) for row in rank_rows),
             bm25_order=tuple(observation(row) for row in bm25_rows),
             rank_override_present=override is not None,
+            sql_trace=tuple(statements),
         )
 
     def schema_sha256(self) -> str:

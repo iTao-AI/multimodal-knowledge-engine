@@ -244,6 +244,22 @@ ADJUDICATION_MUTATIONS: list[
     tuple[Callable[[dict[str, object]], object], str]
 ] = [
     (
+        lambda payload: payload.update({"review_date": True}),
+        "qrel review date is invalid",
+    ),
+    (
+        lambda payload: payload.update({"review_date": "2026-6-25"}),
+        "qrel review date is invalid",
+    ),
+    (
+        lambda payload: payload.update({"review_date": "2026-02-30"}),
+        "qrel review date is invalid",
+    ),
+    (
+        lambda payload: payload.update({"review_date": "2026-06-24"}),
+        "qrel review date is invalid",
+    ),
+    (
         lambda payload: payload.update({"review_status": "draft"}),
         "qrel review status is invalid",
     ),

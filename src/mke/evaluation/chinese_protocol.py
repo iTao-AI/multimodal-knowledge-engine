@@ -51,6 +51,7 @@ _DECISION_UNSAFE_RE = re.compile(
 )
 _CATEGORIES = frozenset(EXPECTED_CATEGORY_COUNTS)
 _SPLITS = frozenset(EXPECTED_SPLIT_COUNTS)
+_QREL_REVIEW_DATE = "2026-06-25"
 
 
 class ChineseProtocolValidationError(ValueError):
@@ -595,6 +596,11 @@ def _validate_adjudication(
         or payload["method"] != "complete_partition_page_review"
     ):
         raise ChineseProtocolValidationError("qrel adjudication identity is invalid")
+    if (
+        not isinstance(payload["review_date"], str)
+        or payload["review_date"] != _QREL_REVIEW_DATE
+    ):
+        raise ChineseProtocolValidationError("qrel review date is invalid")
     if payload["review_status"] != "complete":
         raise ChineseProtocolValidationError("qrel review status is invalid")
     declared_counts = _object(

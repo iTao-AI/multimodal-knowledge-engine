@@ -290,7 +290,14 @@ def _run_workspace(
                     traces.append(("rank_probe", 2))
                     rank_evidence.append(
                         _validate_rank_profile(
-                            query, profile, stable_evidence
+                            query,
+                            profile,
+                            stable_evidence,
+                            direct_matches=direct_matches,
+                            require_non_empty=(
+                                query.query_id
+                                == protocol.rank_probe_query_id
+                            ),
                         )
                     )
                 retrieved = tuple(
@@ -529,8 +536,13 @@ def _validate_rank_profile(
     query: ChineseEvaluationQuery,
     profile: FtsRankProfile,
     stable_evidence: Mapping[StableLocator, EvaluationEvidenceSnapshot],
+    *,
+    direct_matches: list[SearchResult],
+    require_non_empty: bool,
 ) -> FtsRankEvidence:
-    if profile.rank_override_present:
+    if profile.rank_override_present or not _valid_rank_sql_trace(
+        profile.sql_trace
+    ):
         raise ChineseEvaluationIntegrityError(
             "retrieval_chinese_rank_invalid",
             "FTS5 rank evidence is inconsistent",
@@ -539,13 +551,20 @@ def _validate_rank_profile(
         )
     rank_ids = tuple(item.evidence_id for item in profile.rank_order)
     bm25_ids = tuple(item.evidence_id for item in profile.bm25_order)
-    if rank_ids != bm25_ids or any(
+    search_ids = tuple(item.evidence_id for item in direct_matches)
+    if (
+        (require_non_empty and not rank_ids)
+        or len(search_ids) != min(10, len(rank_ids))
+        or search_ids != rank_ids[: len(search_ids)]
+        or rank_ids != bm25_ids
+        or any(
         not math.isfinite(item.rank_score)
         or not math.isfinite(item.bm25_score)
         or not math.isclose(
             item.rank_score, item.bm25_score, rel_tol=0.0, abs_tol=1e-12
         )
         for item in profile.rank_order
+        )
     ):
         raise ChineseEvaluationIntegrityError(
             "retrieval_chinese_rank_invalid",
@@ -585,6 +604,48 @@ def _validate_rank_profile(
         ordered_evidence_ids_sha256=_digest(stable_ids),
         score_pairs_sha256=_digest(score_pairs),
         rank_override_present=False,
+    )
+
+
+def _valid_rank_sql_trace(statements: tuple[str, ...]) -> bool:
+    match_statements = tuple(
+        " ".join(statement.split())
+        for statement in statements
+        if "active_evidence_fts MATCH" in statement
+    )
+    if len(match_statements) != 2:
+        return False
+    lowered = tuple(statement.casefold() for statement in match_statements)
+    common = (
+        "join evidence on evidence.evidence_id = active_evidence_fts.evidence_id",
+        "join sources on sources.source_id = evidence.source_id",
+        "sources.active_publication_id = active_evidence_fts.publication_id",
+    )
+    if any(" limit " in statement for statement in lowered) or any(
+        requirement not in statement
+        for statement in lowered
+        for requirement in common
+    ):
+        return False
+    return (
+        any(
+            "rank as score" in statement
+            and (
+                "order by rank, evidence.locator_start, "
+                "evidence.evidence_id"
+            )
+            in statement
+            for statement in lowered
+        )
+        and any(
+            "bm25(active_evidence_fts) as score" in statement
+            and (
+                "order by bm25(active_evidence_fts), "
+                "evidence.locator_start, evidence.evidence_id"
+            )
+            in statement
+            for statement in lowered
+        )
     )
 
 
