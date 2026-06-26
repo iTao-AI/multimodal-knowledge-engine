@@ -48,7 +48,7 @@
     "integrity_claim": "adjudication_record_integrity"
   },
   "source_identity": {
-    "sha256": "3ea1f93b4845ae257b3e469ff6e985f52fa6e50d6ffcc888a5fabe0081d871f7",
+    "sha256": "b01307e2df0cc22c64b639c3927354a9792a1d27c9029702337494259acaaf0a",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -122,8 +122,8 @@
       },
       {
         "path": "src/mke/cli.py",
-        "bytes": 35396,
-        "sha256": "855c6945c2f6dde04a73ca80dd49d32f778349bc60e9c2baa4b298213dd34692"
+        "bytes": 40329,
+        "sha256": "d4cbd790e4b3770954b9cd292b6fb214fd33dc8130fa809518f7d2862146c107"
       },
       {
         "path": "src/mke/domain/__init__.py",
@@ -132,8 +132,8 @@
       },
       {
         "path": "src/mke/evaluation/__init__.py",
-        "bytes": 1205,
-        "sha256": "e0cbf20508a4f13ab697afb081179261f6b787d2ccb69246a1eb846d29ec9923"
+        "bytes": 1491,
+        "sha256": "ce1dfc04a55a4f566d284bf4a790c5945fc94419a3dbf615b137169d72729ac6"
       },
       {
         "path": "src/mke/evaluation/artifact_refresh.py",
@@ -169,6 +169,21 @@
         "path": "src/mke/evaluation/chinese_runner.py",
         "bytes": 29855,
         "sha256": "428ec7ac99c1f6b936d3781cc4bfb9cd020e0b6a9cefb3df0f9f51506ce72130"
+      },
+      {
+        "path": "src/mke/evaluation/cjk_lexical_artifact.py",
+        "bytes": 9893,
+        "sha256": "1504b0e651b2e0c07ac73e3c7c5ebbb4b0c06de9548737b3586a501995ffa9ad"
+      },
+      {
+        "path": "src/mke/evaluation/cjk_lexical_candidate.py",
+        "bytes": 15234,
+        "sha256": "19bdfbb36ce547cf6c50afc6230d0a522d611293acb783a6d1c8945bebecac15"
+      },
+      {
+        "path": "src/mke/evaluation/cjk_lexical_comparison.py",
+        "bytes": 31428,
+        "sha256": "b9f9724d7d7ce1d62ad515742300fa5e63da27a2cd0643207545638232ec970d"
       },
       {
         "path": "src/mke/evaluation/diagnostic_ports.py",
