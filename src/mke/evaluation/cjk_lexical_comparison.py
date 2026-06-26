@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import time
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -46,6 +47,7 @@ from mke.evaluation.manifest import StableLocator
 GateStatus = Literal["passed", "failed"]
 CandidateStatus = Literal["passed", "failed"]
 IntegrityStatus = Literal["passed", "failed"]
+COMPARISON_SCHEMA = "mke.cjk_lexical_comparison.v1"
 
 
 @dataclass(frozen=True)
@@ -72,6 +74,15 @@ class CjkLexicalGate:
 
 
 @dataclass(frozen=True)
+class CjkLexicalResultProof:
+    locator: StableLocator
+    overlap_count: int
+    overlap_ratio: float
+    fts5_rank_hex: str
+    matched_terms: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class CjkLexicalQueryObservation:
     query_id: str
     split: ChineseSplit
@@ -89,6 +100,7 @@ class CjkLexicalQueryObservation:
     candidate_retrieved_locators: tuple[StableLocator, ...]
     candidate_direct_ranks: tuple[int, ...]
     candidate_hard_negative_failure: bool
+    candidate_result_proofs: tuple[CjkLexicalResultProof, ...]
 
 
 @dataclass(frozen=True)
@@ -273,6 +285,34 @@ def run_cjk_lexical_comparison(
         )
 
 
+def cjk_lexical_comparison_payload(
+    report: CjkLexicalComparisonReport,
+    *,
+    include_duration: bool = True,
+) -> dict[str, object]:
+    payload = asdict(report)
+    if not include_duration:
+        payload.pop("duration_ms", None)
+    return {
+        "schema_version": COMPARISON_SCHEMA,
+        **payload,
+    }
+
+
+def render_cjk_lexical_comparison_json(
+    report: CjkLexicalComparisonReport,
+) -> str:
+    return (
+        json.dumps(
+            cjk_lexical_comparison_payload(report),
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        + "\n"
+    )
+
+
 def _run_split(
     protocol: ChineseRetrievalProtocol,
     split: ChineseSplit,
@@ -328,12 +368,24 @@ def _run_split(
                     )
                     projection_pool_count = search.pool_row_count
                     parameterized_match_count = search.parameterized_match_count
-                    candidate_locators = tuple(
-                        _stable_candidate_locator(item, source_documents)
+                    result_proofs = tuple(
+                        CjkLexicalResultProof(
+                            locator=_stable_candidate_locator(
+                                item, source_documents
+                            ),
+                            overlap_count=item.overlap_count,
+                            overlap_ratio=item.overlap_ratio,
+                            fts5_rank_hex=item.fts5_rank.hex(),
+                            matched_terms=item.matched_terms,
+                        )
                         for item in search.results
+                    )
+                    candidate_locators = tuple(
+                        item.locator for item in result_proofs
                     )
                 else:
                     candidate_locators = current_result.retrieved_locators
+                    result_proofs = ()
                 qrel_by_locator = {
                     item.locator: item.grade for item in query.qrels
                 }
@@ -366,6 +418,7 @@ def _run_split(
                         candidate_hard_negative_failure=(
                             _hard_negative_failure(query, candidate_locators)
                         ),
+                        candidate_result_proofs=result_proofs,
                     )
                 )
             return _SplitObservation(
