@@ -1,6 +1,7 @@
 # CJK Lexical Candidate Plan Review
 
-Status: planning review complete for E3-B handoff. Implementation has not started.
+Status: planning review complete; E3-B implementation completed locally on
+`codex/e3b-cjk-lexical-candidate`.
 
 Review date: 2026-06-26
 
@@ -81,6 +82,9 @@ the overlap scorer, recompute metrics/gates, and reject coordinated artifact tam
 The plan is coherent and bounded. It gives E3-B a defensible market-facing retrieval improvement
 path without compromising the project's core Evidence lifecycle and deterministic proof posture.
 
-Next action: hand the plan to the execution window for a TDD implementation branch. The execution
-window should stop at a clean local branch and return evidence for planning-window review before
-push or PR.
+Implementation note: the execution branch records `cjk-trigram-overlap-v1` as an off-default
+comparison artifact with `candidate_status=passed`. The candidate remains bounded to compiled-empty
+CJK lexical comparison and does not promote runtime defaults, embeddings, vector search, hybrid
+retrieval, RRF, reranking, query rewrite, HTTP, UI, or MCP behavior.
+
+Next action: review the clean local execution branch before push or PR.

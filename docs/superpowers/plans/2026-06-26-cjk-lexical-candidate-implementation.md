@@ -1,15 +1,25 @@
 # CJK Lexical Candidate Implementation Plan
 
-Status: proposed handoff for the E3-B execution window.
+Status: completed locally for the E3-B execution window.
 
-Implementation branch: to be created by the execution window after this planning branch is reviewed
-or merged.
+Implementation branch: `codex/e3b-cjk-lexical-candidate`.
 
 ## Goal
 
 Implement an off-default E3-B comparison for `cjk-trigram-overlap-v1`, using the unchanged E3-A
 protocol and fixtures. The PR must produce a canonical comparison artifact, validate it
 independently, and prove that current E1/E2/E3-A behavior is not changed.
+
+## Completion Evidence
+
+The implementation records
+`benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json` as the canonical E3-B comparison
+artifact. It reports `candidate_status=passed`, current Recall@5 `0.295455`, candidate Recall@5
+`0.659091`, current nDCG@10 `0.277279`, and candidate nDCG@10 `0.610619`.
+
+All frozen development and holdout gates pass in the canonical artifact. The candidate remains
+comparison-only: runtime Search/Ask defaults, embeddings, vector search, hybrid retrieval, RRF,
+reranker, query rewrite, HTTP, UI, and MCP behavior are not promoted or changed by E3-B.
 
 ## Scope
 

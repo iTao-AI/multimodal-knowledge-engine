@@ -68,8 +68,45 @@ score pairs, with no persistent rank override.
 
 E3-B is `eligible` because qrel review is complete, all 1,680 judgments are present, and 10
 answerable development misses had `compiled_query_empty`. Eligibility authorizes planning only.
-E3-B must preserve the protocol and fixture bytes and still requires validation after E3-A lands
-on `main`. E3-B through E3-F are not implemented.
+E3-B preserves the protocol and fixture bytes and records the first off-default candidate
+comparison as `cjk-trigram-overlap-v1`.
+
+## Run The E3-B CJK Lexical Comparison
+
+```bash
+uv run mke eval retrieval-cjk-lexical \
+  --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
+  --candidate cjk-trigram-overlap-v1 \
+  --json > /tmp/mke-cjk-lexical-comparison.json
+```
+
+To record the canonical artifact:
+
+```bash
+uv run mke eval retrieval-cjk-lexical \
+  --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
+  --candidate cjk-trigram-overlap-v1 \
+  --record benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json \
+  --json > /tmp/mke-cjk-lexical-comparison.json
+```
+
+`cjk-trigram-overlap-v1` is comparison-only. It first uses the unchanged
+`numeric-grouping-v1` compiler. Only queries whose current compiled query is empty enter the
+evaluation-only SQLite FTS5 `trigram` projection and deterministic overlap scorer. The normal
+`active_evidence_fts` table, runtime default retrieval policy, Search/Ask DTOs, HTTP, UI, MCP,
+embeddings, vector search, hybrid retrieval, RRF, reranking, and query rewrite are unchanged.
+
+| Metric | Current | Candidate |
+|---|---:|---:|
+| Recall@5 | `0.295455` | `0.659091` |
+| nDCG@10 | `0.277279` | `0.610619` |
+| Development Recall@5 | `0.363636` | `0.681818` |
+| Holdout Recall@5 | `0.227273` | `0.636364` |
+| Development compiled-empty misses recovered | `0/10` | `7/10` |
+
+All frozen development and holdout gates pass in the canonical artifact. This does not promote the
+candidate to runtime default and does not establish broad CJK support. E3-C through E3-F remain
+unimplemented and evidence-gated.
 
 ## Validate The Canonical Artifact
 
@@ -84,6 +121,20 @@ uv run python -m mke.evaluation.chinese_artifact validate \
 The artifact binds report semantics, qrel/rank evidence, fixtures, and source identity.
 Validation does not ingest again. The holdout is public, not blind; one canonical observation is
 recorded to avoid iterative tuning against it.
+
+Validate the E3-B comparison artifact:
+
+```bash
+uv run python -m mke.evaluation.cjk_lexical_artifact validate \
+  --artifact benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json \
+  --observed /tmp/mke-cjk-lexical-comparison.json \
+  --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
+  --repository .
+```
+
+The E3-B validator reruns the comparison from frozen fixture text, rebuilds the evaluation-only
+projection, recomputes generated terms, overlap scores, rankings, metrics, gates, and verdict, and
+then compares the canonical artifact.
 
 ## Prove The Installed Wheel Offline
 
@@ -128,6 +179,7 @@ migration, projection rebuild, runtime selector change, or user-data action. E1/
 repository provenance maintenance.
 
 Fixture provenance is documented in `tests/fixtures/retrieval-chinese-v1/README.md`. This small
-engineering corpus covers text-layer, page-level Evidence only. It does not establish CJK
-support, dense/vector or hybrid retrieval, RRF, reranking, statistical significance, production
-quality, OCR, or arbitrary PDF support.
+engineering corpus covers text-layer, page-level Evidence only. E3-B establishes one bounded
+compiled-empty lexical comparison on this corpus; it does not establish broad CJK support,
+dense/vector or hybrid retrieval, RRF, reranking, statistical significance, production quality,
+OCR, or arbitrary PDF support.

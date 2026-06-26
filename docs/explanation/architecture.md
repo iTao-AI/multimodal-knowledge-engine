@@ -126,7 +126,16 @@ protocol, so documentation may name the observed profile `sqlite_fts5_default_bm
 The runtime query compiler remains ASCII-oriented. E3-A records graded metrics and deterministic
 miss symptoms but does not claim root causes or implement a CJK tokenizer, second projection,
 embedding, vector search, hybrid retrieval, RRF, reranker, query rewrite, Passage/chunk, OCR,
-HTTP, UI, or MCP changes. E3-B through E3-F remain future, evidence-gated stages.
+HTTP, UI, or MCP changes.
+
+E3-B adds an offline comparison candidate, not a runtime retrieval layer. The
+`cjk-trigram-overlap-v1` runner first observes the unchanged `numeric-grouping-v1` path. Only when
+that compiler returns an empty query does it build an evaluation-only SQLite FTS5 `trigram`
+projection from the immutable active Evidence snapshot and apply a deterministic overlap scorer
+over frozen page text. The normal `active_evidence_fts` projection, Publication activation,
+Search/Ask DTOs, owner runtime selector, CLI/MCP runtime behavior, HTTP, UI, embeddings, vector
+search, hybrid retrieval, RRF, reranker, and query rewrite remain unchanged. E3-C through E3-F
+remain future, evidence-gated stages.
 
 CLI and MCP errors share one project-owned `PublicError` serializer. Only allowlisted stable causes
 can reach public output; unknown exception text is replaced with

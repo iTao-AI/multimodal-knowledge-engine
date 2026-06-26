@@ -1,7 +1,6 @@
 # CJK Lexical Candidate Design
 
-Status: proposed for E3-B implementation handoff. No runtime behavior has been changed by this
-design.
+Status: implemented as an off-default E3-B comparison. No runtime default behavior was changed.
 
 ## Context
 
@@ -204,6 +203,7 @@ E3-B does not:
 
 ## Recommendation
 
-Proceed with an implementation PR for `cjk-trigram-overlap-v1` as an off-default E3-B comparison.
-Do not migrate legacy RAG-OCR code. At most, use legacy tokenization experience as a source of test
-ideas after the projection and artifact gates are in place.
+The implementation records `cjk-trigram-overlap-v1` as an off-default E3-B comparison artifact.
+The canonical comparison reports `candidate_status=passed`, overall Recall@5 `0.659091`, and
+nDCG@10 `0.610619`, with all frozen development and holdout gates passing. It does not promote the
+candidate to runtime default and does not migrate legacy RAG-OCR code.
