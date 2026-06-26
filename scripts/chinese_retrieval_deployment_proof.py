@@ -25,6 +25,7 @@ class DeploymentProofConfig:
     wheel: Path
     protocol: Path
     python_version: str
+    installed_environment: Path | None = None
 
     def __post_init__(self) -> None:
         if self.python_version not in {"3.12", "3.13"}:
@@ -33,6 +34,14 @@ class DeploymentProofConfig:
             raise ValueError("wheel must be an existing .whl file")
         if not self.protocol.is_file() or self.protocol.suffix != ".json":
             raise ValueError("protocol must be an existing JSON file")
+        if self.installed_environment is not None:
+            environment = self.installed_environment
+            if not environment.is_dir():
+                raise ValueError("installed environment must be an existing venv")
+            if not (environment / "bin" / "python").is_file() or not (
+                environment / "bin" / "mke"
+            ).is_file():
+                raise ValueError("installed environment must contain python and mke")
 
 
 def isolated_runtime_environment() -> dict[str, str]:
@@ -72,11 +81,14 @@ def validate_installed_identity(
     if not isinstance(module_file, str) or not isinstance(executable, str):
         raise ValueError("installed package identity verification failed")
     module_path = Path(module_file).resolve()
-    executable_path = Path(executable).resolve()
+    environment_path = environment.resolve()
+    executable_path = Path(executable).absolute()
+    expected_executable = (environment / "bin" / "python").absolute()
     if (
-        not module_path.is_relative_to(environment.resolve())
+        not module_path.is_relative_to(environment_path)
         or module_path.is_relative_to(repository.resolve())
-        or executable_path != (environment / "bin" / "python").resolve()
+        or "site-packages" not in module_path.parts
+        or executable_path != expected_executable
     ):
         raise ValueError("installed package identity verification failed")
 
@@ -147,49 +159,55 @@ def _json_command(
 def run_deployment_proof(config: DeploymentProofConfig) -> dict[str, object]:
     started = time.monotonic()
     repository = Path(__file__).resolve().parents[1]
-    wheel = config.wheel.resolve(strict=True)
     protocol = config.protocol.resolve(strict=True)
     environment_variables = isolated_runtime_environment()
     with tempfile.TemporaryDirectory(prefix="mke-chinese-retrieval-proof-") as temp:
         runtime_root = Path(temp).resolve()
-        environment = runtime_root / "venv"
-        python = environment / "bin" / "python"
-        mke = environment / "bin" / "mke"
-        constraints = runtime_root / "constraints.txt"
+        if config.installed_environment is None:
+            wheel = config.wheel.resolve(strict=True)
+            environment = runtime_root / "venv"
+            python = environment / "bin" / "python"
+            mke = environment / "bin" / "mke"
+            constraints = runtime_root / "constraints.txt"
 
-        _run(
-            (
-                "uv",
-                "export",
-                "--locked",
-                "--no-dev",
-                "--no-emit-project",
-                "--output-file",
-                str(constraints),
-            ),
-            cwd=repository,
-            environment=environment_variables,
-            timeout=_remaining(started),
-        )
-        _run(
-            (
-                "uv",
-                "venv",
-                str(environment),
-                "--python",
-                config.python_version,
-                "--no-python-downloads",
-            ),
-            cwd=runtime_root,
-            environment=environment_variables,
-            timeout=_remaining(started),
-        )
-        _run(
-            wheel_install_command(python, wheel, constraints),
-            cwd=runtime_root,
-            environment=environment_variables,
-            timeout=_remaining(started),
-        )
+            _run(
+                (
+                    "uv",
+                    "export",
+                    "--locked",
+                    "--no-dev",
+                    "--no-emit-project",
+                    "--output-file",
+                    str(constraints),
+                ),
+                cwd=repository,
+                environment=environment_variables,
+                timeout=_remaining(started),
+            )
+            _run(
+                (
+                    "uv",
+                    "venv",
+                    str(environment),
+                    "--python",
+                    config.python_version,
+                    "--no-python-downloads",
+                ),
+                cwd=runtime_root,
+                environment=environment_variables,
+                timeout=_remaining(started),
+            )
+            _run(
+                wheel_install_command(python, wheel, constraints),
+                cwd=runtime_root,
+                environment=environment_variables,
+                timeout=_remaining(started),
+            )
+        else:
+            environment = config.installed_environment.resolve(strict=True)
+            python = environment / "bin" / "python"
+            mke = environment / "bin" / "mke"
+
         identity = _json_command(
             (
                 str(python),
@@ -248,6 +266,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--wheel", type=Path, required=True)
     parser.add_argument("--protocol", type=Path, required=True)
     parser.add_argument("--python", choices=("3.12", "3.13"), required=True)
+    parser.add_argument("--installed-environment", type=Path)
     return parser
 
 
@@ -259,6 +278,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 wheel=args.wheel,
                 protocol=args.protocol,
                 python_version=args.python,
+                installed_environment=args.installed_environment,
             )
         )
     except Exception:

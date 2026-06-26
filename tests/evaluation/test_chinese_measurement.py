@@ -94,3 +94,71 @@ def test_sqlite_sampler_records_peak_before_cleanup(tmp_path: Path) -> None:
 
     database.unlink()
     assert sample["max_sqlite_bytes"] == 4096
+
+
+def test_measurement_forwards_preinstalled_wheel_environment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from scripts import chinese_retrieval_measurement as measurement
+
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    protocol = tmp_path / "protocol.json"
+    protocol.write_text("{}")
+    wheel = tmp_path / "mke.whl"
+    wheel.write_bytes(b"wheel")
+    installed_environment = tmp_path / "wheel-env"
+    installed_environment.mkdir()
+    commands: list[tuple[str, ...]] = []
+
+    def fake_timed_command(
+        command: tuple[str, ...],
+        *,
+        cwd: Path,
+        environment: dict[str, str],
+        timeout: float = 180.0,
+        resource_sample: dict[str, int] | None = None,
+    ) -> tuple[int, subprocess.CompletedProcess[str]]:
+        del cwd, timeout
+        commands.append(command)
+        assert environment["UV_OFFLINE"] == "1"
+        assert "PYTHONPATH" not in environment
+        assert "PYTHONHOME" not in environment
+        assert "VIRTUAL_ENV" not in environment
+        if command[:2] == ("uv", "sync"):
+            return 10, subprocess.CompletedProcess(command, 0, "", "")
+        if command[:3] == ("uv", "run", "mke"):
+            return 20, subprocess.CompletedProcess(
+                command,
+                0,
+                "mke eval retrieval-chinese\n",
+                "",
+            )
+        if any(part.endswith("chinese_retrieval_deployment_proof.py") for part in command):
+            assert "--installed-environment" in command
+            assert str(installed_environment) in command
+            return 30, subprocess.CompletedProcess(
+                command,
+                0,
+                '{"status":"passed"}',
+                "",
+            )
+        raise AssertionError(f"unexpected command: {command}")
+
+    monkeypatch.setattr(measurement, "run_timed_command", fake_timed_command)
+    monkeypatch.setattr(measurement, "_peak_child_rss_bytes", lambda: 1024)
+
+    summary = measurement.run_measurement(
+        repository=repository,
+        protocol=protocol,
+        wheel=wheel,
+        python_version="3.13",
+        installed_environment=installed_environment,
+    )
+
+    assert summary["installed_wheel_proof_ms"] == 30
+    assert commands[-1][-2:] == (
+        "--installed-environment",
+        str(installed_environment),
+    )

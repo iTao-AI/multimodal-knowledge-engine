@@ -158,6 +158,7 @@ def run_measurement(
     protocol: Path,
     wheel: Path,
     python_version: str,
+    installed_environment: Path | None = None,
 ) -> dict[str, object]:
     environment = dict(os.environ)
     environment["UV_OFFLINE"] = "1"
@@ -189,8 +190,7 @@ def run_measurement(
         )
         if not evaluator.stdout.startswith("mke eval retrieval-chinese\n"):
             raise RuntimeError("measurement command failed")
-        proof_ms, proof = run_timed_command(
-            (
+        proof_command = [
                 "uv",
                 "run",
                 "python",
@@ -201,7 +201,13 @@ def run_measurement(
                 str(protocol),
                 "--python",
                 python_version,
-            ),
+        ]
+        if installed_environment is not None:
+            proof_command.extend(
+                ("--installed-environment", str(installed_environment))
+            )
+        proof_ms, proof = run_timed_command(
+            tuple(proof_command),
             cwd=repository,
             environment=environment,
             resource_sample=resource_sample,
@@ -228,6 +234,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--protocol", type=Path, required=True)
     parser.add_argument("--wheel", type=Path, required=True)
     parser.add_argument("--python", choices=("3.12", "3.13"), required=True)
+    parser.add_argument("--installed-environment", type=Path)
     return parser
 
 
@@ -239,6 +246,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             protocol=args.protocol.resolve(),
             wheel=args.wheel.resolve(),
             python_version=args.python,
+            installed_environment=(
+                args.installed_environment.resolve()
+                if args.installed_environment is not None
+                else None
+            ),
         )
     except Exception:
         print(

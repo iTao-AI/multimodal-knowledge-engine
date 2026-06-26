@@ -117,6 +117,7 @@ jobs:
             --protocol "$GITHUB_WORKSPACE/tests/fixtures/retrieval-chinese-v1/protocol.json" \
             --wheel "$wheel" \
             --python "${{ matrix.python-version }}" \
+            --installed-environment /tmp/mke-wheel-env \
             > /tmp/mke-chinese-measurement.json
           python -c 'import json; p=json.load(open("/tmp/mke-chinese-measurement.json")); assert p["status"] == "passed"; print("```json"); print(json.dumps(p, indent=2, sort_keys=True)); print("```")' \
             >> "$GITHUB_STEP_SUMMARY"

@@ -102,6 +102,107 @@ def test_proof_rejects_source_tree_import(tmp_path: Path) -> None:
         )
 
 
+def test_proof_rejects_venv_python_with_non_site_packages_import(
+    tmp_path: Path,
+) -> None:
+    from scripts.chinese_retrieval_deployment_proof import (
+        validate_installed_identity,
+    )
+
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    environment = tmp_path / "runtime" / "venv"
+    module = environment / "src" / "mke" / "__init__.py"
+    module.parent.mkdir(parents=True)
+    module.write_text("")
+
+    with pytest.raises(ValueError, match="installed package identity"):
+        validate_installed_identity(
+            {
+                "mke_file": str(module),
+                "sys_executable": str(environment / "bin" / "python"),
+            },
+            environment=environment,
+            repository=repository,
+        )
+
+
+def test_proof_can_reuse_preinstalled_wheel_environment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from scripts import chinese_retrieval_deployment_proof as proof
+
+    wheel = tmp_path / "mke.whl"
+    protocol = tmp_path / "protocol.json"
+    wheel.write_bytes(b"wheel")
+    protocol.write_text("{}")
+    installed_environment = tmp_path / "wheel-env"
+    (installed_environment / "bin").mkdir(parents=True)
+    (installed_environment / "bin" / "python").write_text("")
+    (installed_environment / "bin" / "mke").write_text("")
+    site_package = (
+        installed_environment
+        / "lib"
+        / "python3.13"
+        / "site-packages"
+        / "mke"
+        / "__init__.py"
+    )
+    site_package.parent.mkdir(parents=True)
+    site_package.write_text("")
+    commands: list[tuple[str, ...]] = []
+
+    def fake_json_command(
+        command: tuple[str, ...],
+        *,
+        cwd: Path,
+        environment: dict[str, str],
+        timeout: float,
+    ) -> dict[str, object]:
+        del timeout
+        commands.append(command)
+        assert cwd != Path(__file__).resolve().parents[2]
+        assert environment["UV_OFFLINE"] == "1"
+        assert "PYTHONPATH" not in environment
+        assert "PYTHONHOME" not in environment
+        assert "VIRTUAL_ENV" not in environment
+        if command[0] == str(installed_environment / "bin" / "python"):
+            return {
+                "mke_file": str(site_package),
+                "sys_executable": str(installed_environment / "bin" / "python"),
+            }
+        return {
+            "integrity_status": "passed",
+            "quality_status": "baseline_recorded",
+            "documents": 5,
+            "queries": 48,
+            "split_counts": {"development": 24, "holdout": 24},
+            "integrity_failures": [],
+            "fts5_rank_profile": "sqlite_fts5_default_bm25",
+        }
+
+    def unexpected_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        raise AssertionError("preinstalled environment proof must not install")
+
+    monkeypatch.setattr(proof, "_json_command", fake_json_command)
+    monkeypatch.setattr(proof.subprocess, "run", unexpected_run)
+
+    report = proof.run_deployment_proof(
+        proof.DeploymentProofConfig(
+            wheel=wheel,
+            protocol=protocol,
+            python_version="3.13",
+            installed_environment=installed_environment,
+        )
+    )
+
+    assert report["status"] == "passed"
+    assert report["installed_identity"] == "passed"
+    assert commands[0][0] == str(installed_environment / "bin" / "python")
+    assert commands[1][0] == str(installed_environment / "bin" / "mke")
+
+
 def test_proof_subprocess_timeout_and_output_are_bounded(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
