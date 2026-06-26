@@ -1,7 +1,9 @@
 # CJK Lexical Candidate Plan Review
 
-Status: planning review complete; E3-B implementation completed locally on
-`codex/e3b-cjk-lexical-candidate`.
+Status: planning review complete; E3-B implementation merged as PR #31.
+
+Merge status: PR #31 was squash-merged to `main@df285617b78157eee5f23e4c754517cd097264b5`.
+Post-merge CI and CodeQL passed.
 
 Review date: 2026-06-26
 
@@ -82,10 +84,11 @@ the overlap scorer, recompute metrics/gates, and reject coordinated artifact tam
 The plan is coherent and bounded. It gives E3-B a defensible market-facing retrieval improvement
 path without compromising the project's core Evidence lifecycle and deterministic proof posture.
 
-Implementation note: the execution branch records `cjk-trigram-overlap-v1` as an off-default
-comparison artifact with `candidate_status=passed`. The candidate remains bounded to compiled-empty
-CJK lexical comparison and does not promote runtime defaults, embeddings, vector search, hybrid
-retrieval, RRF, reranking, query rewrite, HTTP, UI, or MCP behavior.
+Implementation note: PR #31 records `cjk-trigram-overlap-v1` as an off-default comparison artifact
+with `candidate_status=passed`. The candidate remains bounded to compiled-empty CJK lexical
+comparison and does not promote runtime defaults, switch the default retrieval policy, or add or
+activate embeddings, vector search, hybrid retrieval, RRF, reranking, query rewrite, HTTP, UI, or
+MCP behavior.
 
 Pre-PR targeted review resolution: candidate-used queries now persist redacted SQL proof in the
 canonical comparison artifact. The proof includes the normalized statement template, redacted trace
@@ -94,4 +97,6 @@ or coordinated-tampered SQL proof. The implementation plan's durable verificatio
 also updated to include the required E3-B `--protocol` and `--candidate` arguments and to use
 `tests/fixtures/retrieval-eval-v1.json` for E1 validation.
 
-Next action: review the clean local execution branch before push or PR.
+Post-merge closeout: PR #31 is merged and post-merge CI / CodeQL passed. Any later runtime
+promotion, default strategy switch, dense/vector/hybrid retrieval, RRF, reranking, query rewrite, or
+HTTP/UI/MCP behavior change remains out of E3-B scope and requires separate planning.

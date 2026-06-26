@@ -1,8 +1,11 @@
 # CJK Lexical Candidate Implementation Plan
 
-Status: completed locally for the E3-B execution window.
+Status: completed and merged for the E3-B execution window.
 
 Implementation branch: `codex/e3b-cjk-lexical-candidate`.
+
+Merge status: PR #31 was squash-merged to `main@df285617b78157eee5f23e4c754517cd097264b5`.
+Post-merge CI and CodeQL passed.
 
 ## Goal
 
@@ -20,6 +23,8 @@ artifact. It reports `candidate_status=passed`, current Recall@5 `0.295455`, can
 All frozen development and holdout gates pass in the canonical artifact. The candidate remains
 comparison-only: runtime Search/Ask defaults, embeddings, vector search, hybrid retrieval, RRF,
 reranker, query rewrite, HTTP, UI, and MCP behavior are not promoted or changed by E3-B.
+
+This document is now a durable execution record. It is not an active implementation checklist.
 
 ## Scope
 
@@ -401,7 +406,7 @@ Also run Python 3.12 and Python 3.13 installed-wheel proof for the new CLI and a
 
 ## Handoff Requirements
 
-The execution window should stop before push/PR and report:
+The execution window reported:
 
 - branch, base commit, HEAD, diff stat, and commit list;
 - candidate status and all gate results;
@@ -411,3 +416,13 @@ The execution window should stop before push/PR and report:
 - Python 3.12/3.13 installed-wheel proof status;
 - explicit confirmation that runtime defaults, embeddings, vector search, RRF, reranker, query
   rewrite, HTTP, UI, and MCP behavior were not changed.
+
+## Post-Merge Closeout
+
+PR #31 was squash-merged to `main@df285617b78157eee5f23e4c754517cd097264b5`. Post-merge CI and
+CodeQL passed.
+
+E3-B is closed as comparison-only. It recorded and validated the
+`cjk-trigram-overlap-v1` artifact for compiled-empty CJK lexical misses. It did not promote the
+candidate to runtime default, switch default Search/Ask behavior, or add/activate embeddings,
+vector search, hybrid retrieval, RRF, reranking, query rewrite, HTTP, UI, or MCP behavior changes.
