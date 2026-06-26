@@ -55,6 +55,42 @@ class CjkCompiledQueryTerms:
     match_query: str
 
 
+@dataclass(frozen=True)
+class CjkProjectionCandidate:
+    evidence_id: str
+    publication_id: str
+    source_id: str
+    locator_kind: str
+    locator_start: int
+    locator_end: int
+    text: str
+    fts5_rank: float
+
+
+@dataclass(frozen=True)
+class CjkScoredProjectionResult:
+    evidence_id: str
+    publication_id: str
+    source_id: str
+    locator_kind: str
+    locator_start: int
+    locator_end: int
+    text: str
+    fts5_rank: float
+    overlap_count: int
+    overlap_ratio: float
+    matched_terms: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class CjkProjectionSearchObservation:
+    results: tuple[CjkScoredProjectionResult, ...]
+    pool_row_count: int
+    sql_trace: tuple[str, ...]
+    statement_template: str
+    parameterized_match_count: int
+
+
 class CjkLexicalCandidateError(ValueError):
     """The requested CJK lexical evaluation candidate is unsupported."""
 
@@ -82,6 +118,7 @@ class _SQLiteConnection(Protocol):
 
 
 _PROJECTION_TABLE = "temp.mke_cjk_trigram_projection"
+_PROJECTION_MATCH_NAME = "mke_cjk_trigram_projection"
 
 CJK_LEXICAL_CANDIDATE = CjkLexicalCandidateContract(
     candidate_id="cjk-trigram-overlap-v1",
@@ -274,6 +311,111 @@ def should_use_cjk_fallback(compiled: CjkCompiledQueryTerms) -> bool:
     return compiled.current_compiled_query_empty and bool(compiled.terms)
 
 
+def search_cjk_trigram_projection(
+    connection: sqlite3.Connection,
+    compiled: CjkCompiledQueryTerms,
+    *,
+    contract: CjkLexicalCandidateContract = CJK_LEXICAL_CANDIDATE,
+) -> CjkProjectionSearchObservation:
+    if not compiled.match_query:
+        return CjkProjectionSearchObservation(
+            results=(),
+            pool_row_count=0,
+            sql_trace=(),
+            statement_template="",
+            parameterized_match_count=0,
+        )
+    statement_template = f"""
+        SELECT evidence_id, publication_id, source_id, locator_kind,
+               locator_start, locator_end, text, rank AS fts5_rank
+        FROM {_PROJECTION_TABLE}
+        WHERE {_PROJECTION_MATCH_NAME} MATCH ?
+        ORDER BY rank, source_id,
+                 CAST(locator_start AS INTEGER),
+                 CAST(locator_end AS INTEGER),
+                 evidence_id
+    """
+    statements: list[str] = []
+    connection.set_trace_callback(statements.append)
+    try:
+        rows = connection.execute(statement_template, (compiled.match_query,)).fetchall()
+    finally:
+        connection.set_trace_callback(None)
+    candidates = tuple(
+        CjkProjectionCandidate(
+            evidence_id=str(row[0]),
+            publication_id=str(row[1]),
+            source_id=str(row[2]),
+            locator_kind=str(row[3]),
+            locator_start=int(row[4]),
+            locator_end=int(row[5]),
+            text=str(row[6]),
+            fts5_rank=float(row[7]),
+        )
+        for row in rows
+    )
+    return CjkProjectionSearchObservation(
+        results=rank_cjk_overlap_candidates(
+            candidates,
+            compiled.terms,
+            contract=contract,
+        ),
+        pool_row_count=len(candidates),
+        sql_trace=tuple(statements),
+        statement_template=statement_template,
+        parameterized_match_count=1,
+    )
+
+
+def rank_cjk_overlap_candidates(
+    candidates: tuple[CjkProjectionCandidate, ...],
+    terms: tuple[str, ...],
+    *,
+    contract: CjkLexicalCandidateContract = CJK_LEXICAL_CANDIDATE,
+) -> tuple[CjkScoredProjectionResult, ...]:
+    if not terms:
+        return ()
+    scored: list[CjkScoredProjectionResult] = []
+    for candidate in candidates:
+        normalized_text = _normalize_cjk_text(candidate.text)
+        matched_terms = tuple(term for term in terms if term in normalized_text)
+        overlap_count = len(matched_terms)
+        overlap_ratio = overlap_count / len(terms)
+        if (
+            overlap_count < contract.minimum_overlap_count
+            or overlap_ratio < contract.minimum_overlap_ratio
+        ):
+            continue
+        scored.append(
+            CjkScoredProjectionResult(
+                evidence_id=candidate.evidence_id,
+                publication_id=candidate.publication_id,
+                source_id=candidate.source_id,
+                locator_kind=candidate.locator_kind,
+                locator_start=candidate.locator_start,
+                locator_end=candidate.locator_end,
+                text=candidate.text,
+                fts5_rank=candidate.fts5_rank,
+                overlap_count=overlap_count,
+                overlap_ratio=overlap_ratio,
+                matched_terms=matched_terms,
+            )
+        )
+    return tuple(
+        sorted(
+            scored,
+            key=lambda item: (
+                -item.overlap_count,
+                -item.overlap_ratio,
+                item.fts5_rank,
+                item.source_id,
+                item.locator_start,
+                item.evidence_id,
+            ),
+        )[: contract.max_results]
+    )
+
+
 def _projection_evidence(
     connection: sqlite3.Connection,
 ) -> tuple[EvaluationEvidenceSnapshot, ...]:
@@ -333,6 +475,10 @@ def _is_cjk_character(character: str) -> bool:
 def _quote_fts5_term(term: str) -> str:
     escaped = term.replace('"', '""')
     return f'"{escaped}"'
+
+
+def _normalize_cjk_text(text: str) -> str:
+    return "".join(character for character in text.casefold() if not character.isspace())
 
 
 def _digest(value: object) -> str:

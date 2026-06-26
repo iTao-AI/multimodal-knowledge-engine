@@ -10,13 +10,16 @@ from mke.evaluation.cjk_lexical_candidate import (
     CjkLexicalCandidateError,
     CjkLexicalProjectionError,
     CjkLexicalCandidateUnsupported,
+    CjkProjectionCandidate,
     build_cjk_trigram_projection,
     candidate_identity_digest,
     cjk_evidence_identity,
     compile_cjk_query_terms,
     probe_sqlite_trigram_support,
+    rank_cjk_overlap_candidates,
     render_cjk_lexical_error,
     require_cjk_lexical_candidate,
+    search_cjk_trigram_projection,
     should_use_cjk_fallback,
 )
 from mke.evaluation.diagnostic_ports import EvaluationEvidenceSnapshot
@@ -251,3 +254,123 @@ def test_sql_looking_query_text_never_reaches_match_expression() -> None:
     assert compiled.terms == ("证据链",)
     assert compiled.match_query == '"证据链"'
     assert "active_evidence_fts" not in compiled.match_query
+
+
+def test_projection_search_filters_raw_trigram_candidates_by_overlap() -> None:
+    evidence = (
+        EvaluationEvidenceSnapshot(
+            "ev_direct",
+            "pub_001",
+            "src_001",
+            "page",
+            1,
+            1,
+            "证据 生命周期 需要 发布 后 才能 检索。",
+        ),
+        EvaluationEvidenceSnapshot(
+            "ev_noise",
+            "pub_001",
+            "src_001",
+            "page",
+            2,
+            2,
+            "证据生成 是 一个 不相关 的 相似 片段。",
+        ),
+    )
+    compiled = compile_cjk_query_terms("证据生命周期")
+    connection = sqlite3.connect(":memory:")
+    try:
+        build_cjk_trigram_projection(connection, evidence)
+
+        observation = search_cjk_trigram_projection(connection, compiled)
+
+        assert observation.pool_row_count == 2
+        assert [item.evidence_id for item in observation.results] == ["ev_direct"]
+        assert observation.results[0].overlap_count == 4
+        assert observation.results[0].overlap_ratio == pytest.approx(1.0)
+    finally:
+        connection.close()
+
+
+def test_overlap_ranker_prefers_higher_overlap_before_fts_rank() -> None:
+    terms = ("证据生", "据生命", "生命周", "命周期")
+    ranked = rank_cjk_overlap_candidates(
+        (
+            CjkProjectionCandidate(
+                evidence_id="ev_low_overlap",
+                publication_id="pub_001",
+                source_id="src_001",
+                locator_kind="page",
+                locator_start=1,
+                locator_end=1,
+                text="证据生命 其他 内容",
+                fts5_rank=-10.0,
+            ),
+            CjkProjectionCandidate(
+                evidence_id="ev_direct",
+                publication_id="pub_001",
+                source_id="src_001",
+                locator_kind="page",
+                locator_start=2,
+                locator_end=2,
+                text="证据生命周期",
+                fts5_rank=-1.0,
+            ),
+        ),
+        terms,
+    )
+
+    assert [item.evidence_id for item in ranked] == ["ev_direct", "ev_low_overlap"]
+
+
+def test_overlap_ranker_ties_are_stable() -> None:
+    terms = ("证据生", "据生命", "生命周", "命周期")
+    ranked = rank_cjk_overlap_candidates(
+        (
+            CjkProjectionCandidate(
+                evidence_id="ev_b",
+                publication_id="pub_001",
+                source_id="src_b",
+                locator_kind="page",
+                locator_start=2,
+                locator_end=2,
+                text="证据生命周期",
+                fts5_rank=-1.0,
+            ),
+            CjkProjectionCandidate(
+                evidence_id="ev_a",
+                publication_id="pub_001",
+                source_id="src_a",
+                locator_kind="page",
+                locator_start=1,
+                locator_end=1,
+                text="证据生命周期",
+                fts5_rank=-1.0,
+            ),
+        ),
+        terms,
+    )
+
+    assert [item.evidence_id for item in ranked] == ["ev_a", "ev_b"]
+
+
+def test_projection_search_records_one_parameterized_match_query() -> None:
+    compiled = compile_cjk_query_terms("证据生命周期")
+    connection = sqlite3.connect(":memory:")
+    try:
+        build_cjk_trigram_projection(connection, _evidence())
+
+        observation = search_cjk_trigram_projection(connection, compiled)
+
+        assert observation.parameterized_match_count == 1
+        assert " MATCH ?" in observation.statement_template
+        assert compiled.match_query not in observation.statement_template
+        assert (
+            sum(
+                "mke_cjk_trigram_projection MATCH" in statement
+                for statement in observation.sql_trace
+            )
+            == 1
+        )
+    finally:
+        connection.close()
