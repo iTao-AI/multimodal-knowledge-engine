@@ -69,6 +69,9 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [CJK Lexical Candidate Design](./superpowers/specs/2026-06-26-cjk-lexical-candidate-design.md) defines the merged off-default E3-B `cjk-trigram-overlap-v1` comparison.
 - [CJK Lexical Candidate Implementation Plan](./superpowers/plans/2026-06-26-cjk-lexical-candidate-implementation.md) records the completed and merged E3-B execution checklist.
 - [CJK Lexical Candidate Plan Review](./superpowers/reviews/2026-06-26-cjk-lexical-candidate-plan-review.md) records the E3-B planning review, rejected alternatives, and post-merge closeout.
+- [CJK Lexical Runtime Promotion Design](./superpowers/specs/2026-06-26-cjk-lexical-runtime-promotion-design.md) defines the E3-F lexical-only promotion path for `cjk-trigram-overlap-v1`.
+- [CJK Lexical Runtime Promotion Implementation Plan](./superpowers/plans/2026-06-26-cjk-lexical-runtime-promotion-implementation.md) defines the planned runtime strategy, projection lifecycle, CLI/MCP, proof, and rollback work.
+- [CJK Lexical Runtime Promotion Autoplan Review](./superpowers/reviews/2026-06-26-cjk-lexical-runtime-promotion-autoplan-review.md) records the pre-implementation CEO, engineering, and DX review findings.
 
 ## Development Verification
 
