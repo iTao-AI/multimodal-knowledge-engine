@@ -1,9 +1,11 @@
 # CJK Lexical Runtime Promotion Design
 
-Status: approved for implementation planning. This is an E3-F lexical-only promotion design, not
-E3-C dense retrieval.
+Status: amended after Task 0.5 tokenizer alternative spike. Approved for implementation planning
+only under the active-scan-first path below.
 
-Planning base: `main@ee1eca081dffb9350f1fb9d20a3d32a06efa1785`.
+Planning base: `main@1fdea11d70b410a0cddcf86a74af165be83daf14`.
+
+This is an E3-F lexical-only promotion design. It is not E3-C dense retrieval.
 
 ## Context
 
@@ -33,8 +35,19 @@ All frozen development and holdout gates passed. The candidate changed only comp
 queries during evaluation. It did not change runtime Search/Ask, CLI, MCP, HTTP, UI, embeddings,
 vector search, hybrid retrieval, RRF, reranking, or query rewrite.
 
-The program-level E3 design explicitly permits E3-F to promote a CJK lexical strategy without
-waiting for dense retrieval when prior artifacts support that smaller strategy.
+The original E3-F plan required Task 0.5 to stop if a smaller approach matched the E3-B gates
+without requiring a second persistent runtime projection. The execution spike found exactly that:
+
+| Variant | Gates | Recall@5 | nDCG@10 | Second persistent projection |
+|---|---:|---:|---:|---|
+| `current_runtime` | failed | `0.295455` | `0.277279` | no |
+| `active_fts_generated_terms` | failed | `0.295455` | `0.277279` | no |
+| `unicode61_projection` | failed | `0.295455` | `0.277279` | yes |
+| `trigram_projection` | passed | `0.659091` | `0.610619` | yes |
+| `app_scan_no_projection` | passed | `0.659091` | `0.619152` | no |
+
+This changes the implementation decision. E3-F should no longer start with a second persistent CJK
+projection. It should first validate and harden a no-projection active Evidence scan strategy.
 
 ## Problem
 
@@ -45,77 +58,92 @@ path:
 
 - Chinese-only questions can still return no Evidence because the default query compiler produces
   an empty FTS expression.
-- CLI and MCP users cannot choose the approved CJK lexical strategy at owner startup.
-- There is no runtime projection lifecycle, readiness check, rebuild command, or rollback proof for
-  the CJK lexical candidate.
+- CLI and MCP users cannot choose a CJK lexical runtime strategy at owner startup.
+- The prior projection-first plan may be over-engineered because an active Evidence scan passes the
+  same quality gates on the current corpus without adding projection lifecycle.
 
 ## Decision
 
-Promote the smallest verified strategy: `cjk-trigram-overlap-v1`.
+Promote a smaller implementation candidate first: `cjk-active-scan-overlap-v1`.
 
-This E3-F slice should make `cjk-trigram-overlap-v1` the normal runtime retrieval strategy for
-Search, Ask, CLI, and owner-started MCP composition, while preserving direct rollback to
-`numeric-grouping-v1` and `current`.
+`cjk-active-scan-overlap-v1` uses the same CJK term extraction and overlap thresholds that made
+E3-B pass, but reads active text Evidence from SQLite domain truth instead of building a second
+persistent runtime projection. It remains lexical-only.
 
-The promotion must remain lexical-only. It must not implement or imply dense retrieval, vector
-search, hybrid retrieval, RRF, reranking, query rewrite, HTTP, UI, or broad Chinese production
-quality.
+The implementation must prove the active-scan path behind an explicit owner-startup selector before
+changing the runtime default. It may become the default only after the Default Promotion Launch Gate
+passes.
+
+If active-scan performance, diagnostics, or MCP/Ask proof fails under the fixed gates, the
+implementation must stop and return to the review window. A persistent trigram projection remains a
+fallback design, not the first implementation path.
+
+The promotion must not implement or imply dense retrieval, vector search, hybrid retrieval, RRF,
+reranking, query rewrite, HTTP, UI, or broad Chinese production quality.
 
 The strategy is owner-configured. Request-time MCP tool inputs must not expose a strategy override.
 
 ## Runtime Strategy Semantics
 
-The promoted strategy keeps the E3-B behavior:
+The amended strategy uses this flow:
 
-1. Compile the query with `numeric-grouping-v1`.
-2. If the compiled query is non-empty, use the existing active FTS5 Search path.
-3. If the compiled query is empty and eligible CJK trigram terms exist, search the CJK lexical
-   projection.
-4. If no eligible terms exist, return the same no-hit or insufficient-input behavior as the current
-   runtime path.
+```text
+Search / Ask query
+  -> compile with numeric-grouping-v1
+      -> non-empty compiled query: existing active_evidence_fts path
+      -> empty compiled query:
+           -> derive eligible CJK overlap terms
+           -> bounded scan over active text Evidence
+           -> deterministic overlap ranking
+```
 
-The CJK branch uses the frozen E3-B parameters:
+The CJK branch uses the frozen E3-B thresholds:
 
 | Parameter | Value |
 |---|---:|
-| Candidate ID | `cjk-trigram-overlap-v1` |
+| Strategy ID | `cjk-active-scan-overlap-v1` |
 | Revision | `1` |
 | `minimum_overlap_count` | `2` |
 | `minimum_overlap_ratio` | `0.30` |
 | `max_results` | `10` |
 
-Ranking order remains:
+The active-scan branch ranking order is:
 
 1. overlap count descending;
 2. overlap ratio descending;
-3. SQLite FTS5 rank ascending;
-4. document ID ascending;
-5. locator start ascending;
-6. Evidence ID ascending.
+3. document ID ascending;
+4. locator start ascending;
+5. Evidence ID ascending.
+
+The CJK branch does not use SQLite FTS5 rank because it does not query a CJK FTS projection.
 
 All SQL must remain parameterized. Raw query text must never be interpolated into SQL.
 
 ## Strategy Contract
 
-The existing `RetrievalQueryPolicy` name is too narrow for a strategy that can choose between two
-projections. Implementation should introduce a project-owned runtime strategy concept while
-preserving compatibility for existing callers.
+The existing `RetrievalQueryPolicy` name is too narrow for a strategy that can choose between the
+existing active FTS branch and a CJK active-scan branch. Implementation should introduce a
+project-owned runtime strategy concept while preserving compatibility for existing callers.
 
 Required identifiers:
 
 ```text
 current
 numeric-grouping-v1
-cjk-trigram-overlap-v1
+cjk-active-scan-overlap-v1
 ```
+
+`cjk-trigram-overlap-v1` remains the E3-B comparison artifact candidate and the persistent
+projection fallback design. It is not the default runtime strategy in this amended E3-F plan.
 
 Required behavior:
 
-- `cjk-trigram-overlap-v1` is implemented behind an explicit owner-startup selector before the
+- `cjk-active-scan-overlap-v1` is implemented behind an explicit owner-startup selector before the
   default is flipped.
-- `cjk-trigram-overlap-v1` becomes the new default runtime strategy only after the Default Promotion
-  Launch Gate passes.
-- `numeric-grouping-v1` remains the primary rollback strategy and requires no CJK projection.
+- `cjk-active-scan-overlap-v1` becomes the new default runtime strategy only after the Default
+  Promotion Launch Gate passes.
+- `numeric-grouping-v1` remains the primary rollback strategy and requires no CJK scan-specific
+  readiness.
 - `current` remains the lowest-level legacy rollback strategy.
 - Existing `--retrieval-query-policy` usage must continue to work as a compatibility alias.
 - The preferred new owner-startup selector is `--retrieval-strategy`.
@@ -126,75 +154,72 @@ The alias exists for compatibility only. New docs should use `retrieval strategy
 old `query policy` vocabulary.
 
 The runtime strategy abstraction must be descriptor-based rather than a one-off branch. Each
-descriptor records strategy ID, revision, base query policy, required projections, tokenizer,
-readiness checker, rollback capability, fallback semantics, and explicit `dense=none`,
-`hybrid=none`, and `rerank=none` fields for this slice. Future dense or hybrid strategies must be
-able to add descriptors without changing Search or Ask request DTOs.
+descriptor records strategy ID, revision, base query policy, required projections, tokenizer or
+term-derivation mode, readiness checker, rollback capability, fallback semantics, and explicit
+`dense=none`, `hybrid=none`, and `rerank=none` fields for this slice. Future dense or hybrid
+strategies must be able to add descriptors without changing Search or Ask request DTOs.
 
-## CJK Projection Lifecycle
+## Active Evidence Scan Lifecycle
 
-The CJK lexical projection is a rebuildable SQLite projection, not domain truth.
+`cjk-active-scan-overlap-v1` does not add a second persistent retrieval projection.
 
 Required properties:
 
-- It is separate from `active_evidence_fts`.
-- It mirrors active text Evidence rows only.
-- It stores enough metadata to verify projection readiness against active Evidence identity, row
-  count, tokenizer identity, strategy revision, and aggregate text digest.
-- It is rebuilt from SQLite domain truth, not from previous projection contents.
-- Rollback to `numeric-grouping-v1` or `current` must not require projection rebuild, database
-  migration reversal, or Evidence rewrite.
+- It reads only active text Evidence from SQLite domain truth.
+- It never reads failed, partial, superseded, or inactive Publications.
+- It does not copy active Evidence into a new persistent index.
+- It does not require database rebuild for existing databases.
+- It exposes stable diagnostics for query eligibility, fanout caps, candidate pool caps, and scan
+  budget decisions.
+- Rollback to `numeric-grouping-v1` or `current` requires no database migration reversal, rebuild,
+  or Evidence rewrite.
 
-The implementation must add cache-only local commands for readiness and rebuild. Required command
-shape:
+The implementation should add a local readiness check:
 
 ```bash
-mke --db <existing.sqlite> retrieval doctor --strategy cjk-trigram-overlap-v1 --json
-mke --db <existing.sqlite> retrieval rebuild --strategy cjk-trigram-overlap-v1 --json
+mke --db <existing.sqlite> retrieval doctor --strategy cjk-active-scan-overlap-v1 --json
 ```
 
-These command names are part of this promotion contract. Changing them requires updating this
-design, the implementation plan, docs, tests, MCP startup contract, and ADR in the same PR.
+For the active-scan strategy, `doctor` verifies that the strategy is supported, SQLite is readable,
+and an active Publication can be inspected. It must not require a CJK projection table.
+
+`retrieval rebuild --strategy cjk-active-scan-overlap-v1` should not build anything. It must either
+return a stable no-op result or a stable usage result explaining that the strategy has no projection
+to rebuild. The exact behavior must be tested and documented.
 
 ## Activation And Failure Isolation
 
-Any required-stage or projection failure must not make partial results searchable.
+Because active-scan has no second projection, it must not add a new Publication activation stage.
+The important invariant is that the scan reads only the already-active Publication state.
 
-For an owner process configured with `cjk-trigram-overlap-v1`:
+For an owner process configured with `cjk-active-scan-overlap-v1`:
 
-- new Publication activation must build or refresh the normal active FTS projection and the CJK
-  lexical projection before Search/Ask observes the new active Publication;
-- if CJK projection build fails, the Run or activation path must fail closed and preserve the
-  previous active Publication;
-- Search/Ask must not silently fall back to `numeric-grouping-v1` when the owner selected
-  `cjk-trigram-overlap-v1` and the CJK projection is stale or missing;
-- `retrieval doctor` must report `not_ready` with stable `problem`, `cause`, and `next_step` fields
-  when projection readiness is incomplete;
-- `retrieval rebuild` must be idempotent and must not change domain truth or Publication identity.
+- Search/Ask must never read inactive, failed, partial, or superseded Evidence;
+- Search/Ask must not silently fall back to `numeric-grouping-v1` when an eligible CJK scan exceeds
+  a hard budget;
+- budget and eligibility failures must return stable `problem`, `cause`, and `next_step` fields;
+- rollback strategies must preserve current behavior without needing any active-scan repair step.
 
 The strategy may still use the existing `numeric-grouping-v1` branch for non-empty compiled queries.
 That is part of the strategy semantics, not an error fallback.
 
-Activation must be atomic. Active FTS replacement, CJK projection rows, CJK metadata, source active
-pointer, Run state, and Run event must commit in the same SQLite transaction. Any projection failure
-or crash before commit must preserve the previous active Publication.
-
-Ask validation must become strategy-aware. Under `cjk-trigram-overlap-v1`, eligible CJK-only
+Ask validation must become strategy-aware. Under `cjk-active-scan-overlap-v1`, eligible CJK-only
 questions must not be rejected merely because ASCII token count is zero. Under `numeric-grouping-v1`
 and `current`, the existing CJK-only invalid-input behavior remains the rollback behavior.
 
-Stable CJK projection errors:
+Stable active-scan errors:
 
 | `problem` | `cause` | `next_step` |
 |---|---|---|
-| `cjk_projection_missing` | `CJK lexical projection table does not exist` | `run_retrieval_rebuild` |
-| `cjk_projection_stale` | `CJK projection metadata does not match active Evidence` | `run_retrieval_rebuild` |
-| `cjk_tokenizer_unsupported` | `SQLite FTS5 trigram tokenizer is not available` | `use_numeric_grouping_or_reinstall_sqlite` |
-| `cjk_projection_build_failed` | `CJK projection rebuild did not complete` | `inspect_publication_failure` |
+| `cjk_query_not_eligible` | `Query does not contain enough eligible CJK terms` | `revise_query_or_use_rollback_strategy` |
+| `cjk_scan_budget_exceeded` | `CJK active Evidence scan would exceed configured local budget` | `narrow_query_or_use_projection_strategy` |
+| `cjk_candidate_pool_capped` | `CJK candidate pool exceeded the configured cap` | `narrow_query` |
+| `retrieval_strategy_unsupported` | `Requested retrieval strategy is not supported by this runtime` | `choose_supported_retrieval_strategy` |
 
-The implementation must also bound CJK query fanout. Initial bounds are `max_cjk_query_chars=512`,
-`max_trigram_terms=128`, and a documented candidate pool cap. Truncation or cap hits must be visible
-in diagnostics and must not be hidden in benchmark metrics.
+The implementation must bound CJK query fanout. Initial bounds are `max_cjk_query_chars=512`,
+`max_overlap_terms=128`, a documented active Evidence row budget, and a documented candidate pool
+cap. Truncation, cap hits, and budget failures must be visible in diagnostics and must not be hidden
+in benchmark metrics.
 
 ## CLI And MCP Contract
 
@@ -203,8 +228,10 @@ CLI:
 - Add the preferred owner selector `--retrieval-strategy`.
 - Preserve `--retrieval-query-policy` as a compatibility alias.
 - Reject unsupported values and conflicting selector values before engine construction.
-- Update help text to identify `cjk-trigram-overlap-v1` as the default and
-  `numeric-grouping-v1` as rollback.
+- Update help text only after the Default Promotion Launch Gate passes. Before that, docs must show
+  `cjk-active-scan-overlap-v1` as explicit opt-in.
+- Once promoted, identify `cjk-active-scan-overlap-v1` as the default and `numeric-grouping-v1` as
+  rollback.
 
 MCP:
 
@@ -232,9 +259,11 @@ promotion decision.
 
 New E3-F proof should show:
 
-- default `cjk-trigram-overlap-v1` Search returns cited Evidence for the predeclared CJK
+- explicit `cjk-active-scan-overlap-v1` Search returns cited Evidence for the predeclared CJK
   compiled-empty class;
-- `numeric-grouping-v1` rollback preserves the previous behavior and requires no projection rebuild;
+- default Search/Ask use `cjk-active-scan-overlap-v1` only after the launch gate passes;
+- `numeric-grouping-v1` rollback preserves the previous behavior and requires no scan repair or
+  projection rebuild;
 - unanswerable and hard-negative gates remain bounded;
 - E1 and E2 semantic payloads remain unchanged except for allowed source identity refresh;
 - Product proof and demo still pass;
@@ -251,17 +280,18 @@ The implementation PR must add ADR-0008 before or with the runtime change.
 ADR-0008 must record:
 
 - evidence basis from E3-A and E3-B;
-- the tokenizer alternative spike, including why `unicode61`, app-generated n-gram terms, custom
-  tokenizer extensions, and wait-for-dense were rejected or deferred;
-- selected runtime default strategy;
+- Task 0.5 spike outcome, including why `app_scan_no_projection` became the first runtime candidate;
+- why `unicode61`, active FTS generated terms, custom tokenizer extensions, wait-for-dense, and
+  persistent trigram projection were rejected or deferred;
+- selected runtime default strategy after launch gate;
 - the Default Promotion Launch Gate;
-- projection lifecycle and readiness contract;
+- no-projection active-scan lifecycle and bounded scan contract;
 - owner-startup selector and compatibility alias;
 - rollback paths;
 - explicit non-goals for dense/vector/hybrid/RRF/reranker/query rewrite;
-- limitations of public holdout evidence and CJK trigram lexical matching.
-- Japanese and Korean behavior is unvalidated despite the `CJK` strategy identifier.
-- common two-character CJK words can be below the trigram minimum unless they occur inside a longer
+- limitations of public holdout evidence and CJK trigram lexical matching;
+- Japanese and Korean behavior is unvalidated despite CJK terminology;
+- common two-character CJK words can be below the overlap minimum unless they occur inside a longer
   continuous CJK run.
 
 ## Public Demonstration Deliverables
@@ -269,9 +299,9 @@ ADR-0008 must record:
 The implementation should update repository-visible demonstration assets without publishing an
 external recording:
 
-- an architecture diagram showing domain truth, active FTS projection, CJK lexical projection, and
+- an architecture diagram showing SQLite domain truth, active FTS, active-scan fallback, and
   owner-startup strategy selection;
-- a strategy comparison table generated from canonical artifacts;
+- a strategy comparison table generated from canonical artifacts and the Task 0.5 spike;
 - one direct offline proof command;
 - a short demo script covering ingest, Chinese Search/Ask Evidence, refusal, and rollback.
 
@@ -293,25 +323,27 @@ External video publication remains out of scope unless separately authorized.
 E3-F lexical-only promotion is complete when:
 
 1. ADR-0008 is accepted in the same PR as the runtime change.
-2. Tokenizer alternatives have been evaluated and recorded.
-3. `cjk-trigram-overlap-v1` is implemented behind an explicit owner-startup selector.
-4. The Default Promotion Launch Gate passes before `cjk-trigram-overlap-v1` becomes the default
+2. Tokenizer alternatives have been evaluated and recorded, including the active-scan result.
+3. `cjk-active-scan-overlap-v1` is implemented behind an explicit owner-startup selector.
+4. The Default Promotion Launch Gate passes before `cjk-active-scan-overlap-v1` becomes the default
    owner-startup retrieval strategy.
 5. `numeric-grouping-v1` and `current` remain direct rollback strategies.
-6. The CJK lexical projection is persistent, rebuildable, readiness-checked, and separate from
-   domain truth.
-7. Projection failure cannot publish or activate partial searchable state.
+6. The active scan reads only active text Evidence from SQLite domain truth and adds no persistent
+   CJK projection.
+7. Failed, partial, inactive, superseded, or unpublished Evidence cannot be scanned.
 8. Ask validation is strategy-aware and does not reject eligible CJK-only questions under the CJK
    strategy.
 9. CLI and owner-started MCP support the allowlisted strategy contract without request-time tool
    overrides.
 10. Installed-wheel MCP proof covers actual `search_library` and `ask_library` tool calls.
-11. Existing-database doctor/rebuild upgrade flow is documented and tested.
+11. Existing databases need no CJK projection rebuild for the active-scan strategy, and doctor/no-op
+    rebuild behavior is documented and tested.
 12. E1, E2, E3-A, and E3-B canonical validators pass after source identity refresh, with unchanged
-   metrics and verdicts unless a reviewer explicitly approves a new promotion decision.
-13. Runtime Search/Ask tests prove the default CJK strategy, rollback behavior, hard-negative
-   preservation, and stable errors.
-14. High-fanout and long-query performance gates pass under fixed local budgets.
+    metrics and verdicts unless a reviewer explicitly approves a new promotion decision.
+13. Runtime Search/Ask tests prove the explicit and default CJK strategy, rollback behavior,
+    hard-negative preservation, and stable errors.
+14. Active-scan high-fanout, long-query, large-row-count, and candidate-pool performance gates pass
+    under fixed local budgets.
 15. Python 3.12 and Python 3.13 installed-wheel CLI/MCP proof pass.
 16. Product proof, demo, tests, lint, type checking, build, documentation checks, and diff checks
     pass.
