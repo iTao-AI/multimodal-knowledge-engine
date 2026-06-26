@@ -3,6 +3,11 @@ from mke.evaluation.chinese_report import (
     render_chinese_retrieval_json,
 )
 from mke.evaluation.chinese_runner import run_chinese_retrieval_evaluation
+from mke.evaluation.cjk_lexical_comparison import (
+    render_cjk_lexical_comparison_human,
+    render_cjk_lexical_comparison_json,
+    run_cjk_lexical_comparison,
+)
 from mke.evaluation.manifest import (
     FixtureValidationError,
     ManifestValidationError,
@@ -28,12 +33,15 @@ __all__ = [
     "load_retrieval_manifest",
     "render_chinese_retrieval_human",
     "render_chinese_retrieval_json",
+    "render_cjk_lexical_comparison_human",
+    "render_cjk_lexical_comparison_json",
     "render_numeric_comparison_human",
     "render_numeric_comparison_json",
     "render_retrieval_human_report",
     "render_retrieval_json_report",
     "run_numeric_comparison",
     "run_chinese_retrieval_evaluation",
+    "run_cjk_lexical_comparison",
     "run_retrieval_evaluation",
     "snapshot_retrieval_fixtures",
 ]

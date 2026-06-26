@@ -313,6 +313,54 @@ def render_cjk_lexical_comparison_json(
     )
 
 
+def render_cjk_lexical_comparison_human(
+    report: CjkLexicalComparisonReport,
+) -> str:
+    lines = [
+        "mke eval retrieval-cjk-lexical",
+        (
+            f"protocol={report.protocol_id} "
+            f"candidate={report.candidate_id} "
+            f"revision={report.candidate_revision}"
+        ),
+        (
+            f"integrity_status={report.integrity_status} "
+            f"candidate_status={report.candidate_status}"
+        ),
+        (
+            f"projection_tokenizer={report.projection.tokenizer} "
+            f"projection_rows={report.projection.row_count}"
+        ),
+    ]
+    if report.current_metrics is not None and report.candidate_metrics is not None:
+        lines.append(
+            "metrics "
+            f"current_recall_at_5={report.current_metrics.recall_at_5.value:.6f} "
+            f"candidate_recall_at_5={report.candidate_metrics.recall_at_5.value:.6f} "
+            f"current_ndcg_at_10={report.current_metrics.ndcg_at_10.value:.6f} "
+            f"candidate_ndcg_at_10={report.candidate_metrics.ndcg_at_10.value:.6f}"
+        )
+    for gate in report.development_gates:
+        lines.append(
+            f"development_gate={gate.gate_id} status={gate.status} "
+            f"observed={gate.observed} required={gate.required}"
+        )
+    for gate in report.holdout_gates:
+        lines.append(
+            f"holdout_gate={gate.gate_id} status={gate.status} "
+            f"observed={gate.observed} required={gate.required}"
+        )
+    for failure in report.integrity_failures:
+        subject = (
+            f" subject_id={failure.subject_id}" if failure.subject_id else ""
+        )
+        lines.append(
+            f"failure problem={failure.problem} cause={failure.cause} "
+            f"next_step={failure.next_step}{subject}"
+        )
+    return "\n".join(lines) + "\n"
+
+
 def _run_split(
     protocol: ChineseRetrievalProtocol,
     split: ChineseSplit,
