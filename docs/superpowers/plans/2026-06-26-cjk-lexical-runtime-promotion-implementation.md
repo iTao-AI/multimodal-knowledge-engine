@@ -44,6 +44,38 @@ Before artifact refresh work, inspect `src/mke/evaluation/artifact_refresh.py`. 
 transaction covers E1, E2, and E3-A; this implementation must extend the refresh path or add a
 recoverable companion transaction for the E3-B CJK lexical artifact.
 
+## Task 0.5: Run Tokenizer Alternative Spike
+
+Before adding persistent projection lifecycle code, test whether a smaller tokenizer-only change can
+close the same E3-B failure class.
+
+Required spike cases:
+
+- current `active_evidence_fts` tokenizer behavior;
+- SQLite FTS5 `unicode61` projection;
+- SQLite FTS5 `trigram` projection;
+- app-generated n-gram terms without a second persistent runtime projection;
+- custom SQLite tokenizer extension, rejected unless it remains local, reproducible, and dependency
+  free.
+
+Required evidence:
+
+- each candidate runs against the E3-A protocol and the E3-B comparison candidate class;
+- each candidate records portability, dependency, rebuild, artifact, and runtime contract impact;
+- if `unicode61` or another smaller option matches the E3-B gates without requiring a second
+  persistent projection, stop this plan and re-review a smaller ADR;
+- if only `trigram` passes the launch gates, record the rejected alternatives in ADR-0008.
+
+Verification:
+
+```bash
+uv run pytest tests/evaluation/test_cjk_lexical_candidate.py -q
+uv run mke eval retrieval-cjk-lexical \
+  --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
+  --candidate cjk-trigram-overlap-v1 \
+  --json > /tmp/mke-e3b-tokenizer-spike.json
+```
+
 ## Task 1: Add ADR-0008 And Strategy Vocabulary
 
 Add ADR-0008 before changing runtime behavior.
@@ -59,11 +91,16 @@ Required RED tests:
 
 - supported strategies are exactly `current`, `numeric-grouping-v1`, and
   `cjk-trigram-overlap-v1`;
-- default strategy is `cjk-trigram-overlap-v1`;
+- explicit strategy `cjk-trigram-overlap-v1` is supported before the default is flipped;
+- default strategy remains unchanged until the Default Promotion Launch Gate passes;
 - `numeric-grouping-v1` remains a valid rollback strategy;
 - invalid strategy fails with a stable public error;
 - boolean-like or non-string strategy values are rejected before engine construction;
 - legacy `RetrievalQueryPolicy` helpers remain available for existing E1/E2/E3 evaluation code.
+- `RetrievalStrategyDescriptor` records strategy ID, revision, base query policy, required
+  projections, tokenizer, readiness checker, rollback capability, fallback semantics, and explicit
+  `dense=none`, `hybrid=none`, and `rerank=none` fields for this slice.
+- adding a future strategy descriptor does not change public Search or Ask request DTOs.
 
 Implementation notes:
 
@@ -71,6 +108,11 @@ Implementation notes:
 - Keep `RetrievalQueryPolicy` as the lower-level compiler concept for `current` and
   `numeric-grouping-v1`.
 - Do not expose strategy selection through Search or Ask request DTOs.
+- ADR-0008 must include a `Default Promotion Gate` section and a `Rejected Alternatives` table.
+- ADR-0008 must explicitly state that Japanese and Korean behavior is not validated even though the
+  strategy identifier uses `CJK`.
+- ADR-0008 must record that common two-character CJK terms can be below the trigram minimum unless
+  part of a longer continuous CJK run.
 
 Verification:
 
@@ -97,6 +139,8 @@ Required RED tests:
 - projection can be dropped and rebuilt from SQLite domain truth;
 - `numeric-grouping-v1` and `current` runtime startup do not require the CJK projection to be ready;
 - unsupported `trigram` tokenizer fails closed only when the selected strategy needs it.
+- descriptor digest is written to projection metadata and changes when strategy revision or
+  projection requirements change.
 
 Implementation notes:
 
@@ -133,6 +177,36 @@ Required RED tests:
 - `rebuild` is idempotent;
 - `rebuild` updates only projection tables and metadata;
 - `rebuild` refuses unsupported strategies with usage exit behavior.
+- a pre-E3-F database with active Publications but no CJK projection reports `not_ready`;
+- the same pre-E3-F database can start with rollback strategy `numeric-grouping-v1`;
+- after `rebuild`, the same database reports `ready` and default CJK Search/Ask works;
+- Search and Ask never auto-rebuild the projection.
+
+Stable error contract:
+
+| `problem` | `cause` | `next_step` |
+|---|---|---|
+| `cjk_projection_missing` | `CJK lexical projection table does not exist` | `run_retrieval_rebuild` |
+| `cjk_projection_stale` | `CJK projection metadata does not match active Evidence` | `run_retrieval_rebuild` |
+| `cjk_tokenizer_unsupported` | `SQLite FTS5 trigram tokenizer is not available` | `use_numeric_grouping_or_reinstall_sqlite` |
+| `cjk_projection_build_failed` | `CJK projection rebuild did not complete` | `inspect_publication_failure` |
+
+Existing database upgrade commands:
+
+```bash
+uv run mke --db <existing.sqlite> retrieval doctor \
+  --strategy cjk-trigram-overlap-v1 \
+  --json
+uv run mke --db <existing.sqlite> retrieval rebuild \
+  --strategy cjk-trigram-overlap-v1 \
+  --json
+uv run mke --db <existing.sqlite> \
+  --retrieval-strategy cjk-trigram-overlap-v1 \
+  search "<cjk query>"
+uv run mke --db <existing.sqlite> \
+  --retrieval-strategy numeric-grouping-v1 \
+  search "<same query>"
+```
 
 Implementation notes:
 
@@ -163,12 +237,19 @@ Required RED tests:
 - default runtime strategy is `cjk-trigram-overlap-v1`;
 - non-empty `numeric-grouping-v1` compiled queries use the existing active FTS Search path;
 - compiled-empty eligible CJK queries use the CJK projection and overlap ranker;
-- short or ineligible CJK queries remain no-hit or insufficient-input according to existing Ask
-  semantics;
+- eligible CJK-only Ask input is not rejected merely because ASCII token count is zero;
+- strategy-aware Ask validation accepts eligible CJK trigrams for `cjk-trigram-overlap-v1`;
+- `numeric-grouping-v1` and `current` preserve the old CJK-only invalid-input behavior;
+- short or ineligible CJK queries remain no-hit, invalid-input, or insufficient-input according to
+  the selected strategy's documented eligibility rules;
 - hard-negative and unanswerable fixture queries do not become false positives beyond E3-B gates;
 - missing or stale CJK projection fails closed for the selected default strategy;
 - rollback strategy `numeric-grouping-v1` works without CJK projection readiness;
 - strategy selection is fixed at owner construction and cannot be changed per request.
+- CJK punctuation joining cases, such as `证据。生命周期`, are either supported by normalization or
+  explicitly recorded as below-minimum diagnostics;
+- mixed ASCII+CJK queries do not silently drop the CJK part when the ASCII branch is insufficient;
+- high-fanout CJK queries are bounded by fixed caps and fail or truncate with stable diagnostics.
 
 Implementation notes:
 
@@ -177,11 +258,15 @@ Implementation notes:
 - Parameterize FTS5 `MATCH` expressions.
 - Avoid silent fallback from selected `cjk-trigram-overlap-v1` to `numeric-grouping-v1` when the
   projection is stale; using the numeric branch for non-empty compiled queries is expected.
+- Deduplicate generated trigram terms before constructing `MATCH`.
+- Use fixed bounds: `max_cjk_query_chars=512`, `max_trigram_terms=128`, and a documented candidate
+  pool cap. Any truncation must be visible in diagnostics and must not be hidden in metrics.
 
 Verification:
 
 ```bash
 uv run pytest tests/application tests/retrieval tests/storage -q
+uv run pytest tests/performance -q
 ```
 
 ## Task 5: Bind Projection Build To Publication Activation
@@ -192,8 +277,12 @@ Required RED tests:
 
 - activating a new Publication under `cjk-trigram-overlap-v1` builds both active FTS and CJK
   projection before the new Publication is visible to Search;
+- active FTS replacement, CJK projection rows, CJK metadata, source active pointer, Run state, and
+  Run event commit in the same SQLite transaction;
 - injected CJK projection failure fails the Run or activation path and preserves the previous active
   Publication;
+- injected CJK projection failure before rows, before metadata, after metadata, and before commit all
+  roll back the entire activation;
 - retry creates a new immutable Run rather than mutating failed Run identity;
 - `numeric-grouping-v1` activation path remains unaffected by CJK projection failure injection;
 - crash recovery does not mark a partially projected Publication active.
@@ -317,6 +406,12 @@ Required proof:
 - rollback `numeric-grouping-v1` CLI Search/Ask behavior;
 - stdio MCP startup with default strategy;
 - stdio MCP startup with rollback strategy;
+- installed-wheel stdio MCP tool-call proof: `list_libraries`, `ingest_file`, `get_run`,
+  `search_library`, and `ask_library`;
+- default MCP Search/Ask returns cited Evidence for the predeclared CJK compiled-empty class;
+- rollback MCP Search/Ask preserves old behavior;
+- stale CJK projection MCP path returns stable path-redacted error fields;
+- MCP tool schemas contain no request-time retrieval strategy field;
 - hostile `PYTHONPATH`, external cwd, and repository import rejection;
 - no network access or model download.
 
@@ -324,11 +419,45 @@ Verification command shape:
 
 ```bash
 uv build
-uv run python scripts/cjk_lexical_runtime_deployment_proof.py --python 3.12 --json
-uv run python scripts/cjk_lexical_runtime_deployment_proof.py --python 3.13 --json
+wheel=$(ls dist/*.whl | sort | tail -n1)
+UV_OFFLINE=1 uv run python scripts/cjk_lexical_runtime_deployment_proof.py \
+  --wheel "$wheel" \
+  --python 3.12 \
+  --json
+UV_OFFLINE=1 uv run python scripts/cjk_lexical_runtime_deployment_proof.py \
+  --wheel "$wheel" \
+  --python 3.13 \
+  --json
 ```
 
 Add `scripts/cjk_lexical_runtime_deployment_proof.py` and tests for it in the implementation PR.
+
+## Task 8.5: Default Promotion Launch Gate
+
+Do not flip the runtime default at the start of implementation.
+
+Required sequence:
+
+1. Implement `cjk-trigram-overlap-v1` behind explicit `--retrieval-strategy`.
+2. Complete projection doctor/rebuild, activation isolation, CLI/MCP proof, performance gates,
+   docs, and artifact refresh.
+3. Run all validators and installed-wheel proofs.
+4. Only then change `DEFAULT_RETRIEVAL_STRATEGY` to `cjk-trigram-overlap-v1`.
+
+Go/No-Go gates:
+
+| Gate | Go condition | No-Go action |
+|---|---|---|
+| G1 evidence | E3-B compiled-empty class lift remains material | stop and keep comparison-only |
+| G2 regressions | E1/E2 semantic payloads unchanged | stop and re-review |
+| G3 Chinese gates | E3-A/E3-B metrics, gates, qrels, and fixture bytes unchanged | stop and re-review |
+| G4 hard negatives | hard-negative and unanswerable gates remain within E3-B limits | stop and re-review |
+| G5 runtime | default CLI Search/Ask and MCP tool-call proof pass | stop and fix |
+| G6 rollback | `numeric-grouping-v1` and `current` rollback paths work without CJK projection | stop and fix |
+| G7 performance | high-fanout and long-query gates stay within fixed local budgets | stop and tune or defer default |
+| G8 docs | stale docs scan and public-boundary scan pass | stop and fix docs |
+
+Any No-Go gate blocks default promotion and requires review-window approval before continuing.
 
 ## Task 9: Update Public Documentation And Demo Assets
 
@@ -336,8 +465,11 @@ Required docs:
 
 - ADR-0008;
 - architecture explanation;
+- `README.md`;
+- getting-started tutorial;
 - CLI reference;
 - public contracts;
+- focused CJK how-to at `docs/how-to/enable-cjk-retrieval.md`;
 - Chinese retrieval how-to;
 - MCP how-to;
 - README or docs index;
@@ -364,8 +496,11 @@ docs = [
     Path("docs/explanation/architecture.md"),
     Path("docs/reference/cli.md"),
     Path("docs/reference/contracts.md"),
+    Path("docs/how-to/enable-cjk-retrieval.md"),
     Path("docs/how-to/run-chinese-retrieval-evaluation.md"),
     Path("docs/how-to/use-mke-mcp.md"),
+    Path("docs/tutorials/getting-started.md"),
+    Path("README.md"),
     Path("docs/README.md"),
 ]
 missing = [path for path in docs if not path.exists()]
@@ -373,8 +508,24 @@ if missing:
     raise SystemExit(f"missing docs: {missing}")
 print("scoped docs exist")
 PY
+rg -n "E3-F remain unimplemented|runtime.*unchanged|no runtime promotion|CJK-only.*invalid_question|--retrieval-query-policy current" README.md docs
+python - <<'PY'
+from pathlib import Path
+bad = []
+patterns = ["/" + "Users/", "." + "gstack", "/autoplan " + "restore point"]
+for path in [Path("README.md"), *Path("docs").rglob("*.md")]:
+    text = path.read_text(encoding="utf-8")
+    if any(pattern in text for pattern in patterns):
+        bad.append(str(path))
+if bad:
+    raise SystemExit("private/public-boundary leak: " + ", ".join(bad))
+print("public-boundary scan passed")
+PY
 git diff --check
 ```
+
+Every stale-docs grep hit must be updated, marked as historical context, or justified in the
+durable review.
 
 ## Task 10: Final Verification And Review Gate
 
@@ -412,6 +563,21 @@ Then run a full pre-PR `gstack-review` or hand the clean branch back to the plan
 for the established independent review sequence.
 
 ## PR Boundary
+
+### Split Or Abort Rule
+
+This plan is allowed as one PR only because default strategy promotion requires atomic safety across
+strategy selection, projection lifecycle, activation, CLI/MCP proof, artifact identity, and docs.
+
+Stop and split or re-review if any of the following occurs:
+
+- E1/E2/E3-A/E3-B metric, verdict, qrel, protocol, fixture-byte, or semantic-payload identity
+  changes unexpectedly;
+- schema lifecycle grows beyond CJK projection tables and metadata;
+- CLI/MCP contract changes beyond owner-startup strategy selection and doctor/rebuild operations;
+- tokenizer spike shows a smaller approach can satisfy the same gates;
+- performance gates require non-trivial ranking or indexing redesign;
+- implementation requires dense/vector/hybrid/RRF/reranker/query rewrite work.
 
 The implementation PR may include:
 
@@ -461,3 +627,27 @@ Use TDD. Keep implementation in an isolated worktree/branch. Do not push or crea
 review authorization. Stop and report if any E1/E2/E3-A/E3-B metric, gate, protocol, qrel, or
 fixture-byte identity changes unexpectedly.
 ```
+
+## Decision Audit Trail
+
+| # | Phase | Decision | Classification | Principle | Rationale | Rejected |
+|---|---|---|---|---|---|---|
+| 1 | CEO | Continue E3-F lexical-only promotion, but add stricter launch gates | Taste | P1 completeness | E3-B supports the smallest product-visible fix, but default promotion needs explicit Go/No-Go evidence | wait for dense by default |
+| 2 | CEO | Add tokenizer alternative spike before persistent projection implementation | Mechanical | P3 pragmatic | A smaller tokenizer-only approach must be ruled out before adding projection lifecycle | assume trigram projection is the only viable path |
+| 3 | Eng | Make Ask validation strategy-aware for eligible CJK | Mechanical | P1 completeness | Search promotion is incomplete if Agent-facing Ask still rejects CJK-only questions | leave Ask semantics unchanged |
+| 4 | Eng | Require same-transaction activation for active FTS, CJK projection, metadata, pointer, and Run event | Mechanical | P5 explicit | Publication switching must not expose partial searchable state | rely on vague before-visible wording |
+| 5 | Eng | Add existing-database upgrade path and stable CJK projection error contract | Mechanical | P1 completeness | Existing local databases need copy-paste recovery after default changes | greenfield-only docs |
+| 6 | DX | Require installed-wheel MCP tool-call proof, not startup-only proof | Mechanical | P1 completeness | MCP is the primary Agent-facing interface | prove only server startup |
+| 7 | DX | Add docs stale scan, public-boundary scan, and focused CJK how-to | Mechanical | P5 explicit | Users need one entry point and docs must not retain stale default claims | scatter CJK usage across durable plans |
+| 8 | Eng | Add high-fanout CJK performance gate | Mechanical | P1 completeness | A default strategy must bound query fanout and local latency | rely on small evaluation corpus only |
+
+## GSTACK REVIEW REPORT
+
+Autoplan was rerun with CEO, engineering, and DX phases. UI design review was skipped because this
+plan has no UI surface. External Claude Code CLI and Codex CLI voices were used for the review; no
+in-session subagent tool was used.
+
+Result: approved for execution only after the plan changes above. The main required changes are:
+tokenizer alternative spike, strategy-aware Ask validation, same-transaction projection activation,
+existing-database upgrade path, installed-wheel MCP tool-call proof, explicit default launch gate,
+performance gate, stale-docs scan, and public-boundary scan.

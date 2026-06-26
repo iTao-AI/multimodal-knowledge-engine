@@ -111,7 +111,10 @@ cjk-trigram-overlap-v1
 
 Required behavior:
 
-- `cjk-trigram-overlap-v1` is the new default runtime strategy.
+- `cjk-trigram-overlap-v1` is implemented behind an explicit owner-startup selector before the
+  default is flipped.
+- `cjk-trigram-overlap-v1` becomes the new default runtime strategy only after the Default Promotion
+  Launch Gate passes.
 - `numeric-grouping-v1` remains the primary rollback strategy and requires no CJK projection.
 - `current` remains the lowest-level legacy rollback strategy.
 - Existing `--retrieval-query-policy` usage must continue to work as a compatibility alias.
@@ -121,6 +124,12 @@ Required behavior:
 
 The alias exists for compatibility only. New docs should use `retrieval strategy`, not broaden the
 old `query policy` vocabulary.
+
+The runtime strategy abstraction must be descriptor-based rather than a one-off branch. Each
+descriptor records strategy ID, revision, base query policy, required projections, tokenizer,
+readiness checker, rollback capability, fallback semantics, and explicit `dense=none`,
+`hybrid=none`, and `rerank=none` fields for this slice. Future dense or hybrid strategies must be
+able to add descriptors without changing Search or Ask request DTOs.
 
 ## CJK Projection Lifecycle
 
@@ -140,8 +149,8 @@ The implementation must add cache-only local commands for readiness and rebuild.
 shape:
 
 ```bash
-mke retrieval doctor --strategy cjk-trigram-overlap-v1 --json
-mke retrieval rebuild --strategy cjk-trigram-overlap-v1 --json
+mke --db <existing.sqlite> retrieval doctor --strategy cjk-trigram-overlap-v1 --json
+mke --db <existing.sqlite> retrieval rebuild --strategy cjk-trigram-overlap-v1 --json
 ```
 
 These command names are part of this promotion contract. Changing them requires updating this
@@ -166,6 +175,27 @@ For an owner process configured with `cjk-trigram-overlap-v1`:
 The strategy may still use the existing `numeric-grouping-v1` branch for non-empty compiled queries.
 That is part of the strategy semantics, not an error fallback.
 
+Activation must be atomic. Active FTS replacement, CJK projection rows, CJK metadata, source active
+pointer, Run state, and Run event must commit in the same SQLite transaction. Any projection failure
+or crash before commit must preserve the previous active Publication.
+
+Ask validation must become strategy-aware. Under `cjk-trigram-overlap-v1`, eligible CJK-only
+questions must not be rejected merely because ASCII token count is zero. Under `numeric-grouping-v1`
+and `current`, the existing CJK-only invalid-input behavior remains the rollback behavior.
+
+Stable CJK projection errors:
+
+| `problem` | `cause` | `next_step` |
+|---|---|---|
+| `cjk_projection_missing` | `CJK lexical projection table does not exist` | `run_retrieval_rebuild` |
+| `cjk_projection_stale` | `CJK projection metadata does not match active Evidence` | `run_retrieval_rebuild` |
+| `cjk_tokenizer_unsupported` | `SQLite FTS5 trigram tokenizer is not available` | `use_numeric_grouping_or_reinstall_sqlite` |
+| `cjk_projection_build_failed` | `CJK projection rebuild did not complete` | `inspect_publication_failure` |
+
+The implementation must also bound CJK query fanout. Initial bounds are `max_cjk_query_chars=512`,
+`max_trigram_terms=128`, and a documented candidate pool cap. Truncation or cap hits must be visible
+in diagnostics and must not be hidden in benchmark metrics.
+
 ## CLI And MCP Contract
 
 CLI:
@@ -181,7 +211,8 @@ MCP:
 - Owner startup accepts the same runtime strategy allowlist.
 - MCP tools do not accept request-time strategy overrides.
 - MCP error payloads remain stable and do not expose local absolute paths or tracebacks.
-- Installed-wheel stdio MCP proof must cover the default strategy and rollback startup.
+- Installed-wheel stdio MCP proof must cover the default strategy, rollback startup, and actual
+  `search_library`/`ask_library` tool calls over the CJK path.
 
 HTTP and UI remain out of scope.
 
@@ -209,6 +240,10 @@ New E3-F proof should show:
 - Product proof and demo still pass;
 - installed-wheel CLI and MCP proof pass on supported Python versions.
 
+Default promotion is a launch-gated step. The implementation must first prove the explicit selector
+path. Only after all validators, proofs, performance gates, stale-docs checks, and rollback checks
+pass may it change the default strategy constant.
+
 ## ADR Requirement
 
 The implementation PR must add ADR-0008 before or with the runtime change.
@@ -216,12 +251,18 @@ The implementation PR must add ADR-0008 before or with the runtime change.
 ADR-0008 must record:
 
 - evidence basis from E3-A and E3-B;
+- the tokenizer alternative spike, including why `unicode61`, app-generated n-gram terms, custom
+  tokenizer extensions, and wait-for-dense were rejected or deferred;
 - selected runtime default strategy;
+- the Default Promotion Launch Gate;
 - projection lifecycle and readiness contract;
 - owner-startup selector and compatibility alias;
 - rollback paths;
 - explicit non-goals for dense/vector/hybrid/RRF/reranker/query rewrite;
 - limitations of public holdout evidence and CJK trigram lexical matching.
+- Japanese and Korean behavior is unvalidated despite the `CJK` strategy identifier.
+- common two-character CJK words can be below the trigram minimum unless they occur inside a longer
+  continuous CJK run.
 
 ## Public Demonstration Deliverables
 
@@ -243,6 +284,7 @@ External video publication remains out of scope unless separately authorized.
 - No HTTP API or UI behavior change.
 - No OCR, ASR, PDF parser, chunking, or segmentation expansion.
 - No broad claim that MKE solves arbitrary Chinese RAG.
+- No claim that Japanese or Korean retrieval quality has been validated.
 - No request-time retrieval strategy override through MCP tool inputs.
 - No migration from legacy `multimodal-rag-ocr` architecture or services.
 
@@ -251,17 +293,25 @@ External video publication remains out of scope unless separately authorized.
 E3-F lexical-only promotion is complete when:
 
 1. ADR-0008 is accepted in the same PR as the runtime change.
-2. `cjk-trigram-overlap-v1` is the default owner-startup retrieval strategy.
-3. `numeric-grouping-v1` and `current` remain direct rollback strategies.
-4. The CJK lexical projection is persistent, rebuildable, readiness-checked, and separate from
+2. Tokenizer alternatives have been evaluated and recorded.
+3. `cjk-trigram-overlap-v1` is implemented behind an explicit owner-startup selector.
+4. The Default Promotion Launch Gate passes before `cjk-trigram-overlap-v1` becomes the default
+   owner-startup retrieval strategy.
+5. `numeric-grouping-v1` and `current` remain direct rollback strategies.
+6. The CJK lexical projection is persistent, rebuildable, readiness-checked, and separate from
    domain truth.
-5. Projection failure cannot publish or activate partial searchable state.
-6. CLI and owner-started MCP support the allowlisted strategy contract without request-time tool
+7. Projection failure cannot publish or activate partial searchable state.
+8. Ask validation is strategy-aware and does not reject eligible CJK-only questions under the CJK
+   strategy.
+9. CLI and owner-started MCP support the allowlisted strategy contract without request-time tool
    overrides.
-7. E1, E2, E3-A, and E3-B canonical validators pass after source identity refresh, with unchanged
+10. Installed-wheel MCP proof covers actual `search_library` and `ask_library` tool calls.
+11. Existing-database doctor/rebuild upgrade flow is documented and tested.
+12. E1, E2, E3-A, and E3-B canonical validators pass after source identity refresh, with unchanged
    metrics and verdicts unless a reviewer explicitly approves a new promotion decision.
-8. Runtime Search/Ask tests prove the default CJK strategy, rollback behavior, hard-negative
+13. Runtime Search/Ask tests prove the default CJK strategy, rollback behavior, hard-negative
    preservation, and stable errors.
-9. Python 3.12 and Python 3.13 installed-wheel CLI/MCP proof pass.
-10. Product proof, demo, tests, lint, type checking, build, documentation checks, and diff checks
+14. High-fanout and long-query performance gates pass under fixed local budgets.
+15. Python 3.12 and Python 3.13 installed-wheel CLI/MCP proof pass.
+16. Product proof, demo, tests, lint, type checking, build, documentation checks, and diff checks
     pass.
