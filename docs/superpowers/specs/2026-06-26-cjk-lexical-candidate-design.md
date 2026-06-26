@@ -1,6 +1,8 @@
 # CJK Lexical Candidate Design
 
-Status: implemented as an off-default E3-B comparison. No runtime default behavior was changed.
+Status: implemented and closed out as an off-default E3-B comparison. PR #31 was squash-merged to
+`main@df285617b78157eee5f23e4c754517cd097264b5`; post-merge CI and CodeQL passed. No runtime
+default behavior was changed.
 
 ## Context
 
@@ -206,4 +208,6 @@ E3-B does not:
 The implementation records `cjk-trigram-overlap-v1` as an off-default E3-B comparison artifact.
 The canonical comparison reports `candidate_status=passed`, overall Recall@5 `0.659091`, and
 nDCG@10 `0.610619`, with all frozen development and holdout gates passing. It does not promote the
-candidate to runtime default and does not migrate legacy RAG-OCR code.
+candidate to runtime default, does not switch the default retrieval strategy, and does not add or
+activate embeddings, vector search, hybrid retrieval, RRF, reranking, query rewrite, HTTP, UI, or
+MCP behavior changes. It does not migrate legacy RAG-OCR code.
