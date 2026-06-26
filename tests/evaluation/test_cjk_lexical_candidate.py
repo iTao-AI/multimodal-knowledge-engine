@@ -1,6 +1,6 @@
-from dataclasses import replace
 import sqlite3
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -8,8 +8,8 @@ import pytest
 from mke.evaluation.cjk_lexical_candidate import (
     CJK_LEXICAL_CANDIDATE,
     CjkLexicalCandidateError,
-    CjkLexicalProjectionError,
     CjkLexicalCandidateUnsupported,
+    CjkLexicalProjectionError,
     CjkProjectionCandidate,
     build_cjk_trigram_projection,
     candidate_identity_digest,
@@ -24,8 +24,10 @@ from mke.evaluation.cjk_lexical_candidate import (
 )
 from mke.evaluation.diagnostic_ports import EvaluationEvidenceSnapshot
 
+EvidenceTuple = tuple[EvaluationEvidenceSnapshot, ...]
 
-def _evidence() -> tuple[EvaluationEvidenceSnapshot, ...]:
+
+def _evidence() -> EvidenceTuple:
     return (
         EvaluationEvidenceSnapshot(
             evidence_id="ev_001",
@@ -46,6 +48,18 @@ def _evidence() -> tuple[EvaluationEvidenceSnapshot, ...]:
             text="第二章 主动 Publication 只暴露 成功 Run 的 Evidence。",
         ),
     )
+
+
+def _mutate_text(items: EvidenceTuple) -> EvidenceTuple:
+    return (replace(items[0], text="changed text"), items[1])
+
+
+def _drop_row(items: EvidenceTuple) -> EvidenceTuple:
+    return (items[0],)
+
+
+def _mutate_locator(items: EvidenceTuple) -> EvidenceTuple:
+    return (replace(items[0], locator_start=99, locator_end=99), items[1])
 
 
 def test_candidate_contract_freezes_identity_and_parameters() -> None:
@@ -141,28 +155,13 @@ def test_builds_evaluation_only_trigram_projection_with_snapshot_identity() -> N
 @pytest.mark.parametrize(
     ("mutation", "message"),
     [
-        (
-            lambda items: (
-                replace(items[0], text="changed text"),
-                items[1],
-            ),
-            "text digest mismatch",
-        ),
-        (lambda items: (items[0],), "row count mismatch"),
-        (
-            lambda items: (
-                replace(items[0], locator_start=99, locator_end=99),
-                items[1],
-            ),
-            "locator inventory mismatch",
-        ),
+        (_mutate_text, "text digest mismatch"),
+        (_drop_row, "row count mismatch"),
+        (_mutate_locator, "locator inventory mismatch"),
     ],
 )
 def test_projection_rejects_snapshot_identity_mismatch(
-    mutation: Callable[
-        [tuple[EvaluationEvidenceSnapshot, ...]],
-        tuple[EvaluationEvidenceSnapshot, ...],
-    ],
+    mutation: Callable[[EvidenceTuple], EvidenceTuple],
     message: str,
 ) -> None:
     evidence = _evidence()
@@ -341,6 +340,39 @@ def test_overlap_ranker_ties_are_stable() -> None:
                 evidence_id="ev_a",
                 publication_id="pub_001",
                 source_id="src_a",
+                locator_kind="page",
+                locator_start=1,
+                locator_end=1,
+                text="证据生命周期",
+                fts5_rank=-1.0,
+            ),
+        ),
+        terms,
+    )
+
+    assert [item.evidence_id for item in ranked] == ["ev_a", "ev_b"]
+
+
+def test_overlap_ranker_uses_stable_document_id_before_source_id() -> None:
+    terms = ("证据生", "据生命", "生命周", "命周期")
+    ranked = rank_cjk_overlap_candidates(
+        (
+            CjkProjectionCandidate(
+                evidence_id="ev_b",
+                publication_id="pub_001",
+                source_id="src_a",
+                document_id="doc-b",
+                locator_kind="page",
+                locator_start=1,
+                locator_end=1,
+                text="证据生命周期",
+                fts5_rank=-1.0,
+            ),
+            CjkProjectionCandidate(
+                evidence_id="ev_a",
+                publication_id="pub_001",
+                source_id="src_z",
+                document_id="doc-a",
                 locator_kind="page",
                 locator_start=1,
                 locator_end=1,

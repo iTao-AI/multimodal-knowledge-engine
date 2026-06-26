@@ -3,8 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from typing import Any, Protocol
+from typing import Any
 
 from mke.evaluation.diagnostic_ports import EvaluationEvidenceSnapshot
 from mke.retrieval.query_policy import (
@@ -65,6 +66,7 @@ class CjkProjectionCandidate:
     locator_end: int
     text: str
     fts5_rank: float
+    document_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -80,6 +82,7 @@ class CjkScoredProjectionResult:
     overlap_count: int
     overlap_ratio: float
     matched_terms: tuple[str, ...]
+    document_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -107,14 +110,6 @@ class CjkLexicalCandidateUnsupported(CjkLexicalCandidateError):
     def __init__(self, error: BaseException | None = None) -> None:
         super().__init__(self.cause)
         self.__cause__ = error
-
-
-class _SQLiteConnection(Protocol):
-    def __enter__(self) -> Any: ...
-
-    def __exit__(self, exc_type: object, exc: object, tb: object) -> object: ...
-
-    def execute(self, statement: str) -> Any: ...
 
 
 _PROJECTION_TABLE = "temp.mke_cjk_trigram_projection"
@@ -316,6 +311,7 @@ def search_cjk_trigram_projection(
     compiled: CjkCompiledQueryTerms,
     *,
     contract: CjkLexicalCandidateContract = CJK_LEXICAL_CANDIDATE,
+    source_documents: Mapping[str, str] | None = None,
 ) -> CjkProjectionSearchObservation:
     if not compiled.match_query:
         return CjkProjectionSearchObservation(
@@ -351,6 +347,11 @@ def search_cjk_trigram_projection(
             locator_end=int(row[5]),
             text=str(row[6]),
             fts5_rank=float(row[7]),
+            document_id=(
+                source_documents.get(str(row[2]))
+                if source_documents is not None
+                else None
+            ),
         )
         for row in rows
     )
@@ -399,6 +400,7 @@ def rank_cjk_overlap_candidates(
                 overlap_count=overlap_count,
                 overlap_ratio=overlap_ratio,
                 matched_terms=matched_terms,
+                document_id=candidate.document_id,
             )
         )
     return tuple(
@@ -408,7 +410,7 @@ def rank_cjk_overlap_candidates(
                 -item.overlap_count,
                 -item.overlap_ratio,
                 item.fts5_rank,
-                item.source_id,
+                item.document_id or item.source_id,
                 item.locator_start,
                 item.evidence_id,
             ),
