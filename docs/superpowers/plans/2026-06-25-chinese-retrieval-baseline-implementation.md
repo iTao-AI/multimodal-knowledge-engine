@@ -1,7 +1,8 @@
 # Chinese Retrieval Baseline Implementation Plan
 
-**Status:** Completed on `codex/e3a-chinese-retrieval-baseline`; PR #29 CI follow-up completed
-locally and stopped before push.
+**Status:** Completed and squash-merged through PR #29 on
+`main@5282efd903763cb9bf808d13d993fe560fd008ad`. Post-merge CI and CodeQL completed
+successfully on 2026-06-26.
 
 **Completion:** Tasks 1–11 were executed. The inline checkboxes below are retained as the approved
 historical execution procedure, not as pending work.
