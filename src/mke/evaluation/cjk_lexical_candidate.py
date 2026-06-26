@@ -7,6 +7,10 @@ from dataclasses import asdict, dataclass
 from typing import Any, Protocol
 
 from mke.evaluation.diagnostic_ports import EvaluationEvidenceSnapshot
+from mke.retrieval.query_policy import (
+    CompiledQueryClause,
+    compile_fts5_query_diagnostic,
+)
 
 
 @dataclass(frozen=True)
@@ -38,6 +42,17 @@ class CjkTrigramProjection:
     row_count: int
     text_digest: str
     locator_inventory_digest: str
+
+
+@dataclass(frozen=True)
+class CjkCompiledQueryTerms:
+    terms: tuple[str, ...]
+    omitted_below_minimum: tuple[str, ...]
+    current_compiled_query: str
+    current_clauses: tuple[CompiledQueryClause, ...]
+    ascii_token_count: int
+    current_compiled_query_empty: bool
+    match_query: str
 
 
 class CjkLexicalCandidateError(ValueError):
@@ -229,6 +244,36 @@ def build_cjk_trigram_projection(
     )
 
 
+def compile_cjk_query_terms(query: str) -> CjkCompiledQueryTerms:
+    current = compile_fts5_query_diagnostic(query, policy="numeric-grouping-v1")
+    runs = _cjk_runs(query.casefold())
+    terms: list[str] = []
+    seen_terms: set[str] = set()
+    omitted: list[str] = []
+    for run in runs:
+        if len(run) < 3:
+            omitted.append(run)
+            continue
+        for index in range(0, len(run) - 2):
+            term = run[index : index + 3]
+            if term not in seen_terms:
+                seen_terms.add(term)
+                terms.append(term)
+    return CjkCompiledQueryTerms(
+        terms=tuple(terms),
+        omitted_below_minimum=tuple(omitted),
+        current_compiled_query=current.compiled_query,
+        current_clauses=current.clauses,
+        ascii_token_count=current.ascii_token_count,
+        current_compiled_query_empty=current.compiled_query_empty,
+        match_query=" OR ".join(_quote_fts5_term(term) for term in terms),
+    )
+
+
+def should_use_cjk_fallback(compiled: CjkCompiledQueryTerms) -> bool:
+    return compiled.current_compiled_query_empty and bool(compiled.terms)
+
+
 def _projection_evidence(
     connection: sqlite3.Connection,
 ) -> tuple[EvaluationEvidenceSnapshot, ...]:
@@ -255,6 +300,39 @@ def _projection_evidence(
         )
         for row in rows
     )
+
+
+def _cjk_runs(query: str) -> tuple[str, ...]:
+    runs: list[str] = []
+    current: list[str] = []
+    for character in query:
+        if _is_cjk_character(character):
+            current.append(character)
+        elif character.isspace():
+            continue
+        elif current:
+            runs.append("".join(current))
+            current = []
+    if current:
+        runs.append("".join(current))
+    return tuple(runs)
+
+
+def _is_cjk_character(character: str) -> bool:
+    codepoint = ord(character)
+    return (
+        0x3400 <= codepoint <= 0x4DBF
+        or 0x4E00 <= codepoint <= 0x9FFF
+        or 0xF900 <= codepoint <= 0xFAFF
+        or 0x3040 <= codepoint <= 0x30FF
+        or 0x31F0 <= codepoint <= 0x31FF
+        or 0xAC00 <= codepoint <= 0xD7AF
+    )
+
+
+def _quote_fts5_term(term: str) -> str:
+    escaped = term.replace('"', '""')
+    return f'"{escaped}"'
 
 
 def _digest(value: object) -> str:

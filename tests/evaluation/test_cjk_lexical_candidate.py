@@ -1,5 +1,6 @@
 from dataclasses import replace
 import sqlite3
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -12,9 +13,11 @@ from mke.evaluation.cjk_lexical_candidate import (
     build_cjk_trigram_projection,
     candidate_identity_digest,
     cjk_evidence_identity,
+    compile_cjk_query_terms,
     probe_sqlite_trigram_support,
     render_cjk_lexical_error,
     require_cjk_lexical_candidate,
+    should_use_cjk_fallback,
 )
 from mke.evaluation.diagnostic_ports import EvaluationEvidenceSnapshot
 
@@ -153,12 +156,15 @@ def test_builds_evaluation_only_trigram_projection_with_snapshot_identity() -> N
     ],
 )
 def test_projection_rejects_snapshot_identity_mismatch(
-    mutation: object,
+    mutation: Callable[
+        [tuple[EvaluationEvidenceSnapshot, ...]],
+        tuple[EvaluationEvidenceSnapshot, ...],
+    ],
     message: str,
 ) -> None:
     evidence = _evidence()
     identity = cjk_evidence_identity(evidence)
-    mutated = mutation(evidence)  # type: ignore[operator]
+    mutated = mutation(evidence)
     connection = sqlite3.connect(":memory:")
     try:
         with pytest.raises(CjkLexicalProjectionError, match=message):
@@ -195,3 +201,53 @@ def test_projection_does_not_write_to_active_evidence_fts() -> None:
         assert rows == [("active_ev", "production projection row")]
     finally:
         connection.close()
+
+
+def test_chinese_only_query_produces_deterministic_trigrams() -> None:
+    compiled = compile_cjk_query_terms("发布证据检索")
+
+    assert compiled.terms == ("发布证", "布证据", "证据检", "据检索")
+    assert compiled.omitted_below_minimum == ()
+    assert compiled.current_compiled_query == ""
+    assert compiled.current_compiled_query_empty is True
+    assert compiled.match_query == (
+        '"发布证" OR "布证据" OR "证据检" OR "据检索"'
+    )
+    assert should_use_cjk_fallback(compiled) is True
+
+
+def test_mixed_query_preserves_current_ascii_numeric_diagnostics() -> None:
+    compiled = compile_cjk_query_terms("MKE 发布证据 410000")
+
+    assert compiled.current_compiled_query == (
+        '"mke" AND ("410000" OR "410 000")'
+    )
+    assert compiled.ascii_token_count == 2
+    assert compiled.current_compiled_query_empty is False
+    assert compiled.terms == ("发布证", "布证据")
+    assert should_use_cjk_fallback(compiled) is False
+
+
+def test_two_character_cjk_query_is_recorded_below_minimum() -> None:
+    compiled = compile_cjk_query_terms("证据")
+
+    assert compiled.terms == ()
+    assert compiled.omitted_below_minimum == ("证据",)
+    assert compiled.match_query == ""
+    assert should_use_cjk_fallback(compiled) is False
+
+
+def test_duplicate_cjk_trigrams_are_deduplicated_in_stable_order() -> None:
+    compiled = compile_cjk_query_terms("证据链证据链")
+
+    assert compiled.terms == ("证据链", "据链证", "链证据")
+
+
+def test_sql_looking_query_text_never_reaches_match_expression() -> None:
+    compiled = compile_cjk_query_terms(
+        '证据链" OR active_evidence_fts MATCH "x'
+    )
+
+    assert compiled.terms == ("证据链",)
+    assert compiled.match_query == '"证据链"'
+    assert "active_evidence_fts" not in compiled.match_query
