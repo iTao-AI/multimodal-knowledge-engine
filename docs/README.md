@@ -66,6 +66,9 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [Chinese Retrieval Baseline Implementation Plan](./superpowers/plans/2026-06-25-chinese-retrieval-baseline-implementation.md) records the E3-A execution contract.
 - [Chinese Retrieval Baseline Autoplan Review](./superpowers/reviews/2026-06-25-chinese-retrieval-baseline-autoplan-review.md) records the approved pre-implementation findings.
 - [Chinese Retrieval Baseline Implementation Review](./superpowers/reviews/2026-06-25-chinese-retrieval-baseline-review.md) records the bounded implementation self-review and verification.
+- [CJK Lexical Candidate Design](./superpowers/specs/2026-06-26-cjk-lexical-candidate-design.md) defines the proposed E3-B `cjk-trigram-overlap-v1` comparison.
+- [CJK Lexical Candidate Implementation Plan](./superpowers/plans/2026-06-26-cjk-lexical-candidate-implementation.md) records the proposed E3-B execution checklist.
+- [CJK Lexical Candidate Plan Review](./superpowers/reviews/2026-06-26-cjk-lexical-candidate-plan-review.md) records the E3-B planning review and rejected alternatives.
 
 ## Development Verification
 
