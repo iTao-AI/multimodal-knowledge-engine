@@ -57,7 +57,7 @@
     "max_results": 10
   },
   "source": {
-    "sha256": "d3c9d3bd7b644e93104b86982c15010963cc677b35a966db8dd980aca17ecc3c",
+    "sha256": "8545124934ba8c135a725819fa1b8aecd70fa013e4175ce2369b32f08ef93463",
     "files": [
       {
         "path": "pyproject.toml",
@@ -96,8 +96,8 @@
       },
       {
         "path": "src/mke/evaluation/cjk_lexical_comparison.py",
-        "bytes": 32024,
-        "sha256": "144defb09efa7f1a5a00404c9198cb79f8fb8eaef017c2b7ee2453a506ccdc92"
+        "bytes": 31937,
+        "sha256": "ac4d5b2e96b925c56e2e6edc5203d940f5fa3031b2b75d5534eb5fb2e21a127f"
       },
       {
         "path": "src/mke/evaluation/graded_metrics.py",
@@ -4089,7 +4089,6 @@
         "candidate_hard_negative_failure": false,
         "candidate_result_proofs": [
           {
-            "fts5_rank_hex": "-0x1.d09436272c706p+4",
             "locator": {
               "document_id": "development-adversarial",
               "locator_end": 5,
@@ -4109,7 +4108,6 @@
             "overlap_ratio": 0.7777777777777778
           },
           {
-            "fts5_rank_hex": "-0x1.bbba5bcddc6ecp+3",
             "locator": {
               "document_id": "development-adversarial",
               "locator_end": 6,
@@ -4176,7 +4174,6 @@
         "candidate_hard_negative_failure": false,
         "candidate_result_proofs": [
           {
-            "fts5_rank_hex": "-0x1.44c754157875bp+3",
             "locator": {
               "document_id": "ub-service-core",
               "locator_end": 8,
@@ -4197,7 +4194,6 @@
             "overlap_ratio": 0.8
           },
           {
-            "fts5_rank_hex": "-0x1.4aa4b4adea99ap+3",
             "locator": {
               "document_id": "ub-service-core",
               "locator_end": 6,
@@ -4216,7 +4212,6 @@
             "overlap_ratio": 0.6
           },
           {
-            "fts5_rank_hex": "-0x1.44672f7c095bdp+3",
             "locator": {
               "document_id": "ub-service-core",
               "locator_end": 7,
@@ -4235,7 +4230,6 @@
             "overlap_ratio": 0.6
           },
           {
-            "fts5_rank_hex": "-0x1.2c12177ebc6c7p+3",
             "locator": {
               "document_id": "ub-service-core",
               "locator_end": 1,
@@ -4254,7 +4248,6 @@
             "overlap_ratio": 0.6
           },
           {
-            "fts5_rank_hex": "-0x1.ab220a7cdf2c8p+2",
             "locator": {
               "document_id": "ub-service-core",
               "locator_end": 9,
@@ -4273,7 +4266,6 @@
             "overlap_ratio": 0.6
           },
           {
-            "fts5_rank_hex": "-0x1.d167eb4de5eafp+1",
             "locator": {
               "document_id": "ub-service-core",
               "locator_end": 3,
@@ -4292,7 +4284,6 @@
             "overlap_ratio": 0.6
           },
           {
-            "fts5_rank_hex": "-0x1.1212007d0853cp+1",
             "locator": {
               "document_id": "ub-service-core",
               "locator_end": 5,
@@ -4309,7 +4300,6 @@
             "overlap_ratio": 0.4
           },
           {
-            "fts5_rank_hex": "-0x1.a5c1a74df0301p+1",
             "locator": {
               "document_id": "ub-service-core",
               "locator_end": 17,
@@ -4412,7 +4402,6 @@
         "candidate_hard_negative_failure": false,
         "candidate_result_proofs": [
           {
-            "fts5_rank_hex": "-0x1.240e98adfedbbp+3",
             "locator": {
               "document_id": "ub-service-core",
               "locator_end": 14,
@@ -4429,7 +4418,6 @@
             "overlap_ratio": 0.36363636363636365
           },
           {
-            "fts5_rank_hex": "-0x1.1619dda9f90c2p+3",
             "locator": {
               "document_id": "ub-service-core",
               "locator_end": 13,
@@ -4498,7 +4486,6 @@
         "candidate_hard_negative_failure": false,
         "candidate_result_proofs": [
           {
-            "fts5_rank_hex": "-0x1.a2f64a858ab67p+5",
             "locator": {
               "document_id": "development-adversarial",
               "locator_end": 7,
@@ -4522,7 +4509,6 @@
             "overlap_ratio": 1.0
           },
           {
-            "fts5_rank_hex": "-0x1.0ca2628ee57d7p+4",
             "locator": {
               "document_id": "development-adversarial",
               "locator_end": 8,
@@ -4999,7 +4985,6 @@
         "candidate_hard_negative_failure": false,
         "candidate_result_proofs": [
           {
-            "fts5_rank_hex": "-0x1.de3ff19e4e9b0p+4",
             "locator": {
               "document_id": "ub-service-core",
               "locator_end": 12,
@@ -5069,7 +5054,6 @@
         "candidate_hard_negative_failure": false,
         "candidate_result_proofs": [
           {
-            "fts5_rank_hex": "-0x1.e8936de0bcd99p+4",
             "locator": {
               "document_id": "ub-service-core",
               "locator_end": 15,
@@ -5267,7 +5251,6 @@
         "candidate_hard_negative_failure": false,
         "candidate_result_proofs": [
           {
-            "fts5_rank_hex": "-0x1.1acd87fce9d29p+5",
             "locator": {
               "document_id": "development-adversarial",
               "locator_end": 7,
@@ -5520,7 +5503,6 @@
         "candidate_hard_negative_failure": false,
         "candidate_result_proofs": [
           {
-            "fts5_rank_hex": "-0x1.7d7a00c522718p+3",
             "locator": {
               "document_id": "copyright-law",
               "locator_end": 14,
@@ -5576,7 +5558,6 @@
         "candidate_hard_negative_failure": false,
         "candidate_result_proofs": [
           {
-            "fts5_rank_hex": "-0x1.4b3701edd6fd9p+4",
             "locator": {
               "document_id": "administrative-compulsion-law",
               "locator_end": 7,
@@ -5598,7 +5579,6 @@
             "overlap_ratio": 0.8181818181818182
           },
           {
-            "fts5_rank_hex": "-0x1.4226b55f9dc98p+4",
             "locator": {
               "document_id": "administrative-compulsion-law",
               "locator_end": 6,
@@ -5618,7 +5598,6 @@
             "overlap_ratio": 0.6363636363636364
           },
           {
-            "fts5_rank_hex": "-0x1.dfcdb293af7b8p+2",
             "locator": {
               "document_id": "administrative-compulsion-law",
               "locator_end": 10,
@@ -5693,7 +5672,6 @@
         "candidate_hard_negative_failure": false,
         "candidate_result_proofs": [
           {
-            "fts5_rank_hex": "-0x1.aecc4b9550125p+3",
             "locator": {
               "document_id": "copyright-law",
               "locator_end": 14,
@@ -5711,7 +5689,6 @@
             "overlap_ratio": 1.0
           },
           {
-            "fts5_rank_hex": "-0x1.37c29a0d7cfb6p+3",
             "locator": {
               "document_id": "copyright-law",
               "locator_end": 3,
@@ -5729,7 +5706,6 @@
             "overlap_ratio": 1.0
           },
           {
-            "fts5_rank_hex": "-0x1.4900b347e8839p+2",
             "locator": {
               "document_id": "copyright-law",
               "locator_end": 12,
@@ -5744,7 +5720,6 @@
             "overlap_ratio": 0.4
           },
           {
-            "fts5_rank_hex": "-0x1.41a19f990f84fp+2",
             "locator": {
               "document_id": "copyright-law",
               "locator_end": 9,
@@ -5759,7 +5734,6 @@
             "overlap_ratio": 0.4
           },
           {
-            "fts5_rank_hex": "-0x1.11840c7d698abp+2",
             "locator": {
               "document_id": "copyright-law",
               "locator_end": 10,
@@ -5838,7 +5812,6 @@
         "candidate_hard_negative_failure": false,
         "candidate_result_proofs": [
           {
-            "fts5_rank_hex": "-0x1.c14be16fb1e12p+3",
             "locator": {
               "document_id": "administrative-compulsion-law",
               "locator_end": 7,
@@ -5898,7 +5871,6 @@
         "candidate_hard_negative_failure": false,
         "candidate_result_proofs": [
           {
-            "fts5_rank_hex": "-0x1.3ef57aa8b758bp+3",
             "locator": {
               "document_id": "copyright-law",
               "locator_end": 5,
@@ -5960,7 +5932,6 @@
         "candidate_hard_negative_failure": false,
         "candidate_result_proofs": [
           {
-            "fts5_rank_hex": "-0x1.1542396941b78p+4",
             "locator": {
               "document_id": "administrative-compulsion-law",
               "locator_end": 2,
@@ -6020,7 +5991,6 @@
         "candidate_hard_negative_failure": false,
         "candidate_result_proofs": [
           {
-            "fts5_rank_hex": "-0x1.36a4f27564be1p+5",
             "locator": {
               "document_id": "holdout-adversarial",
               "locator_end": 5,
@@ -6041,7 +6011,6 @@
             "overlap_ratio": 0.8
           },
           {
-            "fts5_rank_hex": "-0x1.9e31faf21c24dp+3",
             "locator": {
               "document_id": "holdout-adversarial",
               "locator_end": 6,
@@ -6372,7 +6341,6 @@
         "candidate_hard_negative_failure": false,
         "candidate_result_proofs": [
           {
-            "fts5_rank_hex": "-0x1.3ce66158e4fdap+3",
             "locator": {
               "document_id": "administrative-compulsion-law",
               "locator_end": 6,
@@ -6505,7 +6473,6 @@
         "candidate_hard_negative_failure": false,
         "candidate_result_proofs": [
           {
-            "fts5_rank_hex": "-0x1.b1ca415cf9143p+3",
             "locator": {
               "document_id": "administrative-compulsion-law",
               "locator_end": 7,

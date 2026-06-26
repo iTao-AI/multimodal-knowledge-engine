@@ -78,7 +78,6 @@ class CjkLexicalResultProof:
     locator: StableLocator
     overlap_count: int
     overlap_ratio: float
-    fts5_rank_hex: str
     matched_terms: tuple[str, ...]
 
 
@@ -437,7 +436,6 @@ def _run_split(
                             ),
                             overlap_count=item.overlap_count,
                             overlap_ratio=item.overlap_ratio,
-                            fts5_rank_hex=item.fts5_rank.hex(),
                             matched_terms=item.matched_terms,
                         )
                         for item in search.results

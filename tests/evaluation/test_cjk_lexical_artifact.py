@@ -72,6 +72,8 @@ def test_recorded_cjk_lexical_artifact_validates_by_recomputing_candidate(
     )
     assert isinstance(sql_proof["redacted_trace_digest"], str)
     assert "证据" not in cast(str, sql_proof["statement_template"])
+    proof = cast(list[dict[str, object]], candidate_used["candidate_result_proofs"])[0]
+    assert "fts5_rank_hex" not in proof
 
 
 def _add_unknown_key(payload: dict[str, object]) -> None:

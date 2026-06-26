@@ -48,7 +48,7 @@
     "integrity_claim": "adjudication_record_integrity"
   },
   "source_identity": {
-    "sha256": "6355fa78e967d8e9f974cd79a3189fc74b2642facc2c6547d32315177ba8aa90",
+    "sha256": "8d436a39fdedb8faa3d9b303fd98d006dd6b91f555b0a57b27db7f5effe69fc9",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -182,8 +182,8 @@
       },
       {
         "path": "src/mke/evaluation/cjk_lexical_comparison.py",
-        "bytes": 32024,
-        "sha256": "144defb09efa7f1a5a00404c9198cb79f8fb8eaef017c2b7ee2453a506ccdc92"
+        "bytes": 31937,
+        "sha256": "ac4d5b2e96b925c56e2e6edc5203d940f5fa3031b2b75d5534eb5fb2e21a127f"
       },
       {
         "path": "src/mke/evaluation/diagnostic_ports.py",
