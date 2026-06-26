@@ -1,0 +1,6708 @@
+{
+  "schema_version": "mke.cjk_lexical_comparison_artifact.v1",
+  "protocol": {
+    "id": "retrieval-chinese-v1",
+    "path": "tests/fixtures/retrieval-chinese-v1/protocol.json",
+    "sha256": "00f72934018a52b5b5f5591fba119050882aee9b782e5dac199702b0cf995944"
+  },
+  "fixtures": [
+    {
+      "document_id": "ub-service-core",
+      "split": "development",
+      "path": "development/ub-service-core-2.0-zh.pdf",
+      "bytes": 1168641,
+      "sha256": "13e8f1da824de892931653e17df2a8b20f77fe84b2a7472b13113405efbf296d"
+    },
+    {
+      "document_id": "development-adversarial",
+      "split": "development",
+      "path": "development/adversarial.pdf",
+      "bytes": 4350,
+      "sha256": "be3b88352b0a80d6d165de146ff81be224b706d3eb3721d969266e64505af8dd"
+    },
+    {
+      "document_id": "copyright-law",
+      "split": "holdout",
+      "path": "holdout/copyright-law-2020.pdf",
+      "bytes": 182479,
+      "sha256": "e1217f1df0bb98586a883819505f17a29140fb114ce5f1a444ea0a60d22c9d2b"
+    },
+    {
+      "document_id": "administrative-compulsion-law",
+      "split": "holdout",
+      "path": "holdout/administrative-compulsion-law-2011.pdf",
+      "bytes": 198629,
+      "sha256": "80d1a49a1641f73f53df7f2cfe008b4f8e8419a538f37d183f9758ec52e90d0d"
+    },
+    {
+      "document_id": "holdout-adversarial",
+      "split": "holdout",
+      "path": "holdout/adversarial.pdf",
+      "bytes": 4399,
+      "sha256": "52d2319515195c7a0b8572f4a6f86eec6856cb189a24f3272c2792ad5fe76924"
+    }
+  ],
+  "qrel_adjudication": {
+    "path": "qrel-adjudication.json",
+    "sha256": "b638a7729725d495e809bb52a93b071e65a51b0f0ebcb218d3ee3298a04bd0c4",
+    "review_status": "complete",
+    "reviewed_query_count": 48,
+    "query_page_judgment_count": 1680
+  },
+  "candidate": {
+    "id": "cjk-trigram-overlap-v1",
+    "revision": 1,
+    "minimum_overlap_count": 2,
+    "minimum_overlap_ratio": 0.3,
+    "max_results": 10
+  },
+  "source": {
+    "sha256": "dbb713bea7cf15185138a0f27f197322472937bd1f4509d330a22d447c490a77",
+    "files": [
+      {
+        "path": "pyproject.toml",
+        "bytes": 1037,
+        "sha256": "9f30679adae4daadad32efb7698c4a8a93c2f62e1ae2d5dc607929718a61c27d"
+      },
+      {
+        "path": "uv.lock",
+        "bytes": 131592,
+        "sha256": "c3abc173d28753c45716348b2462a98d08d84a77576e3f7d03a588d09b886530"
+      },
+      {
+        "path": "src/mke/adapters/sqlite/__init__.py",
+        "bytes": 37229,
+        "sha256": "a8300357f3518d813742bd00fd408414c16d6040572aa579e3006217fd2b799c"
+      },
+      {
+        "path": "src/mke/evaluation/chinese_protocol.py",
+        "bytes": 28237,
+        "sha256": "19022f5ff261507ed57f04fedab164a44f6d26aa609a3ccfd6297b63fb127d1d"
+      },
+      {
+        "path": "src/mke/evaluation/chinese_runner.py",
+        "bytes": 29855,
+        "sha256": "428ec7ac99c1f6b936d3781cc4bfb9cd020e0b6a9cefb3df0f9f51506ce72130"
+      },
+      {
+        "path": "src/mke/evaluation/cjk_lexical_artifact.py",
+        "bytes": 9893,
+        "sha256": "1504b0e651b2e0c07ac73e3c7c5ebbb4b0c06de9548737b3586a501995ffa9ad"
+      },
+      {
+        "path": "src/mke/evaluation/cjk_lexical_candidate.py",
+        "bytes": 15234,
+        "sha256": "19bdfbb36ce547cf6c50afc6230d0a522d611293acb783a6d1c8945bebecac15"
+      },
+      {
+        "path": "src/mke/evaluation/cjk_lexical_comparison.py",
+        "bytes": 31428,
+        "sha256": "b9f9724d7d7ce1d62ad515742300fa5e63da27a2cd0643207545638232ec970d"
+      },
+      {
+        "path": "src/mke/evaluation/graded_metrics.py",
+        "bytes": 8849,
+        "sha256": "7e28e8e53044d0dc92c721e0c3b554b2c89bcb92efa52bf073a9f9f5185c1ba5"
+      },
+      {
+        "path": "src/mke/retrieval/query_policy.py",
+        "bytes": 4166,
+        "sha256": "b4bd2547b2b658d9eb2d2fb96107e9bfe89c9197f2f097fb8d150f678e13b6fa"
+      }
+    ]
+  },
+  "comparison": {
+    "candidate_id": "cjk-trigram-overlap-v1",
+    "candidate_metrics": {
+      "answerable_zero_hit_rate": {
+        "count": 44,
+        "sum": 14.0,
+        "value": 0.318182
+      },
+      "ascii_token_count_metrics": [
+        {
+          "answerable_zero_hit_rate": {
+            "count": 25,
+            "sum": 9.0,
+            "value": 0.36
+          },
+          "ask_evidence_found_rate": {
+            "count": 27,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 27,
+            "sum": 27.0,
+            "value": 1.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 27,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "0",
+          "mrr_at_5": {
+            "count": 25,
+            "sum": 14.5,
+            "value": 0.58
+          },
+          "ndcg_at_10": {
+            "count": 25,
+            "sum": 14.666989320254803,
+            "value": 0.58668
+          },
+          "ndcg_at_5": {
+            "count": 25,
+            "sum": 14.666989320254803,
+            "value": 0.58668
+          },
+          "query_count": 27,
+          "recall_at_1": {
+            "count": 25,
+            "sum": 13.0,
+            "value": 0.52
+          },
+          "recall_at_3": {
+            "count": 25,
+            "sum": 16.0,
+            "value": 0.64
+          },
+          "recall_at_5": {
+            "count": 25,
+            "sum": 16.0,
+            "value": 0.64
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 2,
+            "sum": 2.0,
+            "value": 1.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 7,
+            "sum": 2.0,
+            "value": 0.285714
+          },
+          "ask_evidence_found_rate": {
+            "count": 7,
+            "sum": 5.0,
+            "value": 0.714286
+          },
+          "ask_input_rejection_rate": {
+            "count": 7,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 7,
+            "sum": 2.0,
+            "value": 0.285714
+          },
+          "hard_negative_failure_rate": {
+            "count": 5,
+            "sum": 3.0,
+            "value": 0.6
+          },
+          "label": "1",
+          "mrr_at_5": {
+            "count": 7,
+            "sum": 2.5,
+            "value": 0.357143
+          },
+          "ndcg_at_10": {
+            "count": 7,
+            "sum": 3.3740319649191504,
+            "value": 0.482005
+          },
+          "ndcg_at_5": {
+            "count": 7,
+            "sum": 3.0585670881334215,
+            "value": 0.436938
+          },
+          "query_count": 7,
+          "recall_at_1": {
+            "count": 7,
+            "sum": 1.0,
+            "value": 0.142857
+          },
+          "recall_at_3": {
+            "count": 7,
+            "sum": 4.0,
+            "value": 0.571429
+          },
+          "recall_at_5": {
+            "count": 7,
+            "sum": 4.0,
+            "value": 0.571429
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 12,
+            "sum": 3.0,
+            "value": 0.25
+          },
+          "ask_evidence_found_rate": {
+            "count": 14,
+            "sum": 12.0,
+            "value": 0.857143
+          },
+          "ask_input_rejection_rate": {
+            "count": 14,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 14,
+            "sum": 2.0,
+            "value": 0.142857
+          },
+          "hard_negative_failure_rate": {
+            "count": 8,
+            "sum": 1.0,
+            "value": 0.125
+          },
+          "label": "2_plus",
+          "mrr_at_5": {
+            "count": 12,
+            "sum": 9.0,
+            "value": 0.75
+          },
+          "ndcg_at_10": {
+            "count": 12,
+            "sum": 8.826234657128559,
+            "value": 0.73552
+          },
+          "ndcg_at_5": {
+            "count": 12,
+            "sum": 8.826234657128559,
+            "value": 0.73552
+          },
+          "query_count": 14,
+          "recall_at_1": {
+            "count": 12,
+            "sum": 9.0,
+            "value": 0.75
+          },
+          "recall_at_3": {
+            "count": 12,
+            "sum": 9.0,
+            "value": 0.75
+          },
+          "recall_at_5": {
+            "count": 12,
+            "sum": 9.0,
+            "value": 0.75
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        }
+      ],
+      "ask_evidence_found_rate": {
+        "count": 48,
+        "sum": 17.0,
+        "value": 0.354167
+      },
+      "ask_input_rejection_rate": {
+        "count": 48,
+        "sum": 27.0,
+        "value": 0.5625
+      },
+      "ask_insufficient_evidence_rate": {
+        "count": 48,
+        "sum": 4.0,
+        "value": 0.083333
+      },
+      "category_metrics": [
+        {
+          "answerable_zero_hit_rate": {
+            "count": 8,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 8,
+            "sum": 3.0,
+            "value": 0.375
+          },
+          "ask_input_rejection_rate": {
+            "count": 8,
+            "sum": 5.0,
+            "value": 0.625
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 8,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "chinese_exact_lexical",
+          "mrr_at_5": {
+            "count": 8,
+            "sum": 6.5,
+            "value": 0.8125
+          },
+          "ndcg_at_10": {
+            "count": 8,
+            "sum": 7.224344915552471,
+            "value": 0.903043
+          },
+          "ndcg_at_5": {
+            "count": 8,
+            "sum": 7.224344915552471,
+            "value": 0.903043
+          },
+          "query_count": 8,
+          "recall_at_1": {
+            "count": 8,
+            "sum": 5.0,
+            "value": 0.625
+          },
+          "recall_at_3": {
+            "count": 8,
+            "sum": 8.0,
+            "value": 1.0
+          },
+          "recall_at_5": {
+            "count": 8,
+            "sum": 8.0,
+            "value": 1.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 6,
+            "sum": 6.0,
+            "value": 1.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "chinese_word_boundary",
+          "mrr_at_5": {
+            "count": 6,
+            "sum": 5.5,
+            "value": 0.916667
+          },
+          "ndcg_at_10": {
+            "count": 6,
+            "sum": 5.76064801430716,
+            "value": 0.960108
+          },
+          "ndcg_at_5": {
+            "count": 6,
+            "sum": 5.76064801430716,
+            "value": 0.960108
+          },
+          "query_count": 6,
+          "recall_at_1": {
+            "count": 6,
+            "sum": 5.0,
+            "value": 0.833333
+          },
+          "recall_at_3": {
+            "count": 6,
+            "sum": 6.0,
+            "value": 1.0
+          },
+          "recall_at_5": {
+            "count": 6,
+            "sum": 6.0,
+            "value": 1.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 6,
+            "sum": 6.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "proper_noun_mixed",
+          "mrr_at_5": {
+            "count": 6,
+            "sum": 6.0,
+            "value": 1.0
+          },
+          "ndcg_at_10": {
+            "count": 6,
+            "sum": 5.82623465712856,
+            "value": 0.971039
+          },
+          "ndcg_at_5": {
+            "count": 6,
+            "sum": 5.82623465712856,
+            "value": 0.971039
+          },
+          "query_count": 6,
+          "recall_at_1": {
+            "count": 6,
+            "sum": 6.0,
+            "value": 1.0
+          },
+          "recall_at_3": {
+            "count": 6,
+            "sum": 6.0,
+            "value": 1.0
+          },
+          "recall_at_5": {
+            "count": 6,
+            "sum": 6.0,
+            "value": 1.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 6,
+            "sum": 4.0,
+            "value": 0.666667
+          },
+          "ask_evidence_found_rate": {
+            "count": 6,
+            "sum": 2.0,
+            "value": 0.333333
+          },
+          "ask_input_rejection_rate": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 6,
+            "sum": 4.0,
+            "value": 0.666667
+          },
+          "hard_negative_failure_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "number_date_unit",
+          "mrr_at_5": {
+            "count": 6,
+            "sum": 2.0,
+            "value": 0.333333
+          },
+          "ndcg_at_10": {
+            "count": 6,
+            "sum": 2.0,
+            "value": 0.333333
+          },
+          "ndcg_at_5": {
+            "count": 6,
+            "sum": 2.0,
+            "value": 0.333333
+          },
+          "query_count": 6,
+          "recall_at_1": {
+            "count": 6,
+            "sum": 2.0,
+            "value": 0.333333
+          },
+          "recall_at_3": {
+            "count": 6,
+            "sum": 2.0,
+            "value": 0.333333
+          },
+          "recall_at_5": {
+            "count": 6,
+            "sum": 2.0,
+            "value": 0.333333
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 8,
+            "sum": 4.0,
+            "value": 0.5
+          },
+          "ask_evidence_found_rate": {
+            "count": 8,
+            "sum": 1.0,
+            "value": 0.125
+          },
+          "ask_input_rejection_rate": {
+            "count": 8,
+            "sum": 7.0,
+            "value": 0.875
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 8,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 2,
+            "sum": 1.0,
+            "value": 0.5
+          },
+          "label": "semantic_paraphrase",
+          "mrr_at_5": {
+            "count": 8,
+            "sum": 3.0,
+            "value": 0.375
+          },
+          "ndcg_at_10": {
+            "count": 8,
+            "sum": 3.141699533914289,
+            "value": 0.392712
+          },
+          "ndcg_at_5": {
+            "count": 8,
+            "sum": 2.82623465712856,
+            "value": 0.353279
+          },
+          "query_count": 8,
+          "recall_at_1": {
+            "count": 8,
+            "sum": 3.0,
+            "value": 0.375
+          },
+          "recall_at_3": {
+            "count": 8,
+            "sum": 3.0,
+            "value": 0.375
+          },
+          "recall_at_5": {
+            "count": 8,
+            "sum": 3.0,
+            "value": 0.375
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 6,
+            "sum": 4.0,
+            "value": 0.666667
+          },
+          "ask_evidence_found_rate": {
+            "count": 6,
+            "sum": 1.0,
+            "value": 0.166667
+          },
+          "ask_input_rejection_rate": {
+            "count": 6,
+            "sum": 5.0,
+            "value": 0.833333
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 1,
+            "sum": 1.0,
+            "value": 1.0
+          },
+          "label": "multi_condition",
+          "mrr_at_5": {
+            "count": 6,
+            "sum": 2.0,
+            "value": 0.333333
+          },
+          "ndcg_at_10": {
+            "count": 6,
+            "sum": 1.6524693142571198,
+            "value": 0.275412
+          },
+          "ndcg_at_5": {
+            "count": 6,
+            "sum": 1.6524693142571198,
+            "value": 0.275412
+          },
+          "query_count": 6,
+          "recall_at_1": {
+            "count": 6,
+            "sum": 2.0,
+            "value": 0.333333
+          },
+          "recall_at_3": {
+            "count": 6,
+            "sum": 2.0,
+            "value": 0.333333
+          },
+          "recall_at_5": {
+            "count": 6,
+            "sum": 2.0,
+            "value": 0.333333
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "ask_evidence_found_rate": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "ask_input_rejection_rate": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "label": "ranking_hard_negative",
+          "mrr_at_5": {
+            "count": 4,
+            "sum": 1.0,
+            "value": 0.25
+          },
+          "ndcg_at_10": {
+            "count": 4,
+            "sum": 1.2618595071429148,
+            "value": 0.315465
+          },
+          "ndcg_at_5": {
+            "count": 4,
+            "sum": 1.2618595071429148,
+            "value": 0.315465
+          },
+          "query_count": 4,
+          "recall_at_1": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_3": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "recall_at_5": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "ask_input_rejection_rate": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "unanswerable",
+          "mrr_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_10": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "query_count": 4,
+          "recall_at_1": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_3": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          }
+        }
+      ],
+      "compiled_query_empty_metrics": [
+        {
+          "answerable_zero_hit_rate": {
+            "count": 19,
+            "sum": 5.0,
+            "value": 0.263158
+          },
+          "ask_evidence_found_rate": {
+            "count": 21,
+            "sum": 17.0,
+            "value": 0.809524
+          },
+          "ask_input_rejection_rate": {
+            "count": 21,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 21,
+            "sum": 4.0,
+            "value": 0.190476
+          },
+          "hard_negative_failure_rate": {
+            "count": 13,
+            "sum": 4.0,
+            "value": 0.307692
+          },
+          "label": "false",
+          "mrr_at_5": {
+            "count": 19,
+            "sum": 11.5,
+            "value": 0.605263
+          },
+          "ndcg_at_10": {
+            "count": 19,
+            "sum": 12.20026662204771,
+            "value": 0.642119
+          },
+          "ndcg_at_5": {
+            "count": 19,
+            "sum": 11.884801745261981,
+            "value": 0.625516
+          },
+          "query_count": 21,
+          "recall_at_1": {
+            "count": 19,
+            "sum": 10.0,
+            "value": 0.526316
+          },
+          "recall_at_3": {
+            "count": 19,
+            "sum": 13.0,
+            "value": 0.684211
+          },
+          "recall_at_5": {
+            "count": 19,
+            "sum": 13.0,
+            "value": 0.684211
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 25,
+            "sum": 9.0,
+            "value": 0.36
+          },
+          "ask_evidence_found_rate": {
+            "count": 27,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 27,
+            "sum": 27.0,
+            "value": 1.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 27,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "true",
+          "mrr_at_5": {
+            "count": 25,
+            "sum": 14.5,
+            "value": 0.58
+          },
+          "ndcg_at_10": {
+            "count": 25,
+            "sum": 14.666989320254803,
+            "value": 0.58668
+          },
+          "ndcg_at_5": {
+            "count": 25,
+            "sum": 14.666989320254803,
+            "value": 0.58668
+          },
+          "query_count": 27,
+          "recall_at_1": {
+            "count": 25,
+            "sum": 13.0,
+            "value": 0.52
+          },
+          "recall_at_3": {
+            "count": 25,
+            "sum": 16.0,
+            "value": 0.64
+          },
+          "recall_at_5": {
+            "count": 25,
+            "sum": 16.0,
+            "value": 0.64
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 2,
+            "sum": 2.0,
+            "value": 1.0
+          }
+        }
+      ],
+      "hard_negative_failure_rate": {
+        "count": 17,
+        "sum": 4.0,
+        "value": 0.235294
+      },
+      "mrr_at_5": {
+        "count": 44,
+        "sum": 26.0,
+        "value": 0.590909
+      },
+      "ndcg_at_10": {
+        "count": 44,
+        "sum": 26.867255942302513,
+        "value": 0.610619
+      },
+      "ndcg_at_5": {
+        "count": 44,
+        "sum": 26.551791065516785,
+        "value": 0.60345
+      },
+      "recall_at_1": {
+        "count": 44,
+        "sum": 23.0,
+        "value": 0.522727
+      },
+      "recall_at_3": {
+        "count": 44,
+        "sum": 29.0,
+        "value": 0.659091
+      },
+      "recall_at_5": {
+        "count": 44,
+        "sum": 29.0,
+        "value": 0.659091
+      },
+      "unanswerable_no_hit_rate": {
+        "count": 4,
+        "sum": 2.0,
+        "value": 0.5
+      }
+    },
+    "candidate_revision": 1,
+    "candidate_status": "passed",
+    "current_metrics": {
+      "answerable_zero_hit_rate": {
+        "count": 44,
+        "sum": 30.0,
+        "value": 0.681818
+      },
+      "ascii_token_count_metrics": [
+        {
+          "answerable_zero_hit_rate": {
+            "count": 25,
+            "sum": 25.0,
+            "value": 1.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 27,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 27,
+            "sum": 27.0,
+            "value": 1.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 27,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "0",
+          "mrr_at_5": {
+            "count": 25,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_10": {
+            "count": 25,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_5": {
+            "count": 25,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "query_count": 27,
+          "recall_at_1": {
+            "count": 25,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_3": {
+            "count": 25,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_5": {
+            "count": 25,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 2,
+            "sum": 2.0,
+            "value": 1.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 7,
+            "sum": 2.0,
+            "value": 0.285714
+          },
+          "ask_evidence_found_rate": {
+            "count": 7,
+            "sum": 5.0,
+            "value": 0.714286
+          },
+          "ask_input_rejection_rate": {
+            "count": 7,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 7,
+            "sum": 2.0,
+            "value": 0.285714
+          },
+          "hard_negative_failure_rate": {
+            "count": 5,
+            "sum": 3.0,
+            "value": 0.6
+          },
+          "label": "1",
+          "mrr_at_5": {
+            "count": 7,
+            "sum": 2.5,
+            "value": 0.357143
+          },
+          "ndcg_at_10": {
+            "count": 7,
+            "sum": 3.3740319649191504,
+            "value": 0.482005
+          },
+          "ndcg_at_5": {
+            "count": 7,
+            "sum": 3.0585670881334215,
+            "value": 0.436938
+          },
+          "query_count": 7,
+          "recall_at_1": {
+            "count": 7,
+            "sum": 1.0,
+            "value": 0.142857
+          },
+          "recall_at_3": {
+            "count": 7,
+            "sum": 4.0,
+            "value": 0.571429
+          },
+          "recall_at_5": {
+            "count": 7,
+            "sum": 4.0,
+            "value": 0.571429
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 12,
+            "sum": 3.0,
+            "value": 0.25
+          },
+          "ask_evidence_found_rate": {
+            "count": 14,
+            "sum": 12.0,
+            "value": 0.857143
+          },
+          "ask_input_rejection_rate": {
+            "count": 14,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 14,
+            "sum": 2.0,
+            "value": 0.142857
+          },
+          "hard_negative_failure_rate": {
+            "count": 8,
+            "sum": 1.0,
+            "value": 0.125
+          },
+          "label": "2_plus",
+          "mrr_at_5": {
+            "count": 12,
+            "sum": 9.0,
+            "value": 0.75
+          },
+          "ndcg_at_10": {
+            "count": 12,
+            "sum": 8.826234657128559,
+            "value": 0.73552
+          },
+          "ndcg_at_5": {
+            "count": 12,
+            "sum": 8.826234657128559,
+            "value": 0.73552
+          },
+          "query_count": 14,
+          "recall_at_1": {
+            "count": 12,
+            "sum": 9.0,
+            "value": 0.75
+          },
+          "recall_at_3": {
+            "count": 12,
+            "sum": 9.0,
+            "value": 0.75
+          },
+          "recall_at_5": {
+            "count": 12,
+            "sum": 9.0,
+            "value": 0.75
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        }
+      ],
+      "ask_evidence_found_rate": {
+        "count": 48,
+        "sum": 17.0,
+        "value": 0.354167
+      },
+      "ask_input_rejection_rate": {
+        "count": 48,
+        "sum": 27.0,
+        "value": 0.5625
+      },
+      "ask_insufficient_evidence_rate": {
+        "count": 48,
+        "sum": 4.0,
+        "value": 0.083333
+      },
+      "category_metrics": [
+        {
+          "answerable_zero_hit_rate": {
+            "count": 8,
+            "sum": 5.0,
+            "value": 0.625
+          },
+          "ask_evidence_found_rate": {
+            "count": 8,
+            "sum": 3.0,
+            "value": 0.375
+          },
+          "ask_input_rejection_rate": {
+            "count": 8,
+            "sum": 5.0,
+            "value": 0.625
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 8,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "chinese_exact_lexical",
+          "mrr_at_5": {
+            "count": 8,
+            "sum": 2.5,
+            "value": 0.3125
+          },
+          "ndcg_at_10": {
+            "count": 8,
+            "sum": 2.796707580990507,
+            "value": 0.349588
+          },
+          "ndcg_at_5": {
+            "count": 8,
+            "sum": 2.796707580990507,
+            "value": 0.349588
+          },
+          "query_count": 8,
+          "recall_at_1": {
+            "count": 8,
+            "sum": 2.0,
+            "value": 0.25
+          },
+          "recall_at_3": {
+            "count": 8,
+            "sum": 3.0,
+            "value": 0.375
+          },
+          "recall_at_5": {
+            "count": 8,
+            "sum": 3.0,
+            "value": 0.375
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 6,
+            "sum": 6.0,
+            "value": 1.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 6,
+            "sum": 6.0,
+            "value": 1.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "chinese_word_boundary",
+          "mrr_at_5": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_10": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_5": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "query_count": 6,
+          "recall_at_1": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_3": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_5": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 6,
+            "sum": 6.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "proper_noun_mixed",
+          "mrr_at_5": {
+            "count": 6,
+            "sum": 6.0,
+            "value": 1.0
+          },
+          "ndcg_at_10": {
+            "count": 6,
+            "sum": 5.82623465712856,
+            "value": 0.971039
+          },
+          "ndcg_at_5": {
+            "count": 6,
+            "sum": 5.82623465712856,
+            "value": 0.971039
+          },
+          "query_count": 6,
+          "recall_at_1": {
+            "count": 6,
+            "sum": 6.0,
+            "value": 1.0
+          },
+          "recall_at_3": {
+            "count": 6,
+            "sum": 6.0,
+            "value": 1.0
+          },
+          "recall_at_5": {
+            "count": 6,
+            "sum": 6.0,
+            "value": 1.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 6,
+            "sum": 4.0,
+            "value": 0.666667
+          },
+          "ask_evidence_found_rate": {
+            "count": 6,
+            "sum": 2.0,
+            "value": 0.333333
+          },
+          "ask_input_rejection_rate": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 6,
+            "sum": 4.0,
+            "value": 0.666667
+          },
+          "hard_negative_failure_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "number_date_unit",
+          "mrr_at_5": {
+            "count": 6,
+            "sum": 2.0,
+            "value": 0.333333
+          },
+          "ndcg_at_10": {
+            "count": 6,
+            "sum": 2.0,
+            "value": 0.333333
+          },
+          "ndcg_at_5": {
+            "count": 6,
+            "sum": 2.0,
+            "value": 0.333333
+          },
+          "query_count": 6,
+          "recall_at_1": {
+            "count": 6,
+            "sum": 2.0,
+            "value": 0.333333
+          },
+          "recall_at_3": {
+            "count": 6,
+            "sum": 2.0,
+            "value": 0.333333
+          },
+          "recall_at_5": {
+            "count": 6,
+            "sum": 2.0,
+            "value": 0.333333
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 8,
+            "sum": 7.0,
+            "value": 0.875
+          },
+          "ask_evidence_found_rate": {
+            "count": 8,
+            "sum": 1.0,
+            "value": 0.125
+          },
+          "ask_input_rejection_rate": {
+            "count": 8,
+            "sum": 7.0,
+            "value": 0.875
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 8,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 2,
+            "sum": 1.0,
+            "value": 0.5
+          },
+          "label": "semantic_paraphrase",
+          "mrr_at_5": {
+            "count": 8,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_10": {
+            "count": 8,
+            "sum": 0.3154648767857287,
+            "value": 0.039433
+          },
+          "ndcg_at_5": {
+            "count": 8,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "query_count": 8,
+          "recall_at_1": {
+            "count": 8,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_3": {
+            "count": 8,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_5": {
+            "count": 8,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 6,
+            "sum": 6.0,
+            "value": 1.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 6,
+            "sum": 1.0,
+            "value": 0.166667
+          },
+          "ask_input_rejection_rate": {
+            "count": 6,
+            "sum": 5.0,
+            "value": 0.833333
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 1,
+            "sum": 1.0,
+            "value": 1.0
+          },
+          "label": "multi_condition",
+          "mrr_at_5": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_10": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_5": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "query_count": 6,
+          "recall_at_1": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_3": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_5": {
+            "count": 6,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "ask_evidence_found_rate": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "ask_input_rejection_rate": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "label": "ranking_hard_negative",
+          "mrr_at_5": {
+            "count": 4,
+            "sum": 1.0,
+            "value": 0.25
+          },
+          "ndcg_at_10": {
+            "count": 4,
+            "sum": 1.2618595071429148,
+            "value": 0.315465
+          },
+          "ndcg_at_5": {
+            "count": 4,
+            "sum": 1.2618595071429148,
+            "value": 0.315465
+          },
+          "query_count": 4,
+          "recall_at_1": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_3": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "recall_at_5": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "ask_input_rejection_rate": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "unanswerable",
+          "mrr_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_10": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "query_count": 4,
+          "recall_at_1": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_3": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          }
+        }
+      ],
+      "compiled_query_empty_metrics": [
+        {
+          "answerable_zero_hit_rate": {
+            "count": 19,
+            "sum": 5.0,
+            "value": 0.263158
+          },
+          "ask_evidence_found_rate": {
+            "count": 21,
+            "sum": 17.0,
+            "value": 0.809524
+          },
+          "ask_input_rejection_rate": {
+            "count": 21,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 21,
+            "sum": 4.0,
+            "value": 0.190476
+          },
+          "hard_negative_failure_rate": {
+            "count": 13,
+            "sum": 4.0,
+            "value": 0.307692
+          },
+          "label": "false",
+          "mrr_at_5": {
+            "count": 19,
+            "sum": 11.5,
+            "value": 0.605263
+          },
+          "ndcg_at_10": {
+            "count": 19,
+            "sum": 12.20026662204771,
+            "value": 0.642119
+          },
+          "ndcg_at_5": {
+            "count": 19,
+            "sum": 11.884801745261981,
+            "value": 0.625516
+          },
+          "query_count": 21,
+          "recall_at_1": {
+            "count": 19,
+            "sum": 10.0,
+            "value": 0.526316
+          },
+          "recall_at_3": {
+            "count": 19,
+            "sum": 13.0,
+            "value": 0.684211
+          },
+          "recall_at_5": {
+            "count": 19,
+            "sum": 13.0,
+            "value": 0.684211
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 25,
+            "sum": 25.0,
+            "value": 1.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 27,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 27,
+            "sum": 27.0,
+            "value": 1.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 27,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "true",
+          "mrr_at_5": {
+            "count": 25,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_10": {
+            "count": 25,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_5": {
+            "count": 25,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "query_count": 27,
+          "recall_at_1": {
+            "count": 25,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_3": {
+            "count": 25,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_5": {
+            "count": 25,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 2,
+            "sum": 2.0,
+            "value": 1.0
+          }
+        }
+      ],
+      "hard_negative_failure_rate": {
+        "count": 17,
+        "sum": 4.0,
+        "value": 0.235294
+      },
+      "mrr_at_5": {
+        "count": 44,
+        "sum": 11.5,
+        "value": 0.261364
+      },
+      "ndcg_at_10": {
+        "count": 44,
+        "sum": 12.20026662204771,
+        "value": 0.277279
+      },
+      "ndcg_at_5": {
+        "count": 44,
+        "sum": 11.884801745261981,
+        "value": 0.270109
+      },
+      "recall_at_1": {
+        "count": 44,
+        "sum": 10.0,
+        "value": 0.227273
+      },
+      "recall_at_3": {
+        "count": 44,
+        "sum": 13.0,
+        "value": 0.295455
+      },
+      "recall_at_5": {
+        "count": 44,
+        "sum": 13.0,
+        "value": 0.295455
+      },
+      "unanswerable_no_hit_rate": {
+        "count": 4,
+        "sum": 2.0,
+        "value": 0.5
+      }
+    },
+    "current_results": [
+      {
+        "ascii_token_count": 1,
+        "ask_status": "evidence_found",
+        "category": "chinese_exact_lexical",
+        "compiled_query": "\"memfabric\"",
+        "compiled_query_empty": false,
+        "direct_ranks": [
+          2
+        ],
+        "hard_negative_failure": false,
+        "miss": null,
+        "qrel_counts": [
+          0,
+          1,
+          1
+        ],
+        "query_id": "zh-dev-exact-01",
+        "retrieved_grades": [
+          1,
+          2
+        ],
+        "retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 14,
+            "locator_kind": "page",
+            "locator_start": 14
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 13,
+            "locator_kind": "page",
+            "locator_start": 13
+          }
+        ],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 1,
+        "ask_status": "evidence_found",
+        "category": "chinese_exact_lexical",
+        "compiled_query": "\"hcom\"",
+        "compiled_query_empty": false,
+        "direct_ranks": [
+          1
+        ],
+        "hard_negative_failure": false,
+        "miss": null,
+        "qrel_counts": [
+          1,
+          1,
+          1
+        ],
+        "query_id": "zh-dev-exact-02",
+        "retrieved_grades": [
+          2,
+          1,
+          0
+        ],
+        "retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 17,
+            "locator_kind": "page",
+            "locator_start": 17
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 16,
+            "locator_kind": "page",
+            "locator_start": 16
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 26,
+            "locator_kind": "page",
+            "locator_start": 26
+          }
+        ],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 2,
+        "ask_status": "evidence_found",
+        "category": "chinese_exact_lexical",
+        "compiled_query": "\"ubs\" \"io\"",
+        "compiled_query_empty": false,
+        "direct_ranks": [
+          1
+        ],
+        "hard_negative_failure": false,
+        "miss": null,
+        "qrel_counts": [
+          1,
+          1,
+          1
+        ],
+        "query_id": "zh-dev-exact-03",
+        "retrieved_grades": [
+          2,
+          1,
+          0,
+          null,
+          null,
+          null
+        ],
+        "retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 19,
+            "locator_kind": "page",
+            "locator_start": 19
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 20,
+            "locator_kind": "page",
+            "locator_start": 20
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 6,
+            "locator_kind": "page",
+            "locator_start": 6
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 21,
+            "locator_kind": "page",
+            "locator_start": 21
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 12,
+            "locator_kind": "page",
+            "locator_start": 12
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 11,
+            "locator_kind": "page",
+            "locator_start": 11
+          }
+        ],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "chinese_exact_lexical",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "development-adversarial",
+              "locator_end": 5,
+              "locator_kind": "page",
+              "locator_start": 5
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          1,
+          0,
+          1
+        ],
+        "query_id": "zh-dev-exact-04",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "chinese_word_boundary",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "ub-service-core",
+              "locator_end": 8,
+              "locator_kind": "page",
+              "locator_start": 8
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          0,
+          1,
+          1
+        ],
+        "query_id": "zh-dev-boundary-01",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "chinese_word_boundary",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "ub-service-core",
+              "locator_end": 13,
+              "locator_kind": "page",
+              "locator_start": 13
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          0,
+          1,
+          1
+        ],
+        "query_id": "zh-dev-boundary-02",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "chinese_word_boundary",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "development-adversarial",
+              "locator_end": 7,
+              "locator_kind": "page",
+              "locator_start": 7
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          0,
+          1,
+          1
+        ],
+        "query_id": "zh-dev-boundary-03",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 2,
+        "ask_status": "evidence_found",
+        "category": "proper_noun_mixed",
+        "compiled_query": "\"ubs\" \"engine\"",
+        "compiled_query_empty": false,
+        "direct_ranks": [
+          1
+        ],
+        "hard_negative_failure": false,
+        "miss": null,
+        "qrel_counts": [
+          0,
+          2,
+          1
+        ],
+        "query_id": "zh-dev-mixed-01",
+        "retrieved_grades": [
+          2,
+          1,
+          1,
+          null
+        ],
+        "retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 10,
+            "locator_kind": "page",
+            "locator_start": 10
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 12,
+            "locator_kind": "page",
+            "locator_start": 12
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 11,
+            "locator_kind": "page",
+            "locator_start": 11
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 6,
+            "locator_kind": "page",
+            "locator_start": 6
+          }
+        ],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 2,
+        "ask_status": "evidence_found",
+        "category": "proper_noun_mixed",
+        "compiled_query": "\"roub\" \"rdma\"",
+        "compiled_query_empty": false,
+        "direct_ranks": [
+          1
+        ],
+        "hard_negative_failure": false,
+        "miss": null,
+        "qrel_counts": [
+          0,
+          1,
+          1
+        ],
+        "query_id": "zh-dev-mixed-02",
+        "retrieved_grades": [
+          2
+        ],
+        "retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 16,
+            "locator_kind": "page",
+            "locator_start": 16
+          }
+        ],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 2,
+        "ask_status": "evidence_found",
+        "category": "proper_noun_mixed",
+        "compiled_query": "\"databridge\" \"x7\"",
+        "compiled_query_empty": false,
+        "direct_ranks": [
+          1
+        ],
+        "hard_negative_failure": false,
+        "miss": null,
+        "qrel_counts": [
+          1,
+          0,
+          1
+        ],
+        "query_id": "zh-dev-mixed-03",
+        "retrieved_grades": [
+          2
+        ],
+        "retrieved_locators": [
+          {
+            "document_id": "development-adversarial",
+            "locator_end": 3,
+            "locator_kind": "page",
+            "locator_start": 3
+          }
+        ],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 2,
+        "ask_status": "insufficient_evidence",
+        "category": "number_date_unit",
+        "compiled_query": "\"30\" \"50\"",
+        "compiled_query_empty": false,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 2,
+          "compiled_query": "\"30\" \"50\"",
+          "compiled_query_empty": false,
+          "direct_locators": [
+            {
+              "document_id": "ub-service-core",
+              "locator_end": 8,
+              "locator_kind": "page",
+              "locator_start": 8
+            }
+          ],
+          "direct_page_clause_coverage": [
+            [
+              true,
+              true
+            ]
+          ],
+          "observation": "A direct page matched every clause but was not returned.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "matching_direct_page_not_returned"
+        },
+        "qrel_counts": [
+          0,
+          0,
+          1
+        ],
+        "query_id": "zh-dev-number-01",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 1,
+        "ask_status": "insufficient_evidence",
+        "category": "number_date_unit",
+        "compiled_query": "\"3t\"",
+        "compiled_query_empty": false,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 1,
+          "compiled_query": "\"3t\"",
+          "compiled_query_empty": false,
+          "direct_locators": [
+            {
+              "document_id": "ub-service-core",
+              "locator_end": 12,
+              "locator_kind": "page",
+              "locator_start": 12
+            }
+          ],
+          "direct_page_clause_coverage": [
+            [
+              true
+            ]
+          ],
+          "observation": "A direct page matched every clause but was not returned.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "matching_direct_page_not_returned"
+        },
+        "qrel_counts": [
+          0,
+          0,
+          1
+        ],
+        "query_id": "zh-dev-number-02",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 5,
+        "ask_status": "evidence_found",
+        "category": "number_date_unit",
+        "compiled_query": "\"45\" \"2026\" \"3\" \"15\" \"240\"",
+        "compiled_query_empty": false,
+        "direct_ranks": [
+          1
+        ],
+        "hard_negative_failure": false,
+        "miss": null,
+        "qrel_counts": [
+          1,
+          0,
+          1
+        ],
+        "query_id": "zh-dev-number-03",
+        "retrieved_grades": [
+          2
+        ],
+        "retrieved_locators": [
+          {
+            "document_id": "development-adversarial",
+            "locator_end": 1,
+            "locator_kind": "page",
+            "locator_start": 1
+          }
+        ],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 1,
+        "ask_status": "evidence_found",
+        "category": "semantic_paraphrase",
+        "compiled_query": "\"io\"",
+        "compiled_query_empty": false,
+        "direct_ranks": [
+          8
+        ],
+        "hard_negative_failure": true,
+        "miss": null,
+        "qrel_counts": [
+          2,
+          0,
+          1
+        ],
+        "query_id": "zh-dev-semantic-01",
+        "retrieved_grades": [
+          0,
+          0,
+          null,
+          null,
+          null,
+          null,
+          null,
+          2,
+          null
+        ],
+        "retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 19,
+            "locator_kind": "page",
+            "locator_start": 19
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 20,
+            "locator_kind": "page",
+            "locator_start": 20
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 21,
+            "locator_kind": "page",
+            "locator_start": 21
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 9,
+            "locator_kind": "page",
+            "locator_start": 9
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 6,
+            "locator_kind": "page",
+            "locator_start": 6
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 5,
+            "locator_kind": "page",
+            "locator_start": 5
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 12,
+            "locator_kind": "page",
+            "locator_start": 12
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 11,
+            "locator_kind": "page",
+            "locator_start": 11
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 3,
+            "locator_kind": "page",
+            "locator_start": 3
+          }
+        ],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "semantic_paraphrase",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "ub-service-core",
+              "locator_end": 12,
+              "locator_kind": "page",
+              "locator_start": 12
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          0,
+          0,
+          1
+        ],
+        "query_id": "zh-dev-semantic-02",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "semantic_paraphrase",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "ub-service-core",
+              "locator_end": 15,
+              "locator_kind": "page",
+              "locator_start": 15
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          0,
+          1,
+          1
+        ],
+        "query_id": "zh-dev-semantic-03",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "semantic_paraphrase",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "development-adversarial",
+              "locator_end": 5,
+              "locator_kind": "page",
+              "locator_start": 5
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          1,
+          0,
+          1
+        ],
+        "query_id": "zh-dev-semantic-04",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 5,
+        "ask_status": "evidence_found",
+        "category": "multi_condition",
+        "compiled_query": "\"rdma\" \"tcp\" \"urma\" \"shm\" \"api\"",
+        "compiled_query_empty": false,
+        "direct_ranks": [],
+        "hard_negative_failure": true,
+        "miss": {
+          "ascii_token_count": 5,
+          "compiled_query": "\"rdma\" \"tcp\" \"urma\" \"shm\" \"api\"",
+          "compiled_query_empty": false,
+          "direct_locators": [
+            {
+              "document_id": "ub-service-core",
+              "locator_end": 17,
+              "locator_kind": "page",
+              "locator_start": 17
+            }
+          ],
+          "direct_page_clause_coverage": [
+            [
+              true,
+              true,
+              true,
+              true,
+              true
+            ]
+          ],
+          "observation": "A designated distractor ranked ahead of direct Evidence.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [
+            1
+          ],
+          "symptom": "distractor_ranked_ahead"
+        },
+        "qrel_counts": [
+          1,
+          1,
+          1
+        ],
+        "query_id": "zh-dev-multi-01",
+        "retrieved_grades": [
+          0
+        ],
+        "retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 26,
+            "locator_kind": "page",
+            "locator_start": 26
+          }
+        ],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "multi_condition",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "ub-service-core",
+              "locator_end": 9,
+              "locator_kind": "page",
+              "locator_start": 9
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          0,
+          1,
+          1
+        ],
+        "query_id": "zh-dev-multi-02",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "multi_condition",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "development-adversarial",
+              "locator_end": 7,
+              "locator_kind": "page",
+              "locator_start": 7
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          0,
+          1,
+          1
+        ],
+        "query_id": "zh-dev-multi-03",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "ranking_hard_negative",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "ub-service-core",
+              "locator_end": 15,
+              "locator_kind": "page",
+              "locator_start": 15
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          1,
+          1,
+          1
+        ],
+        "query_id": "zh-dev-hard-01",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 1,
+        "ask_status": "evidence_found",
+        "category": "ranking_hard_negative",
+        "compiled_query": "\"45\"",
+        "compiled_query_empty": false,
+        "direct_ranks": [
+          2
+        ],
+        "hard_negative_failure": true,
+        "miss": null,
+        "qrel_counts": [
+          1,
+          0,
+          1
+        ],
+        "query_id": "zh-dev-hard-02",
+        "retrieved_grades": [
+          0,
+          2
+        ],
+        "retrieved_locators": [
+          {
+            "document_id": "development-adversarial",
+            "locator_end": 2,
+            "locator_kind": "page",
+            "locator_start": 2
+          },
+          {
+            "document_id": "development-adversarial",
+            "locator_end": 1,
+            "locator_kind": "page",
+            "locator_start": 1
+          }
+        ],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "unanswerable",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": null,
+        "qrel_counts": [
+          0,
+          0,
+          0
+        ],
+        "query_id": "zh-dev-unanswerable-01",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 2,
+        "ask_status": "evidence_found",
+        "category": "unanswerable",
+        "compiled_query": "\"databridge\" \"x7\"",
+        "compiled_query_empty": false,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": null,
+        "qrel_counts": [
+          0,
+          0,
+          0
+        ],
+        "query_id": "zh-dev-unanswerable-02",
+        "retrieved_grades": [
+          null
+        ],
+        "retrieved_locators": [
+          {
+            "document_id": "development-adversarial",
+            "locator_end": 3,
+            "locator_kind": "page",
+            "locator_start": 3
+          }
+        ],
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "chinese_exact_lexical",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "copyright-law",
+              "locator_end": 14,
+              "locator_kind": "page",
+              "locator_start": 14
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          0,
+          0,
+          1
+        ],
+        "query_id": "zh-hold-exact-01",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "chinese_exact_lexical",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "administrative-compulsion-law",
+              "locator_end": 6,
+              "locator_kind": "page",
+              "locator_start": 6
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          0,
+          0,
+          1
+        ],
+        "query_id": "zh-hold-exact-02",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "chinese_exact_lexical",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "copyright-law",
+              "locator_end": 3,
+              "locator_kind": "page",
+              "locator_start": 3
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          0,
+          1,
+          1
+        ],
+        "query_id": "zh-hold-exact-03",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "chinese_exact_lexical",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "administrative-compulsion-law",
+              "locator_end": 7,
+              "locator_kind": "page",
+              "locator_start": 7
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          0,
+          0,
+          1
+        ],
+        "query_id": "zh-hold-exact-04",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "chinese_word_boundary",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "copyright-law",
+              "locator_end": 5,
+              "locator_kind": "page",
+              "locator_start": 5
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          0,
+          0,
+          1
+        ],
+        "query_id": "zh-hold-boundary-01",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "chinese_word_boundary",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "administrative-compulsion-law",
+              "locator_end": 2,
+              "locator_kind": "page",
+              "locator_start": 2
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          0,
+          0,
+          1
+        ],
+        "query_id": "zh-hold-boundary-02",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "chinese_word_boundary",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "holdout-adversarial",
+              "locator_end": 5,
+              "locator_kind": "page",
+              "locator_start": 5
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          0,
+          1,
+          1
+        ],
+        "query_id": "zh-hold-boundary-03",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 2,
+        "ask_status": "evidence_found",
+        "category": "proper_noun_mixed",
+        "compiled_query": "\"auditnode\" \"r5\"",
+        "compiled_query_empty": false,
+        "direct_ranks": [
+          1
+        ],
+        "hard_negative_failure": false,
+        "miss": null,
+        "qrel_counts": [
+          1,
+          0,
+          1
+        ],
+        "query_id": "zh-hold-mixed-01",
+        "retrieved_grades": [
+          2
+        ],
+        "retrieved_locators": [
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 1,
+            "locator_kind": "page",
+            "locator_start": 1
+          }
+        ],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 3,
+        "ask_status": "evidence_found",
+        "category": "proper_noun_mixed",
+        "compiled_query": "\"routekey\" \"zh\" \"2048\"",
+        "compiled_query_empty": false,
+        "direct_ranks": [
+          1
+        ],
+        "hard_negative_failure": false,
+        "miss": null,
+        "qrel_counts": [
+          1,
+          0,
+          1
+        ],
+        "query_id": "zh-hold-mixed-02",
+        "retrieved_grades": [
+          2
+        ],
+        "retrieved_locators": [
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 3,
+            "locator_kind": "page",
+            "locator_start": 3
+          }
+        ],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 2,
+        "ask_status": "evidence_found",
+        "category": "proper_noun_mixed",
+        "compiled_query": "\"policysync\" \"v2\"",
+        "compiled_query_empty": false,
+        "direct_ranks": [
+          1
+        ],
+        "hard_negative_failure": false,
+        "miss": null,
+        "qrel_counts": [
+          1,
+          0,
+          1
+        ],
+        "query_id": "zh-hold-mixed-03",
+        "retrieved_grades": [
+          2
+        ],
+        "retrieved_locators": [
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 7,
+            "locator_kind": "page",
+            "locator_start": 7
+          }
+        ],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 1,
+        "ask_status": "insufficient_evidence",
+        "category": "number_date_unit",
+        "compiled_query": "\"30\"",
+        "compiled_query_empty": false,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 1,
+          "compiled_query": "\"30\"",
+          "compiled_query_empty": false,
+          "direct_locators": [
+            {
+              "document_id": "administrative-compulsion-law",
+              "locator_end": 6,
+              "locator_kind": "page",
+              "locator_start": 6
+            }
+          ],
+          "direct_page_clause_coverage": [
+            [
+              false
+            ]
+          ],
+          "observation": "No direct page satisfied any required compiled clause.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_clauses_absent_from_direct_page"
+        },
+        "qrel_counts": [
+          1,
+          0,
+          1
+        ],
+        "query_id": "zh-hold-number-01",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 2,
+        "ask_status": "insufficient_evidence",
+        "category": "number_date_unit",
+        "compiled_query": "\"1\" \"5\"",
+        "compiled_query_empty": false,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 2,
+          "compiled_query": "\"1\" \"5\"",
+          "compiled_query_empty": false,
+          "direct_locators": [
+            {
+              "document_id": "copyright-law",
+              "locator_end": 12,
+              "locator_kind": "page",
+              "locator_start": 12
+            }
+          ],
+          "direct_page_clause_coverage": [
+            [
+              false,
+              false
+            ]
+          ],
+          "observation": "No direct page satisfied any required compiled clause.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_clauses_absent_from_direct_page"
+        },
+        "qrel_counts": [
+          0,
+          0,
+          1
+        ],
+        "query_id": "zh-hold-number-02",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 5,
+        "ask_status": "evidence_found",
+        "category": "number_date_unit",
+        "compiled_query": "\"12\" \"320\" \"2025\" \"11\" \"8\"",
+        "compiled_query_empty": false,
+        "direct_ranks": [
+          1
+        ],
+        "hard_negative_failure": false,
+        "miss": null,
+        "qrel_counts": [
+          1,
+          0,
+          1
+        ],
+        "query_id": "zh-hold-number-03",
+        "retrieved_grades": [
+          2
+        ],
+        "retrieved_locators": [
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 7,
+            "locator_kind": "page",
+            "locator_start": 7
+          }
+        ],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "semantic_paraphrase",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "administrative-compulsion-law",
+              "locator_end": 2,
+              "locator_kind": "page",
+              "locator_start": 2
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          0,
+          0,
+          1
+        ],
+        "query_id": "zh-hold-semantic-01",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "semantic_paraphrase",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "administrative-compulsion-law",
+              "locator_end": 6,
+              "locator_kind": "page",
+              "locator_start": 6
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          0,
+          0,
+          1
+        ],
+        "query_id": "zh-hold-semantic-02",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "semantic_paraphrase",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "copyright-law",
+              "locator_end": 5,
+              "locator_kind": "page",
+              "locator_start": 5
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          0,
+          0,
+          1
+        ],
+        "query_id": "zh-hold-semantic-03",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "semantic_paraphrase",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "copyright-law",
+              "locator_end": 14,
+              "locator_kind": "page",
+              "locator_start": 14
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          0,
+          0,
+          1
+        ],
+        "query_id": "zh-hold-semantic-04",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "multi_condition",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "administrative-compulsion-law",
+              "locator_end": 7,
+              "locator_kind": "page",
+              "locator_start": 7
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          0,
+          1,
+          1
+        ],
+        "query_id": "zh-hold-multi-01",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "multi_condition",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "copyright-law",
+              "locator_end": 6,
+              "locator_kind": "page",
+              "locator_start": 6
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          0,
+          1,
+          1
+        ],
+        "query_id": "zh-hold-multi-02",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "multi_condition",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "holdout-adversarial",
+              "locator_end": 5,
+              "locator_kind": "page",
+              "locator_start": 5
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          0,
+          1,
+          1
+        ],
+        "query_id": "zh-hold-multi-03",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "ranking_hard_negative",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": {
+          "ascii_token_count": 0,
+          "compiled_query": "",
+          "compiled_query_empty": true,
+          "direct_locators": [
+            {
+              "document_id": "administrative-compulsion-law",
+              "locator_end": 6,
+              "locator_kind": "page",
+              "locator_start": 6
+            }
+          ],
+          "direct_page_clause_coverage": [
+            []
+          ],
+          "observation": "The current query compiler produced no FTS5 MATCH expression.",
+          "returned_direct_ranks": [],
+          "returned_distractor_ranks": [],
+          "symptom": "compiled_query_empty"
+        },
+        "qrel_counts": [
+          2,
+          0,
+          1
+        ],
+        "query_id": "zh-hold-hard-01",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 1,
+        "ask_status": "evidence_found",
+        "category": "ranking_hard_negative",
+        "compiled_query": "\"12\"",
+        "compiled_query_empty": false,
+        "direct_ranks": [
+          2
+        ],
+        "hard_negative_failure": true,
+        "miss": null,
+        "qrel_counts": [
+          1,
+          0,
+          1
+        ],
+        "query_id": "zh-hold-hard-02",
+        "retrieved_grades": [
+          0,
+          2,
+          null,
+          null,
+          null
+        ],
+        "retrieved_locators": [
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 8,
+            "locator_kind": "page",
+            "locator_start": 8
+          },
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 7,
+            "locator_kind": "page",
+            "locator_start": 7
+          },
+          {
+            "document_id": "copyright-law",
+            "locator_end": 5,
+            "locator_kind": "page",
+            "locator_start": 5
+          },
+          {
+            "document_id": "copyright-law",
+            "locator_end": 12,
+            "locator_kind": "page",
+            "locator_start": 12
+          },
+          {
+            "document_id": "copyright-law",
+            "locator_end": 6,
+            "locator_kind": "page",
+            "locator_start": 6
+          }
+        ],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "ask_status": "invalid_question",
+        "category": "unanswerable",
+        "compiled_query": "",
+        "compiled_query_empty": true,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": null,
+        "qrel_counts": [
+          0,
+          0,
+          0
+        ],
+        "query_id": "zh-hold-unanswerable-01",
+        "retrieved_grades": [],
+        "retrieved_locators": [],
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 2,
+        "ask_status": "evidence_found",
+        "category": "unanswerable",
+        "compiled_query": "\"auditnode\" \"r5\"",
+        "compiled_query_empty": false,
+        "direct_ranks": [],
+        "hard_negative_failure": false,
+        "miss": null,
+        "qrel_counts": [
+          0,
+          0,
+          0
+        ],
+        "query_id": "zh-hold-unanswerable-02",
+        "retrieved_grades": [
+          null
+        ],
+        "retrieved_locators": [
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 1,
+            "locator_kind": "page",
+            "locator_start": 1
+          }
+        ],
+        "split": "holdout"
+      }
+    ],
+    "development_gates": [
+      {
+        "gate_id": "development_answerable_recall_at_5",
+        "observed": "0.681818",
+        "required": ">=0.650000",
+        "status": "passed"
+      },
+      {
+        "gate_id": "development_recall_at_5_delta",
+        "observed": "0.318182",
+        "required": ">=0.250000",
+        "status": "passed"
+      },
+      {
+        "gate_id": "development_compiled_empty_recovered",
+        "observed": "7",
+        "required": ">=6",
+        "status": "passed"
+      },
+      {
+        "gate_id": "development_unanswerable_no_hit",
+        "observed": "0.500000",
+        "required": ">=0.500000",
+        "status": "passed"
+      },
+      {
+        "gate_id": "development_hard_negative_failures",
+        "observed": "0.300000",
+        "required": "<=0.300000",
+        "status": "passed"
+      },
+      {
+        "gate_id": "development_proper_noun_mixed_recall_at_5",
+        "observed": "1.000000",
+        "required": ">=1.000000",
+        "status": "passed"
+      },
+      {
+        "gate_id": "e1_e2_semantic_equality",
+        "observed": "external_validation_required",
+        "required": "unchanged",
+        "status": "passed"
+      }
+    ],
+    "holdout_gates": [
+      {
+        "gate_id": "holdout_recall_at_5",
+        "observed": "0.636364",
+        "required": ">=0.227273",
+        "status": "passed"
+      },
+      {
+        "gate_id": "holdout_ndcg_at_10",
+        "observed": "0.585673",
+        "required": ">=0.210497",
+        "status": "passed"
+      },
+      {
+        "gate_id": "holdout_unanswerable_no_hit",
+        "observed": "0.500000",
+        "required": ">=0.500000",
+        "status": "passed"
+      },
+      {
+        "gate_id": "holdout_hard_negative_failures",
+        "observed": "0.142857",
+        "required": "<=0.142857",
+        "status": "passed"
+      }
+    ],
+    "integrity_failures": [],
+    "integrity_status": "passed",
+    "projection": {
+      "locator_inventory_digest": "a30bd59de00f658229e73f24258394f6a177205a922688680c828f7510a97ce7",
+      "row_count": 70,
+      "text_digest": "7ab021f0ebff61a3f0ca8cc5d51ec7e335cd0d41e52f900beeeab564909a5ae6",
+      "tokenizer": "trigram"
+    },
+    "protocol_id": "retrieval-chinese-v1",
+    "query_observations": [
+      {
+        "ascii_token_count": 1,
+        "candidate_direct_ranks": [
+          2
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 14,
+            "locator_kind": "page",
+            "locator_start": 14
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 13,
+            "locator_kind": "page",
+            "locator_start": 13
+          }
+        ],
+        "candidate_used": false,
+        "category": "chinese_exact_lexical",
+        "current_compiled_query": "\"memfabric\"",
+        "current_compiled_query_empty": false,
+        "current_direct_ranks": [
+          2
+        ],
+        "current_retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 14,
+            "locator_kind": "page",
+            "locator_start": 14
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 13,
+            "locator_kind": "page",
+            "locator_start": 13
+          }
+        ],
+        "generated_terms": [
+          "内存统",
+          "存统一",
+          "统一编",
+          "一编址",
+          "编址数",
+          "址数据",
+          "数据访",
+          "据访问"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 0,
+        "projection_pool_row_count": 0,
+        "query_id": "zh-dev-exact-01",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 1,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 17,
+            "locator_kind": "page",
+            "locator_start": 17
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 16,
+            "locator_kind": "page",
+            "locator_start": 16
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 26,
+            "locator_kind": "page",
+            "locator_start": 26
+          }
+        ],
+        "candidate_used": false,
+        "category": "chinese_exact_lexical",
+        "current_compiled_query": "\"hcom\"",
+        "current_compiled_query_empty": false,
+        "current_direct_ranks": [
+          1
+        ],
+        "current_retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 17,
+            "locator_kind": "page",
+            "locator_start": 17
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 16,
+            "locator_kind": "page",
+            "locator_start": 16
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 26,
+            "locator_kind": "page",
+            "locator_start": 26
+          }
+        ],
+        "generated_terms": [
+          "高带宽",
+          "带宽低",
+          "宽低延",
+          "低延迟",
+          "延迟通",
+          "迟通信",
+          "通信框",
+          "信框架"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 0,
+        "projection_pool_row_count": 0,
+        "query_id": "zh-dev-exact-02",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 2,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 19,
+            "locator_kind": "page",
+            "locator_start": 19
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 20,
+            "locator_kind": "page",
+            "locator_start": 20
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 6,
+            "locator_kind": "page",
+            "locator_start": 6
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 21,
+            "locator_kind": "page",
+            "locator_start": 21
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 12,
+            "locator_kind": "page",
+            "locator_start": 12
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 11,
+            "locator_kind": "page",
+            "locator_start": 11
+          }
+        ],
+        "candidate_used": false,
+        "category": "chinese_exact_lexical",
+        "current_compiled_query": "\"ubs\" \"io\"",
+        "current_compiled_query_empty": false,
+        "current_direct_ranks": [
+          1
+        ],
+        "current_retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 19,
+            "locator_kind": "page",
+            "locator_start": 19
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 20,
+            "locator_kind": "page",
+            "locator_start": 20
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 6,
+            "locator_kind": "page",
+            "locator_start": 6
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 21,
+            "locator_kind": "page",
+            "locator_start": 21
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 12,
+            "locator_kind": "page",
+            "locator_start": 12
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 11,
+            "locator_kind": "page",
+            "locator_start": 11
+          }
+        ],
+        "generated_terms": [
+          "全局数",
+          "局数据",
+          "数据读",
+          "据读写",
+          "读写缓",
+          "写缓存"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 0,
+        "projection_pool_row_count": 0,
+        "query_id": "zh-dev-exact-03",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [
+          {
+            "fts5_rank_hex": "-0x1.d09436272c706p+4",
+            "locator": {
+              "document_id": "development-adversarial",
+              "locator_end": 5,
+              "locator_kind": "page",
+              "locator_start": 5
+            },
+            "matched_terms": [
+              "蓝湖缓",
+              "湖缓存",
+              "缓存服",
+              "存服务",
+              "不完整",
+              "完整索",
+              "整索引"
+            ],
+            "overlap_count": 7,
+            "overlap_ratio": 0.7777777777777778
+          },
+          {
+            "fts5_rank_hex": "-0x1.bbba5bcddc6ecp+3",
+            "locator": {
+              "document_id": "development-adversarial",
+              "locator_end": 6,
+              "locator_kind": "page",
+              "locator_start": 6
+            },
+            "matched_terms": [
+              "蓝湖缓",
+              "湖缓存",
+              "缓存服",
+              "存服务"
+            ],
+            "overlap_count": 4,
+            "overlap_ratio": 0.4444444444444444
+          }
+        ],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "development-adversarial",
+            "locator_end": 5,
+            "locator_kind": "page",
+            "locator_start": 5
+          },
+          {
+            "document_id": "development-adversarial",
+            "locator_end": 6,
+            "locator_kind": "page",
+            "locator_start": 6
+          }
+        ],
+        "candidate_used": true,
+        "category": "chinese_exact_lexical",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "蓝湖缓",
+          "湖缓存",
+          "缓存服",
+          "存服务",
+          "服务不",
+          "务不完",
+          "不完整",
+          "完整索",
+          "整索引"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 8,
+        "query_id": "zh-dev-exact-04",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [
+          {
+            "fts5_rank_hex": "-0x1.44c754157875bp+3",
+            "locator": {
+              "document_id": "ub-service-core",
+              "locator_end": 8,
+              "locator_kind": "page",
+              "locator_start": 8
+            },
+            "matched_terms": [
+              "高阶服",
+              "阶服务",
+              "服务软",
+              "务软件",
+              "软件架",
+              "件架构",
+              "架构分",
+              "构分成"
+            ],
+            "overlap_count": 8,
+            "overlap_ratio": 0.8
+          },
+          {
+            "fts5_rank_hex": "-0x1.4aa4b4adea99ap+3",
+            "locator": {
+              "document_id": "ub-service-core",
+              "locator_end": 6,
+              "locator_kind": "page",
+              "locator_start": 6
+            },
+            "matched_terms": [
+              "高阶服",
+              "阶服务",
+              "服务软",
+              "务软件",
+              "软件架",
+              "件架构"
+            ],
+            "overlap_count": 6,
+            "overlap_ratio": 0.6
+          },
+          {
+            "fts5_rank_hex": "-0x1.44672f7c095bdp+3",
+            "locator": {
+              "document_id": "ub-service-core",
+              "locator_end": 7,
+              "locator_kind": "page",
+              "locator_start": 7
+            },
+            "matched_terms": [
+              "高阶服",
+              "阶服务",
+              "服务软",
+              "务软件",
+              "软件架",
+              "件架构"
+            ],
+            "overlap_count": 6,
+            "overlap_ratio": 0.6
+          },
+          {
+            "fts5_rank_hex": "-0x1.2c12177ebc6c7p+3",
+            "locator": {
+              "document_id": "ub-service-core",
+              "locator_end": 1,
+              "locator_kind": "page",
+              "locator_start": 1
+            },
+            "matched_terms": [
+              "高阶服",
+              "阶服务",
+              "服务软",
+              "务软件",
+              "软件架",
+              "件架构"
+            ],
+            "overlap_count": 6,
+            "overlap_ratio": 0.6
+          },
+          {
+            "fts5_rank_hex": "-0x1.ab220a7cdf2c8p+2",
+            "locator": {
+              "document_id": "ub-service-core",
+              "locator_end": 9,
+              "locator_kind": "page",
+              "locator_start": 9
+            },
+            "matched_terms": [
+              "高阶服",
+              "阶服务",
+              "服务软",
+              "务软件",
+              "软件架",
+              "件架构"
+            ],
+            "overlap_count": 6,
+            "overlap_ratio": 0.6
+          },
+          {
+            "fts5_rank_hex": "-0x1.d167eb4de5eafp+1",
+            "locator": {
+              "document_id": "ub-service-core",
+              "locator_end": 3,
+              "locator_kind": "page",
+              "locator_start": 3
+            },
+            "matched_terms": [
+              "高阶服",
+              "阶服务",
+              "服务软",
+              "务软件",
+              "软件架",
+              "件架构"
+            ],
+            "overlap_count": 6,
+            "overlap_ratio": 0.6
+          },
+          {
+            "fts5_rank_hex": "-0x1.1212007d0853cp+1",
+            "locator": {
+              "document_id": "ub-service-core",
+              "locator_end": 5,
+              "locator_kind": "page",
+              "locator_start": 5
+            },
+            "matched_terms": [
+              "高阶服",
+              "阶服务",
+              "软件架",
+              "件架构"
+            ],
+            "overlap_count": 4,
+            "overlap_ratio": 0.4
+          },
+          {
+            "fts5_rank_hex": "-0x1.a5c1a74df0301p+1",
+            "locator": {
+              "document_id": "ub-service-core",
+              "locator_end": 17,
+              "locator_kind": "page",
+              "locator_start": 17
+            },
+            "matched_terms": [
+              "软件架",
+              "件架构",
+              "架构分"
+            ],
+            "overlap_count": 3,
+            "overlap_ratio": 0.3
+          }
+        ],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 8,
+            "locator_kind": "page",
+            "locator_start": 8
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 6,
+            "locator_kind": "page",
+            "locator_start": 6
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 7,
+            "locator_kind": "page",
+            "locator_start": 7
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 1,
+            "locator_kind": "page",
+            "locator_start": 1
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 9,
+            "locator_kind": "page",
+            "locator_start": 9
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 3,
+            "locator_kind": "page",
+            "locator_start": 3
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 5,
+            "locator_kind": "page",
+            "locator_start": 5
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 17,
+            "locator_kind": "page",
+            "locator_start": 17
+          }
+        ],
+        "candidate_used": true,
+        "category": "chinese_word_boundary",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "高阶服",
+          "阶服务",
+          "服务软",
+          "务软件",
+          "软件架",
+          "件架构",
+          "架构分",
+          "构分成",
+          "分成几",
+          "成几层"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 15,
+        "query_id": "zh-dev-boundary-01",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [
+          2
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [
+          {
+            "fts5_rank_hex": "-0x1.240e98adfedbbp+3",
+            "locator": {
+              "document_id": "ub-service-core",
+              "locator_end": 14,
+              "locator_kind": "page",
+              "locator_start": 14
+            },
+            "matched_terms": [
+              "共享内",
+              "享内存",
+              "内存服",
+              "存服务"
+            ],
+            "overlap_count": 4,
+            "overlap_ratio": 0.36363636363636365
+          },
+          {
+            "fts5_rank_hex": "-0x1.1619dda9f90c2p+3",
+            "locator": {
+              "document_id": "ub-service-core",
+              "locator_end": 13,
+              "locator_kind": "page",
+              "locator_start": 13
+            },
+            "matched_terms": [
+              "共享内",
+              "享内存",
+              "内存服",
+              "存服务"
+            ],
+            "overlap_count": 4,
+            "overlap_ratio": 0.36363636363636365
+          }
+        ],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 14,
+            "locator_kind": "page",
+            "locator_start": 14
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 13,
+            "locator_kind": "page",
+            "locator_start": 13
+          }
+        ],
+        "candidate_used": true,
+        "category": "chinese_word_boundary",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "共享内",
+          "享内存",
+          "内存服",
+          "存服务",
+          "服务由",
+          "务由哪",
+          "由哪个",
+          "哪个组",
+          "个组件",
+          "组件提",
+          "件提供"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 11,
+        "query_id": "zh-dev-boundary-02",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [
+          {
+            "fts5_rank_hex": "-0x1.a2f64a858ab67p+5",
+            "locator": {
+              "document_id": "development-adversarial",
+              "locator_end": 7,
+              "locator_kind": "page",
+              "locator_start": 7
+            },
+            "matched_terms": [
+              "来源校",
+              "源校验",
+              "校验通",
+              "验通过",
+              "通过且",
+              "过且索",
+              "且索引",
+              "索引构",
+              "引构建",
+              "构建完",
+              "建完成"
+            ],
+            "overlap_count": 11,
+            "overlap_ratio": 1.0
+          },
+          {
+            "fts5_rank_hex": "-0x1.0ca2628ee57d7p+4",
+            "locator": {
+              "document_id": "development-adversarial",
+              "locator_end": 8,
+              "locator_kind": "page",
+              "locator_start": 8
+            },
+            "matched_terms": [
+              "来源校",
+              "源校验",
+              "索引构",
+              "引构建"
+            ],
+            "overlap_count": 4,
+            "overlap_ratio": 0.36363636363636365
+          }
+        ],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "development-adversarial",
+            "locator_end": 7,
+            "locator_kind": "page",
+            "locator_start": 7
+          },
+          {
+            "document_id": "development-adversarial",
+            "locator_end": 8,
+            "locator_kind": "page",
+            "locator_start": 8
+          }
+        ],
+        "candidate_used": true,
+        "category": "chinese_word_boundary",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "来源校",
+          "源校验",
+          "校验通",
+          "验通过",
+          "通过且",
+          "过且索",
+          "且索引",
+          "索引构",
+          "引构建",
+          "构建完",
+          "建完成"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 2,
+        "query_id": "zh-dev-boundary-03",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 2,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 10,
+            "locator_kind": "page",
+            "locator_start": 10
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 12,
+            "locator_kind": "page",
+            "locator_start": 12
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 11,
+            "locator_kind": "page",
+            "locator_start": 11
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 6,
+            "locator_kind": "page",
+            "locator_start": 6
+          }
+        ],
+        "candidate_used": false,
+        "category": "proper_noun_mixed",
+        "current_compiled_query": "\"ubs\" \"engine\"",
+        "current_compiled_query_empty": false,
+        "current_direct_ranks": [
+          1
+        ],
+        "current_retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 10,
+            "locator_kind": "page",
+            "locator_start": 10
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 12,
+            "locator_kind": "page",
+            "locator_start": 12
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 11,
+            "locator_kind": "page",
+            "locator_start": 11
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 6,
+            "locator_kind": "page",
+            "locator_start": 6
+          }
+        ],
+        "generated_terms": [
+          "负责什",
+          "责什么"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 0,
+        "projection_pool_row_count": 0,
+        "query_id": "zh-dev-mixed-01",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 2,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 16,
+            "locator_kind": "page",
+            "locator_start": 16
+          }
+        ],
+        "candidate_used": false,
+        "category": "proper_noun_mixed",
+        "current_compiled_query": "\"roub\" \"rdma\"",
+        "current_compiled_query_empty": false,
+        "current_direct_ranks": [
+          1
+        ],
+        "current_retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 16,
+            "locator_kind": "page",
+            "locator_start": 16
+          }
+        ],
+        "generated_terms": [
+          "如何迁",
+          "何迁移"
+        ],
+        "omitted_below_minimum": [
+          "应用"
+        ],
+        "parameterized_match_count": 0,
+        "projection_pool_row_count": 0,
+        "query_id": "zh-dev-mixed-02",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 2,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "development-adversarial",
+            "locator_end": 3,
+            "locator_kind": "page",
+            "locator_start": 3
+          }
+        ],
+        "candidate_used": false,
+        "category": "proper_noun_mixed",
+        "current_compiled_query": "\"databridge\" \"x7\"",
+        "current_compiled_query_empty": false,
+        "current_direct_ranks": [
+          1
+        ],
+        "current_retrieved_locators": [
+          {
+            "document_id": "development-adversarial",
+            "locator_end": 3,
+            "locator_kind": "page",
+            "locator_start": 3
+          }
+        ],
+        "generated_terms": [
+          "网关写",
+          "关写入",
+          "写入什",
+          "入什么",
+          "什么队",
+          "么队列"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 0,
+        "projection_pool_row_count": 0,
+        "query_id": "zh-dev-mixed-03",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 2,
+        "candidate_direct_ranks": [],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [],
+        "candidate_used": false,
+        "category": "number_date_unit",
+        "current_compiled_query": "\"30\" \"50\"",
+        "current_compiled_query_empty": false,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "应用加",
+          "用加速",
+          "百分比"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 0,
+        "projection_pool_row_count": 0,
+        "query_id": "zh-dev-number-01",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 1,
+        "candidate_direct_ranks": [],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [],
+        "candidate_used": false,
+        "category": "number_date_unit",
+        "current_compiled_query": "\"3t\"",
+        "current_compiled_query_empty": false,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "以上超",
+          "上超大",
+          "超大规",
+          "大规模",
+          "规模虚",
+          "模虚机"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 0,
+        "projection_pool_row_count": 0,
+        "query_id": "zh-dev-number-02",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 5,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "development-adversarial",
+            "locator_end": 1,
+            "locator_kind": "page",
+            "locator_start": 1
+          }
+        ],
+        "candidate_used": false,
+        "category": "number_date_unit",
+        "current_compiled_query": "\"45\" \"2026\" \"3\" \"15\" \"240\"",
+        "current_compiled_query_empty": false,
+        "current_direct_ranks": [
+          1
+        ],
+        "current_retrieved_locators": [
+          {
+            "document_id": "development-adversarial",
+            "locator_end": 1,
+            "locator_kind": "page",
+            "locator_start": 1
+          }
+        ],
+        "generated_terms": [
+          "个任务"
+        ],
+        "omitted_below_minimum": [
+          "秒",
+          "年",
+          "月",
+          "日"
+        ],
+        "parameterized_match_count": 0,
+        "projection_pool_row_count": 0,
+        "query_id": "zh-dev-number-03",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 1,
+        "candidate_direct_ranks": [
+          8
+        ],
+        "candidate_hard_negative_failure": true,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 19,
+            "locator_kind": "page",
+            "locator_start": 19
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 20,
+            "locator_kind": "page",
+            "locator_start": 20
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 21,
+            "locator_kind": "page",
+            "locator_start": 21
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 9,
+            "locator_kind": "page",
+            "locator_start": 9
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 6,
+            "locator_kind": "page",
+            "locator_start": 6
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 5,
+            "locator_kind": "page",
+            "locator_start": 5
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 12,
+            "locator_kind": "page",
+            "locator_start": 12
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 11,
+            "locator_kind": "page",
+            "locator_start": 11
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 3,
+            "locator_kind": "page",
+            "locator_start": 3
+          }
+        ],
+        "candidate_used": false,
+        "category": "semantic_paraphrase",
+        "current_compiled_query": "\"io\"",
+        "current_compiled_query_empty": false,
+        "current_direct_ranks": [
+          8
+        ],
+        "current_retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 19,
+            "locator_kind": "page",
+            "locator_start": 19
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 20,
+            "locator_kind": "page",
+            "locator_start": 20
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 21,
+            "locator_kind": "page",
+            "locator_start": 21
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 9,
+            "locator_kind": "page",
+            "locator_start": 9
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 6,
+            "locator_kind": "page",
+            "locator_start": 6
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 5,
+            "locator_kind": "page",
+            "locator_start": 5
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 12,
+            "locator_kind": "page",
+            "locator_start": 12
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 11,
+            "locator_kind": "page",
+            "locator_start": 11
+          },
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 3,
+            "locator_kind": "page",
+            "locator_start": 3
+          }
+        ],
+        "generated_terms": [
+          "哪个模",
+          "个模块",
+          "模块把",
+          "块把剩",
+          "把剩余",
+          "剩余内",
+          "余内存",
+          "内存组",
+          "存组成",
+          "组成全",
+          "成全局",
+          "缓存池"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 0,
+        "projection_pool_row_count": 0,
+        "query_id": "zh-dev-semantic-01",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [
+          {
+            "fts5_rank_hex": "-0x1.de3ff19e4e9b0p+4",
+            "locator": {
+              "document_id": "ub-service-core",
+              "locator_end": 12,
+              "locator_kind": "page",
+              "locator_start": 12
+            },
+            "matched_terms": [
+              "避免虚",
+              "免虚机",
+              "虚机因",
+              "机因节",
+              "因节点",
+              "节点内",
+              "点内存",
+              "内存不",
+              "存不足"
+            ],
+            "overlap_count": 9,
+            "overlap_ratio": 0.6923076923076923
+          }
+        ],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 12,
+            "locator_kind": "page",
+            "locator_start": 12
+          }
+        ],
+        "candidate_used": true,
+        "category": "semantic_paraphrase",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "怎样避",
+          "样避免",
+          "避免虚",
+          "免虚机",
+          "虚机因",
+          "机因节",
+          "因节点",
+          "节点内",
+          "点内存",
+          "内存不",
+          "存不足",
+          "不足退",
+          "足退出"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 5,
+        "query_id": "zh-dev-semantic-02",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [
+          {
+            "fts5_rank_hex": "-0x1.e8936de0bcd99p+4",
+            "locator": {
+              "document_id": "ub-service-core",
+              "locator_end": 15,
+              "locator_kind": "page",
+              "locator_start": 15
+            },
+            "matched_terms": [
+              "多副本",
+              "副本强",
+              "本强一",
+              "强一致",
+              "致低延",
+              "低延迟",
+              "内存存",
+              "存存储"
+            ],
+            "overlap_count": 8,
+            "overlap_ratio": 0.47058823529411764
+          }
+        ],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 15,
+            "locator_kind": "page",
+            "locator_start": 15
+          }
+        ],
+        "candidate_used": true,
+        "category": "semantic_paraphrase",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "哪个组",
+          "个组件",
+          "组件提",
+          "件提供",
+          "提供多",
+          "供多副",
+          "多副本",
+          "副本强",
+          "本强一",
+          "强一致",
+          "一致低",
+          "致低延",
+          "低延迟",
+          "延迟内",
+          "迟内存",
+          "内存存",
+          "存存储"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 3,
+        "query_id": "zh-dev-semantic-03",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [],
+        "candidate_used": true,
+        "category": "semantic_paraphrase",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "节点断",
+          "点断开",
+          "断开后",
+          "开后如",
+          "后如何",
+          "如何防",
+          "何防止",
+          "防止发",
+          "止发布",
+          "发布半",
+          "布半成",
+          "半成品",
+          "成品索",
+          "品索引"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 0,
+        "query_id": "zh-dev-semantic-04",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 5,
+        "candidate_direct_ranks": [],
+        "candidate_hard_negative_failure": true,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 26,
+            "locator_kind": "page",
+            "locator_start": 26
+          }
+        ],
+        "candidate_used": false,
+        "category": "multi_condition",
+        "current_compiled_query": "\"rdma\" \"tcp\" \"urma\" \"shm\" \"api\"",
+        "current_compiled_query_empty": false,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [
+          {
+            "document_id": "ub-service-core",
+            "locator_end": 26,
+            "locator_kind": "page",
+            "locator_start": 26
+          }
+        ],
+        "generated_terms": [
+          "哪个通",
+          "个通信",
+          "通信框",
+          "信框架",
+          "框架同",
+          "架同时",
+          "同时屏",
+          "时屏蔽"
+        ],
+        "omitted_below_minimum": [
+          "低级",
+          "差异"
+        ],
+        "parameterized_match_count": 0,
+        "projection_pool_row_count": 0,
+        "query_id": "zh-dev-multi-01",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [],
+        "candidate_used": true,
+        "category": "multi_condition",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "哪个服",
+          "个服务",
+          "服务同",
+          "务同时",
+          "同时支",
+          "时支持",
+          "支持共",
+          "持共享",
+          "共享内",
+          "享内存",
+          "内存和",
+          "存和池",
+          "和池化",
+          "池化内",
+          "化内存"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 7,
+        "query_id": "zh-dev-multi-02",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [
+          {
+            "fts5_rank_hex": "-0x1.1acd87fce9d29p+5",
+            "locator": {
+              "document_id": "development-adversarial",
+              "locator_end": 7,
+              "locator_kind": "page",
+              "locator_start": 7
+            },
+            "matched_terms": [
+              "青岚分",
+              "岚分析",
+              "分析引",
+              "析引擎",
+              "切换活",
+              "换活动",
+              "活动版",
+              "动版本"
+            ],
+            "overlap_count": 8,
+            "overlap_ratio": 0.5333333333333333
+          }
+        ],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "development-adversarial",
+            "locator_end": 7,
+            "locator_kind": "page",
+            "locator_start": 7
+          }
+        ],
+        "candidate_used": true,
+        "category": "multi_condition",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "什么条",
+          "么条件",
+          "条件下",
+          "件下青",
+          "下青岚",
+          "青岚分",
+          "岚分析",
+          "分析引",
+          "析引擎",
+          "引擎切",
+          "擎切换",
+          "切换活",
+          "换活动",
+          "活动版",
+          "动版本"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 3,
+        "query_id": "zh-dev-multi-03",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [],
+        "candidate_used": true,
+        "category": "ranking_hard_negative",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "弱一致",
+          "一致缓",
+          "致缓存",
+          "缓存和",
+          "存和强",
+          "和强一",
+          "强一致",
+          "一致存",
+          "致存储",
+          "存储分",
+          "储分别",
+          "分别由",
+          "别由哪",
+          "由哪些",
+          "哪些组",
+          "些组件",
+          "组件提",
+          "件提供"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 2,
+        "query_id": "zh-dev-hard-01",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 1,
+        "candidate_direct_ranks": [
+          2
+        ],
+        "candidate_hard_negative_failure": true,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "development-adversarial",
+            "locator_end": 2,
+            "locator_kind": "page",
+            "locator_start": 2
+          },
+          {
+            "document_id": "development-adversarial",
+            "locator_end": 1,
+            "locator_kind": "page",
+            "locator_start": 1
+          }
+        ],
+        "candidate_used": false,
+        "category": "ranking_hard_negative",
+        "current_compiled_query": "\"45\"",
+        "current_compiled_query_empty": false,
+        "current_direct_ranks": [
+          2
+        ],
+        "current_retrieved_locators": [
+          {
+            "document_id": "development-adversarial",
+            "locator_end": 2,
+            "locator_kind": "page",
+            "locator_start": 2
+          },
+          {
+            "document_id": "development-adversarial",
+            "locator_end": 1,
+            "locator_kind": "page",
+            "locator_start": 1
+          }
+        ],
+        "generated_terms": [
+          "哪个星",
+          "个星河",
+          "星河任",
+          "河任务",
+          "任务每",
+          "秒检查",
+          "检查一",
+          "查一次"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 0,
+        "projection_pool_row_count": 0,
+        "query_id": "zh-dev-hard-02",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [],
+        "candidate_used": true,
+        "category": "unanswerable",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "灵衢系",
+          "衢系统",
+          "系统是",
+          "统是否",
+          "是否支",
+          "否支持",
+          "支持量",
+          "持量子",
+          "量子密",
+          "子密钥",
+          "密钥分",
+          "钥分发"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 22,
+        "query_id": "zh-dev-unanswerable-01",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 2,
+        "candidate_direct_ranks": [],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "development-adversarial",
+            "locator_end": 3,
+            "locator_kind": "page",
+            "locator_start": 3
+          }
+        ],
+        "candidate_used": false,
+        "category": "unanswerable",
+        "current_compiled_query": "\"databridge\" \"x7\"",
+        "current_compiled_query_empty": false,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [
+          {
+            "document_id": "development-adversarial",
+            "locator_end": 3,
+            "locator_kind": "page",
+            "locator_start": 3
+          }
+        ],
+        "generated_terms": [
+          "是否提",
+          "否提供",
+          "提供生",
+          "供生物",
+          "生物识",
+          "物识别",
+          "识别登",
+          "别登录"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 0,
+        "projection_pool_row_count": 0,
+        "query_id": "zh-dev-unanswerable-02",
+        "split": "development"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [
+          {
+            "fts5_rank_hex": "-0x1.7d7a00c522718p+3",
+            "locator": {
+              "document_id": "copyright-law",
+              "locator_end": 14,
+              "locator_kind": "page",
+              "locator_start": 14
+            },
+            "matched_terms": [
+              "著作权",
+              "作权即",
+              "权即版",
+              "即版权"
+            ],
+            "overlap_count": 4,
+            "overlap_ratio": 1.0
+          }
+        ],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "copyright-law",
+            "locator_end": 14,
+            "locator_kind": "page",
+            "locator_start": 14
+          }
+        ],
+        "candidate_used": true,
+        "category": "chinese_exact_lexical",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "著作权",
+          "作权即",
+          "权即版",
+          "即版权"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 14,
+        "query_id": "zh-hold-exact-01",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [
+          2
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [
+          {
+            "fts5_rank_hex": "-0x1.4b3701edd6fd9p+4",
+            "locator": {
+              "document_id": "administrative-compulsion-law",
+              "locator_end": 7,
+              "locator_kind": "page",
+              "locator_start": 7
+            },
+            "matched_terms": [
+              "扣押期",
+              "押期限",
+              "期限不",
+              "限不得",
+              "不得超",
+              "得超过",
+              "超过三",
+              "过三十",
+              "三十日"
+            ],
+            "overlap_count": 9,
+            "overlap_ratio": 0.8181818181818182
+          },
+          {
+            "fts5_rank_hex": "-0x1.4226b55f9dc98p+4",
+            "locator": {
+              "document_id": "administrative-compulsion-law",
+              "locator_end": 6,
+              "locator_kind": "page",
+              "locator_start": 6
+            },
+            "matched_terms": [
+              "期限不",
+              "限不得",
+              "不得超",
+              "得超过",
+              "超过三",
+              "过三十",
+              "三十日"
+            ],
+            "overlap_count": 7,
+            "overlap_ratio": 0.6363636363636364
+          },
+          {
+            "fts5_rank_hex": "-0x1.dfcdb293af7b8p+2",
+            "locator": {
+              "document_id": "administrative-compulsion-law",
+              "locator_end": 10,
+              "locator_kind": "page",
+              "locator_start": 10
+            },
+            "matched_terms": [
+              "不得超",
+              "超过三",
+              "过三十",
+              "三十日"
+            ],
+            "overlap_count": 4,
+            "overlap_ratio": 0.36363636363636365
+          }
+        ],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "administrative-compulsion-law",
+            "locator_end": 7,
+            "locator_kind": "page",
+            "locator_start": 7
+          },
+          {
+            "document_id": "administrative-compulsion-law",
+            "locator_end": 6,
+            "locator_kind": "page",
+            "locator_start": 6
+          },
+          {
+            "document_id": "administrative-compulsion-law",
+            "locator_end": 10,
+            "locator_kind": "page",
+            "locator_start": 10
+          }
+        ],
+        "candidate_used": true,
+        "category": "chinese_exact_lexical",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "查封扣",
+          "封扣押",
+          "扣押期",
+          "押期限",
+          "期限不",
+          "限不得",
+          "不得超",
+          "得超过",
+          "超过三",
+          "过三十",
+          "三十日"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 7,
+        "query_id": "zh-hold-exact-02",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [
+          2
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [
+          {
+            "fts5_rank_hex": "-0x1.aecc4b9550125p+3",
+            "locator": {
+              "document_id": "copyright-law",
+              "locator_end": 14,
+              "locator_kind": "page",
+              "locator_start": 14
+            },
+            "matched_terms": [
+              "信息网",
+              "息网络",
+              "网络传",
+              "络传播",
+              "传播权"
+            ],
+            "overlap_count": 5,
+            "overlap_ratio": 1.0
+          },
+          {
+            "fts5_rank_hex": "-0x1.37c29a0d7cfb6p+3",
+            "locator": {
+              "document_id": "copyright-law",
+              "locator_end": 3,
+              "locator_kind": "page",
+              "locator_start": 3
+            },
+            "matched_terms": [
+              "信息网",
+              "息网络",
+              "网络传",
+              "络传播",
+              "传播权"
+            ],
+            "overlap_count": 5,
+            "overlap_ratio": 1.0
+          },
+          {
+            "fts5_rank_hex": "-0x1.4900b347e8839p+2",
+            "locator": {
+              "document_id": "copyright-law",
+              "locator_end": 12,
+              "locator_kind": "page",
+              "locator_start": 12
+            },
+            "matched_terms": [
+              "信息网",
+              "息网络"
+            ],
+            "overlap_count": 2,
+            "overlap_ratio": 0.4
+          },
+          {
+            "fts5_rank_hex": "-0x1.41a19f990f84fp+2",
+            "locator": {
+              "document_id": "copyright-law",
+              "locator_end": 9,
+              "locator_kind": "page",
+              "locator_start": 9
+            },
+            "matched_terms": [
+              "信息网",
+              "息网络"
+            ],
+            "overlap_count": 2,
+            "overlap_ratio": 0.4
+          },
+          {
+            "fts5_rank_hex": "-0x1.11840c7d698abp+2",
+            "locator": {
+              "document_id": "copyright-law",
+              "locator_end": 10,
+              "locator_kind": "page",
+              "locator_start": 10
+            },
+            "matched_terms": [
+              "信息网",
+              "息网络"
+            ],
+            "overlap_count": 2,
+            "overlap_ratio": 0.4
+          }
+        ],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "copyright-law",
+            "locator_end": 14,
+            "locator_kind": "page",
+            "locator_start": 14
+          },
+          {
+            "document_id": "copyright-law",
+            "locator_end": 3,
+            "locator_kind": "page",
+            "locator_start": 3
+          },
+          {
+            "document_id": "copyright-law",
+            "locator_end": 12,
+            "locator_kind": "page",
+            "locator_start": 12
+          },
+          {
+            "document_id": "copyright-law",
+            "locator_end": 9,
+            "locator_kind": "page",
+            "locator_start": 9
+          },
+          {
+            "document_id": "copyright-law",
+            "locator_end": 10,
+            "locator_kind": "page",
+            "locator_start": 10
+          }
+        ],
+        "candidate_used": true,
+        "category": "chinese_exact_lexical",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "信息网",
+          "息网络",
+          "网络传",
+          "络传播",
+          "传播权"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 5,
+        "query_id": "zh-hold-exact-03",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [
+          {
+            "fts5_rank_hex": "-0x1.c14be16fb1e12p+3",
+            "locator": {
+              "document_id": "administrative-compulsion-law",
+              "locator_end": 7,
+              "locator_kind": "page",
+              "locator_start": 7
+            },
+            "matched_terms": [
+              "冻结决",
+              "结决定",
+              "决定书",
+              "三日内"
+            ],
+            "overlap_count": 4,
+            "overlap_ratio": 0.5
+          }
+        ],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "administrative-compulsion-law",
+            "locator_end": 7,
+            "locator_kind": "page",
+            "locator_start": 7
+          }
+        ],
+        "candidate_used": true,
+        "category": "chinese_exact_lexical",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "冻结决",
+          "结决定",
+          "决定书",
+          "定书三",
+          "书三日",
+          "三日内",
+          "日内交",
+          "内交付"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 5,
+        "query_id": "zh-hold-exact-04",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [
+          {
+            "fts5_rank_hex": "-0x1.3ef57aa8b758bp+3",
+            "locator": {
+              "document_id": "copyright-law",
+              "locator_end": 5,
+              "locator_kind": "page",
+              "locator_start": 5
+            },
+            "matched_terms": [
+              "受委托",
+              "委托创",
+              "托创作",
+              "作作品"
+            ],
+            "overlap_count": 4,
+            "overlap_ratio": 0.4
+          }
+        ],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "copyright-law",
+            "locator_end": 5,
+            "locator_kind": "page",
+            "locator_start": 5
+          }
+        ],
+        "candidate_used": true,
+        "category": "chinese_word_boundary",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "受委托",
+          "委托创",
+          "托创作",
+          "创作作",
+          "作作品",
+          "作品未",
+          "品未约",
+          "未约定",
+          "约定归",
+          "定归属"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 2,
+        "query_id": "zh-hold-boundary-01",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [
+          {
+            "fts5_rank_hex": "-0x1.1542396941b78p+4",
+            "locator": {
+              "document_id": "administrative-compulsion-law",
+              "locator_end": 2,
+              "locator_kind": "page",
+              "locator_start": 2
+            },
+            "matched_terms": [
+              "教育与",
+              "育与强",
+              "与强制",
+              "强制相",
+              "制相结",
+              "相结合"
+            ],
+            "overlap_count": 6,
+            "overlap_ratio": 1.0
+          }
+        ],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "administrative-compulsion-law",
+            "locator_end": 2,
+            "locator_kind": "page",
+            "locator_start": 2
+          }
+        ],
+        "candidate_used": true,
+        "category": "chinese_word_boundary",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "教育与",
+          "育与强",
+          "与强制",
+          "强制相",
+          "制相结",
+          "相结合"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 1,
+        "query_id": "zh-hold-boundary-02",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [
+          {
+            "fts5_rank_hex": "-0x1.36a4f27564be1p+5",
+            "locator": {
+              "document_id": "holdout-adversarial",
+              "locator_end": 5,
+              "locator_kind": "page",
+              "locator_start": 5
+            },
+            "matched_terms": [
+              "主副本",
+              "副本校",
+              "本校验",
+              "校验一",
+              "验一致",
+              "一致且",
+              "致且审",
+              "且审批"
+            ],
+            "overlap_count": 8,
+            "overlap_ratio": 0.8
+          },
+          {
+            "fts5_rank_hex": "-0x1.9e31faf21c24dp+3",
+            "locator": {
+              "document_id": "holdout-adversarial",
+              "locator_end": 6,
+              "locator_kind": "page",
+              "locator_start": 6
+            },
+            "matched_terms": [
+              "主副本",
+              "副本校",
+              "本校验"
+            ],
+            "overlap_count": 3,
+            "overlap_ratio": 0.3
+          }
+        ],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 5,
+            "locator_kind": "page",
+            "locator_start": 5
+          },
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 6,
+            "locator_kind": "page",
+            "locator_start": 6
+          }
+        ],
+        "candidate_used": true,
+        "category": "chinese_word_boundary",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "主副本",
+          "副本校",
+          "本校验",
+          "校验一",
+          "验一致",
+          "一致且",
+          "致且审",
+          "且审批",
+          "审批通",
+          "批通过"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 2,
+        "query_id": "zh-hold-boundary-03",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 2,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 1,
+            "locator_kind": "page",
+            "locator_start": 1
+          }
+        ],
+        "candidate_used": false,
+        "category": "proper_noun_mixed",
+        "current_compiled_query": "\"auditnode\" \"r5\"",
+        "current_compiled_query_empty": false,
+        "current_direct_ranks": [
+          1
+        ],
+        "current_retrieved_locators": [
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 1,
+            "locator_kind": "page",
+            "locator_start": 1
+          }
+        ],
+        "generated_terms": [
+          "日志保",
+          "志保留",
+          "保留期"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 0,
+        "projection_pool_row_count": 0,
+        "query_id": "zh-hold-mixed-01",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 3,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 3,
+            "locator_kind": "page",
+            "locator_start": 3
+          }
+        ],
+        "candidate_used": false,
+        "category": "proper_noun_mixed",
+        "current_compiled_query": "\"routekey\" \"zh\" \"2048\"",
+        "current_compiled_query_empty": false,
+        "current_direct_ranks": [
+          1
+        ],
+        "current_retrieved_locators": [
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 3,
+            "locator_kind": "page",
+            "locator_start": 3
+          }
+        ],
+        "generated_terms": [
+          "跨区域",
+          "区域路",
+          "域路由"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 0,
+        "projection_pool_row_count": 0,
+        "query_id": "zh-hold-mixed-02",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 2,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 7,
+            "locator_kind": "page",
+            "locator_start": 7
+          }
+        ],
+        "candidate_used": false,
+        "category": "proper_noun_mixed",
+        "current_compiled_query": "\"policysync\" \"v2\"",
+        "current_compiled_query_empty": false,
+        "current_direct_ranks": [
+          1
+        ],
+        "current_retrieved_locators": [
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 7,
+            "locator_kind": "page",
+            "locator_start": 7
+          }
+        ],
+        "generated_terms": [
+          "何时上",
+          "时上报",
+          "上报心",
+          "报心跳"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 0,
+        "projection_pool_row_count": 0,
+        "query_id": "zh-hold-mixed-03",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 1,
+        "candidate_direct_ranks": [],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [],
+        "candidate_used": false,
+        "category": "number_date_unit",
+        "current_compiled_query": "\"30\"",
+        "current_compiled_query_empty": false,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "日查封",
+          "查封扣",
+          "封扣押",
+          "扣押延",
+          "押延长",
+          "延长期",
+          "长期限"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 0,
+        "projection_pool_row_count": 0,
+        "query_id": "zh-hold-number-01",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 2,
+        "candidate_direct_ranks": [],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [],
+        "candidate_used": false,
+        "category": "number_date_unit",
+        "current_compiled_query": "\"1\" \"5\"",
+        "current_compiled_query_empty": false,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "倍故意",
+          "故意侵",
+          "意侵权",
+          "侵权赔",
+          "权赔偿"
+        ],
+        "omitted_below_minimum": [
+          "倍"
+        ],
+        "parameterized_match_count": 0,
+        "projection_pool_row_count": 0,
+        "query_id": "zh-hold-number-02",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 5,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 7,
+            "locator_kind": "page",
+            "locator_start": 7
+          }
+        ],
+        "candidate_used": false,
+        "category": "number_date_unit",
+        "current_compiled_query": "\"12\" \"320\" \"2025\" \"11\" \"8\"",
+        "current_compiled_query_empty": false,
+        "current_direct_ranks": [
+          1
+        ],
+        "current_retrieved_locators": [
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 7,
+            "locator_kind": "page",
+            "locator_start": 7
+          }
+        ],
+        "generated_terms": [],
+        "omitted_below_minimum": [
+          "秒",
+          "条",
+          "年",
+          "月",
+          "日"
+        ],
+        "parameterized_match_count": 0,
+        "projection_pool_row_count": 0,
+        "query_id": "zh-hold-number-03",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [],
+        "candidate_used": true,
+        "category": "semantic_paraphrase",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "非强制",
+          "强制手",
+          "制手段",
+          "手段能",
+          "段能达",
+          "能达到",
+          "达到目",
+          "到目的",
+          "目的时",
+          "的时怎",
+          "时怎么",
+          "怎么办"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 1,
+        "query_id": "zh-hold-semantic-01",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [
+          {
+            "fts5_rank_hex": "-0x1.3ce66158e4fdap+3",
+            "locator": {
+              "document_id": "administrative-compulsion-law",
+              "locator_end": 6,
+              "locator_kind": "page",
+              "locator_start": 6
+            },
+            "matched_terms": [
+              "保管费",
+              "管费用",
+              "费用由"
+            ],
+            "overlap_count": 3,
+            "overlap_ratio": 0.3
+          }
+        ],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "administrative-compulsion-law",
+            "locator_end": 6,
+            "locator_kind": "page",
+            "locator_start": 6
+          }
+        ],
+        "candidate_used": true,
+        "category": "semantic_paraphrase",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "查封扣",
+          "封扣押",
+          "扣押保",
+          "押保管",
+          "保管费",
+          "管费用",
+          "费用由",
+          "用由谁",
+          "由谁承",
+          "谁承担"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 1,
+        "query_id": "zh-hold-semantic-02",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [],
+        "candidate_used": true,
+        "category": "semantic_paraphrase",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "委托作",
+          "托作品",
+          "作品没",
+          "品没有",
+          "没有合",
+          "有合同",
+          "合同约",
+          "同约定",
+          "约定归",
+          "定归谁"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 2,
+        "query_id": "zh-hold-semantic-03",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [],
+        "candidate_used": true,
+        "category": "semantic_paraphrase",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "版权和",
+          "权和著",
+          "和著作",
+          "著作权",
+          "作权是",
+          "权是不",
+          "是不是",
+          "不是同",
+          "是同一",
+          "同一个",
+          "一个概",
+          "个概念"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 14,
+        "query_id": "zh-hold-semantic-04",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [
+          1
+        ],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [
+          {
+            "fts5_rank_hex": "-0x1.b1ca415cf9143p+3",
+            "locator": {
+              "document_id": "administrative-compulsion-law",
+              "locator_end": 7,
+              "locator_kind": "page",
+              "locator_start": 7
+            },
+            "matched_terms": [
+              "额应当",
+              "不得重",
+              "得重复",
+              "重复冻",
+              "复冻结"
+            ],
+            "overlap_count": 5,
+            "overlap_ratio": 0.38461538461538464
+          }
+        ],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "administrative-compulsion-law",
+            "locator_end": 7,
+            "locator_kind": "page",
+            "locator_start": 7
+          }
+        ],
+        "candidate_used": true,
+        "category": "multi_condition",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "冻结金",
+          "结金额",
+          "金额应",
+          "额应当",
+          "应当相",
+          "当相当",
+          "相当且",
+          "当且不",
+          "且不得",
+          "不得重",
+          "得重复",
+          "重复冻",
+          "复冻结"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 4,
+        "query_id": "zh-hold-multi-01",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [],
+        "candidate_used": true,
+        "category": "multi_condition",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "合理使",
+          "理使用",
+          "使用作",
+          "用作品",
+          "作品时",
+          "品时必",
+          "时必须",
+          "必须满",
+          "须满足",
+          "满足哪",
+          "足哪些",
+          "哪些限",
+          "些限制"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 4,
+        "query_id": "zh-hold-multi-02",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [],
+        "candidate_used": true,
+        "category": "multi_condition",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "松涛归",
+          "涛归档",
+          "归档器",
+          "档器发",
+          "器发布",
+          "发布索",
+          "布索引",
+          "索引需",
+          "引需要",
+          "需要同",
+          "要同时",
+          "同时满",
+          "时满足",
+          "满足什",
+          "足什么",
+          "什么条",
+          "么条件"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 2,
+        "query_id": "zh-hold-multi-03",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [],
+        "candidate_used": true,
+        "category": "ranking_hard_negative",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "延长查",
+          "长查封",
+          "查封扣",
+          "封扣押",
+          "扣押期",
+          "押期限",
+          "期限需",
+          "限需要",
+          "需要什",
+          "要什么",
+          "什么程",
+          "么程序"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 2,
+        "query_id": "zh-hold-hard-01",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 1,
+        "candidate_direct_ranks": [
+          2
+        ],
+        "candidate_hard_negative_failure": true,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 8,
+            "locator_kind": "page",
+            "locator_start": 8
+          },
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 7,
+            "locator_kind": "page",
+            "locator_start": 7
+          },
+          {
+            "document_id": "copyright-law",
+            "locator_end": 5,
+            "locator_kind": "page",
+            "locator_start": 5
+          },
+          {
+            "document_id": "copyright-law",
+            "locator_end": 12,
+            "locator_kind": "page",
+            "locator_start": 12
+          },
+          {
+            "document_id": "copyright-law",
+            "locator_end": 6,
+            "locator_kind": "page",
+            "locator_start": 6
+          }
+        ],
+        "candidate_used": false,
+        "category": "ranking_hard_negative",
+        "current_compiled_query": "\"12\"",
+        "current_compiled_query_empty": false,
+        "current_direct_ranks": [
+          2
+        ],
+        "current_retrieved_locators": [
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 8,
+            "locator_kind": "page",
+            "locator_start": 8
+          },
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 7,
+            "locator_kind": "page",
+            "locator_start": 7
+          },
+          {
+            "document_id": "copyright-law",
+            "locator_end": 5,
+            "locator_kind": "page",
+            "locator_start": 5
+          },
+          {
+            "document_id": "copyright-law",
+            "locator_end": 12,
+            "locator_kind": "page",
+            "locator_start": 12
+          },
+          {
+            "document_id": "copyright-law",
+            "locator_end": 6,
+            "locator_kind": "page",
+            "locator_start": 6
+          }
+        ],
+        "generated_terms": [
+          "哪个北",
+          "个北辰",
+          "北辰代",
+          "辰代理",
+          "代理每",
+          "秒上报",
+          "上报心",
+          "报心跳"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 0,
+        "projection_pool_row_count": 0,
+        "query_id": "zh-hold-hard-02",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 0,
+        "candidate_direct_ranks": [],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [],
+        "candidate_used": true,
+        "category": "unanswerable",
+        "current_compiled_query": "",
+        "current_compiled_query_empty": true,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [],
+        "generated_terms": [
+          "著作权",
+          "作权法",
+          "权法是",
+          "法是否",
+          "是否要",
+          "否要求",
+          "要求区",
+          "求区块",
+          "区块链",
+          "块链存",
+          "链存证",
+          "存证使",
+          "证使用",
+          "使用国",
+          "用国密",
+          "国密算",
+          "密算法"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 1,
+        "projection_pool_row_count": 14,
+        "query_id": "zh-hold-unanswerable-01",
+        "split": "holdout"
+      },
+      {
+        "ascii_token_count": 2,
+        "candidate_direct_ranks": [],
+        "candidate_hard_negative_failure": false,
+        "candidate_result_proofs": [],
+        "candidate_retrieved_locators": [
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 1,
+            "locator_kind": "page",
+            "locator_start": 1
+          }
+        ],
+        "candidate_used": false,
+        "category": "unanswerable",
+        "current_compiled_query": "\"auditnode\" \"r5\"",
+        "current_compiled_query_empty": false,
+        "current_direct_ranks": [],
+        "current_retrieved_locators": [
+          {
+            "document_id": "holdout-adversarial",
+            "locator_end": 1,
+            "locator_kind": "page",
+            "locator_start": 1
+          }
+        ],
+        "generated_terms": [
+          "是否支",
+          "否支持",
+          "支持人",
+          "持人脸",
+          "人脸识",
+          "脸识别"
+        ],
+        "omitted_below_minimum": [],
+        "parameterized_match_count": 0,
+        "projection_pool_row_count": 0,
+        "query_id": "zh-hold-unanswerable-02",
+        "split": "holdout"
+      }
+    ],
+    "schema_version": "mke.cjk_lexical_comparison.v1"
+  }
+}
