@@ -7,12 +7,39 @@ import pytest
 from mke.evaluation.cjk_lexical_candidate import (
     CJK_LEXICAL_CANDIDATE,
     CjkLexicalCandidateError,
+    CjkLexicalProjectionError,
     CjkLexicalCandidateUnsupported,
+    build_cjk_trigram_projection,
     candidate_identity_digest,
+    cjk_evidence_identity,
     probe_sqlite_trigram_support,
     render_cjk_lexical_error,
     require_cjk_lexical_candidate,
 )
+from mke.evaluation.diagnostic_ports import EvaluationEvidenceSnapshot
+
+
+def _evidence() -> tuple[EvaluationEvidenceSnapshot, ...]:
+    return (
+        EvaluationEvidenceSnapshot(
+            evidence_id="ev_001",
+            publication_id="pub_001",
+            source_id="src_001",
+            locator_kind="page",
+            locator_start=1,
+            locator_end=1,
+            text="第一章 证据 生命周期 包含 发布 之后 的 检索 内容。",
+        ),
+        EvaluationEvidenceSnapshot(
+            evidence_id="ev_002",
+            publication_id="pub_001",
+            source_id="src_001",
+            locator_kind="page",
+            locator_start=2,
+            locator_end=2,
+            text="第二章 主动 Publication 只暴露 成功 Run 的 Evidence。",
+        ),
+    )
 
 
 def test_candidate_contract_freezes_identity_and_parameters() -> None:
@@ -83,3 +110,88 @@ def test_cjk_lexical_public_error_hides_tracebacks_and_local_paths() -> None:
         "next_step": "use_python_sqlite_with_fts5_trigram",
     }
     assert str(Path.cwd()) not in repr(payload)
+
+
+def test_builds_evaluation_only_trigram_projection_with_snapshot_identity() -> None:
+    evidence = _evidence()
+    identity = cjk_evidence_identity(evidence)
+    connection = sqlite3.connect(":memory:")
+    try:
+        projection = build_cjk_trigram_projection(
+            connection,
+            evidence,
+            expected_identity=identity,
+        )
+
+        assert projection.table_name == "temp.mke_cjk_trigram_projection"
+        assert projection.tokenizer == "trigram"
+        assert projection.row_count == len(evidence)
+        assert projection.text_digest == identity.text_digest
+        assert projection.locator_inventory_digest == identity.locator_inventory_digest
+    finally:
+        connection.close()
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (
+            lambda items: (
+                replace(items[0], text="changed text"),
+                items[1],
+            ),
+            "text digest mismatch",
+        ),
+        (lambda items: (items[0],), "row count mismatch"),
+        (
+            lambda items: (
+                replace(items[0], locator_start=99, locator_end=99),
+                items[1],
+            ),
+            "locator inventory mismatch",
+        ),
+    ],
+)
+def test_projection_rejects_snapshot_identity_mismatch(
+    mutation: object,
+    message: str,
+) -> None:
+    evidence = _evidence()
+    identity = cjk_evidence_identity(evidence)
+    mutated = mutation(evidence)  # type: ignore[operator]
+    connection = sqlite3.connect(":memory:")
+    try:
+        with pytest.raises(CjkLexicalProjectionError, match=message):
+            build_cjk_trigram_projection(
+                connection,
+                mutated,
+                expected_identity=identity,
+            )
+    finally:
+        connection.close()
+
+
+def test_projection_does_not_write_to_active_evidence_fts() -> None:
+    connection = sqlite3.connect(":memory:")
+    try:
+        connection.execute(
+            """
+            CREATE VIRTUAL TABLE active_evidence_fts USING fts5(
+              evidence_id UNINDEXED,
+              text
+            )
+            """
+        )
+        connection.execute(
+            "INSERT INTO active_evidence_fts(evidence_id, text) VALUES (?, ?)",
+            ("active_ev", "production projection row"),
+        )
+
+        build_cjk_trigram_projection(connection, _evidence())
+
+        rows = connection.execute(
+            "SELECT evidence_id, text FROM active_evidence_fts"
+        ).fetchall()
+        assert rows == [("active_ev", "production projection row")]
+    finally:
+        connection.close()
