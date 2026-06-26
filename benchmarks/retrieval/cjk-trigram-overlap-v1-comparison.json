@@ -57,7 +57,7 @@
     "max_results": 10
   },
   "source": {
-    "sha256": "76f792620b962d97b2523314635be125abeeeb7f93bcb7f83c87d1326f34d863",
+    "sha256": "d3c9d3bd7b644e93104b86982c15010963cc677b35a966db8dd980aca17ecc3c",
     "files": [
       {
         "path": "pyproject.toml",
@@ -91,8 +91,8 @@
       },
       {
         "path": "src/mke/evaluation/cjk_lexical_candidate.py",
-        "bytes": 16064,
-        "sha256": "1cc330b4a89d6da1b1e07b680190df0b71b5516961fae56d139387e5769482b9"
+        "bytes": 16487,
+        "sha256": "6d0d8815b8bcbe5ac72d5669c4c064874d9177a8f6cc21d96494b9b05ec4706f"
       },
       {
         "path": "src/mke/evaluation/cjk_lexical_comparison.py",
@@ -4164,7 +4164,7 @@
         "split": "development",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "aaa321fbc5377bf2516cab2e6555f7cc7e47f131a2070d8597cac21dd9e016f7",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -4400,7 +4400,7 @@
         "split": "development",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "33d870ce7e40b18cd1ca97f75d141bdb3c51cd31ebc7bf512f27a0ea7771d42f",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -4486,7 +4486,7 @@
         "split": "development",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "f0160d40e4c8b03f952a8188a5512d9ab155a439fb0100ac3af02db63fa86e74",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -4579,7 +4579,7 @@
         "split": "development",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "b6fe3879688b71b7b864582d1352c5ac52317a9450bf115afe5c1f762b984465",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -5057,7 +5057,7 @@
         "split": "development",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "a75dcd561003bcc325a8a511878a2d4b637290d20feda01139aef1bd501345c9",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -5130,7 +5130,7 @@
         "split": "development",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "c8db118687614946acb7d48ca4911216abbfa4c83bd069fdafa8873d7a81888c",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -5169,7 +5169,7 @@
         "split": "development",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "7cd8cea9afacd822e5265aeca901b68489b5335fc7aaef0ba5fb4042334d96e7",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -5255,7 +5255,7 @@
         "split": "development",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "dc1a464e65cafc271a0ccf1de9eb610c39f1b889e68fe44c1f191a980a7922ea",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -5326,7 +5326,7 @@
         "split": "development",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "c8db118687614946acb7d48ca4911216abbfa4c83bd069fdafa8873d7a81888c",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -5369,7 +5369,7 @@
         "split": "development",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "b6fe3879688b71b7b864582d1352c5ac52317a9450bf115afe5c1f762b984465",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -5465,7 +5465,7 @@
         "split": "development",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "603702022e3c5ebd2ee4fd95c810a14cfb36b877363b92972878c22818b49250",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -5564,7 +5564,7 @@
         "split": "holdout",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "3b7c82a2254b2498c48954b594916b3d04db6fee89917550446674c49186b745",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -5681,7 +5681,7 @@
         "split": "holdout",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "dc1a464e65cafc271a0ccf1de9eb610c39f1b889e68fe44c1f191a980a7922ea",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -5826,7 +5826,7 @@
         "split": "holdout",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "a75dcd561003bcc325a8a511878a2d4b637290d20feda01139aef1bd501345c9",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -5886,7 +5886,7 @@
         "split": "holdout",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "a75dcd561003bcc325a8a511878a2d4b637290d20feda01139aef1bd501345c9",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -5948,7 +5948,7 @@
         "split": "holdout",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "b6fe3879688b71b7b864582d1352c5ac52317a9450bf115afe5c1f762b984465",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -6008,7 +6008,7 @@
         "split": "holdout",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "7774302d3f52006d516c205bfcee9b263b525897c79fc225cf4673996f475877",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -6096,7 +6096,7 @@
         "split": "holdout",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "b6fe3879688b71b7b864582d1352c5ac52317a9450bf115afe5c1f762b984465",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -6360,7 +6360,7 @@
         "split": "holdout",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "7774302d3f52006d516c205bfcee9b263b525897c79fc225cf4673996f475877",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -6421,7 +6421,7 @@
         "split": "holdout",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "7774302d3f52006d516c205bfcee9b263b525897c79fc225cf4673996f475877",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -6456,7 +6456,7 @@
         "split": "holdout",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "b6fe3879688b71b7b864582d1352c5ac52317a9450bf115afe5c1f762b984465",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -6493,7 +6493,7 @@
         "split": "holdout",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "3b7c82a2254b2498c48954b594916b3d04db6fee89917550446674c49186b745",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -6559,7 +6559,7 @@
         "split": "holdout",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "7f4d91bab56596a31d76f82523b2a0e9a3aaf6fe41d5eedfd32626b665b59cc1",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -6597,7 +6597,7 @@
         "split": "holdout",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "7f4d91bab56596a31d76f82523b2a0e9a3aaf6fe41d5eedfd32626b665b59cc1",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -6639,7 +6639,7 @@
         "split": "holdout",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "b6fe3879688b71b7b864582d1352c5ac52317a9450bf115afe5c1f762b984465",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -6676,7 +6676,7 @@
         "split": "holdout",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "b6fe3879688b71b7b864582d1352c5ac52317a9450bf115afe5c1f762b984465",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },
@@ -6813,7 +6813,7 @@
         "split": "holdout",
         "sql_proof": {
           "parameterized_match_count": 1,
-          "redacted_trace_digest": "3b7c82a2254b2498c48954b594916b3d04db6fee89917550446674c49186b745",
+          "redacted_trace_digest": "42703e2b6afe938163dd1839fe947cf1c5487a9f5fc6744046aa72bb35059869",
           "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
         }
       },

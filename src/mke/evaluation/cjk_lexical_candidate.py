@@ -368,7 +368,9 @@ def search_cjk_trigram_projection(
         pool_row_count=len(candidates),
         sql_trace=tuple(statements),
         statement_template=statement_template,
-        redacted_trace_digest=_digest(redacted_trace),
+        redacted_trace_digest=stable_projection_match_trace_digest(
+            tuple(statements)
+        ),
         parameterized_match_count=_projection_match_count(redacted_trace),
     )
 
@@ -512,6 +514,17 @@ def _redact_sql_literals(statement: str) -> str:
     return re.sub(r"'(?:''|[^'])*'", "?", normalized)
 
 
+def stable_projection_match_trace_digest(statements: tuple[str, ...]) -> str:
+    redacted_trace = _redacted_sql_trace(statements)
+    return _digest(_projection_match_statements(redacted_trace))
+
+
 def _projection_match_count(redacted_trace: tuple[str, ...]) -> int:
+    return len(_projection_match_statements(redacted_trace))
+
+
+def _projection_match_statements(
+    redacted_trace: tuple[str, ...],
+) -> tuple[str, ...]:
     needle = f"{_PROJECTION_MATCH_NAME} MATCH ?"
-    return sum(needle in statement for statement in redacted_trace)
+    return tuple(statement for statement in redacted_trace if needle in statement)

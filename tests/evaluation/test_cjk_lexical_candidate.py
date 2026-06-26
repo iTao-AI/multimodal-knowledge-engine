@@ -21,6 +21,7 @@ from mke.evaluation.cjk_lexical_candidate import (
     require_cjk_lexical_candidate,
     search_cjk_trigram_projection,
     should_use_cjk_fallback,
+    stable_projection_match_trace_digest,
 )
 from mke.evaluation.diagnostic_ports import EvaluationEvidenceSnapshot
 
@@ -406,3 +407,19 @@ def test_projection_search_records_one_parameterized_match_query() -> None:
         )
     finally:
         connection.close()
+
+
+def test_sql_proof_digest_ignores_non_projection_trace_noise() -> None:
+    statement = (
+        "SELECT evidence_id FROM temp.mke_cjk_trigram_projection "
+        "WHERE mke_cjk_trigram_projection MATCH '证据 生命周期'"
+    )
+    noisy_trace = (
+        "SELECT rowid FROM temp.mke_cjk_trigram_projection_data",
+        statement,
+        "SELECT rowid FROM temp.mke_cjk_trigram_projection_idx",
+    )
+
+    assert stable_projection_match_trace_digest(noisy_trace) == (
+        stable_projection_match_trace_digest((statement,))
+    )

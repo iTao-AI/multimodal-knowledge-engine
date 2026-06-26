@@ -32,7 +32,7 @@
     "main_merge_base": "721784eabcb9fbb737166578010c9e1a46a25fef",
     "implementation_start": "3992b0e9371d1a8c9e019d3bbe2b32aac9665914",
     "evaluation_commit": "79bafb07ac592b684e6ceab15dc389dc33702978",
-    "evaluation_content_sha256": "888ff209a74a92933e7947e60cfaabb00607af4b61bac563844c8eb8e2fa5616",
+    "evaluation_content_sha256": "6355fa78e967d8e9f974cd79a3189fc74b2642facc2c6547d32315177ba8aa90",
     "evaluation_content_files": [
       {
         "path": "src/mke/__init__.py",
@@ -161,8 +161,8 @@
       },
       {
         "path": "src/mke/evaluation/cjk_lexical_candidate.py",
-        "bytes": 16064,
-        "sha256": "1cc330b4a89d6da1b1e07b680190df0b71b5516961fae56d139387e5769482b9"
+        "bytes": 16487,
+        "sha256": "6d0d8815b8bcbe5ac72d5669c4c064874d9177a8f6cc21d96494b9b05ec4706f"
       },
       {
         "path": "src/mke/evaluation/cjk_lexical_comparison.py",
