@@ -5,6 +5,8 @@
 - Review type: lightweight pre-handoff self-review.
 - Scope: E3-A only.
 - Result: implementation and Task 11 verification match the approved HOLD SCOPE plan.
+- Merge: PR #29 squash-merged to `main@5282efd903763cb9bf808d13d993fe560fd008ad`; post-merge
+  CI and CodeQL completed successfully on 2026-06-26.
 - Follow-up: seven findings across three targeted review passes, two PR #29 CI failures, and one
   final targeted P2 were verified and closed with TDD; no complete `gstack-review` was repeated.
 - Branch: `codex/e3a-chinese-retrieval-baseline`.
@@ -147,10 +149,11 @@ deliberately deferred to the PR preparation window.
 - Current query compilation is ASCII-oriented, producing zero Recall@5 for the 27-query
   zero-ASCII-token stratum.
 - E3-B eligibility is a planning gate, not authorization to implement or promote a candidate.
-- PR #29 hosted CI at `c586215` failed before this follow-up. The exact failure shapes now pass in
-  isolated Linux Python 3.12/SQLite 3.50.4 and Python 3.13/SQLite 3.40.1 containers, but hosted
-  GitHub Actions confirmation remains pending because this implementation window stops before
-  push.
+- PR #29 hosted CI initially exposed the Python 3.12 snapshot-mutation timing issue, the Python
+  3.13 SQLite one-ULP scorer portability issue, and the fresh Linux runner offline wheel-cache
+  failure for `mcp==1.28.0`. The exact failure shapes were fixed with TDD and verified by the
+  final PR checks and post-merge main CI/CodeQL on
+  `5282efd903763cb9bf808d13d993fe560fd008ad`.
 
 ## Documentation Audit
 
