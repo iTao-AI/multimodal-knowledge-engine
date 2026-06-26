@@ -38,6 +38,7 @@ Status:
 | `mke transcription prepare --allow-model-download` | implemented in D3-B | Explicit exact-revision acquisition; no database or Run. |
 | `mke transcription doctor` | implemented in D3-B | Read-only dependency, profile, language, and cache checks. |
 | `mke eval retrieval-chinese --protocol <protocol.json>` | implemented in E3-A | Records the current FTS5 lexical baseline over isolated Chinese development/public-holdout corpora; no quality threshold or runtime promotion. |
+| `mke eval retrieval-cjk-lexical --protocol <protocol.json> --candidate cjk-trigram-overlap-v1` | implemented in E3-B | Runs an off-default comparison-only CJK trigram-overlap candidate for compiled-empty queries; no runtime default, HTTP, UI, MCP, embedding, vector, hybrid, RRF, reranker, or query-rewrite change. |
 | `mke init` | planned | Workspace initialization after lifecycle proof. |
 | `mke serve` | planned | Single-owner local process after CLI proof. |
 | `mke library create` | planned | May be implicit in first CLI path. |
@@ -130,9 +131,11 @@ locations, host identity, argv, secrets, or a complete transcript.
 Ask validation failures use `invalid_question` for empty, overlong, or no-searchable-token
 questions and `invalid_query` for invalid limits. CJK-only and punctuation-only Ask inputs return
 `invalid_question` in C2 because the current retrieval path only exposes searchable ASCII tokens.
-E3-A records that ASCII-oriented behavior without changing it. It does not add CJK tokenization,
-dense/vector search, hybrid retrieval, RRF, reranking, query rewrite, OCR, or a new public
-Search/Ask/MCP contract.
+E3-A records that ASCII-oriented behavior without changing it. E3-B adds only an offline
+comparison command: `cjk-trigram-overlap-v1` builds an evaluation-only SQLite FTS5 `trigram`
+projection from active Evidence snapshots and applies a project-owned overlap scorer when the
+current compiled query is empty. It does not add a runtime CJK tokenizer, dense/vector search,
+hybrid retrieval, RRF, reranking, query rewrite, OCR, or a new public Search/Ask/MCP contract.
 
 ## MCP
 

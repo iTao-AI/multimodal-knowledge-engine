@@ -84,6 +84,17 @@ jobs:
             --observed /tmp/mke-retrieval-chinese.json \
             --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
             --repository .
+      - name: Validate CJK lexical comparison candidate
+        run: |
+          uv run mke eval retrieval-cjk-lexical \
+            --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
+            --candidate cjk-trigram-overlap-v1 \
+            --json > /tmp/mke-cjk-lexical-comparison.json
+          uv run python -m mke.evaluation.cjk_lexical_artifact validate \
+            --artifact benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json \
+            --observed /tmp/mke-cjk-lexical-comparison.json \
+            --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
+            --repository .
       - run: uv build
       - name: Verify spoken fixture with transcription extra
         env:
@@ -101,6 +112,15 @@ jobs:
             /tmp/mke-wheel-env/bin/mke eval retrieval \
               --manifest "$GITHUB_WORKSPACE/tests/fixtures/retrieval-eval-v1.json" \
               --json > /tmp/mke-wheel-retrieval-eval.json
+            /tmp/mke-wheel-env/bin/mke eval retrieval-cjk-lexical \
+              --protocol "$GITHUB_WORKSPACE/tests/fixtures/retrieval-chinese-v1/protocol.json" \
+              --candidate cjk-trigram-overlap-v1 \
+              --json > /tmp/mke-wheel-cjk-lexical-comparison.json
+            /tmp/mke-wheel-env/bin/python -m mke.evaluation.cjk_lexical_artifact validate \
+              --artifact "$GITHUB_WORKSPACE/benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json" \
+              --observed /tmp/mke-wheel-cjk-lexical-comparison.json \
+              --protocol "$GITHUB_WORKSPACE/tests/fixtures/retrieval-chinese-v1/protocol.json" \
+              --repository "$GITHUB_WORKSPACE"
           )
           python - <<'PY'
           import json
@@ -108,6 +128,10 @@ jobs:
           assert payload["status"] == "passed"
           assert payload["quality_status"] == "baseline_recorded"
           assert payload["queries"] == 24
+          cjk = json.load(open("/tmp/mke-wheel-cjk-lexical-comparison.json"))
+          assert cjk["integrity_status"] == "passed"
+          assert cjk["candidate_status"] == "passed"
+          assert cjk["projection"]["tokenizer"] == "trigram"
           PY
       - name: Measure Chinese retrieval delivery
         run: |

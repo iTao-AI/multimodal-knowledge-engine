@@ -43,7 +43,16 @@ retrieval path. It freezes five public text-layer PDF fixtures, 48 protocol-owne
 1,680 reviewed query-page judgments across isolated development and public holdout corpora. The
 canonical observation records Recall@5 `0.295455`, nDCG@10 `0.277279`, and 25
 `compiled_query_empty` misses. These are baseline observations, not a product-quality or general
-Chinese-support claim. E3-B through E3-F remain unimplemented and evidence-gated.
+Chinese-support claim.
+
+E3-B adds an off-default `cjk-trigram-overlap-v1` comparison candidate:
+`mke eval retrieval-cjk-lexical --protocol tests/fixtures/retrieval-chinese-v1/protocol.json --candidate cjk-trigram-overlap-v1`.
+The candidate only falls back to an evaluation-only SQLite FTS5 `trigram` projection when the
+current `numeric-grouping-v1` compiler is empty. The canonical comparison records Recall@5
+`0.659091` and nDCG@10 `0.610619`, with all frozen development and holdout gates passing. Runtime
+Search/Ask defaults, HTTP, UI, MCP behavior, embeddings, vector search, hybrid retrieval, RRF,
+reranking, and query rewrite remain unchanged. E3-C through E3-F remain unimplemented and
+evidence-gated.
 
 PDF intake uses PyMuPDF behind the `src/mke/adapters/pdf/` boundary and exposes a
 `PdfIntakeReport` through `mke ingest`, `mke run get`, MCP `ingest_file`, and MCP `get_run`.
@@ -106,6 +115,9 @@ uv run mke eval retrieval-numeric \
 uv sync --locked &&
 uv run mke eval retrieval-chinese \
   --protocol tests/fixtures/retrieval-chinese-v1/protocol.json
+uv run mke eval retrieval-cjk-lexical \
+  --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
+  --candidate cjk-trigram-overlap-v1
 ```
 
 `mke demo --verify` remains available as a compatibility proof with its phase-oriented output.

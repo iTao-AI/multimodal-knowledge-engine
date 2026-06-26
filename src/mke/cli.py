@@ -23,15 +23,21 @@ from mke.domain import FailurePoint, PdfIntakeReport, SearchResult, TranscriptIn
 from mke.evaluation import (
     render_chinese_retrieval_human,
     render_chinese_retrieval_json,
+    render_cjk_lexical_comparison_human,
+    render_cjk_lexical_comparison_json,
     render_numeric_comparison_human,
     render_numeric_comparison_json,
     render_retrieval_human_report,
     render_retrieval_json_report,
     run_chinese_retrieval_evaluation,
+    run_cjk_lexical_comparison,
     run_numeric_comparison,
     run_retrieval_evaluation,
 )
 from mke.evaluation.chinese_report import ChineseRetrievalReport
+from mke.evaluation.cjk_lexical_artifact import record_cjk_lexical_artifact
+from mke.evaluation.cjk_lexical_candidate import CJK_LEXICAL_CANDIDATE
+from mke.evaluation.cjk_lexical_comparison import CjkLexicalComparisonReport
 from mke.evaluation.numeric_comparison import NumericComparisonReport
 from mke.evaluation.report import RetrievalEvaluationReport
 from mke.interfaces.mcp_contract import McpRuntimeConfig, transcript_intake_report_payload
@@ -175,6 +181,36 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         dest="json_output",
     )
+    cjk_lexical_retrieval = evaluation_subcommands.add_parser(
+        "retrieval-cjk-lexical",
+        description=(
+            "Run the off-default comparison-only CJK trigram-overlap candidate. "
+            "The runtime default remains numeric-grouping-v1; no embedding, "
+            "vector, hybrid, RRF, reranker, or query rewrite behavior is added."
+        ),
+    )
+    cjk_lexical_retrieval.add_argument(
+        "--protocol",
+        type=Path,
+        required=True,
+        help="locked Chinese retrieval evaluation protocol",
+    )
+    cjk_lexical_retrieval.add_argument(
+        "--candidate",
+        choices=(CJK_LEXICAL_CANDIDATE.candidate_id,),
+        required=True,
+        help="allowlisted CJK lexical candidate identifier",
+    )
+    cjk_lexical_retrieval.add_argument(
+        "--record",
+        type=Path,
+        help="write the canonical CJK lexical comparison artifact",
+    )
+    cjk_lexical_retrieval.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
 
     mcp = subcommands.add_parser("mcp")
     mcp.add_argument("--allowed-root", type=Path, default=Path.cwd())
@@ -245,6 +281,33 @@ def main(argv: Sequence[str] | None = None) -> int:
             return (
                 0
                 if report.integrity_status == "passed" and not rendering_failed
+                else 1
+            )
+        if args.evaluation_command == "retrieval-cjk-lexical":
+            report = run_cjk_lexical_comparison(args.protocol)
+            if args.record is not None and report.integrity_status == "passed":
+                with tempfile.TemporaryDirectory(prefix="mke-cjk-lexical-record-") as temp:
+                    observed = Path(temp) / "observed.json"
+                    observed.write_text(
+                        render_cjk_lexical_comparison_json(report),
+                        encoding="utf-8",
+                    )
+                    record_cjk_lexical_artifact(
+                        artifact_path=args.record,
+                        observed_path=observed,
+                        protocol_path=args.protocol,
+                        repository_root=Path.cwd(),
+                    )
+            rendered, rendering_failed = _render_cjk_lexical_comparison_safely(
+                report,
+                json_output=args.json_output,
+            )
+            print(rendered, end="" if rendered.endswith("\n") else "\n")
+            return (
+                0
+                if report.integrity_status == "passed"
+                and report.candidate_status == "passed"
+                and not rendering_failed
                 else 1
             )
         parser.error("unsupported evaluation command")
@@ -516,6 +579,65 @@ def _render_chinese_report_safely(
             "failure problem=retrieval_chinese_incomplete "
             "cause=retrieval Chinese report could not be rendered "
             "next_step=rerun_evaluation\n",
+            True,
+        )
+
+
+def _render_cjk_lexical_comparison_safely(
+    report: CjkLexicalComparisonReport,
+    *,
+    json_output: bool,
+) -> tuple[str, bool]:
+    try:
+        rendered = (
+            render_cjk_lexical_comparison_json(report)
+            if json_output
+            else render_cjk_lexical_comparison_human(report)
+        )
+        return rendered, False
+    except Exception:
+        failure = {
+            "problem": "cjk_lexical_comparison_incomplete",
+            "cause": "CJK lexical comparison report could not be rendered",
+            "next_step": "rerun_cjk_lexical_comparison",
+        }
+        if json_output:
+            return (
+                json.dumps(
+                    {
+                        "schema_version": "mke.cjk_lexical_comparison.v1",
+                        "protocol_id": "unknown",
+                        "candidate_id": "cjk-trigram-overlap-v1",
+                        "candidate_revision": 1,
+                        "integrity_status": "failed",
+                        "candidate_status": "failed",
+                        "current_results": [],
+                        "current_metrics": None,
+                        "candidate_metrics": None,
+                        "query_observations": [],
+                        "development_gates": [],
+                        "holdout_gates": [],
+                        "projection": {
+                            "tokenizer": "trigram",
+                            "row_count": 0,
+                            "text_digest": "0" * 64,
+                            "locator_inventory_digest": "0" * 64,
+                        },
+                        "integrity_failures": [failure],
+                        "duration_ms": 0,
+                    },
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ),
+                True,
+            )
+        return (
+            "mke eval retrieval-cjk-lexical\n"
+            "protocol=unknown candidate=cjk-trigram-overlap-v1 revision=1\n"
+            "integrity_status=failed candidate_status=failed\n"
+            "failure problem=cjk_lexical_comparison_incomplete "
+            "cause=CJK lexical comparison report could not be rendered "
+            "next_step=rerun_cjk_lexical_comparison\n",
             True,
         )
 

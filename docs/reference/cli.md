@@ -205,6 +205,56 @@ Copy-paste recovery commands are in the how-to guide.
 
 See [Run The Chinese Retrieval Evaluation](../how-to/run-chinese-retrieval-evaluation.md).
 
+## CJK Lexical Candidate Comparison
+
+```bash
+mke eval retrieval-cjk-lexical \
+  --protocol <protocol.json> \
+  --candidate cjk-trigram-overlap-v1 \
+  [--record <artifact.json>] \
+  [--json]
+```
+
+This E3-B command runs the off-default `cjk-trigram-overlap-v1` comparison against the unchanged
+E3-A protocol and fixture bytes. It is comparison-only: non-empty current `numeric-grouping-v1`
+queries keep the current Search result path, and only compiled-empty queries use an
+evaluation-only SQLite FTS5 `trigram` projection plus deterministic overlap scorer. It does not
+modify `active_evidence_fts`, runtime defaults, public Search/Ask DTOs, HTTP, UI, MCP behavior,
+embeddings, vector search, hybrid retrieval, RRF, reranking, or query rewrite.
+
+Human stdout begins with:
+
+```text
+mke eval retrieval-cjk-lexical
+protocol=retrieval-chinese-v1 candidate=cjk-trigram-overlap-v1 revision=1
+integrity_status=<passed|failed> candidate_status=<passed|failed>
+```
+
+JSON schema `mke.cjk_lexical_comparison.v1` contains current and candidate metrics, per-query
+current/candidate locator observations, generated CJK terms, projection pool counts, overlap
+proofs, frozen development gates, holdout gates, projection identity, and integrity failures.
+`--record` writes schema `mke.cjk_lexical_comparison_artifact.v1`.
+
+| Code | Meaning |
+|---|---|
+| `0` | Integrity passed and the candidate passed frozen development/holdout gates. |
+| `1` | Integrity failed, the candidate failed a gate, artifact recording failed, or the report could not be rendered. |
+| `2` | Invalid CLI usage. |
+
+Validate a recorded artifact with:
+
+```bash
+python -m mke.evaluation.cjk_lexical_artifact validate \
+  --artifact benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json \
+  --observed /tmp/mke-cjk-lexical-comparison.json \
+  --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
+  --repository .
+```
+
+The validator rebuilds the evaluation-only projection and recomputes scorer output, metrics,
+gates, and verdict from frozen fixture text. E3-C through E3-F remain unimplemented and
+evidence-gated.
+
 ## Real Transcription Proof
 
 ```bash

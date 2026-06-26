@@ -28,7 +28,15 @@ E3-A 新增独立的中文 retrieval 观测面，用于记录当前 FTS5 lexical
 48 个 protocol-owned query 和 1,680 条已审阅 query-page judgment。canonical observation
 记录 Recall@5 `0.295455`、nDCG@10 `0.277279`，以及 25 个
 `compiled_query_empty` miss。这些是 baseline observation，不是产品质量门槛，也不表示
-已具备通用中文检索能力。E3-B 到 E3-F 仍未实现，必须继续由证据 gate。
+已具备通用中文检索能力。
+
+E3-B 新增 off-default 的 `cjk-trigram-overlap-v1` 对比候选：
+`mke eval retrieval-cjk-lexical --protocol tests/fixtures/retrieval-chinese-v1/protocol.json --candidate cjk-trigram-overlap-v1`。
+该候选只在当前 `numeric-grouping-v1` 编译为空时，进入 evaluation-only SQLite FTS5
+`trigram` projection fallback。canonical comparison 记录 Recall@5 `0.659091`、nDCG@10
+`0.610619`，冻结的 development 与 holdout gates 均通过。runtime Search/Ask 默认策略、
+HTTP、UI、MCP 行为、embedding、vector search、hybrid retrieval、RRF、reranker 和 query
+rewrite 均未改变。E3-C 到 E3-F 仍未实现，必须继续由证据 gate。
 
 这个 proof 验证的是生命周期边界，不代表已经支持广泛媒体处理。当前不包含扫描 PDF OCR、任意视频处理、托管协调或外部 provider 调用。D3-A 增加了 trusted-local `LocalCommandTranscriptProvider`；D3-B 增加了供 CLI 和 owner-started MCP 显式选择的 optional cache-only faster-whisper runtime。`mke proof run` 与 `mke demo --verify` 仍保持 sidecar-backed、deterministic；`mke proof transcription-run` 使用可再分发的 spoken fixture 证明真实本地 ASR，`scripts/transcription_deployment_proof.py` 则证明隔离安装 wheel 后的 CLI 与 stdio MCP SDK 流程。只有显式 preparation 可以下载模型，doctor、ingest、proof 和 MCP 正常运行均为 cache-only。
 
@@ -80,6 +88,9 @@ uv run mke eval retrieval-numeric \
 uv sync --locked &&
 uv run mke eval retrieval-chinese \
   --protocol tests/fixtures/retrieval-chinese-v1/protocol.json
+uv run mke eval retrieval-cjk-lexical \
+  --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
+  --candidate cjk-trigram-overlap-v1
 ```
 
 `mke demo --verify` 仍作为 compatibility proof 可用，并保留 phase-oriented 输出。

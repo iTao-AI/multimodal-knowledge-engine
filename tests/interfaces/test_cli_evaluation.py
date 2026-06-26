@@ -519,3 +519,165 @@ def test_cli_eval_chinese_low_quality_still_exits_zero(
         ]
     ) == 0
     assert json.loads(capsys.readouterr().out)["e3b_decision"] == "not_justified"
+
+
+def test_cli_eval_cjk_lexical_outputs_passing_json(
+    capsys: CaptureFixture[str],
+) -> None:
+    assert main(
+        [
+            "eval",
+            "retrieval-cjk-lexical",
+            "--protocol",
+            str(CHINESE_PROTOCOL),
+            "--candidate",
+            "cjk-trigram-overlap-v1",
+            "--json",
+        ]
+    ) == 0
+
+    output = capsys.readouterr()
+    payload = json.loads(output.out)
+    assert output.err == ""
+    assert payload["schema_version"] == "mke.cjk_lexical_comparison.v1"
+    assert payload["integrity_status"] == "passed"
+    assert payload["candidate_status"] == "passed"
+    assert payload["candidate_id"] == "cjk-trigram-overlap-v1"
+    assert payload["projection"]["tokenizer"] == "trigram"
+    assert payload["projection"]["row_count"] == 70
+    assert "/Users/" not in output.out
+    assert "Traceback" not in output.out
+
+
+def test_cli_eval_cjk_lexical_outputs_human_status_first(
+    capsys: CaptureFixture[str],
+) -> None:
+    assert main(
+        [
+            "eval",
+            "retrieval-cjk-lexical",
+            "--protocol",
+            str(CHINESE_PROTOCOL),
+            "--candidate",
+            "cjk-trigram-overlap-v1",
+        ]
+    ) == 0
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == "mke eval retrieval-cjk-lexical"
+    assert "protocol=retrieval-chinese-v1" in lines[1]
+    assert "candidate=cjk-trigram-overlap-v1 revision=1" in lines[1]
+    assert lines[2] == "integrity_status=passed candidate_status=passed"
+    assert any(line.startswith("development_gate=") for line in lines)
+    assert any(line.startswith("holdout_gate=") for line in lines)
+
+
+def test_cli_eval_cjk_lexical_record_writes_valid_artifact(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    artifact = tmp_path / "cjk-artifact.json"
+
+    assert main(
+        [
+            "eval",
+            "retrieval-cjk-lexical",
+            "--protocol",
+            str(CHINESE_PROTOCOL),
+            "--candidate",
+            "cjk-trigram-overlap-v1",
+            "--record",
+            str(artifact),
+            "--json",
+        ]
+    ) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    recorded = json.loads(artifact.read_text(encoding="utf-8"))
+    assert payload["candidate_status"] == "passed"
+    assert recorded["schema_version"] == "mke.cjk_lexical_comparison_artifact.v1"
+    assert recorded["comparison"]["candidate_status"] == "passed"
+
+
+def test_cli_eval_cjk_lexical_rejects_unsupported_candidate(
+    capsys: CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as error:
+        main(
+            [
+                "eval",
+                "retrieval-cjk-lexical",
+                "--protocol",
+                str(CHINESE_PROTOCOL),
+                "--candidate",
+                "raw-trigram",
+            ]
+        )
+
+    assert error.value.code == 2
+    assert "invalid choice" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("option", ["--db", "--retrieval-query-policy"])
+def test_cli_eval_cjk_lexical_rejects_global_runtime_overrides(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+    option: str,
+) -> None:
+    value = str(tmp_path / "ignored.sqlite") if option == "--db" else "current"
+    with pytest.raises(SystemExit) as error:
+        main(
+            [
+                option,
+                value,
+                "eval",
+                "retrieval-cjk-lexical",
+                "--protocol",
+                str(CHINESE_PROTOCOL),
+                "--candidate",
+                "cjk-trigram-overlap-v1",
+            ]
+        )
+
+    assert error.value.code == 2
+    assert "not supported" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("json_output", [False, True])
+def test_cli_eval_cjk_lexical_renderer_failure_is_redacted(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: CaptureFixture[str],
+    json_output: bool,
+) -> None:
+    def fail_renderer(*args: object, **kwargs: object) -> str:
+        raise RuntimeError("Traceback SECRET /Users/mac/private")
+
+    name = (
+        "render_cjk_lexical_comparison_json"
+        if json_output
+        else "render_cjk_lexical_comparison_human"
+    )
+    monkeypatch.setattr(f"mke.cli.{name}", fail_renderer)
+    argv = [
+        "eval",
+        "retrieval-cjk-lexical",
+        "--protocol",
+        str(CHINESE_PROTOCOL),
+        "--candidate",
+        "cjk-trigram-overlap-v1",
+    ]
+    if json_output:
+        argv.append("--json")
+
+    assert main(argv) == 1
+
+    output = capsys.readouterr()
+    assert "CJK lexical comparison report could not be rendered" in output.out
+    assert "Traceback" not in output.out
+    assert "SECRET" not in output.out
+    assert "/Users/" not in output.out
+    if json_output:
+        payload = json.loads(output.out)
+        assert payload["schema_version"] == "mke.cjk_lexical_comparison.v1"
+        assert payload["integrity_status"] == "failed"
+        assert output.err == ""

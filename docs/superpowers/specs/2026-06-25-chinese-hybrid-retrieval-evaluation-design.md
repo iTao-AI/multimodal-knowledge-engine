@@ -508,6 +508,11 @@ E3-B is eligible for later fusion only when it establishes usable grade-`2` Chin
 without violating determinism, unanswerable controls, hard-negative safety, or E1/E2 regression
 gates. Exact numeric gates are frozen after E3-A observation and before E3-B implementation.
 
+The E3-B planning follow-up selected `cjk-trigram-overlap-v1` as the first bounded candidate. It is
+an off-default, comparison-only compiled-empty fallback that uses an evaluation-only SQLite FTS5
+`trigram` projection and a deterministic overlap scorer. See
+[CJK Lexical Candidate Design](./2026-06-26-cjk-lexical-candidate-design.md).
+
 ## E3-C Dense Candidate
 
 E3-C may begin only after E3-B is merged and its artifact is validated on squash-landed `main`.

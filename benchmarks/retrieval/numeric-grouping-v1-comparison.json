@@ -41,7 +41,7 @@
     "revision": 1
   },
   "source": {
-    "sha256": "3ea1f93b4845ae257b3e469ff6e985f52fa6e50d6ffcc888a5fabe0081d871f7",
+    "sha256": "8d436a39fdedb8faa3d9b303fd98d006dd6b91f555b0a57b27db7f5effe69fc9",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -115,8 +115,8 @@
       },
       {
         "path": "src/mke/cli.py",
-        "bytes": 35396,
-        "sha256": "855c6945c2f6dde04a73ca80dd49d32f778349bc60e9c2baa4b298213dd34692"
+        "bytes": 40329,
+        "sha256": "d4cbd790e4b3770954b9cd292b6fb214fd33dc8130fa809518f7d2862146c107"
       },
       {
         "path": "src/mke/domain/__init__.py",
@@ -125,8 +125,8 @@
       },
       {
         "path": "src/mke/evaluation/__init__.py",
-        "bytes": 1205,
-        "sha256": "e0cbf20508a4f13ab697afb081179261f6b787d2ccb69246a1eb846d29ec9923"
+        "bytes": 1491,
+        "sha256": "ce1dfc04a55a4f566d284bf4a790c5945fc94419a3dbf615b137169d72729ac6"
       },
       {
         "path": "src/mke/evaluation/artifact_refresh.py",
@@ -162,6 +162,21 @@
         "path": "src/mke/evaluation/chinese_runner.py",
         "bytes": 29855,
         "sha256": "428ec7ac99c1f6b936d3781cc4bfb9cd020e0b6a9cefb3df0f9f51506ce72130"
+      },
+      {
+        "path": "src/mke/evaluation/cjk_lexical_artifact.py",
+        "bytes": 12033,
+        "sha256": "8d55c16a37caf5dace93d14bca89a4aea8c38aed7b090a0e76877cfa42e5b180"
+      },
+      {
+        "path": "src/mke/evaluation/cjk_lexical_candidate.py",
+        "bytes": 16487,
+        "sha256": "6d0d8815b8bcbe5ac72d5669c4c064874d9177a8f6cc21d96494b9b05ec4706f"
+      },
+      {
+        "path": "src/mke/evaluation/cjk_lexical_comparison.py",
+        "bytes": 31937,
+        "sha256": "ac4d5b2e96b925c56e2e6edc5203d940f5fa3031b2b75d5534eb5fb2e21a127f"
       },
       {
         "path": "src/mke/evaluation/diagnostic_ports.py",
