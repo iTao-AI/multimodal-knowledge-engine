@@ -13,6 +13,7 @@ from mke.evaluation.numeric_comparison import (
     NumericComparisonGate,
     NumericProtocol,
     load_numeric_protocol,
+    refresh_numeric_protocol_scope,
     render_numeric_comparison_json,
     run_numeric_comparison,
 )
@@ -442,3 +443,58 @@ def test_protocol_rejects_bool_candidate_revision(tmp_path: Path) -> None:
         "retrieval_numeric_protocol_invalid"
     )
     assert report.integrity_failures[0].cause == "protocol validation failed"
+
+
+def test_refresh_scope_changes_only_locked_hash_values(tmp_path: Path) -> None:
+    fixture_root = tmp_path / "tests/fixtures"
+    shutil.copytree(Path("tests/fixtures"), fixture_root)
+    for relative in (
+        "pyproject.toml",
+        "uv.lock",
+        "src/mke/adapters/pdf/__init__.py",
+        "src/mke/adapters/sqlite/__init__.py",
+        "src/mke/adapters/video/__init__.py",
+        "src/mke/application/__init__.py",
+        "src/mke/evaluation/runner.py",
+        "src/mke/retrieval/query_policy.py",
+    ):
+        destination = tmp_path / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(relative, destination)
+    protocol_root = fixture_root / "retrieval-numeric-v1"
+    target = protocol_root / "protocol-lock.json"
+    repository = tmp_path
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    before = json.loads(target.read_text(encoding="utf-8"))
+    for record in payload["scope_fence"]["files"]:
+        record["sha256"] = "0" * 64
+    payload["scope_fence"]["sqlite_schema_sha256"] = "0" * 64
+    target.write_text(json.dumps(payload), encoding="utf-8")
+
+    refresh_numeric_protocol_scope(
+        protocol_path=target,
+        repository_root=repository,
+    )
+
+    after = json.loads(target.read_text(encoding="utf-8"))
+    before["scope_fence"] = after["scope_fence"]
+    assert after == before
+    load_numeric_protocol(target)
+
+
+def test_refresh_scope_leaves_semantically_changed_protocol_untouched(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "protocol-lock.json"
+    payload = json.loads(PROTOCOL.read_text(encoding="utf-8"))
+    payload["claim"] = "changed"
+    target.write_text(json.dumps(payload), encoding="utf-8")
+    before = target.read_bytes()
+
+    with pytest.raises(ValueError):
+        refresh_numeric_protocol_scope(
+            protocol_path=target,
+            repository_root=Path("."),
+        )
+
+    assert target.read_bytes() == before

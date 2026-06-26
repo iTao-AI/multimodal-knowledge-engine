@@ -48,6 +48,32 @@ The build command creates an sdist and wheel under `dist/`. The final command pr
 multimodal-knowledge-engine: bootstrap stage
 ```
 
+## Record The Chinese Retrieval Baseline
+
+From a checkout with a warm `uv` dependency cache:
+
+```bash
+uv sync --locked &&
+uv run mke eval retrieval-chinese \
+  --protocol tests/fixtures/retrieval-chinese-v1/protocol.json
+```
+
+The target is 2–5 minutes. Human mode writes four bounded progress phases to stderr, then stdout
+begins:
+
+```text
+mke eval retrieval-chinese
+integrity_status=passed quality_status=baseline_recorded quality_gate=none
+e3b_decision=<eligible|not_justified> reason=<stable_reason>
+documents=5 queries=48 development=24 holdout=24 duration_ms=<n>
+```
+
+`integrity_status=passed` means the protocol, fixtures, partition isolation, active Evidence,
+FTS5 projection, determinism, and rank evidence were trustworthy. It does not mean the observed
+quality is acceptable. See
+[Run The Chinese Retrieval Evaluation](../how-to/run-chinese-retrieval-evaluation.md) for metrics,
+artifact validation, and recovery.
+
 ## Try The Lower-Level Ingest Commands
 
 ```bash

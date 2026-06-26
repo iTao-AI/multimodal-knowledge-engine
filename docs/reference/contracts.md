@@ -37,6 +37,7 @@ Status:
 | `mke --db <path> ask <question>` | implemented in C2 | Returns deterministic evidence-only Ask output using active Publication Search. |
 | `mke transcription prepare --allow-model-download` | implemented in D3-B | Explicit exact-revision acquisition; no database or Run. |
 | `mke transcription doctor` | implemented in D3-B | Read-only dependency, profile, language, and cache checks. |
+| `mke eval retrieval-chinese --protocol <protocol.json>` | implemented in E3-A | Records the current FTS5 lexical baseline over isolated Chinese development/public-holdout corpora; no quality threshold or runtime promotion. |
 | `mke init` | planned | Workspace initialization after lifecycle proof. |
 | `mke serve` | planned | Single-owner local process after CLI proof. |
 | `mke library create` | planned | May be implicit in first CLI path. |
@@ -129,6 +130,9 @@ locations, host identity, argv, secrets, or a complete transcript.
 Ask validation failures use `invalid_question` for empty, overlong, or no-searchable-token
 questions and `invalid_query` for invalid limits. CJK-only and punctuation-only Ask inputs return
 `invalid_question` in C2 because the current retrieval path only exposes searchable ASCII tokens.
+E3-A records that ASCII-oriented behavior without changing it. It does not add CJK tokenization,
+dense/vector search, hybrid retrieval, RRF, reranking, query rewrite, OCR, or a new public
+Search/Ask/MCP contract.
 
 ## MCP
 

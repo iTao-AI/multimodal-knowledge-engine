@@ -32,6 +32,8 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
   English page/timestamp FTS5 baseline and explains its integrity-versus-quality boundary.
 - [Evaluate The Numeric Retrieval Candidate](./how-to/evaluate-numeric-retrieval.md) compares the
   promoted numeric grouping policy against frozen development, public holdout, and E1 inputs.
+- [Run The Chinese Retrieval Evaluation](./how-to/run-chinese-retrieval-evaluation.md) records the
+  E3-A FTS5 lexical baseline, graded metrics, miss symptoms, and evidence-gated E3-B decision.
 - [Use MKE As A Local MCP Server](./how-to/use-mke-mcp.md) explains the first Agent-facing stdio interface.
 - [Use Local Transcription](./how-to/use-local-transcription.md) covers prepare, doctor, ingest, real ASR proof, and recovery.
 - [Real Local Transcription Deployment Proof Design](./superpowers/specs/2026-06-18-real-local-transcription-deployment-proof-design.md) defines the redistribution-safe fixture, cache-only proof, and isolated wheel deployment evidence.
@@ -60,6 +62,10 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [Numeric Retrieval Candidate Comparison Design](./superpowers/specs/2026-06-21-retrieval-candidate-comparison-design.md) defines the frozen E2 protocol and promotion boundary.
 - [Numeric Retrieval Candidate Comparison Implementation Plan](./superpowers/plans/2026-06-21-retrieval-candidate-comparison-implementation.md) records the PR 1 execution checklist.
 - [Numeric Retrieval Candidate Comparison Autoplan Review](./superpowers/reviews/2026-06-21-retrieval-candidate-comparison-autoplan-review.md) records the approved scope, engineering, and DX findings.
+- [Chinese Hybrid Retrieval Evaluation Design](./superpowers/specs/2026-06-25-chinese-hybrid-retrieval-evaluation-design.md) defines E3-A through E3-F; only E3-A is implemented.
+- [Chinese Retrieval Baseline Implementation Plan](./superpowers/plans/2026-06-25-chinese-retrieval-baseline-implementation.md) records the E3-A execution contract.
+- [Chinese Retrieval Baseline Autoplan Review](./superpowers/reviews/2026-06-25-chinese-retrieval-baseline-autoplan-review.md) records the approved pre-implementation findings.
+- [Chinese Retrieval Baseline Implementation Review](./superpowers/reviews/2026-06-25-chinese-retrieval-baseline-review.md) records the bounded implementation self-review and verification.
 
 ## Development Verification
 

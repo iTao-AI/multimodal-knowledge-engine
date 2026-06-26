@@ -115,6 +115,19 @@ observed SQLite schema and local provider identities before passing its scope ga
 bound into a source-content-addressed artifact whose nested observations and metrics are
 independently validated.
 
+E3-A is another offline diagnostics surface, not a runtime retrieval layer. It ingests the
+development corpus into two temporary SQLite workspaces and the public holdout corpus into two
+separate workspaces. Active Evidence is enumerated from SQLite domain truth; the FTS5 projection
+is independently checked for exact Evidence IDs, locator labels, and text hashes. Search, Ask
+Search, and full-result rank probes remain separate observations. The probe established that the
+current `rank` pseudo-column equals SQLite FTS5 default `bm25()` ordering and scores for this
+protocol, so documentation may name the observed profile `sqlite_fts5_default_bm25`.
+
+The runtime query compiler remains ASCII-oriented. E3-A records graded metrics and deterministic
+miss symptoms but does not claim root causes or implement a CJK tokenizer, second projection,
+embedding, vector search, hybrid retrieval, RRF, reranker, query rewrite, Passage/chunk, OCR,
+HTTP, UI, or MCP changes. E3-B through E3-F remain future, evidence-gated stages.
+
 CLI and MCP errors share one project-owned `PublicError` serializer. Only allowlisted stable causes
 can reach public output; unknown exception text is replaced with
 `operation failed; details were redacted`. Public payloads contain `problem`, `cause`,
@@ -144,6 +157,12 @@ src/mke/
     metrics.py
     numeric_artifact.py
     numeric_comparison.py
+    chinese_artifact.py
+    chinese_diagnostics.py
+    chinese_protocol.py
+    chinese_report.py
+    chinese_runner.py
+    graded_metrics.py
     report.py
     runner.py
   retrieval/

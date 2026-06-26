@@ -7,7 +7,7 @@ import sqlite3
 from collections.abc import Callable
 from hashlib import sha256
 from pathlib import Path
-from typing import Self
+from typing import TYPE_CHECKING, Self
 from uuid import uuid4
 
 from mke.domain import (
@@ -34,6 +34,14 @@ from mke.retrieval import (
     compile_fts5_query,
 )
 from mke.retrieval.query_policy import require_retrieval_query_policy
+
+if TYPE_CHECKING:
+    from mke.evaluation.diagnostic_ports import (
+        EvaluationEvidenceSnapshot,
+        FtsProjectionSnapshot,
+        FtsRankObservation,
+        FtsRankProfile,
+    )
 
 _BUSY_TIMEOUT_MS = 5000
 
@@ -704,6 +712,122 @@ class SQLiteStore:
             )
             for row in rows
         ]
+
+    def list_evaluation_evidence(
+        self,
+    ) -> tuple[EvaluationEvidenceSnapshot, ...]:
+        from mke.evaluation.diagnostic_ports import EvaluationEvidenceSnapshot
+
+        rows = self._connection.execute(
+            """
+            SELECT evidence.evidence_id, publications.publication_id,
+                   evidence.source_id, evidence.locator_kind,
+                   evidence.locator_start, evidence.locator_end, evidence.text
+            FROM sources
+            JOIN publications
+              ON publications.publication_id = sources.active_publication_id
+            JOIN evidence
+              ON evidence.run_id = publications.run_id
+             AND evidence.source_id = sources.source_id
+            ORDER BY evidence.source_id, evidence.locator_kind,
+                     evidence.locator_start, evidence.locator_end,
+                     evidence.evidence_id
+            """
+        ).fetchall()
+        return tuple(
+            EvaluationEvidenceSnapshot(
+                evidence_id=str(row["evidence_id"]),
+                publication_id=str(row["publication_id"]),
+                source_id=str(row["source_id"]),
+                locator_kind=str(row["locator_kind"]),
+                locator_start=int(row["locator_start"]),
+                locator_end=int(row["locator_end"]),
+                text=str(row["text"]),
+            )
+            for row in rows
+        )
+
+    def list_fts_projection(self) -> tuple[FtsProjectionSnapshot, ...]:
+        from mke.evaluation.diagnostic_ports import FtsProjectionSnapshot
+
+        rows = self._connection.execute(
+            """
+            SELECT evidence_id, publication_id, source_id, locator_label, text
+            FROM active_evidence_fts
+            ORDER BY source_id, locator_label, evidence_id, rowid
+            """
+        ).fetchall()
+        return tuple(
+            FtsProjectionSnapshot(
+                evidence_id=str(row["evidence_id"]),
+                publication_id=str(row["publication_id"]),
+                source_id=str(row["source_id"]),
+                locator_label=str(row["locator_label"]),
+                text_sha256=sha256(str(row["text"]).encode("utf-8")).hexdigest(),
+            )
+            for row in rows
+        )
+
+    def observe_fts5_rank(self, compiled_query: str) -> FtsRankProfile:
+        from mke.evaluation.diagnostic_ports import (
+            FtsRankObservation,
+            FtsRankProfile,
+        )
+
+        if (
+            type(compiled_query) is not str
+            or not compiled_query.strip()
+            or len(compiled_query) > 10_000
+            or any(ord(character) < 32 for character in compiled_query)
+        ):
+            raise ValueError("compiled query is invalid")
+        base = """
+            SELECT evidence.evidence_id, evidence.locator_start, {score} AS score
+            FROM active_evidence_fts
+            JOIN evidence ON evidence.evidence_id = active_evidence_fts.evidence_id
+            JOIN sources ON sources.source_id = evidence.source_id
+            WHERE active_evidence_fts MATCH ?
+              AND sources.active_publication_id = active_evidence_fts.publication_id
+            ORDER BY {score}, evidence.locator_start, evidence.evidence_id
+        """
+        statements: list[str] = []
+        self._connection.set_trace_callback(statements.append)
+        try:
+            rank_rows = self._connection.execute(
+                base.format(score="rank"), (compiled_query,)
+            ).fetchall()
+            bm25_rows = self._connection.execute(
+                base.format(score="bm25(active_evidence_fts)"),
+                (compiled_query,),
+            ).fetchall()
+            override = self._connection.execute(
+                "SELECT 1 FROM active_evidence_fts_config "
+                "WHERE k = 'rank' LIMIT 1"
+            ).fetchone()
+        finally:
+            self._connection.set_trace_callback(None)
+        rank_scores = {
+            str(row["evidence_id"]): float(row["score"]) for row in rank_rows
+        }
+        bm25_scores = {
+            str(row["evidence_id"]): float(row["score"]) for row in bm25_rows
+        }
+
+        def observation(row: sqlite3.Row) -> FtsRankObservation:
+            evidence_id = str(row["evidence_id"])
+            return FtsRankObservation(
+                evidence_id=evidence_id,
+                locator_start=int(row["locator_start"]),
+                rank_score=rank_scores[evidence_id],
+                bm25_score=bm25_scores[evidence_id],
+            )
+
+        return FtsRankProfile(
+            rank_order=tuple(observation(row) for row in rank_rows),
+            bm25_order=tuple(observation(row) for row in bm25_rows),
+            rank_override_present=override is not None,
+            sql_trace=tuple(statements),
+        )
 
     def schema_sha256(self) -> str:
         rows = self._connection.execute(

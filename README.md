@@ -38,6 +38,13 @@ gates, improving E1 Recall@1 from `0.875000` to `0.937500`. ADR-0007 promotes it
 Search and Ask default. Owners can select `--retrieval-query-policy current` for rollback without
 a database migration or index rebuild.
 
+E3-A adds a separate Chinese retrieval observation surface for the current FTS5 lexical
+retrieval path. It freezes five public text-layer PDF fixtures, 48 protocol-owned queries, and
+1,680 reviewed query-page judgments across isolated development and public holdout corpora. The
+canonical observation records Recall@5 `0.295455`, nDCG@10 `0.277279`, and 25
+`compiled_query_empty` misses. These are baseline observations, not a product-quality or general
+Chinese-support claim. E3-B through E3-F remain unimplemented and evidence-gated.
+
 PDF intake uses PyMuPDF behind the `src/mke/adapters/pdf/` boundary and exposes a
 `PdfIntakeReport` through `mke ingest`, `mke run get`, MCP `ingest_file`, and MCP `get_run`.
 PyMuPDF licensing and the future sidecar escape route are documented in
@@ -77,7 +84,9 @@ see [Use MKE As A Local MCP Server](./docs/how-to/use-mke-mcp.md) and
 retrieval behavior, see
 [Run Retrieval Evaluation](./docs/how-to/run-retrieval-evaluation.md). To reproduce the bounded
 candidate comparison, see
-[Evaluate The Numeric Retrieval Candidate](./docs/how-to/evaluate-numeric-retrieval.md). Approved implementation
+[Evaluate The Numeric Retrieval Candidate](./docs/how-to/evaluate-numeric-retrieval.md). To
+record the current Chinese lexical failure profile, see
+[Run The Chinese Retrieval Evaluation](./docs/how-to/run-chinese-retrieval-evaluation.md). Approved implementation
 history is kept under `docs/superpowers/`; long-lived architecture decisions are kept under
 `docs/decisions/`.
 
@@ -94,6 +103,9 @@ uv run mke proof run --json
 uv run mke eval retrieval --manifest tests/fixtures/retrieval-eval-v1.json
 uv run mke eval retrieval-numeric \
   --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json
+uv sync --locked &&
+uv run mke eval retrieval-chinese \
+  --protocol tests/fixtures/retrieval-chinese-v1/protocol.json
 ```
 
 `mke demo --verify` remains available as a compatibility proof with its phase-oriented output.

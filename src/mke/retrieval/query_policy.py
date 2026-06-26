@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import Literal
 
 RetrievalQueryPolicy = Literal["current", "numeric-grouping-v1"]
@@ -12,6 +13,19 @@ SUPPORTED_RETRIEVAL_QUERY_POLICIES: tuple[RetrievalQueryPolicy, ...] = (
     "numeric-grouping-v1",
 )
 _SUPPORTED_POLICIES = frozenset(SUPPORTED_RETRIEVAL_QUERY_POLICIES)
+
+
+@dataclass(frozen=True)
+class CompiledQueryClause:
+    alternatives: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class CompiledQueryDiagnostic:
+    compiled_query: str
+    clauses: tuple[CompiledQueryClause, ...]
+    ascii_token_count: int
+    compiled_query_empty: bool
 
 
 def require_retrieval_query_policy(policy: str) -> RetrievalQueryPolicy:
@@ -25,18 +39,32 @@ def compile_fts5_query(
     *,
     policy: RetrievalQueryPolicy = DEFAULT_RETRIEVAL_QUERY_POLICY,
 ) -> str:
+    return compile_fts5_query_diagnostic(query, policy=policy).compiled_query
+
+
+def compile_fts5_query_diagnostic(
+    query: str,
+    *,
+    policy: RetrievalQueryPolicy = DEFAULT_RETRIEVAL_QUERY_POLICY,
+) -> CompiledQueryDiagnostic:
     validated = require_retrieval_query_policy(policy)
     if validated == "current":
-        return _compile_current(query)
-    return _compile_numeric_grouping(query)
+        return _compile_current_diagnostic(query)
+    return _compile_numeric_grouping_diagnostic(query)
 
 
-def _compile_current(query: str) -> str:
-    terms = re.findall(r"[A-Za-z0-9_]+", query.casefold())
-    return " ".join(f'"{term}"' for term in terms)
+def _compile_current_diagnostic(query: str) -> CompiledQueryDiagnostic:
+    terms = tuple(re.findall(r"[A-Za-z0-9_]+", query.casefold()))
+    compiled = " ".join(f'"{term}"' for term in terms)
+    return CompiledQueryDiagnostic(
+        compiled_query=compiled,
+        clauses=tuple(CompiledQueryClause((term,)) for term in terms),
+        ascii_token_count=len(terms),
+        compiled_query_empty=not compiled,
+    )
 
 
-def _compile_numeric_grouping(query: str) -> str:
+def _compile_numeric_grouping_diagnostic(query: str) -> CompiledQueryDiagnostic:
     normalized = query.casefold()
     matches = tuple(re.finditer(r"[A-Za-z0-9_]+", normalized))
     grouped = tuple(
@@ -46,15 +74,25 @@ def _compile_numeric_grouping(query: str) -> str:
         for match in matches
     )
     if not any(parts is not None for parts in grouped):
-        return _compile_current(query)
+        return _compile_current_diagnostic(query)
     clauses: list[str] = []
+    diagnostics: list[CompiledQueryClause] = []
     for match, parts in zip(matches, grouped, strict=True):
         token = match.group()
         if parts is None:
             clauses.append(f'"{token}"')
+            diagnostics.append(CompiledQueryClause((token,)))
         else:
-            clauses.append(f'("{token}" OR "{" ".join(parts)}")')
-    return " AND ".join(clauses)
+            grouped_phrase = " ".join(parts)
+            clauses.append(f'("{token}" OR "{grouped_phrase}")')
+            diagnostics.append(CompiledQueryClause((token, grouped_phrase)))
+    compiled = " AND ".join(clauses)
+    return CompiledQueryDiagnostic(
+        compiled_query=compiled,
+        clauses=tuple(diagnostics),
+        ascii_token_count=len(matches),
+        compiled_query_empty=not compiled,
+    )
 
 
 def numeric_grouping_eligible_tokens(query: str) -> tuple[str, ...]:

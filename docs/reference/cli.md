@@ -120,6 +120,91 @@ If either repeated evaluator observation differs, the fixed public failure is
 
 See [Evaluate The Numeric Retrieval Candidate](../how-to/evaluate-numeric-retrieval.md).
 
+## Chinese Retrieval Evaluation
+
+```bash
+mke eval retrieval-chinese --protocol <protocol.json> [--json]
+```
+
+The command records the current FTS5 lexical baseline on isolated Chinese development and public
+holdout corpora. It is baseline-only: `quality_gate=none`, and it makes no dense, hybrid, RRF,
+reranker, CJK-support, or runtime-promotion claim. `--protocol` is required. `--json` selects one
+JSON object. Global `--db` and `--retrieval-query-policy` are usage errors for all `eval`
+commands.
+
+Human stdout begins with exactly:
+
+```text
+mke eval retrieval-chinese
+integrity_status=<passed|failed> quality_status=<baseline_recorded|not_recorded> quality_gate=none
+e3b_decision=<eligible|not_justified> reason=<stable_reason>
+documents=<n> queries=<n> development=<n> holdout=<n> duration_ms=<n>
+```
+
+Human mode writes only these ordered progress phases to stderr:
+
+```text
+protocol_validated
+development_ingested
+holdout_ingested
+determinism_verified
+```
+
+JSON mode keeps stderr empty. A failure never emits a later success phase.
+
+JSON schema `mke.retrieval_chinese_report.v1` contains exactly:
+
+```text
+schema_version
+protocol_id
+benchmark_scope
+quality_gate
+integrity_status
+quality_status
+documents
+queries
+split_counts
+results
+metrics
+qrel_adjudication
+e3b_decision
+e3b_evidence
+e3b_reason
+fts5_rank_profile
+fts5_rank_observations
+integrity_failures
+duration_ms
+limitations
+```
+
+Results separate query `category`, `compiled_query_empty`, and `ascii_token_count`. Reports do not
+include raw query text, raw Evidence text, absolute paths, random IDs, exception text, hostnames,
+or usernames.
+
+| Code | Meaning |
+|---|---|
+| `0` | Integrity passed and a baseline was recorded; observed quality may still be low. |
+| `1` | Integrity failed or the final report could not be rendered. |
+| `2` | Invalid CLI usage. |
+
+Stable failures and recovery:
+
+| `problem` | Exact `cause` | `next_step` |
+|---|---|---|
+| `retrieval_chinese_protocol_invalid` | `Chinese retrieval protocol is invalid` | `restore_checked_in_protocol` |
+| `retrieval_chinese_qrels_invalid` | `Chinese retrieval qrel review is invalid` | `restore_checked_in_qrel_review` |
+| `retrieval_chinese_fixture_invalid` | `Chinese retrieval fixture identity is invalid` | `verify_fixture_identity` |
+| `retrieval_chinese_ingest_failed` | `Chinese retrieval fixture could not be published` | `inspect_publication_failure` |
+| `retrieval_chinese_evidence_invalid` | `active Evidence and retrieval projection are inconsistent` | `inspect_active_evidence_projection` |
+| `retrieval_chinese_rank_invalid` | `FTS5 rank evidence is inconsistent` | `inspect_fts5_rank_configuration` |
+| `retrieval_chinese_incomplete` | `Chinese retrieval evaluation did not complete` | `rerun_evaluation` |
+| `retrieval_chinese_artifact_invalid` | `Chinese retrieval baseline artifact is invalid` | `regenerate_chinese_artifact` |
+| `retrieval_artifact_refresh_failed` | `retrieval artifact transaction did not complete` | `recover_checked_in_artifacts` |
+
+Copy-paste recovery commands are in the how-to guide.
+
+See [Run The Chinese Retrieval Evaluation](../how-to/run-chinese-retrieval-evaluation.md).
+
 ## Real Transcription Proof
 
 ```bash
