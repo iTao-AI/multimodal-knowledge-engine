@@ -41,7 +41,7 @@
     "revision": 1
   },
   "source": {
-    "sha256": "b01307e2df0cc22c64b639c3927354a9792a1d27c9029702337494259acaaf0a",
+    "sha256": "888ff209a74a92933e7947e60cfaabb00607af4b61bac563844c8eb8e2fa5616",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -165,18 +165,18 @@
       },
       {
         "path": "src/mke/evaluation/cjk_lexical_artifact.py",
-        "bytes": 9893,
-        "sha256": "1504b0e651b2e0c07ac73e3c7c5ebbb4b0c06de9548737b3586a501995ffa9ad"
+        "bytes": 12033,
+        "sha256": "8d55c16a37caf5dace93d14bca89a4aea8c38aed7b090a0e76877cfa42e5b180"
       },
       {
         "path": "src/mke/evaluation/cjk_lexical_candidate.py",
-        "bytes": 15234,
-        "sha256": "19bdfbb36ce547cf6c50afc6230d0a522d611293acb783a6d1c8945bebecac15"
+        "bytes": 16064,
+        "sha256": "1cc330b4a89d6da1b1e07b680190df0b71b5516961fae56d139387e5769482b9"
       },
       {
         "path": "src/mke/evaluation/cjk_lexical_comparison.py",
-        "bytes": 31428,
-        "sha256": "b9f9724d7d7ce1d62ad515742300fa5e63da27a2cd0643207545638232ec970d"
+        "bytes": 32024,
+        "sha256": "144defb09efa7f1a5a00404c9198cb79f8fb8eaef017c2b7ee2453a506ccdc92"
       },
       {
         "path": "src/mke/evaluation/diagnostic_ports.py",

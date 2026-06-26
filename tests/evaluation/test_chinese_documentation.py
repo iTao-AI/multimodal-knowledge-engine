@@ -82,3 +82,17 @@ def test_public_docs_keep_e3a_boundary_explicit() -> None:
     assert "sqlite_fts5_default_bm25" in text
     assert "E3-C through E3-F remain unimplemented" in text
     assert "does not establish broad CJK support" in " ".join(text.split())
+
+
+def test_e3b_implementation_plan_uses_current_cli_commands() -> None:
+    plan = (
+        ROOT
+        / "docs/superpowers/plans/"
+        "2026-06-26-cjk-lexical-candidate-implementation.md"
+    ).read_text()
+
+    assert "tests/fixtures/eval/retrieval/manifest.json" not in plan
+    assert "--manifest tests/fixtures/retrieval-eval-v1.json" in plan
+    assert "uv run mke eval retrieval-cjk-lexical \\\n" in plan
+    assert "--protocol tests/fixtures/retrieval-chinese-v1/protocol.json" in plan
+    assert "--candidate cjk-trigram-overlap-v1" in plan

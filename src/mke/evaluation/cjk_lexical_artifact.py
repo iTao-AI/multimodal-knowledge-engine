@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 from typing import cast
@@ -21,6 +22,7 @@ from mke.evaluation.cjk_lexical_comparison import (
 )
 
 ARTIFACT_SCHEMA = "mke.cjk_lexical_comparison_artifact.v1"
+_SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 _TOP_LEVEL_FIELDS = {
     "schema_version",
     "protocol",
@@ -231,6 +233,7 @@ def _validate_artifact_schema(artifact: dict[str, object]) -> None:
         raise CjkLexicalArtifactValidationError
     if "duration_ms" in comparison:
         raise CjkLexicalArtifactValidationError
+    _validate_sql_proofs(comparison)
 
 
 def _source_identity(repository_root: Path) -> dict[str, object]:
@@ -265,6 +268,55 @@ def _object(value: object) -> dict[str, object]:
     if not isinstance(value, dict):
         raise CjkLexicalArtifactValidationError
     return cast(dict[str, object], value)
+
+
+def _validate_sql_proofs(comparison: dict[str, object]) -> None:
+    observations = comparison.get("query_observations")
+    if not isinstance(observations, list):
+        raise CjkLexicalArtifactValidationError
+    for raw in cast(list[object], observations):
+        observation = _object(raw)
+        candidate_used = observation.get("candidate_used")
+        if type(candidate_used) is not bool:
+            raise CjkLexicalArtifactValidationError
+        sql_proof = observation.get("sql_proof")
+        if not candidate_used:
+            if sql_proof is not None:
+                raise CjkLexicalArtifactValidationError
+            continue
+        proof = _object(sql_proof)
+        if set(proof) != {
+            "statement_template",
+            "redacted_trace_digest",
+            "parameterized_match_count",
+        }:
+            raise CjkLexicalArtifactValidationError
+        statement_template = proof["statement_template"]
+        redacted_trace_digest = proof["redacted_trace_digest"]
+        parameterized_match_count = proof["parameterized_match_count"]
+        if (
+            not isinstance(statement_template, str)
+            or not isinstance(redacted_trace_digest, str)
+            or _SHA256_RE.fullmatch(redacted_trace_digest) is None
+            or isinstance(parameterized_match_count, bool)
+            or not isinstance(parameterized_match_count, int)
+        ):
+            raise CjkLexicalArtifactValidationError
+        if (
+            "mke_cjk_trigram_projection MATCH ?" not in statement_template
+            or "'" in statement_template
+            or " MATCH ?" not in statement_template
+        ):
+            raise CjkLexicalArtifactValidationError
+        template_match_count = statement_template.count(
+            "mke_cjk_trigram_projection MATCH ?"
+        )
+        if (
+            parameterized_match_count != template_match_count
+            or observation.get("parameterized_match_count")
+            != parameterized_match_count
+        ):
+            raise CjkLexicalArtifactValidationError
 
 
 def _sha256(path: Path) -> str:

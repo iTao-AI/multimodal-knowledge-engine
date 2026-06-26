@@ -87,4 +87,11 @@ comparison artifact with `candidate_status=passed`. The candidate remains bounde
 CJK lexical comparison and does not promote runtime defaults, embeddings, vector search, hybrid
 retrieval, RRF, reranking, query rewrite, HTTP, UI, or MCP behavior.
 
+Pre-PR targeted review resolution: candidate-used queries now persist redacted SQL proof in the
+canonical comparison artifact. The proof includes the normalized statement template, redacted trace
+digest, and computed projection `MATCH` count, and the artifact validator rejects missing, tampered,
+or coordinated-tampered SQL proof. The implementation plan's durable verification commands were
+also updated to include the required E3-B `--protocol` and `--candidate` arguments and to use
+`tests/fixtures/retrieval-eval-v1.json` for E1 validation.
+
 Next action: review the clean local execution branch before push or PR.

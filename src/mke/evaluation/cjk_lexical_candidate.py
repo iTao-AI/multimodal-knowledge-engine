@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sqlite3
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
@@ -91,6 +92,7 @@ class CjkProjectionSearchObservation:
     pool_row_count: int
     sql_trace: tuple[str, ...]
     statement_template: str
+    redacted_trace_digest: str
     parameterized_match_count: int
 
 
@@ -319,9 +321,10 @@ def search_cjk_trigram_projection(
             pool_row_count=0,
             sql_trace=(),
             statement_template="",
+            redacted_trace_digest=_digest(()),
             parameterized_match_count=0,
         )
-    statement_template = f"""
+    statement_template = _normalize_sql(f"""
         SELECT evidence_id, publication_id, source_id, locator_kind,
                locator_start, locator_end, text, rank AS fts5_rank
         FROM {_PROJECTION_TABLE}
@@ -330,13 +333,14 @@ def search_cjk_trigram_projection(
                  CAST(locator_start AS INTEGER),
                  CAST(locator_end AS INTEGER),
                  evidence_id
-    """
+    """)
     statements: list[str] = []
     connection.set_trace_callback(statements.append)
     try:
         rows = connection.execute(statement_template, (compiled.match_query,)).fetchall()
     finally:
         connection.set_trace_callback(None)
+    redacted_trace = _redacted_sql_trace(tuple(statements))
     candidates = tuple(
         CjkProjectionCandidate(
             evidence_id=str(row[0]),
@@ -364,7 +368,8 @@ def search_cjk_trigram_projection(
         pool_row_count=len(candidates),
         sql_trace=tuple(statements),
         statement_template=statement_template,
-        parameterized_match_count=1,
+        redacted_trace_digest=_digest(redacted_trace),
+        parameterized_match_count=_projection_match_count(redacted_trace),
     )
 
 
@@ -492,3 +497,21 @@ def _digest(value: object) -> str:
             sort_keys=True,
         ).encode("utf-8")
     ).hexdigest()
+
+
+def _normalize_sql(statement: str) -> str:
+    return " ".join(statement.split())
+
+
+def _redacted_sql_trace(statements: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(_redact_sql_literals(statement) for statement in statements)
+
+
+def _redact_sql_literals(statement: str) -> str:
+    normalized = _normalize_sql(statement)
+    return re.sub(r"'(?:''|[^'])*'", "?", normalized)
+
+
+def _projection_match_count(redacted_trace: tuple[str, ...]) -> int:
+    needle = f"{_PROJECTION_MATCH_NAME} MATCH ?"
+    return sum(needle in statement for statement in redacted_trace)

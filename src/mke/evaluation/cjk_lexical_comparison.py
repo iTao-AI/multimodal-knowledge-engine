@@ -83,6 +83,13 @@ class CjkLexicalResultProof:
 
 
 @dataclass(frozen=True)
+class CjkLexicalSqlProof:
+    statement_template: str
+    redacted_trace_digest: str
+    parameterized_match_count: int
+
+
+@dataclass(frozen=True)
 class CjkLexicalQueryObservation:
     query_id: str
     split: ChineseSplit
@@ -94,6 +101,7 @@ class CjkLexicalQueryObservation:
     omitted_below_minimum: tuple[str, ...]
     candidate_used: bool
     projection_pool_row_count: int
+    sql_proof: CjkLexicalSqlProof | None
     parameterized_match_count: int
     current_retrieved_locators: tuple[StableLocator, ...]
     current_direct_ranks: tuple[int, ...]
@@ -408,6 +416,7 @@ def _run_split(
                 candidate_used = should_use_cjk_fallback(compiled)
                 projection_pool_count = 0
                 parameterized_match_count = 0
+                sql_proof: CjkLexicalSqlProof | None = None
                 if candidate_used:
                     search = search_cjk_trigram_projection(
                         store._connection,  # pyright: ignore[reportPrivateUsage]
@@ -416,6 +425,11 @@ def _run_split(
                     )
                     projection_pool_count = search.pool_row_count
                     parameterized_match_count = search.parameterized_match_count
+                    sql_proof = CjkLexicalSqlProof(
+                        statement_template=search.statement_template,
+                        redacted_trace_digest=search.redacted_trace_digest,
+                        parameterized_match_count=search.parameterized_match_count,
+                    )
                     result_proofs = tuple(
                         CjkLexicalResultProof(
                             locator=_stable_candidate_locator(
@@ -456,6 +470,7 @@ def _run_split(
                         omitted_below_minimum=compiled.omitted_below_minimum,
                         candidate_used=candidate_used,
                         projection_pool_row_count=projection_pool_count,
+                        sql_proof=sql_proof,
                         parameterized_match_count=parameterized_match_count,
                         current_retrieved_locators=(
                             current_result.retrieved_locators

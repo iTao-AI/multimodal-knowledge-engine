@@ -57,7 +57,7 @@
     "max_results": 10
   },
   "source": {
-    "sha256": "dbb713bea7cf15185138a0f27f197322472937bd1f4509d330a22d447c490a77",
+    "sha256": "76f792620b962d97b2523314635be125abeeeb7f93bcb7f83c87d1326f34d863",
     "files": [
       {
         "path": "pyproject.toml",
@@ -86,18 +86,18 @@
       },
       {
         "path": "src/mke/evaluation/cjk_lexical_artifact.py",
-        "bytes": 9893,
-        "sha256": "1504b0e651b2e0c07ac73e3c7c5ebbb4b0c06de9548737b3586a501995ffa9ad"
+        "bytes": 12033,
+        "sha256": "8d55c16a37caf5dace93d14bca89a4aea8c38aed7b090a0e76877cfa42e5b180"
       },
       {
         "path": "src/mke/evaluation/cjk_lexical_candidate.py",
-        "bytes": 15234,
-        "sha256": "19bdfbb36ce547cf6c50afc6230d0a522d611293acb783a6d1c8945bebecac15"
+        "bytes": 16064,
+        "sha256": "1cc330b4a89d6da1b1e07b680190df0b71b5516961fae56d139387e5769482b9"
       },
       {
         "path": "src/mke/evaluation/cjk_lexical_comparison.py",
-        "bytes": 31428,
-        "sha256": "b9f9724d7d7ce1d62ad515742300fa5e63da27a2cd0643207545638232ec970d"
+        "bytes": 32024,
+        "sha256": "144defb09efa7f1a5a00404c9198cb79f8fb8eaef017c2b7ee2453a506ccdc92"
       },
       {
         "path": "src/mke/evaluation/graded_metrics.py",
@@ -3902,7 +3902,8 @@
         "parameterized_match_count": 0,
         "projection_pool_row_count": 0,
         "query_id": "zh-dev-exact-01",
-        "split": "development"
+        "split": "development",
+        "sql_proof": null
       },
       {
         "ascii_token_count": 1,
@@ -3972,7 +3973,8 @@
         "parameterized_match_count": 0,
         "projection_pool_row_count": 0,
         "query_id": "zh-dev-exact-02",
-        "split": "development"
+        "split": "development",
+        "sql_proof": null
       },
       {
         "ascii_token_count": 2,
@@ -4076,7 +4078,8 @@
         "parameterized_match_count": 0,
         "projection_pool_row_count": 0,
         "query_id": "zh-dev-exact-03",
-        "split": "development"
+        "split": "development",
+        "sql_proof": null
       },
       {
         "ascii_token_count": 0,
@@ -4158,7 +4161,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 8,
         "query_id": "zh-dev-exact-04",
-        "split": "development"
+        "split": "development",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "aaa321fbc5377bf2516cab2e6555f7cc7e47f131a2070d8597cac21dd9e016f7",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 0,
@@ -4389,7 +4397,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 15,
         "query_id": "zh-dev-boundary-01",
-        "split": "development"
+        "split": "development",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "33d870ce7e40b18cd1ca97f75d141bdb3c51cd31ebc7bf512f27a0ea7771d42f",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 0,
@@ -4470,7 +4483,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 11,
         "query_id": "zh-dev-boundary-02",
-        "split": "development"
+        "split": "development",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "f0160d40e4c8b03f952a8188a5512d9ab155a439fb0100ac3af02db63fa86e74",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 0,
@@ -4558,7 +4576,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 2,
         "query_id": "zh-dev-boundary-03",
-        "split": "development"
+        "split": "development",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "b6fe3879688b71b7b864582d1352c5ac52317a9450bf115afe5c1f762b984465",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 2,
@@ -4634,7 +4657,8 @@
         "parameterized_match_count": 0,
         "projection_pool_row_count": 0,
         "query_id": "zh-dev-mixed-01",
-        "split": "development"
+        "split": "development",
+        "sql_proof": null
       },
       {
         "ascii_token_count": 2,
@@ -4676,7 +4700,8 @@
         "parameterized_match_count": 0,
         "projection_pool_row_count": 0,
         "query_id": "zh-dev-mixed-02",
-        "split": "development"
+        "split": "development",
+        "sql_proof": null
       },
       {
         "ascii_token_count": 2,
@@ -4720,7 +4745,8 @@
         "parameterized_match_count": 0,
         "projection_pool_row_count": 0,
         "query_id": "zh-dev-mixed-03",
-        "split": "development"
+        "split": "development",
+        "sql_proof": null
       },
       {
         "ascii_token_count": 2,
@@ -4743,7 +4769,8 @@
         "parameterized_match_count": 0,
         "projection_pool_row_count": 0,
         "query_id": "zh-dev-number-01",
-        "split": "development"
+        "split": "development",
+        "sql_proof": null
       },
       {
         "ascii_token_count": 1,
@@ -4769,7 +4796,8 @@
         "parameterized_match_count": 0,
         "projection_pool_row_count": 0,
         "query_id": "zh-dev-number-02",
-        "split": "development"
+        "split": "development",
+        "sql_proof": null
       },
       {
         "ascii_token_count": 5,
@@ -4813,7 +4841,8 @@
         "parameterized_match_count": 0,
         "projection_pool_row_count": 0,
         "query_id": "zh-dev-number-03",
-        "split": "development"
+        "split": "development",
+        "sql_proof": null
       },
       {
         "ascii_token_count": 1,
@@ -4959,7 +4988,8 @@
         "parameterized_match_count": 0,
         "projection_pool_row_count": 0,
         "query_id": "zh-dev-semantic-01",
-        "split": "development"
+        "split": "development",
+        "sql_proof": null
       },
       {
         "ascii_token_count": 0,
@@ -5024,7 +5054,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 5,
         "query_id": "zh-dev-semantic-02",
-        "split": "development"
+        "split": "development",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "a75dcd561003bcc325a8a511878a2d4b637290d20feda01139aef1bd501345c9",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 0,
@@ -5092,7 +5127,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 3,
         "query_id": "zh-dev-semantic-03",
-        "split": "development"
+        "split": "development",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "c8db118687614946acb7d48ca4911216abbfa4c83bd069fdafa8873d7a81888c",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 0,
@@ -5126,7 +5166,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 0,
         "query_id": "zh-dev-semantic-04",
-        "split": "development"
+        "split": "development",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "7cd8cea9afacd822e5265aeca901b68489b5335fc7aaef0ba5fb4042334d96e7",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 5,
@@ -5171,7 +5216,8 @@
         "parameterized_match_count": 0,
         "projection_pool_row_count": 0,
         "query_id": "zh-dev-multi-01",
-        "split": "development"
+        "split": "development",
+        "sql_proof": null
       },
       {
         "ascii_token_count": 0,
@@ -5206,7 +5252,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 7,
         "query_id": "zh-dev-multi-02",
-        "split": "development"
+        "split": "development",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "dc1a464e65cafc271a0ccf1de9eb610c39f1b889e68fe44c1f191a980a7922ea",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 0,
@@ -5272,7 +5323,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 3,
         "query_id": "zh-dev-multi-03",
-        "split": "development"
+        "split": "development",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "c8db118687614946acb7d48ca4911216abbfa4c83bd069fdafa8873d7a81888c",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 0,
@@ -5310,7 +5366,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 2,
         "query_id": "zh-dev-hard-01",
-        "split": "development"
+        "split": "development",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "b6fe3879688b71b7b864582d1352c5ac52317a9450bf115afe5c1f762b984465",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 1,
@@ -5368,7 +5429,8 @@
         "parameterized_match_count": 0,
         "projection_pool_row_count": 0,
         "query_id": "zh-dev-hard-02",
-        "split": "development"
+        "split": "development",
+        "sql_proof": null
       },
       {
         "ascii_token_count": 0,
@@ -5400,7 +5462,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 22,
         "query_id": "zh-dev-unanswerable-01",
-        "split": "development"
+        "split": "development",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "603702022e3c5ebd2ee4fd95c810a14cfb36b877363b92972878c22818b49250",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 2,
@@ -5442,7 +5509,8 @@
         "parameterized_match_count": 0,
         "projection_pool_row_count": 0,
         "query_id": "zh-dev-unanswerable-02",
-        "split": "development"
+        "split": "development",
+        "sql_proof": null
       },
       {
         "ascii_token_count": 0,
@@ -5493,7 +5561,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 14,
         "query_id": "zh-hold-exact-01",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "3b7c82a2254b2498c48954b594916b3d04db6fee89917550446674c49186b745",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 0,
@@ -5605,7 +5678,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 7,
         "query_id": "zh-hold-exact-02",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "dc1a464e65cafc271a0ccf1de9eb610c39f1b889e68fe44c1f191a980a7922ea",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 0,
@@ -5745,7 +5823,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 5,
         "query_id": "zh-hold-exact-03",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "a75dcd561003bcc325a8a511878a2d4b637290d20feda01139aef1bd501345c9",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 0,
@@ -5800,7 +5883,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 5,
         "query_id": "zh-hold-exact-04",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "a75dcd561003bcc325a8a511878a2d4b637290d20feda01139aef1bd501345c9",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 0,
@@ -5857,7 +5945,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 2,
         "query_id": "zh-hold-boundary-01",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "b6fe3879688b71b7b864582d1352c5ac52317a9450bf115afe5c1f762b984465",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 0,
@@ -5912,7 +6005,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 1,
         "query_id": "zh-hold-boundary-02",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "7774302d3f52006d516c205bfcee9b263b525897c79fc225cf4673996f475877",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 0,
@@ -5995,7 +6093,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 2,
         "query_id": "zh-hold-boundary-03",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "b6fe3879688b71b7b864582d1352c5ac52317a9450bf115afe5c1f762b984465",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 2,
@@ -6036,7 +6139,8 @@
         "parameterized_match_count": 0,
         "projection_pool_row_count": 0,
         "query_id": "zh-hold-mixed-01",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": null
       },
       {
         "ascii_token_count": 3,
@@ -6077,7 +6181,8 @@
         "parameterized_match_count": 0,
         "projection_pool_row_count": 0,
         "query_id": "zh-hold-mixed-02",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": null
       },
       {
         "ascii_token_count": 2,
@@ -6119,7 +6224,8 @@
         "parameterized_match_count": 0,
         "projection_pool_row_count": 0,
         "query_id": "zh-hold-mixed-03",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": null
       },
       {
         "ascii_token_count": 1,
@@ -6146,7 +6252,8 @@
         "parameterized_match_count": 0,
         "projection_pool_row_count": 0,
         "query_id": "zh-hold-number-01",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": null
       },
       {
         "ascii_token_count": 2,
@@ -6173,7 +6280,8 @@
         "parameterized_match_count": 0,
         "projection_pool_row_count": 0,
         "query_id": "zh-hold-number-02",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": null
       },
       {
         "ascii_token_count": 5,
@@ -6216,7 +6324,8 @@
         "parameterized_match_count": 0,
         "projection_pool_row_count": 0,
         "query_id": "zh-hold-number-03",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": null
       },
       {
         "ascii_token_count": 0,
@@ -6248,7 +6357,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 1,
         "query_id": "zh-hold-semantic-01",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "7774302d3f52006d516c205bfcee9b263b525897c79fc225cf4673996f475877",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 0,
@@ -6304,7 +6418,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 1,
         "query_id": "zh-hold-semantic-02",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "7774302d3f52006d516c205bfcee9b263b525897c79fc225cf4673996f475877",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 0,
@@ -6334,7 +6453,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 2,
         "query_id": "zh-hold-semantic-03",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "b6fe3879688b71b7b864582d1352c5ac52317a9450bf115afe5c1f762b984465",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 0,
@@ -6366,7 +6490,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 14,
         "query_id": "zh-hold-semantic-04",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "3b7c82a2254b2498c48954b594916b3d04db6fee89917550446674c49186b745",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 0,
@@ -6427,7 +6556,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 4,
         "query_id": "zh-hold-multi-01",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "7f4d91bab56596a31d76f82523b2a0e9a3aaf6fe41d5eedfd32626b665b59cc1",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 0,
@@ -6460,7 +6594,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 4,
         "query_id": "zh-hold-multi-02",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "7f4d91bab56596a31d76f82523b2a0e9a3aaf6fe41d5eedfd32626b665b59cc1",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 0,
@@ -6497,7 +6636,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 2,
         "query_id": "zh-hold-multi-03",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "b6fe3879688b71b7b864582d1352c5ac52317a9450bf115afe5c1f762b984465",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 0,
@@ -6529,7 +6673,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 2,
         "query_id": "zh-hold-hard-01",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "b6fe3879688b71b7b864582d1352c5ac52317a9450bf115afe5c1f762b984465",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 1,
@@ -6623,7 +6772,8 @@
         "parameterized_match_count": 0,
         "projection_pool_row_count": 0,
         "query_id": "zh-hold-hard-02",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": null
       },
       {
         "ascii_token_count": 0,
@@ -6660,7 +6810,12 @@
         "parameterized_match_count": 1,
         "projection_pool_row_count": 14,
         "query_id": "zh-hold-unanswerable-01",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": {
+          "parameterized_match_count": 1,
+          "redacted_trace_digest": "3b7c82a2254b2498c48954b594916b3d04db6fee89917550446674c49186b745",
+          "statement_template": "SELECT evidence_id, publication_id, source_id, locator_kind, locator_start, locator_end, text, rank AS fts5_rank FROM temp.mke_cjk_trigram_projection WHERE mke_cjk_trigram_projection MATCH ? ORDER BY rank, source_id, CAST(locator_start AS INTEGER), CAST(locator_end AS INTEGER), evidence_id"
+        }
       },
       {
         "ascii_token_count": 2,
@@ -6700,7 +6855,8 @@
         "parameterized_match_count": 0,
         "projection_pool_row_count": 0,
         "query_id": "zh-hold-unanswerable-02",
-        "split": "holdout"
+        "split": "holdout",
+        "sql_proof": null
       }
     ],
     "schema_version": "mke.cjk_lexical_comparison.v1"

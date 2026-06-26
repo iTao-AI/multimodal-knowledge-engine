@@ -224,10 +224,11 @@ Validator requirements:
 - verify fixture/protocol/qrel/source identities;
 - rebuild active Evidence from frozen fixture text;
 - rebuild trigram projection;
-- independently recompute candidate terms, projection matches, overlap scores, rankings, metrics,
-  gates, and verdict;
+- independently recompute candidate terms, projection SQL proof, projection matches, overlap scores,
+  rankings, metrics, gates, and verdict;
 - reject observed report replay that bypasses scorer recomputation;
 - reject coordinated tampering where locator and score are both changed.
+- reject missing, tampered, or coordinated-tampered SQL proof.
 
 Required RED tests:
 
@@ -305,12 +306,18 @@ Expected artifact fields:
 - per-query current and candidate results;
 - compiled-empty recovery table;
 - deterministic rank/overlap proof;
+- redacted SQL proof for candidate-used queries, including statement template, redacted trace digest,
+  and computed projection `MATCH` count;
 - limitations.
 
 Verification:
 
 ```bash
-uv run mke eval retrieval-cjk-lexical --record benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json
+uv run mke eval retrieval-cjk-lexical \
+  --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
+  --candidate cjk-trigram-overlap-v1 \
+  --record benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json \
+  --json > /tmp/mke-cjk-lexical-comparison.json
 uv run python -m mke.evaluation.cjk_lexical_artifact validate \
   --artifact benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json \
   --observed /tmp/mke-cjk-lexical-comparison.json \
@@ -354,11 +361,11 @@ uv run ruff check .
 uv run pyright
 uv build
 uv run mke eval retrieval \
-  --manifest tests/fixtures/eval/retrieval/manifest.json \
+  --manifest tests/fixtures/retrieval-eval-v1.json \
   --json > /tmp/mke-retrieval-eval.json
 uv run python -m mke.evaluation.baseline \
   --artifact benchmarks/retrieval/retrieval-eval-v1-baseline.json \
-  --manifest tests/fixtures/eval/retrieval/manifest.json \
+  --manifest tests/fixtures/retrieval-eval-v1.json \
   --repository .
 uv run mke eval retrieval-numeric \
   --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json \

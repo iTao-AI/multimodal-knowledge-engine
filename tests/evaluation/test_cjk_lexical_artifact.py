@@ -64,6 +64,14 @@ def test_recorded_cjk_lexical_artifact_validates_by_recomputing_candidate(
     assert payload["comparison"]["candidate_status"] == "passed"
     assert "duration_ms" not in payload["comparison"]
     assert "commit" not in payload["source"]
+    candidate_used = _first_candidate_used_observation(payload["comparison"])
+    sql_proof = cast(dict[str, object], candidate_used["sql_proof"])
+    assert sql_proof["parameterized_match_count"] == 1
+    assert "mke_cjk_trigram_projection MATCH ?" in cast(
+        str, sql_proof["statement_template"]
+    )
+    assert isinstance(sql_proof["redacted_trace_digest"], str)
+    assert "证据" not in cast(str, sql_proof["statement_template"])
 
 
 def _add_unknown_key(payload: dict[str, object]) -> None:
@@ -101,6 +109,39 @@ def _tamper_locator_and_score(payload: dict[str, object]) -> None:
     proof["overlap_count"] = cast(int, proof["overlap_count"]) + 1
 
 
+def _first_candidate_used_observation(
+    comparison: dict[str, object],
+) -> dict[str, object]:
+    observations = cast(list[dict[str, object]], comparison["query_observations"])
+    return next(item for item in observations if item["candidate_used"] is True)
+
+
+def _remove_sql_proof(payload: dict[str, object]) -> None:
+    comparison = _comparison_payload(payload)
+    observation = _first_candidate_used_observation(comparison)
+    observation.pop("sql_proof")
+
+
+def _tamper_sql_proof_digest(payload: dict[str, object]) -> None:
+    comparison = _comparison_payload(payload)
+    observation = _first_candidate_used_observation(comparison)
+    sql_proof = cast(dict[str, object], observation["sql_proof"])
+    sql_proof["redacted_trace_digest"] = "0" * 64
+
+
+def _tamper_sql_proof_count(payload: dict[str, object]) -> None:
+    comparison = _comparison_payload(payload)
+    observation = _first_candidate_used_observation(comparison)
+    sql_proof = cast(dict[str, object], observation["sql_proof"])
+    sql_proof["parameterized_match_count"] = 2
+
+
+def _comparison_payload(payload: dict[str, object]) -> dict[str, object]:
+    if "comparison" in payload:
+        return cast(dict[str, object], payload["comparison"])
+    return payload
+
+
 @pytest.mark.parametrize(
     "mutation",
     [
@@ -109,6 +150,9 @@ def _tamper_locator_and_score(payload: dict[str, object]) -> None:
         _reverse_observations,
         _tamper_source_identity,
         _tamper_locator_and_score,
+        _remove_sql_proof,
+        _tamper_sql_proof_digest,
+        _tamper_sql_proof_count,
     ],
 )
 def test_cjk_lexical_artifact_rejects_schema_identity_or_score_tampering(
@@ -122,6 +166,30 @@ def test_cjk_lexical_artifact_rejects_schema_identity_or_score_tampering(
     )
     mutation(payload)
     artifact.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    with pytest.raises(CjkLexicalArtifactValidationError):
+        validate_cjk_lexical_artifact(
+            artifact_path=artifact,
+            observed_path=observed,
+            protocol_path=PROTOCOL,
+            repository_root=REPOSITORY,
+        )
+
+
+def test_validation_rejects_coordinated_sql_proof_tampering(
+    tmp_path: Path,
+) -> None:
+    artifact, observed = _record(tmp_path)
+    artifact_payload = json.loads(artifact.read_text(encoding="utf-8"))
+    observed_payload = json.loads(observed.read_text(encoding="utf-8"))
+    _tamper_sql_proof_count(artifact_payload)
+    _tamper_sql_proof_count(observed_payload)
+    artifact.write_text(
+        json.dumps(artifact_payload, ensure_ascii=False), encoding="utf-8"
+    )
+    observed.write_text(
+        json.dumps(observed_payload, ensure_ascii=False), encoding="utf-8"
+    )
 
     with pytest.raises(CjkLexicalArtifactValidationError):
         validate_cjk_lexical_artifact(
