@@ -29,11 +29,24 @@ from mke.domain import (
     validate_manifest,
 )
 from mke.retrieval import (
-    DEFAULT_RETRIEVAL_QUERY_POLICY,
+    DEFAULT_RETRIEVAL_STRATEGY,
     RetrievalQueryPolicy,
+    RetrievalStrategy,
     compile_fts5_query,
 )
+from mke.retrieval.cjk_active_scan import (
+    CJK_ACTIVE_SCAN_PARAMETERS,
+    CjkActiveScanCandidate,
+    CjkActiveScanError,
+    CjkActiveScanParameters,
+    compile_cjk_overlap_terms,
+    rank_cjk_active_scan_candidates,
+)
 from mke.retrieval.query_policy import require_retrieval_query_policy
+from mke.retrieval.strategy import (
+    get_retrieval_strategy_descriptor,
+    require_retrieval_strategy,
+)
 
 if TYPE_CHECKING:
     from mke.evaluation.diagnostic_ports import (
@@ -61,12 +74,22 @@ class SQLiteStore:
         self,
         db_path: Path,
         *,
-        query_policy: RetrievalQueryPolicy = DEFAULT_RETRIEVAL_QUERY_POLICY,
+        query_policy: RetrievalQueryPolicy | None = None,
+        retrieval_strategy: RetrievalStrategy | None = None,
         search_observer: Callable[[int], None] | None = None,
     ) -> None:
         self.db_path = db_path
+        if retrieval_strategy is None:
+            self._retrieval_strategy = require_retrieval_strategy(
+                require_retrieval_query_policy(query_policy)
+                if query_policy is not None
+                else DEFAULT_RETRIEVAL_STRATEGY
+            )
+        else:
+            self._retrieval_strategy = require_retrieval_strategy(retrieval_strategy)
+        descriptor = get_retrieval_strategy_descriptor(self._retrieval_strategy)
         self._query_policy: RetrievalQueryPolicy = require_retrieval_query_policy(
-            query_policy
+            descriptor.base_query_policy
         )
         self._search_observer = search_observer
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -854,8 +877,15 @@ class SQLiteStore:
 
     def search(self, query: str, limit: int | None = None) -> list[SearchResult]:
         match_query = compile_fts5_query(query, policy=self._query_policy)
-        if not match_query:
-            return []
+        if match_query:
+            return self._search_fts(match_query, limit=limit)
+        if self._retrieval_strategy == "cjk-active-scan-overlap-v1":
+            return self.search_cjk_active_scan(query, limit=limit)
+        return []
+
+    def _search_fts(
+        self, match_query: str, limit: int | None = None
+    ) -> list[SearchResult]:
         sql = """
             SELECT evidence.evidence_id, active_evidence_fts.publication_id,
                    evidence.source_id, evidence.locator_kind, evidence.locator_start,
@@ -896,6 +926,98 @@ class SQLiteStore:
                 text=str(row["text"]),
             )
             for row in rows
+        ]
+
+    def search_cjk_active_scan(
+        self,
+        query: str,
+        limit: int | None = None,
+        *,
+        parameters: CjkActiveScanParameters = CJK_ACTIVE_SCAN_PARAMETERS,
+    ) -> list[SearchResult]:
+        try:
+            compiled = compile_cjk_overlap_terms(
+                query,
+                parameters=parameters,
+                require_terms=True,
+            )
+        except CjkActiveScanError as error:
+            if error.problem == "cjk_query_not_eligible":
+                return []
+            raise
+        budget_row = self._connection.execute(
+            """
+                SELECT COUNT(*) AS active_row_count,
+                       COALESCE(
+                         SUM(length(CAST(evidence.text AS BLOB))),
+                         0
+                       ) AS active_text_bytes
+                FROM sources
+                JOIN publications
+                  ON publications.publication_id = sources.active_publication_id
+                JOIN evidence
+                  ON evidence.run_id = publications.run_id
+                 AND evidence.source_id = sources.source_id
+            """
+        ).fetchone()
+        active_row_count = int(budget_row["active_row_count"])
+        active_text_bytes = int(budget_row["active_text_bytes"])
+        if (
+            active_row_count > parameters.max_active_evidence_rows
+            or active_text_bytes > parameters.max_active_evidence_text_bytes
+        ):
+            raise CjkActiveScanError(
+                "cjk_scan_budget_exceeded",
+                "CJK active Evidence scan would exceed configured local budget",
+                "narrow_query_or_use_projection_strategy",
+            )
+        rows = self._connection.execute(
+            """
+            SELECT evidence.evidence_id, publications.publication_id,
+                   evidence.source_id, evidence.locator_kind,
+                   evidence.locator_start, evidence.locator_end, evidence.text
+            FROM sources
+            JOIN publications
+              ON publications.publication_id = sources.active_publication_id
+            JOIN evidence
+              ON evidence.run_id = publications.run_id
+             AND evidence.source_id = sources.source_id
+            ORDER BY evidence.source_id, evidence.locator_kind,
+                     evidence.locator_start, evidence.locator_end,
+                     evidence.evidence_id
+            """
+        ).fetchall()
+        candidates = tuple(
+            CjkActiveScanCandidate(
+                evidence_id=str(row["evidence_id"]),
+                publication_id=str(row["publication_id"]),
+                source_id=str(row["source_id"]),
+                locator_kind=str(row["locator_kind"]),
+                locator_start=int(row["locator_start"]),
+                locator_end=int(row["locator_end"]),
+                text=str(row["text"]),
+                document_id=str(row["source_id"]),
+            )
+            for row in rows
+        )
+        ranked = rank_cjk_active_scan_candidates(
+            candidates,
+            compiled.terms,
+            parameters=parameters,
+        )
+        if limit is not None:
+            ranked = ranked[:limit]
+        return [
+            SearchResult(
+                evidence_id=item.evidence_id,
+                publication_id=item.publication_id,
+                source_id=item.source_id,
+                locator_kind=item.locator_kind,
+                locator_start=item.locator_start,
+                locator_end=item.locator_end,
+                text=item.text,
+            )
+            for item in ranked
         ]
 
 

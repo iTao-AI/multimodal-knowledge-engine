@@ -92,9 +92,11 @@ uv run mke eval retrieval-cjk-lexical \
 
 `cjk-trigram-overlap-v1` is comparison-only. It first uses the unchanged
 `numeric-grouping-v1` compiler. Only queries whose current compiled query is empty enter the
-evaluation-only SQLite FTS5 `trigram` projection and deterministic overlap scorer. The normal
-`active_evidence_fts` table, runtime default retrieval policy, Search/Ask DTOs, HTTP, UI, MCP,
-embeddings, vector search, hybrid retrieval, RRF, reranking, and query rewrite are unchanged.
+evaluation-only SQLite FTS5 `trigram` projection and deterministic overlap scorer. At the E3-B
+stage, the normal `active_evidence_fts` table, runtime default retrieval policy, Search/Ask DTOs,
+HTTP, UI, MCP, embeddings, vector search, hybrid retrieval, RRF, reranking, and query rewrite were
+unchanged. ADR-0008 later changed only the owner-startup default and added the bounded active-scan
+runtime path.
 
 | Metric | Current | Candidate |
 |---|---:|---:|
@@ -104,9 +106,19 @@ embeddings, vector search, hybrid retrieval, RRF, reranking, and query rewrite a
 | Holdout Recall@5 | `0.227273` | `0.636364` |
 | Development compiled-empty misses recovered | `0/10` | `7/10` |
 
-All frozen development and holdout gates pass in the canonical artifact. This does not promote the
-candidate to runtime default and does not establish broad CJK support. E3-C through E3-F remain
-unimplemented and evidence-gated.
+All frozen development and holdout gates pass in the canonical artifact. E3-B remains an
+evaluation-only artifact and does not itself establish broad CJK support. E3-F separately uses
+the same compiled-empty eligibility boundary for a no-projection active-scan runtime strategy.
+E3-C through E3-E remain unimplemented and evidence-gated.
+
+## E3-F Runtime Evidence
+
+Task 0.5 measured `cjk-active-scan-overlap-v1` at Recall@5 `0.659091`, nDCG@10 `0.619152`,
+unanswerable no-hit rate `0.500000`, and hard-negative failure rate `0.235294`. It scans bounded
+active Publication Evidence only when the numeric compiler is empty. Compiled non-empty mixed and
+numeric queries remain FTS-only, including zero-hit results, because dropping their ASCII
+constraints produced incorrect number/unit matches during review. See
+[Enable Bounded CJK Retrieval](./enable-cjk-retrieval.md).
 
 ## Validate The Canonical Artifact
 
@@ -179,7 +191,7 @@ migration, projection rebuild, runtime selector change, or user-data action. E1/
 repository provenance maintenance.
 
 Fixture provenance is documented in `tests/fixtures/retrieval-chinese-v1/README.md`. This small
-engineering corpus covers text-layer, page-level Evidence only. E3-B establishes one bounded
-compiled-empty lexical comparison on this corpus; it does not establish broad CJK support,
+engineering corpus covers text-layer, page-level Evidence only. E3-B and E3-F establish bounded
+compiled-empty lexical comparison and runtime evidence on this corpus; they do not establish broad CJK support,
 dense/vector or hybrid retrieval, RRF, reranking, statistical significance, production quality,
 OCR, or arbitrary PDF support.

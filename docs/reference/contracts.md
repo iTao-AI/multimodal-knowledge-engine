@@ -27,7 +27,7 @@ Status:
 | Command | Status | Notes |
 |---|---|---|
 | `mke --db <path> ingest <file>` | implemented in PR 2, extended in PR 4, D1, and D3-B protocol work | PyMuPDF text-layer PDF path and documented short MP4 fixture profile. Persists candidate Evidence, validates a RunManifest, and activates a Source Publication atomically. PDF and eligible transcript success include intake summaries. |
-| `mke --db <path> search <query>` | implemented in PR 2 | Searches only active Publication rows in the SQLite FTS5 projection. |
+| `mke --db <path> search <query>` | implemented in PR 2, extended in E3-F | Searches active Publication Evidence through the selected owner-startup strategy. |
 | `mke --db <path> run get <run_id>` | implemented in PR 3, extended in D1 | Prints Run state, retry lineage, PDF intake summary when present, and append-only Run events. |
 | `mke proof run` | implemented in D2 | Runs the deterministic product proof harness across CLI-equivalent application behavior and MCP contract behavior. |
 | `mke proof transcript-smoke --fixture <short-mp4> -- <command> {input}` | implemented in D3-A | Proof-only trusted-local smoke for `LocalCommandTranscriptProvider`; not part of normal ingest and not exposed through MCP. |
@@ -39,15 +39,24 @@ Status:
 | `mke transcription doctor` | implemented in D3-B | Read-only dependency, profile, language, and cache checks. |
 | `mke eval retrieval-chinese --protocol <protocol.json>` | implemented in E3-A | Records the current FTS5 lexical baseline over isolated Chinese development/public-holdout corpora; no quality threshold or runtime promotion. |
 | `mke eval retrieval-cjk-lexical --protocol <protocol.json> --candidate cjk-trigram-overlap-v1` | implemented in E3-B | Runs an off-default comparison-only CJK trigram-overlap candidate for compiled-empty queries; no runtime default, HTTP, UI, MCP, embedding, vector, hybrid, RRF, reranker, or query-rewrite change. |
+| `mke retrieval doctor --strategy <strategy>` | implemented in E3-F | Read-only SQLite, active Publication, and required base FTS consistency inspection. |
+| `mke retrieval rebuild --strategy <strategy>` | implemented in E3-F | Additional CJK projection no-op for active scan; base FTS rebuild returns stable not-supported. |
 | `mke init` | planned | Workspace initialization after lifecycle proof. |
 | `mke serve` | planned | Single-owner local process after CLI proof. |
 | `mke library create` | planned | May be implicit in first CLI path. |
 
 The PDF CLI uses a local SQLite database path supplied with `--db`. It does not expose a general
 FTS query language: Search tokenizes user input into escaped terms before querying FTS5. The
-default `numeric-grouping-v1` policy preserves compact numeric tokens and adds a tokenizer-adjacent
-right-grouped alternative for eligible standalone ASCII integers. The owner may select `current`
-with `--retrieval-query-policy current`; policy changes require no migration or index rebuild. The
+`numeric-grouping-v1` preserves compact numeric tokens and adds a tokenizer-adjacent right-grouped
+alternative for eligible standalone ASCII integers. E3-F adds the allowlisted
+`--retrieval-strategy` owner-startup selector. `cjk-active-scan-overlap-v1` compiles once with the
+numeric policy, keeps compiled non-empty queries on active FTS5, and scans active Evidence only
+for eligible compiled-empty CJK queries. It is the default when the selector is omitted.
+`numeric-grouping-v1` is the primary rollback and
+`current` the lower-level rollback. Strategy changes require no migration or index rebuild. The
+active strategy requires the existing `active_evidence_fts` projection for compiled non-empty
+queries but adds no CJK projection. Doctor compares that base projection exactly with active
+Publication Evidence before reporting ready. The
 built-in PDF extractor uses PyMuPDF behind the adapter boundary and extracts text-layer page text
 with `page.get_text("text", sort=True)`. Successful PDF ingest and Run inspection expose
 `PdfIntakeReport` summary fields: total pages, extracted pages, empty pages, extracted characters,
@@ -129,13 +138,12 @@ to public-safe platform and dependency versions. The proof never emits local pat
 locations, host identity, argv, secrets, or a complete transcript.
 
 Ask validation failures use `invalid_question` for empty, overlong, or no-searchable-token
-questions and `invalid_query` for invalid limits. CJK-only and punctuation-only Ask inputs return
-`invalid_question` in C2 because the current retrieval path only exposes searchable ASCII tokens.
-E3-A records that ASCII-oriented behavior without changing it. E3-B adds only an offline
-comparison command: `cjk-trigram-overlap-v1` builds an evaluation-only SQLite FTS5 `trigram`
-projection from active Evidence snapshots and applies a project-owned overlap scorer when the
-current compiled query is empty. It does not add a runtime CJK tokenizer, dense/vector search,
-hybrid retrieval, RRF, reranking, query rewrite, OCR, or a new public Search/Ask/MCP contract.
+questions and `invalid_query` for invalid limits. Legacy strategies keep CJK-only Ask inputs
+invalid. Under `cjk-active-scan-overlap-v1`, eligible compiled-empty CJK inputs can return
+`evidence_found` or `insufficient_evidence`; punctuation-only and ineligible inputs remain invalid.
+Compiled non-empty mixed or numeric queries are FTS-only, including zero-hit results, so ASCII
+constraints are not discarded. E3-F adds no persistent CJK projection, dense/vector search,
+hybrid retrieval, RRF, reranking, query rewrite, OCR, or request DTO.
 
 ## MCP
 
@@ -170,8 +178,8 @@ and a limitation explaining that no active Evidence matched the search terms.
 
 The MCP server runs over stdio through `mke mcp --allowed-root <path>`. It uses the same typed
 runtime composition root as CLI ingest, Run inspection, Search, and Ask. The owner startup command
-may select `--retrieval-query-policy current` for rollback; MCP requests cannot select or override
-retrieval policy. `ingest_file`
+may select `--retrieval-strategy cjk-active-scan-overlap-v1` or an explicit rollback; MCP requests
+cannot select or override retrieval strategy. `ingest_file`
 has the stable contract `ingest_file(config, path)`, only accepts files under the configured
 allowed root, and currently supports `.pdf` and `.mp4`. MCP requests cannot include transcription
 command argv or override retrieval policy, provider, model, cache, endpoint, credential, or

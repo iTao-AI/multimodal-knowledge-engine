@@ -34,6 +34,8 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
   promoted numeric grouping policy against frozen development, public holdout, and E1 inputs.
 - [Run The Chinese Retrieval Evaluation](./how-to/run-chinese-retrieval-evaluation.md) records the
   E3-A FTS5 lexical baseline, graded metrics, miss symptoms, and the E3-B CJK lexical comparison.
+- [Enable Bounded CJK Retrieval](./how-to/enable-cjk-retrieval.md) covers E3-F owner-startup
+  selection, compiled-empty routing, doctor, no-op rebuild, proof, and rollback.
 - [Use MKE As A Local MCP Server](./how-to/use-mke-mcp.md) explains the first Agent-facing stdio interface.
 - [Use Local Transcription](./how-to/use-local-transcription.md) covers prepare, doctor, ingest, real ASR proof, and recovery.
 - [Real Local Transcription Deployment Proof Design](./superpowers/specs/2026-06-18-real-local-transcription-deployment-proof-design.md) defines the redistribution-safe fixture, cache-only proof, and isolated wheel deployment evidence.
@@ -62,15 +64,15 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [Numeric Retrieval Candidate Comparison Design](./superpowers/specs/2026-06-21-retrieval-candidate-comparison-design.md) defines the frozen E2 protocol and promotion boundary.
 - [Numeric Retrieval Candidate Comparison Implementation Plan](./superpowers/plans/2026-06-21-retrieval-candidate-comparison-implementation.md) records the PR 1 execution checklist.
 - [Numeric Retrieval Candidate Comparison Autoplan Review](./superpowers/reviews/2026-06-21-retrieval-candidate-comparison-autoplan-review.md) records the approved scope, engineering, and DX findings.
-- [Chinese Hybrid Retrieval Evaluation Design](./superpowers/specs/2026-06-25-chinese-hybrid-retrieval-evaluation-design.md) defines E3-A through E3-F; E3-A and the E3-B comparison are implemented.
+- [Chinese Hybrid Retrieval Evaluation Design](./superpowers/specs/2026-06-25-chinese-hybrid-retrieval-evaluation-design.md) defines E3-A through E3-F; E3-A, E3-B, and E3-F are implemented.
 - [Chinese Retrieval Baseline Implementation Plan](./superpowers/plans/2026-06-25-chinese-retrieval-baseline-implementation.md) records the E3-A execution contract.
 - [Chinese Retrieval Baseline Autoplan Review](./superpowers/reviews/2026-06-25-chinese-retrieval-baseline-autoplan-review.md) records the approved pre-implementation findings.
 - [Chinese Retrieval Baseline Implementation Review](./superpowers/reviews/2026-06-25-chinese-retrieval-baseline-review.md) records the bounded implementation self-review and verification.
 - [CJK Lexical Candidate Design](./superpowers/specs/2026-06-26-cjk-lexical-candidate-design.md) defines the merged off-default E3-B `cjk-trigram-overlap-v1` comparison.
 - [CJK Lexical Candidate Implementation Plan](./superpowers/plans/2026-06-26-cjk-lexical-candidate-implementation.md) records the completed and merged E3-B execution checklist.
 - [CJK Lexical Candidate Plan Review](./superpowers/reviews/2026-06-26-cjk-lexical-candidate-plan-review.md) records the E3-B planning review, rejected alternatives, and post-merge closeout.
-- [CJK Lexical Runtime Promotion Design](./superpowers/specs/2026-06-26-cjk-lexical-runtime-promotion-design.md) defines the E3-F lexical-only promotion path for `cjk-trigram-overlap-v1`.
-- [CJK Lexical Runtime Promotion Implementation Plan](./superpowers/plans/2026-06-26-cjk-lexical-runtime-promotion-implementation.md) defines the planned runtime strategy, projection lifecycle, CLI/MCP, proof, and rollback work.
+- [CJK Lexical Runtime Promotion Design](./superpowers/specs/2026-06-26-cjk-lexical-runtime-promotion-design.md) records the E3-F path and Task 0.5 amendment to no-projection active scan.
+- [CJK Lexical Runtime Promotion Implementation Plan](./superpowers/plans/2026-06-26-cjk-lexical-runtime-promotion-implementation.md) records the active-scan runtime, CLI/MCP, proof, and rollback work.
 - [CJK Lexical Runtime Promotion Autoplan Review](./superpowers/reviews/2026-06-26-cjk-lexical-runtime-promotion-autoplan-review.md) records the pre-implementation CEO, engineering, and DX review findings.
 
 ## Development Verification

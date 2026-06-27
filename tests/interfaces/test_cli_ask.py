@@ -63,7 +63,19 @@ def test_cli_ask_invalid_question_returns_error_contract(
 ) -> None:
     db_path = tmp_path / "mke.sqlite"
 
-    assert main(["--db", str(db_path), "ask", "发布时间？"]) == 1
+    assert (
+        main(
+            [
+                "--db",
+                str(db_path),
+                "--retrieval-strategy",
+                "numeric-grouping-v1",
+                "ask",
+                "发布时间？",
+            ]
+        )
+        == 1
+    )
 
     output = capsys.readouterr().out
     assert "problem=invalid_question" in output

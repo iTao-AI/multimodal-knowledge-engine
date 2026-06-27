@@ -12,17 +12,25 @@ uv run mke --db .tmp/mke.sqlite mcp --allowed-root .
 The server uses stdio. Configure the Agent client to run the command above from the repository
 root. It can reuse a database created by `mke --db <path> ingest <file>`.
 
-Normal Search and Ask use `numeric-grouping-v1`. To operate the previous query compiler during
-rollback, restart the owner process with the same database:
+To enable bounded compiled-empty CJK retrieval, select the strategy when the owner starts:
 
 ```bash
 uv run mke --db .tmp/mke.sqlite \
-  --retrieval-query-policy current \
+  --retrieval-strategy cjk-active-scan-overlap-v1 \
   mcp --allowed-root .
 ```
 
-This changes query compilation only. It does not migrate the database or rebuild the FTS5
-projection, and MCP tool requests cannot override the owner-selected policy.
+For rollback, restart the owner process with the same database:
+
+```bash
+uv run mke --db .tmp/mke.sqlite \
+  --retrieval-strategy numeric-grouping-v1 \
+  mcp --allowed-root .
+```
+
+This changes owner routing only. It does not migrate the database or rebuild a CJK projection,
+and MCP tool requests cannot override the owner-selected strategy. Search and Ask tool schemas
+remain limited to query/question and limit fields.
 
 After explicit model preparation, start cache-only local transcription with:
 

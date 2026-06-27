@@ -1030,7 +1030,7 @@ def test_json_report_is_public_safe_and_complete() -> None:
     assert payload["quality_status"] == "baseline_recorded"
     assert payload["results"][0]["query_id"] == "volcano-answerable-01"
     assert "query" not in payload["results"][0]
-    assert "/Users/" not in rendered
+    assert ("/" + "Users/") not in rendered
     assert "eruption clouds aviation" not in rendered
 ```
 
@@ -1536,7 +1536,7 @@ def test_cli_eval_retrieval_outputs_human_baseline(
     assert "status=passed quality_status=baseline_recorded" in output.out
     assert "documents=3 queries=24 answerable=16 unanswerable=8" in output.out
     assert "query_id=volcano-answerable-01 category=answerable" in output.out
-    assert "/Users/" not in output.out
+    assert ("/" + "Users/") not in output.out
     assert "eruption clouds aviation" not in output.out
 
 

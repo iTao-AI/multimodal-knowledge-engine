@@ -8,12 +8,12 @@ uv run mke eval retrieval-numeric \
   --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json
 ```
 
-The comparison remains protocol-owned and historical. Normal Search and Ask now default to
-`numeric-grouping-v1` under ADR-0007. Owners can select `current` at startup for rollback:
+The comparison remains protocol-owned and historical. ADR-0008 superseded ADR-0007's default
+selection; `numeric-grouping-v1` remains the explicit primary rollback and E3-F base compiler:
 
 ```bash
 uv run mke --db .tmp/mke.sqlite \
-  --retrieval-query-policy current \
+  --retrieval-strategy numeric-grouping-v1 \
   search "410000 million gallons withdrawals"
 ```
 
@@ -37,11 +37,12 @@ The proof creates an external temporary virtual environment and installs the whe
 `uv pip install --offline`. Both `--offline` and `UV_OFFLINE=1` prohibit network access; missing
 cached dependencies fail the proof rather than falling back to an index. It then clears
 source-tree Python import variables and exercises installed CLI plus stdio MCP Search using only
-local fixtures and SQLite. The promoted paths omit `--retrieval-query-policy`, while rollback
-explicitly selects `current`. The proof checks the promoted
-grouped-document/compact-query behavior, compact-document preservation,
+local fixtures and SQLite. The proof explicitly selects `numeric-grouping-v1` and `current`; it
+does not inspect or claim the runtime default. It checks numeric grouped-document/compact-query
+behavior, compact-document preservation,
 non-adjacent-token rejection, tokenizer-equivalent adjacent punctuation, and explicit `current`
-rollback. The MCP tool schemas must not expose retrieval policy as request input.
+rollback. The MCP tool schemas must not expose retrieval strategy as request input. The E3-F
+installed-wheel proof owns current-default verification.
 
 JSON output:
 

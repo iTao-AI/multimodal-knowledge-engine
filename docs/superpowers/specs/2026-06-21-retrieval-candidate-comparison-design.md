@@ -534,15 +534,15 @@ The conditional promotion PR must:
 - rerun full tests, E1, numeric comparison, product proof, demo, lint, type checking, build, and
   installed-wheel CLI/MCP Search checks.
 
-Rollback starts CLI/MCP with `--retrieval-query-policy current`; an emergency code rollback may
+Rollback starts CLI/MCP with legacy `--retrieval-query-policy=current`; an emergency code rollback may
 also restore the `current` default identifier. Invalid policy values are usage errors and never
 reach engine construction.
 
 Examples place the global option before the subcommand:
 
 ```text
-mke --retrieval-query-policy current --db PATH search QUERY
-mke --retrieval-query-policy current --db PATH mcp --allowed-root ROOT
+mke --retrieval-query-policy=current --db PATH search QUERY
+mke --retrieval-query-policy=current --db PATH mcp --allowed-root ROOT
 ```
 
 ## Remaining Limits

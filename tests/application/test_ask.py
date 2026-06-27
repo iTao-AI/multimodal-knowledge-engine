@@ -7,7 +7,10 @@ from tests.conftest import PDF_FIXTURES, VIDEO_FIXTURES
 
 
 def test_ask_returns_pdf_page_evidence_packet(tmp_path: Path) -> None:
-    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    engine = KnowledgeEngine(
+        tmp_path / "mke.sqlite",
+        retrieval_strategy="numeric-grouping-v1",
+    )
     engine.ingest_pdf(PDF_FIXTURES / "text-layer.pdf")
 
     result = engine.ask("publication active")
@@ -110,7 +113,10 @@ def test_ask_rejects_overlong_question(tmp_path: Path) -> None:
 def test_ask_rejects_question_without_searchable_ascii_token(
     tmp_path: Path, question: str
 ) -> None:
-    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    engine = KnowledgeEngine(
+        tmp_path / "mke.sqlite",
+        retrieval_strategy="numeric-grouping-v1",
+    )
 
     with pytest.raises(AskValidationError) as error:
         engine.ask(question)

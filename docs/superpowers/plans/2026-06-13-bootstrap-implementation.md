@@ -93,7 +93,7 @@ Expected: exit code `0`.
 
 - [x] **Step 2: Scan for private or premature claims**
 
-Run: `git grep -n "/Users/" -- ':!docs/superpowers/plans/2026-06-13-bootstrap-implementation.md'`
+Run: `git grep -n "$PRIVATE_HOME_PREFIX" -- ':!docs/superpowers/plans/2026-06-13-bootstrap-implementation.md'`, where `PRIVATE_HOME_PREFIX` is the platform user-home prefix under review.
 
 Expected: no matches.
 

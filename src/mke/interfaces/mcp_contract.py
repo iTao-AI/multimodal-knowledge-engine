@@ -18,6 +18,7 @@ from mke.application import (
 )
 from mke.domain import PdfIntakeReport, SearchResult, TranscriptIntakeReport
 from mke.interfaces.public_errors import public_error_from_cause
+from mke.retrieval.cjk_active_scan import CjkActiveScanError
 from mke.runtime import RuntimeConfig, build_engine
 
 logger = logging.getLogger(__name__)
@@ -192,10 +193,11 @@ def search_library(
     engine: KnowledgeEngine | None = None
     try:
         engine = build_engine(config.runtime)
-        results = [
-            _evidence_from_search_result(match)
-            for match in engine.search(normalized_query, limit=limit)
-        ]
+        try:
+            matches = engine.search(normalized_query, limit=limit)
+        except CjkActiveScanError as error:
+            return _failure(error.problem, error.cause, error.next_step)
+        results = [_evidence_from_search_result(match) for match in matches]
         return {"ok": True, "query": normalized_query, "results": results}
     finally:
         if engine is not None:
@@ -223,7 +225,7 @@ def ask_library(
         engine = build_engine(config.runtime)
         try:
             result = engine.ask(question, limit=limit)
-        except AskValidationError as error:
+        except (AskValidationError, CjkActiveScanError) as error:
             return _failure(error.problem, error.cause, error.next_step)
         return {
             "ok": True,
