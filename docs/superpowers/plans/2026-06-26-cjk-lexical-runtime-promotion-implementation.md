@@ -1,6 +1,7 @@
 # CJK Lexical Runtime Promotion Implementation Plan
 
-Status: completed under the amended active-scan-first plan. Ready for independent pre-PR review.
+Status: completed under the amended active-scan-first plan. Targeted re-review CLEAN with zero
+findings; ready for user-authorized push and Ready PR creation.
 
 Planning base: `main@1fdea11d70b410a0cddcf86a74af165be83daf14`.
 
@@ -644,7 +645,13 @@ The implementation PR may include:
   evaluation guides, demo, durable review, stale scan, public-boundary scan, and document-release
   audit are complete.
 - Task 10: complete; final verification commands and results are recorded in the implementation
-  review. The branch remains local for independent review, with no push or PR.
+  review. The 2026-06-27 targeted re-review of `1ede36c..6ad35df` was CLEAN with zero findings.
+  Fresh review-window verification recorded `89 passed` with five existing warnings for the
+  focused suite, a passing Python 3.12 E2 installed-wheel proof with explicit
+  `selected_strategy=numeric-grouping-v1` and `rollback_strategy=current` across CLI and MCP,
+  passing Ruff, Pyright with zero errors and warnings, and a passing
+  `git diff --check 1ede36c..HEAD`. The worktree remained clean. The branch is ready for a
+  user-authorized push and Ready PR; neither action has been performed.
 
 The compiled-empty-only adjudication is final for this slice. Correct and incorrect number/unit
 counterexamples showed that FTS-zero-hit active scan dropped constraints; mixed compiled non-empty

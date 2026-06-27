@@ -1,6 +1,7 @@
 # CJK Active Scan Runtime Promotion Implementation Review
 
-Status: completed. Ready for independent pre-PR review.
+Status: completed. Targeted re-review CLEAN with zero findings; ready for user-authorized push and
+Ready PR creation.
 
 ## Scope
 
@@ -116,3 +117,22 @@ fixtures, or SQLite schema. E1/E2/E3-A used recoverable refresh; E3-B used its s
 - Python 3.12 E2 offline installed-wheel proof passed with explicit
   `selected_strategy=numeric-grouping-v1` and `rollback_strategy=current`.
 - Current-facing documentation, public-boundary, and `git diff --check` audits passed.
+
+## Targeted Re-Review
+
+The 2026-06-27 targeted re-review covered `1ede36c..6ad35df` and returned CLEAN with zero findings.
+It independently confirmed that all four findings from the first complete pre-PR review were
+closed. The original findings and remediation history above remain the durable record.
+
+Fresh review-window verification:
+
+- Focused targeted suite: `89 passed` with five existing warnings.
+- Python 3.12 E2 installed-wheel proof: passed with explicit
+  `selected_strategy=numeric-grouping-v1` and `rollback_strategy=current` for both CLI and MCP.
+- `uv run ruff check .`: passed.
+- `uv run pyright`: `0 errors, 0 warnings`.
+- `git diff --check 1ede36c..HEAD`: passed.
+- The worktree remained clean throughout the independent review.
+
+The local branch is ready for a user-authorized push and Ready PR. No push or PR was performed by
+the review or closeout windows.
