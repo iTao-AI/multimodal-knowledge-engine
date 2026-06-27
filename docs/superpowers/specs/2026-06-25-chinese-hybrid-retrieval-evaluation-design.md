@@ -517,6 +517,13 @@ an off-default, comparison-only compiled-empty fallback that uses an evaluation-
 
 E3-C may begin only after E3-B is merged and its artifact is validated on squash-landed `main`.
 
+The E3-C planning follow-up selects the comparison-only
+[`qwen3-embedding-0.6b-exact-v1`](./2026-06-28-local-dense-retrieval-candidate-design.md)
+candidate. Because E3-F already promoted `cjk-active-scan-overlap-v1`, E3-C reports both the frozen
+E3-B trigram artifact and the current runtime lexical strategy. Any later E3-D fusion uses the
+current runtime lexical arm plus dense results; it does not reactivate the historical E3-B
+projection as a runtime dependency.
+
 E3-C must:
 
 - freeze model and vector-projection compatibility evidence before candidate scoring;
