@@ -1,7 +1,7 @@
 # CJK Active Scan Runtime Promotion Implementation Review
 
-Status: completed. Targeted re-review CLEAN with zero findings; Ready PR #35 is open and its CI
-remediation is complete.
+Status: completed and merged. Targeted re-review was CLEAN with zero findings; PR #35 was squash
+merged into `main@013c7c4061e76fb15d5b3fe57f6c78cd66d0d162` after its CI remediation completed.
 
 ## Scope
 
@@ -71,8 +71,9 @@ proofs confirmed default, explicit, rollback, doctor/rebuild, budget errors, MCP
 execution, and installed package identity. Document-release found complete reference, how-to,
 tutorial, and explanation coverage; its only command drift finding was corrected before handoff.
 
-The final branch remains local for independent review; no push, PR, or final full GStack review
-belongs to this execution window.
+At this review stage, the final branch remained local for independent review; no push, PR, or final
+full GStack review belonged to that execution window. Subsequent publication and merge status is
+recorded in the post-merge closeout below.
 
 ## Pre-PR Review Remediation
 
@@ -134,8 +135,9 @@ Fresh review-window verification:
 - `git diff --check 1ede36c..HEAD`: passed.
 - The worktree remained clean throughout the independent review.
 
-The local branch is ready for a user-authorized push and Ready PR. No push or PR was performed by
-the review or closeout windows.
+The targeted re-review concluded that the local branch was ready for a user-authorized push and
+Ready PR. No push or PR was performed by the review or targeted closeout windows; publication was
+authorized afterward.
 
 ## PR #35 CI Remediation
 
@@ -176,3 +178,15 @@ Local verification before updating PR #35:
 - E1, E2, E3-A, and E3-B validators: passed.
 - `uv run mke proof run`: `8/8` cases passed.
 - `uv run mke demo --verify` and the CJK active-scan demo: passed.
+
+## Post-Merge Closeout
+
+- PR #35 was squash merged into
+  `main@013c7c4061e76fb15d5b3fe57f6c78cd66d0d162`.
+- Post-merge Python 3.12 and 3.13 CI, CodeQL analysis for actions and Python, and the aggregate
+  security check passed; open CodeQL alerts were zero.
+- The feature branch and isolated worktree were cleaned up.
+- This CLI/library change required no deployment or canary verification.
+- Repository-state note (2026-06-27): later dependency maintenance advanced the latest `main` to
+  `f206f03998d780bf69aa66f9285428cded477f96`; that maintenance is outside the E3-F functional
+  delivery reviewed here.
