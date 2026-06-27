@@ -252,8 +252,8 @@ python -m mke.evaluation.cjk_lexical_artifact validate \
 ```
 
 The validator rebuilds the evaluation-only projection and recomputes scorer output, metrics,
-gates, and verdict from frozen fixture text. E3-C through E3-F remain unimplemented and
-evidence-gated.
+gates, and verdict from frozen fixture text. E3-F separately implements the bounded active-scan
+runtime strategy; E3-C through E3-E remain unimplemented and evidence-gated.
 
 ## Real Transcription Proof
 
@@ -322,9 +322,13 @@ mke --db <path> run get <run_id>
 `ingest` and `run get` accept `--json` and emit exactly one JSON object.
 
 - `--db` defaults to `mke.sqlite` in the current working directory.
-- `--retrieval-query-policy` is a global owner option with allowlisted values
-  `numeric-grouping-v1` and `current`. The default is `numeric-grouping-v1`; `current` is the
-  rollback selector.
+- `--retrieval-strategy` is a global owner-startup option with allowlisted values `current`,
+  `numeric-grouping-v1`, and `cjk-active-scan-overlap-v1`. Omitting it defaults to
+  `cjk-active-scan-overlap-v1`.
+- `--retrieval-query-policy` remains a compatibility owner option limited to
+  `numeric-grouping-v1` and `current`; explicit values retain legacy rollback semantics.
+- `cjk-active-scan-overlap-v1` routes compiled non-empty queries to FTS-only and eligible
+  compiled-empty CJK queries to a bounded scan over active Publication Evidence.
 - The SQLite schema is created automatically when the database is opened.
 - `ingest` supports PyMuPDF text-layer PDFs and the documented short MP4 fixture profile.
 - Video ingest defaults to `<video>.mke-transcript.json`. Selecting
@@ -394,7 +398,7 @@ an unsupported explicit language returns `problem=transcription_not_ready` with
 ## MCP Server Command
 
 ```bash
-mke --db <path> [--retrieval-query-policy <policy>] mcp --allowed-root <path>
+mke --db <path> [--retrieval-strategy <strategy>] mcp --allowed-root <path>
 ```
 
 - Runs a local stdio MCP server.
@@ -402,10 +406,21 @@ mke --db <path> [--retrieval-query-policy <policy>] mcp --allowed-root <path>
 - `ingest_file` rejects paths outside `--allowed-root`.
 - Implemented MCP tools are `list_libraries`, `ingest_file`, `get_run`, `search_library`, and
   `ask_library`.
-- Retrieval policy is owner startup configuration. It is not present in MCP tool schemas.
-- `--retrieval-query-policy current` rolls Search and Ask query compilation back without changing
-  the database or rebuilding the FTS5 projection.
+- Retrieval strategy is owner-startup configuration. It is not present in MCP tool schemas.
+- `--retrieval-strategy numeric-grouping-v1` rolls Search and Ask back without changing the
+  database or rebuilding a projection. `current` remains the lower-level rollback.
 - HTTP and workspace UI remain planned.
+
+## Retrieval Readiness
+
+```bash
+mke --db <path> retrieval doctor --strategy <strategy> [--json]
+mke --db <path> retrieval rebuild --strategy <strategy> [--json]
+```
+
+`doctor` is read-only and reports stable `status`, `strategy`, checks, and optional
+`problem`/`cause`/`next_step`. For `cjk-active-scan-overlap-v1`, `rebuild` succeeds with
+`action=noop` and `projection=none` because no persistent CJK projection exists.
 
 `mke mcp --help` prints the command-specific options. Databases created by `mke ingest` can be
 reused with `mke mcp --db <path>`.

@@ -52,9 +52,12 @@ from mke.proof import (
     run_transcription_proof,
 )
 from mke.retrieval import (
-    DEFAULT_RETRIEVAL_QUERY_POLICY,
     SUPPORTED_RETRIEVAL_QUERY_POLICIES,
+    SUPPORTED_RETRIEVAL_STRATEGIES,
+    require_retrieval_strategy,
 )
+from mke.retrieval.cjk_active_scan import CjkActiveScanError
+from mke.retrieval.readiness import RetrievalReadiness, doctor_retrieval_strategy
 from mke.runtime import (
     DEFAULT_MODEL_REVISION,
     FasterWhisperTranscriptionConfig,
@@ -82,7 +85,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--retrieval-query-policy",
         choices=SUPPORTED_RETRIEVAL_QUERY_POLICIES,
-        default=DEFAULT_RETRIEVAL_QUERY_POLICY,
+    )
+    parser.add_argument(
+        "--retrieval-strategy",
+        choices=SUPPORTED_RETRIEVAL_STRATEGIES,
     )
     subcommands = parser.add_subparsers(dest="command", required=True)
 
@@ -96,6 +102,21 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     ask = subcommands.add_parser("ask")
     ask.add_argument("question", nargs="+")
+
+    retrieval_admin = subcommands.add_parser("retrieval")
+    retrieval_subcommands = retrieval_admin.add_subparsers(
+        dest="retrieval_command", required=True
+    )
+    retrieval_doctor = retrieval_subcommands.add_parser("doctor")
+    retrieval_doctor.add_argument(
+        "--strategy", choices=SUPPORTED_RETRIEVAL_STRATEGIES, required=True
+    )
+    retrieval_doctor.add_argument("--json", action="store_true", dest="json_output")
+    retrieval_rebuild = retrieval_subcommands.add_parser("rebuild")
+    retrieval_rebuild.add_argument(
+        "--strategy", choices=SUPPORTED_RETRIEVAL_STRATEGIES, required=True
+    )
+    retrieval_rebuild.add_argument("--json", action="store_true", dest="json_output")
 
     run = subcommands.add_parser("run")
     run_subcommands = run.add_subparsers(dest="run_command", required=True)
@@ -242,6 +263,25 @@ def main(argv: Sequence[str] | None = None) -> int:
             "eval uses protocol-owned retrieval policy; "
             "--retrieval-query-policy is not supported"
         )
+    if args.command == "eval" and any(
+        item == "--retrieval-strategy"
+        or item.startswith("--retrieval-strategy=")
+        for item in raw_argv
+    ):
+        parser.error(
+            "eval uses protocol-owned retrieval strategy; "
+            "--retrieval-strategy is not supported"
+        )
+    explicit_strategy = _raw_option_present(raw_argv, "--retrieval-strategy")
+    explicit_query_policy = _raw_option_present(raw_argv, "--retrieval-query-policy")
+    if (
+        explicit_strategy
+        and explicit_query_policy
+        and args.retrieval_strategy != args.retrieval_query_policy
+    ):
+        parser.error(
+            "--retrieval-strategy and --retrieval-query-policy must not conflict"
+        )
     if args.command == "eval":
         if args.evaluation_command == "retrieval":
             report = run_retrieval_evaluation(args.manifest)
@@ -348,6 +388,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.transcription_command == "prepare":
             return _transcription_prepare(config, json_output=args.json_output)
         return _transcription_doctor(config, json_output=args.json_output)
+    if args.command == "retrieval":
+        if args.retrieval_command == "doctor":
+            return _retrieval_doctor(
+                args.db,
+                args.strategy,
+                json_output=args.json_output,
+            )
+        if args.retrieval_command == "rebuild":
+            return _retrieval_rebuild(
+                args.strategy,
+                json_output=args.json_output,
+            )
+        parser.error("unsupported retrieval command")
 
     try:
         runtime = runtime_config_from_args(args)
@@ -692,14 +745,23 @@ def _ingest(engine: KnowledgeEngine, path: Path, *, json_output: bool = False) -
 
 
 def _search(engine: KnowledgeEngine, query: str) -> int:
-    _print_evidence_matches(engine.search(query))
+    try:
+        matches = engine.search(query)
+    except CjkActiveScanError as error:
+        _print_error_contract(
+            error.cause,
+            problem=error.problem,
+            next_step=error.next_step,
+        )
+        return 1
+    _print_evidence_matches(matches)
     return 0
 
 
 def _ask(engine: KnowledgeEngine, question: str) -> int:
     try:
         result = engine.ask(question)
-    except AskValidationError as error:
+    except (AskValidationError, CjkActiveScanError) as error:
         _print_error_contract(error.cause, problem=error.problem, next_step=error.next_step)
         return 1
     print(
@@ -905,6 +967,10 @@ def _normalize_remainder_command(command: Sequence[str]) -> tuple[str, ...]:
     return normalized
 
 
+def _raw_option_present(argv: Sequence[str], option: str) -> bool:
+    return any(item == option or item.startswith(f"{option}=") for item in argv)
+
+
 def _print_error_contract(
     cause: str,
     problem: str = "pdf_ingest_failed",
@@ -955,6 +1021,7 @@ def runtime_config_from_args(args: argparse.Namespace) -> RuntimeConfig:
     return RuntimeConfig(
         db_path=args.db,
         retrieval_query_policy=args.retrieval_query_policy,
+        retrieval_strategy=args.retrieval_strategy,
         transcription=transcription,
     )
 
@@ -1012,6 +1079,58 @@ def _transcription_doctor(
         for check in readiness.checks:
             print(f"check={check.name} status={check.status} message={check.message}")
     return 0 if readiness.status == "ready" else 1
+
+
+def _retrieval_doctor(
+    db_path: Path,
+    strategy: str,
+    *,
+    json_output: bool,
+) -> int:
+    readiness = doctor_retrieval_strategy(db_path, require_retrieval_strategy(strategy))
+    payload = _retrieval_readiness_payload(readiness)
+    if json_output:
+        print(json.dumps(payload))
+    else:
+        print(" ".join(f"{key}={value}" for key, value in payload.items() if key != "checks"))
+        for check in readiness.checks:
+            print(f"check={check.name} status={check.status}")
+    return 0 if readiness.status == "ready" else 1
+
+
+def _retrieval_rebuild(
+    strategy: str,
+    *,
+    json_output: bool,
+) -> int:
+    payload = {
+        "status": "succeeded",
+        "strategy": strategy,
+        "action": "noop",
+        "projection": "none",
+        "problem": None,
+        "cause": None,
+        "next_step": None,
+    }
+    if json_output:
+        print(json.dumps(payload))
+    else:
+        print(" ".join(f"{key}={value}" for key, value in payload.items()))
+    return 0
+
+
+def _retrieval_readiness_payload(readiness: RetrievalReadiness) -> dict[str, object]:
+    return {
+        "status": readiness.status,
+        "strategy": readiness.strategy,
+        "problem": readiness.problem,
+        "cause": readiness.cause,
+        "next_step": readiness.next_step,
+        "checks": [
+            {"name": check.name, "status": check.status}
+            for check in readiness.checks
+        ],
+    }
 
 
 def _readiness_payload(readiness: TranscriptionReadiness) -> dict[str, object]:

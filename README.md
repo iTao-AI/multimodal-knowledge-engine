@@ -34,9 +34,8 @@ ingest, proof, and MCP execution are cache-only.
 E2 adds a numeric retrieval protocol:
 `mke eval retrieval-numeric --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json`.
 The `numeric-grouping-v1` candidate passed the frozen development, public holdout, and full E1
-gates, improving E1 Recall@1 from `0.875000` to `0.937500`. ADR-0007 promotes it as the normal
-Search and Ask default. Owners can select `--retrieval-query-policy current` for rollback without
-a database migration or index rebuild.
+gates, improving E1 Recall@1 from `0.875000` to `0.937500`. ADR-0007 preserves it as the primary
+rollback strategy without a database migration or index rebuild.
 
 E3-A adds a separate Chinese retrieval observation surface for the current FTS5 lexical
 retrieval path. It freezes five public text-layer PDF fixtures, 48 protocol-owned queries, and
@@ -49,10 +48,15 @@ E3-B adds an off-default `cjk-trigram-overlap-v1` comparison candidate:
 `mke eval retrieval-cjk-lexical --protocol tests/fixtures/retrieval-chinese-v1/protocol.json --candidate cjk-trigram-overlap-v1`.
 The candidate only falls back to an evaluation-only SQLite FTS5 `trigram` projection when the
 current `numeric-grouping-v1` compiler is empty. The canonical comparison records Recall@5
-`0.659091` and nDCG@10 `0.610619`, with all frozen development and holdout gates passing. Runtime
-Search/Ask defaults, HTTP, UI, MCP behavior, embeddings, vector search, hybrid retrieval, RRF,
-reranking, and query rewrite remain unchanged. E3-C through E3-F remain unimplemented and
-evidence-gated.
+`0.659091` and nDCG@10 `0.610619`, with all frozen development and holdout gates passing.
+
+E3-F promotes `cjk-active-scan-overlap-v1` as the default owner-startup strategy. Compiled
+non-empty queries remain on active FTS5 even when FTS returns no rows; eligible compiled-empty CJK
+queries use a bounded scan over active Publication Evidence in SQLite domain truth. The runtime
+creates no persistent CJK projection, and MCP tools expose no request-time strategy override.
+Task 0.5 records Recall@5 `0.659091` and nDCG@10 `0.619152` for this route. HTTP, UI, embeddings,
+vector search, hybrid retrieval, RRF, reranking, and query rewrite remain out of scope. E3-C
+through E3-E remain unimplemented and evidence-gated.
 
 PDF intake uses PyMuPDF behind the `src/mke/adapters/pdf/` boundary and exposes a
 `PdfIntakeReport` through `mke ingest`, `mke run get`, MCP `ingest_file`, and MCP `get_run`.
@@ -98,6 +102,8 @@ record the current Chinese lexical failure profile, see
 [Run The Chinese Retrieval Evaluation](./docs/how-to/run-chinese-retrieval-evaluation.md). Approved implementation
 history is kept under `docs/superpowers/`; long-lived architecture decisions are kept under
 `docs/decisions/`.
+To operate the E3-F runtime path, see
+[Enable Bounded CJK Retrieval](./docs/how-to/enable-cjk-retrieval.md).
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for the development workflow and [SECURITY.md](./SECURITY.md) for responsible vulnerability reporting.
 
@@ -151,7 +157,8 @@ uv run mke --db .tmp/mke.sqlite search timestamp
 uv run mke --db .tmp/mke.sqlite ask "publication active"
 uv run mke --db .tmp/mke.sqlite run get <run_id>
 uv run mke --db .tmp/mke.sqlite mcp --allowed-root .
-uv run mke --db .tmp/mke.sqlite --retrieval-query-policy current search "410000 withdrawals"
+uv run mke --db .tmp/mke.sqlite --retrieval-strategy current search "410000 withdrawals"
+uv run mke --db .tmp/mke.sqlite --retrieval-strategy cjk-active-scan-overlap-v1 search "蓝湖缓存服务 不完整索引"
 ```
 
 The default no-argument `mke` command still reports bootstrap status for compatibility.

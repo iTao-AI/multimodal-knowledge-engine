@@ -100,7 +100,7 @@ Publication behavior, or impose a quality threshold.
 
 The E2 numeric comparator added a project-owned query-policy compiler at the SQLite composition
 boundary. After the frozen candidate passed all 14 gates, ADR-0007 promoted
-`numeric-grouping-v1` as the normal runtime default. It preserves the compact numeric token and
+`numeric-grouping-v1` as the runtime default for that stage. It preserves the compact numeric token and
 adds one right-grouped adjacent-token phrase inside the same FTS5 `MATCH` statement. Owner
 configuration may select allowlisted `current` rollback through typed `RuntimeConfig` and the
 global CLI/MCP startup option. The selector is fixed before engine construction and is not exposed
@@ -123,10 +123,8 @@ Search, and full-result rank probes remain separate observations. The probe esta
 current `rank` pseudo-column equals SQLite FTS5 default `bm25()` ordering and scores for this
 protocol, so documentation may name the observed profile `sqlite_fts5_default_bm25`.
 
-The runtime query compiler remains ASCII-oriented. E3-A records graded metrics and deterministic
-miss symptoms but does not claim root causes or implement a CJK tokenizer, second projection,
-embedding, vector search, hybrid retrieval, RRF, reranker, query rewrite, Passage/chunk, OCR,
-HTTP, UI, or MCP changes.
+The FTS5 query compiler remains ASCII-oriented. E3-A records graded metrics and deterministic miss
+symptoms without claiming a general CJK tokenizer or broad CJK retrieval support.
 
 E3-B adds an offline comparison candidate, not a runtime retrieval layer. The
 `cjk-trigram-overlap-v1` runner first observes the unchanged `numeric-grouping-v1` path. Only when
@@ -134,8 +132,31 @@ that compiler returns an empty query does it build an evaluation-only SQLite FTS
 projection from the immutable active Evidence snapshot and apply a deterministic overlap scorer
 over frozen page text. The normal `active_evidence_fts` projection, Publication activation,
 Search/Ask DTOs, owner runtime selector, CLI/MCP runtime behavior, HTTP, UI, embeddings, vector
-search, hybrid retrieval, RRF, reranker, and query rewrite remain unchanged. E3-C through E3-F
-remain future, evidence-gated stages.
+search, hybrid retrieval, RRF, reranker, and query rewrite remain unchanged.
+
+E3-F adds a runtime strategy boundary without adding persistent state:
+
+```text
+owner-startup retrieval strategy
+  -> compile once with numeric-grouping-v1
+     -> compiled non-empty -> active_evidence_fts -> active Publication Evidence
+     -> compiled-empty + eligible CJK -> bounded active Evidence scan -> overlap rank
+     -> compiled-empty + ineligible -> stable validation result
+```
+
+`cjk-active-scan-overlap-v1` reads text only through active Publication joins in SQLite domain
+truth. It does not create projection rows, metadata, caches, vectors, or schema changes. Mixed
+ASCII+CJK and numeric compiled non-empty queries are FTS-only even after an FTS zero-hit, so the
+runtime never silently discards ASCII or numeric constraints. Search and Ask share this routing;
+MCP tools cannot override it per request.
+
+After the E3-F launch gate, `cjk-active-scan-overlap-v1` is the default when the owner omits the
+selector. The owner can still select an allowlisted strategy before `KnowledgeEngine`
+construction. Doctor checks are
+read-only, active-scan rebuild is a stable no-op, and rollback to `numeric-grouping-v1` or `current`
+requires no migration. E3-C through E3-E remain future, evidence-gated stages. The E3-F strategy
+does not add embedding, vector search, hybrid retrieval, RRF, reranking, query rewrite,
+Passage/chunk, OCR, HTTP, or UI behavior.
 
 CLI and MCP errors share one project-owned `PublicError` serializer. Only allowlisted stable causes
 can reach public output; unknown exception text is replaced with

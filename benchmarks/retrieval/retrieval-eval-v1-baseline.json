@@ -32,7 +32,7 @@
     "main_merge_base": "721784eabcb9fbb737166578010c9e1a46a25fef",
     "implementation_start": "3992b0e9371d1a8c9e019d3bbe2b32aac9665914",
     "evaluation_commit": "79bafb07ac592b684e6ceab15dc389dc33702978",
-    "evaluation_content_sha256": "8d436a39fdedb8faa3d9b303fd98d006dd6b91f555b0a57b27db7f5effe69fc9",
+    "evaluation_content_sha256": "dd1c46e5f758a243f6014acc977d4c6c3153850ee91316cd0e2420781f0b5960",
     "evaluation_content_files": [
       {
         "path": "src/mke/__init__.py",
@@ -51,8 +51,8 @@
       },
       {
         "path": "src/mke/adapters/sqlite/__init__.py",
-        "bytes": 37229,
-        "sha256": "a8300357f3518d813742bd00fd408414c16d6040572aa579e3006217fd2b799c"
+        "bytes": 41613,
+        "sha256": "ec7314abb964e58e347366f61f74e91c9676b0c55bbd3bd154343afddfda9888"
       },
       {
         "path": "src/mke/adapters/video/__init__.py",
@@ -101,13 +101,13 @@
       },
       {
         "path": "src/mke/application/__init__.py",
-        "bytes": 17418,
-        "sha256": "7b2266d777afb05a6052e214a10d18c6e15ca2162bb52180afd121be0d3fb899"
+        "bytes": 18871,
+        "sha256": "5a6159844e0d1f3c3343406ecd85b0c1d6b193c05b0324f01560862a73cdd824"
       },
       {
         "path": "src/mke/cli.py",
-        "bytes": 40329,
-        "sha256": "d4cbd790e4b3770954b9cd292b6fb214fd33dc8130fa809518f7d2862146c107"
+        "bytes": 44375,
+        "sha256": "b744da7664031ba1fce486a4bf1c99593ff341e3e74357d608a785478abe8e20"
       },
       {
         "path": "src/mke/domain/__init__.py",
@@ -216,8 +216,8 @@
       },
       {
         "path": "src/mke/interfaces/mcp_contract.py",
-        "bytes": 10339,
-        "sha256": "7f013569c2f871c7287f6c3d0bd732d731d52f2abeaf02d5db2791cf051f3c8b"
+        "bytes": 10548,
+        "sha256": "8ee59c5e170c4240bdf60360034977339da3a815cb073aecc9c4b76ff5bfbbc7"
       },
       {
         "path": "src/mke/interfaces/mcp_server.py",
@@ -226,8 +226,8 @@
       },
       {
         "path": "src/mke/interfaces/public_errors.py",
-        "bytes": 4756,
-        "sha256": "d44d337f2a94896e03ba3242ee9f759f150bd5207db9e484913e6e28ba076f0c"
+        "bytes": 5020,
+        "sha256": "53833f6868ad916cb14ea15a452373a73cbfbfeba7198e5f31f45ea79ec0f3d8"
       },
       {
         "path": "src/mke/proof/__init__.py",
@@ -261,8 +261,13 @@
       },
       {
         "path": "src/mke/retrieval/__init__.py",
-        "bytes": 373,
-        "sha256": "8632c3c2d1ba5f210bc2a0d1f74d5f7cf480765dd9e3124fe9bfefa39eed6e99"
+        "bytes": 814,
+        "sha256": "5336c2580f60ca44ea63b45a9f5859b072c839086154ba5a60e7b849dca63b2a"
+      },
+      {
+        "path": "src/mke/retrieval/cjk_active_scan.py",
+        "bytes": 6034,
+        "sha256": "1eb4a88364876c7d687f26ea1f6487b56b8ffae2633fc7ea41c16400af02ca89"
       },
       {
         "path": "src/mke/retrieval/query_policy.py",
@@ -270,9 +275,19 @@
         "sha256": "b4bd2547b2b658d9eb2d2fb96107e9bfe89c9197f2f097fb8d150f678e13b6fa"
       },
       {
+        "path": "src/mke/retrieval/readiness.py",
+        "bytes": 2912,
+        "sha256": "5f5f75d00c2296edd9c4b88798ae93a11300bdc6bb50845903a075ee66da8b1f"
+      },
+      {
+        "path": "src/mke/retrieval/strategy.py",
+        "bytes": 3199,
+        "sha256": "1843a471a8aff800dce76792a2b9ee444ebabe2331caaab08c583c62ae5a1c88"
+      },
+      {
         "path": "src/mke/runtime.py",
-        "bytes": 8024,
-        "sha256": "416f5ad534105b173889e5a474eb7068380c38761f8f14e6e104beeed3909d22"
+        "bytes": 8815,
+        "sha256": "1bbbe0a736b675a19f6b42dd5742e8adccf8a8d01391d266e7670b3baa86287f"
       }
     ]
   },

@@ -6,7 +6,7 @@ import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from mke.adapters.video.contracts import (
     AdapterExitCode,
@@ -20,8 +20,16 @@ from mke.adapters.video.providers import (
     SidecarTranscriptProvider,
 )
 from mke.application import KnowledgeEngine, TranscriptProvider
-from mke.retrieval import DEFAULT_RETRIEVAL_QUERY_POLICY, RetrievalQueryPolicy
+from mke.retrieval import (
+    DEFAULT_RETRIEVAL_STRATEGY,
+    RetrievalQueryPolicy,
+    RetrievalStrategy,
+)
 from mke.retrieval.query_policy import require_retrieval_query_policy
+from mke.retrieval.strategy import (
+    get_retrieval_strategy_descriptor,
+    require_retrieval_strategy,
+)
 
 DEFAULT_MODEL_REVISION = "536b0662742c02347bc0e980a01041f333bce120"
 
@@ -120,7 +128,8 @@ TranscriptionConfig = SidecarTranscriptionConfig | FasterWhisperTranscriptionCon
 @dataclass(frozen=True)
 class RuntimeConfig:
     db_path: Path
-    retrieval_query_policy: RetrievalQueryPolicy = DEFAULT_RETRIEVAL_QUERY_POLICY
+    retrieval_query_policy: RetrievalQueryPolicy | None = None
+    retrieval_strategy: RetrievalStrategy | None = None
     transcription: TranscriptionConfig = SidecarTranscriptionConfig()
     process_controller: ActiveProcessController = field(
         default_factory=ActiveProcessController,
@@ -128,11 +137,20 @@ class RuntimeConfig:
     )
 
     def __post_init__(self) -> None:
-        object.__setattr__(
-            self,
-            "retrieval_query_policy",
-            require_retrieval_query_policy(self.retrieval_query_policy),
+        query_policy = (
+            require_retrieval_query_policy(self.retrieval_query_policy)
+            if self.retrieval_query_policy is not None
+            else None
         )
+        if self.retrieval_strategy is None:
+            strategy = require_retrieval_strategy(
+                query_policy if query_policy is not None else DEFAULT_RETRIEVAL_STRATEGY
+            )
+        else:
+            strategy = require_retrieval_strategy(self.retrieval_strategy)
+        query_policy = get_retrieval_strategy_descriptor(strategy).base_query_policy
+        object.__setattr__(self, "retrieval_query_policy", query_policy)
+        object.__setattr__(self, "retrieval_strategy", strategy)
         if type(self.transcription) not in {
             SidecarTranscriptionConfig,
             FasterWhisperTranscriptionConfig,
@@ -207,4 +225,5 @@ def build_engine(config: RuntimeConfig) -> KnowledgeEngine:
         config.db_path,
         transcript_provider=build_transcript_provider(config),
         query_policy=config.retrieval_query_policy,
+        retrieval_strategy=cast(RetrievalStrategy, config.retrieval_strategy),
     )

@@ -64,7 +64,7 @@ def test_documented_e3b_metrics_match_canonical_artifact() -> None:
     assert "evaluation-only SQLite FTS5 `trigram` projection" in guide
 
 
-def test_public_docs_keep_e3a_boundary_explicit() -> None:
+def test_public_docs_describe_e3f_without_overclaiming_cjk_support() -> None:
     text = "\n".join(
         (ROOT / relative).read_text()
         for relative in (
@@ -74,14 +74,30 @@ def test_public_docs_keep_e3a_boundary_explicit() -> None:
             "docs/reference/cli.md",
             "docs/reference/contracts.md",
             "docs/explanation/architecture.md",
+            "docs/how-to/enable-cjk-retrieval.md",
         )
     )
 
     assert "FTS5 lexical" in text
     assert "ASCII-oriented" in text
     assert "sqlite_fts5_default_bm25" in text
-    assert "E3-C through E3-F remain unimplemented" in text
+    assert "cjk-active-scan-overlap-v1" in text
+    assert "compiled-empty" in text
+    assert "owner-startup" in text
+    assert "E3-C through E3-E remain unimplemented" in text
     assert "does not establish broad CJK support" in " ".join(text.split())
+
+
+def test_cjk_runtime_how_to_documents_safe_routing_and_rollback() -> None:
+    guide = (ROOT / "docs/how-to/enable-cjk-retrieval.md").read_text()
+
+    assert "--retrieval-strategy cjk-active-scan-overlap-v1" in guide
+    assert "compiled non-empty" in guide
+    assert "FTS-only" in guide
+    assert "--retrieval-strategy numeric-grouping-v1" in guide
+    assert "retrieval doctor" in guide
+    assert "retrieval rebuild" in guide
+    assert "scripts/cjk_active_scan_demo.py" in guide
 
 
 def test_e3b_implementation_plan_uses_current_cli_commands() -> None:

@@ -13,7 +13,7 @@ The comparison remains protocol-owned and historical. Normal Search and Ask now 
 
 ```bash
 uv run mke --db .tmp/mke.sqlite \
-  --retrieval-query-policy current \
+  --retrieval-strategy numeric-grouping-v1 \
   search "410000 million gallons withdrawals"
 ```
 

@@ -1,7 +1,6 @@
 # CJK Lexical Runtime Promotion Implementation Plan
 
-Status: amended after Task 0.5 stop condition. Approved for execution handoff under the
-active-scan-first plan below.
+Status: completed under the amended active-scan-first plan. Ready for independent pre-PR review.
 
 Planning base: `main@1fdea11d70b410a0cddcf86a74af165be83daf14`.
 
@@ -186,7 +185,9 @@ Required RED tests:
 - generated overlap terms are deduplicated;
 - punctuation CJK cases such as `证据。生命周期` are either normalized into eligible terms or return
   stable below-minimum diagnostics;
-- mixed ASCII+CJK queries do not silently drop the CJK branch when the ASCII branch is insufficient.
+- mixed ASCII+CJK queries with a compiled non-empty expression remain FTS-only and never silently
+  drop ASCII or numeric constraints after an FTS zero-hit. A future constraint-preserving fallback
+  requires a separate comparison.
 
 Implementation notes:
 
@@ -627,6 +628,27 @@ The implementation PR may include:
 - doctor/no-projection rebuild behavior;
 - artifact source identity refresh;
 - proof scripts and docs.
+
+## Completion Record
+
+- Task 0.5: complete; no-projection active scan selected and projection-first work stopped.
+- Tasks 1-6: complete; strategy descriptor, bounded active scan, doctor/no-op rebuild,
+  Search/Ask routing, Publication isolation, and owner-startup CLI/MCP contracts implemented.
+- Task 7: complete; the first E2 run stopped on scope identity, a supported temporary scope refresh
+  proved semantic equality, and E1/E2/E3-A/E3-B artifacts were refreshed only through supported
+  recoverable flows.
+- Task 8: complete; Python 3.12 and 3.13 installed-wheel CLI/MCP proofs pass offline for explicit,
+  default, and rollback paths.
+- Task 8.5: complete; G1-G8 passed before `cjk-active-scan-overlap-v1` became the default.
+- Task 9: complete; ADR, architecture, README files, tutorial, reference, focused how-to, MCP and
+  evaluation guides, demo, durable review, stale scan, public-boundary scan, and document-release
+  audit are complete.
+- Task 10: complete; final verification commands and results are recorded in the implementation
+  review. The branch remains local for independent review, with no push or PR.
+
+The compiled-empty-only adjudication is final for this slice. Correct and incorrect number/unit
+counterexamples showed that FTS-zero-hit active scan dropped constraints; mixed compiled non-empty
+queries therefore remain FTS-only. Any future constraint-preserving fallback is separate work.
 
 It must not include:
 
