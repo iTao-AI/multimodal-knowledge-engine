@@ -97,8 +97,9 @@ Finding A3: **The runtime strategy name must not imply a trigram projection.**
 
 Finding Q1: **Avoid embedding spike-only code into production without a strategy descriptor.**
 
-- Decision: keep `RetrievalStrategyDescriptor`, but change required projection metadata to
-  `required_projections=[]` and a `term_derivation_mode` field for active scan.
+- Decision: keep `RetrievalStrategyDescriptor`. The implementation records required base
+  `active_evidence_fts` separately from `additional_projections=[]`, plus a
+  `term_derivation_mode` field for active scan.
 
 Finding Q2: **Doctor/rebuild semantics need to be explicit for a no-projection strategy.**
 
@@ -185,27 +186,27 @@ to persistent trigram projection.
 
 Synthesized from this targeted review.
 
-- [ ] **T1 (P1)** — Strategy — introduce `cjk-active-scan-overlap-v1` descriptor and ADR-0008.
+- [x] **T1 (P1)** — Strategy — introduce `cjk-active-scan-overlap-v1` descriptor and ADR-0008.
   - Surfaced by: Architecture Review A3.
   - Files: `src/mke/retrieval/strategy.py`, `docs/decisions/0008-cjk-active-scan-retrieval-strategy.md`.
   - Verify: `uv run pytest tests/retrieval -q`.
-- [ ] **T2 (P1)** — Retrieval — implement bounded active Evidence scan over active Publication rows.
+- [x] **T2 (P1)** — Retrieval — implement bounded active Evidence scan over active Publication rows.
   - Surfaced by: Architecture Review A1/A2.
   - Files: `src/mke/retrieval/cjk_active_scan.py`, `src/mke/adapters/sqlite/__init__.py`.
   - Verify: `uv run pytest tests/retrieval tests/storage -q`.
-- [ ] **T3 (P1)** — Application — make Ask validation strategy-aware for eligible CJK-only questions.
+- [x] **T3 (P1)** — Application — make Ask validation strategy-aware for eligible CJK-only questions.
   - Surfaced by: Test Review.
   - Files: `src/mke/application/__init__.py`, `tests/application/`.
   - Verify: `uv run pytest tests/application tests/retrieval -q`.
-- [ ] **T4 (P1)** — Performance — add active-scan budget/candidate caps and tests.
+- [x] **T4 (P1)** — Performance — add active-scan budget/candidate caps and tests.
   - Surfaced by: Performance Review.
   - Files: `tests/performance/`, retrieval strategy implementation.
   - Verify: `uv run pytest tests/performance -q`.
-- [ ] **T5 (P2)** — CLI/MCP — expose owner-startup strategy selector and installed-wheel tool-call proof.
+- [x] **T5 (P2)** — CLI/MCP — expose owner-startup strategy selector and installed-wheel tool-call proof.
   - Surfaced by: Code Quality and Test Review.
   - Files: `src/mke/cli.py`, MCP runtime configuration, `scripts/cjk_active_scan_runtime_deployment_proof.py`.
   - Verify: Python 3.12/3.13 installed-wheel proof.
-- [ ] **T6 (P2)** — Docs and artifacts — refresh source identity and public docs without changing metrics.
+- [x] **T6 (P2)** — Docs and artifacts — refresh source identity and public docs without changing metrics.
   - Surfaced by: Documentation and artifact path drift.
   - Files: benchmark artifacts, ADR, reference docs, how-to docs.
   - Verify: E1/E2/E3-A/E3-B validators and stale-docs scan.

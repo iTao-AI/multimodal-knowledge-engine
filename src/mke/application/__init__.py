@@ -39,7 +39,14 @@ from mke.domain import (
     TranscriptExtractionResult,
     TranscriptIntakeReport,
 )
-from mke.retrieval import DEFAULT_RETRIEVAL_QUERY_POLICY, RetrievalQueryPolicy
+from mke.retrieval import (
+    DEFAULT_RETRIEVAL_STRATEGY,
+    RetrievalQueryPolicy,
+    RetrievalStrategy,
+)
+from mke.retrieval.cjk_active_scan import CjkActiveScanError, compile_cjk_overlap_terms
+from mke.retrieval.query_policy import require_retrieval_query_policy
+from mke.retrieval.strategy import require_retrieval_strategy
 
 _SHA256_CHUNK_BYTES = 1024 * 1024
 DEFAULT_ASK_LIMIT = 5
@@ -108,14 +115,21 @@ class KnowledgeEngine:
         pdf_extractor: PdfExtractor | None = None,
         transcript_provider: TranscriptProvider | None = None,
         *,
-        query_policy: RetrievalQueryPolicy = DEFAULT_RETRIEVAL_QUERY_POLICY,
+        query_policy: RetrievalQueryPolicy | None = None,
+        retrieval_strategy: RetrievalStrategy | None = None,
         search_observer: Callable[[int], None] | None = None,
     ) -> None:
+        selected_strategy = _normalize_retrieval_strategy(
+            retrieval_strategy,
+            query_policy=query_policy,
+        )
         self._store = SQLiteStore(
             db_path,
             query_policy=query_policy,
+            retrieval_strategy=selected_strategy,
             search_observer=search_observer,
         )
+        self._retrieval_strategy: RetrievalStrategy = selected_strategy
         self._pdf_extractor = pdf_extractor or PyMuPDFPdfExtractor()
         self._transcript_provider = transcript_provider or SidecarTranscriptProvider()
 
@@ -162,7 +176,10 @@ class KnowledgeEngine:
         return self._store.search(query, limit=limit)
 
     def ask(self, question: str, limit: int = DEFAULT_ASK_LIMIT) -> AskResult:
-        normalized_question = _normalize_ask_question(question)
+        normalized_question = _normalize_ask_question(
+            question,
+            retrieval_strategy=self._retrieval_strategy,
+        )
         if type(limit) is not int or limit < MIN_ASK_LIMIT or limit > MAX_ASK_LIMIT:
             raise AskValidationError(
                 "invalid_query",
@@ -424,7 +441,25 @@ def _validate_transcript_extraction_result(
         )
 
 
-def _normalize_ask_question(question: str) -> str:
+def _normalize_retrieval_strategy(
+    retrieval_strategy: RetrievalStrategy | None,
+    *,
+    query_policy: RetrievalQueryPolicy | None,
+) -> RetrievalStrategy:
+    if retrieval_strategy is not None:
+        return require_retrieval_strategy(retrieval_strategy)
+    if query_policy is not None:
+        return require_retrieval_strategy(
+            require_retrieval_query_policy(query_policy)
+        )
+    return DEFAULT_RETRIEVAL_STRATEGY
+
+
+def _normalize_ask_question(
+    question: str,
+    *,
+    retrieval_strategy: RetrievalStrategy = DEFAULT_RETRIEVAL_STRATEGY,
+) -> str:
     if not isinstance(question, str):  # pyright: ignore[reportUnnecessaryIsInstance] -- runtime guard
         raise AskValidationError(
             "invalid_question",
@@ -445,6 +480,13 @@ def _normalize_ask_question(question: str) -> str:
             "shorten_question",
         )
     if _SEARCHABLE_TOKEN_RE.search(normalized_question) is None:
+        if retrieval_strategy == "cjk-active-scan-overlap-v1":
+            try:
+                compile_cjk_overlap_terms(normalized_question, require_terms=True)
+            except CjkActiveScanError:
+                pass
+            else:
+                return normalized_question
         raise AskValidationError(
             "invalid_question",
             "question must contain at least one searchable ASCII token",

@@ -951,7 +951,7 @@ authorizes publication.
 
 Require normal `KnowledgeEngine` composition to use `numeric-grouping-v1`.
 `RuntimeConfig(retrieval_query_policy="current")` and installed CLI/MCP startup with
-`--retrieval-query-policy current` must reproduce old results with no database migration or index
+The legacy `--retrieval-query-policy=current` selector must reproduce old results with no database migration or index
 rebuild. Unknown values must fail as usage errors before engine construction.
 
 - [x] **Step 2: Run tests to verify RED**

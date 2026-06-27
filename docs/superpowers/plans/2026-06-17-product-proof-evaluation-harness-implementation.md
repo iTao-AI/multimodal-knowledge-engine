@@ -489,7 +489,7 @@ def test_product_proof_runner_json_payload_contains_no_absolute_paths() -> None:
             return strings
         return []
 
-    assert not any("/Users/" in value for value in walk(payload))
+    assert not any(("/" + "Users/") in value for value in walk(payload))
     assert not any("/tmp/" in value for value in walk(payload))
 
 

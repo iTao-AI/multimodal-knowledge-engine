@@ -9,6 +9,7 @@ import pytest
 
 from mke.adapters.video.contracts import VideoTranscriptionLimits
 from mke.adapters.video.providers import LocalCommandTranscriptProvider, SidecarTranscriptProvider
+from mke.application import KnowledgeEngine
 from mke.runtime import (
     DEFAULT_MODEL_REVISION,
     FasterWhisperTranscriptionConfig,
@@ -175,3 +176,48 @@ def test_build_engine_accepts_current_policy_for_rollback(tmp_path: Path) -> Non
         assert engine._store._query_policy == "current"  # pyright: ignore[reportPrivateUsage]
     finally:
         engine.close()
+
+
+def test_explicit_legacy_query_policy_overrides_future_default_strategy(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "mke.runtime.DEFAULT_RETRIEVAL_STRATEGY",
+        "cjk-active-scan-overlap-v1",
+    )
+
+    default = RuntimeConfig(tmp_path / "default.sqlite")
+    rollback = RuntimeConfig(
+        tmp_path / "rollback.sqlite",
+        retrieval_query_policy="numeric-grouping-v1",
+    )
+
+    assert default.retrieval_strategy == "cjk-active-scan-overlap-v1"
+    assert rollback.retrieval_strategy == "numeric-grouping-v1"
+
+
+def test_knowledge_engine_explicit_query_policy_stays_protocol_owned(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "mke.application.DEFAULT_RETRIEVAL_STRATEGY",
+        "cjk-active-scan-overlap-v1",
+    )
+
+    default = KnowledgeEngine(tmp_path / "default.sqlite")
+    rollback = KnowledgeEngine(
+        tmp_path / "rollback.sqlite",
+        query_policy="numeric-grouping-v1",
+    )
+    try:
+        assert default._retrieval_strategy == (  # pyright: ignore[reportPrivateUsage]
+            "cjk-active-scan-overlap-v1"
+        )
+        assert rollback._retrieval_strategy == (  # pyright: ignore[reportPrivateUsage]
+            "numeric-grouping-v1"
+        )
+    finally:
+        default.close()
+        rollback.close()

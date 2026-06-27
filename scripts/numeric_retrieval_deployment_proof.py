@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prove promoted and rollback retrieval policies from an isolated installed wheel."""
+"""Prove explicit numeric and current retrieval strategies from an installed wheel."""
 
 from __future__ import annotations
 
@@ -70,15 +70,18 @@ async def main():
     parser.add_argument("--db", required=True)
     parser.add_argument("--root", required=True)
     parser.add_argument("--fixture", required=True)
-    parser.add_argument("--policy", choices=("current", "numeric-grouping-v1"))
+    parser.add_argument(
+        "--strategy",
+        choices=("current", "numeric-grouping-v1"),
+        required=True,
+    )
     parser.add_argument("--ingest", action="store_true")
     args = parser.parse_args()
     server_args = [
         "--db", args.db,
         "mcp", "--allowed-root", args.root,
     ]
-    if args.policy is not None:
-        server_args[2:2] = ["--retrieval-query-policy", args.policy]
+    server_args[2:2] = ["--retrieval-strategy", args.strategy]
     async with stdio_client(
         StdioServerParameters(command=args.mke, args=server_args)
     ) as (read, write):
@@ -90,8 +93,13 @@ async def main():
             schemas = json.dumps(
                 [tool.inputSchema for tool in tools.tools], sort_keys=True
             ).casefold()
-            if "retrieval_query_policy" in schemas or "retrieval-query-policy" in schemas:
-                raise RuntimeError("request schema exposes owner policy")
+            if any(value in schemas for value in (
+                "retrieval_query_policy",
+                "retrieval-query-policy",
+                "retrieval_strategy",
+                "retrieval-strategy",
+            )):
+                raise RuntimeError("request schema exposes owner strategy")
             if args.ingest:
                 ingested = payload(
                     await session.call_tool("ingest_file", {"path": args.fixture})
@@ -108,19 +116,18 @@ async def main():
             compact = await search("410000 compact control")
             non_adjacent = await search("410000 non adjacent control")
             slash = await search("410000 grouped slash control")
-            if args.policy is None:
+            if args.strategy == "numeric-grouping-v1":
                 if [item["locator"]["start"] for item in comma] != [1]:
-                    raise RuntimeError("default comma search failed")
+                    raise RuntimeError("selected numeric comma search failed")
                 if [item["locator"]["start"] for item in slash] != [4]:
-                    raise RuntimeError("default punctuation search failed")
+                    raise RuntimeError("selected numeric punctuation search failed")
             elif comma or slash:
                 raise RuntimeError("current rollback changed grouped search")
             if [item["locator"]["start"] for item in compact] != [5]:
                 raise RuntimeError("compact preservation failed")
             if non_adjacent:
                 raise RuntimeError("non-adjacent control matched")
-    verified_policy = "numeric-grouping-v1" if args.policy is None else args.policy
-    print(json.dumps({"status": "passed", "policy": verified_policy}, sort_keys=True))
+    print(json.dumps({"status": "passed", "strategy": args.strategy}, sort_keys=True))
 
 asyncio.run(main())
 """
@@ -163,11 +170,15 @@ def cli_search_command(
     db: Path,
     query: str,
     *,
-    policy: str | None,
+    strategy: str,
 ) -> tuple[str, ...]:
-    command = [str(mke), "--db", str(db)]
-    if policy is not None:
-        command.extend(("--retrieval-query-policy", policy))
+    command = [
+        str(mke),
+        "--db",
+        str(db),
+        "--retrieval-strategy",
+        strategy,
+    ]
     command.extend(("search", query))
     return tuple(command)
 
@@ -180,7 +191,7 @@ def mcp_client_command(
     db: Path,
     root: Path,
     fixture: str,
-    policy: str | None,
+    strategy: str,
     ingest: bool,
 ) -> tuple[str, ...]:
     command = [
@@ -197,23 +208,22 @@ def mcp_client_command(
     ]
     if ingest:
         command.append("--ingest")
-    if policy is not None:
-        command.extend(("--policy", policy))
+    command.extend(("--strategy", strategy))
     return tuple(command)
 
 
-def validate_policy_reports(
+def validate_strategy_reports(
     *,
-    promoted: Mapping[str, object],
+    selected: Mapping[str, object],
     rollback: Mapping[str, object],
 ) -> str:
     if (
-        promoted.get("status") != "passed"
-        or promoted.get("policy") != "numeric-grouping-v1"
+        selected.get("status") != "passed"
+        or selected.get("strategy") != "numeric-grouping-v1"
     ):
-        raise RuntimeError("default retrieval policy proof failed")
-    if rollback.get("status") != "passed" or rollback.get("policy") != "current":
-        raise RuntimeError("current rollback policy proof failed")
+        raise RuntimeError("selected numeric retrieval strategy proof failed")
+    if rollback.get("status") != "passed" or rollback.get("strategy") != "current":
+        raise RuntimeError("current rollback strategy proof failed")
     return "numeric-grouping-v1"
 
 
@@ -280,7 +290,7 @@ def _json_command(
 def _assert_cli_page(
     mke: Path,
     db: Path,
-    policy: str | None,
+    strategy: str,
     query: str,
     expected_page: int | None,
     *,
@@ -288,7 +298,7 @@ def _assert_cli_page(
     environment: Mapping[str, str],
 ) -> None:
     result = _run(
-        cli_search_command(mke, db, query, policy=policy),
+        cli_search_command(mke, db, query, strategy=strategy),
         cwd=cwd,
         environment=environment,
     )
@@ -373,7 +383,7 @@ def run_deployment_proof(config: DeploymentProofConfig) -> dict[str, object]:
             _assert_cli_page(
                 installed_mke,
                 cli_db,
-                None,
+                "numeric-grouping-v1",
                 query,
                 page,
                 cwd=runtime_root,
@@ -399,7 +409,7 @@ def run_deployment_proof(config: DeploymentProofConfig) -> dict[str, object]:
         )
 
         mcp_db = runtime_root / "mcp.sqlite"
-        promoted = _json_command(
+        selected = _json_command(
             mcp_client_command(
                 python=installed_python,
                 client=client,
@@ -407,7 +417,7 @@ def run_deployment_proof(config: DeploymentProofConfig) -> dict[str, object]:
                 db=mcp_db,
                 root=allowed_root,
                 fixture=fixture.name,
-                policy=None,
+                strategy="numeric-grouping-v1",
                 ingest=True,
             ),
             cwd=runtime_root,
@@ -421,14 +431,14 @@ def run_deployment_proof(config: DeploymentProofConfig) -> dict[str, object]:
                 db=mcp_db,
                 root=allowed_root,
                 fixture=fixture.name,
-                policy="current",
+                strategy="current",
                 ingest=False,
             ),
             cwd=runtime_root,
             environment=environment_variables,
         )
-        default_policy = validate_policy_reports(
-            promoted=promoted,
+        selected_strategy = validate_strategy_reports(
+            selected=selected,
             rollback=rollback,
         )
 
@@ -436,15 +446,15 @@ def run_deployment_proof(config: DeploymentProofConfig) -> dict[str, object]:
         "status": "passed",
         "python": config.python_version,
         "cli": {
-            "default_policy": default_policy,
-            "rollback_policy": "current",
+            "selected_strategy": selected_strategy,
+            "rollback_strategy": "current",
             "grouped_variants": 4,
             "compact_preserved": True,
             "non_adjacent_rejected": True,
         },
         "mcp": {
-            "default_policy": default_policy,
-            "rollback_policy": "current",
+            "selected_strategy": selected_strategy,
+            "rollback_strategy": "current",
             "request_override_exposed": False,
         },
     }

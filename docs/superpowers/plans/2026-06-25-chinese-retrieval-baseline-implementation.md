@@ -1935,7 +1935,7 @@ validates its recorded evidence.
 
 ```bash
 git diff --check main...HEAD
-rg -n "/Users/|API_KEY|token|secret" \
+rg -n "$(printf '/%s/' Users)|API_KEY|token|secret" \
   README.md README_CN.md docs benchmarks tests/fixtures/retrieval-chinese-v1
 ```
 
