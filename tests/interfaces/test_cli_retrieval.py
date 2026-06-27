@@ -247,6 +247,42 @@ def test_retrieval_rebuild_rejects_base_projection_strategies(
     }
 
 
+@pytest.mark.parametrize("strategy", ["unsupported", "secret=ghp_not-a-strategy"])
+@pytest.mark.parametrize("json_output", [False, True])
+def test_retrieval_rebuild_rejects_unvalidated_strategy_before_output(
+    capsys: CaptureFixture[str],
+    strategy: str,
+    json_output: bool,
+) -> None:
+    with pytest.raises(ValueError, match="retrieval strategy is unsupported"):
+        vars(mke.cli)["_retrieval_rebuild"](strategy, json_output=json_output)
+
+    assert capsys.readouterr().out == ""
+
+
+@pytest.mark.parametrize(
+    ("strategy", "expected_exit_code"),
+    [
+        ("current", 1),
+        ("numeric-grouping-v1", 1),
+        ("cjk-active-scan-overlap-v1", 0),
+    ],
+)
+def test_retrieval_rebuild_human_output_uses_canonical_strategy_id(
+    capsys: CaptureFixture[str],
+    strategy: str,
+    expected_exit_code: int,
+) -> None:
+    assert (
+        vars(mke.cli)["_retrieval_rebuild"](strategy, json_output=False)
+        == expected_exit_code
+    )
+
+    output = capsys.readouterr().out
+    assert f"strategy={strategy}" in output
+    assert output.count("strategy=") == 1
+
+
 def test_cli_search_renders_stable_active_scan_budget_error(
     tmp_path: Path,
     monkeypatch: MonkeyPatch,

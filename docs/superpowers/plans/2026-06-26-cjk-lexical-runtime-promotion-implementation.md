@@ -1,7 +1,7 @@
 # CJK Lexical Runtime Promotion Implementation Plan
 
 Status: completed under the amended active-scan-first plan. Targeted re-review CLEAN with zero
-findings; ready for user-authorized push and Ready PR creation.
+findings; Ready PR #35 is open and its CI remediation is complete.
 
 Planning base: `main@1fdea11d70b410a0cddcf86a74af165be83daf14`.
 
@@ -651,7 +651,19 @@ The implementation PR may include:
   `selected_strategy=numeric-grouping-v1` and `rollback_strategy=current` across CLI and MCP,
   passing Ruff, Pyright with zero errors and warnings, and a passing
   `git diff --check 1ede36c..HEAD`. The worktree remained clean. The branch is ready for a
-  user-authorized push and Ready PR; neither action has been performed.
+  user-authorized push and Ready PR. That authorization was later granted and Ready PR #35 was
+  created without merging it.
+
+PR #35 CI remediation is complete. GitHub code scanning identified that the internal retrieval
+rebuild helper could place an unvalidated direct-call strategy value into JSON or human stdout,
+even though argparse constrained the public CLI path. Regression tests first reproduced both
+output paths with unsupported and secret-like values. `_retrieval_rebuild` now validates once with
+`require_retrieval_strategy` and uses only the returned canonical strategy ID in comparisons and
+payloads. The resulting E1/E2/E3-A artifact update changed only the permitted `src/mke/cli.py`
+source identity; E1/E2/E3-A/E3-B observations, metrics, gates, verdicts, qrels, fixtures, and
+protocol semantics remained unchanged. Focused CLI/error/contract tests, the full suite, Ruff,
+Pyright, build, all four artifact validators, product proof, both demos, and diff checks passed
+before the PR update.
 
 The compiled-empty-only adjudication is final for this slice. Correct and incorrect number/unit
 counterexamples showed that FTS-zero-hit active scan dropped constraints; mixed compiled non-empty

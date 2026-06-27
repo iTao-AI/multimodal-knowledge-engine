@@ -1104,10 +1104,11 @@ def _retrieval_rebuild(
     *,
     json_output: bool,
 ) -> int:
-    if strategy == "cjk-active-scan-overlap-v1":
+    validated_strategy = require_retrieval_strategy(strategy)
+    if validated_strategy == "cjk-active-scan-overlap-v1":
         payload = {
             "status": "succeeded",
-            "strategy": strategy,
+            "strategy": validated_strategy,
             "action": "noop",
             "projection": "none",
             "scope": "additional_cjk_projection",
@@ -1119,7 +1120,7 @@ def _retrieval_rebuild(
     else:
         payload = {
             "status": "not_supported",
-            "strategy": strategy,
+            "strategy": validated_strategy,
             "action": "none",
             "projection": "active_evidence_fts",
             "scope": "base_projection",

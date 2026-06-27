@@ -1,7 +1,7 @@
 # CJK Active Scan Runtime Promotion Implementation Review
 
-Status: completed. Targeted re-review CLEAN with zero findings; ready for user-authorized push and
-Ready PR creation.
+Status: completed. Targeted re-review CLEAN with zero findings; Ready PR #35 is open and its CI
+remediation is complete.
 
 ## Scope
 
@@ -136,3 +136,37 @@ Fresh review-window verification:
 
 The local branch is ready for a user-authorized push and Ready PR. No push or PR was performed by
 the review or closeout windows.
+
+## PR #35 CI Remediation
+
+After the Ready PR was created, GitHub code scanning reported two clear-text logging paths in the
+retrieval rebuild helper. The public argparse path already restricted `--strategy` to the three
+supported IDs, but a direct internal call could pass an arbitrary string through the rebuild
+payload to JSON or human stdout.
+
+The fix followed the existing doctor path: `_retrieval_rebuild` validates once with
+`require_retrieval_strategy`, then uses only that canonical value for branching and output. No
+suppression, alert dismissal, or rebuild-contract expansion was added.
+
+TDD and artifact evidence:
+
+- RED: four unsupported/secret-like JSON and human-output cases wrote the raw value instead of
+  raising; three allowlisted canonical-output cases passed.
+- GREEN: all seven focused rebuild cases passed after the single entry validation was added.
+- Fresh E1/E2/E3-A/E3-B observations were semantically equal to the pre-fix observations after
+  excluding duration only.
+- Recoverable E1/E2/E3-A refresh changed only the permitted `src/mke/cli.py` source identity; E2
+  protocol scope and E3-B source identity did not change.
+- Metrics, gates, verdicts, qrels, fixtures, and protocol semantics remained canonical.
+
+Local verification before updating PR #35:
+
+- Focused CLI retrieval, public-error, CLI/MCP contract, Ask, evaluation, and strategy tests:
+  `120 passed` with five existing warnings.
+- Full suite: `952 passed, 1 skipped` with five existing warnings.
+- `uv run ruff check .`: passed.
+- `uv run pyright`: `0 errors, 0 warnings`.
+- `uv build`: sdist and wheel built.
+- E1, E2, E3-A, and E3-B validators: passed.
+- `uv run mke proof run`: `8/8` cases passed.
+- `uv run mke demo --verify` and the CJK active-scan demo: passed.
