@@ -17,6 +17,7 @@ def test_active_scan_parameters_match_e3b_thresholds() -> None:
     assert CJK_ACTIVE_SCAN_PARAMETERS.minimum_overlap_count == 2
     assert CJK_ACTIVE_SCAN_PARAMETERS.minimum_overlap_ratio == 0.30
     assert CJK_ACTIVE_SCAN_PARAMETERS.max_results == 10
+    assert CJK_ACTIVE_SCAN_PARAMETERS.max_active_evidence_text_bytes == 16 * 1024 * 1024
 
 
 def test_cjk_overlap_terms_are_deterministic_and_deduplicated() -> None:

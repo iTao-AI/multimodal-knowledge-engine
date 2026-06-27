@@ -41,6 +41,9 @@ separately.
 `cjk-active-scan-overlap-v1` is the default owner-startup retrieval strategy after all launch
 gates passed. `numeric-grouping-v1` remains the explicit primary rollback.
 
+This ADR supersedes only ADR-0007's default selection. ADR-0007's numeric compiler behavior,
+frozen E2 evidence, compatibility selector, and rollback decision remain accepted.
+
 ## Default Promotion Launch Gate
 
 Default promotion requires:
@@ -66,13 +69,17 @@ The CJK branch reads only active text Evidence from SQLite domain truth. It does
 projection table, metadata table, vector index, or external cache. It must not read failed,
 partial, inactive, superseded, or unpublished Evidence.
 
-Initial bounds are `max_cjk_query_chars=512`, `max_overlap_terms=128`, a fixed active Evidence row
-budget, and a fixed candidate-pool cap. Budget and eligibility failures use stable public
+Initial bounds are `max_cjk_query_chars=512`, `max_overlap_terms=128`,
+`max_active_evidence_rows=10000`, `max_active_evidence_text_bytes=16777216`,
+`max_candidate_pool=1000`, and `max_results=10`. Row and UTF-8 text-volume budgets are checked in
+SQLite before text is loaded for scoring. Budget and eligibility failures use stable public
 `problem`, `cause`, and `next_step` fields.
 
-`retrieval doctor --strategy cjk-active-scan-overlap-v1 --json` checks local readability and active
-Publication inspectability. `retrieval rebuild --strategy cjk-active-scan-overlap-v1 --json` is a
-stable no-op because the strategy has no projection to rebuild.
+`retrieval doctor --strategy cjk-active-scan-overlap-v1 --json` checks local readability, active
+Publication inspectability, and exact consistency of the required base `active_evidence_fts`
+projection. `retrieval rebuild --strategy cjk-active-scan-overlap-v1 --json` is a stable no-op only
+for the additional CJK projection because none exists. Base FTS rebuild for `current` and
+`numeric-grouping-v1` returns a stable not-supported result.
 
 ## Rollback
 

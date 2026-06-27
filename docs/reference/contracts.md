@@ -39,8 +39,8 @@ Status:
 | `mke transcription doctor` | implemented in D3-B | Read-only dependency, profile, language, and cache checks. |
 | `mke eval retrieval-chinese --protocol <protocol.json>` | implemented in E3-A | Records the current FTS5 lexical baseline over isolated Chinese development/public-holdout corpora; no quality threshold or runtime promotion. |
 | `mke eval retrieval-cjk-lexical --protocol <protocol.json> --candidate cjk-trigram-overlap-v1` | implemented in E3-B | Runs an off-default comparison-only CJK trigram-overlap candidate for compiled-empty queries; no runtime default, HTTP, UI, MCP, embedding, vector, hybrid, RRF, reranker, or query-rewrite change. |
-| `mke retrieval doctor --strategy <strategy>` | implemented in E3-F | Read-only retrieval readiness and active Publication inspection. |
-| `mke retrieval rebuild --strategy <strategy>` | implemented in E3-F | Stable no-op for strategies without a persistent projection. |
+| `mke retrieval doctor --strategy <strategy>` | implemented in E3-F | Read-only SQLite, active Publication, and required base FTS consistency inspection. |
+| `mke retrieval rebuild --strategy <strategy>` | implemented in E3-F | Additional CJK projection no-op for active scan; base FTS rebuild returns stable not-supported. |
 | `mke init` | planned | Workspace initialization after lifecycle proof. |
 | `mke serve` | planned | Single-owner local process after CLI proof. |
 | `mke library create` | planned | May be implicit in first CLI path. |
@@ -54,6 +54,9 @@ numeric policy, keeps compiled non-empty queries on active FTS5, and scans activ
 for eligible compiled-empty CJK queries. It is the default when the selector is omitted.
 `numeric-grouping-v1` is the primary rollback and
 `current` the lower-level rollback. Strategy changes require no migration or index rebuild. The
+active strategy requires the existing `active_evidence_fts` projection for compiled non-empty
+queries but adds no CJK projection. Doctor compares that base projection exactly with active
+Publication Evidence before reporting ready. The
 built-in PDF extractor uses PyMuPDF behind the adapter boundary and extracts text-layer page text
 with `page.get_text("text", sort=True)`. Successful PDF ingest and Run inspection expose
 `PdfIntakeReport` summary fields: total pages, extracted pages, empty pages, extracted characters,

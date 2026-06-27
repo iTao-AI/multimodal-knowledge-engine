@@ -48,7 +48,7 @@
     "integrity_claim": "adjudication_record_integrity"
   },
   "source_identity": {
-    "sha256": "dd1c46e5f758a243f6014acc977d4c6c3153850ee91316cd0e2420781f0b5960",
+    "sha256": "cf0e730a95a4e255cbd1479ede9b4ea4768ec912eb5c4eb0562369bb8b167113",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -67,8 +67,8 @@
       },
       {
         "path": "src/mke/adapters/sqlite/__init__.py",
-        "bytes": 41613,
-        "sha256": "ec7314abb964e58e347366f61f74e91c9676b0c55bbd3bd154343afddfda9888"
+        "bytes": 41988,
+        "sha256": "4e15734eb18d7dc5c7addcdaa937ec805efb5c4f23f3bca5af8c07cdcd671c38"
       },
       {
         "path": "src/mke/adapters/video/__init__.py",
@@ -122,8 +122,8 @@
       },
       {
         "path": "src/mke/cli.py",
-        "bytes": 44375,
-        "sha256": "b744da7664031ba1fce486a4bf1c99593ff341e3e74357d608a785478abe8e20"
+        "bytes": 45045,
+        "sha256": "ac9ffa5bd704364880d848db28fcc7f6610507d3413dd03507ffca816e61ee36"
       },
       {
         "path": "src/mke/domain/__init__.py",
@@ -282,8 +282,8 @@
       },
       {
         "path": "src/mke/retrieval/cjk_active_scan.py",
-        "bytes": 6034,
-        "sha256": "1eb4a88364876c7d687f26ea1f6487b56b8ffae2633fc7ea41c16400af02ca89"
+        "bytes": 6127,
+        "sha256": "d0e48b8154d1e14309e034b2834565f17367e98d0b9196e8d29ec03095c67a3d"
       },
       {
         "path": "src/mke/retrieval/query_policy.py",
@@ -292,13 +292,13 @@
       },
       {
         "path": "src/mke/retrieval/readiness.py",
-        "bytes": 2912,
-        "sha256": "5f5f75d00c2296edd9c4b88798ae93a11300bdc6bb50845903a075ee66da8b1f"
+        "bytes": 6388,
+        "sha256": "bb4790dd045cc7eaf6bd58e0ca0e013a09dcb24964ac3a66ae031aacefeb9fff"
       },
       {
         "path": "src/mke/retrieval/strategy.py",
-        "bytes": 3199,
-        "sha256": "1843a471a8aff800dce76792a2b9ee444ebabe2331caaab08c583c62ae5a1c88"
+        "bytes": 3370,
+        "sha256": "437aaa050f06c0d2a3eb9e9c891c5060e38df137ef691235281b2fd25adeb665"
       },
       {
         "path": "src/mke/runtime.py",

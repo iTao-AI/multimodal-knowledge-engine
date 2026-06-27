@@ -67,6 +67,28 @@ def test_high_fanout_candidate_pool_fails_within_fixed_budget(
     assert raised.value.problem == "cjk_candidate_pool_capped"
 
 
+def test_maximum_allowed_active_text_volume_scans_within_fixed_budget(
+    tmp_path: Path,
+) -> None:
+    text_budget = CJK_ACTIVE_SCAN_PARAMETERS.max_active_evidence_text_bytes
+    prefix = "发布证据检索"
+    text = prefix + "x" * (text_budget - len(prefix.encode("utf-8")))
+    engine = _published_engine(
+        tmp_path / "text-budget.sqlite",
+        count=1,
+        text=text,
+    )
+    try:
+        started = perf_counter()
+        results = engine.search("发布证据检索")
+        elapsed = perf_counter() - started
+    finally:
+        engine.close()
+
+    assert elapsed < _PERFORMANCE_BUDGET_SECONDS
+    assert [item.locator_start for item in results] == [1]
+
+
 def _published_engine(db_path: Path, *, count: int, text: str) -> KnowledgeEngine:
     engine = KnowledgeEngine(
         db_path,

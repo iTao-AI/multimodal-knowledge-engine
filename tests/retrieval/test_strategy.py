@@ -38,7 +38,8 @@ def test_active_scan_strategy_is_the_promoted_default() -> None:
     descriptor = get_retrieval_strategy_descriptor("cjk-active-scan-overlap-v1")
     assert descriptor.strategy_id == "cjk-active-scan-overlap-v1"
     assert descriptor.base_query_policy == "numeric-grouping-v1"
-    assert descriptor.required_projections == ()
+    assert descriptor.required_projections == ("active_evidence_fts",)
+    assert descriptor.additional_projections == ()
     assert descriptor.term_derivation_mode == "cjk-overlap-trigrams"
     assert descriptor.dense == "none"
     assert descriptor.hybrid == "none"
@@ -81,6 +82,7 @@ def test_strategy_descriptor_is_extensible_without_request_dto_changes() -> None
         revision=1,
         base_query_policy="numeric-grouping-v1",
         required_projections=("vector",),
+        additional_projections=("vector",),
         term_derivation_mode="embedding-query",
         readiness_checker="vector-projection",
         rollback_capability=("numeric-grouping-v1", "current"),
@@ -102,3 +104,15 @@ def test_adr_0008_records_active_scan_strategy() -> None:
     assert "cjk-active-scan-overlap-v1" in text
     assert "Default Promotion Launch Gate" in text
     assert "app_scan_no_projection" in text
+
+
+def test_adr_0007_and_0008_cross_reference_default_supersession() -> None:
+    numeric = Path("docs/decisions/0007-numeric-grouping-query-policy.md").read_text(
+        encoding="utf-8"
+    )
+    active_scan = Path(
+        "docs/decisions/0008-cjk-active-scan-retrieval-strategy.md"
+    ).read_text(encoding="utf-8")
+
+    assert "Default selection superseded by ADR-0008" in numeric
+    assert "supersedes only ADR-0007's default selection" in active_scan

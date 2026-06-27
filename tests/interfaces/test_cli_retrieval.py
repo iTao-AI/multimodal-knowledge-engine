@@ -1,6 +1,8 @@
 import json
+import sqlite3
 from pathlib import Path
 
+import pytest
 from pytest import CaptureFixture, MonkeyPatch
 
 import mke.cli
@@ -48,7 +50,8 @@ def test_retrieval_doctor_reports_not_ready_without_active_publication(
         "checks": [
             {"name": "sqlite_domain_truth", "status": "ready"},
             {"name": "active_publication", "status": "not_ready"},
-            {"name": "persistent_cjk_projection", "status": "not_required"},
+            {"name": "active_fts_projection", "status": "ready"},
+            {"name": "additional_cjk_projection", "status": "not_required"},
         ],
     }
     assert str(tmp_path) not in json.dumps(payload)
@@ -109,8 +112,74 @@ def test_retrieval_doctor_reports_ready_for_active_scan_without_projection(
     assert payload["cause"] is None
     assert payload["next_step"] is None
     assert payload["checks"][-1] == {
-        "name": "persistent_cjk_projection",
+        "name": "additional_cjk_projection",
         "status": "not_required",
+    }
+
+
+def test_retrieval_doctor_rejects_missing_active_fts_projection(
+    tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "mke.sqlite"
+    _publish_text(db_path, "发布证据检索确认。")
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("DROP TABLE active_evidence_fts")
+
+    assert (
+        main(
+            [
+                "--db",
+                str(db_path),
+                "retrieval",
+                "doctor",
+                "--strategy",
+                "cjk-active-scan-overlap-v1",
+                "--json",
+            ]
+        )
+        == 1
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "not_ready"
+    assert payload["problem"] == "retrieval_projection_not_ready"
+    assert payload["cause"] == "Active FTS5 projection is missing or inconsistent"
+    assert payload["next_step"] == "republish_active_sources"
+    assert {check["name"]: check["status"] for check in payload["checks"]} == {
+        "sqlite_domain_truth": "ready",
+        "active_publication": "ready",
+        "active_fts_projection": "not_ready",
+        "additional_cjk_projection": "not_required",
+    }
+
+
+def test_retrieval_doctor_rejects_inconsistent_active_fts_projection(
+    tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "mke.sqlite"
+    _publish_text(db_path, "发布证据检索确认。")
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("DELETE FROM active_evidence_fts")
+
+    assert (
+        main(
+            [
+                "--db",
+                str(db_path),
+                "retrieval",
+                "doctor",
+                "--strategy",
+                "cjk-active-scan-overlap-v1",
+                "--json",
+            ]
+        )
+        == 1
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["problem"] == "retrieval_projection_not_ready"
+    assert payload["checks"][2] == {
+        "name": "active_fts_projection",
+        "status": "not_ready",
     }
 
 
@@ -139,9 +208,42 @@ def test_retrieval_rebuild_active_scan_is_no_projection_noop(
         "strategy": "cjk-active-scan-overlap-v1",
         "action": "noop",
         "projection": "none",
+        "scope": "additional_cjk_projection",
         "problem": None,
         "cause": None,
         "next_step": None,
+    }
+
+
+@pytest.mark.parametrize("strategy", ["current", "numeric-grouping-v1"])
+def test_retrieval_rebuild_rejects_base_projection_strategies(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+    strategy: str,
+) -> None:
+    assert (
+        main(
+            [
+                "--db",
+                str(tmp_path / "mke.sqlite"),
+                "retrieval",
+                "rebuild",
+                "--strategy",
+                strategy,
+                "--json",
+            ]
+        )
+        == 1
+    )
+    assert json.loads(capsys.readouterr().out) == {
+        "status": "not_supported",
+        "strategy": strategy,
+        "action": "none",
+        "projection": "active_evidence_fts",
+        "scope": "base_projection",
+        "problem": "retrieval_rebuild_not_supported",
+        "cause": "Base active FTS5 projection rebuild is not supported",
+        "next_step": "republish_active_sources",
     }
 
 

@@ -217,6 +217,50 @@ def test_active_scan_rejects_row_count_above_fixed_budget(tmp_path: Path) -> Non
         engine.close()
 
 
+def test_active_scan_rejects_text_bytes_above_fixed_budget(tmp_path: Path) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    text = "发布证据检索" + "x" * 64
+    try:
+        _publish_text(engine, "cjk.pdf", "e" * 64, (text,))
+        parameters = replace(
+            CJK_ACTIVE_SCAN_PARAMETERS,
+            max_active_evidence_text_bytes=len(text.encode("utf-8")) - 1,
+        )
+
+        with pytest.raises(CjkActiveScanError) as raised:
+            engine._store.search_cjk_active_scan(  # pyright: ignore[reportPrivateUsage]
+                "发布证据检索",
+                parameters=parameters,
+            )
+
+        assert raised.value.problem == "cjk_scan_budget_exceeded"
+        assert raised.value.cause == (
+            "CJK active Evidence scan would exceed configured local budget"
+        )
+    finally:
+        engine.close()
+
+
+def test_active_scan_accepts_text_bytes_at_fixed_budget(tmp_path: Path) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    text = "发布证据检索" + "x" * 64
+    try:
+        _publish_text(engine, "cjk.pdf", "f" * 64, (text,))
+        parameters = replace(
+            CJK_ACTIVE_SCAN_PARAMETERS,
+            max_active_evidence_text_bytes=len(text.encode("utf-8")),
+        )
+
+        results = engine._store.search_cjk_active_scan(  # pyright: ignore[reportPrivateUsage]
+            "发布证据检索",
+            parameters=parameters,
+        )
+
+        assert [item.locator_start for item in results] == [1]
+    finally:
+        engine.close()
+
+
 def _publish_text(
     engine: KnowledgeEngine,
     display_name: str,

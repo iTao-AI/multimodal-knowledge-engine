@@ -34,8 +34,9 @@ runtime does not discard ASCII or numeric constraints after an FTS zero-hit. A f
 constraint-preserving mixed-query fallback requires a separate comparison.
 
 The active scan reads only Evidence owned by active Publications. It permits at most 512 CJK query
-characters, 128 overlap terms, 10,000 active Evidence rows, and a 1,000-candidate pool. Budget
-failures use stable `problem`, `cause`, and `next_step` fields.
+characters, 128 overlap terms, 10,000 active Evidence rows, 16 MiB total UTF-8 active Evidence
+text, a 1,000-candidate pool, and 10 returned results. Row and text-volume checks happen before
+text is loaded for scoring. Budget failures use stable `problem`, `cause`, and `next_step` fields.
 
 ## Doctor And Rebuild
 
@@ -46,15 +47,19 @@ uv run mke --db .tmp/mke.sqlite retrieval doctor \
   --strategy cjk-active-scan-overlap-v1 --json
 ```
 
-The check reports SQLite readability, active Publication inspectability, and that a persistent CJK
-projection is not required. Rebuild is a stable no-op:
+The check reports SQLite readability, active Publication inspectability, exact consistency of the
+required `active_evidence_fts` base projection, and that an additional CJK projection is not
+required. Missing or inconsistent base FTS state returns `retrieval_projection_not_ready`.
+Additional CJK rebuild is a stable no-op:
 
 ```bash
 uv run mke --db .tmp/mke.sqlite retrieval rebuild \
   --strategy cjk-active-scan-overlap-v1 --json
 ```
 
-Its successful result contains `action="noop"` and `projection="none"`.
+Its successful result contains `action="noop"`, `projection="none"`, and
+`scope="additional_cjk_projection"`. Rebuild requests for `numeric-grouping-v1` or `current`
+return `retrieval_rebuild_not_supported`; recovery requires republishing active Sources.
 
 ## Roll Back
 

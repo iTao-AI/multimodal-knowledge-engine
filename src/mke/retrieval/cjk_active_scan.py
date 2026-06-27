@@ -15,6 +15,7 @@ class CjkActiveScanParameters:
     max_cjk_query_chars: int
     max_overlap_terms: int
     max_active_evidence_rows: int
+    max_active_evidence_text_bytes: int
     max_candidate_pool: int
 
 
@@ -71,6 +72,7 @@ CJK_ACTIVE_SCAN_PARAMETERS = CjkActiveScanParameters(
     max_cjk_query_chars=512,
     max_overlap_terms=128,
     max_active_evidence_rows=10_000,
+    max_active_evidence_text_bytes=16 * 1024 * 1024,
     max_candidate_pool=1_000,
 )
 

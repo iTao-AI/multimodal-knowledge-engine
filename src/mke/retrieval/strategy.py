@@ -28,6 +28,7 @@ class RetrievalStrategyDescriptor:
     revision: int
     base_query_policy: RetrievalQueryPolicy
     required_projections: tuple[str, ...]
+    additional_projections: tuple[str, ...]
     term_derivation_mode: str
     readiness_checker: str
     rollback_capability: tuple[RetrievalStrategy, ...]
@@ -43,6 +44,7 @@ _DESCRIPTORS: dict[RetrievalStrategy, RetrievalStrategyDescriptor] = {
         revision=1,
         base_query_policy="current",
         required_projections=("active_evidence_fts",),
+        additional_projections=(),
         term_derivation_mode="ascii-token-fts5",
         readiness_checker="active-publication-fts",
         rollback_capability=("current",),
@@ -56,6 +58,7 @@ _DESCRIPTORS: dict[RetrievalStrategy, RetrievalStrategyDescriptor] = {
         revision=1,
         base_query_policy="numeric-grouping-v1",
         required_projections=("active_evidence_fts",),
+        additional_projections=(),
         term_derivation_mode="ascii-token-fts5-with-numeric-grouping",
         readiness_checker="active-publication-fts",
         rollback_capability=("current",),
@@ -68,7 +71,8 @@ _DESCRIPTORS: dict[RetrievalStrategy, RetrievalStrategyDescriptor] = {
         strategy_id="cjk-active-scan-overlap-v1",
         revision=1,
         base_query_policy="numeric-grouping-v1",
-        required_projections=(),
+        required_projections=("active_evidence_fts",),
+        additional_projections=(),
         term_derivation_mode="cjk-overlap-trigrams",
         readiness_checker="active-publication-domain-evidence",
         rollback_capability=("numeric-grouping-v1", "current"),

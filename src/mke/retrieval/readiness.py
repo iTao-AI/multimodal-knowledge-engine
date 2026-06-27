@@ -36,9 +36,9 @@ def doctor_retrieval_strategy(
     db_path: Path, strategy: RetrievalStrategy
 ) -> RetrievalReadiness:
     descriptor = get_retrieval_strategy_descriptor(strategy)
-    projection_check = RetrievalReadinessCheck(
-        "persistent_cjk_projection",
-        "not_required" if not descriptor.required_projections else "ready",
+    additional_projection_check = RetrievalReadinessCheck(
+        "additional_cjk_projection",
+        "not_required" if not descriptor.additional_projections else "ready",
     )
     try:
         if not db_path.is_file():
@@ -54,6 +54,7 @@ def doctor_retrieval_strategy(
                 LIMIT 1
                 """
             ).fetchone()
+            active_fts_ready = _active_fts_projection_is_consistent(connection)
     except (OSError, sqlite3.Error):
         return RetrievalReadiness(
             status="not_ready",
@@ -64,7 +65,25 @@ def doctor_retrieval_strategy(
             checks=(
                 RetrievalReadinessCheck("sqlite_domain_truth", "not_ready"),
                 RetrievalReadinessCheck("active_publication", "not_ready"),
-                projection_check,
+                RetrievalReadinessCheck("active_fts_projection", "not_ready"),
+                additional_projection_check,
+            ),
+        )
+    active_publication_check = RetrievalReadinessCheck(
+        "active_publication", "ready" if active else "not_ready"
+    )
+    if not active_fts_ready:
+        return RetrievalReadiness(
+            status="not_ready",
+            strategy=strategy,
+            problem="retrieval_projection_not_ready",
+            cause="Active FTS5 projection is missing or inconsistent",
+            next_step="republish_active_sources",
+            checks=(
+                RetrievalReadinessCheck("sqlite_domain_truth", "ready"),
+                active_publication_check,
+                RetrievalReadinessCheck("active_fts_projection", "not_ready"),
+                additional_projection_check,
             ),
         )
     if not active:
@@ -76,8 +95,9 @@ def doctor_retrieval_strategy(
             next_step="ingest_and_publish_source",
             checks=(
                 RetrievalReadinessCheck("sqlite_domain_truth", "ready"),
-                RetrievalReadinessCheck("active_publication", "not_ready"),
-                projection_check,
+                active_publication_check,
+                RetrievalReadinessCheck("active_fts_projection", "ready"),
+                additional_projection_check,
             ),
         )
     return RetrievalReadiness(
@@ -88,7 +108,71 @@ def doctor_retrieval_strategy(
         next_step=None,
         checks=(
             RetrievalReadinessCheck("sqlite_domain_truth", "ready"),
-            RetrievalReadinessCheck("active_publication", "ready"),
-            projection_check,
+            active_publication_check,
+            RetrievalReadinessCheck("active_fts_projection", "ready"),
+            additional_projection_check,
         ),
+    )
+
+
+def _active_fts_projection_is_consistent(connection: sqlite3.Connection) -> bool:
+    definition = connection.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?",
+        ("active_evidence_fts",),
+    ).fetchone()
+    if (
+        definition is None
+        or not isinstance(definition[0], str)
+        or "using fts5" not in definition[0].casefold()
+    ):
+        return False
+    try:
+        counts_and_differences = connection.execute(
+            """
+            WITH expected(
+              library_id, source_id, publication_id, evidence_id, locator_label, text
+            ) AS (
+              SELECT sources.library_id, evidence.source_id,
+                     publications.publication_id, evidence.evidence_id,
+                     CASE evidence.locator_kind
+                       WHEN 'page'
+                         THEN 'page:' || evidence.locator_start
+                       WHEN 'timestamp_ms'
+                         THEN 'timestamp_ms:' || evidence.locator_start
+                              || '..' || evidence.locator_end
+                       ELSE evidence.locator_kind || ':' || evidence.locator_start
+                            || '..' || evidence.locator_end
+                     END,
+                     evidence.text
+              FROM sources
+              JOIN publications
+                ON publications.publication_id = sources.active_publication_id
+              JOIN evidence
+                ON evidence.run_id = publications.run_id
+               AND evidence.source_id = sources.source_id
+            )
+            SELECT
+              (SELECT COUNT(*) FROM expected),
+              (SELECT COUNT(*) FROM active_evidence_fts),
+              EXISTS(
+                SELECT * FROM expected
+                EXCEPT
+                SELECT library_id, source_id, publication_id, evidence_id, locator_label, text
+                FROM active_evidence_fts
+              ),
+              EXISTS(
+                SELECT library_id, source_id, publication_id, evidence_id, locator_label, text
+                FROM active_evidence_fts
+                EXCEPT
+                SELECT * FROM expected
+              )
+            """
+        ).fetchone()
+    except sqlite3.Error:
+        return False
+    return (
+        counts_and_differences is not None
+        and counts_and_differences[0] == counts_and_differences[1]
+        and counts_and_differences[2] == 0
+        and counts_and_differences[3] == 0
     )

@@ -73,7 +73,21 @@ tutorial, and explanation coverage; its only command drift finding was corrected
 The final branch remains local for independent review; no push, PR, or final full GStack review
 belongs to this execution window.
 
-## Final Verification
+## Pre-PR Review Remediation
+
+The first complete pre-PR review reported four findings. Each was reproduced before modification.
+
+| Finding | Verdict | Resolution |
+|---|---|---|
+| Active-scan text volume was unbounded | Confirmed | Added a 16 MiB UTF-8 active Evidence budget checked with row count in SQLite before text load; added over/at-boundary and maximum-success performance tests. |
+| Readiness omitted required base FTS state | Confirmed | Descriptor now separates required `active_evidence_fts` from no additional CJK projection; doctor verifies exact active projection consistency; legacy base rebuild returns stable not-supported. |
+| E2 installed-wheel proof mislabeled the default | Confirmed | CLI/MCP proof now explicitly selects `numeric-grouping-v1` and `current`, reports selected/rollback strategies, and leaves default proof to E3-F. |
+| Help and ADR default wording drifted | Confirmed | Evaluator help is historical/protocol-owned; ADR-0007 and ADR-0008 cross-reference the limited default-selection supersession. |
+
+The source identity refresh changed no evaluation observations, metrics, gates, verdicts, qrels,
+fixtures, or SQLite schema. E1/E2/E3-A used recoverable refresh; E3-B used its supported recorder.
+
+## Initial Verification
 
 - `uv run pytest -q`: `936 passed, 1 skipped`.
 - `uv run pytest tests/performance -q`: `3 passed`.
@@ -87,3 +101,18 @@ belongs to this execution window.
 - Python 3.12 and 3.13 installed-wheel proofs passed with `network=offline` and
   `installed_identity=wheel`.
 - Documentation tests, stale-docs scan, public-boundary scan, and `git diff --check` passed.
+
+## Post-Review Verification
+
+- `uv run pytest -q`: `945 passed, 1 skipped`.
+- New focused review regressions plus adjacent retrieval/evaluation/proof tests: `136 passed`.
+- `uv run pytest tests/performance -q`: `4 passed`, including the 16 MiB success boundary.
+- `uv run ruff check .`: passed.
+- `uv run pyright`: `0 errors, 0 warnings`.
+- `uv build`: sdist and wheel built.
+- E1, E2, E3-A, and E3-B final observations remained semantically equal; all validators passed.
+- `uv run mke proof run`: `8/8` cases passed; compatibility demo and CJK demo passed.
+- Python 3.12 and 3.13 E3-F offline installed-wheel proofs passed.
+- Python 3.12 E2 offline installed-wheel proof passed with explicit
+  `selected_strategy=numeric-grouping-v1` and `rollback_strategy=current`.
+- Current-facing documentation, public-boundary, and `git diff --check` audits passed.

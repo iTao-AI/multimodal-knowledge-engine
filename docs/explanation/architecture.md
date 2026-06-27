@@ -150,11 +150,15 @@ ASCII+CJK and numeric compiled non-empty queries are FTS-only even after an FTS 
 runtime never silently discards ASCII or numeric constraints. Search and Ask share this routing;
 MCP tools cannot override it per request.
 
+The strategy still requires the existing `active_evidence_fts` base projection for compiled
+non-empty queries. Doctor checks that the FTS5 table exists and exactly matches active Publication
+Evidence. "No projection" in the active-scan contract means no additional CJK projection.
+
 After the E3-F launch gate, `cjk-active-scan-overlap-v1` is the default when the owner omits the
 selector. The owner can still select an allowlisted strategy before `KnowledgeEngine`
-construction. Doctor checks are
-read-only, active-scan rebuild is a stable no-op, and rollback to `numeric-grouping-v1` or `current`
-requires no migration. E3-C through E3-E remain future, evidence-gated stages. The E3-F strategy
+construction. Doctor checks are read-only. Active-scan rebuild is a stable no-op only for the
+additional CJK projection; base FTS rebuild is not implemented. Rollback to `numeric-grouping-v1`
+or `current` requires no migration. E3-C through E3-E remain future, evidence-gated stages. The E3-F strategy
 does not add embedding, vector search, hybrid retrieval, RRF, reranking, query rewrite,
 Passage/chunk, OCR, HTTP, or UI behavior.
 

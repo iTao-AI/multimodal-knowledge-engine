@@ -92,9 +92,11 @@ uv run mke eval retrieval-cjk-lexical \
 
 `cjk-trigram-overlap-v1` is comparison-only. It first uses the unchanged
 `numeric-grouping-v1` compiler. Only queries whose current compiled query is empty enter the
-evaluation-only SQLite FTS5 `trigram` projection and deterministic overlap scorer. The normal
-`active_evidence_fts` table, runtime default retrieval policy, Search/Ask DTOs, HTTP, UI, MCP,
-embeddings, vector search, hybrid retrieval, RRF, reranking, and query rewrite are unchanged.
+evaluation-only SQLite FTS5 `trigram` projection and deterministic overlap scorer. At the E3-B
+stage, the normal `active_evidence_fts` table, runtime default retrieval policy, Search/Ask DTOs,
+HTTP, UI, MCP, embeddings, vector search, hybrid retrieval, RRF, reranking, and query rewrite were
+unchanged. ADR-0008 later changed only the owner-startup default and added the bounded active-scan
+runtime path.
 
 | Metric | Current | Candidate |
 |---|---:|---:|

@@ -945,20 +945,27 @@ class SQLiteStore:
             if error.problem == "cjk_query_not_eligible":
                 return []
             raise
-        active_row_count = int(
-            self._connection.execute(
-                """
-                SELECT COUNT(*)
+        budget_row = self._connection.execute(
+            """
+                SELECT COUNT(*) AS active_row_count,
+                       COALESCE(
+                         SUM(length(CAST(evidence.text AS BLOB))),
+                         0
+                       ) AS active_text_bytes
                 FROM sources
                 JOIN publications
                   ON publications.publication_id = sources.active_publication_id
                 JOIN evidence
                   ON evidence.run_id = publications.run_id
                  AND evidence.source_id = sources.source_id
-                """
-            ).fetchone()[0]
-        )
-        if active_row_count > parameters.max_active_evidence_rows:
+            """
+        ).fetchone()
+        active_row_count = int(budget_row["active_row_count"])
+        active_text_bytes = int(budget_row["active_text_bytes"])
+        if (
+            active_row_count > parameters.max_active_evidence_rows
+            or active_text_bytes > parameters.max_active_evidence_text_bytes
+        ):
             raise CjkActiveScanError(
                 "cjk_scan_budget_exceeded",
                 "CJK active Evidence scan would exceed configured local budget",

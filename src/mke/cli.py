@@ -167,9 +167,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     numeric_retrieval = evaluation_subcommands.add_parser(
         "retrieval-numeric",
         description=(
-            "Run the comparison-only public-holdout numeric protocol. "
-            "The runtime default is numeric-grouping-v1, the holdout is public rather "
-            "than blind, and comparison policy is protocol-owned."
+            "Run the historical comparison-only public-holdout numeric protocol. "
+            "The holdout is public rather than blind, policy is protocol-owned, "
+            "and this command does not select the runtime strategy."
         ),
     )
     numeric_retrieval.add_argument(
@@ -205,9 +205,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     cjk_lexical_retrieval = evaluation_subcommands.add_parser(
         "retrieval-cjk-lexical",
         description=(
-            "Run the off-default comparison-only CJK trigram-overlap candidate. "
-            "The runtime default remains numeric-grouping-v1; no embedding, "
-            "vector, hybrid, RRF, reranker, or query rewrite behavior is added."
+            "Run the historical E3-B comparison-only CJK trigram-overlap candidate; "
+            "candidate and policy are protocol-owned. This command does not select "
+            "the runtime strategy or add embedding, vector, hybrid, RRF, reranker, "
+            "or query rewrite behavior."
         ),
     )
     cjk_lexical_retrieval.add_argument(
@@ -1103,20 +1104,35 @@ def _retrieval_rebuild(
     *,
     json_output: bool,
 ) -> int:
-    payload = {
-        "status": "succeeded",
-        "strategy": strategy,
-        "action": "noop",
-        "projection": "none",
-        "problem": None,
-        "cause": None,
-        "next_step": None,
-    }
+    if strategy == "cjk-active-scan-overlap-v1":
+        payload = {
+            "status": "succeeded",
+            "strategy": strategy,
+            "action": "noop",
+            "projection": "none",
+            "scope": "additional_cjk_projection",
+            "problem": None,
+            "cause": None,
+            "next_step": None,
+        }
+        exit_code = 0
+    else:
+        payload = {
+            "status": "not_supported",
+            "strategy": strategy,
+            "action": "none",
+            "projection": "active_evidence_fts",
+            "scope": "base_projection",
+            "problem": "retrieval_rebuild_not_supported",
+            "cause": "Base active FTS5 projection rebuild is not supported",
+            "next_step": "republish_active_sources",
+        }
+        exit_code = 1
     if json_output:
         print(json.dumps(payload))
     else:
         print(" ".join(f"{key}={value}" for key, value in payload.items()))
-    return 0
+    return exit_code
 
 
 def _retrieval_readiness_payload(readiness: RetrievalReadiness) -> dict[str, object]:

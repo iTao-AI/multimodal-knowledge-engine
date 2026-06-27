@@ -419,8 +419,11 @@ mke --db <path> retrieval rebuild --strategy <strategy> [--json]
 ```
 
 `doctor` is read-only and reports stable `status`, `strategy`, checks, and optional
-`problem`/`cause`/`next_step`. For `cjk-active-scan-overlap-v1`, `rebuild` succeeds with
-`action=noop` and `projection=none` because no persistent CJK projection exists.
+`problem`/`cause`/`next_step`. It validates the required `active_evidence_fts` base projection
+against active Publication Evidence. For `cjk-active-scan-overlap-v1`, `rebuild` succeeds with
+`action=noop`, `projection=none`, and `scope=additional_cjk_projection`. `current` and
+`numeric-grouping-v1` return `retrieval_rebuild_not_supported` because base projection rebuild is
+not implemented.
 
 `mke mcp --help` prints the command-specific options. Databases created by `mke ingest` can be
 reused with `mke mcp --db <path>`.

@@ -97,8 +97,9 @@ Finding A3: **The runtime strategy name must not imply a trigram projection.**
 
 Finding Q1: **Avoid embedding spike-only code into production without a strategy descriptor.**
 
-- Decision: keep `RetrievalStrategyDescriptor`, but change required projection metadata to
-  `required_projections=[]` and a `term_derivation_mode` field for active scan.
+- Decision: keep `RetrievalStrategyDescriptor`. The implementation records required base
+  `active_evidence_fts` separately from `additional_projections=[]`, plus a
+  `term_derivation_mode` field for active scan.
 
 Finding Q2: **Doctor/rebuild semantics need to be explicit for a no-projection strategy.**
 
