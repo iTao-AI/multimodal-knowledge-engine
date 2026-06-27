@@ -1106,9 +1106,18 @@ def _retrieval_rebuild(
 ) -> int:
     validated_strategy = require_retrieval_strategy(strategy)
     if validated_strategy == "cjk-active-scan-overlap-v1":
+        canonical_strategy = "cjk-active-scan-overlap-v1"
+    elif validated_strategy == "numeric-grouping-v1":
+        canonical_strategy = "numeric-grouping-v1"
+    elif validated_strategy == "current":
+        canonical_strategy = "current"
+    else:
+        raise ValueError("retrieval strategy is unsupported")
+
+    if canonical_strategy == "cjk-active-scan-overlap-v1":
         payload = {
             "status": "succeeded",
-            "strategy": validated_strategy,
+            "strategy": canonical_strategy,
             "action": "noop",
             "projection": "none",
             "scope": "additional_cjk_projection",
@@ -1120,7 +1129,7 @@ def _retrieval_rebuild(
     else:
         payload = {
             "status": "not_supported",
-            "strategy": validated_strategy,
+            "strategy": canonical_strategy,
             "action": "none",
             "projection": "active_evidence_fts",
             "scope": "base_projection",

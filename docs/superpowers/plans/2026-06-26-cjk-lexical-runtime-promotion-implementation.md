@@ -658,12 +658,15 @@ PR #35 CI remediation is complete. GitHub code scanning identified that the inte
 rebuild helper could place an unvalidated direct-call strategy value into JSON or human stdout,
 even though argparse constrained the public CLI path. Regression tests first reproduced both
 output paths with unsupported and secret-like values. `_retrieval_rebuild` now validates once with
-`require_retrieval_strategy` and uses only the returned canonical strategy ID in comparisons and
-payloads. The resulting E1/E2/E3-A artifact update changed only the permitted `src/mke/cli.py`
-source identity; E1/E2/E3-A/E3-B observations, metrics, gates, verdicts, qrels, fixtures, and
-protocol semantics remained unchanged. Focused CLI/error/contract tests, the full suite, Ruff,
-Pyright, build, all four artifact validators, product proof, both demos, and diff checks passed
-before the PR update.
+`require_retrieval_strategy`. The first validation-only update at `5b374ae` correctly rejected
+invalid values at runtime, but GitHub code scanning still tracked the validator's returned string
+to stdout. The second update explicitly reifies each supported ID from fixed literals and makes the
+impossible branch fail closed; comparisons and payloads use only that constant-derived canonical
+value. The resulting E1/E2/E3-A artifact updates changed only the permitted `src/mke/cli.py` source
+identity; E1/E2/E3-A/E3-B observations, metrics, gates, verdicts, qrels, fixtures, and protocol
+semantics remained unchanged. Focused CLI/error/contract tests, the full suite, Ruff, Pyright,
+build, all four artifact validators, product proof, both demos, and diff checks passed before each
+PR update.
 
 The compiled-empty-only adjudication is final for this slice. Correct and incorrect number/unit
 counterexamples showed that FTS-zero-hit active scan dropped constraints; mixed compiled non-empty

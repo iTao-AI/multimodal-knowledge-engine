@@ -144,9 +144,15 @@ retrieval rebuild helper. The public argparse path already restricted `--strateg
 supported IDs, but a direct internal call could pass an arbitrary string through the rebuild
 payload to JSON or human stdout.
 
-The fix followed the existing doctor path: `_retrieval_rebuild` validates once with
-`require_retrieval_strategy`, then uses only that canonical value for branching and output. No
-suppression, alert dismissal, or rebuild-contract expansion was added.
+The first fix followed the existing doctor path: `_retrieval_rebuild` validated once with
+`require_retrieval_strategy` and used its return value for branching and output. Runtime behavior
+was correct, but the rerun at `5b374ae` showed that interprocedural CodeQL taint still followed the
+returned string to both print paths.
+
+The second fix retains entry validation, then explicitly maps each supported ID to its matching
+fixed literal. The impossible branch fails closed, and all later branching and payload construction
+use only the constant-derived `canonical_strategy`. No suppression, alert dismissal, or
+rebuild-contract expansion was added.
 
 TDD and artifact evidence:
 
