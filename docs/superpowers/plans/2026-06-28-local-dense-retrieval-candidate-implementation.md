@@ -1,0 +1,1362 @@
+# Local Dense Retrieval Candidate Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development`
+> (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use
+> checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Prove one immutable, cache-only Qwen3 dense retrieval candidate against the frozen
+Chinese retrieval protocol, without changing normal Search, Ask, CLI runtime, or MCP behavior.
+
+**Architecture:** Add project-owned embedding and vector-projection ports, a cache-only
+SentenceTransformers adapter, and an exact-cosine evaluation projection. Deliver the work in two
+independent PRs: PR 1 proves dependencies, model lifecycle, vector correctness, portability, and
+resource feasibility without reading qrels; PR 2 freezes the threshold protocol, scores
+development, observes holdout once, and records independently validated comparison evidence.
+
+**Tech Stack:** Python 3.12/3.13, `sentence-transformers==5.6.0`,
+`huggingface-hub>=1.21.0,<2`, `sqlite-vec==0.1.9`, NumPy float32, SQLite, pytest, Ruff, Pyright,
+Hatch/uv, GitHub Actions.
+
+---
+
+Status: approved design; implementation has not started.
+
+Planning base: `main@5ed0a722b83f9b4c70aec7c9333d8bf7d17b9335`.
+
+Design:
+[Local Dense Retrieval Candidate Design](../specs/2026-06-28-local-dense-retrieval-candidate-design.md)
+
+Program design:
+[Chinese Hybrid Retrieval Evaluation Design](../specs/2026-06-25-chinese-hybrid-retrieval-evaluation-design.md)
+
+## Non-Negotiable Boundaries
+
+- E3-C is comparison-only. Do not change the runtime default
+  `cjk-active-scan-overlap-v1` or normal Search, Ask, MCP, and owner-startup behavior.
+- Do not implement an embedding API adapter, RRF, reranking, query rewrite, new segmentation,
+  HTTP/UI, a persistent production vector projection, or an external vector service.
+- Do not change E1/E2/E3-A/E3-B qrels, fixture bytes, historical observations, metrics, gates, or
+  verdicts. Refresh only explicitly permitted source/scope identities after proving semantic
+  equality.
+- Only `mke embedding prepare --allow-model-download` may use the network. Doctor, evaluation,
+  validators, installed-wheel proof, Search, Ask, and MCP remain cache-only.
+- The exact model is `Qwen/Qwen3-Embedding-0.6B` at revision
+  `97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3`. Reject aliases, arbitrary repositories, arbitrary
+  revisions, remote code, and silent model/provider fallback.
+- PR 1 must not import qrels, run qrel scoring, select a threshold, inspect holdout results, or make
+  a retrieval-quality claim.
+- PR 2 may begin only after PR 1 is merged to `main`. Do not stack PR 2 on an unmerged feature
+  branch.
+- Holdout may be observed exactly once, after the candidate, threshold algorithm, model,
+  projection adapter, and development-selected threshold are frozen.
+- If any stop condition in the design fires, leave the branch clean at the last valid checkpoint,
+  record the evidence, and return to the planning window. Do not improvise a substitute.
+
+## Delivery Map
+
+| PR | Purpose | Terminal evidence |
+|---|---|---|
+| PR 1 — dense prerequisites | Prove the exact local model and vector boundary before quality scoring | Cache-only model readiness, Python 3.12/3.13 installed-wheel proof, no truncation, deterministic embeddings, exact-KNN equivalence, resource report |
+| PR 2 — dense comparison | Evaluate complementarity under the frozen protocol | Development threshold trace, one holdout observation, canonical artifact, model-free validator, cache-ready replay, `e3d_status` |
+
+The planning docs must land before either implementation PR starts.
+
+## Execution Setup
+
+Before each PR, read the latest project rules and verify the repository rather than trusting this
+planning snapshot:
+
+```bash
+cd /Users/mac/Developer/Projects/Active/multimodal-knowledge-engine
+git fetch origin
+git status --short --branch
+git rev-parse HEAD origin/main
+git worktree list
+gh pr list --state open
+sed -n '1,260p' AGENTS.md
+```
+
+Create a fresh isolated worktree from the latest `origin/main`. Recommended PR 1 names:
+
+```bash
+git worktree add .worktrees/dense-prerequisites -b codex/dense-prerequisites origin/main
+cd .worktrees/dense-prerequisites
+```
+
+Recommended PR 2 names after PR 1 has merged:
+
+```bash
+git fetch origin
+git worktree add .worktrees/dense-comparison -b codex/dense-comparison origin/main
+cd .worktrees/dense-comparison
+```
+
+Use `high` reasoning depth for implementation and targeted review remediation. Raise to `xhigh`
+only for compatibility stop conditions, evidence-integrity failures, or an architecture boundary
+that would amend this plan.
+
+## Baseline Gate For Both PRs
+
+### Task 0: Reproduce The Frozen Baseline
+
+**Files:**
+
+- Read: `AGENTS.md`
+- Read: `docs/superpowers/specs/2026-06-28-local-dense-retrieval-candidate-design.md`
+- Read: `docs/superpowers/plans/2026-06-28-local-dense-retrieval-candidate-implementation.md`
+- Read: `tests/fixtures/retrieval-chinese-v1/protocol.json`
+- Read: `benchmarks/retrieval/retrieval-chinese-v1-baseline.json`
+- Read: `benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json`
+- Read: `src/mke/retrieval/strategy.py`
+
+- [ ] **Step 1: Confirm branch isolation and a clean baseline**
+
+```bash
+git status --short --branch
+git merge-base --is-ancestor origin/main HEAD
+git diff --check origin/main...HEAD
+```
+
+Expected: a clean new branch whose `HEAD` is the intended `origin/main` commit.
+
+- [ ] **Step 2: Run the current regression and artifact gates**
+
+```bash
+uv sync --all-extras --dev
+uv run pytest -q
+uv run ruff check .
+uv run pyright
+uv build
+uv run mke eval retrieval \
+  --manifest tests/fixtures/retrieval-eval-v1.json --json > /tmp/mke-e1-before.json
+uv run mke eval retrieval-numeric \
+  --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json \
+  --json > /tmp/mke-e2-before.json
+uv run mke eval retrieval-chinese \
+  --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
+  --json > /tmp/mke-e3a-before.json
+uv run mke eval retrieval-cjk-lexical \
+  --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
+  --candidate cjk-trigram-overlap-v1 \
+  --json > /tmp/mke-e3b-before.json
+uv run python -m mke.evaluation.baseline \
+  --artifact benchmarks/retrieval/retrieval-eval-v1-baseline.json \
+  --manifest tests/fixtures/retrieval-eval-v1.json \
+  --repository .
+uv run python -m mke.evaluation.numeric_artifact validate \
+  --artifact benchmarks/retrieval/numeric-grouping-v1-comparison.json \
+  --observed /tmp/mke-e2-before.json \
+  --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json \
+  --repository .
+uv run python -m mke.evaluation.chinese_artifact validate \
+  --artifact benchmarks/retrieval/retrieval-chinese-v1-baseline.json \
+  --observed /tmp/mke-e3a-before.json \
+  --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
+  --repository .
+uv run python -m mke.evaluation.cjk_lexical_artifact validate \
+  --artifact benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json \
+  --observed /tmp/mke-e3b-before.json \
+  --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
+  --repository .
+uv run mke proof run
+uv run mke demo --verify
+```
+
+Expected: all current tests and validators pass. If a command path has changed on latest `main`,
+inspect the actual CLI/module and update this plan before implementation; do not bypass a gate.
+
+- [ ] **Step 3: Capture semantic payloads for later equality checks**
+
+The generated reports live only under `/tmp`. Remove duration/platform fields and preserve
+normalized payloads for before/after comparison. Do not edit canonical artifacts in Task 0.
+
+Expected: E3-A remains `Recall@5=0.295455`, `nDCG@10=0.277279`; E3-B remains
+`Recall@5=0.659091`, `nDCG@10=0.610619`; the runtime default remains
+`cjk-active-scan-overlap-v1`.
+
+---
+
+# PR 1: Dense Prerequisites
+
+PR 1 proves feasibility and stops before qrel scoring. Its public result is “the exact local model
+and vector path are reproducible and within the declared ceilings,” not “dense retrieval is good.”
+
+## Task 1: Add Project-Owned Embedding Contracts
+
+**Files:**
+
+- Create: `src/mke/embeddings/__init__.py`
+- Create: `src/mke/embeddings/contracts.py`
+- Create: `tests/embeddings/test_contracts.py`
+- Modify: `src/mke/interfaces/public_errors.py`
+- Modify: `tests/interfaces/test_public_errors.py`
+
+- [ ] **Step 1: Write RED contract tests**
+
+Cover:
+
+- the only canonical model ID/revision/dimension/dtypes/instruction are the frozen design values;
+- model and candidate revisions reject `bool`, floats, aliases, empty strings, and arbitrary IDs;
+- query text is non-empty, bounded, and encoded with the exact `Instruct: ...\nQuery:` template;
+- document text is unprefixed and Evidence order is stable;
+- vectors require count equality, unique Evidence IDs, dimension `1024`, finite float32 values,
+  and `abs(norm - 1.0) <= 1e-5`;
+- no `sentence_transformers`, torch, Hugging Face, NumPy, or sqlite-vec object appears in a public
+  project-owned DTO;
+- failures map to stable redacted `problem`, `cause`, and `next_step` fields.
+
+Use project values with this shape, adapted to current naming conventions:
+
+```python
+@dataclass(frozen=True)
+class EmbeddingModelSpec:
+    model_id: str
+    model_revision: str
+    query_instruction: str
+    dimension: int
+    max_length: int
+    input_dtype: Literal["float32"]
+    output_dtype: Literal["float32"]
+    normalize: Literal[True]
+    query_batch_size: Literal[1]
+    document_batch_size: Literal[4]
+
+
+@dataclass(frozen=True)
+class EmbeddedEvidence:
+    evidence_id: str
+    vector: tuple[float, ...]
+
+
+class EmbeddingProvider(Protocol):
+    def tokenize_lengths(self, texts: tuple[str, ...]) -> tuple[int, ...]: ...
+    def embed_documents(
+        self, evidence: tuple[EvaluationEvidenceSnapshot, ...]
+    ) -> EmbeddingBatch: ...
+    def embed_query(self, query: str) -> tuple[float, ...]: ...
+```
+
+- [ ] **Step 2: Run the tests and confirm RED**
+
+```bash
+uv run pytest tests/embeddings/test_contracts.py tests/interfaces/test_public_errors.py -q
+```
+
+Expected: failures because the embedding package and public mappings do not exist.
+
+- [ ] **Step 3: Implement immutable DTOs and validation**
+
+Keep validation in project code. SDK conversion belongs only in adapters. Store portable vectors as
+tuples of Python floats after validating their float32 origin; never serialize provider tensors.
+
+Required stable error causes include:
+
+```text
+embedding optional dependency is not installed
+configured embedding model is not cached
+configured embedding model snapshot is incomplete
+configured embedding model revision is unavailable
+embedding input would be truncated
+embedding output count is invalid
+embedding output dimension is invalid
+embedding output contains non-finite values
+embedding output is not normalized
+```
+
+- [ ] **Step 4: Run focused tests and static checks**
+
+```bash
+uv run pytest tests/embeddings/test_contracts.py tests/interfaces/test_public_errors.py -q
+uv run ruff check src/mke/embeddings tests/embeddings src/mke/interfaces/public_errors.py
+uv run pyright src/mke/embeddings tests/embeddings
+```
+
+Expected: pass.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/mke/embeddings tests/embeddings \
+  src/mke/interfaces/public_errors.py tests/interfaces/test_public_errors.py
+git commit -m "feat(embedding): define local dense contracts"
+```
+
+## Task 2: Lock The Optional Runtime Dependency Boundary
+
+**Files:**
+
+- Modify: `pyproject.toml`
+- Modify: `uv.lock`
+- Create: `tests/packaging/test_embedding_extra.py`
+- Modify: `.github/workflows/ci.yml`
+
+- [ ] **Step 1: Write RED packaging tests**
+
+Assert:
+
+- core wheel import succeeds without the `embedding` extra;
+- importing embedding contracts does not import torch or SentenceTransformers;
+- loading the adapter without the extra returns the stable dependency-missing error;
+- the extra pins `sentence-transformers==5.6.0` and `sqlite-vec==0.1.9`;
+- `huggingface-hub` is a declared direct dependency of the extra because project lifecycle code
+  imports it;
+- no LangChain, LlamaIndex, external vector service, or provider API SDK is added.
+
+- [ ] **Step 2: Confirm RED**
+
+```bash
+uv run pytest tests/packaging/test_embedding_extra.py -q
+```
+
+- [ ] **Step 3: Add and lock the optional extra**
+
+Use this direct boundary unless the resolver proves an incompatibility:
+
+```toml
+[project.optional-dependencies]
+embedding = [
+  "sentence-transformers==5.6.0",
+  "sqlite-vec==0.1.9",
+  "huggingface-hub>=1.21.0,<2",
+]
+```
+
+Regenerate `uv.lock` with uv. Do not hand-edit it. Review every new direct and transitive package,
+license, platform wheel, and source. A resolver conflict is a stop condition until reviewed.
+
+```bash
+uv lock
+uv sync --extra embedding --dev
+uv tree --extra embedding
+```
+
+- [ ] **Step 4: Add model-free Python 3.12/3.13 extra gates**
+
+The CI gate may install the extra and run imports, contract tests, a synthetic exact-cosine proof,
+and a synthetic sqlite-vec compatibility proof. It must not download or load the Qwen snapshot.
+Use a separate job or an explicitly larger timeout rather than consuming the existing core
+10-minute job without evidence.
+
+- [ ] **Step 5: Verify and commit**
+
+```bash
+uv run pytest tests/packaging/test_embedding_extra.py -q
+uv run ruff check .github tests/packaging
+git diff -- pyproject.toml uv.lock .github/workflows/ci.yml
+git add pyproject.toml uv.lock .github/workflows/ci.yml tests/packaging/test_embedding_extra.py
+git commit -m "build(embedding): lock local dense runtime extra"
+```
+
+## Task 3: Implement Model Prepare And Doctor Lifecycle
+
+**Files:**
+
+- Create: `src/mke/embeddings/readiness.py`
+- Create: `tests/embeddings/test_readiness.py`
+- Modify: `src/mke/cli.py`
+- Create: `tests/interfaces/test_cli_embedding.py`
+- Modify: `docs/reference/cli.md`
+
+- [ ] **Step 1: Write RED readiness tests**
+
+Cover:
+
+- exact allowlisted model and revision normalization;
+- aliases such as `main`, arbitrary repositories/revisions, and `trust_remote_code` are rejected
+  before a network call;
+- prepare is the only path that sets `local_files_only=False` and only when
+  `--allow-model-download` is present;
+- doctor and every library load set `local_files_only=True`;
+- snapshot completeness requires the SentenceTransformers configuration, tokenizer
+  configuration, model configuration, and `model.safetensors`;
+- every resolved regular file is hashed by streaming reads and recorded as relative path, byte
+  size, and SHA-256; symlinks cannot escape the resolved snapshot;
+- the snapshot fingerprint is a deterministic digest of sorted file manifest entries;
+- incomplete, unreadable, mutated, wrong-revision, or oversized snapshots fail closed;
+- errors contain no absolute cache path, SDK exception, URL query, or traceback;
+- repeated prepare against a complete exact snapshot reports `already_cached` without network.
+
+Use project-owned results:
+
+```python
+@dataclass(frozen=True)
+class EmbeddingSnapshotFile:
+    relative_path: str
+    byte_size: int
+    sha256: str
+
+
+@dataclass(frozen=True)
+class EmbeddingReadiness:
+    status: Literal["ready", "not_ready"]
+    model_id: str
+    model_revision: str
+    snapshot_fingerprint: str | None
+    checks: tuple[ReadinessCheck, ...]
+    cause: str | None
+    next_step: str | None
+```
+
+- [ ] **Step 2: Confirm RED**
+
+```bash
+uv run pytest tests/embeddings/test_readiness.py tests/interfaces/test_cli_embedding.py -q
+```
+
+- [ ] **Step 3: Implement cache-only lifecycle and CLI**
+
+Add:
+
+```text
+mke embedding prepare --allow-model-download --model qwen3-embedding-0.6b \
+  --model-revision 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3 \
+  --model-cache <outside-repo-cache> --json
+
+mke embedding doctor --model qwen3-embedding-0.6b \
+  --model-revision 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3 \
+  --model-cache <outside-repo-cache> --json
+```
+
+`prepare` must call `snapshot_download(repo_id=..., revision=..., local_files_only=False)` only
+after the allowlist and explicit-download checks. `doctor` never downloads. Reject repository-local
+cache paths in the canonical proof script, but do not unnecessarily forbid an owner-selected local
+cache in the general CLI if existing project conventions allow it.
+
+- [ ] **Step 4: Verify model-free behavior**
+
+```bash
+uv run pytest tests/embeddings/test_readiness.py tests/interfaces/test_cli_embedding.py -q
+uv run mke embedding doctor --model qwen3-embedding-0.6b \
+  --model-revision 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3 \
+  --model-cache /tmp/mke-empty-embedding-cache --json
+```
+
+Expected: tests pass; the empty-cache doctor returns `not_ready`, a stable next step, no download,
+no absolute path, and no traceback.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/mke/embeddings/readiness.py src/mke/cli.py \
+  tests/embeddings/test_readiness.py tests/interfaces/test_cli_embedding.py \
+  docs/reference/cli.md
+git commit -m "feat(embedding): add cache-only model lifecycle"
+```
+
+## Task 4: Add The SentenceTransformers Adapter
+
+**Files:**
+
+- Create: `src/mke/adapters/embedding/__init__.py`
+- Create: `src/mke/adapters/embedding/sentence_transformers.py`
+- Create: `tests/adapters/test_sentence_transformers_embedding.py`
+- Modify: `src/mke/embeddings/__init__.py`
+
+- [ ] **Step 1: Write RED adapter tests using fakes**
+
+Verify:
+
+- dependency imports are lazy and translated to the stable error contract;
+- the model is constructed from the resolved snapshot path with CPU, no network, no remote code,
+  `max_seq_length=8192`, and left padding;
+- query input is exactly
+  `Instruct: Given a Chinese user query, retrieve relevant evidence passages that answer the query\nQuery:{query}`;
+- documents have no instruction prefix and are processed in stable Evidence ID order with batch
+  size `4`;
+- query batch size is `1`;
+- output is requested as normalized float32 NumPy data, then converted to project DTOs;
+- tokenize-only preflight returns actual token lengths and refuses any `>8192` input before
+  encoding;
+- count, identity, dimension, dtype, finite-value, norm, and partial-batch failures are rejected;
+- provider objects and absolute snapshot paths never escape in public results or errors;
+- cancellation between batches stops before the next encode call.
+
+- [ ] **Step 2: Confirm RED**
+
+```bash
+uv run pytest tests/adapters/test_sentence_transformers_embedding.py -q
+```
+
+- [ ] **Step 3: Implement the adapter behind `EmbeddingProvider`**
+
+Keep imports inside the adapter factory. Do not add the adapter to normal `RuntimeConfig`,
+`KnowledgeEngine`, Search, Ask, or MCP.
+
+- [ ] **Step 4: Verify and commit**
+
+```bash
+uv run pytest tests/adapters/test_sentence_transformers_embedding.py \
+  tests/embeddings/test_contracts.py -q
+uv run ruff check src/mke/adapters/embedding tests/adapters/test_sentence_transformers_embedding.py
+uv run pyright src/mke/adapters/embedding tests/adapters/test_sentence_transformers_embedding.py
+git add src/mke/adapters/embedding src/mke/embeddings/__init__.py \
+  tests/adapters/test_sentence_transformers_embedding.py
+git commit -m "feat(embedding): add Qwen3 cache-only adapter"
+```
+
+## Task 5: Add Exact-Cosine And sqlite-vec Projection Adapters
+
+**Files:**
+
+- Create: `src/mke/vector/__init__.py`
+- Create: `src/mke/vector/contracts.py`
+- Create: `src/mke/adapters/vector/__init__.py`
+- Create: `src/mke/adapters/vector/exact_cosine.py`
+- Create: `src/mke/adapters/vector/sqlite_vec.py`
+- Create: `tests/vector/test_contracts.py`
+- Create: `tests/adapters/test_exact_cosine_projection.py`
+- Create: `tests/adapters/test_sqlite_vec_projection.py`
+
+- [ ] **Step 1: Write RED project-owned vector tests**
+
+Use contracts equivalent to:
+
+```python
+@dataclass(frozen=True)
+class RankedEvidence:
+    evidence_id: str
+    rank: int
+    score: float
+    adapter_id: str
+
+
+class VectorProjection(Protocol):
+    def replace(self, batch: EmbeddingBatch) -> ProjectionIdentity: ...
+    def validate(self, expected: ProjectionIdentity) -> None: ...
+    def search(self, query_vector: tuple[float, ...], *, top_k: int) \
+        -> tuple[RankedEvidence, ...]: ...
+    def close(self) -> None: ...
+```
+
+Test:
+
+- dimension `1024`, normalized finite vectors, unique stable Evidence IDs, and complete inventory;
+- atomic replace: failed validation leaves no partial active projection;
+- source-text/model/vector aggregate digests bind every row;
+- exact cosine uses float32 inputs and returns cosine similarity, portable score rounded to six
+  decimals, then sorts score descending and Evidence ID ascending;
+- `top_k=10` is enforced for the canonical candidate;
+- sqlite-vec load/insert/search/delete/transaction/rebuild behavior;
+- sqlite-vec order equals the independent project exact-cosine reference for synthetic normal,
+  tie, negative, and near-tie vectors;
+- extension-unavailable and incompatible results fail closed; no lexical fallback;
+- temporary projection files remain outside the repository and are removed on normal completion.
+
+- [ ] **Step 2: Confirm RED**
+
+```bash
+uv run pytest tests/vector tests/adapters/test_exact_cosine_projection.py \
+  tests/adapters/test_sqlite_vec_projection.py -q
+```
+
+- [ ] **Step 3: Implement the reference first, then sqlite-vec**
+
+The project-owned reference is the correctness oracle. The selected sqlite-vec adapter must expose
+the same project-owned output. Do not compare or fuse lexical and cosine raw scores.
+
+- [ ] **Step 4: Verify and commit**
+
+```bash
+uv run pytest tests/vector tests/adapters/test_exact_cosine_projection.py \
+  tests/adapters/test_sqlite_vec_projection.py -q
+uv run ruff check src/mke/vector src/mke/adapters/vector tests/vector \
+  tests/adapters/test_exact_cosine_projection.py tests/adapters/test_sqlite_vec_projection.py
+uv run pyright src/mke/vector src/mke/adapters/vector tests/vector
+git add src/mke/vector src/mke/adapters/vector tests/vector \
+  tests/adapters/test_exact_cosine_projection.py tests/adapters/test_sqlite_vec_projection.py
+git commit -m "feat(vector): add exact local projection adapters"
+```
+
+## Task 0.5: Run The Compatibility And Resource Spike
+
+This is the hard pre-qrel gate. Complete Tasks 1–5 first, then stop for explicit download
+authorization. Do not read or score qrels in this task.
+
+**Files:**
+
+- Create: `src/mke/evaluation/dense_compatibility.py`
+- Create: `tests/evaluation/test_dense_compatibility.py`
+- Create: `scripts/dense_retrieval_deployment_proof.py`
+- Create: `tests/scripts/test_dense_retrieval_deployment_proof.py`
+- Create: `tests/fixtures/retrieval-dense-v1/corpus-lock.json`
+- Create after successful proof: `benchmarks/retrieval/qwen3-embedding-0.6b-compatibility.json`
+
+- [ ] **Step 1: Write RED compatibility tests**
+
+The report schema must contain no qrels or relevance metrics. It records:
+
+- exact model/revision/snapshot manifest/package/platform/Python identities;
+- CPU and remote-code-disabled proof;
+- every frozen Evidence token length and a zero-truncation verdict;
+- repeated query and document vector digests, max component delta, norm delta, rank/order delta,
+  and the proposed `1e-5` score tolerance verdict;
+- sqlite-vec versus exact-cosine order/score proof, or a structured sqlite-vec rejection selecting
+  the project exact-cosine reference;
+- model snapshot bytes, peak RSS, 70-Evidence projection bytes, model load duration, projection
+  build duration, and one-query-plus-KNN duration;
+- all resource ceilings and one overall compatibility verdict.
+
+The validator must reject missing fields, bool-as-int, non-finite values, wrong model identity,
+wrong package versions, manifest tampering, impossible measurements, and a passing verdict with a
+failed gate.
+
+- [ ] **Step 2: Confirm RED with synthetic inputs**
+
+```bash
+uv run pytest tests/evaluation/test_dense_compatibility.py \
+  tests/scripts/test_dense_retrieval_deployment_proof.py -q
+```
+
+- [ ] **Step 3: Implement a cache-only proof runner**
+
+The proof runner must:
+
+1. prove it is running from an installed wheel in an isolated environment and external cwd;
+2. clear `PYTHONPATH`, `PYTHONHOME`, and `VIRTUAL_ENV` from child execution;
+3. disable network and reject any attempted download;
+4. read the frozen Evidence text without loading qrels or category/relevance fields;
+5. tokenize, embed, build, search fixed non-qrel probes, measure, and validate;
+6. write only to an explicit `/tmp` output path until the report is accepted.
+
+`corpus-lock.json` is the qrel-free PR 1 input. It binds the unchanged E3-A document fixture bytes,
+page/Evidence locator inventory, protocol file digest, and expected Evidence count, but contains no
+query, qrel, category, grade, development metric, or holdout metric. Build and validate this lock
+without importing the qrel parser. Any mismatch with the frozen document bytes stops the proof.
+
+- [ ] **Step 4: Stop and request exact download authorization**
+
+The execution window must report:
+
+```text
+Model: Qwen/Qwen3-Embedding-0.6B
+Revision: 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3
+Cache: operator-selected path outside the repository
+Networked command: mke embedding prepare --allow-model-download only
+Expected largest weight file: model.safetensors, about 1.19 GB
+Retry policy: no implicit retries; every additional network attempt requires a new explicit authorization
+```
+
+Do not run the download until the user explicitly authorizes this exact operation.
+
+- [ ] **Step 5: Run the one authorized prepare, then cache-only doctor**
+
+Example after authorization:
+
+```bash
+uv run mke embedding prepare --allow-model-download \
+  --model qwen3-embedding-0.6b \
+  --model-revision 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3 \
+  --model-cache "$HOME/Library/Caches/mke/embedding" --json
+uv run mke embedding doctor \
+  --model qwen3-embedding-0.6b \
+  --model-revision 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3 \
+  --model-cache "$HOME/Library/Caches/mke/embedding" --json
+```
+
+Expected: prepare succeeds once; doctor is `ready`, cache-only, and reports a complete redacted
+manifest identity. If the download fails, stop. Do not broaden model/revision/host or retry.
+
+- [ ] **Step 6: Run Python 3.12 and 3.13 installed-wheel proof**
+
+Use isolated venvs outside the repository, install the built `wheel[embedding]`, run from an
+external cwd with hostile `PYTHONPATH`, and keep network disabled. Both environments must prove
+installed identity, cache-only model load, no truncation, deterministic output within tolerance,
+projection equivalence, and all ceilings:
+
+```text
+snapshot <= 1.5 GiB
+peak RSS <= 4 GiB
+70-Evidence projection <= 1 MiB
+one query embedding plus exact-KNN <= 5 s
+```
+
+- [ ] **Step 7: Apply stop conditions**
+
+Stop and return to planning if Qwen3 fails package, Python, CPU, snapshot, remote-code,
+determinism, truncation, or resource gates. If sqlite-vec alone fails, record its structured
+rejection and select the project exact-cosine reference only if every exact-reference gate passes.
+Do not automatically choose BGE or another model.
+
+- [ ] **Step 8: Record and commit compatibility evidence**
+
+Only after both Python proofs pass:
+
+```bash
+git add src/mke/evaluation/dense_compatibility.py \
+  tests/evaluation/test_dense_compatibility.py \
+  scripts/dense_retrieval_deployment_proof.py \
+  tests/scripts/test_dense_retrieval_deployment_proof.py \
+  tests/fixtures/retrieval-dense-v1/corpus-lock.json \
+  benchmarks/retrieval/qwen3-embedding-0.6b-compatibility.json
+git commit -m "test(embedding): prove Qwen3 dense compatibility"
+```
+
+## Task 6: Finish PR 1 Documentation, CI, And Review Evidence
+
+**Files:**
+
+- Modify: `README.md`
+- Modify: `docs/README.md`
+- Modify: `docs/reference/cli.md`
+- Modify: `docs/explanation/architecture.md`
+- Create: `docs/how-to/prepare-local-embeddings.md`
+- Create after implementation review:
+  `docs/superpowers/reviews/2026-06-28-local-dense-prerequisites-review.md`
+- Modify: `.github/workflows/ci.yml`
+
+- [ ] **Step 1: Write RED documentation/packaging assertions**
+
+Add tests that require:
+
+- the optional install and exact prepare/doctor commands;
+- comparison-only wording and no Search/Ask/MCP dense claim;
+- the model license/source/revision, cache-only boundary, external cache, resource ceilings, and
+  API-adapter deferral;
+- architecture diagrams showing SDKs remain behind project-owned ports;
+- CI model-free gates and local cache-ready proof separation.
+
+- [ ] **Step 2: Update docs and the model-free CI gate**
+
+Do not commit local cache files, model weights, virtualenvs, raw absolute paths, or raw GStack
+artifacts. CI may install the extra and run synthetic/model-free proofs only.
+
+- [ ] **Step 3: Run the complete PR 1 verification**
+
+```bash
+uv run pytest -q
+uv run ruff check .
+uv run pyright
+uv build
+uv run mke proof run
+uv run mke demo --verify
+uv run mke eval retrieval-numeric \
+  --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json \
+  --json > /tmp/mke-e2-after-pr1.json
+uv run mke eval retrieval-chinese \
+  --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
+  --json > /tmp/mke-e3a-after-pr1.json
+uv run mke eval retrieval-cjk-lexical \
+  --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
+  --candidate cjk-trigram-overlap-v1 \
+  --json > /tmp/mke-e3b-after-pr1.json
+uv run python -m mke.evaluation.baseline \
+  --artifact benchmarks/retrieval/retrieval-eval-v1-baseline.json \
+  --manifest tests/fixtures/retrieval-eval-v1.json --repository .
+uv run python -m mke.evaluation.numeric_artifact validate \
+  --artifact benchmarks/retrieval/numeric-grouping-v1-comparison.json \
+  --observed /tmp/mke-e2-after-pr1.json \
+  --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json --repository .
+uv run python -m mke.evaluation.chinese_artifact validate \
+  --artifact benchmarks/retrieval/retrieval-chinese-v1-baseline.json \
+  --observed /tmp/mke-e3a-after-pr1.json \
+  --protocol tests/fixtures/retrieval-chinese-v1/protocol.json --repository .
+uv run python -m mke.evaluation.cjk_lexical_artifact validate \
+  --artifact benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json \
+  --observed /tmp/mke-e3b-after-pr1.json \
+  --protocol tests/fixtures/retrieval-chinese-v1/protocol.json --repository .
+git diff --check origin/main...HEAD
+```
+
+Also rerun the cache-ready Python 3.12/3.13 installed-wheel proof. Compare the normalized
+E1/E2/E3-A/E3-B reports to Task 0. Only permitted identity metadata may differ; observations,
+metrics, gates, and verdicts must be equal.
+
+- [ ] **Step 4: Run `gstack-document-release` and light self-review**
+
+Audit reference/how-to/explanation/README coverage and diagram drift. Do not run the planning
+window’s final authoritative `gstack-review` here unless explicitly instructed.
+
+- [ ] **Step 5: Commit documentation and CI**
+
+```bash
+git add README.md docs .github/workflows/ci.yml
+git commit -m "docs(embedding): document local dense prerequisites"
+```
+
+- [ ] **Step 6: Handoff PR 1 for authoritative review**
+
+Leave a clean local branch. Report exact base/HEAD/diff, dependency graph, model manifest identity,
+compatibility artifact identity, resource measurements, Python 3.12/3.13 proof, complete
+verification, and unchanged behavior. Do not push or create a PR until authorized after review.
+
+The planning window then runs one authoritative `gstack-review`. The execution window uses
+`superpowers:receiving-code-review` for confirmed findings, reruns targeted/full verification, and
+returns for targeted re-review. After a clean verdict and user authorization, push and create a
+Ready PR. PR 2 waits for PR 1 merge and cleanup.
+
+---
+
+# PR 2: Dense Comparison Evidence
+
+Start from the latest `origin/main` after PR 1 merge. Confirm the PR 1 compatibility artifact and
+cache-ready proof still validate before reading qrels.
+
+## Task 7: Freeze The Dense Comparison Protocol
+
+**Files:**
+
+- Create: `tests/fixtures/retrieval-dense-v1/protocol-lock.json`
+- Create: `src/mke/evaluation/dense_protocol.py`
+- Create: `tests/evaluation/test_dense_protocol.py`
+
+- [ ] **Step 1: Write RED protocol tests**
+
+Freeze and validate:
+
+- candidate `qwen3-embedding-0.6b-exact-v1`, revision integer `1` and not `bool`;
+- exact model/revision, 1024 dimensions, float32, normalization, CPU, no remote code;
+- exact query instruction/template, document prompt none, max length 8192, left padding, document
+  batch 4, query batch 1;
+- selected PR 1 projection adapter identity and independent exact-cosine reference;
+- `top_k=10`, six-decimal portable score, score-desc/Evidence-ID-asc order;
+- threshold grid `0.00..1.00` inclusive in `0.01` steps and exact selection algorithm;
+- target classes exactly `semantic_paraphrase`, `multi_condition`,
+  `ranking_hard_negative`;
+- development and holdout gates from the design;
+- references to the unchanged E3-A protocol/qrels/fixture/locator inventory, E3-B artifact, current
+  runtime strategy, and PR 1 compatibility artifact;
+- explicit state fields that prevent holdout observation before development freeze;
+- exact byte size and SHA-256 identities for every bound input.
+
+Reject missing/extra fields, duplicate thresholds, reordered target classes, bool-as-int,
+non-finite numbers, path traversal, absolute locators, unknown Evidence IDs, and any qrel/fixture
+identity drift.
+
+- [ ] **Step 2: Confirm RED**
+
+```bash
+uv run pytest tests/evaluation/test_dense_protocol.py -q
+```
+
+- [ ] **Step 3: Implement strict protocol loading**
+
+Use repository-relative locators and `Path.resolve()` containment checks. Do not bind feature
+commit ancestry; bind durable file bytes, candidate/model identity, and explicit source inventory
+so squash merge and shallow clones remain valid.
+
+- [ ] **Step 4: Verify and commit**
+
+```bash
+uv run pytest tests/evaluation/test_dense_protocol.py -q
+git add tests/fixtures/retrieval-dense-v1/protocol-lock.json \
+  src/mke/evaluation/dense_protocol.py tests/evaluation/test_dense_protocol.py
+git commit -m "test(eval): freeze E3-C dense comparison protocol"
+```
+
+## Task 8: Build The Dense Candidate Runner Without Holdout Access
+
+**Files:**
+
+- Create: `src/mke/evaluation/dense_candidate.py`
+- Create: `tests/evaluation/test_dense_candidate.py`
+- Modify: `src/mke/evaluation/__init__.py`
+
+- [ ] **Step 1: Write RED candidate tests**
+
+Test:
+
+- only active frozen Evidence is embedded, in stable Evidence ID order;
+- candidate runner reuses PR 1 cache-only model readiness and adapter contracts;
+- frozen snapshot inventory, text digest, model fingerprint, and projection identity are checked
+  before search;
+- every query uses the exact query instruction, `top_k=10`, selected adapter, portable score, and
+  deterministic tie-break;
+- threshold filtering is explicit and cannot change KNN order;
+- candidate results include complete ordered Evidence observations, locators, raw/portable score,
+  vector/projection digests, and latency;
+- no normal runtime database, Search, Ask, MCP, `RuntimeConfig`, or retrieval default is mutated;
+- no lexical fallback occurs on dependency/model/projection failure;
+- a development-only API cannot receive a holdout partition;
+- cancellation and partial embedding/projection results fail closed.
+
+- [ ] **Step 2: Confirm RED**
+
+```bash
+uv run pytest tests/evaluation/test_dense_candidate.py -q
+```
+
+- [ ] **Step 3: Implement the development-only runner**
+
+Separate candidate generation from qrel grading. The candidate layer returns ordered retrieval
+observations; metrics and gate decisions belong in comparison code.
+
+- [ ] **Step 4: Verify and commit**
+
+```bash
+uv run pytest tests/evaluation/test_dense_candidate.py -q
+uv run ruff check src/mke/evaluation/dense_candidate.py \
+  tests/evaluation/test_dense_candidate.py
+uv run pyright src/mke/evaluation/dense_candidate.py \
+  tests/evaluation/test_dense_candidate.py
+git add src/mke/evaluation/dense_candidate.py src/mke/evaluation/__init__.py \
+  tests/evaluation/test_dense_candidate.py
+git commit -m "feat(eval): add cache-only dense candidate runner"
+```
+
+## Task 9: Implement Development Threshold Selection
+
+**Files:**
+
+- Create: `src/mke/evaluation/dense_threshold.py`
+- Create: `tests/evaluation/test_dense_threshold.py`
+
+- [ ] **Step 1: Write RED threshold-selection tests**
+
+Use synthetic observations to prove this exact order:
+
+1. reject development thresholds with unanswerable no-hit `<0.500000`;
+2. reject thresholds with hard-negative failure `>0.300000`;
+3. maximize recovered grade-2 Evidence missed by the current runtime in the three target classes;
+4. break ties with dense nDCG@10 descending;
+5. break remaining ties with the higher threshold.
+
+Also test:
+
+- grid is exactly 101 values from `0.00` to `1.00`;
+- Decimal/integer basis avoids float-step drift;
+- number/date recovery is report-only and cannot increase the qualifying recovery count;
+- every threshold records inputs, metrics, rejection reasons, recovery identities, and selection
+  rank;
+- no eligible threshold returns a valid negative development result rather than throwing or
+  observing holdout;
+- bool, non-finite, out-of-range, missing, reordered, or coordinated trace/verdict tampering is
+  rejected.
+
+- [ ] **Step 2: Confirm RED**
+
+```bash
+uv run pytest tests/evaluation/test_dense_threshold.py -q
+```
+
+- [ ] **Step 3: Implement pure selection functions**
+
+Keep selection deterministic and independent of the model adapter. Use existing graded metric
+functions where their exact semantics match; add focused tests before extending them.
+
+- [ ] **Step 4: Verify and commit**
+
+```bash
+uv run pytest tests/evaluation/test_dense_threshold.py \
+  tests/evaluation/test_graded_metrics.py -q
+git add src/mke/evaluation/dense_threshold.py tests/evaluation/test_dense_threshold.py
+git commit -m "feat(eval): select dense refusal threshold"
+```
+
+## Task 10: Compare Four Arms And Enforce One Holdout Observation
+
+**Files:**
+
+- Create: `src/mke/evaluation/dense_comparison.py`
+- Create: `tests/evaluation/test_dense_comparison.py`
+
+- [ ] **Step 1: Write RED comparison tests with frozen synthetic reports**
+
+Require four separately identified arms:
+
+1. E3-A historical FTS5 baseline;
+2. frozen E3-B `cjk-trigram-overlap-v1`;
+3. current runtime `cjk-active-scan-overlap-v1`;
+4. dense `qwen3-embedding-0.6b-exact-v1`.
+
+Test:
+
+- E3-A/E3-B observations are loaded as historical integrity inputs, not rerun with altered policy;
+- current runtime lexical observations are regenerated using the shipped strategy and must equal
+  the frozen expected semantics;
+- development dense observations select and freeze one threshold before any holdout call;
+- a state latch prevents a second holdout evaluation in the same run and a protocol completion
+  record prevents accidental re-recording without explicit artifact replacement workflow;
+- development eligibility requires at least 2 qualifying recovered grade-2 misses, no-hit
+  `>=0.5`, hard-negative failure `<=0.3`;
+- holdout eligibility requires at least 2 qualifying recovered grade-2 misses, no-hit `>=0.5`,
+  hard-negative failure `<=0.142857`;
+- development failure creates a valid negative result and does not inspect holdout;
+- holdout failure creates `candidate_status=completed` and `e3d_status=not_eligible`, not an
+  implementation error;
+- number/date, exact lexical, proper noun, and mixed results are reported but do not incorrectly
+  qualify E3-D;
+- no arm raw scores are fused or compared across score spaces.
+
+- [ ] **Step 2: Confirm RED**
+
+```bash
+uv run pytest tests/evaluation/test_dense_comparison.py -q
+```
+
+- [ ] **Step 3: Implement the comparison state machine**
+
+Use immutable intermediate results. The only path to holdout accepts a frozen development result
+containing the selected threshold and candidate/projection/model identities. Any identity change
+between partitions fails closed.
+
+- [ ] **Step 4: Verify and commit before real qrel scoring**
+
+```bash
+uv run pytest tests/evaluation/test_dense_protocol.py \
+  tests/evaluation/test_dense_candidate.py \
+  tests/evaluation/test_dense_threshold.py \
+  tests/evaluation/test_dense_comparison.py -q
+git add src/mke/evaluation/dense_comparison.py tests/evaluation/test_dense_comparison.py
+git commit -m "feat(eval): compare dense retrieval complementarity"
+```
+
+## Task 11: Add The Canonical Artifact And Independent Validators
+
+**Files:**
+
+- Create: `src/mke/evaluation/dense_artifact.py`
+- Create: `tests/evaluation/test_dense_artifact.py`
+- Create: `src/mke/evaluation/dense_replay.py`
+- Create: `tests/evaluation/test_dense_replay.py`
+- Modify: `src/mke/evaluation/artifact_refresh.py`
+- Modify: `tests/evaluation/test_artifact_refresh.py`
+
+- [ ] **Step 1: Write RED model-free artifact tests**
+
+The validator must independently recompute from recorded observations:
+
+- schema, source/protocol/qrel/fixture/locator/model/projection identities;
+- threshold grid, every threshold metric/rejection reason, selected threshold, and tie-break;
+- per-partition/per-category/overall graded metrics;
+- complementarity recovery identities against current runtime;
+- development/holdout gates, `candidate_status`, and `e3d_status`;
+- complete result order, rank continuity, unique Evidence IDs, locator inventory, portable score
+  range/precision, and partition ownership;
+- resource and package compatibility linkage to the PR 1 artifact.
+
+It must reject artifact-only and coordinated artifact+observed tampering, unknown locators,
+duplicate/missing queries, bool-as-int, non-finite numbers, source mutation, and false passing
+verdicts. It must pass in a shallow squash-landed clone without feature commit ancestry.
+
+- [ ] **Step 2: Write RED cache-ready replay tests**
+
+Replay must:
+
+- verify actual snapshot files against the recorded manifest;
+- reconstruct the same frozen Evidence snapshot from page text;
+- regenerate document/query embeddings and the temporary projection;
+- compare locator/order exactly and portable cosine scores with absolute tolerance `1e-5`;
+- reject a true `>1e-5` score mutation, order mutation, vector/source digest mutation, model-file
+  mutation, and coordinated report+artifact mutation;
+- never download or silently use another adapter.
+
+- [ ] **Step 3: Confirm RED**
+
+```bash
+uv run pytest tests/evaluation/test_dense_artifact.py \
+  tests/evaluation/test_dense_replay.py \
+  tests/evaluation/test_artifact_refresh.py -q
+```
+
+- [ ] **Step 4: Implement strict record/validate/replay paths**
+
+Keep model-free CI validation separate from cache-ready local replay. `artifact_refresh.py` may
+refresh only allowlisted source/scope identities and must require before/after semantic equality.
+It must not regenerate relevance observations opportunistically.
+
+- [ ] **Step 5: Verify and commit**
+
+```bash
+uv run pytest tests/evaluation/test_dense_artifact.py \
+  tests/evaluation/test_dense_replay.py \
+  tests/evaluation/test_artifact_refresh.py -q
+git add src/mke/evaluation/dense_artifact.py src/mke/evaluation/dense_replay.py \
+  src/mke/evaluation/artifact_refresh.py \
+  tests/evaluation/test_dense_artifact.py tests/evaluation/test_dense_replay.py \
+  tests/evaluation/test_artifact_refresh.py
+git commit -m "feat(eval): validate dense comparison evidence"
+```
+
+## Task 12: Add The Comparison CLI And Measurement Harness
+
+**Files:**
+
+- Modify: `src/mke/cli.py`
+- Modify: `src/mke/evaluation/__init__.py`
+- Modify: `tests/interfaces/test_cli_evaluation.py`
+- Create: `scripts/dense_retrieval_measurement.py`
+- Create: `tests/scripts/test_dense_retrieval_measurement.py`
+- Modify: `.github/workflows/ci.yml`
+
+- [ ] **Step 1: Write RED CLI tests**
+
+Command shape:
+
+```text
+mke eval retrieval-dense \
+  --protocol tests/fixtures/retrieval-dense-v1/protocol-lock.json \
+  --candidate qwen3-embedding-0.6b-exact-v1 \
+  --model-cache <outside-repo-cache> \
+  [--record <artifact>] [--json]
+```
+
+Test:
+
+- protocol and candidate are required and allowlisted;
+- `--db`, runtime strategy/query policy, arbitrary model/revision, URL, credential, provider,
+  request-time adapter, and download flags are rejected as usage errors before evaluation;
+- missing dependency/cache/incomplete model/projection/integrity failures return stable redacted
+  errors without traceback;
+- human and JSON output distinguish historical, current lexical, dense, safety, complementarity,
+  resources, `candidate_status`, and `e3d_status`;
+- a valid negative comparison returns a recorded result and documented exit behavior;
+- record is atomic and cannot overwrite an existing canonical artifact without the explicit
+  maintenance workflow;
+- no normal Search/Ask/MCP help or schema changes.
+
+- [ ] **Step 2: Confirm RED**
+
+```bash
+uv run pytest tests/interfaces/test_cli_evaluation.py \
+  tests/scripts/test_dense_retrieval_measurement.py -q
+```
+
+- [ ] **Step 3: Implement CLI and measurement separation**
+
+The CI measurement path validates the checked-in artifact model-free. The cache-ready local
+measurement path requires an already prepared exact model and may run replay. Neither path
+downloads.
+
+- [ ] **Step 4: Verify and commit**
+
+```bash
+uv run pytest tests/interfaces/test_cli_evaluation.py \
+  tests/scripts/test_dense_retrieval_measurement.py -q
+uv run ruff check src/mke/cli.py scripts/dense_retrieval_measurement.py
+uv run pyright src/mke/cli.py scripts/dense_retrieval_measurement.py
+git add src/mke/cli.py src/mke/evaluation/__init__.py \
+  tests/interfaces/test_cli_evaluation.py \
+  scripts/dense_retrieval_measurement.py \
+  tests/scripts/test_dense_retrieval_measurement.py .github/workflows/ci.yml
+git commit -m "feat(cli): expose dense retrieval comparison"
+```
+
+## Task 13: Run Development Once, Freeze, Then Observe Holdout Once
+
+Do not begin until Tasks 7–12 pass and the exact PR 1 compatibility artifact validates.
+
+- [ ] **Step 1: Run pre-qrel integrity gates**
+
+```bash
+uv run pytest tests/evaluation/test_dense_protocol.py \
+  tests/evaluation/test_dense_candidate.py \
+  tests/evaluation/test_dense_threshold.py \
+  tests/evaluation/test_dense_comparison.py \
+  tests/evaluation/test_dense_artifact.py \
+  tests/evaluation/test_dense_replay.py -q
+```
+
+Revalidate all historical artifacts, exact fixture/qrel bytes, runtime default, model manifest,
+and projection adapter. Any mismatch stops the run.
+
+- [ ] **Step 2: Run development and freeze the result**
+
+Run a development-only command or library entry point that cannot read holdout. Inspect the full
+threshold trace. Record:
+
+- whether a safety-eligible threshold exists;
+- selected threshold and tie-break evidence;
+- qualifying current-runtime grade-2 recovery IDs by target class;
+- development safety metrics and all report-only categories;
+- dense/current-runtime ordered results and resource measurements.
+
+If no safety-eligible threshold or fewer than two qualifying development recoveries exist, record a
+valid negative development artifact, set E3-D ineligible, and do not run holdout.
+
+- [ ] **Step 3: Lock the development configuration before holdout**
+
+Generate and verify a freeze record binding model manifest, provider, projection adapter, protocol,
+qrels, fixtures, source inventory, threshold algorithm, selected threshold, and development output.
+Commit this freeze record before the one holdout observation if the implementation represents the
+one-observation latch as a durable repository file; otherwise persist it atomically in the
+recording workspace and test that reruns are refused.
+
+- [ ] **Step 4: Run holdout exactly once**
+
+Only if development gates pass, run the one full comparison command with the frozen development
+record. Do not tune after viewing holdout. A failed holdout gate is an honest valid result.
+
+- [ ] **Step 5: Record the canonical artifact atomically**
+
+Target:
+
+`benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json`
+
+Then run both validators:
+
+```bash
+uv run python -m mke.evaluation.dense_artifact validate \
+  --artifact benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json \
+  --protocol tests/fixtures/retrieval-dense-v1/protocol-lock.json \
+  --repository .
+uv run python -m mke.evaluation.dense_replay validate \
+  --artifact benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json \
+  --protocol tests/fixtures/retrieval-dense-v1/protocol-lock.json \
+  --model-cache "$HOME/Library/Caches/mke/embedding" \
+  --repository .
+```
+
+- [ ] **Step 6: Commit evidence without changing the result**
+
+```bash
+git add tests/fixtures/retrieval-dense-v1/protocol-lock.json \
+  benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json
+git commit -m "test(eval): record E3-C dense comparison"
+```
+
+## Task 14: Refresh Only Permitted Historical Identities
+
+**Files:**
+
+- Modify only if required by validated source identity changes:
+  `benchmarks/retrieval/retrieval-eval-v1-baseline.json`
+- Modify only if required:
+  `benchmarks/retrieval/numeric-grouping-v1-comparison.json`
+- Modify only if required:
+  `benchmarks/retrieval/retrieval-chinese-v1-baseline.json`
+- Modify only if required:
+  `benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json`
+- Modify: `tests/evaluation/test_artifact_refresh.py`
+
+- [ ] **Step 1: Identify actual invalidated source inventories**
+
+Run every validator before refreshing. Do not assume a new file invalidates an artifact. For each
+failing source/scope identity, show the exact changed path and explain why it is within the
+artifact’s declared source boundary.
+
+- [ ] **Step 2: Use the supported refresh workflow**
+
+Refresh identity metadata only. Compare normalized before/after observations, metrics, gates, and
+verdicts byte-for-byte or structurally. Any semantic delta is a stop condition.
+
+- [ ] **Step 3: Verify all artifacts and commit separately**
+
+```bash
+uv run pytest tests/evaluation/test_artifact_refresh.py -q
+# Run all E1/E2/E3-A/E3-B/E3-C validators here.
+git diff -- benchmarks/retrieval
+git add benchmarks/retrieval tests/evaluation/test_artifact_refresh.py
+git commit -m "test(eval): refresh dense-bound artifact identities"
+```
+
+If no historical artifact requires refresh, do not create this commit.
+
+## Task 15: Document The Result And Its Limits
+
+**Files:**
+
+- Create: `docs/how-to/evaluate-dense-retrieval.md`
+- Modify: `README.md`
+- Modify: `docs/README.md`
+- Modify: `docs/reference/cli.md`
+- Modify: `docs/explanation/architecture.md`
+- Modify: `docs/superpowers/plans/2026-06-28-local-dense-retrieval-candidate-implementation.md`
+- Create:
+  `docs/superpowers/reviews/2026-06-28-local-dense-retrieval-candidate-review.md`
+- Create/modify documentation tests under `tests/evaluation/`
+
+- [ ] **Step 1: Write RED documentation tests**
+
+Require docs to state:
+
+- actual candidate/model/revision/adapter and measured result;
+- exact prepare/doctor/eval/validate/replay commands;
+- development threshold and one-holdout protocol;
+- all four comparison arms and E3-D verdict;
+- local-first canonical reference and future API adapter boundary;
+- comparison-only status and unchanged runtime Search/Ask/MCP behavior;
+- actual resource measurements and supported platforms;
+- small public corpus, non-blind holdout, Chinese scope, and Japanese/Korean/short-term limits;
+- no claim of production quality, hybrid/RRF/reranker behavior, or statistical significance.
+
+- [ ] **Step 2: Update docs from actual evidence**
+
+Do not prewrite a positive outcome. If E3-C is negative, document the negative result and why E3-D
+remains ineligible. Do not add an ADR because no runtime behavior is promoted.
+
+- [ ] **Step 3: Run document-release audit and commit**
+
+Use `gstack-document-release` to check Diataxis coverage and diagram drift. Keep raw tool artifacts
+outside the repository.
+
+```bash
+uv run pytest tests/evaluation -q
+git diff --check
+git add README.md docs tests/evaluation
+git commit -m "docs(eval): document E3-C dense evidence"
+```
+
+## Task 16: Final Verification And Authoritative Review Handoff
+
+- [ ] **Step 1: Run the complete suite**
+
+```bash
+uv run pytest -q
+uv run ruff check .
+uv run pyright
+uv build
+uv run mke proof run
+uv run mke demo --verify
+git diff --check origin/main...HEAD
+```
+
+- [ ] **Step 2: Run all canonical evaluations and validators**
+
+Run E1, E2, E3-A, E3-B, and E3-C. Validate every artifact. Confirm E1/E2/E3-A/E3-B normalized
+semantic equality to Task 0. Run E3-C model-free validation and cache-ready replay.
+
+- [ ] **Step 3: Run installed-wheel proofs**
+
+In isolated Python 3.12 and 3.13 environments, install the built `wheel[embedding]` offline from
+pre-populated package/model caches, run from external cwd with hostile environment variables and
+network disabled, and prove:
+
+- installed `mke` and interpreter identity are outside the repository;
+- doctor is cache-only ready;
+- E3-C comparison reproduces the canonical observations;
+- model-free validator and cache-ready replay pass;
+- core wheel without the extra still imports and retains current runtime behavior.
+
+- [ ] **Step 4: Inspect the final diff and repository boundary**
+
+```bash
+git status --short --branch
+git diff --stat origin/main...HEAD
+git diff --name-status origin/main...HEAD
+git grep -n -E '/Users/|Developer/Career|\.gstack|token|api[_-]?key' \
+  -- README.md docs src tests scripts benchmarks pyproject.toml .github || true
+```
+
+Verify no model weights, cache files, virtualenvs, raw GStack artifacts, private paths, credentials,
+or unrelated runtime changes are present.
+
+- [ ] **Step 5: Leave a clean local branch and hand off**
+
+Report exact base/HEAD/diff, commits, candidate and E3-D verdicts, threshold, metrics,
+complementarity recovery IDs, model/projection/artifact identities, resource data, Python proofs,
+all verification, and remaining risks. Do not push or create a PR.
+
+The planning window runs one authoritative `gstack-review` against the design, this plan, actual
+diff, artifact, and command evidence. Confirmed findings return to the execution window through
+`superpowers:receiving-code-review`. After targeted re-review is clean and the user authorizes,
+push and create a Ready PR. Merge/cleanup and a docs-only post-merge closeout are separate
+authorized actions.
+
+## Final Acceptance Checklist
+
+- [ ] PR 1 merged before PR 2 starts.
+- [ ] Exact Qwen model/revision and installed dependency graph are frozen.
+- [ ] Only prepare can network; every operational/evaluation path is cache-only.
+- [ ] Python 3.12/3.13 installed-wheel compatibility and replay pass.
+- [ ] No frozen Evidence truncates; embeddings and ranks satisfy the determinism contract.
+- [ ] sqlite-vec passes exact-reference equivalence, or its rejection and project reference
+  fallback are explicitly recorded before qrel scoring.
+- [ ] Development selects one threshold from the full frozen trace.
+- [ ] Holdout is not observed before freeze and is observed at most once.
+- [ ] Model-free validator independently recomputes metrics, gates, and verdicts.
+- [ ] Cache-ready replay independently regenerates embeddings and exact-KNN results.
+- [ ] E1/E2/E3-A/E3-B semantics, qrels, fixtures, and runtime default remain unchanged.
+- [ ] E3-C records an honest positive or negative result and derives `e3d_status` from gates.
+- [ ] Search, Ask, CLI runtime, MCP, and normal SQLite domain truth are unchanged.
+- [ ] Documentation describes the local reference boundary and actual limitations.
+- [ ] The final branch is clean and passes authoritative pre-PR review.
