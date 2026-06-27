@@ -1,7 +1,8 @@
 # CJK Lexical Runtime Promotion Implementation Plan
 
-Status: completed under the amended active-scan-first plan. Targeted re-review CLEAN with zero
-findings; Ready PR #35 is open and its CI remediation is complete.
+Status: completed and merged under the amended active-scan-first plan. Targeted re-review was
+CLEAN with zero findings; PR #35 was squash merged into
+`main@013c7c4061e76fb15d5b3fe57f6c78cd66d0d162` after its CI remediation completed.
 
 Planning base: `main@1fdea11d70b410a0cddcf86a74af165be83daf14`.
 
@@ -650,9 +651,9 @@ The implementation PR may include:
   focused suite, a passing Python 3.12 E2 installed-wheel proof with explicit
   `selected_strategy=numeric-grouping-v1` and `rollback_strategy=current` across CLI and MCP,
   passing Ruff, Pyright with zero errors and warnings, and a passing
-  `git diff --check 1ede36c..HEAD`. The worktree remained clean. The branch is ready for a
-  user-authorized push and Ready PR. That authorization was later granted and Ready PR #35 was
-  created without merging it.
+  `git diff --check 1ede36c..HEAD`. The worktree remained clean. The targeted re-review concluded
+  that the branch was ready for a user-authorized push and Ready PR. That authorization was later
+  granted and Ready PR #35 was created.
 
 PR #35 CI remediation is complete. GitHub code scanning identified that the internal retrieval
 rebuild helper could place an unvalidated direct-call strategy value into JSON or human stdout,
@@ -667,6 +668,16 @@ identity; E1/E2/E3-A/E3-B observations, metrics, gates, verdicts, qrels, fixture
 semantics remained unchanged. Focused CLI/error/contract tests, the full suite, Ruff, Pyright,
 build, all four artifact validators, product proof, both demos, and diff checks passed before each
 PR update.
+
+PR #35 was subsequently squash merged into
+`main@013c7c4061e76fb15d5b3fe57f6c78cd66d0d162`. Post-merge Python 3.12 and 3.13 CI, CodeQL
+analysis for actions and Python, and the aggregate security check passed; open CodeQL alerts were
+zero. The feature branch and isolated worktree were cleaned up. This CLI/library change required no
+deployment or canary verification.
+
+Repository-state note (2026-06-27): later dependency maintenance advanced the latest `main` to
+`f206f03998d780bf69aa66f9285428cded477f96`; that maintenance is not part of the E3-F functional
+delivery recorded here.
 
 The compiled-empty-only adjudication is final for this slice. Correct and incorrect number/unit
 counterexamples showed that FTS-zero-hit active scan dropped constraints; mixed compiled non-empty
