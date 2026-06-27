@@ -11,7 +11,7 @@ requires-python = ">=3.12,<3.14"
 license = { text = "MIT" }
 authors = [{ name = "iTao-AI" }]
 dependencies = [
-  "mcp>=1.28.0,<2",
+  "mcp>=1.28.1,<2",
   "pymupdf>=1.24.0,<2",
 ]
 
@@ -19,7 +19,7 @@ dependencies = [
 transcription = [
   "faster-whisper>=1.2.1,<2",
   "av>=11,<18",
-  "huggingface-hub>=1.20.1,<2",
+  "huggingface-hub>=1.21.0,<2",
 ]
 
 [project.scripts]
@@ -28,9 +28,9 @@ mke-transcribe-faster-whisper = "mke.adapters.video.faster_whisper_cli:console_m
 
 [dependency-groups]
 dev = [
-  "pyright>=1.1.400",
+  "pyright>=1.1.411",
   "pytest>=9.1.1",
-  "ruff>=0.15.18",
+  "ruff>=0.15.20",
 ]
 
 [tool.hatch.build.targets.wheel]
