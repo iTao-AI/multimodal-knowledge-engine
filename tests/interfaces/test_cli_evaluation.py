@@ -291,12 +291,25 @@ def test_cli_eval_numeric_help_documents_comparison_boundary(
     normalized = " ".join(capsys.readouterr().out.split())
     assert "--protocol" in normalized
     assert "--json" in normalized
-    assert "comparison-only" in normalized
-    assert "runtime default is numeric-grouping-v1" in normalized
+    assert "historical comparison-only" in normalized
     assert "public rather than blind" in normalized
     assert "policy is protocol-owned" in normalized
-    assert "runtime default remains current" not in normalized
-    assert "promotion is conditional" not in normalized
+    assert "does not select the runtime strategy" in normalized
+    assert "runtime default" not in normalized
+
+
+def test_cli_eval_cjk_help_documents_historical_comparison_boundary(
+    capsys: CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as error:
+        main(["eval", "retrieval-cjk-lexical", "--help"])
+
+    assert error.value.code == 0
+    normalized = " ".join(capsys.readouterr().out.split())
+    assert "historical E3-B comparison-only" in normalized
+    assert "candidate and policy are protocol-owned" in normalized
+    assert "does not select the runtime strategy" in normalized
+    assert "runtime default" not in normalized
 
 
 @pytest.mark.parametrize("json_output", [False, True])

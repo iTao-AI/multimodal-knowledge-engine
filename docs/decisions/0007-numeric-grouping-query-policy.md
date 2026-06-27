@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for E2 promotion.
+Accepted for E2 promotion. Default selection superseded by ADR-0008.
 
 ## Evidence
 
@@ -28,8 +28,9 @@ engineering evidence, not a general retrieval-quality claim.
 
 ## Decision
 
-`numeric-grouping-v1` is the default retrieval query policy for normal `KnowledgeEngine`, CLI,
-and owner-started MCP composition.
+`numeric-grouping-v1` became the default retrieval query policy for normal `KnowledgeEngine`, CLI,
+and owner-started MCP composition at the E2 stage. ADR-0008 later superseded only that default
+selection; this policy remains the E3-F base compiler and explicit primary rollback.
 
 The policy expands only standalone ASCII digit tokens that contain at least five digits, do not
 start with `0`, and are not part of an alphanumeric token, decimal, signed value, date, or

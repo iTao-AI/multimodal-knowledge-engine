@@ -17,6 +17,7 @@ from mke.interfaces.mcp_contract import (
     search_library,
 )
 from mke.interfaces.mcp_server import build_mcp_server
+from mke.retrieval.cjk_active_scan import CjkActiveScanError
 from mke.runtime import RuntimeConfig
 from tests.application.test_video_provider_injection import FakeFasterWhisperProvider
 from tests.conftest import PDF_FIXTURES, VIDEO_FIXTURES
@@ -43,6 +44,52 @@ def test_list_libraries_returns_implicit_local_library() -> None:
             }
         ]
     }
+
+
+def test_mcp_search_and_ask_return_stable_active_scan_budget_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class BudgetEngine:
+        def search(self, query: str, limit: int | None = None) -> object:
+            raise CjkActiveScanError(
+                "cjk_scan_budget_exceeded",
+                "CJK active Evidence scan would exceed configured local budget",
+                "narrow_query_or_use_projection_strategy",
+            )
+
+        def ask(self, question: str, limit: int = 5) -> object:
+            return self.search(question, limit=limit)
+
+        def close(self) -> None:
+            return None
+
+    def build_budget_engine(_config: RuntimeConfig) -> BudgetEngine:
+        return BudgetEngine()
+
+    monkeypatch.setattr(
+        mke.interfaces.mcp_contract,
+        "build_engine",
+        build_budget_engine,
+    )
+    config = McpRuntimeConfig(
+        runtime=RuntimeConfig(
+            tmp_path / "mke.sqlite",
+            retrieval_strategy="cjk-active-scan-overlap-v1",
+        ),
+        allowed_root=tmp_path,
+    )
+
+    for result in (
+        search_library(config, "发布证据检索"),
+        ask_library(config, "发布证据检索"),
+    ):
+        assert result == {
+            "ok": False,
+            "problem": "cjk_scan_budget_exceeded",
+            "cause": "CJK active Evidence scan would exceed configured local budget",
+            "active_publication_impact": "unchanged",
+            "next_step": "narrow_query_or_use_projection_strategy",
+        }
 
 
 def test_ingest_file_publishes_pdf_and_search_returns_page_evidence(tmp_path: Path) -> None:
@@ -191,6 +238,20 @@ def test_mcp_ingest_file_tool_schema_has_no_provider_runtime_overrides(tmp_path:
         "download",
     ):
         assert forbidden not in schema
+
+
+def test_mcp_search_and_ask_tool_schemas_have_no_request_time_strategy(
+    tmp_path: Path,
+) -> None:
+    server = build_mcp_server(_config(tmp_path, PDF_FIXTURES))
+    tools = asyncio.run(server.list_tools())
+
+    for tool_name in ("search_library", "ask_library"):
+        tool = next(tool for tool in tools if tool.name == tool_name)
+        schema = json.dumps(tool.inputSchema).casefold()
+        assert "retrieval_strategy" not in schema
+        assert "retrieval-query-policy" not in schema
+        assert '"strategy"' not in schema
 
 
 def test_mcp_video_failure_does_not_leak_provider_diagnostics(tmp_path: Path) -> None:
@@ -514,7 +575,13 @@ def test_ask_library_rejects_empty_question(tmp_path: Path) -> None:
 
 
 def test_ask_library_rejects_no_searchable_token_question(tmp_path: Path) -> None:
-    config = _config(tmp_path, PDF_FIXTURES)
+    config = McpRuntimeConfig(
+        runtime=RuntimeConfig(
+            tmp_path / "mke.sqlite",
+            retrieval_strategy="numeric-grouping-v1",
+        ),
+        allowed_root=PDF_FIXTURES,
+    )
 
     result = ask_library(config, "发布时间？")
 

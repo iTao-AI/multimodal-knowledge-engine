@@ -129,7 +129,8 @@ E1 does not add algorithm improvement, embeddings, hybrid retrieval, CJK evaluat
 corpora, OCR, real-ASR quality evaluation, or a latency benchmark.
 
 E2 evaluates the one numeric mismatch isolated by this baseline. After all 14 gates passed,
-ADR-0007 promoted `numeric-grouping-v1` as the runtime default while retaining `current` for
-owner-controlled rollback. See
+ADR-0007 promoted `numeric-grouping-v1` as the runtime default for that stage while retaining
+`current` for owner-controlled rollback. ADR-0008 later superseded only the default selection;
+numeric grouping remains the explicit primary rollback. See
 [Evaluate The Numeric Retrieval Candidate](./evaluate-numeric-retrieval.md) for the frozen
 development/holdout protocol, candidate gates, and reviewed artifact workflow.

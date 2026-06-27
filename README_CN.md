@@ -19,9 +19,8 @@ Recall、MRR、no-hit 与 Ask refusal 不是产品质量门槛。
 E2 新增 numeric retrieval protocol：
 `mke eval retrieval-numeric --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json`。
 `numeric-grouping-v1` candidate 通过了冻结的 development、公开 holdout 和完整 E1
-门槛，使 E1 Recall@1 从 `0.875000` 提升到 `0.937500`。ADR-0007 将其提升为正常 Search
-与 Ask 的默认策略。owner 可使用 `--retrieval-query-policy current` 回滚，无需数据库
-migration 或 index rebuild。
+门槛，使 E1 Recall@1 从 `0.875000` 提升到 `0.937500`。它继续作为主要 rollback，切换
+不需要数据库 migration 或 index rebuild。
 
 E3-A 新增独立的中文 retrieval 观测面，用于记录当前 FTS5 lexical retrieval 行为。它在
 隔离的 development 与公开 holdout corpus 上冻结 5 个公开 text-layer PDF fixture、
@@ -34,9 +33,14 @@ E3-B 新增 off-default 的 `cjk-trigram-overlap-v1` 对比候选：
 `mke eval retrieval-cjk-lexical --protocol tests/fixtures/retrieval-chinese-v1/protocol.json --candidate cjk-trigram-overlap-v1`。
 该候选只在当前 `numeric-grouping-v1` 编译为空时，进入 evaluation-only SQLite FTS5
 `trigram` projection fallback。canonical comparison 记录 Recall@5 `0.659091`、nDCG@10
-`0.610619`，冻结的 development 与 holdout gates 均通过。runtime Search/Ask 默认策略、
-HTTP、UI、MCP 行为、embedding、vector search、hybrid retrieval、RRF、reranker 和 query
-rewrite 均未改变。E3-C 到 E3-F 仍未实现，必须继续由证据 gate。
+`0.610619`，冻结的 development 与 holdout gates 均通过。
+
+E3-F 将 `cjk-active-scan-overlap-v1` 提升为默认 owner-startup strategy。compiled non-empty query 始终
+走 active FTS5，包括 FTS zero-hit；只有 eligible compiled-empty CJK query 才扫描 SQLite
+domain truth 中 active Publication 的 Evidence。runtime 不创建 persistent CJK projection，
+MCP tool schema 也没有 request-time strategy override。Task 0.5 的 runtime evidence 为
+Recall@5 `0.659091`、nDCG@10 `0.619152`。HTTP、UI、embedding、vector search、hybrid
+retrieval、RRF、reranker 和 query rewrite 仍不在范围内；E3-C 到 E3-E 仍未实现。
 
 这个 proof 验证的是生命周期边界，不代表已经支持广泛媒体处理。当前不包含扫描 PDF OCR、任意视频处理、托管协调或外部 provider 调用。D3-A 增加了 trusted-local `LocalCommandTranscriptProvider`；D3-B 增加了供 CLI 和 owner-started MCP 显式选择的 optional cache-only faster-whisper runtime。`mke proof run` 与 `mke demo --verify` 仍保持 sidecar-backed、deterministic；`mke proof transcription-run` 使用可再分发的 spoken fixture 证明真实本地 ASR，`scripts/transcription_deployment_proof.py` 则证明隔离安装 wheel 后的 CLI 与 stdio MCP SDK 流程。只有显式 preparation 可以下载模型，doctor、ingest、proof 和 MCP 正常运行均为 cache-only。
 
@@ -125,6 +129,7 @@ uv run mke --db .tmp/mke.sqlite ask "publication active"
 uv run mke --db .tmp/mke.sqlite run get <run_id>
 uv run mke --db .tmp/mke.sqlite mcp --allowed-root .
 uv run mke --db .tmp/mke.sqlite --retrieval-query-policy current search "410000 withdrawals"
+uv run mke --db .tmp/mke.sqlite --retrieval-strategy cjk-active-scan-overlap-v1 search "蓝湖缓存服务 不完整索引"
 ```
 
 无参数 `mke` 命令仍报告 bootstrap 状态以保持兼容。

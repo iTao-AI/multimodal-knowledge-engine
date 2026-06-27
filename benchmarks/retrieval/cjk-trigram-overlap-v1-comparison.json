@@ -57,7 +57,7 @@
     "max_results": 10
   },
   "source": {
-    "sha256": "8545124934ba8c135a725819fa1b8aecd70fa013e4175ce2369b32f08ef93463",
+    "sha256": "9c994a7452db538612ec9848d630f906fc7ddc79cb70bfc272febfc119f6ae26",
     "files": [
       {
         "path": "pyproject.toml",
@@ -71,8 +71,8 @@
       },
       {
         "path": "src/mke/adapters/sqlite/__init__.py",
-        "bytes": 37229,
-        "sha256": "a8300357f3518d813742bd00fd408414c16d6040572aa579e3006217fd2b799c"
+        "bytes": 41988,
+        "sha256": "4e15734eb18d7dc5c7addcdaa937ec805efb5c4f23f3bca5af8c07cdcd671c38"
       },
       {
         "path": "src/mke/evaluation/chinese_protocol.py",

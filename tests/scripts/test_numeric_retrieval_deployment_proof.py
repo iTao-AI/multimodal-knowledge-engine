@@ -111,41 +111,41 @@ def test_offline_install_failure_is_fail_closed(
         )
 
 
-def test_default_cli_command_omits_policy_and_rollback_is_explicit(
+def test_cli_commands_select_numeric_and_current_strategies_explicitly(
     tmp_path: Path,
 ) -> None:
     from scripts.numeric_retrieval_deployment_proof import cli_search_command
 
-    default = cli_search_command(
+    selected = cli_search_command(
         tmp_path / "mke",
         tmp_path / "mke.sqlite",
         "410000 grouped comma control",
-        policy=None,
+        strategy="numeric-grouping-v1",
     )
     rollback = cli_search_command(
         tmp_path / "mke",
         tmp_path / "mke.sqlite",
         "410000 grouped comma control",
-        policy="current",
+        strategy="current",
     )
 
-    assert "--retrieval-query-policy" not in default
-    assert rollback[-4:-2] == ("--retrieval-query-policy", "current")
+    assert selected[-4:-2] == ("--retrieval-strategy", "numeric-grouping-v1")
+    assert rollback[-4:-2] == ("--retrieval-strategy", "current")
 
 
-def test_default_mcp_command_omits_policy_and_rollback_is_explicit(
+def test_mcp_commands_select_numeric_and_current_strategies_explicitly(
     tmp_path: Path,
 ) -> None:
     from scripts.numeric_retrieval_deployment_proof import mcp_client_command
 
-    default = mcp_client_command(
+    selected = mcp_client_command(
         python=tmp_path / "python",
         client=tmp_path / "client.py",
         mke=tmp_path / "mke",
         db=tmp_path / "mke.sqlite",
         root=tmp_path,
         fixture="fixture.pdf",
-        policy=None,
+        strategy="numeric-grouping-v1",
         ingest=True,
     )
     rollback = mcp_client_command(
@@ -155,25 +155,25 @@ def test_default_mcp_command_omits_policy_and_rollback_is_explicit(
         db=tmp_path / "mke.sqlite",
         root=tmp_path,
         fixture="fixture.pdf",
-        policy="current",
+        strategy="current",
         ingest=False,
     )
 
-    assert "--policy" not in default
-    assert rollback[-2:] == ("--policy", "current")
+    assert selected[-2:] == ("--strategy", "numeric-grouping-v1")
+    assert rollback[-2:] == ("--strategy", "current")
 
 
-def test_wrong_default_policy_results_are_rejected() -> None:
-    from scripts.numeric_retrieval_deployment_proof import validate_policy_reports
+def test_wrong_selected_strategy_results_are_rejected() -> None:
+    from scripts.numeric_retrieval_deployment_proof import validate_strategy_reports
 
-    with pytest.raises(RuntimeError, match="default retrieval policy proof failed"):
-        validate_policy_reports(
-            promoted={"status": "passed", "policy": "current"},
-            rollback={"status": "passed", "policy": "current"},
+    with pytest.raises(RuntimeError, match="selected numeric retrieval strategy proof failed"):
+        validate_strategy_reports(
+            selected={"status": "passed", "strategy": "current"},
+            rollback={"status": "passed", "strategy": "current"},
         )
 
 
-def test_default_cli_check_rejects_current_behavior(
+def test_selected_numeric_cli_check_rejects_current_behavior(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -188,7 +188,7 @@ def test_default_cli_check_rejects_current_behavior(
         proof._assert_cli_page(  # pyright: ignore[reportPrivateUsage]
             tmp_path / "mke",
             tmp_path / "mke.sqlite",
-            None,
+            "numeric-grouping-v1",
             "410000 grouped comma control",
             1,
             cwd=tmp_path,

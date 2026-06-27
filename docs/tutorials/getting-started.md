@@ -74,6 +74,18 @@ quality is acceptable. See
 [Run The Chinese Retrieval Evaluation](../how-to/run-chinese-retrieval-evaluation.md) for metrics,
 artifact validation, and recovery.
 
+## Try Bounded CJK Search
+
+Run the temporary-database demo for real PDF ingest, CJK Search/Ask, refusal, and rollback:
+
+```bash
+uv run python scripts/cjk_active_scan_demo.py
+```
+
+For an owned database, select `cjk-active-scan-overlap-v1` before the command or MCP server name.
+See [Enable Bounded CJK Retrieval](../how-to/enable-cjk-retrieval.md) for doctor, rebuild, limits,
+and rollback.
+
 ## Try The Lower-Level Ingest Commands
 
 ```bash
