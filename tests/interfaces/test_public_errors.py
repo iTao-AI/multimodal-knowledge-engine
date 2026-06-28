@@ -63,8 +63,11 @@ def test_unknown_exception_is_fully_redacted() -> None:
 def test_embedding_validation_causes_are_allowlisted_exactly() -> None:
     causes = (
         "embedding optional dependency is not installed",
+        "embedding model cache is not readable",
+        "embedding model download failed",
         "configured embedding model is not cached",
         "configured embedding model snapshot is incomplete",
+        "configured embedding model snapshot exceeds size limit",
         "configured embedding model revision is unavailable",
         "embedding input would be truncated",
         "embedding output count is invalid",

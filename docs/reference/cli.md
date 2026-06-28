@@ -380,6 +380,33 @@ pdf_pages=2 extracted_pages=2 empty_pages=0 extracted_chars=<chars> suspected_sc
 event_index=1 event=run_created
 ```
 
+## Embedding Model Setup
+
+```bash
+mke embedding prepare --allow-model-download \
+  --model qwen3-embedding-0.6b \
+  --model-revision 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3 \
+  --model-cache <outside-repository-cache> \
+  --json
+
+mke embedding doctor \
+  --model qwen3-embedding-0.6b \
+  --model-revision 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3 \
+  --model-cache <outside-repository-cache> \
+  --json
+```
+
+`prepare --allow-model-download` is the only embedding command permitted to acquire model files.
+It allowlists `Qwen/Qwen3-Embedding-0.6B` at the exact revision shown above before any network
+request. Repeated preparation of a complete snapshot is cache-only and reports
+`status=already_cached`. `doctor` is always cache-only and reports `0` when ready, `1` when not
+ready, and `2` for invalid usage. Both commands reject repository-local caches and never print an
+absolute cache path, SDK exception, URL query, or traceback. `MKE_EMBEDDING_CACHE` may provide the
+owner cache location when `--model-cache` is omitted.
+
+This lifecycle is a comparison-only E3-C prerequisite. It does not add embeddings to normal
+Search, Ask, MCP, owner startup, or `active_evidence_fts`.
+
 ## Transcription Setup
 
 ```bash
