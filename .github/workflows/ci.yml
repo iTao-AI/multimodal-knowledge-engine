@@ -13,6 +13,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  embedding-extra:
+    name: embedding extra (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv sync --locked --extra embedding --dev
+      - run: uv run python -c "import sentence_transformers, sqlite_vec"
+      - run: |
+          uv run pytest \
+            tests/embeddings/test_contracts.py \
+            tests/packaging/test_embedding_extra.py \
+            -q
+
   python:
     name: python (${{ matrix.python-version }})
     runs-on: ubuntu-latest
