@@ -251,6 +251,14 @@ def doctor_embedding(
     )
 
 
+def load_cached_embedding_snapshot(
+    cache_dir: Path,
+) -> tuple[Path, EmbeddingSnapshotManifest]:
+    cache = resolve_embedding_cache(cache_dir)
+    snapshot = _resolve_snapshot(cache, local_files_only=True)
+    return snapshot, validate_embedding_snapshot(snapshot, cache_dir=cache)
+
+
 def _resolve_snapshot(cache_dir: Path, *, local_files_only: bool) -> Path:
     try:
         hub = import_module("huggingface_hub")

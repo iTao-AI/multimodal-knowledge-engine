@@ -171,6 +171,15 @@ def _validate_vector(vector: tuple[float, ...]) -> None:
         raise EmbeddingValidationError("embedding output is not normalized")
 
 
+def validate_embedding_vector(
+    vector: tuple[float, ...], *, output_dtype: str
+) -> tuple[float, ...]:
+    if output_dtype != "float32":
+        raise EmbeddingValidationError("embedding output dtype must be float32")
+    _validate_vector(vector)
+    return vector
+
+
 def build_embedding_batch(
     evidence: tuple[EmbeddingEvidenceInput, ...],
     vectors: tuple[tuple[float, ...], ...],
@@ -182,14 +191,12 @@ def build_embedding_batch(
         raise EmbeddingValidationError("embedding output count is invalid")
     if not evidence:
         raise EmbeddingValidationError("embedding output count is invalid")
-    if output_dtype != "float32":
-        raise EmbeddingValidationError("embedding output dtype must be float32")
     _require_nonempty_string(model_fingerprint, field="model_fingerprint")
     locator_ids = tuple(item.stable_locator_id for item in evidence)
     if len(set(locator_ids)) != len(locator_ids):
         raise EmbeddingValidationError("embedding Evidence identities must be unique")
     for vector in vectors:
-        _validate_vector(vector)
+        validate_embedding_vector(vector, output_dtype=output_dtype)
     return EmbeddingBatch(
         model_fingerprint=model_fingerprint,
         evidence=tuple(
