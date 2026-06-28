@@ -534,19 +534,23 @@ E3-C must:
   when measurable, and projection size;
 - preserve all E1/E2 results and current runtime defaults.
 
-Dense retrieval is eligible for E3-D only when it demonstrates complementary grade-`2` recall over
-the approved CJK lexical candidate on at least one predeclared failure class without violating
-corpus integrity, determinism, unanswerable controls, or hard-negative safety gates. Exact numeric
-gates are frozen after E3-B observation and before E3-C implementation.
+The exact E3-C candidate is eligible for a separate E3-D experiment only when it demonstrates
+complementary grade-`2` recall over the approved current-runtime CJK lexical arm on at least one
+predeclared failure class without violating corpus integrity, determinism, unanswerable controls,
+or hard-negative safety gates. This verdict is candidate-specific and does not claim that RRF
+works or that dense runtime promotion is approved. Exact numeric gates are frozen after E3-B
+observation and before E3-C implementation.
 
 ## E3-D RRF Candidate
 
-E3-D may begin only when E3-C establishes complementary CJK lexical and dense results.
+E3-D may begin only when E3-C establishes complementary current-runtime CJK lexical and dense
+results and records `e3d_status=eligible`. This status authorizes only a separately designed fusion
+experiment; runtime promotion remains not evaluated.
 
 The RRF candidate:
 
-- receives two independently ordered lists of stable Evidence IDs;
-- deduplicates by Evidence ID;
+- receives two independently ordered lists keyed by stable document locator plus text digest;
+- deduplicates by that stable locator identity rather than runtime UUID;
 - uses the published reciprocal-rank formula with an explicitly versioned `k`;
 - applies deterministic tie-breaking;
 - never combines raw FTS5 and vector distances;

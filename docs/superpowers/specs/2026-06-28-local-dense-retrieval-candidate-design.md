@@ -1,8 +1,9 @@
 # Local Dense Retrieval Candidate Design
 
-Status: approved design for E3-C planning. Implementation has not started. This document defines
-an off-default, comparison-only local dense retrieval candidate and does not approve runtime
-promotion.
+Status: approved E3-C design, including the 2026-06-28 autoplan amendments; implementation has
+not started.
+Implementation has not started. This document defines an off-default, comparison-only local dense
+retrieval candidate and does not approve runtime promotion.
 
 ## Context
 
@@ -37,6 +38,11 @@ network, alias, preprocessing, credential, and availability behavior. Testing an
 model would make the result equally hard to reproduce. E3-C therefore needs one immutable local
 reference path before any API integration or fusion work.
 
+E3-C is a bounded research and engineering track, not a claim that retrieval optimization is the
+only remaining product priority. Its decision utility is narrow: a positive result permits an E3-D
+fusion experiment; a negative result rejects this exact model, prompt, page-Evidence, and
+projection candidate for E3-D. It does not prove that all dense retrieval models are unsuitable.
+
 ## Goals
 
 E3-C must:
@@ -49,7 +55,7 @@ E3-C must:
 - perform cache-only local inference and exact cosine KNN;
 - select a refusal threshold from development only, then observe holdout once;
 - record quality, complementarity, latency, memory, model size, and projection size;
-- decide whether E3-D RRF is eligible without implementing RRF;
+- decide whether an E3-D RRF experiment is justified without claiming that RRF is effective;
 - preserve the current Search, Ask, CLI runtime, and MCP behavior.
 
 ## Approaches Considered
@@ -140,7 +146,8 @@ The implementation must use project-owned values equivalent to:
 
 - `EmbeddingModelSpec`: immutable model, revision, instruction, dimension, length, dtype, and cache
   contract;
-- `EmbeddingProvider`: embeds validated document batches and one validated query;
+- `EmbeddingProvider`: embeds validated document batches and one validated query without exposing
+  tokenizer, cache, SDK, or transport details;
 - `EmbeddingBatch`: Evidence identities plus fixed-dimension vectors and model fingerprint;
 - `VectorProjection`: builds, validates, searches, and reports projection identity;
 - `RankedEvidence`: stable Evidence identity, rank, portable score, and candidate provenance.
@@ -148,6 +155,14 @@ The implementation must use project-owned values equivalent to:
 These names are design roles. The implementation plan must first align them with existing DTO and
 port conventions. SentenceTransformers, torch, and sqlite-vec objects must not cross the adapter
 boundary.
+
+Local-only concerns use a separate adapter capability: token lengths, padding, cache lifecycle,
+dtype selection, and batch size are SentenceTransformers runtime behavior, not part of the
+provider-neutral `EmbeddingProvider` contract.
+
+Cross-workspace identity uses `document_id + locator_kind + locator_start + locator_end` plus the
+source-text digest. Runtime `evidence_id`, `publication_id`, and `source_id` remain snapshot
+integrity fields only because normal ingest assigns non-durable UUID identities.
 
 ### Extensibility Boundary
 
@@ -172,7 +187,7 @@ mke eval retrieval-dense ...
 
 Requirements:
 
-- `prepare` is the only command that may download model files;
+- after package installation, `prepare` is the only `mke` command that may download model files;
 - the exact model and revision are allowlisted before any network request;
 - the cache is operator-controlled and outside the repository;
 - `doctor`, evaluation, artifact validation, installed-wheel proof, Search, Ask, and MCP are
@@ -181,6 +196,11 @@ Requirements:
 - model file size and SHA-256 identity are recorded without exposing absolute cache paths;
 - no command silently substitutes a different model, provider, revision, dimension, or dtype;
 - Search/Ask/MCP requests cannot provide model, revision, cache path, URL, or credential values.
+
+Installing the optional Python dependency extra may require a package index unless the operator
+uses a pre-populated wheelhouse. The documentation must distinguish package installation network
+from model acquisition network. The canonical cache resolves outside the repository, may use a
+documented OS cache default or owner environment override, and is never deleted automatically.
 
 An API adapter remains a later integration path. It must use owner configuration fixed before
 engine construction and must handle authentication, timeout, rate limits, batch completeness, and
@@ -214,7 +234,7 @@ Frozen settings:
 | Padding side | left |
 | Embedding dimension | `1024` |
 | Normalization | L2 |
-| Batch ordering | stable Evidence ID order |
+| Batch ordering | stable locator ID order |
 | Query batch size | `1` |
 | Document batch size | `4` |
 
@@ -232,7 +252,7 @@ the shipped `active_evidence_fts` projection.
 
 Each vector row binds:
 
-- stable Evidence ID;
+- stable locator ID and current-snapshot runtime Evidence ID;
 - document and Publication identity;
 - locator kind/start/end;
 - frozen source-text digest;
@@ -247,7 +267,7 @@ Search uses cosine exact-KNN with `top_k=10`. The portable score is the raw cosi
 rounded to six decimal places. Canonical ordering is:
 
 1. portable cosine score descending;
-2. stable Evidence ID ascending.
+2. stable locator ID ascending.
 
 The implementation must prove that the selected adapter returns the same Evidence ordering as an
 independent project-owned exact-cosine reference on the frozen probe vectors.
@@ -280,8 +300,10 @@ Threshold selection:
 4. break ties using dense nDCG@10 descending;
 5. break remaining ties using the higher threshold.
 
-The selected threshold, the full selection trace, and the rejected-threshold reasons are recorded.
-Holdout runs once after this value and every candidate setting are frozen.
+The selected threshold, every equally optimal contiguous threshold interval, the full selection
+trace, rejected-threshold reasons, and development leave-one-query-out sensitivity are recorded.
+The sensitivity report does not change the frozen selection algorithm. Holdout runs once after
+this value and every candidate setting are frozen.
 
 ### Complementarity Classes
 
@@ -339,8 +361,10 @@ After the development configuration is frozen, holdout must:
 - keep hard-negative failure `<= 0.142857`;
 - preserve exact fixture, qrel, protocol, model, and projection identity.
 
-All gates must pass for `e3d_status=eligible`. A dense candidate does not need to dominate lexical
-retrieval alone; it must prove useful complementarity for fusion.
+All gates must pass for `e3d_status=eligible`. This status means only that running a separately
+designed E3-D fusion experiment is justified; it does not claim that RRF works. Every E3-C artifact
+also records `runtime_promotion_status=not_evaluated`. A dense candidate does not need to dominate
+lexical retrieval alone; it must prove useful complementarity for a later fusion experiment.
 
 ## Artifact And Validation
 
@@ -359,14 +383,16 @@ Validation is split deliberately:
 
 1. The model-free validator runs in required CI and independently recomputes schema, source
    identities, threshold selection, metrics, gates, and verdict consistency from recorded
-   observations.
+   observations. It cannot prove that a coordinated replacement of retrieval observations is
+   authentic; only cache-ready replay provides that independent retrieval oracle.
 2. The cache-ready replay validator verifies the actual snapshot files, regenerates embeddings and
    the exact-KNN projection, and compares the resulting Evidence ordering and portable scores.
 
 Evidence locator and order equality are exact. Portable cosine scores use an absolute tolerance of
 `1e-5`; non-finite scores or larger differences fail. Task 0.5 must show this tolerance is sufficient
-across supported local Python environments before qrel scoring. The validator must reject artifact
-and observed-report coordinated tampering.
+across supported local Python environments before qrel scoring. The model-free validator rejects
+artifact and derived-field inconsistency; cache-ready replay must reject coordinated replacement of
+retrieval observations and their derived fields.
 
 ## Resource Contract
 
@@ -396,12 +422,20 @@ Public CLI failures use stable `problem`, `cause`, and `next_step` fields. Requi
 - Evidence input would be truncated;
 - vector extension unavailable or incompatible;
 - projection source identity mismatch;
-- no safety-eligible threshold;
 - nondeterministic embedding, rank, or score;
 - artifact validation or replay mismatch.
 
 Errors must not expose absolute paths, raw provider exceptions, model-cache internals, or
 tracebacks. There is no silent fallback to another model, provider, projection, or lexical result.
+
+No safety-eligible threshold is a valid negative evaluation outcome, not an operational error. It
+returns `candidate_status=completed`, `e3d_status=not_eligible`,
+`runtime_promotion_status=not_evaluated`, and exit code `0`. Integrity or execution failures return
+the public error contract and a non-zero exit.
+
+A development valid-negative result also records the canonical comparison artifact with
+`holdout_status=not_observed` and no holdout receipt. Exit code `0` means the evaluation completed,
+not that E3-D is eligible; automation must inspect `e3d_status`.
 
 ## Delivery Shape
 
@@ -415,7 +449,9 @@ land.
 - Qwen3 prepare/doctor and cache-only adapter;
 - sqlite-vec compatibility proof and exact-cosine reference;
 - Python 3.12/3.13 installed-wheel model and projection proof;
-- no qrel scoring and no quality conclusion.
+- no candidate qrel scoring and no quality conclusion. Existing frozen E1/E2/E3-A/E3-B regression
+  commands may parse their historical qrels, but new PR 1 dense code and compatibility proof must
+  not import or consume qrels.
 
 ### PR 2: Dense Comparison Evidence
 
@@ -463,9 +499,13 @@ The E3-C implementation is complete when:
 - both implementation PRs land independently or a valid negative stop condition is recorded;
 - the exact model and runtime compatibility evidence precedes qrel scoring;
 - development threshold selection and holdout isolation are independently validated;
+- development and holdout use separate Evidence snapshots and projections, and cross-partition
+  locators are rejected;
+- a committed development freeze precedes the single canonical holdout receipt;
 - the canonical artifact reports all four comparison arms and resource evidence;
 - all integrity, safety, complementarity, and determinism gates are evaluated honestly;
 - `e3d_status` is derived from frozen gates rather than implementation intent;
+- `e3d_status` is documented as experiment eligibility and runtime promotion remains not evaluated;
 - current runtime, E1/E2/E3-A/E3-B semantics, product proof, and demo remain unchanged;
 - public documentation states that dense remains comparison-only.
 
@@ -475,4 +515,5 @@ Proceed with `qwen3-embedding-0.6b-exact-v1` as the single canonical E3-C model.
 project-owned embedding and vector boundaries first, preserve local reproducibility as the
 canonical reference, and treat API integration as a separate future adapter. Start E3-D only if
 the frozen dense artifact proves complementary grade-`2` retrieval on development and holdout
-without weakening refusal or hard-negative behavior.
+without weakening refusal or hard-negative behavior. A negative E3-C result applies to this exact
+candidate configuration and does not generalize to every dense model.

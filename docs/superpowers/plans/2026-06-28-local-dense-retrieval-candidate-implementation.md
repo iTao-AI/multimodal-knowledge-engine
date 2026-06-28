@@ -10,8 +10,9 @@ Chinese retrieval protocol, without changing normal Search, Ask, CLI runtime, or
 **Architecture:** Add project-owned embedding and vector-projection ports, a cache-only
 SentenceTransformers adapter, and an exact-cosine evaluation projection. Deliver the work in two
 independent PRs: PR 1 proves dependencies, model lifecycle, vector correctness, portability, and
-resource feasibility without reading qrels; PR 2 freezes the threshold protocol, scores
-development, observes holdout once, and records independently validated comparison evidence.
+resource feasibility without new dense candidate qrel scoring; PR 2 freezes the threshold
+protocol, scores development, observes holdout once, and records independently validated
+comparison evidence.
 
 **Tech Stack:** Python 3.12/3.13, `sentence-transformers==5.6.0`,
 `huggingface-hub>=1.21.0,<2`, `sqlite-vec==0.1.9`, NumPy float32, SQLite, pytest, Ruff, Pyright,
@@ -19,7 +20,7 @@ Hatch/uv, GitHub Actions.
 
 ---
 
-Status: approved design; implementation has not started.
+Status: approved after autoplan review; implementation has not started.
 
 Planning base: `main@5ed0a722b83f9b4c70aec7c9333d8bf7d17b9335`.
 
@@ -28,6 +29,9 @@ Design:
 
 Program design:
 [Chinese Hybrid Retrieval Evaluation Design](../specs/2026-06-25-chinese-hybrid-retrieval-evaluation-design.md)
+
+Autoplan review:
+[Local Dense Retrieval Candidate Autoplan Review](../reviews/2026-06-28-local-dense-retrieval-candidate-autoplan-review.md)
 
 ## Non-Negotiable Boundaries
 
@@ -40,17 +44,36 @@ Program design:
   equality.
 - Only `mke embedding prepare --allow-model-download` may use the network. Doctor, evaluation,
   validators, installed-wheel proof, Search, Ask, and MCP remain cache-only.
+- This model-network boundary starts after package installation. Installing `wheel[embedding]` may
+  use a package index, or may be fully offline from a pre-populated wheelhouse.
 - The exact model is `Qwen/Qwen3-Embedding-0.6B` at revision
   `97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3`. Reject aliases, arbitrary repositories, arbitrary
   revisions, remote code, and silent model/provider fallback.
-- PR 1 must not import qrels, run qrel scoring, select a threshold, inspect holdout results, or make
-  a retrieval-quality claim.
+- New PR 1 dense code, compatibility tests, and proof scripts must not import or consume qrels,
+  run candidate qrel scoring, select a threshold, inspect candidate holdout results, or make a
+  retrieval-quality claim. Existing frozen E1/E2/E3-A/E3-B regression commands may parse their
+  historical qrels; those outputs are regression-only and cannot influence the dense candidate.
 - PR 2 may begin only after PR 1 is merged to `main`. Do not stack PR 2 on an unmerged feature
   branch.
 - Holdout may be observed exactly once, after the candidate, threshold algorithm, model,
   projection adapter, and development-selected threshold are frozen.
 - If any stop condition in the design fires, leave the branch clean at the last valid checkpoint,
   record the evidence, and return to the planning window. Do not improvise a substitute.
+
+Autoplan review clarifications:
+
+- a negative result constrains only `qwen3-embedding-0.6b-exact-v1`; it is not a universal dense
+  retrieval verdict;
+- `e3d_status=eligible` means only “run a separate E3-D fusion experiment”; it does not claim RRF
+  effectiveness, and `runtime_promotion_status` remains `not_evaluated`;
+- development and holdout must use separate snapshots and projections; the 70-Evidence combined
+  projection exists only for PR 1 compatibility/resource measurement;
+- cross-workspace canonical identity is the stable document locator plus text digest, never random
+  runtime Evidence, Source, or Publication IDs;
+- provider-neutral embedding contracts do not contain local tokenizer, cache, padding, dtype, or
+  batch-lifecycle methods;
+- the model-free validator verifies structure and derivations, while only cache-ready replay can
+  prove retrieval-observation authenticity.
 
 ## Delivery Map
 
@@ -67,7 +90,7 @@ Before each PR, read the latest project rules and verify the repository rather t
 planning snapshot:
 
 ```bash
-cd /Users/mac/Developer/Projects/Active/multimodal-knowledge-engine
+cd <repository-root>
 git fetch origin
 git status --short --branch
 git rev-parse HEAD origin/main
@@ -223,17 +246,32 @@ class EmbeddingModelSpec:
 
 
 @dataclass(frozen=True)
+class EmbeddingEvidenceInput:
+    document_id: str
+    locator_kind: str
+    locator_start: int
+    locator_end: int
+    text: str
+    text_sha256: str
+    runtime_evidence_id: str
+    runtime_publication_id: str
+
+
+@dataclass(frozen=True)
 class EmbeddedEvidence:
-    evidence_id: str
+    stable_locator_id: str
     vector: tuple[float, ...]
 
 
 class EmbeddingProvider(Protocol):
-    def tokenize_lengths(self, texts: tuple[str, ...]) -> tuple[int, ...]: ...
     def embed_documents(
-        self, evidence: tuple[EvaluationEvidenceSnapshot, ...]
+        self, evidence: tuple[EmbeddingEvidenceInput, ...]
     ) -> EmbeddingBatch: ...
     def embed_query(self, query: str) -> tuple[float, ...]: ...
+
+
+class LocalEmbeddingRuntime(Protocol):
+    def tokenize_lengths(self, texts: tuple[str, ...]) -> tuple[int, ...]: ...
 ```
 
 - [ ] **Step 2: Run the tests and confirm RED**
@@ -248,6 +286,8 @@ Expected: failures because the embedding package and public mappings do not exis
 
 Keep validation in project code. SDK conversion belongs only in adapters. Store portable vectors as
 tuples of Python floats after validating their float32 origin; never serialize provider tensors.
+Use stable locator identity plus text digest for cross-run ordering and digests. Runtime IDs are
+checked only against the current immutable snapshot and are never canonical across fresh ingests.
 
 Required stable error causes include:
 
@@ -370,7 +410,9 @@ Cover:
 - snapshot completeness requires the SentenceTransformers configuration, tokenizer
   configuration, model configuration, and `model.safetensors`;
 - every resolved regular file is hashed by streaming reads and recorded as relative path, byte
-  size, and SHA-256; symlinks cannot escape the resolved snapshot;
+  size, and SHA-256; Hugging Face snapshot symlinks may resolve only to a regular file under the
+  same model cache `blobs/` directory. Reject cross-cache, chained, dangling, device, and directory
+  links, and hash content under the snapshot-relative logical path;
 - the snapshot fingerprint is a deterministic digest of sorted file manifest entries;
 - incomplete, unreadable, mutated, wrong-revision, or oversized snapshots fail closed;
 - errors contain no absolute cache path, SDK exception, URL query, or traceback;
@@ -418,9 +460,10 @@ mke embedding doctor --model qwen3-embedding-0.6b \
 ```
 
 `prepare` must call `snapshot_download(repo_id=..., revision=..., local_files_only=False)` only
-after the allowlist and explicit-download checks. `doctor` never downloads. Reject repository-local
-cache paths in the canonical proof script, but do not unnecessarily forbid an owner-selected local
-cache in the general CLI if existing project conventions allow it.
+after the allowlist and explicit-download checks. `doctor` never downloads. The exact model and
+revision are allowlisted defaults; explicit flags, when present, must equal those values. Omission
+must never mean “latest.” Use a documented OS cache default plus `MKE_EMBEDDING_CACHE`/CLI override,
+and reject every resolved cache path inside the repository for both prepare and doctor.
 
 - [ ] **Step 4: Verify model-free behavior**
 
@@ -461,7 +504,7 @@ Verify:
   `max_seq_length=8192`, and left padding;
 - query input is exactly
   `Instruct: Given a Chinese user query, retrieve relevant evidence passages that answer the query\nQuery:{query}`;
-- documents have no instruction prefix and are processed in stable Evidence ID order with batch
+- documents have no instruction prefix and are processed in stable locator-ID order with batch
   size `4`;
 - query batch size is `1`;
 - output is requested as normalized float32 NumPy data, then converted to project DTOs;
@@ -514,7 +557,7 @@ Use contracts equivalent to:
 ```python
 @dataclass(frozen=True)
 class RankedEvidence:
-    evidence_id: str
+    stable_locator_id: str
     rank: int
     score: float
     adapter_id: str
@@ -530,15 +573,21 @@ class VectorProjection(Protocol):
 
 Test:
 
-- dimension `1024`, normalized finite vectors, unique stable Evidence IDs, and complete inventory;
+- dimension `1024`, normalized finite vectors, unique stable locator IDs, and complete inventory;
 - atomic replace: failed validation leaves no partial active projection;
 - source-text/model/vector aggregate digests bind every row;
 - exact cosine uses float32 inputs and returns cosine similarity, portable score rounded to six
-  decimals, then sorts score descending and Evidence ID ascending;
+  decimals, then sorts score descending and stable locator ID ascending;
 - `top_k=10` is enforced for the canonical candidate;
 - sqlite-vec load/insert/search/delete/transaction/rebuild behavior;
 - sqlite-vec order equals the independent project exact-cosine reference for synthetic normal,
   tie, negative, and near-tie vectors;
+- for each 34- or 36-row partition, sqlite-vec returns every exact distance before project code
+  converts `similarity = 1 - cosine_distance`, validates range/finite values, rounds to six
+  decimals, applies the stable locator tie-break, and truncates to top 10; SQL must not `LIMIT 10`
+  before canonical tie resolution;
+- rank-10/rank-11 vectors whose raw scores differ but round to the same portable score preserve the
+  project-owned locator tie-break;
 - extension-unavailable and incompatible results fail closed; no lexical fallback;
 - temporary projection files remain outside the repository and are removed on normal completion.
 
@@ -569,8 +618,9 @@ git commit -m "feat(vector): add exact local projection adapters"
 
 ## Task 0.5: Run The Compatibility And Resource Spike
 
-This is the hard pre-qrel gate. Complete Tasks 1–5 first, then stop for explicit download
-authorization. Do not read or score qrels in this task.
+This is the hard pre-qrel gate for new dense code. Complete Tasks 1–5 first, then stop for explicit
+download authorization. The compatibility runner and its inputs do not read or score qrels.
+Historical regression commands elsewhere in PR 1 remain separate from this proof.
 
 **Files:**
 
@@ -709,6 +759,8 @@ git commit -m "test(embedding): prove Qwen3 dense compatibility"
 Add tests that require:
 
 - the optional install and exact prepare/doctor commands;
+- source-checkout installation, built `wheel[embedding]` installation, and fully offline install
+  from a pre-populated wheelhouse;
 - comparison-only wording and no Search/Ask/MCP dense claim;
 - the model license/source/revision, cache-only boundary, external cache, resource ceilings, and
   API-adapter deferral;
@@ -757,7 +809,9 @@ uv run python -m mke.evaluation.cjk_lexical_artifact validate \
 git diff --check origin/main...HEAD
 ```
 
-Also rerun the cache-ready Python 3.12/3.13 installed-wheel proof. Compare the normalized
+These historical regression commands may parse frozen qrels, but they do not expose qrels to the
+new dense compatibility modules and cannot select any dense setting. Also rerun the cache-ready
+Python 3.12/3.13 installed-wheel proof. Compare the normalized
 E1/E2/E3-A/E3-B reports to Task 0. Only permitted identity metadata may differ; observations,
 metrics, gates, and verdicts must be equal.
 
@@ -791,6 +845,46 @@ Ready PR. PR 2 waits for PR 1 merge and cleanup.
 Start from the latest `origin/main` after PR 1 merge. Confirm the PR 1 compatibility artifact and
 cache-ready proof still validate before reading qrels.
 
+## Task 7A: Audit Residual Development Misses
+
+**Files:**
+
+- Create: `src/mke/evaluation/dense_miss_audit.py`
+- Create: `tests/evaluation/test_dense_miss_audit.py`
+- Create after validation:
+  `benchmarks/retrieval/qwen3-embedding-0.6b-development-miss-audit.json`
+
+- [ ] **Step 1: Write RED audit tests**
+
+For every current-runtime development grade-2 miss in `semantic_paraphrase`, `multi_condition`,
+and `ranking_hard_negative`, record the compiled query, active-scan terms, lexical overlap with
+each grade-2 page, page length, answer-span locality when mechanically observable, and whether
+numeric/entity/multi-condition constraints are present. The report may label dense,
+constraint-preserving decomposition, segmentation, or query rewrite only as hypotheses; query
+category is not causal evidence.
+
+Reject holdout input, missing target misses, changed qrels/locators, subjective causal labels,
+private paths, and any report that silently reclassifies a query.
+
+- [ ] **Step 2: Implement and validate the development-only audit**
+
+```bash
+uv run pytest tests/evaluation/test_dense_miss_audit.py -q
+```
+
+The audit does not alter the approved candidate or gates. If it proves the target misses are not
+plausibly addressable by page-level semantic similarity, stop for a plan amendment before dense
+scoring.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add src/mke/evaluation/dense_miss_audit.py \
+  tests/evaluation/test_dense_miss_audit.py \
+  benchmarks/retrieval/qwen3-embedding-0.6b-development-miss-audit.json
+git commit -m "test(eval): audit residual Chinese retrieval misses"
+```
+
 ## Task 7: Freeze The Dense Comparison Protocol
 
 **Files:**
@@ -816,6 +910,8 @@ Freeze and validate:
 - references to the unchanged E3-A protocol/qrels/fixture/locator inventory, E3-B artifact, current
   runtime strategy, and PR 1 compatibility artifact;
 - explicit state fields that prevent holdout observation before development freeze;
+- separate development and holdout snapshot/projection identities; combined-corpus candidate
+  scoring is invalid;
 - exact byte size and SHA-256 identities for every bound input.
 
 Reject missing/extra fields, duplicate thresholds, reordered target classes, bool-as-int,
@@ -855,7 +951,12 @@ git commit -m "test(eval): freeze E3-C dense comparison protocol"
 
 Test:
 
-- only active frozen Evidence is embedded, in stable Evidence ID order;
+- only active frozen Evidence is embedded, in stable locator-ID order;
+- development and holdout each build a separate immutable snapshot and temporary projection;
+- every returned locator belongs to the query partition, including when a cross-partition page has
+  a deliberately higher synthetic similarity;
+- canonical inputs and results use `document_id + locator + text_sha256`; random runtime IDs are
+  current-snapshot integrity fields only;
 - candidate runner reuses PR 1 cache-only model readiness and adapter contracts;
 - frozen snapshot inventory, text digest, model fingerprint, and projection identity are checked
   before search;
@@ -917,6 +1018,8 @@ Also test:
 - number/date recovery is report-only and cannot increase the qualifying recovery count;
 - every threshold records inputs, metrics, rejection reasons, recovery identities, and selection
   rank;
+- the report includes every equally optimal contiguous threshold interval and development
+  leave-one-query-out sensitivity; neither changes the frozen selection rule;
 - no eligible threshold returns a valid negative development result rather than throwing or
   observing holdout;
 - bool, non-finite, out-of-range, missing, reordered, or coordinated trace/verdict tampering is
@@ -973,6 +1076,9 @@ Test:
 - development failure creates a valid negative result and does not inspect holdout;
 - holdout failure creates `candidate_status=completed` and `e3d_status=not_eligible`, not an
   implementation error;
+- no safety-eligible threshold is also a valid completed negative result with exit code `0`;
+- `e3d_status` is experiment eligibility only and every result has
+  `runtime_promotion_status=not_evaluated`;
 - number/date, exact lexical, proper noun, and mixed results are reported but do not incorrectly
   qualify E3-D;
 - no arm raw scores are fused or compared across score spaces.
@@ -1024,9 +1130,11 @@ The validator must independently recompute from recorded observations:
   range/precision, and partition ownership;
 - resource and package compatibility linkage to the PR 1 artifact.
 
-It must reject artifact-only and coordinated artifact+observed tampering, unknown locators,
-duplicate/missing queries, bool-as-int, non-finite numbers, source mutation, and false passing
-verdicts. It must pass in a shallow squash-landed clone without feature commit ancestry.
+It must reject artifact-only tampering, unknown locators, duplicate/missing queries, bool-as-int,
+non-finite numbers, source mutation, inconsistent derived fields, and false passing verdicts. It
+must pass in a shallow squash-landed clone without feature commit ancestry. A coordinated
+replacement of retrieval observations plus all derived fields is outside the model-free oracle and
+must be rejected by cache-ready replay instead.
 
 - [ ] **Step 2: Write RED cache-ready replay tests**
 
@@ -1087,12 +1195,27 @@ mke eval retrieval-dense \
   --protocol tests/fixtures/retrieval-dense-v1/protocol-lock.json \
   --candidate qwen3-embedding-0.6b-exact-v1 \
   --model-cache <outside-repo-cache> \
-  [--record <artifact>] [--json]
+  --development-only \
+  --record-development-freeze <development-freeze.json> \
+  [--json]
+
+mke eval retrieval-dense \
+  --protocol tests/fixtures/retrieval-dense-v1/protocol-lock.json \
+  --candidate qwen3-embedding-0.6b-exact-v1 \
+  --model-cache <outside-repo-cache> \
+  --development-freeze <development-freeze.json> \
+  --record <artifact.json> \
+  --record-holdout-receipt <holdout-receipt.json> \
+  [--json]
 ```
 
 Test:
 
 - protocol and candidate are required and allowlisted;
+- `--development-only` structurally cannot load holdout fixtures, qrels, or projections and
+  requires `--record-development-freeze`;
+- the holdout form requires a validated committed development freeze and exclusive-create receipt;
+  incompatible phase flags are usage errors;
 - `--db`, runtime strategy/query policy, arbitrary model/revision, URL, credential, provider,
   request-time adapter, and download flags are rejected as usage errors before evaluation;
 - missing dependency/cache/incomplete model/projection/integrity failures return stable redacted
@@ -1100,6 +1223,11 @@ Test:
 - human and JSON output distinguish historical, current lexical, dense, safety, complementarity,
   resources, `candidate_status`, and `e3d_status`;
 - a valid negative comparison returns a recorded result and documented exit behavior;
+- valid negative outcomes return exit `0` with `candidate_status=completed`,
+  `e3d_status=not_eligible`, and `runtime_promotion_status=not_evaluated`; integrity and execution
+  failures return non-zero with the public error contract;
+- CLI reference includes an automation example that checks JSON `e3d_status`; `$? == 0` alone only
+  means a trustworthy evaluation completed;
 - record is atomic and cannot overwrite an existing canonical artifact without the explicit
   maintenance workflow;
 - no normal Search/Ask/MCP help or schema changes.
@@ -1151,8 +1279,8 @@ and projection adapter. Any mismatch stops the run.
 
 - [ ] **Step 2: Run development and freeze the result**
 
-Run a development-only command or library entry point that cannot read holdout. Inspect the full
-threshold trace. Record:
+Run the fixed `--development-only --record-development-freeze` command; do not substitute an
+unreviewed library entry point. Inspect the full threshold trace. Record:
 
 - whether a safety-eligible threshold exists;
 - selected threshold and tie-break evidence;
@@ -1160,21 +1288,33 @@ threshold trace. Record:
 - development safety metrics and all report-only categories;
 - dense/current-runtime ordered results and resource measurements.
 
-If no safety-eligible threshold or fewer than two qualifying development recoveries exist, record a
-valid negative development artifact, set E3-D ineligible, and do not run holdout.
+If no safety-eligible threshold or fewer than two qualifying development recoveries exist, record
+the canonical comparison artifact with `holdout_status=not_observed`, no holdout receipt,
+`candidate_status=completed`, `e3d_status=not_eligible`, and
+`runtime_promotion_status=not_evaluated`; validate it model-free and cache-ready, return exit `0`,
+and do not run holdout.
 
 - [ ] **Step 3: Lock the development configuration before holdout**
 
-Generate and verify a freeze record binding model manifest, provider, projection adapter, protocol,
-qrels, fixtures, source inventory, threshold algorithm, selected threshold, and development output.
-Commit this freeze record before the one holdout observation if the implementation represents the
-one-observation latch as a durable repository file; otherwise persist it atomically in the
-recording workspace and test that reruns are refused.
+Generate and verify
+`benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-development-freeze.json`, binding model
+manifest, provider, projection adapter, protocol, qrels, fixtures, source inventory, threshold
+algorithm, selected threshold, and development output. Commit this file before the one holdout
+observation:
+
+```bash
+git add benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-development-freeze.json
+git commit -m "test(eval): freeze E3-C development selection"
+```
 
 - [ ] **Step 4: Run holdout exactly once**
 
 Only if development gates pass, run the one full comparison command with the frozen development
-record. Do not tune after viewing holdout. A failed holdout gate is an honest valid result.
+record. The command creates
+`benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-holdout-receipt.json` with exclusive-create
+semantics and refuses an existing receipt. It binds the development-freeze digest, holdout result
+digest, model/projection identity, and public-safe execution identity. Do not tune after viewing
+holdout. A failed holdout gate is an honest valid result.
 
 - [ ] **Step 5: Record the canonical artifact atomically**
 
@@ -1200,6 +1340,8 @@ uv run python -m mke.evaluation.dense_replay validate \
 
 ```bash
 git add tests/fixtures/retrieval-dense-v1/protocol-lock.json \
+  benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-development-freeze.json \
+  benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-holdout-receipt.json \
   benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json
 git commit -m "test(eval): record E3-C dense comparison"
 ```
@@ -1261,13 +1403,22 @@ Require docs to state:
 
 - actual candidate/model/revision/adapter and measured result;
 - exact prepare/doctor/eval/validate/replay commands;
+- exact source checkout, `wheel[embedding]`, and offline wheelhouse install commands, clearly
+  separating package-index network from model-download network;
 - development threshold and one-holdout protocol;
 - all four comparison arms and E3-D verdict;
 - local-first canonical reference and future API adapter boundary;
 - comparison-only status and unchanged runtime Search/Ask/MCP behavior;
 - actual resource measurements and supported platforms;
+- candidate-specific negative-result scope, threshold sensitivity, separate partition projections,
+  and the durable development-freeze/holdout-receipt sequence;
 - small public corpus, non-blind holdout, Chinese scope, and Japanese/Korean/short-term limits;
 - no claim of production quality, hybrid/RRF/reranker behavior, or statistical significance.
+- valid-negative exit semantics and a JSON automation example that checks `e3d_status`;
+- failed-candidate cleanup: optional packages follow the package manager's uninstall flow, cache
+  deletion is a documented manual operator action, and MKE never deletes model caches itself;
+- a new model revision or prompt requires a new candidate ID/revision and cannot overwrite this
+  candidate's artifact.
 
 - [ ] **Step 2: Update docs from actual evidence**
 
@@ -1323,7 +1474,7 @@ network disabled, and prove:
 git status --short --branch
 git diff --stat origin/main...HEAD
 git diff --name-status origin/main...HEAD
-git grep -n -E '/Users/|Developer/Career|\.gstack|token|api[_-]?key' \
+git grep -n -E '\.gstack|token|api[_-]?key' \
   -- README.md docs src tests scripts benchmarks pyproject.toml .github || true
 ```
 
@@ -1352,11 +1503,74 @@ authorized actions.
 - [ ] sqlite-vec passes exact-reference equivalence, or its rejection and project reference
   fallback are explicitly recorded before qrel scoring.
 - [ ] Development selects one threshold from the full frozen trace.
-- [ ] Holdout is not observed before freeze and is observed at most once.
-- [ ] Model-free validator independently recomputes metrics, gates, and verdicts.
+- [ ] Threshold plateau and development leave-one-query-out sensitivity are recorded without
+  changing the selection rule.
+- [ ] Development and holdout use separate snapshot/projection inventories.
+- [ ] Cross-run identities use stable document locators and text digests, not random runtime IDs.
+- [ ] A committed development-freeze file precedes one exclusive-create holdout receipt.
+- [ ] Model-free validator independently recomputes structure, metrics, gates, and verdicts from
+  recorded observations without claiming to authenticate coordinated observation replacement.
 - [ ] Cache-ready replay independently regenerates embeddings and exact-KNN results.
 - [ ] E1/E2/E3-A/E3-B semantics, qrels, fixtures, and runtime default remain unchanged.
-- [ ] E3-C records an honest positive or negative result and derives `e3d_status` from gates.
+- [ ] E3-C records an honest positive or negative candidate-specific result, derives `e3d_status`
+  from gates, and keeps runtime promotion not evaluated.
 - [ ] Search, Ask, CLI runtime, MCP, and normal SQLite domain truth are unchanged.
 - [ ] Documentation describes the local reference boundary and actual limitations.
+- [ ] Documentation separates install-time network, model prepare network, cache-only operation,
+  manual uninstall/cache cleanup, and valid-negative automation semantics.
 - [ ] The final branch is clean and passes authoritative pre-PR review.
+
+## Decision Audit Trail
+
+| # | Phase | Decision | Classification | Principle | Rationale | Rejected |
+|---:|---|---|---|---|---|---|
+| 1 | CEO | Treat any negative as specific to `qwen3-embedding-0.6b-exact-v1` | Mechanical | Completeness | One model cannot reject dense retrieval as a class. | Universal dense verdict |
+| 2 | CEO | Add a development-only residual-miss audit before scoring | Mechanical | Explicit over clever | Query category is not causal evidence that page-level dense similarity fits the miss. | Infer cause from category |
+| 3 | CEO | Define `e3d_status` as experiment eligibility only | Mechanical | Explicit over clever | E3-C does not run fusion or evaluate runtime promotion. | Treat eligibility as RRF proof |
+| 4 | CEO | Record threshold plateaus and leave-one-query-out sensitivity | Mechanical | Completeness | A 101-point grid on a small development set needs visible stability evidence. | Report only selected threshold |
+| 5 | Eng | Split provider-neutral DTOs from `LocalEmbeddingRuntime` lifecycle details | Mechanical | DRY | Future local/API adapters can share data contracts without inheriting tokenizer/cache methods. | Qwen-specific public port |
+| 6 | Eng | Canonicalize by document locator plus text digest | Mechanical | Explicit over clever | Runtime UUIDs change across fresh ingests and cannot anchor replay. | Canonical runtime Evidence UUID |
+| 7 | Eng | Use separate development and holdout snapshots/projections | Mechanical | Completeness | Combined scoring leaks holdout corpus behavior into development. | Shared 70-row evaluation projection |
+| 8 | Eng | Require committed development freeze and exclusive holdout receipt | Mechanical | Completeness | Exactly-once observation needs durable state, not operator memory. | Command-discipline-only holdout |
+| 9 | Eng | Restrict cache symlinks and retrieve full partition distances before truncation | Mechanical | Completeness | Valid HF blobs remain usable while link escapes and rounded cutoff ties fail closed. | Blanket symlink ban or SQL `LIMIT 10` |
+| 10 | Eng | Separate model-free derivation validation from cache-ready replay | Mechanical | Explicit over clever | Only replay can authenticate coordinated replacement of observations. | Overclaim model-free oracle |
+| 11 | DX | Use explicit development/freeze and holdout/receipt command forms | Mechanical | Explicit over clever | The CLI itself prevents phase mixing and accidental holdout reruns. | One overloaded comparison command |
+| 12 | CEO | Retain compatibility-first two-PR delivery | Taste | Bias toward action | Package/model feasibility is isolated before candidate qrel scoring. | Development-qrel-first PR |
+| 13 | CEO/Eng | Retain the bounded sqlite-vec compatibility spike | Taste | Completeness | It tests a likely SQLite adapter while exact cosine remains the oracle and fallback. | Defer sqlite-vec entirely |
+| 14 | CEO | Retain one immutable model rather than a development bakeoff | Taste | Explicit over clever | The hypothesis stays bounded and holdout contamination surface stays small. | Multi-model bakeoff |
+| 15 | DX | Separate install network, explicit model prepare, cache-only operation, and manual cleanup | Mechanical | Completeness | These are different trust and recovery boundaries for operators. | Call the whole workflow offline |
+| 16 | Design | Skip graphical design review | Mechanical | Pragmatic | E3-C adds CLI/evaluation behavior and no graphical UI. | Invent UI scope |
+
+## GSTACK REVIEW REPORT
+
+| Phase | Mode | Coverage | Result | Evidence |
+|---|---|---|---|---|
+| CEO Review | selective expansion | premises, alternatives, scope, trajectory | clear after amendments | 8 independent concerns dispositioned |
+| Design Review | conditional | graphical UI | skipped | no UI scope detected |
+| Engineering Review | full | architecture, state, tests, security, performance | clear after amendments | 9 independent findings dispositioned |
+| DX Review | polish | install, CLI, errors, docs, cleanup | clear after amendments | score `6.6 -> 8.5` |
+| Outside voices | degraded | CEO, engineering, DX | `codex-only` | second configured voice unavailable; no cross-model consensus claimed |
+
+Review totals: 16 decisions, 13 auto-decided mechanical choices, 3 taste choices, and 0 user
+challenges. No user challenge is declared because cross-model agreement was unavailable.
+
+Approved taste defaults:
+
+1. Keep the compatibility-first two-PR order rather than score development qrels in PR 1.
+2. Keep sqlite-vec in the bounded compatibility spike rather than defer it before implementation.
+3. Test one immutable Qwen3 candidate rather than run a development model bakeoff.
+
+Cross-phase themes:
+
+- trustworthy negative outcomes are first-class results, not exceptions;
+- package installation, model acquisition, cache-only operation, and cleanup are distinct phases;
+- stable locator identity, partition isolation, and replay are one evidence-integrity boundary.
+
+Deferred beyond E3-C: API embedding adapters, RRF, reranking, query rewrite, segmentation changes,
+persistent runtime vector projection, runtime default changes, second-model comparison, external
+vector services, HTTP, and UI.
+
+**VERDICT:** CEO, engineering, and DX review are clear. The three taste defaults were approved on
+2026-06-28. E3-C is ready for a public-neutral implementation handoff.
+
+NO UNRESOLVED DECISIONS
