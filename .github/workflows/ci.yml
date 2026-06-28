@@ -35,6 +35,9 @@ jobs:
           uv run pytest \
             tests/embeddings/test_contracts.py \
             tests/packaging/test_embedding_extra.py \
+            tests/vector \
+            tests/adapters/test_exact_cosine_projection.py \
+            tests/adapters/test_sqlite_vec_projection.py \
             -q
 
   python:

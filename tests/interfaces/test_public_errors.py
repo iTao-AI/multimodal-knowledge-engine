@@ -78,6 +78,12 @@ def test_embedding_validation_causes_are_allowlisted_exactly() -> None:
         "embedding output dtype must be float32",
         "embedding output contains non-finite values",
         "embedding output is not normalized",
+        "vector extension is unavailable or incompatible",
+        "vector projection distance is invalid",
+        "vector projection identity mismatch",
+        "vector projection inventory is incomplete",
+        "vector projection replace failed",
+        "vector projection search inventory is incomplete",
     )
 
     for cause in causes:

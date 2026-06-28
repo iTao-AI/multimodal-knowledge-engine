@@ -89,6 +89,12 @@ _ALLOWLISTED_CAUSES = frozenset(
         "video transcript text must not be empty",
         "video input exceeds 100 MiB limit",
         "video ingest initialization failed",
+        "vector extension is unavailable or incompatible",
+        "vector projection distance is invalid",
+        "vector projection identity mismatch",
+        "vector projection inventory is incomplete",
+        "vector projection replace failed",
+        "vector projection search inventory is incomplete",
     }
 )
 
