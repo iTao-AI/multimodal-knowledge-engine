@@ -517,6 +517,13 @@ an off-default, comparison-only compiled-empty fallback that uses an evaluation-
 
 E3-C may begin only after E3-B is merged and its artifact is validated on squash-landed `main`.
 
+The E3-C planning follow-up selects the comparison-only
+[`qwen3-embedding-0.6b-exact-v1`](./2026-06-28-local-dense-retrieval-candidate-design.md)
+candidate. Because E3-F already promoted `cjk-active-scan-overlap-v1`, E3-C reports both the frozen
+E3-B trigram artifact and the current runtime lexical strategy. Any later E3-D fusion uses the
+current runtime lexical arm plus dense results; it does not reactivate the historical E3-B
+projection as a runtime dependency.
+
 E3-C must:
 
 - freeze model and vector-projection compatibility evidence before candidate scoring;
@@ -527,19 +534,23 @@ E3-C must:
   when measurable, and projection size;
 - preserve all E1/E2 results and current runtime defaults.
 
-Dense retrieval is eligible for E3-D only when it demonstrates complementary grade-`2` recall over
-the approved CJK lexical candidate on at least one predeclared failure class without violating
-corpus integrity, determinism, unanswerable controls, or hard-negative safety gates. Exact numeric
-gates are frozen after E3-B observation and before E3-C implementation.
+The exact E3-C candidate is eligible for a separate E3-D experiment only when it demonstrates
+complementary grade-`2` recall over the approved current-runtime CJK lexical arm on at least one
+predeclared failure class without violating corpus integrity, determinism, unanswerable controls,
+or hard-negative safety gates. This verdict is candidate-specific and does not claim that RRF
+works or that dense runtime promotion is approved. Exact numeric gates are frozen after E3-B
+observation and before E3-C implementation.
 
 ## E3-D RRF Candidate
 
-E3-D may begin only when E3-C establishes complementary CJK lexical and dense results.
+E3-D may begin only when E3-C establishes complementary current-runtime CJK lexical and dense
+results and records `e3d_status=eligible`. This status authorizes only a separately designed fusion
+experiment; runtime promotion remains not evaluated.
 
 The RRF candidate:
 
-- receives two independently ordered lists of stable Evidence IDs;
-- deduplicates by Evidence ID;
+- receives two independently ordered lists keyed by stable document locator plus text digest;
+- deduplicates by that stable locator identity rather than runtime UUID;
 - uses the published reciprocal-rank formula with an explicitly versioned `k`;
 - applies deterministic tie-breaking;
 - never combines raw FTS5 and vector distances;

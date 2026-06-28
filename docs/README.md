@@ -74,6 +74,9 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [CJK Lexical Runtime Promotion Design](./superpowers/specs/2026-06-26-cjk-lexical-runtime-promotion-design.md) records the E3-F path and Task 0.5 amendment to no-projection active scan.
 - [CJK Lexical Runtime Promotion Implementation Plan](./superpowers/plans/2026-06-26-cjk-lexical-runtime-promotion-implementation.md) records the active-scan runtime, CLI/MCP, proof, and rollback work.
 - [CJK Lexical Runtime Promotion Autoplan Review](./superpowers/reviews/2026-06-26-cjk-lexical-runtime-promotion-autoplan-review.md) records the pre-implementation CEO, engineering, and DX review findings.
+- [Local Dense Retrieval Candidate Design](./superpowers/specs/2026-06-28-local-dense-retrieval-candidate-design.md) defines the approved comparison-only E3-C Qwen3 embedding and exact-KNN protocol.
+- [Local Dense Retrieval Candidate Implementation Plan](./superpowers/plans/2026-06-28-local-dense-retrieval-candidate-implementation.md) splits E3-C into a pre-qrel compatibility PR and a separately reviewed dense comparison PR.
+- [Local Dense Retrieval Candidate Autoplan Review](./superpowers/reviews/2026-06-28-local-dense-retrieval-candidate-autoplan-review.md) records the scope, engineering, evidence-integrity, and CLI/DX amendments required before E3-C implementation.
 
 ## Development Verification
 
