@@ -772,6 +772,66 @@ Add tests that require:
 Do not commit local cache files, model weights, virtualenvs, raw absolute paths, or raw GStack
 artifacts. CI may install the extra and run synthetic/model-free proofs only.
 
+### Task 6A: Refresh Historical Artifact Identities
+
+Approved targeted amendment on 2026-06-28 after implementation reproduced a sequencing conflict:
+PR 1 must change `pyproject.toml`, `uv.lock`, source files, and CI workflow bytes, while the frozen
+E1/E2/E3-A/E3-B artifacts bind those identities. The original plan placed refresh only in PR 2
+Task 14, making the PR 1 all-validator gate impossible.
+
+Do not run this refresh until Tasks 4, 5, 0.5, and Task 6 Steps 1-2 are complete and all PR 1
+source, lock, workflow, tests, and documentation bytes are frozen. Run the transaction once.
+
+**Files:**
+
+- Modify: `src/mke/evaluation/artifact_refresh.py`
+- Modify: `tests/evaluation/test_artifact_refresh.py`
+- Identity-only refresh targets:
+  - `benchmarks/retrieval/retrieval-eval-v1-baseline.json`
+  - `tests/fixtures/retrieval-numeric-v1/protocol-lock.json`
+  - `benchmarks/retrieval/numeric-grouping-v1-comparison.json`
+  - `benchmarks/retrieval/retrieval-chinese-v1-baseline.json`
+  - `benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json`
+
+- [ ] **Step 1: Write RED five-target transaction tests**
+
+Require atomic replacement and checked-in validation of all five targets, byte-identical rollback
+when replacement of the fifth target fails, recovery coverage for the fifth target, and fail-closed
+rollback for any qrel, fixture, manifest, protocol candidate, observation, metric, gate, verdict,
+compiled-query, locator, or candidate-contract change. Identity-only source/scope changes must pass.
+
+- [ ] **Step 2: Extend the supported transaction without weakening validators**
+
+Add the E3-B observed input, record step, staged validation, checked-in validation, backup,
+replacement, and recovery coverage. Do not delete bound source paths, shrink the E2 scope fence,
+relax a validator, convert an integrity failure to a warning, create an E3-C artifact, or read dense
+candidate qrels.
+
+- [ ] **Step 3: Run the one identity refresh after PR 1 bytes are frozen**
+
+Use Task 0 normalized E1/E2/E3-A/E3-B snapshots as the semantic oracle. Historical evaluation may
+read its own frozen qrels only for this approved regression workflow. Before replacement, require
+exact equality for qrels, fixture bytes, manifests, candidate contracts, locators, compiled
+queries, ordered results, observations, metrics, gates, and verdicts. Only declared source/scope
+identity metadata derived from the final PR 1 bytes may change.
+
+- [ ] **Step 4: Validate and commit separately**
+
+Run all four observed evaluations, all canonical validators, targeted artifact-refresh tests, and
+the Task 0 normalized semantic comparison again. Any semantic delta, unknown invalidation path, or
+unexplained artifact diff is a stop condition.
+
+```bash
+git add src/mke/evaluation/artifact_refresh.py \
+  tests/evaluation/test_artifact_refresh.py \
+  tests/fixtures/retrieval-numeric-v1/protocol-lock.json \
+  benchmarks/retrieval/retrieval-eval-v1-baseline.json \
+  benchmarks/retrieval/numeric-grouping-v1-comparison.json \
+  benchmarks/retrieval/retrieval-chinese-v1-baseline.json \
+  benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json
+git commit -m "test(eval): refresh PR 1 artifact identities"
+```
+
 - [ ] **Step 3: Run the complete PR 1 verification**
 
 ```bash
@@ -1347,6 +1407,10 @@ git commit -m "test(eval): record E3-C dense comparison"
 ```
 
 ## Task 14: Refresh Only Permitted Historical Identities
+
+Task 14 remains PR 2-only. It handles identities invalidated by final E3-C comparison source
+changes after PR 1 is merged. It must not repeat, overwrite, or weaken the PR 1 Task 6A semantic
+proof, and it must independently explain every new PR 2 invalidation path.
 
 **Files:**
 
