@@ -1141,7 +1141,7 @@ git commit -m "feat(eval): add cache-only dense candidate runner"
 - Create: `src/mke/evaluation/dense_threshold.py`
 - Create: `tests/evaluation/test_dense_threshold.py`
 
-- [ ] **Step 1: Write RED threshold-selection tests**
+- [x] **Step 1: Write RED threshold-selection tests**
 
 Use synthetic observations to prove this exact order:
 
@@ -1165,18 +1165,18 @@ Also test:
 - bool, non-finite, out-of-range, missing, reordered, or coordinated trace/verdict tampering is
   rejected.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_threshold.py -q
 ```
 
-- [ ] **Step 3: Implement pure selection functions**
+- [x] **Step 3: Implement pure selection functions**
 
 Keep selection deterministic and independent of the model adapter. Use existing graded metric
 functions where their exact semantics match; add focused tests before extending them.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_threshold.py \
