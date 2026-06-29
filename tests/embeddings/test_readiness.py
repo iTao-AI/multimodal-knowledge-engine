@@ -10,6 +10,7 @@ import pytest
 from mke.embeddings.contracts import MODEL_ID, MODEL_REVISION
 from mke.embeddings.readiness import (
     EmbeddingModelError,
+    ReadinessCheck,
     doctor_embedding,
     prepare_embedding,
     require_embedding_model_identity,
@@ -36,6 +37,14 @@ def _install_fake_hub(
         sys.modules,
         "huggingface_hub",
         SimpleNamespace(snapshot_download=snapshot_download),
+    )
+
+
+def _install_fake_sentence_transformers(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(
+        sys.modules,
+        "sentence_transformers",
+        SimpleNamespace(SentenceTransformer=lambda *args, **kwargs: None),
     )
 
 
@@ -201,6 +210,7 @@ def test_doctor_is_cache_only_and_reports_redacted_manifest_identity(
         return str(snapshot)
 
     _install_fake_hub(monkeypatch, snapshot_download)
+    _install_fake_sentence_transformers(monkeypatch)
 
     readiness = doctor_embedding(
         cache_dir=cache,
@@ -224,6 +234,36 @@ def test_doctor_is_cache_only_and_reports_redacted_manifest_identity(
     assert str(cache) not in repr(readiness)
 
 
+def test_doctor_reports_missing_sentence_transformers_runtime_dependency(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cache = tmp_path / "cache"
+    snapshot = _complete_snapshot(cache)
+    calls: list[dict[str, object]] = []
+
+    def snapshot_download(**kwargs: object) -> str:
+        calls.append(dict(kwargs))
+        return str(snapshot)
+
+    _install_fake_hub(monkeypatch, snapshot_download)
+    monkeypatch.setitem(sys.modules, "sentence_transformers", SimpleNamespace())
+
+    readiness = doctor_embedding(
+        cache_dir=cache,
+        model=MODEL_ID,
+        revision=MODEL_REVISION,
+    )
+
+    assert readiness.status == "not_ready"
+    assert readiness.cause == "embedding optional dependency is not installed"
+    assert readiness.next_step == "install_embedding_extra"
+    assert readiness.checks == (
+        ReadinessCheck("dependencies", "failed", "optional dependency missing"),
+    )
+    assert calls == []
+
+
 def test_doctor_maps_missing_cache_without_sdk_text_or_absolute_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -233,6 +273,7 @@ def test_doctor_maps_missing_cache_without_sdk_text_or_absolute_path(
         raise FileNotFoundError(f"missing {cache}?token=secret Traceback")
 
     _install_fake_hub(monkeypatch, snapshot_download)
+    _install_fake_sentence_transformers(monkeypatch)
 
     readiness = doctor_embedding(
         cache_dir=cache,

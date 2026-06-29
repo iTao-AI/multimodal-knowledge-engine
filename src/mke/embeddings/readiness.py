@@ -229,6 +229,26 @@ def doctor_embedding(
         model_id, model_revision = require_embedding_model_identity(model, revision)
     except EmbeddingModelError as error:
         return _not_ready(error, checks=())
+    try:
+        sentence_transformers = import_module("sentence_transformers")
+        sentence_transformer = sentence_transformers.SentenceTransformer
+        if not callable(sentence_transformer):
+            raise AttributeError("SentenceTransformer is not callable")
+    except (ImportError, AttributeError):
+        error = EmbeddingModelError(
+            "embedding optional dependency is not installed",
+            "install_embedding_extra",
+        )
+        return _not_ready(
+            error,
+            checks=(
+                ReadinessCheck(
+                    "dependencies",
+                    "failed",
+                    "optional dependency missing",
+                ),
+            ),
+        )
     checks = [ReadinessCheck("dependencies", "passed", "optional dependency available")]
     try:
         snapshot = _resolve_snapshot(cache_dir, local_files_only=True)
