@@ -41,6 +41,28 @@ def test_threshold_grid_is_exact_101_decimal_values() -> None:
     assert grid[99] == 0.99
 
 
+def test_threshold_inputs_accept_negative_cosine_observations() -> None:
+    report = select_dense_threshold(
+        (
+            replace(
+                _target("semantic-a", 0.20),
+                ranked_scores_and_grades=((0.20, 2), (-0.10, 0)),
+                ideal_grades=(2,),
+            ),
+            replace(
+                _target("multi-b", 0.10),
+                category="multi_condition",
+                ranked_scores_and_grades=((0.10, 2), (-0.20, 0)),
+                ideal_grades=(2,),
+            ),
+            _unanswerable("unanswerable-a", top_score=-0.10),
+            _hard_negative("hard-negative-a", failure_score=-0.20),
+        )
+    )
+
+    assert report["selected_threshold"] == 0.1
+
+
 def test_threshold_selection_applies_safety_then_recovery_then_tie_breaks() -> None:
     report = select_dense_threshold(
         (

@@ -317,7 +317,12 @@ def _validate_inputs(inputs: tuple[DenseThresholdInput, ...]) -> None:
         if type(item.current_runtime_missed) is not bool:
             raise DenseThresholdValidationError("runtime miss flag is invalid")
         _validate_score(item.recovery_score, "recovery score", optional=True)
-        _validate_score(item.dense_ndcg_at_10, "dense nDCG@10", optional=False)
+        _validate_score(
+            item.dense_ndcg_at_10,
+            "dense nDCG@10",
+            optional=False,
+            minimum=0.0,
+        )
         _validate_score(
             item.unanswerable_top_score, "unanswerable top score", optional=True
         )
@@ -343,10 +348,20 @@ def _validate_inputs(inputs: tuple[DenseThresholdInput, ...]) -> None:
             raise DenseThresholdValidationError("unanswerable input is invalid")
 
 
-def _validate_score(value: object, label: str, *, optional: bool) -> None:
+def _validate_score(
+    value: object,
+    label: str,
+    *,
+    optional: bool,
+    minimum: float = -1.0,
+) -> None:
     if value is None and optional:
         return
-    if type(value) is not float or not math.isfinite(value) or not 0.0 <= value <= 1.0:
+    if (
+        type(value) is not float
+        or not math.isfinite(value)
+        or not minimum <= value <= 1.0
+    ):
         raise DenseThresholdValidationError(f"{label} is invalid")
 
 
@@ -377,7 +392,9 @@ def _required_float(value: object) -> float:
 def _optional_float(value: object) -> float | None:
     if value is None:
         return None
-    return _required_float(value)
+    if type(value) is not float or not math.isfinite(value) or not -1.0 <= value <= 1.0:
+        raise DenseThresholdValidationError("threshold report inputs are invalid")
+    return value
 
 
 def _ranked_scores(value: object) -> tuple[tuple[float, int], ...]:
