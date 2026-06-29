@@ -48,7 +48,7 @@
     "integrity_claim": "adjudication_record_integrity"
   },
   "source_identity": {
-    "sha256": "c484c04ca7fe6286c165cb929b78b5f94d382e9a1698107e45aad7ea4d84dd25",
+    "sha256": "110780166312f08f617e4175ad876423afb08573e30f2854067e36a9e3ad843e",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -172,8 +172,8 @@
       },
       {
         "path": "src/mke/evaluation/__init__.py",
-        "bytes": 2063,
-        "sha256": "e88c839054e08b9cb1addc5907c1da5532fdf73b51a56c6e795870ebeb6315aa"
+        "bytes": 2358,
+        "sha256": "1e28237775152b34f95b81914d6c61a41af52ecfb776791e2576ea778791bead"
       },
       {
         "path": "src/mke/evaluation/artifact_refresh.py",
@@ -257,8 +257,8 @@
       },
       {
         "path": "src/mke/evaluation/dense_replay.py",
-        "bytes": 4391,
-        "sha256": "a1e6ba5e77eaccda2343c2c000d9c056f7a3d350c2f674d891979fa343197780"
+        "bytes": 7376,
+        "sha256": "4d8809efe02186d394acb4cf5293700efbde51f1de1322dd5471b78401380adf"
       },
       {
         "path": "src/mke/evaluation/dense_threshold.py",

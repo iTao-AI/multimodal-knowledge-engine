@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from mke.evaluation.chinese_report import (
     render_chinese_retrieval_human,
     render_chinese_retrieval_json,
@@ -14,7 +16,6 @@ from mke.evaluation.dense_candidate import (
     run_dense_candidate_partition,
     run_dense_development_candidate,
 )
-from mke.evaluation.dense_replay import validate_dense_cache_replay
 from mke.evaluation.dense_workflow import run_dense_evaluation_phase
 from mke.evaluation.manifest import (
     FixtureValidationError,
@@ -33,6 +34,18 @@ from mke.evaluation.report import (
     render_retrieval_json_report,
 )
 from mke.evaluation.runner import run_retrieval_evaluation
+
+if TYPE_CHECKING:
+    from mke.evaluation.dense_replay import validate_dense_cache_replay
+
+
+def __getattr__(name: str) -> object:
+    if name == "validate_dense_cache_replay":
+        from mke.evaluation.dense_replay import validate_dense_cache_replay
+
+        return validate_dense_cache_replay
+    raise AttributeError(name)
+
 
 __all__ = [
     "FixtureValidationError",

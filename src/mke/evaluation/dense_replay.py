@@ -2,9 +2,20 @@
 
 from __future__ import annotations
 
+import argparse
+import json
 import math
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, cast
+
+from mke.adapters.embedding import create_sentence_transformers_embedding
+from mke.evaluation.dense_artifact import validate_dense_comparison_artifact
+from mke.evaluation.dense_candidate import (
+    DensePartition,
+    run_dense_candidate_partition,
+)
+from mke.evaluation.dense_protocol import load_dense_protocol_lock
 
 
 class DenseReplayValidationError(ValueError):
@@ -34,6 +45,81 @@ def validate_dense_cache_replay(
         raise
     except Exception as error:
         raise DenseReplayValidationError from error
+
+
+def validate_dense_cache_replay_artifact(
+    *,
+    artifact_path: Path,
+    protocol_path: Path,
+    repository_root: Path,
+    model_cache: Path,
+) -> None:
+    """Validate and replay a checked-in dense comparison artifact cache-only."""
+    root = repository_root.resolve()
+    cache = model_cache.resolve()
+    if cache == root or cache.is_relative_to(root):
+        raise DenseReplayValidationError
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise DenseReplayValidationError
+    artifact = cast(dict[str, Any], payload)
+    validate_dense_comparison_artifact(
+        artifact,
+        protocol_path=protocol_path,
+        repository_root=root,
+    )
+    protocol = load_dense_protocol_lock(protocol_path, repository_root=root)
+    provider = create_sentence_transformers_embedding(cache_dir=cache)
+
+    def run_partition(partition: str) -> dict[str, Any]:
+        if partition not in {"development", "holdout"}:
+            raise DenseReplayValidationError
+        return cast(
+            dict[str, Any],
+            run_dense_candidate_partition(
+                protocol,
+                repository_root=root,
+                partition=cast(DensePartition, partition),
+                provider=provider,
+                threshold=0.0,
+            ),
+        )
+
+    validate_dense_cache_replay(artifact, partition_runner=run_partition)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="python -m mke.evaluation.dense_replay")
+    parser.add_argument("command", choices=("validate",))
+    parser.add_argument("--artifact", type=Path, required=True)
+    parser.add_argument("--protocol", type=Path, required=True)
+    parser.add_argument("--repository", type=Path, required=True)
+    parser.add_argument("--model-cache", type=Path, required=True)
+    args = parser.parse_args(argv)
+    try:
+        validate_dense_cache_replay_artifact(
+            artifact_path=args.artifact,
+            protocol_path=args.protocol,
+            repository_root=args.repository,
+            model_cache=args.model_cache,
+        )
+    except Exception:
+        print(
+            json.dumps(
+                {"mode": "cache-ready", "status": "failed"},
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+        )
+        return 1
+    print(
+        json.dumps(
+            {"mode": "cache-ready", "status": "passed"},
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+    )
+    return 0
 
 
 def _canonical_replay(report: dict[str, Any]) -> dict[str, Any]:
@@ -117,3 +203,7 @@ def _object(value: object) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise DenseReplayValidationError
     return cast(dict[str, Any], value)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

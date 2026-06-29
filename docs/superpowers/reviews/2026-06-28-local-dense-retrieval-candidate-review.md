@@ -30,9 +30,22 @@ recovered `zh-hold-hard-01`, `zh-hold-multi-02`, `zh-hold-multi-03`,
 - The holdout receipt was created once with SHA-256
   `69d723fe9ca182404ea25c5f4742edaede9e7ddd4d9b21aa1156f823b205928d`.
 - The comparison artifact SHA-256 is
-  `3f5995ba2cd3ff590868a9610f5511e41bcfe56f35c21c0d8aaf4db83c413003`.
+  `de967337fcdb0638e07dc935fdb8bc75fb62eac9fc5f8e9e84133c3bd700c903`.
 - E1/E2/E3-A/E3-B normalized semantic equality to Task 0 snapshots remained true after
   source/scope identity refresh.
+
+## Targeted Review Resolution
+
+Authoritative PR 2 review found one blocking issue: the documented
+`python -m mke.evaluation.dense_replay validate` command had no real module entrypoint, so module
+execution could return `0` without reading the artifact. The fix adds a RED regression for a
+missing artifact, implements the cache-ready replay CLI, keeps model loading cache-only through the
+external `--model-cache`, rejects repository-internal model caches, and preserves the existing
+model-free artifact validator and measurement harness.
+
+The remediation is validator plumbing only. It does not regenerate qrels, rerun holdout, change the
+selected threshold, alter the comparison artifact result, or promote dense retrieval into runtime
+Search/Ask/MCP behavior.
 
 ## Scope Limits
 

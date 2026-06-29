@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import subprocess
+import sys
 from copy import deepcopy
+from pathlib import Path
 
 import pytest
 
@@ -53,3 +56,29 @@ def test_cache_replay_rejects_coordinated_observation_and_verdict_replacement() 
             artifact,
             partition_runner=synthetic_candidate_report,
         )
+
+
+def test_dense_replay_module_cli_rejects_missing_artifact(tmp_path: Path) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "mke.evaluation.dense_replay",
+            "validate",
+            "--artifact",
+            str(tmp_path / "missing.json"),
+            "--protocol",
+            str(tmp_path / "protocol-lock.json"),
+            "--repository",
+            str(tmp_path),
+            "--model-cache",
+            str(tmp_path.parent / "model-cache"),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert '"status":"failed"' in result.stdout
+    assert "found in sys.modules" not in result.stderr

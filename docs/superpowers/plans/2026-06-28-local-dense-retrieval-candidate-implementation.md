@@ -1286,6 +1286,9 @@ Replay must:
 - compare locator/order exactly and portable cosine scores with absolute tolerance `1e-5`;
 - reject a true `>1e-5` score mutation, order mutation, vector/source digest mutation, model-file
   mutation, and coordinated report+artifact mutation;
+- expose a real `python -m mke.evaluation.dense_replay validate` CLI that reads the artifact,
+  protocol, repository, and external model cache; a missing or tampered artifact must exit non-zero
+  instead of succeeding as a no-op module execution;
 - never download or silently use another adapter.
 
 - [x] **Step 3: Confirm RED**
@@ -1650,6 +1653,13 @@ diff, artifact, and command evidence. Confirmed findings return to the execution
 `superpowers:receiving-code-review`. After targeted re-review is clean and the user authorizes,
 push and create a Ready PR. Merge/cleanup and a docs-only post-merge closeout are separate
 authorized actions.
+
+2026-06-29 targeted review resolution: the first authoritative PR 2 review found that
+`python -m mke.evaluation.dense_replay validate` had no module entrypoint and could exit `0` without
+reading the artifact. The remediation adds a RED regression for a missing artifact, implements the
+real cache-ready replay CLI, rejects repository-internal model caches, and records the public
+success/failure JSON contract in the dense evaluation guide. This does not change the recorded
+candidate result, threshold, holdout receipt, runtime defaults, or Search/Ask/MCP behavior.
 
 ## Final Acceptance Checklist
 

@@ -39,7 +39,7 @@ Artifact identities:
 
 - Comparison artifact:
   `benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json`
-- Artifact SHA-256: `3f5995ba2cd3ff590868a9610f5511e41bcfe56f35c21c0d8aaf4db83c413003`
+- Artifact SHA-256: `de967337fcdb0638e07dc935fdb8bc75fb62eac9fc5f8e9e84133c3bd700c903`
 - Development freeze SHA-256: `e2c791bf2a9d7ad6ea3047f89fad2c3157038da88f960b3befa1df131d26002d`
 - Holdout receipt SHA-256: `69d723fe9ca182404ea25c5f4742edaede9e7ddd4d9b21aa1156f823b205928d`
 - Current runtime semantic digest: `sha256:b32dc4a1479cb3ea8e0ebedf2c27b04a10a6d91eee96e0cd0308bcf921e97959`
@@ -152,6 +152,11 @@ uv run python -m mke.evaluation.dense_replay validate \
   --model-cache "$HOME/Library/Caches/mke/embedding" \
   --repository .
 ```
+
+The replay CLI must print `{"mode":"cache-ready","status":"passed"}` and exit `0`. Missing,
+tampered, or non-replayable artifacts print `{"mode":"cache-ready","status":"failed"}` and exit
+non-zero. The command loads the model only from the supplied cache and rejects a model cache inside
+the repository.
 
 Measurement harness equivalents:
 
