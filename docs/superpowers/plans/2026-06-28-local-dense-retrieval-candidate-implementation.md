@@ -20,9 +20,10 @@ Hatch/uv, GitHub Actions.
 
 ---
 
-Status: PR 1 Tasks 0-6A and the verification handoff are complete. The authoritative targeted
-re-review of `766f64b1a6b90c1443d44c423fb0fecf53b7a590` is CLEAN with `0 findings`. PR 2 has
-not started.
+Status: PR 1 Tasks 0-6A, authoritative review, CI isolation fix, PR publication, squash merge, and
+post-merge cleanup are complete. [PR #41](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/41)
+was squash-merged to `main@75d69364872cd28ef47b9e179989d93e6a259e6f`; post-merge CI, CodeQL, and
+Dependency Graph passed. PR 2 has not started.
 
 The targeted re-review covered the four fixes since
 `00a4c0f2c95851635b17c5f55096a7f8fc4eb9a8`, durable documentation, and the permitted
@@ -30,6 +31,12 @@ historical artifact identity refresh. Independent verification recorded `72` tar
 targeted Ruff, targeted Pyright with `0 errors`, model-free dense compatibility artifact
 validation, four artifact-refresh tests, `git diff --check`, and a clean worktree. No runtime,
 Search, Ask, MCP, default-strategy, or PR 2 scope drift was found.
+
+The PR #41 CI follow-up at `c0590d1a0f6e72a991300cbc6637e5094a4ba148` fixed only test isolation:
+core jobs skip the four true sqlite-vec integration tests when the optional dependency is absent,
+synthetic dense tests freeze host-dependent inputs, and artifact refresh tests keep the production
+environment-drift guard fail-closed. No resource ceiling, artifact, metric, gate, identity,
+runtime, Search, Ask, MCP, or PR 2 behavior changed.
 
 Planning base: `main@5ed0a722b83f9b4c70aec7c9333d8bf7d17b9335`.
 
@@ -969,7 +976,7 @@ verification, and unchanged behavior. Do not push or create a PR until authorize
 The planning window then runs one authoritative `gstack-review`. The execution window uses
 `superpowers:receiving-code-review` for confirmed findings, reruns targeted/full verification, and
 returns for targeted re-review. After a clean verdict and user authorization, push and create a
-Ready PR. PR 2 waits for PR 1 merge and cleanup.
+Ready PR. PR #41 has completed this sequence; PR 2 starts only from latest `main`.
 
 ---
 
@@ -1632,7 +1639,7 @@ authorized actions.
 
 ## Final Acceptance Checklist
 
-- [ ] PR 1 merged before PR 2 starts.
+- [x] PR 1 merged before PR 2 starts.
 - [ ] Exact Qwen model/revision and installed dependency graph are frozen.
 - [ ] Only prepare can network; every operational/evaluation path is cache-only.
 - [ ] Python 3.12/3.13 installed-wheel compatibility and replay pass.
@@ -1689,7 +1696,7 @@ authorized actions.
 | DX Review | `/plan-devex-review` | Developer experience gaps | 1 | CLEAR | Install, CLI, error, documentation, and cleanup contract reviewed |
 
 - **VERDICT:** CEO, engineering, and DX reviews are clear. The 2026-06-29 amendment supersedes only
-  the prepare transport and PR 1 resource-measurement contracts. Implementation may resume after
-  this amendment lands on `main`; qrel scoring and PR 2 remain blocked on PR 1 merge.
+  the prepare transport and PR 1 resource-measurement contracts. PR 1 has merged to `main`; PR 2
+  may start from latest `main` after separate authorization and must not stack on PR #41 history.
 
 NO UNRESOLVED DECISIONS

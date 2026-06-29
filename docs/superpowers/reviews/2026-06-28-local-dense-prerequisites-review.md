@@ -1,8 +1,10 @@
 # Local Dense Prerequisites Implementation Review
 
-Status: PR 1 implementation evidence recorded through Task 6A. Historical E1/E2/E3-A/E3-B
-artifact identities were refreshed only after PR 1 source, lock, workflow, tests, and documentation
-bytes were frozen.
+Status: completed and merged. PR 1 implementation evidence was recorded through Task 6A, targeted
+re-review was CLEAN with `0 findings`, and
+[PR #41](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/41) was squash-merged to
+`main@75d69364872cd28ef47b9e179989d93e6a259e6f`. Historical E1/E2/E3-A/E3-B artifact identities
+were refreshed only after PR 1 source, lock, workflow, tests, and documentation bytes were frozen.
 
 Review date: 2026-06-29
 
@@ -190,3 +192,17 @@ skips. The embedding-extra affected suite passed `100` tests with sqlite-vec ins
 refresh passed `5` tests, including environment drift, and targeted Ruff/Pyright passed. No
 resource ceiling, artifact, metric, gate, identity, runtime, Search, Ask, MCP, or PR 2 behavior was
 changed.
+
+## Post-Merge Closeout
+
+PR #41 was squash-merged on 2026-06-29 with merge SHA
+`75d69364872cd28ef47b9e179989d93e6a259e6f`. Post-merge checks passed:
+
+- CI run `28359699024`: embedding extra Python 3.12/3.13 and core Python 3.12/3.13 all passed;
+- CodeQL run `28359698433`: Analyze Python and Analyze actions passed;
+- Dependency Graph run `28359701211`: passed.
+
+The feature branch and isolated worktree were cleaned up after merge. No open PR remains. PR 2
+dense comparison, qrel scoring, E3-D eligibility, runtime promotion, API adapters, RRF, reranking,
+query rewrite, HTTP, and UI remain unstarted and require a fresh latest-main branch plus separate
+authorization.

@@ -1,9 +1,11 @@
 # Local Dense Retrieval Candidate Design
 
 Status: approved E3-C design, including the 2026-06-28 autoplan amendments. PR 1 dense
-prerequisites and compatibility evidence are implemented; PR 2 comparison work has not started.
-This document defines an off-default, comparison-only local dense retrieval candidate and does not
-approve runtime promotion.
+prerequisites and compatibility evidence were squash-merged through
+[PR #41](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/41) at
+`main@75d69364872cd28ef47b9e179989d93e6a259e6f`; PR 2 comparison work has not
+started. This document defines an off-default, comparison-only local dense retrieval candidate and
+does not approve runtime promotion.
 
 ## Context
 
