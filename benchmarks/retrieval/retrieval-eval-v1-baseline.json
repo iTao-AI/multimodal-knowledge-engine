@@ -32,7 +32,7 @@
     "main_merge_base": "721784eabcb9fbb737166578010c9e1a46a25fef",
     "implementation_start": "3992b0e9371d1a8c9e019d3bbe2b32aac9665914",
     "evaluation_commit": "79bafb07ac592b684e6ceab15dc389dc33702978",
-    "evaluation_content_sha256": "e31239256553696dd29e13cc6e9dfeea49f184968cf4f18bc838f16ee6447069",
+    "evaluation_content_sha256": "c484c04ca7fe6286c165cb929b78b5f94d382e9a1698107e45aad7ea4d84dd25",
     "evaluation_content_files": [
       {
         "path": "src/mke/__init__.py",
@@ -211,8 +211,8 @@
       },
       {
         "path": "src/mke/evaluation/dense_artifact.py",
-        "bytes": 29038,
-        "sha256": "8efbb056b16e076c5a61dedbcd984de1df0d430695ff987950cbc489ab883871"
+        "bytes": 28723,
+        "sha256": "f7f7be42427c782b3f2636d6af8814b02c7feafff82134ba06451b533750a7c6"
       },
       {
         "path": "src/mke/evaluation/dense_candidate.py",
