@@ -1257,7 +1257,7 @@ git commit -m "feat(eval): compare dense retrieval complementarity"
 - Modify: `src/mke/evaluation/artifact_refresh.py`
 - Modify: `tests/evaluation/test_artifact_refresh.py`
 
-- [ ] **Step 1: Write RED model-free artifact tests**
+- [x] **Step 1: Write RED model-free artifact tests**
 
 The validator must independently recompute from recorded observations:
 
@@ -1276,7 +1276,7 @@ must pass in a shallow squash-landed clone without feature commit ancestry. A co
 replacement of retrieval observations plus all derived fields is outside the model-free oracle and
 must be rejected by cache-ready replay instead.
 
-- [ ] **Step 2: Write RED cache-ready replay tests**
+- [x] **Step 2: Write RED cache-ready replay tests**
 
 Replay must:
 
@@ -1288,7 +1288,7 @@ Replay must:
   mutation, and coordinated report+artifact mutation;
 - never download or silently use another adapter.
 
-- [ ] **Step 3: Confirm RED**
+- [x] **Step 3: Confirm RED**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_artifact.py \
@@ -1296,13 +1296,13 @@ uv run pytest tests/evaluation/test_dense_artifact.py \
   tests/evaluation/test_artifact_refresh.py -q
 ```
 
-- [ ] **Step 4: Implement strict record/validate/replay paths**
+- [x] **Step 4: Implement strict record/validate/replay paths**
 
 Keep model-free CI validation separate from cache-ready local replay. `artifact_refresh.py` may
 refresh only allowlisted source/scope identities and must require before/after semantic equality.
 It must not regenerate relevance observations opportunistically.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_artifact.py \

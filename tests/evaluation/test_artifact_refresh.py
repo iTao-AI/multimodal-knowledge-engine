@@ -8,6 +8,9 @@ import pytest
 
 import mke.evaluation.numeric_artifact as numeric_artifact
 from mke.evaluation.artifact_refresh import (
+    TARGETS as REFRESH_TARGETS,
+)
+from mke.evaluation.artifact_refresh import (
     ArtifactRefreshError,
     recover_artifact_refresh,
     refresh_artifact_set,
@@ -33,6 +36,14 @@ TARGETS = (
     "benchmarks/retrieval/retrieval-chinese-v1-baseline.json",
     "benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json",
 )
+
+
+def test_historical_identity_refresh_does_not_regenerate_dense_comparison() -> None:
+    assert tuple(REFRESH_TARGETS) == TARGETS
+    assert (
+        "benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json"
+        not in REFRESH_TARGETS
+    )
 
 
 @pytest.fixture(autouse=True)

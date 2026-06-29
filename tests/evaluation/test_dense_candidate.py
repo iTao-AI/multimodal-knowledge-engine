@@ -34,6 +34,7 @@ def test_dense_candidate_development_uses_only_development_snapshot() -> None:
 
     assert report["partition"] == "development"
     assert report["candidate_id"] == "qwen3-embedding-0.6b-exact-v1"
+    assert report["candidate_revision"] == 1
     snapshot = cast(dict[str, object], report["snapshot"])
     projection = cast(dict[str, object], report["projection"])
     observations = cast(list[dict[str, object]], report["observations"])
