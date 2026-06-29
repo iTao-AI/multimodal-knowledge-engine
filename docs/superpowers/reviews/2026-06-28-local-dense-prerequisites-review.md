@@ -140,9 +140,27 @@ It does not:
 - change runtime default, Search, Ask, MCP, owner startup, or SQLite domain truth;
 - implement a future API adapter, RRF, reranker, query rewrite, HTTP, or UI.
 
-## Remaining PR 1 Work
+## Authoritative Pre-PR Review Resolution
 
-Complete the final PR 1 verification sweep after the Task 6A commit: full pytest, Ruff, Pyright,
-build, proof, demo, document-release pre-PR audit, public-boundary scan, and final diff check.
+The authoritative pre-PR review of local HEAD `00a4c0f2c95851635b17c5f55096a7f8fc4eb9a8`
+returned four confirmed findings. The local resolution keeps PR 1 comparison-only boundaries:
+
+1. Canonical compatibility now fails before model load when the independent fresh-process
+   single-query smoke report is missing. The inline current-process fallback and synthetic zero
+   query digest were removed.
+2. The dense installed-wheel proof no longer accepts `--installed-environment`. Every proof
+   creates a fresh external venv from the supplied wheel, and the current source validator fully
+   validates the returned compatibility report instead of trusting a status field.
+3. Embedding doctor verifies the actual `sentence_transformers.SentenceTransformer` callable
+   without loading a model. A missing runtime dependency returns stable
+   `not_ready/install_embedding_extra` evidence before snapshot resolution.
+4. The design, plan, and implementation review now record the completed PR 1 handoff instead of
+   pre-implementation or pending-final-verification state.
+
+Each behavior fix was developed from a failing regression test. The combined targeted suite for
+the dense compatibility runner, installed-wheel proof script, embedding readiness, CLI readiness,
+and durable documentation passed `72` tests. Targeted Ruff passed and targeted Pyright reported
+`0 errors`. The final handoff separately records the full-suite and identity-refresh gates.
+Targeted re-review remains pending; this document does not claim a clean verdict.
 
 Task 14 remains PR 2-only and must not repeat or overwrite the PR 1 Task 6A semantic proof.

@@ -20,9 +20,9 @@ Hatch/uv, GitHub Actions.
 
 ---
 
-Status: PR 1 implementation resumed after the 2026-06-29 transport and resource-measurement
-amendments landed on `main`; Tasks 0-5 are complete and Task 0.5 is being revised under the
-amended compatibility/resource contract.
+Status: PR 1 Tasks 0-6A and the initial verification handoff are complete. The authoritative
+pre-PR review findings have been resolved locally and await targeted re-review. PR 2 has not
+started.
 
 Planning base: `main@5ed0a722b83f9b4c70aec7c9333d8bf7d17b9335`.
 
@@ -898,7 +898,7 @@ git add src/mke/evaluation/artifact_refresh.py \
 git commit -m "test(eval): refresh PR 1 artifact identities"
 ```
 
-- [ ] **Step 3: Run the complete PR 1 verification**
+- [x] **Step 3: Run the complete PR 1 verification**
 
 ```bash
 uv run pytest -q
@@ -941,19 +941,19 @@ Python 3.12/3.13 installed-wheel proof. Compare the normalized
 E1/E2/E3-A/E3-B reports to Task 0. Only permitted identity metadata may differ; observations,
 metrics, gates, and verdicts must be equal.
 
-- [ ] **Step 4: Run `gstack-document-release` and light self-review**
+- [x] **Step 4: Run `gstack-document-release` and light self-review**
 
 Audit reference/how-to/explanation/README coverage and diagram drift. Do not run the planning
 window’s final authoritative `gstack-review` here unless explicitly instructed.
 
-- [ ] **Step 5: Commit documentation and CI**
+- [x] **Step 5: Commit documentation and CI**
 
 ```bash
 git add README.md docs .github/workflows/ci.yml
 git commit -m "docs(embedding): document local dense prerequisites"
 ```
 
-- [ ] **Step 6: Handoff PR 1 for authoritative review**
+- [x] **Step 6: Handoff PR 1 for authoritative review**
 
 Leave a clean local branch. Report exact base/HEAD/diff, dependency graph, model manifest identity,
 compatibility artifact identity, resource measurements, Python 3.12/3.13 proof, complete

@@ -9,6 +9,14 @@ REVIEW = (
     ROOT
     / "docs/superpowers/reviews/2026-06-28-local-dense-prerequisites-review.md"
 )
+SPEC = (
+    ROOT
+    / "docs/superpowers/specs/2026-06-28-local-dense-retrieval-candidate-design.md"
+)
+PLAN = (
+    ROOT
+    / "docs/superpowers/plans/2026-06-28-local-dense-retrieval-candidate-implementation.md"
+)
 
 
 def _read(relative: str) -> str:
@@ -97,3 +105,22 @@ def test_dense_ci_and_review_record_model_free_boundary() -> None:
     assert "Python 3.12" in review
     assert "Python 3.13" in review
     assert "sqlite-vec" in review
+
+
+def test_dense_durable_artifacts_record_completed_pr1_and_targeted_review_resolution() -> None:
+    spec = SPEC.read_text(encoding="utf-8")
+    plan = PLAN.read_text(encoding="utf-8")
+    review = REVIEW.read_text(encoding="utf-8")
+
+    assert "implementation has not started" not in " ".join(spec.split())
+    assert "Task 0.5 is being revised" not in " ".join(plan.split())
+    for number, step in (
+        (3, "Run the complete PR 1 verification"),
+        (4, "Run `gstack-document-release` and light self-review"),
+        (5, "Commit documentation and CI"),
+        (6, "Handoff PR 1 for authoritative review"),
+    ):
+        assert f"- [x] **Step {number}: {step}**" in plan
+    assert "final verification pending" not in review
+    assert "Authoritative Pre-PR Review Resolution" in review
+    assert "Targeted re-review remains pending" in review
