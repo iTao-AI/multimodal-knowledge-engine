@@ -994,7 +994,7 @@ cache-ready proof still validate before reading qrels.
 - Create after validation:
   `benchmarks/retrieval/qwen3-embedding-0.6b-development-miss-audit.json`
 
-- [ ] **Step 1: Write RED audit tests**
+- [x] **Step 1: Write RED audit tests**
 
 For every current-runtime development grade-2 miss in `semantic_paraphrase`, `multi_condition`,
 and `ranking_hard_negative`, record the compiled query, active-scan terms, lexical overlap with
@@ -1006,7 +1006,7 @@ category is not causal evidence.
 Reject holdout input, missing target misses, changed qrels/locators, subjective causal labels,
 private paths, and any report that silently reclassifies a query.
 
-- [ ] **Step 2: Implement and validate the development-only audit**
+- [x] **Step 2: Implement and validate the development-only audit**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_miss_audit.py -q
@@ -1016,7 +1016,7 @@ The audit does not alter the approved candidate or gates. If it proves the targe
 plausibly addressable by page-level semantic similarity, stop for a plan amendment before dense
 scoring.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/mke/evaluation/dense_miss_audit.py \

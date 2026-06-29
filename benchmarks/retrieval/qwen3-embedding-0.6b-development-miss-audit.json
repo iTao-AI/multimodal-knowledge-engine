@@ -1,0 +1,249 @@
+{
+  "limitations": [
+    "development_only_residual_miss_audit",
+    "hypotheses_are_not_causal_labels",
+    "holdout_not_read"
+  ],
+  "misses": [
+    {
+      "active_scan_terms": [
+        "节点断",
+        "点断开",
+        "断开后",
+        "开后如",
+        "后如何",
+        "如何防",
+        "何防止",
+        "防止发",
+        "止发布",
+        "发布半",
+        "布半成",
+        "半成品",
+        "成品索",
+        "品索引"
+      ],
+      "ascii_token_count": 0,
+      "category": "semantic_paraphrase",
+      "compiled_query": "",
+      "compiled_query_empty": true,
+      "constraints": {
+        "has_entity_like_ascii": false,
+        "has_multi_condition": false,
+        "has_numeric_or_date": false
+      },
+      "grade_2_pages": [
+        {
+          "answer_span_locality": "not_mechanically_observable",
+          "lexical_overlap": {
+            "matched_active_scan_terms": [],
+            "matched_count": 0,
+            "overlap_ratio": 0.0
+          },
+          "locator": {
+            "document_id": "development-adversarial",
+            "locator_end": 5,
+            "locator_kind": "page",
+            "locator_start": 5
+          },
+          "page_text_chars": 34,
+          "page_text_sha256": "d6834ad19c705e972d5df25cee46283fb3b3741558a9d691d28c4b8ce258da8c"
+        }
+      ],
+      "hypotheses": [
+        "dense_similarity_may_recover_related_page"
+      ],
+      "query_id": "zh-dev-semantic-04",
+      "query_text_sha256": "1bb4ef7af31558cdcecbcc6062947f656cda533686bea2184f1100326cd332b4",
+      "retrieved_locators": [],
+      "split": "development"
+    },
+    {
+      "active_scan_terms": [
+        "哪个通",
+        "个通信",
+        "通信框",
+        "信框架",
+        "框架同",
+        "架同时",
+        "同时屏",
+        "时屏蔽"
+      ],
+      "ascii_token_count": 5,
+      "category": "multi_condition",
+      "compiled_query": "\"rdma\" \"tcp\" \"urma\" \"shm\" \"api\"",
+      "compiled_query_empty": false,
+      "constraints": {
+        "has_entity_like_ascii": true,
+        "has_multi_condition": true,
+        "has_numeric_or_date": false
+      },
+      "grade_2_pages": [
+        {
+          "answer_span_locality": "not_mechanically_observable",
+          "lexical_overlap": {
+            "matched_active_scan_terms": [
+              "通信框",
+              "信框架"
+            ],
+            "matched_count": 2,
+            "overlap_ratio": 0.25
+          },
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 17,
+            "locator_kind": "page",
+            "locator_start": 17
+          },
+          "page_text_chars": 635,
+          "page_text_sha256": "4db312cc9149e33bbe248fa46718e5c76e6eb70bf464b51a7f6e16f76d759bd1"
+        }
+      ],
+      "hypotheses": [
+        "dense_similarity_may_recover_related_page",
+        "constraint_preserving_decomposition_may_be_needed"
+      ],
+      "query_id": "zh-dev-multi-01",
+      "query_text_sha256": "6c6ebeeebc8bceb476e7b022d04905c60d94dcc6bde4f4036da7770ef9d387ab",
+      "retrieved_locators": [
+        {
+          "document_id": "ub-service-core",
+          "locator_end": 26,
+          "locator_kind": "page",
+          "locator_start": 26
+        }
+      ],
+      "split": "development"
+    },
+    {
+      "active_scan_terms": [
+        "哪个服",
+        "个服务",
+        "服务同",
+        "务同时",
+        "同时支",
+        "时支持",
+        "支持共",
+        "持共享",
+        "共享内",
+        "享内存",
+        "内存和",
+        "存和池",
+        "和池化",
+        "池化内",
+        "化内存"
+      ],
+      "ascii_token_count": 0,
+      "category": "multi_condition",
+      "compiled_query": "",
+      "compiled_query_empty": true,
+      "constraints": {
+        "has_entity_like_ascii": false,
+        "has_multi_condition": true,
+        "has_numeric_or_date": false
+      },
+      "grade_2_pages": [
+        {
+          "answer_span_locality": "not_mechanically_observable",
+          "lexical_overlap": {
+            "matched_active_scan_terms": [
+              "共享内",
+              "享内存",
+              "池化内",
+              "化内存"
+            ],
+            "matched_count": 4,
+            "overlap_ratio": 0.266667
+          },
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 9,
+            "locator_kind": "page",
+            "locator_start": 9
+          },
+          "page_text_chars": 694,
+          "page_text_sha256": "a22b18dfde255491449717b2bdb7d21e4710eeb35a65da09c1965f8c090697b6"
+        }
+      ],
+      "hypotheses": [
+        "dense_similarity_may_recover_related_page",
+        "constraint_preserving_decomposition_may_be_needed"
+      ],
+      "query_id": "zh-dev-multi-02",
+      "query_text_sha256": "97da1bae4d3e057ca52c49fe37693da818bd5410f3467e466f93d036e8a85998",
+      "retrieved_locators": [],
+      "split": "development"
+    },
+    {
+      "active_scan_terms": [
+        "弱一致",
+        "一致缓",
+        "致缓存",
+        "缓存和",
+        "存和强",
+        "和强一",
+        "强一致",
+        "一致存",
+        "致存储",
+        "存储分",
+        "储分别",
+        "分别由",
+        "别由哪",
+        "由哪些",
+        "哪些组",
+        "些组件",
+        "组件提",
+        "件提供"
+      ],
+      "ascii_token_count": 0,
+      "category": "ranking_hard_negative",
+      "compiled_query": "",
+      "compiled_query_empty": true,
+      "constraints": {
+        "has_entity_like_ascii": false,
+        "has_multi_condition": true,
+        "has_numeric_or_date": false
+      },
+      "grade_2_pages": [
+        {
+          "answer_span_locality": "not_mechanically_observable",
+          "lexical_overlap": {
+            "matched_active_scan_terms": [
+              "弱一致",
+              "强一致"
+            ],
+            "matched_count": 2,
+            "overlap_ratio": 0.111111
+          },
+          "locator": {
+            "document_id": "ub-service-core",
+            "locator_end": 15,
+            "locator_kind": "page",
+            "locator_start": 15
+          },
+          "page_text_chars": 303,
+          "page_text_sha256": "1de791b4519fe73896b999e7fa21634f7eb5ac6b4d8716099742a62d88b41091"
+        }
+      ],
+      "hypotheses": [
+        "ranking_or_threshold_may_be_needed"
+      ],
+      "query_id": "zh-dev-hard-01",
+      "query_text_sha256": "72ff9fb4280abdb6f8ebf333b23f6a42c73ccb632c4d35bce2cc2513c0349c75",
+      "retrieved_locators": [],
+      "split": "development"
+    }
+  ],
+  "protocol_id": "retrieval-chinese-v1",
+  "runtime_strategy": "cjk-active-scan-overlap-v1",
+  "schema_version": "mke.dense_development_miss_audit.v1",
+  "source_identities": {
+    "protocol_sha256": "00f72934018a52b5b5f5591fba119050882aee9b782e5dac199702b0cf995944",
+    "repository_relative_protocol": "tests/fixtures/retrieval-chinese-v1/protocol.json"
+  },
+  "split": "development",
+  "target_classes": [
+    "multi_condition",
+    "ranking_hard_negative",
+    "semantic_paraphrase"
+  ]
+}
