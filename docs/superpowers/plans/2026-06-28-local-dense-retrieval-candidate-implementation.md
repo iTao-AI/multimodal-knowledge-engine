@@ -1192,7 +1192,7 @@ git commit -m "feat(eval): select dense refusal threshold"
 - Create: `src/mke/evaluation/dense_comparison.py`
 - Create: `tests/evaluation/test_dense_comparison.py`
 
-- [ ] **Step 1: Write RED comparison tests with frozen synthetic reports**
+- [x] **Step 1: Write RED comparison tests with frozen synthetic reports**
 
 Require four separately identified arms:
 
@@ -1223,19 +1223,19 @@ Test:
   qualify E3-D;
 - no arm raw scores are fused or compared across score spaces.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_comparison.py -q
 ```
 
-- [ ] **Step 3: Implement the comparison state machine**
+- [x] **Step 3: Implement the comparison state machine**
 
 Use immutable intermediate results. The only path to holdout accepts a frozen development result
 containing the selected threshold and candidate/projection/model identities. Any identity change
 between partitions fails closed.
 
-- [ ] **Step 4: Verify and commit before real qrel scoring**
+- [x] **Step 4: Verify and commit before real qrel scoring**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_protocol.py \
