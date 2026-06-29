@@ -123,4 +123,6 @@ def test_dense_durable_artifacts_record_completed_pr1_and_targeted_review_resolu
         assert f"- [x] **Step {number}: {step}**" in plan
     assert "final verification pending" not in review
     assert "Authoritative Pre-PR Review Resolution" in review
-    assert "Targeted re-review remains pending" in review
+    assert "Targeted re-review remains pending" not in review
+    assert "CLEAN" in review
+    assert "`0 findings`" in review

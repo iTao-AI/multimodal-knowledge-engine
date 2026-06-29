@@ -161,6 +161,11 @@ Each behavior fix was developed from a failing regression test. The combined tar
 the dense compatibility runner, installed-wheel proof script, embedding readiness, CLI readiness,
 and durable documentation passed `72` tests. Targeted Ruff passed and targeted Pyright reported
 `0 errors`. The final handoff separately records the full-suite and identity-refresh gates.
-Targeted re-review remains pending; this document does not claim a clean verdict.
+The targeted re-review covered
+`00a4c0f2c95851635b17c5f55096a7f8fc4eb9a8..766f64b1a6b90c1443d44c423fb0fecf53b7a590`
+and returned CLEAN with `0 findings`. Independent verification confirmed `72` targeted tests,
+targeted Ruff, targeted Pyright with `0 errors`, model-free dense compatibility artifact
+validation, four artifact-refresh tests, `git diff --check`, and a clean worktree. No runtime,
+Search, Ask, MCP, default-strategy, or PR 2 scope drift was found.
 
 Task 14 remains PR 2-only and must not repeat or overwrite the PR 1 Task 6A semantic proof.

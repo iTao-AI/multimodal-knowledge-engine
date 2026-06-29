@@ -20,9 +20,16 @@ Hatch/uv, GitHub Actions.
 
 ---
 
-Status: PR 1 Tasks 0-6A and the initial verification handoff are complete. The authoritative
-pre-PR review findings have been resolved locally and await targeted re-review. PR 2 has not
-started.
+Status: PR 1 Tasks 0-6A and the verification handoff are complete. The authoritative targeted
+re-review of `766f64b1a6b90c1443d44c423fb0fecf53b7a590` is CLEAN with `0 findings`. PR 2 has
+not started.
+
+The targeted re-review covered the four fixes since
+`00a4c0f2c95851635b17c5f55096a7f8fc4eb9a8`, durable documentation, and the permitted
+historical artifact identity refresh. Independent verification recorded `72` targeted tests,
+targeted Ruff, targeted Pyright with `0 errors`, model-free dense compatibility artifact
+validation, four artifact-refresh tests, `git diff --check`, and a clean worktree. No runtime,
+Search, Ask, MCP, default-strategy, or PR 2 scope drift was found.
 
 Planning base: `main@5ed0a722b83f9b4c70aec7c9333d8bf7d17b9335`.
 
