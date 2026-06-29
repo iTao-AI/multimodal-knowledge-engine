@@ -30,7 +30,7 @@ recovered `zh-hold-hard-01`, `zh-hold-multi-02`, `zh-hold-multi-03`,
 - The holdout receipt was created once with SHA-256
   `69d723fe9ca182404ea25c5f4742edaede9e7ddd4d9b21aa1156f823b205928d`.
 - The comparison artifact SHA-256 is
-  `273d7944cc62363bc319da51b82434cc33002fc33c2384dce928b751e9c9c204`.
+  `3f5995ba2cd3ff590868a9610f5511e41bcfe56f35c21c0d8aaf4db83c413003`.
 - E1/E2/E3-A/E3-B normalized semantic equality to Task 0 snapshots remained true after
   source/scope identity refresh.
 
