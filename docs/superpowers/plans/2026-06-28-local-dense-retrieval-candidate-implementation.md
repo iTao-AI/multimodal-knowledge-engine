@@ -1403,7 +1403,7 @@ git commit -m "feat(cli): expose dense retrieval comparison"
 
 Do not begin until Tasks 7–12 pass and the exact PR 1 compatibility artifact validates.
 
-- [ ] **Step 1: Run pre-qrel integrity gates**
+- [x] **Step 1: Run pre-qrel integrity gates**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_protocol.py \
@@ -1424,7 +1424,7 @@ Task 13 pre-qrel prerequisite. Do not run development scoring or observe holdout
 commit exists and E1/E2/E3-A/E3-B validators pass. This amendment does not permit runtime
 promotion, threshold tuning before validators, or any semantic artifact drift.
 
-- [ ] **Step 2: Run development and freeze the result**
+- [x] **Step 2: Run development and freeze the result**
 
 Run the fixed `--development-only --record-development-freeze` command; do not substitute an
 unreviewed library entry point. Inspect the full threshold trace. Record:
@@ -1441,7 +1441,7 @@ the canonical comparison artifact with `holdout_status=not_observed`, no holdout
 `runtime_promotion_status=not_evaluated`; validate it model-free and cache-ready, return exit `0`,
 and do not run holdout.
 
-- [ ] **Step 3: Lock the development configuration before holdout**
+- [x] **Step 3: Lock the development configuration before holdout**
 
 Generate and verify
 `benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-development-freeze.json`, binding model
@@ -1454,7 +1454,7 @@ git add benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-development-freeze.js
 git commit -m "test(eval): freeze E3-C development selection"
 ```
 
-- [ ] **Step 4: Run holdout exactly once**
+- [x] **Step 4: Run holdout exactly once**
 
 Only if development gates pass, run the one full comparison command with the frozen development
 record. The command creates
@@ -1463,7 +1463,7 @@ semantics and refuses an existing receipt. It binds the development-freeze diges
 digest, model/projection identity, and public-safe execution identity. Do not tune after viewing
 holdout. A failed holdout gate is an honest valid result.
 
-- [ ] **Step 5: Record the canonical artifact atomically**
+- [x] **Step 5: Record the canonical artifact atomically**
 
 Target:
 
@@ -1483,7 +1483,7 @@ uv run python -m mke.evaluation.dense_replay validate \
   --repository .
 ```
 
-- [ ] **Step 6: Commit evidence without changing the result**
+- [x] **Step 6: Commit evidence without changing the result**
 
 ```bash
 git add tests/fixtures/retrieval-dense-v1/protocol-lock.json \
@@ -1555,7 +1555,7 @@ If no historical artifact requires refresh, do not create this commit.
   `docs/superpowers/reviews/2026-06-28-local-dense-retrieval-candidate-review.md`
 - Create/modify documentation tests under `tests/evaluation/`
 
-- [ ] **Step 1: Write RED documentation tests**
+- [x] **Step 1: Write RED documentation tests**
 
 Require docs to state:
 
@@ -1578,7 +1578,7 @@ Require docs to state:
 - a new model revision or prompt requires a new candidate ID/revision and cannot overwrite this
   candidate's artifact.
 
-- [ ] **Step 2: Update docs from actual evidence**
+- [x] **Step 2: Update docs from actual evidence**
 
 Do not prewrite a positive outcome. If E3-C is negative, document the negative result and why E3-D
 remains ineligible. Do not add an ADR because no runtime behavior is promoted.

@@ -65,6 +65,14 @@ compatibility. It does not change normal Search, Ask, MCP, or the runtime defaul
 comparison scoring, future API adapter work, RRF, reranking, and runtime promotion remain
 separate evidence-gated work.
 
+E3-C PR 2 records the comparison-only dense evidence for the same candidate. Development selected
+`selected_threshold=0.58`; the one holdout observation records `candidate_status=completed`,
+`e3d_status=eligible`, `holdout_status=observed`, and
+`runtime_promotion_status=not_evaluated`. The holdout recovered five target grade-2 misses
+(`zh-hold-hard-01`, `zh-hold-multi-02`, `zh-hold-multi-03`, `zh-hold-semantic-03`, and
+`zh-hold-semantic-04`) on the small public Chinese corpus. This is not a production-quality or
+statistical-significance claim and does not change Search, Ask, MCP, or runtime defaults.
+
 PDF intake uses PyMuPDF behind the `src/mke/adapters/pdf/` boundary and exposes a
 `PdfIntakeReport` through `mke ingest`, `mke run get`, MCP `ingest_file`, and MCP `get_run`.
 PyMuPDF licensing and the future sidecar escape route are documented in
@@ -113,6 +121,8 @@ To operate the E3-F runtime path, see
 [Enable Bounded CJK Retrieval](./docs/how-to/enable-cjk-retrieval.md).
 To prepare and verify the comparison-only local embedding prerequisite, see
 [Prepare Local Embeddings](./docs/how-to/prepare-local-embeddings.md).
+To reproduce the comparison-only dense candidate result, see
+[Evaluate The Dense Retrieval Candidate](./docs/how-to/evaluate-dense-retrieval.md).
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for the development workflow and [SECURITY.md](./SECURITY.md) for responsible vulnerability reporting.
 

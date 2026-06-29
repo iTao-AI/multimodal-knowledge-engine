@@ -171,6 +171,16 @@ float32 loading, zero truncation for the frozen 70-page corpus, deterministic ve
 ordering, and the amended resource ceilings. This proof does not change normal Search, Ask, MCP,
 or the runtime default and does not approve a future API adapter, fusion, reranking, or promotion.
 
+E3-C PR 2 adds a dense comparison evidence path, still off-default. It runs a two-phase protocol:
+development first records `selected_threshold=0.58` in a committed development freeze, then exactly
+one public holdout observation creates a holdout receipt and comparison artifact. The artifact
+compares four arms: E3-A historical FTS5, `cjk-trigram-overlap-v1`,
+`cjk-active-scan-overlap-v1`, and `qwen3-embedding-0.6b-exact-v1`. The result is
+`candidate_status=completed`, `e3d_status=eligible`, and
+`runtime_promotion_status=not_evaluated`. Eligibility means a future E3-D hybrid/RRF experiment
+may be planned; it is not runtime promotion and does not change Search, Ask, MCP, owner startup,
+SQLite domain truth, API adapters, RRF, reranking, query rewrite, HTTP, or UI.
+
 CLI and MCP errors share one project-owned `PublicError` serializer. Only allowlisted stable causes
 can reach public output; unknown exception text is replaced with
 `operation failed; details were redacted`. Public payloads contain `problem`, `cause`,

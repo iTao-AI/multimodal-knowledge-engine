@@ -5,6 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parents[2]
 HOW_TO = ROOT / "docs/how-to/prepare-local-embeddings.md"
+COMPARISON_HOW_TO = ROOT / "docs/how-to/evaluate-dense-retrieval.md"
 REVIEW = (
     ROOT
     / "docs/superpowers/reviews/2026-06-28-local-dense-prerequisites-review.md"
@@ -126,3 +127,59 @@ def test_dense_durable_artifacts_record_completed_pr1_and_targeted_review_resolu
     assert "Targeted re-review remains pending" not in review
     assert "CLEAN" in review
     assert "`0 findings`" in review
+
+
+def test_dense_comparison_docs_record_actual_pr2_result_and_limits() -> None:
+    artifact = json.loads(
+        (
+            ROOT
+            / "benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json"
+        ).read_text(encoding="utf-8")
+    )
+    guide = COMPARISON_HOW_TO.read_text(encoding="utf-8")
+    public_docs = "\n".join(
+        _read(relative)
+        for relative in (
+            "README.md",
+            "docs/README.md",
+            "docs/reference/cli.md",
+            "docs/explanation/architecture.md",
+        )
+    )
+    comparison = artifact["comparison"]
+    holdout = comparison["holdout"]
+
+    for snippet in (
+        "qwen3-embedding-0.6b-exact-v1",
+        "Qwen/Qwen3-Embedding-0.6B",
+        "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+        "selected_threshold=0.58",
+        "candidate_status=completed",
+        "e3d_status=eligible",
+        "runtime_promotion_status=not_evaluated",
+        "holdout_status=observed",
+        "zh-hold-hard-01",
+        "zh-hold-multi-02",
+        "zh-hold-multi-03",
+        "zh-hold-semantic-03",
+        "zh-hold-semantic-04",
+        "mke eval retrieval-dense",
+        "--development-only",
+        "--record-development-freeze",
+        "--record-holdout-receipt",
+        "python -m mke.evaluation.dense_artifact validate",
+        "python -m mke.evaluation.dense_replay validate",
+        "scripts/dense_retrieval_measurement.py",
+        "HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 UV_OFFLINE=1",
+        "does not change Search, Ask, MCP, or runtime defaults",
+        "does not implement API adapter, hybrid/RRF, reranker, query rewrite, HTTP, or UI",
+        "not a production-quality or statistical-significance claim",
+        "valid negative",
+        "MKE never deletes model caches",
+    ):
+        assert snippet in guide
+
+    assert str(holdout["recovered_target_grade2_count"]) in guide
+    assert comparison["e3d_status"] in public_docs
+    assert "evaluate-dense-retrieval.md" in public_docs
+    assert "runtime_promotion_status=not_evaluated" in public_docs

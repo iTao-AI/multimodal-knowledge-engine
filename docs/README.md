@@ -39,6 +39,9 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [Prepare Local Embeddings](./how-to/prepare-local-embeddings.md) covers the E3-C PR 1
   comparison-only `qwen3-embedding-0.6b-exact-v1` package, model-cache, doctor, and installed-wheel
   compatibility proof boundary.
+- [Evaluate The Dense Retrieval Candidate](./how-to/evaluate-dense-retrieval.md) records the E3-C
+  PR 2 comparison-only result: `selected_threshold=0.58`, `candidate_status=completed`,
+  `e3d_status=eligible`, and `runtime_promotion_status=not_evaluated`.
 - [Use MKE As A Local MCP Server](./how-to/use-mke-mcp.md) explains the first Agent-facing stdio interface.
 - [Use Local Transcription](./how-to/use-local-transcription.md) covers prepare, doctor, ingest, real ASR proof, and recovery.
 - [Real Local Transcription Deployment Proof Design](./superpowers/specs/2026-06-18-real-local-transcription-deployment-proof-design.md) defines the redistribution-safe fixture, cache-only proof, and isolated wheel deployment evidence.
@@ -81,6 +84,7 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [Local Dense Retrieval Candidate Implementation Plan](./superpowers/plans/2026-06-28-local-dense-retrieval-candidate-implementation.md) splits E3-C into a pre-qrel compatibility PR and a separately reviewed dense comparison PR.
 - [Local Dense Retrieval Candidate Autoplan Review](./superpowers/reviews/2026-06-28-local-dense-retrieval-candidate-autoplan-review.md) records the scope, engineering, evidence-integrity, and CLI/DX amendments required before E3-C implementation.
 - [Local Dense Prerequisites Implementation Review](./superpowers/reviews/2026-06-28-local-dense-prerequisites-review.md) records the PR 1 compatibility proof, resource results, and no-qrel boundary.
+- [Local Dense Retrieval Candidate Implementation Review](./superpowers/reviews/2026-06-28-local-dense-retrieval-candidate-review.md) records the PR 2 dense comparison evidence and scope limits.
 
 ## Development Verification
 
