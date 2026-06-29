@@ -41,10 +41,13 @@ def _install_fake_hub(
 
 
 def _install_fake_sentence_transformers(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeSentenceTransformer:
+        pass
+
     monkeypatch.setitem(
         sys.modules,
         "sentence_transformers",
-        SimpleNamespace(SentenceTransformer=lambda *args, **kwargs: None),
+        SimpleNamespace(SentenceTransformer=FakeSentenceTransformer),
     )
 
 

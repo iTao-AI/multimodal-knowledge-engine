@@ -199,7 +199,7 @@ def test_cli_rejects_reusing_an_installed_environment(tmp_path: Path) -> None:
     config = _config(tmp_path)
 
     with pytest.raises(SystemExit):
-        proof._parser().parse_args(
+        proof.main(
             [
                 "--wheel",
                 str(config.wheel),
