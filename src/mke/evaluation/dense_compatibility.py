@@ -301,6 +301,10 @@ def run_dense_compatibility(
     repository_root: Path | None = None,
     single_query_smoke: dict[str, object] | None = None,
 ) -> dict[str, object]:
+    if single_query_smoke is None:
+        raise CompatibilityValidationError(
+            "dense compatibility single-query smoke report is required"
+        )
     load_started = time.monotonic()
     adapter = create_sentence_transformers_embedding(cache_dir=model_cache)
     model_load_ms = _elapsed_ms(load_started)
@@ -388,12 +392,6 @@ def run_dense_compatibility(
     peak_rss_bytes = _peak_rss_bytes()
     physical_memory_bytes = _physical_memory_bytes()
     peak_rss_ratio = peak_rss_bytes / physical_memory_bytes
-    smoke = single_query_smoke or _inline_single_query_smoke(
-        model_cache=model_cache,
-        snapshot_fingerprint=snapshot_fingerprint,
-        model_load_ms=model_load_ms,
-        query_embedding_ms=query_embedding_ms,
-    )
     resource_passed = (
         physical_memory_bytes >= _MIN_PHYSICAL_MEMORY
         and snapshot_bytes <= _SNAPSHOT_LIMIT
@@ -485,7 +483,7 @@ def run_dense_compatibility(
             "model_load_ms": model_load_ms,
             "projection_build_ms": projection_build_ms,
             "query_knn_ms": query_knn_ms,
-            "single_query_smoke": smoke,
+            "single_query_smoke": single_query_smoke,
             "ceilings": {
                 "required_physical_memory_bytes": _MIN_PHYSICAL_MEMORY,
                 "snapshot_bytes": _SNAPSHOT_LIMIT,
@@ -500,29 +498,6 @@ def run_dense_compatibility(
     }
     validate_dense_compatibility_report(report, corpus)
     return report
-
-
-def _inline_single_query_smoke(
-    *,
-    model_cache: Path,
-    snapshot_fingerprint: str,
-    model_load_ms: int,
-    query_embedding_ms: int,
-) -> dict[str, object]:
-    del model_cache
-    return {
-        "status": "passed",
-        "python": platform.python_version(),
-        "interpreter": "current-process",
-        "cache_only": True,
-        "network": False,
-        "source_tree_import": False,
-        "model_fingerprint": snapshot_fingerprint,
-        "query_vector_digest": "sha256:" + "0" * 64,
-        "peak_rss_bytes": _peak_rss_bytes(),
-        "model_load_ms": model_load_ms,
-        "query_embedding_ms": query_embedding_ms,
-    }
 
 
 def validate_dense_compatibility_report(

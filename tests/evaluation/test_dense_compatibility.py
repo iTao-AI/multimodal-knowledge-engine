@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import platform
 from collections.abc import Callable
 from dataclasses import asdict, replace
 from hashlib import sha256
@@ -178,6 +179,22 @@ def _snapshot_measurement(
     return SNAPSHOT_FINGERPRINT, 1_000, _SNAPSHOT_FILES
 
 
+def _single_query_smoke() -> dict[str, object]:
+    return {
+        "status": "passed",
+        "python": platform.python_version(),
+        "interpreter": "installed",
+        "cache_only": True,
+        "network": False,
+        "source_tree_import": False,
+        "model_fingerprint": SNAPSHOT_FINGERPRINT,
+        "query_vector_digest": "sha256:" + "d" * 64,
+        "peak_rss_bytes": 3_400_000_000,
+        "model_load_ms": 1,
+        "query_embedding_ms": 1,
+    }
+
+
 def _section(report: dict[str, object], name: str) -> dict[str, object]:
     return cast(dict[str, object], report[name])
 
@@ -222,6 +239,7 @@ def test_compatibility_runner_records_determinism_projection_and_resources_witho
         lock,
         model_cache=tmp_path / "cache",
         projection_path=tmp_path / "projection.sqlite",
+        single_query_smoke=_single_query_smoke(),
     )
 
     validate_dense_compatibility_report(report, lock)
@@ -266,6 +284,7 @@ def test_sqlite_projection_size_failure_is_structured_rejection_not_exact_failur
         lock,
         model_cache=tmp_path / "cache",
         projection_path=tmp_path / "projection.sqlite",
+        single_query_smoke=_single_query_smoke(),
     )
 
     validate_dense_compatibility_report(report, lock)
@@ -276,6 +295,20 @@ def test_sqlite_projection_size_failure_is_structured_rejection_not_exact_failur
     assert sqlite["status"] == "rejected"
     assert sqlite["rejection_reason"] == "projection_size_limit_exceeded"
     assert _section(report, "resources")["projection_bytes"] == 8_192
+
+
+def test_compatibility_runner_rejects_missing_fresh_process_smoke_evidence(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(
+        CompatibilityValidationError,
+        match="single-query smoke report is required",
+    ):
+        run_dense_compatibility(
+            _synthetic_lock(),
+            model_cache=tmp_path / "cache",
+            projection_path=tmp_path / "projection.sqlite",
+        )
 
 
 def _embedding_inputs(lock: DenseCorpusLock) -> tuple[EmbeddingEvidenceInput, ...]:
