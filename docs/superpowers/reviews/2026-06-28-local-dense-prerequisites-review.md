@@ -1,7 +1,8 @@
 # Local Dense Prerequisites Implementation Review
 
-Status: PR 1 implementation evidence recorded through Task 0.5; Task 6A identity refresh remains
-scheduled after PR 1 source, lock, workflow, tests, and documentation bytes are frozen.
+Status: PR 1 implementation evidence recorded through Task 6A. Historical E1/E2/E3-A/E3-B
+artifact identities were refreshed only after PR 1 source, lock, workflow, tests, and documentation
+bytes were frozen.
 
 Review date: 2026-06-29
 
@@ -94,6 +95,29 @@ Results:
 - Python 3.12 installed-wheel proof: passed;
 - Python 3.13 installed-wheel proof: passed.
 
+Task 6A refresh evidence:
+
+- `artifact_refresh.py` now covers five checked-in targets, including
+  `benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json`.
+- RED/GREEN coverage proves all five targets are atomically replaced and validated, replacement
+  failure on the fifth target rolls every file back byte-identically, recovery restores the E3-B
+  target from checksum-verified backups, and E3-B observed semantic drift fails closed.
+- The one PR 1 identity refresh transaction returned these checked-in identities:
+  - E1 artifact:
+    `8b46d3dfea9f5784cf15963aa563dc258ca9463df7df635cbfafbd7edd18e850`;
+  - E2 protocol lock:
+    `6c826ec1e04761b67fb06ee2c43e68c8c8a5ae6075e5f86dfa7bd1c9e3df3172`;
+  - E2 artifact:
+    `c1453700258aea8ad95e16d54d996c162d2d713f0d3ed20f79d2b79b0f9d595f`;
+  - E3-A artifact:
+    `94149a41d4957625aa39e59846114dc2f496fd311cf7afe07eb699dd34bb01d9`;
+  - E3-B artifact:
+    `2ec97e14cd8e7fb9848bfe81945d87e99b41d39a0e98a11182b1aabd870d208e`.
+- E1/E2/E3-A/E3-B observed evaluations were rerun and their normalized semantics matched the Task
+  0 snapshots exactly. Qrels, fixture bytes, observations, metrics, gates, verdicts, locators,
+  compiled queries, and candidate contracts did not drift.
+- Canonical E1/E2/E3-A/E3-B artifact validators passed after refresh.
+
 ## Boundary Review
 
 The implementation keeps:
@@ -118,8 +142,7 @@ It does not:
 
 ## Remaining PR 1 Work
 
-Task 6A must refresh only permitted E1/E2/E3-A/E3-B source/scope identity metadata after all PR 1
-bytes are frozen. It must compare against the Task 0 normalized snapshots and reject any qrel,
-fixture, observation, metric, gate, verdict, locator, compiled-query, or candidate-contract drift.
+Complete the final PR 1 verification sweep after the Task 6A commit: full pytest, Ruff, Pyright,
+build, proof, demo, document-release pre-PR audit, public-boundary scan, and final diff check.
 
 Task 14 remains PR 2-only and must not repeat or overwrite the PR 1 Task 6A semantic proof.

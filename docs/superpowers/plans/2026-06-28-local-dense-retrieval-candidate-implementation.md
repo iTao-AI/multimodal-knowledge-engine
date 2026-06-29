@@ -859,21 +859,21 @@ source, lock, workflow, tests, and documentation bytes are frozen. Run the trans
   - `benchmarks/retrieval/retrieval-chinese-v1-baseline.json`
   - `benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json`
 
-- [ ] **Step 1: Write RED five-target transaction tests**
+- [x] **Step 1: Write RED five-target transaction tests**
 
 Require atomic replacement and checked-in validation of all five targets, byte-identical rollback
 when replacement of the fifth target fails, recovery coverage for the fifth target, and fail-closed
 rollback for any qrel, fixture, manifest, protocol candidate, observation, metric, gate, verdict,
 compiled-query, locator, or candidate-contract change. Identity-only source/scope changes pass.
 
-- [ ] **Step 2: Extend the supported transaction without weakening validators**
+- [x] **Step 2: Extend the supported transaction without weakening validators**
 
 Add the E3-B observed input, record step, staged validation, checked-in validation, backup,
 replacement, and recovery coverage. Do not delete bound source paths, shrink the E2 scope fence,
 relax a validator, convert an integrity failure to a warning, create an E3-C comparison artifact, or
 read dense candidate qrels.
 
-- [ ] **Step 3: Run the one identity refresh after PR 1 bytes are frozen**
+- [x] **Step 3: Run the one identity refresh after PR 1 bytes are frozen**
 
 Use Task 0 normalized E1/E2/E3-A/E3-B snapshots as the semantic oracle. Historical evaluation may
 read its own frozen qrels only for this approved regression workflow. Before replacement, require
@@ -881,7 +881,7 @@ exact equality for qrels, fixture bytes, manifests, candidate contracts, locator
 queries, ordered results, observations, metrics, gates, and verdicts. Only declared source/scope
 identity metadata derived from final PR 1 bytes may change.
 
-- [ ] **Step 4: Validate and commit separately**
+- [x] **Step 4: Validate and commit separately**
 
 Run all four observed evaluations, all canonical validators, targeted artifact-refresh tests, and
 the Task 0 normalized semantic comparison again. Any semantic delta, unknown invalidation path, or

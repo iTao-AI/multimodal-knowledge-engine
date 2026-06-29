@@ -2,6 +2,7 @@ import json
 import os
 import shutil
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -12,6 +13,10 @@ from mke.evaluation.artifact_refresh import (
 )
 from mke.evaluation.chinese_report import render_chinese_retrieval_json
 from mke.evaluation.chinese_runner import run_chinese_retrieval_evaluation
+from mke.evaluation.cjk_lexical_comparison import (
+    render_cjk_lexical_comparison_json,
+    run_cjk_lexical_comparison,
+)
 from mke.evaluation.numeric_comparison import (
     refresh_numeric_protocol_scope,
     render_numeric_comparison_json,
@@ -19,6 +24,14 @@ from mke.evaluation.numeric_comparison import (
 )
 from mke.evaluation.report import render_retrieval_json_report
 from mke.evaluation.runner import run_retrieval_evaluation
+
+TARGETS = (
+    "benchmarks/retrieval/retrieval-eval-v1-baseline.json",
+    "tests/fixtures/retrieval-numeric-v1/protocol-lock.json",
+    "benchmarks/retrieval/numeric-grouping-v1-comparison.json",
+    "benchmarks/retrieval/retrieval-chinese-v1-baseline.json",
+    "benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json",
+)
 
 
 def _repository(tmp_path: Path) -> Path:
@@ -35,7 +48,7 @@ def _repository(tmp_path: Path) -> Path:
     return root
 
 
-def _observations(root: Path, tmp_path: Path) -> tuple[Path, Path, Path]:
+def _observations(root: Path, tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     e1 = tmp_path / "e1.json"
     e1.write_text(
         render_retrieval_json_report(
@@ -73,28 +86,33 @@ def _observations(root: Path, tmp_path: Path) -> tuple[Path, Path, Path]:
         ),
         encoding="utf-8",
     )
-    return e1, e2, e3
+    e3b = tmp_path / "e3b.json"
+    e3b.write_text(
+        render_cjk_lexical_comparison_json(
+            run_cjk_lexical_comparison(
+                root / "tests/fixtures/retrieval-chinese-v1/protocol.json"
+            )
+        ),
+        encoding="utf-8",
+    )
+    return e1, e2, e3, e3b
 
 
-def test_refresh_artifact_set_replaces_and_validates_all_four_targets(
+def test_refresh_artifact_set_replaces_and_validates_all_five_targets(
     tmp_path: Path,
 ) -> None:
     root = _repository(tmp_path)
-    e1, e2, e3 = _observations(root, tmp_path)
+    e1, e2, e3, e3b = _observations(root, tmp_path)
 
     manifest = refresh_artifact_set(
         repository_root=root,
         e1_observed_path=e1,
         e2_observed_path=e2,
         e3_observed_path=e3,
+        e3b_observed_path=e3b,
     )
 
-    assert set(manifest) == {
-        "benchmarks/retrieval/retrieval-eval-v1-baseline.json",
-        "tests/fixtures/retrieval-numeric-v1/protocol-lock.json",
-        "benchmarks/retrieval/numeric-grouping-v1-comparison.json",
-        "benchmarks/retrieval/retrieval-chinese-v1-baseline.json",
-    }
+    assert set(manifest) == set(TARGETS)
     assert all(len(value) == 64 for value in manifest.values())
     assert not (root / ".mke-retrieval-artifact-refresh").exists()
 
@@ -103,21 +121,13 @@ def test_refresh_artifact_set_rolls_back_on_replace_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = _repository(tmp_path)
-    e1, e2, e3 = _observations(root, tmp_path)
-    targets = (
-        root / "benchmarks/retrieval/retrieval-eval-v1-baseline.json",
-        root / "tests/fixtures/retrieval-numeric-v1/protocol-lock.json",
-        root / "benchmarks/retrieval/numeric-grouping-v1-comparison.json",
-        root / "benchmarks/retrieval/retrieval-chinese-v1-baseline.json",
-    )
+    e1, e2, e3, e3b = _observations(root, tmp_path)
+    targets = tuple(root / relative for relative in TARGETS)
     before = {path: path.read_bytes() for path in targets}
     original_replace = os.replace
-    calls = 0
 
-    def failing_replace(source: str | bytes, target: str | bytes) -> None:
-        nonlocal calls
-        calls += 1
-        if calls == 2:
+    def failing_replace(source: Any, target: Any) -> None:
+        if Path(os.fsdecode(target)) == root / TARGETS[4]:
             raise OSError("injected replacement failure")
         original_replace(source, target)
 
@@ -129,17 +139,18 @@ def test_refresh_artifact_set_rolls_back_on_replace_failure(
             e1_observed_path=e1,
             e2_observed_path=e2,
             e3_observed_path=e3,
+            e3b_observed_path=e3b,
         )
 
     assert {path: path.read_bytes() for path in targets} == before
 
 
-def test_recover_restores_checksum_verified_backups(tmp_path: Path) -> None:
+def test_recover_restores_checksum_verified_e3b_backup(tmp_path: Path) -> None:
     root = _repository(tmp_path)
     transaction = root / ".mke-retrieval-artifact-refresh"
-    backup = transaction / "backups/0"
+    backup = transaction / "backups/4"
     backup.parent.mkdir(parents=True)
-    target = root / "benchmarks/retrieval/retrieval-eval-v1-baseline.json"
+    target = root / "benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json"
     original = target.read_bytes()
     backup.write_bytes(original)
     target.write_text("partial", encoding="utf-8")
@@ -151,7 +162,7 @@ def test_recover_restores_checksum_verified_backups(tmp_path: Path) -> None:
                 "existed": True,
                 "backup": backup.relative_to(transaction).as_posix(),
                 "original_sha256": __import__("hashlib").sha256(original).hexdigest(),
-                "staged": "staged/0",
+                "staged": "staged/4",
                 "staged_sha256": "0" * 64,
                 "replaced": True,
             }
@@ -165,3 +176,25 @@ def test_recover_restores_checksum_verified_backups(tmp_path: Path) -> None:
 
     assert target.read_bytes() == original
     assert not transaction.exists()
+
+
+def test_refresh_artifact_set_rolls_back_when_e3b_observation_changes_semantics(
+    tmp_path: Path,
+) -> None:
+    root = _repository(tmp_path)
+    e1, e2, e3, e3b = _observations(root, tmp_path)
+    before = {root / relative: (root / relative).read_bytes() for relative in TARGETS}
+    observed = json.loads(e3b.read_text(encoding="utf-8"))
+    observed["candidate_status"] = "failed"
+    e3b.write_text(json.dumps(observed, ensure_ascii=False), encoding="utf-8")
+
+    with pytest.raises(ArtifactRefreshError):
+        refresh_artifact_set(
+            repository_root=root,
+            e1_observed_path=e1,
+            e2_observed_path=e2,
+            e3_observed_path=e3,
+            e3b_observed_path=e3b,
+        )
+
+    assert {path: path.read_bytes() for path in before} == before
