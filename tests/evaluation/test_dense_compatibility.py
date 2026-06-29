@@ -27,7 +27,7 @@ from mke.evaluation.dense_compatibility import (
     run_dense_compatibility,
     validate_dense_compatibility_report,
 )
-from mke.vector.contracts import build_projection_identity
+from mke.vector.contracts import RankedEvidence, build_projection_identity
 
 ROOT = Path(__file__).resolve().parents[2]
 CORPUS_LOCK = ROOT / "tests/fixtures/retrieval-dense-v1/corpus-lock.json"
@@ -67,6 +67,13 @@ def _canonical(value: object) -> bytes:
 SNAPSHOT_FINGERPRINT = "sha256:" + sha256(
     _canonical(list(_SNAPSHOT_FILES))
 ).hexdigest()
+_SYNTHETIC_PHYSICAL_MEMORY_BYTES = 32 * 1024**3
+_SYNTHETIC_PEAK_RSS_BYTES = 2 * 1024**3
+_FROZEN_PACKAGE_VERSIONS = {
+    "sentence-transformers": "5.6.0",
+    "sqlite-vec": "0.1.9",
+    "huggingface-hub": "1.21.0",
+}
 
 
 def test_checked_in_corpus_lock_binds_only_frozen_document_and_page_inventory() -> None:
@@ -199,12 +206,91 @@ def _section(report: dict[str, object], name: str) -> dict[str, object]:
     return cast(dict[str, object], report[name])
 
 
-def _projection_size_small(_path: Path) -> int:
-    return 100_000
+def _frozen_package_version(name: str) -> str:
+    return _FROZEN_PACKAGE_VERSIONS[name]
 
 
-def _projection_size_oversized(_path: Path) -> int:
-    return 4_251_648
+def _sqlite_compatibility_passed(
+    batch: EmbeddingBatch,
+    query_vector: tuple[float, ...],
+    *,
+    exact_results: tuple[RankedEvidence, ...],
+    projection_path: Path,
+    repository_root: Path | None,
+) -> dict[str, object]:
+    del query_vector, exact_results, projection_path, repository_root
+    identity = build_projection_identity(
+        batch,
+        adapter_id=SQLITE_VEC_ADAPTER_ID,
+    )
+    return {
+        "status": "passed",
+        "rejection_reason": None,
+        "order_equal": True,
+        "score_delta": 0.0,
+        "projection_bytes": 100_000,
+        "identity": asdict(identity),
+    }
+
+
+def _sqlite_compatibility_size_rejected(
+    batch: EmbeddingBatch,
+    query_vector: tuple[float, ...],
+    *,
+    exact_results: tuple[RankedEvidence, ...],
+    projection_path: Path,
+    repository_root: Path | None,
+) -> dict[str, object]:
+    del query_vector, exact_results, projection_path, repository_root
+    identity = build_projection_identity(
+        batch,
+        adapter_id=SQLITE_VEC_ADAPTER_ID,
+    )
+    return {
+        "status": "rejected",
+        "rejection_reason": "projection_size_limit_exceeded",
+        "order_equal": True,
+        "score_delta": 0.0,
+        "projection_bytes": 4_251_648,
+        "identity": asdict(identity),
+    }
+
+
+def _freeze_synthetic_runner_environment(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    sqlite_compatibility: object,
+) -> None:
+    def physical_memory_bytes() -> int:
+        return _SYNTHETIC_PHYSICAL_MEMORY_BYTES
+
+    def peak_rss_bytes() -> int:
+        return _SYNTHETIC_PEAK_RSS_BYTES
+
+    monkeypatch.setattr(
+        "mke.evaluation.dense_compatibility._physical_memory_bytes",
+        physical_memory_bytes,
+    )
+    monkeypatch.setattr(
+        "mke.evaluation.dense_compatibility._peak_rss_bytes",
+        peak_rss_bytes,
+    )
+    monkeypatch.setattr(
+        "mke.evaluation.dense_compatibility.version",
+        _frozen_package_version,
+    )
+    monkeypatch.setattr(
+        "mke.evaluation.dense_compatibility._run_sqlite_compatibility",
+        sqlite_compatibility,
+    )
+
+
+def _assert_frozen_synthetic_environment(report: dict[str, object]) -> None:
+    assert _section(report, "packages") == _FROZEN_PACKAGE_VERSIONS
+    resources = _section(report, "resources")
+    assert resources["physical_memory_bytes"] == _SYNTHETIC_PHYSICAL_MEMORY_BYTES
+    assert resources["compatibility_stress_peak_rss_bytes"] == _SYNTHETIC_PEAK_RSS_BYTES
+    assert resources["compatibility_stress_peak_rss_ratio"] == 0.0625
 
 
 def test_compatibility_runner_records_determinism_projection_and_resources_without_scoring(
@@ -229,9 +315,9 @@ def test_compatibility_runner_records_determinism_projection_and_resources_witho
         "mke.evaluation.dense_compatibility.snapshot_measurement",
         _snapshot_measurement,
     )
-    monkeypatch.setattr(
-        "mke.evaluation.dense_compatibility._projection_bytes",
-        _projection_size_small,
+    _freeze_synthetic_runner_environment(
+        monkeypatch,
+        sqlite_compatibility=_sqlite_compatibility_passed,
     )
 
     lock = _synthetic_lock()
@@ -252,6 +338,7 @@ def test_compatibility_runner_records_determinism_projection_and_resources_witho
     assert "metrics" not in report
     assert "queries" not in report
     assert adapter.document_calls == 2
+    _assert_frozen_synthetic_environment(report)
 
 
 def test_sqlite_projection_size_failure_is_structured_rejection_not_exact_failure(
@@ -274,9 +361,9 @@ def test_sqlite_projection_size_failure_is_structured_rejection_not_exact_failur
         "mke.evaluation.dense_compatibility.snapshot_measurement",
         _snapshot_measurement,
     )
-    monkeypatch.setattr(
-        "mke.evaluation.dense_compatibility._projection_bytes",
-        _projection_size_oversized,
+    _freeze_synthetic_runner_environment(
+        monkeypatch,
+        sqlite_compatibility=_sqlite_compatibility_size_rejected,
     )
 
     lock = _synthetic_lock()
@@ -295,6 +382,7 @@ def test_sqlite_projection_size_failure_is_structured_rejection_not_exact_failur
     assert sqlite["status"] == "rejected"
     assert sqlite["rejection_reason"] == "projection_size_limit_exceeded"
     assert _section(report, "resources")["projection_bytes"] == 8_192
+    _assert_frozen_synthetic_environment(report)
 
 
 def test_compatibility_runner_rejects_missing_fresh_process_smoke_evidence(

@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 
+import mke.evaluation.numeric_artifact as numeric_artifact
 from mke.evaluation.artifact_refresh import (
     ArtifactRefreshError,
     recover_artifact_refresh,
@@ -32,6 +33,29 @@ TARGETS = (
     "benchmarks/retrieval/retrieval-chinese-v1-baseline.json",
     "benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json",
 )
+
+
+@pytest.fixture(autouse=True)
+def freeze_canonical_numeric_artifact_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact = json.loads(Path(TARGETS[2]).read_text(encoding="utf-8"))
+    environment = artifact["environment"]
+    monkeypatch.setattr(
+        numeric_artifact.sys,
+        "version_info",
+        tuple(int(part) for part in environment["python"].split(".")),
+    )
+    monkeypatch.setattr(
+        numeric_artifact.sqlite3,
+        "sqlite_version",
+        environment["sqlite"],
+    )
+    monkeypatch.setattr(
+        numeric_artifact.fitz,
+        "VersionBind",
+        environment["pymupdf"],
+    )
 
 
 def _repository(tmp_path: Path) -> Path:
@@ -115,6 +139,32 @@ def test_refresh_artifact_set_replaces_and_validates_all_five_targets(
     assert set(manifest) == set(TARGETS)
     assert all(len(value) == 64 for value in manifest.values())
     assert not (root / ".mke-retrieval-artifact-refresh").exists()
+
+
+def test_refresh_artifact_set_rolls_back_when_e2_environment_changes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _repository(tmp_path)
+    e1, e2, e3, e3b = _observations(root, tmp_path)
+    targets = tuple(root / relative for relative in TARGETS)
+    before = {path: path.read_bytes() for path in targets}
+    monkeypatch.setattr(
+        numeric_artifact.sqlite3,
+        "sqlite_version",
+        "9.9.9",
+    )
+
+    with pytest.raises(ArtifactRefreshError):
+        refresh_artifact_set(
+            repository_root=root,
+            e1_observed_path=e1,
+            e2_observed_path=e2,
+            e3_observed_path=e3,
+            e3b_observed_path=e3b,
+        )
+
+    assert {path: path.read_bytes() for path in targets} == before
 
 
 def test_refresh_artifact_set_rolls_back_on_replace_failure(

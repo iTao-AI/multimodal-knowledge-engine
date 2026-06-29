@@ -169,3 +169,24 @@ validation, four artifact-refresh tests, `git diff --check`, and a clean worktre
 Search, Ask, MCP, default-strategy, or PR 2 scope drift was found.
 
 Task 14 remains PR 2-only and must not repeat or overwrite the PR 1 Task 6A semantic proof.
+
+## CI Test-Isolation Follow-Up
+
+GitHub Actions run `28357649978` failed at reviewed HEAD
+`6f66c286c95302f921dd95d8a6f42f2601f6d44d` for three test-isolation reasons; CodeQL passed.
+The fixes change only tests and this durable evidence:
+
+- core jobs now skip only the four real sqlite-vec integration tests when the optional dependency
+  is absent; the missing-extension/fail-closed test still runs, while embedding-extra jobs execute
+  every real sqlite-vec integration;
+- the two synthetic dense runner tests use frozen package identities, supported physical memory,
+  peak RSS, and complete sqlite compatibility results instead of consuming the CI host;
+- artifact-refresh tests freeze the checked-in E2 environment at the record boundary, while a
+  dedicated environment-drift regression proves the production semantic-preservation guard still
+  fails closed and rolls all five targets back byte-identically.
+
+The core/Python 3.12 isolated affected suite passed `35` tests with the four intended integration
+skips. The embedding-extra affected suite passed `100` tests with sqlite-vec installed. Artifact
+refresh passed `5` tests, including environment drift, and targeted Ruff/Pyright passed. No
+resource ceiling, artifact, metric, gate, identity, runtime, Search, Ask, MCP, or PR 2 behavior was
+changed.

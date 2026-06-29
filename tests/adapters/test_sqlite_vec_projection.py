@@ -17,6 +17,14 @@ from mke.embeddings.contracts import (
 from mke.vector.contracts import VectorProjectionError
 
 
+@pytest.fixture
+def sqlite_vec_runtime() -> None:
+    pytest.importorskip(
+        "sqlite_vec",
+        reason="sqlite-vec optional dependency is not installed",
+    )
+
+
 def _input(locator: str, page: int) -> EmbeddingEvidenceInput:
     text = f"text-{locator}"
     return EmbeddingEvidenceInput(
@@ -50,7 +58,9 @@ def _batch(records: list[tuple[str, tuple[float, ...]]]):
 
 def test_sqlite_vec_matches_exact_oracle_for_normal_tie_negative_and_near_tie(
     tmp_path: Path,
+    sqlite_vec_runtime: None,
 ) -> None:
+    del sqlite_vec_runtime
     records = [
         ("positive", _basis(0)),
         ("zero", _basis(1)),
@@ -77,7 +87,11 @@ def test_sqlite_vec_matches_exact_oracle_for_normal_tie_negative_and_near_tie(
     sqlite_projection.close()
 
 
-def test_sqlite_vec_insert_delete_rebuild_and_validate(tmp_path: Path) -> None:
+def test_sqlite_vec_insert_delete_rebuild_and_validate(
+    tmp_path: Path,
+    sqlite_vec_runtime: None,
+) -> None:
+    del sqlite_vec_runtime
     path = tmp_path / "projection.sqlite"
     projection = SqliteVecProjection(path)
     first = projection.replace(_batch([("first", _basis(0)), ("removed", _basis(1))]))
@@ -95,8 +109,11 @@ def test_sqlite_vec_insert_delete_rebuild_and_validate(tmp_path: Path) -> None:
 
 
 def test_sqlite_vec_failed_replace_rolls_back_to_previous_projection(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    sqlite_vec_runtime: None,
 ) -> None:
+    del sqlite_vec_runtime
     projection = SqliteVecProjection(tmp_path / "projection.sqlite")
     original = projection.replace(_batch([("original", _basis(0))]))
     original_insert = projection._insert_row  # pyright: ignore[reportPrivateUsage]
@@ -136,7 +153,11 @@ def test_sqlite_vec_rejects_repository_file_and_unavailable_extension(
     assert exc_info.value.cause == "vector extension is unavailable or incompatible"
 
 
-def test_sqlite_vec_enforces_canonical_top_k_and_query_integrity(tmp_path: Path) -> None:
+def test_sqlite_vec_enforces_canonical_top_k_and_query_integrity(
+    tmp_path: Path,
+    sqlite_vec_runtime: None,
+) -> None:
+    del sqlite_vec_runtime
     projection = SqliteVecProjection(tmp_path / "projection.sqlite")
     projection.replace(_batch([("doc", _basis(0))]))
 
