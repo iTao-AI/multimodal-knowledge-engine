@@ -55,8 +55,15 @@ non-empty queries remain on active FTS5 even when FTS returns no rows; eligible 
 queries use a bounded scan over active Publication Evidence in SQLite domain truth. The runtime
 creates no persistent CJK projection, and MCP tools expose no request-time strategy override.
 Task 0.5 records Recall@5 `0.659091` and nDCG@10 `0.619152` for this route. HTTP, UI, embeddings,
-vector search, hybrid retrieval, RRF, reranking, and query rewrite remain out of scope. E3-C
-through E3-E remain unimplemented and evidence-gated.
+vector search, hybrid retrieval, RRF, reranking, and query rewrite remain out of scope.
+
+E3-C PR 1 adds comparison-only local embedding prerequisites for
+`qwen3-embedding-0.6b-exact-v1` using `Qwen/Qwen3-Embedding-0.6B` at revision
+`97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3`. It proves the optional package boundary,
+cache-only prepare/doctor lifecycle, exact-cosine reference, and Python 3.12/3.13 installed-wheel
+compatibility. It does not change normal Search, Ask, MCP, or the runtime default; E3-C dense
+comparison scoring, future API adapter work, RRF, reranking, and runtime promotion remain
+separate evidence-gated work.
 
 PDF intake uses PyMuPDF behind the `src/mke/adapters/pdf/` boundary and exposes a
 `PdfIntakeReport` through `mke ingest`, `mke run get`, MCP `ingest_file`, and MCP `get_run`.
@@ -104,6 +111,8 @@ history is kept under `docs/superpowers/`; long-lived architecture decisions are
 `docs/decisions/`.
 To operate the E3-F runtime path, see
 [Enable Bounded CJK Retrieval](./docs/how-to/enable-cjk-retrieval.md).
+To prepare and verify the comparison-only local embedding prerequisite, see
+[Prepare Local Embeddings](./docs/how-to/prepare-local-embeddings.md).
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for the development workflow and [SECURITY.md](./SECURITY.md) for responsible vulnerability reporting.
 

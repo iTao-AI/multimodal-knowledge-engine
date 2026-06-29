@@ -688,7 +688,7 @@ page/Evidence locator inventory, protocol file digest, and expected Evidence cou
 query, qrel, category, grade, development metric, or holdout metric. Build and validate this lock
 without importing the qrel parser. Any mismatch with the frozen document bytes stops the proof.
 
-- [ ] **Step 4: Stop and request exact download authorization**
+- [x] **Step 4: Stop and request exact download authorization**
 
 2026-06-29 execution amendment: authorization is invocation-level, not individual HTTP-request
 level. One explicit authorization covers exactly one `prepare` process and Hugging Face
@@ -722,7 +722,7 @@ were proof transport inputs, not product defaults. The successful third invocati
 exact 12-file snapshot in about 46 seconds. Two stale process-unique partials remain outside the
 repository and require separate deletion authorization.
 
-- [ ] **Step 5: Run the one authorized prepare, then cache-only doctor**
+- [x] **Step 5: Run the one authorized prepare, then cache-only doctor**
 
 Recorded host-specific command after authorization:
 
@@ -743,7 +743,7 @@ manifest identity. Library-managed transport resumes are allowed only within the
 process. If a process fails or an outer gate fires, stop. Do not broaden model/revision/cache/
 transport policy or start a new invocation without explicit authorization.
 
-- [ ] **Step 6: Run Python 3.12 and 3.13 installed-wheel proof**
+- [x] **Step 6: Run Python 3.12 and 3.13 installed-wheel proof**
 
 2026-06-29 resource-measurement amendment: the original stress peak ceiling of `4 GiB` had no
 declared minimum host class and conflated the qrel-free determinism stress workload with a normal
@@ -785,7 +785,7 @@ version to select a lower RSS. Reuse the complete external model cache and pre-p
 cache without network access. The earlier source-worktree Python 3.13 observation and superseded
 Python 3.12 result remain execution evidence, not canonical amended-contract proofs.
 
-- [ ] **Step 7: Apply stop conditions**
+- [x] **Step 7: Apply stop conditions**
 
 Stop and return to planning if Qwen3 fails package, Python, CPU, snapshot, remote-code,
 determinism, truncation, or the amended resource gates. If sqlite-vec alone fails, record its structured
@@ -793,7 +793,7 @@ rejection and select the project exact-cosine reference only if every exact-refe
 Do not automatically choose BGE or another model. The observed sqlite-vec file-size rejection is
 not a candidate failure when exact-cosine passes every required gate.
 
-- [ ] **Step 8: Record and commit compatibility evidence**
+- [x] **Step 8: Record and commit compatibility evidence**
 
 Only after both Python proofs pass:
 
@@ -820,7 +820,7 @@ git commit -m "test(embedding): prove Qwen3 dense compatibility"
   `docs/superpowers/reviews/2026-06-28-local-dense-prerequisites-review.md`
 - Modify: `.github/workflows/ci.yml`
 
-- [ ] **Step 1: Write RED documentation/packaging assertions**
+- [x] **Step 1: Write RED documentation/packaging assertions**
 
 Add tests that require:
 
@@ -833,7 +833,7 @@ Add tests that require:
 - architecture diagrams showing SDKs remain behind project-owned ports;
 - CI model-free gates and local cache-ready proof separation.
 
-- [ ] **Step 2: Update docs and the model-free CI gate**
+- [x] **Step 2: Update docs and the model-free CI gate**
 
 Do not commit local cache files, model weights, virtualenvs, raw absolute paths, or raw GStack
 artifacts. CI may install the extra and run synthetic/model-free proofs only.

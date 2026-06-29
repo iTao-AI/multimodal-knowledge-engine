@@ -382,6 +382,17 @@ event_index=1 event=run_created
 
 ## Embedding Model Setup
 
+Install the optional local embedding runtime explicitly. Installing packages may use a package
+index; model acquisition is a separate, explicit `prepare` step:
+
+```bash
+uv sync --locked --extra embedding
+uv build
+uv venv /tmp/mke-embedding-wheel --python 3.13
+uv pip install --python /tmp/mke-embedding-wheel/bin/python \
+  "dist/multimodal_knowledge_engine-0.0.0-py3-none-any.whl[embedding]"
+```
+
 ```bash
 mke embedding prepare --allow-model-download \
   --model qwen3-embedding-0.6b \
@@ -414,6 +425,45 @@ explicit operator inputs, not global product defaults or silent fallbacks.
 
 This lifecycle is a comparison-only E3-C prerequisite. It does not add embeddings to normal
 Search, Ask, MCP, owner startup, or `active_evidence_fts`.
+
+Validate the checked-in PR 1 compatibility artifact model-free:
+
+```bash
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 uv run python - <<'PY'
+import json
+from pathlib import Path
+from mke.evaluation.dense_compatibility import (
+    load_dense_corpus_lock,
+    validate_dense_compatibility_report,
+)
+root = Path(".").resolve()
+lock = load_dense_corpus_lock(
+    Path("tests/fixtures/retrieval-dense-v1/corpus-lock.json"),
+    repository_root=root,
+)
+report = json.loads(
+    Path("benchmarks/retrieval/qwen3-embedding-0.6b-compatibility.json").read_text()
+)
+validate_dense_compatibility_report(report, lock)
+PY
+```
+
+Run the local cache-ready installed-wheel proof only after the exact model cache and package cache
+exist; it remains offline and cache-only:
+
+```bash
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 UV_OFFLINE=1 \
+python scripts/dense_retrieval_deployment_proof.py \
+  --wheel dist/multimodal_knowledge_engine-0.0.0-py3-none-any.whl \
+  --corpus-lock tests/fixtures/retrieval-dense-v1/corpus-lock.json \
+  --model-cache "$HOME/Library/Caches/mke/embedding" \
+  --python 3.13 \
+  --repository .
+```
+
+The canonical PR 1 artifact uses `qwen3-embedding-0.6b-exact-v1`,
+`Qwen/Qwen3-Embedding-0.6B`, revision
+`97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3`, and records the future API adapter as out of scope.
 
 ## Transcription Setup
 

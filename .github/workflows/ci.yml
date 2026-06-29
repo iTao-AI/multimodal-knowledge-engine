@@ -38,7 +38,34 @@ jobs:
             tests/vector \
             tests/adapters/test_exact_cosine_projection.py \
             tests/adapters/test_sqlite_vec_projection.py \
+            tests/evaluation/test_dense_compatibility.py \
+            tests/evaluation/test_dense_documentation.py \
+            tests/scripts/test_dense_retrieval_deployment_proof.py \
             -q
+      - name: Validate dense compatibility artifact without model cache
+        env:
+          HF_HUB_OFFLINE: "1"
+          TRANSFORMERS_OFFLINE: "1"
+        run: |
+          uv run python - <<'PY'
+          import json
+          from pathlib import Path
+          from mke.evaluation.dense_compatibility import (
+              load_dense_corpus_lock,
+              validate_dense_compatibility_report,
+          )
+          root = Path(".").resolve()
+          lock = load_dense_corpus_lock(
+              Path("tests/fixtures/retrieval-dense-v1/corpus-lock.json"),
+              repository_root=root,
+          )
+          report = json.loads(
+              Path("benchmarks/retrieval/qwen3-embedding-0.6b-compatibility.json").read_text()
+          )
+          validate_dense_compatibility_report(report, lock)
+          assert report["compatibility_status"] == "passed"
+          assert report["projection"]["selected_adapter"] == "exact-cosine-v1"
+          PY
 
   python:
     name: python (${{ matrix.python-version }})

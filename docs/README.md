@@ -36,6 +36,9 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
   E3-A FTS5 lexical baseline, graded metrics, miss symptoms, and the E3-B CJK lexical comparison.
 - [Enable Bounded CJK Retrieval](./how-to/enable-cjk-retrieval.md) covers E3-F owner-startup
   selection, compiled-empty routing, doctor, no-op rebuild, proof, and rollback.
+- [Prepare Local Embeddings](./how-to/prepare-local-embeddings.md) covers the E3-C PR 1
+  comparison-only `qwen3-embedding-0.6b-exact-v1` package, model-cache, doctor, and installed-wheel
+  compatibility proof boundary.
 - [Use MKE As A Local MCP Server](./how-to/use-mke-mcp.md) explains the first Agent-facing stdio interface.
 - [Use Local Transcription](./how-to/use-local-transcription.md) covers prepare, doctor, ingest, real ASR proof, and recovery.
 - [Real Local Transcription Deployment Proof Design](./superpowers/specs/2026-06-18-real-local-transcription-deployment-proof-design.md) defines the redistribution-safe fixture, cache-only proof, and isolated wheel deployment evidence.
@@ -77,6 +80,7 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [Local Dense Retrieval Candidate Design](./superpowers/specs/2026-06-28-local-dense-retrieval-candidate-design.md) defines the approved comparison-only E3-C Qwen3 embedding and exact-KNN protocol.
 - [Local Dense Retrieval Candidate Implementation Plan](./superpowers/plans/2026-06-28-local-dense-retrieval-candidate-implementation.md) splits E3-C into a pre-qrel compatibility PR and a separately reviewed dense comparison PR.
 - [Local Dense Retrieval Candidate Autoplan Review](./superpowers/reviews/2026-06-28-local-dense-retrieval-candidate-autoplan-review.md) records the scope, engineering, evidence-integrity, and CLI/DX amendments required before E3-C implementation.
+- [Local Dense Prerequisites Implementation Review](./superpowers/reviews/2026-06-28-local-dense-prerequisites-review.md) records the PR 1 compatibility proof, resource results, and no-qrel boundary.
 
 ## Development Verification
 
