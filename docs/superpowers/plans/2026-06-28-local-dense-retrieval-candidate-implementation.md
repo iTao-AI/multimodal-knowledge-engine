@@ -1417,6 +1417,13 @@ uv run pytest tests/evaluation/test_dense_protocol.py \
 Revalidate all historical artifacts, exact fixture/qrel bytes, runtime default, model manifest,
 and projection adapter. Any mismatch stops the run.
 
+2026-06-29 amendment: PR 2 source additions invalidated E1/E2/E3-A source/scope identities before
+dense qrel scoring, while E1/E2/E3-A/E3-B observed evaluations remained normalized-semantics equal
+to the Task 0 snapshots. To avoid a gate deadlock, the required Task 14 identity-only refresh is a
+Task 13 pre-qrel prerequisite. Do not run development scoring or observe holdout until the refresh
+commit exists and E1/E2/E3-A/E3-B validators pass. This amendment does not permit runtime
+promotion, threshold tuning before validators, or any semantic artifact drift.
+
 - [ ] **Step 2: Run development and freeze the result**
 
 Run the fixed `--development-only --record-development-freeze` command; do not substitute an
@@ -1492,6 +1499,13 @@ Task 14 remains PR 2-only. It handles identities invalidated by final E3-C compa
 changes after PR 1 is merged. It must not repeat, overwrite, or weaken the PR 1 Task 6A semantic
 proof, and it must independently explain every new PR 2 invalidation path.
 
+2026-06-29 execution amendment: the necessary identity-only refresh was moved before Task 13
+development scoring because Task 13 requires all historical validators to pass before qrels are
+scored. The refresh is limited to actual PR 2 invalidations: E1, E2, and E3-A source/scope identity
+metadata. E3-B validated before refresh and must remain byte-identical unless a later validator
+proves it is invalid. After this pre-qrel refresh is committed, do not repeat, overwrite, or weaken
+the semantic-preservation proof in a later Task 14 step.
+
 **Files:**
 
 - Modify only if required by validated source identity changes:
@@ -1504,18 +1518,18 @@ proof, and it must independently explain every new PR 2 invalidation path.
   `benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json`
 - Modify: `tests/evaluation/test_artifact_refresh.py`
 
-- [ ] **Step 1: Identify actual invalidated source inventories**
+- [x] **Step 1: Identify actual invalidated source inventories**
 
 Run every validator before refreshing. Do not assume a new file invalidates an artifact. For each
 failing source/scope identity, show the exact changed path and explain why it is within the
 artifact’s declared source boundary.
 
-- [ ] **Step 2: Use the supported refresh workflow**
+- [x] **Step 2: Use the supported refresh workflow**
 
 Refresh identity metadata only. Compare normalized before/after observations, metrics, gates, and
 verdicts byte-for-byte or structurally. Any semantic delta is a stop condition.
 
-- [ ] **Step 3: Verify all artifacts and commit separately**
+- [x] **Step 3: Verify all artifacts and commit separately**
 
 ```bash
 uv run pytest tests/evaluation/test_artifact_refresh.py -q

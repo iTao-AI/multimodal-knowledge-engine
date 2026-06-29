@@ -172,6 +172,20 @@ Search, Ask, MCP, default-strategy, or PR 2 scope drift was found.
 
 Task 14 remains PR 2-only and must not repeat or overwrite the PR 1 Task 6A semantic proof.
 
+## PR 2 Pre-Qrel Identity Refresh Amendment
+
+The E3-C PR 2 implementation added dense comparison modules and updated `src/mke/cli.py` plus
+`src/mke/evaluation/__init__.py`. Before dense qrel scoring, the historical validators failed only
+on source/scope identity for E1, E2, and E3-A; E3-B already validated. The observed E1/E2/E3-A/E3-B
+evaluations remained normalized-semantics equal to the Task 0 snapshots, so this is an
+identity-only refresh case rather than a regression or dense-quality observation.
+
+The approved PR 2 amendment moves the necessary Task 14 identity-only refresh before Task 13
+development scoring. The refresh updates only E1, E2, and E3-A checked-in identity metadata; the
+E3-B artifact remains byte-identical. After refresh, E1, E2, E3-A, and E3-B validators pass, and the
+normalized semantic equality checks for all four historical evaluations remain `True`. This proof
+must not be repeated, overwritten, or weakened after dense development or holdout scoring.
+
 ## CI Test-Isolation Follow-Up
 
 GitHub Actions run `28357649978` failed at reviewed HEAD
