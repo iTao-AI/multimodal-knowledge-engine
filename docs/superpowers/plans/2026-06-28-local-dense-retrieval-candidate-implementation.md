@@ -1326,7 +1326,7 @@ git commit -m "feat(eval): validate dense comparison evidence"
 - Create: `tests/scripts/test_dense_retrieval_measurement.py`
 - Modify: `.github/workflows/ci.yml`
 
-- [ ] **Step 1: Write RED CLI tests**
+- [x] **Step 1: Write RED CLI tests**
 
 Command shape:
 
@@ -1372,20 +1372,20 @@ Test:
   maintenance workflow;
 - no normal Search/Ask/MCP help or schema changes.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 uv run pytest tests/interfaces/test_cli_evaluation.py \
   tests/scripts/test_dense_retrieval_measurement.py -q
 ```
 
-- [ ] **Step 3: Implement CLI and measurement separation**
+- [x] **Step 3: Implement CLI and measurement separation**
 
 The CI measurement path validates the checked-in artifact model-free. The cache-ready local
 measurement path requires an already prepared exact model and may run replay. Neither path
 downloads.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 ```bash
 uv run pytest tests/interfaces/test_cli_evaluation.py \

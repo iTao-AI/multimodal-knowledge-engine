@@ -71,6 +71,7 @@ _SOURCE_PATHS = (
     "src/mke/evaluation/dense_protocol.py",
     "src/mke/evaluation/dense_replay.py",
     "src/mke/evaluation/dense_threshold.py",
+    "src/mke/evaluation/dense_workflow.py",
     "src/mke/evaluation/graded_metrics.py",
     "scripts/dense_retrieval_measurement.py",
 )
@@ -99,7 +100,7 @@ def build_dense_comparison_artifact(
     chinese = load_chinese_retrieval_protocol(root / _PROTOCOL_PATH)
     corpus = load_dense_corpus_lock(root / _CORPUS_LOCK_PATH, repository_root=root)
     compatibility = _compatibility(root, corpus)
-    runtime = _runtime_semantics(current_runtime_payload, chinese)
+    runtime = normalize_current_runtime_semantics(current_runtime_payload, chinese)
     development = _canonical_candidate(
         development_candidate,
         partition="development",
@@ -108,7 +109,7 @@ def build_dense_comparison_artifact(
         chinese=chinese,
         model_fingerprint=compatibility["model_fingerprint"],
     )
-    threshold_inputs = _threshold_inputs(
+    threshold_inputs = derive_dense_threshold_inputs(
         development,
         partition="development",
         chinese=chinese,
@@ -175,7 +176,7 @@ def build_dense_comparison_artifact(
         ),
         "compatibility": compatibility,
         "historical_arms": historical,
-        "source": _source_identity(root),
+        "source": dense_source_identity(root),
         "current_runtime": {
             "strategy": "cjk-active-scan-overlap-v1",
             "semantic_digest": runtime_digest,
@@ -460,7 +461,7 @@ def _candidate_results(
     return results
 
 
-def _threshold_inputs(
+def derive_dense_threshold_inputs(
     candidate: dict[str, Any],
     *,
     partition: str,
@@ -631,7 +632,7 @@ def _hard_negative_failure(ranked: tuple[tuple[float, int], ...]) -> bool:
     return distractor is not None and (direct is None or distractor < direct)
 
 
-def _runtime_semantics(
+def normalize_current_runtime_semantics(
     payload: dict[str, Any], chinese: ChineseRetrievalProtocol
 ) -> dict[str, Any]:
     raw_results = payload.get("results")
@@ -705,7 +706,7 @@ def _compatibility(root: Path, corpus: DenseCorpusLock) -> dict[str, Any]:
     }
 
 
-def _source_identity(root: Path) -> dict[str, Any]:
+def dense_source_identity(root: Path) -> dict[str, Any]:
     files = [
         _file_identity(root, path)
         for path in _SOURCE_PATHS

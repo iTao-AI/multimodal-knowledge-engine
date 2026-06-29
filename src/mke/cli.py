@@ -7,7 +7,7 @@ import json
 import sys
 import tempfile
 import time
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 
 from mke.adapters.video import LocalCommandTranscriptConfig, LocalCommandTranscriptProvider
@@ -20,6 +20,7 @@ from mke.adapters.video.faster_whisper import (
 )
 from mke.application import AskValidationError, KnowledgeEngine, PdfIngestError, VideoIngestError
 from mke.domain import FailurePoint, PdfIntakeReport, SearchResult, TranscriptIntakeReport
+from mke.embeddings.contracts import CANDIDATE_ID as DENSE_CANDIDATE_ID
 from mke.embeddings.contracts import MODEL_ID as EMBEDDING_MODEL_ID
 from mke.embeddings.contracts import MODEL_REVISION as EMBEDDING_MODEL_REVISION
 from mke.embeddings.readiness import (
@@ -50,6 +51,7 @@ from mke.evaluation.chinese_report import ChineseRetrievalReport
 from mke.evaluation.cjk_lexical_artifact import record_cjk_lexical_artifact
 from mke.evaluation.cjk_lexical_candidate import CJK_LEXICAL_CANDIDATE
 from mke.evaluation.cjk_lexical_comparison import CjkLexicalComparisonReport
+from mke.evaluation.dense_workflow import run_dense_evaluation_phase
 from mke.evaluation.numeric_comparison import NumericComparisonReport
 from mke.evaluation.report import RetrievalEvaluationReport
 from mke.interfaces.mcp_contract import McpRuntimeConfig, transcript_intake_report_payload
@@ -245,6 +247,25 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         dest="json_output",
     )
+    dense_retrieval = evaluation_subcommands.add_parser(
+        "retrieval-dense",
+        description=(
+            "Run the E3-C cache-only dense comparison-only protocol. The two phases "
+            "record a development freeze before one holdout observation and this "
+            "command does not change Search, Ask, MCP, or runtime defaults."
+        ),
+    )
+    dense_retrieval.add_argument("--protocol", type=Path, required=True)
+    dense_retrieval.add_argument(
+        "--candidate", choices=(DENSE_CANDIDATE_ID,), required=True
+    )
+    dense_retrieval.add_argument("--model-cache", type=Path, required=True)
+    dense_retrieval.add_argument("--development-only", action="store_true")
+    dense_retrieval.add_argument("--record-development-freeze", type=Path)
+    dense_retrieval.add_argument("--development-freeze", type=Path)
+    dense_retrieval.add_argument("--record", type=Path)
+    dense_retrieval.add_argument("--record-holdout-receipt", type=Path)
+    dense_retrieval.add_argument("--json", action="store_true", dest="json_output")
 
     mcp = subcommands.add_parser("mcp")
     mcp.add_argument("--allowed-root", type=Path, default=Path.cwd())
@@ -377,6 +398,51 @@ def main(argv: Sequence[str] | None = None) -> int:
                 and not rendering_failed
                 else 1
             )
+        if args.evaluation_command == "retrieval-dense":
+            development_paths = (
+                args.record_development_freeze is not None
+                and args.development_freeze is None
+                and args.record is None
+                and args.record_holdout_receipt is None
+            )
+            holdout_paths = (
+                args.record_development_freeze is None
+                and args.development_freeze is not None
+                and args.record is not None
+                and args.record_holdout_receipt is not None
+            )
+            if (args.development_only and not development_paths) or (
+                not args.development_only and not holdout_paths
+            ):
+                parser.error("retrieval-dense phase flags are incomplete or incompatible")
+            try:
+                payload = run_dense_evaluation_phase(
+                    phase="development" if args.development_only else "holdout",
+                    protocol=args.protocol,
+                    candidate=args.candidate,
+                    model_cache=args.model_cache,
+                    record_development_freeze=args.record_development_freeze,
+                    development_freeze=args.development_freeze,
+                    record=args.record,
+                    record_holdout_receipt=args.record_holdout_receipt,
+                )
+            except Exception:
+                payload = {
+                    "phase": "development" if args.development_only else "holdout",
+                    "integrity_status": "failed",
+                    "candidate_status": "not_evaluated",
+                    "e3d_status": "not_evaluated",
+                    "runtime_promotion_status": "not_evaluated",
+                    "failure": {
+                        "problem": "dense_comparison_incomplete",
+                        "cause": "dense comparison did not complete",
+                        "next_step": "inspect_dense_comparison_inputs",
+                    },
+                }
+                print(_render_dense_evaluation(payload, json_output=args.json_output))
+                return 1
+            print(_render_dense_evaluation(payload, json_output=args.json_output))
+            return 0
         parser.error("unsupported evaluation command")
     if args.command == "demo":
         return _demo_verify(args.fixture, args.revised_fixture, args.video_fixture)
@@ -479,6 +545,35 @@ def console_main() -> int:
 
 def _print_evaluation_progress(phase: str) -> None:
     print(phase, file=sys.stderr)
+
+
+def _render_dense_evaluation(
+    payload: Mapping[str, object], *, json_output: bool
+) -> str:
+    if json_output:
+        return json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    lines = [
+        "mke eval retrieval-dense",
+        f"phase={payload.get('phase', 'unknown')}",
+    ]
+    for key in (
+        "development_status",
+        "holdout_status",
+        "selected_threshold",
+        "candidate_status",
+        "e3d_status",
+        "runtime_promotion_status",
+    ):
+        if key in payload:
+            lines.append(f"{key}={payload[key]}")
+    failure = payload.get("failure")
+    if isinstance(failure, dict):
+        lines.append(
+            "failure problem=dense_comparison_incomplete "
+            "cause=dense comparison did not complete "
+            "next_step=inspect_dense_comparison_inputs"
+        )
+    return "\n".join(lines)
 
 
 def _render_retrieval_report_safely(
