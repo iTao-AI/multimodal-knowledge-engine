@@ -1583,7 +1583,7 @@ Require docs to state:
 Do not prewrite a positive outcome. If E3-C is negative, document the negative result and why E3-D
 remains ineligible. Do not add an ADR because no runtime behavior is promoted.
 
-- [ ] **Step 3: Run document-release audit and commit**
+- [x] **Step 3: Run document-release audit and commit**
 
 Use `gstack-document-release` to check Diataxis coverage and diagram drift. Keep raw tool artifacts
 outside the repository.
@@ -1597,7 +1597,7 @@ git commit -m "docs(eval): document E3-C dense evidence"
 
 ## Task 16: Final Verification And Authoritative Review Handoff
 
-- [ ] **Step 1: Run the complete suite**
+- [x] **Step 1: Run the complete suite**
 
 ```bash
 uv run pytest -q
@@ -1609,12 +1609,12 @@ uv run mke demo --verify
 git diff --check origin/main...HEAD
 ```
 
-- [ ] **Step 2: Run all canonical evaluations and validators**
+- [x] **Step 2: Run all canonical evaluations and validators**
 
 Run E1, E2, E3-A, E3-B, and E3-C. Validate every artifact. Confirm E1/E2/E3-A/E3-B normalized
 semantic equality to Task 0. Run E3-C model-free validation and cache-ready replay.
 
-- [ ] **Step 3: Run installed-wheel proofs**
+- [x] **Step 3: Run installed-wheel proofs**
 
 In isolated Python 3.12 and 3.13 environments, install the built `wheel[embedding]` offline from
 pre-populated package/model caches, run from external cwd with hostile environment variables and
@@ -1626,7 +1626,7 @@ network disabled, and prove:
 - model-free validator and cache-ready replay pass;
 - core wheel without the extra still imports and retains current runtime behavior.
 
-- [ ] **Step 4: Inspect the final diff and repository boundary**
+- [x] **Step 4: Inspect the final diff and repository boundary**
 
 ```bash
 git status --short --branch
@@ -1639,7 +1639,7 @@ git grep -n -E '\.gstack|token|api[_-]?key' \
 Verify no model weights, cache files, virtualenvs, raw GStack artifacts, private paths, credentials,
 or unrelated runtime changes are present.
 
-- [ ] **Step 5: Leave a clean local branch and hand off**
+- [x] **Step 5: Leave a clean local branch and hand off**
 
 Report exact base/HEAD/diff, commits, candidate and E3-D verdicts, threshold, metrics,
 complementarity recovery IDs, model/projection/artifact identities, resource data, Python proofs,
@@ -1654,27 +1654,27 @@ authorized actions.
 ## Final Acceptance Checklist
 
 - [x] PR 1 merged before PR 2 starts.
-- [ ] Exact Qwen model/revision and installed dependency graph are frozen.
-- [ ] Only prepare can network; every operational/evaluation path is cache-only.
-- [ ] Python 3.12/3.13 installed-wheel compatibility and replay pass.
-- [ ] No frozen Evidence truncates; embeddings and ranks satisfy the determinism contract.
-- [ ] sqlite-vec passes exact-reference equivalence, or its rejection and project reference
+- [x] Exact Qwen model/revision and installed dependency graph are frozen.
+- [x] Only prepare can network; every operational/evaluation path is cache-only.
+- [x] Python 3.12/3.13 installed-wheel compatibility and replay pass.
+- [x] No frozen Evidence truncates; embeddings and ranks satisfy the determinism contract.
+- [x] sqlite-vec passes exact-reference equivalence, or its rejection and project reference
   fallback are explicitly recorded before qrel scoring.
-- [ ] Development selects one threshold from the full frozen trace.
-- [ ] Threshold plateau and development leave-one-query-out sensitivity are recorded without
+- [x] Development selects one threshold from the full frozen trace.
+- [x] Threshold plateau and development leave-one-query-out sensitivity are recorded without
   changing the selection rule.
-- [ ] Development and holdout use separate snapshot/projection inventories.
-- [ ] Cross-run identities use stable document locators and text digests, not random runtime IDs.
-- [ ] A committed development-freeze file precedes one exclusive-create holdout receipt.
-- [ ] Model-free validator independently recomputes structure, metrics, gates, and verdicts from
+- [x] Development and holdout use separate snapshot/projection inventories.
+- [x] Cross-run identities use stable document locators and text digests, not random runtime IDs.
+- [x] A committed development-freeze file precedes one exclusive-create holdout receipt.
+- [x] Model-free validator independently recomputes structure, metrics, gates, and verdicts from
   recorded observations without claiming to authenticate coordinated observation replacement.
-- [ ] Cache-ready replay independently regenerates embeddings and exact-KNN results.
-- [ ] E1/E2/E3-A/E3-B semantics, qrels, fixtures, and runtime default remain unchanged.
-- [ ] E3-C records an honest positive or negative candidate-specific result, derives `e3d_status`
+- [x] Cache-ready replay independently regenerates embeddings and exact-KNN results.
+- [x] E1/E2/E3-A/E3-B semantics, qrels, fixtures, and runtime default remain unchanged.
+- [x] E3-C records an honest positive or negative candidate-specific result, derives `e3d_status`
   from gates, and keeps runtime promotion not evaluated.
-- [ ] Search, Ask, CLI runtime, MCP, and normal SQLite domain truth are unchanged.
-- [ ] Documentation describes the local reference boundary and actual limitations.
-- [ ] Documentation separates install-time network, model prepare network, cache-only operation,
+- [x] Search, Ask, CLI runtime, MCP, and normal SQLite domain truth are unchanged.
+- [x] Documentation describes the local reference boundary and actual limitations.
+- [x] Documentation separates install-time network, model prepare network, cache-only operation,
   manual uninstall/cache cleanup, and valid-negative automation semantics.
 - [ ] The final branch is clean and passes authoritative pre-PR review.
 
