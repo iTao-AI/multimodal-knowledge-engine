@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Any, cast
 
 from mke.evaluation.chinese_protocol import EXPECTED_CATEGORY_COUNTS
@@ -27,6 +27,8 @@ _INPUT_KEYS = {
     "dense_ndcg_at_10",
     "unanswerable_top_score",
     "hard_negative_failure_score",
+    "ranked_scores_and_grades",
+    "ideal_grades",
 }
 
 
@@ -43,6 +45,8 @@ class DenseThresholdInput:
     dense_ndcg_at_10: float
     unanswerable_top_score: float | None
     hard_negative_failure_score: float | None
+    ranked_scores_and_grades: tuple[tuple[float, int], ...] = ()
+    ideal_grades: tuple[int, ...] = ()
 
 
 def dense_threshold_grid() -> list[float]:
@@ -87,6 +91,10 @@ def validate_threshold_report(report: dict[str, Any]) -> None:
                 hard_negative_failure_score=_optional_float(
                     raw["hard_negative_failure_score"]
                 ),
+                ranked_scores_and_grades=_ranked_scores(
+                    raw["ranked_scores_and_grades"]
+                ),
+                ideal_grades=_ideal_grades(raw["ideal_grades"]),
             )
         )
     frozen_inputs = tuple(inputs)
@@ -134,7 +142,7 @@ def _build_report(
     intervals = _optimal_intervals(trace, selected)
     report: dict[str, Any] = {
         "schema_version": _SCHEMA,
-        "inputs": [asdict(item) for item in inputs],
+        "inputs": [_input_payload(item) for item in inputs],
         "selection_rule": list(_SELECTION_RULE),
         "gates": {
             "target_recovery_minimum": 2,
@@ -198,13 +206,15 @@ def _evaluate_threshold(
         and item.recovery_score is not None
         and item.recovery_score >= threshold
     )
-    answerable = tuple(item for item in inputs if item.recovery_score is not None)
+    answerable = tuple(
+        item
+        for item in inputs
+        if item.recovery_score is not None or item.ranked_scores_and_grades
+    )
     dense_ndcg = _ratio(
         sum(
-            item.dense_ndcg_at_10
+            _threshold_ndcg(item, threshold)
             for item in answerable
-            if item.recovery_score is not None
-            and item.recovery_score >= threshold
         ),
         len(answerable),
         0.0,
@@ -316,6 +326,7 @@ def _validate_inputs(inputs: tuple[DenseThresholdInput, ...]) -> None:
             "hard-negative failure score",
             optional=True,
         )
+        _validate_ranked_evidence(item)
         if (
             item.category in _TARGET_CLASSES
             and item.recovery_score is not None
@@ -367,3 +378,95 @@ def _optional_float(value: object) -> float | None:
     if value is None:
         return None
     return _required_float(value)
+
+
+def _ranked_scores(value: object) -> tuple[tuple[float, int], ...]:
+    if not isinstance(value, list):
+        raise DenseThresholdValidationError("ranked score evidence is invalid")
+    result: list[tuple[float, int]] = []
+    for raw in cast(list[object], value):
+        if not isinstance(raw, list):
+            raise DenseThresholdValidationError("ranked score evidence is invalid")
+        pair = cast(list[object], raw)
+        if len(pair) != 2:
+            raise DenseThresholdValidationError("ranked score evidence is invalid")
+        score, grade = pair
+        if type(score) is not float or type(grade) is not int:
+            raise DenseThresholdValidationError("ranked score evidence is invalid")
+        result.append((score, grade))
+    return tuple(result)
+
+
+def _ideal_grades(value: object) -> tuple[int, ...]:
+    if not isinstance(value, list):
+        raise DenseThresholdValidationError("ideal grade evidence is invalid")
+    grades = cast(list[object], value)
+    if any(type(item) is not int for item in grades):
+        raise DenseThresholdValidationError("ideal grade evidence is invalid")
+    return tuple(cast(list[int], grades))
+
+
+def _input_payload(item: DenseThresholdInput) -> dict[str, object]:
+    return {
+        "query_id": item.query_id,
+        "category": item.category,
+        "current_runtime_missed": item.current_runtime_missed,
+        "recovery_score": item.recovery_score,
+        "dense_ndcg_at_10": item.dense_ndcg_at_10,
+        "unanswerable_top_score": item.unanswerable_top_score,
+        "hard_negative_failure_score": item.hard_negative_failure_score,
+        "ranked_scores_and_grades": [
+            [score, grade] for score, grade in item.ranked_scores_and_grades
+        ],
+        "ideal_grades": list(item.ideal_grades),
+    }
+
+
+def _validate_ranked_evidence(item: DenseThresholdInput) -> None:
+    if len(item.ranked_scores_and_grades) > 10:
+        raise DenseThresholdValidationError("ranked score evidence is invalid")
+    previous = 1.0
+    for score, grade in item.ranked_scores_and_grades:
+        _validate_score(score, "ranked score", optional=False)
+        if type(grade) is not int or grade not in {0, 1, 2} or score > previous:
+            raise DenseThresholdValidationError("ranked score evidence is invalid")
+        previous = score
+    if any(type(grade) is not int or grade not in {0, 1, 2} for grade in item.ideal_grades):
+        raise DenseThresholdValidationError("ideal grade evidence is invalid")
+    if item.ranked_scores_and_grades and not item.ideal_grades:
+        raise DenseThresholdValidationError("ideal grade evidence is invalid")
+    if item.ranked_scores_and_grades:
+        grade_two_scores = [
+            score for score, grade in item.ranked_scores_and_grades if grade == 2
+        ]
+        expected_recovery = max(grade_two_scores, default=None)
+        if item.recovery_score != expected_recovery:
+            raise DenseThresholdValidationError(
+                "recovery score evidence is inconsistent"
+            )
+
+
+def _threshold_ndcg(item: DenseThresholdInput, threshold: float) -> float:
+    if not item.ranked_scores_and_grades:
+        return (
+            item.dense_ndcg_at_10
+            if item.recovery_score is not None and item.recovery_score >= threshold
+            else 0.0
+        )
+    observed = tuple(
+        grade
+        for score, grade in item.ranked_scores_and_grades
+        if score >= threshold
+    )
+    ideal = tuple(sorted(item.ideal_grades, reverse=True)[:10])
+    ideal_dcg = _dcg(ideal)
+    if ideal_dcg == 0.0:
+        return 0.0
+    return _dcg(observed) / ideal_dcg
+
+
+def _dcg(grades: tuple[int, ...]) -> float:
+    return sum(
+        (2**grade - 1) / math.log2(rank + 1)
+        for rank, grade in enumerate(grades, start=1)
+    )

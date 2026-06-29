@@ -101,6 +101,34 @@ def test_threshold_selection_breaks_remaining_ties_with_higher_threshold() -> No
     ]
 
 
+def test_threshold_selection_recomputes_ndcg_after_score_filtering() -> None:
+    report = select_dense_threshold(
+        (
+            replace(
+                _target("semantic-a", 0.80),
+                ranked_scores_and_grades=((0.80, 2), (0.50, 1)),
+                ideal_grades=(2, 1),
+            ),
+            replace(
+                _target("multi-b", 0.80),
+                category="multi_condition",
+                ranked_scores_and_grades=((0.80, 2),),
+                ideal_grades=(2,),
+            ),
+            _unanswerable("unanswerable-a", top_score=0.10),
+            _hard_negative("hard-negative-a", failure_score=0.10),
+        )
+    )
+
+    assert report["selected_threshold"] == 0.5
+    selected = report["selected"]
+    assert selected["dense_ndcg_at_10"] > next(
+        item["dense_ndcg_at_10"]
+        for item in report["threshold_trace"]
+        if item["threshold"] == 0.51
+    )
+
+
 def test_threshold_report_records_complete_trace_rank_and_sensitivity() -> None:
     inputs = (
         _target("semantic-a", 0.80, ndcg=0.40),
