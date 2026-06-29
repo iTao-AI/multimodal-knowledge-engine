@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -32,7 +33,7 @@ def test_config_requires_supported_python_existing_wheel_lock_and_external_cache
         _config(tmp_path / "invalid", "3.11")
 
 
-def test_config_rejects_model_cache_or_installed_environment_inside_repository(
+def test_config_rejects_model_cache_inside_repository(
     tmp_path: Path,
 ) -> None:
     repository = tmp_path / "repo"
@@ -52,19 +53,6 @@ def test_config_rejects_model_cache_or_installed_environment_inside_repository(
             "3.12",
             repository=repository,
         )
-
-    external_cache = tmp_path / "external-cache"
-    external_cache.mkdir()
-    with pytest.raises(ValueError, match="environment"):
-        DeploymentProofConfig(
-            wheel,
-            lock,
-            external_cache,
-            "3.12",
-            repository=repository,
-            installed_environment=repository / "venv",
-        )
-
 
 def test_environment_is_offline_cache_only_and_clears_hostile_python_state(
     monkeypatch: pytest.MonkeyPatch,
@@ -205,3 +193,81 @@ def test_query_smoke_evidence_is_fail_closed_for_missing_or_networked_measuremen
                 changed,
                 expected_model_fingerprint="sha256:" + "1" * 64,
             )
+
+
+def test_cli_rejects_reusing_an_installed_environment(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+
+    with pytest.raises(SystemExit):
+        proof._parser().parse_args(
+            [
+                "--wheel",
+                str(config.wheel),
+                "--corpus-lock",
+                str(config.corpus_lock),
+                "--model-cache",
+                str(config.model_cache),
+                "--python",
+                config.python_version,
+                "--installed-environment",
+                str(tmp_path / "stale-environment"),
+            ]
+        )
+
+
+def test_proof_rejects_status_only_compatibility_output(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository = Path(__file__).resolve().parents[2]
+    config = _config(tmp_path)
+    config = DeploymentProofConfig(
+        wheel=config.wheel,
+        corpus_lock=repository / "tests/fixtures/retrieval-dense-v1/corpus-lock.json",
+        model_cache=config.model_cache,
+        python_version=config.python_version,
+        repository=repository,
+    )
+    fingerprint = "sha256:" + "1" * 64
+
+    def fake_run(
+        command: tuple[str, ...],
+        **_kwargs: object,
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    def fake_json_command(
+        command: tuple[str, ...],
+        **_kwargs: object,
+    ) -> dict[str, object]:
+        runtime = Path(command[0]).parents[1]
+        if "-c" in command:
+            return {
+                "mke_file": str(
+                    runtime / "lib/python3.12/site-packages/mke/__init__.py"
+                ),
+                "sys_executable": str(runtime / "bin/python"),
+            }
+        if "doctor" in command:
+            return {"status": "ready", "snapshot_fingerprint": fingerprint}
+        if "--single-query-smoke" in command:
+            return {
+                "status": "passed",
+                "python": "3.12.0",
+                "interpreter": "installed",
+                "cache_only": True,
+                "network": False,
+                "source_tree_import": False,
+                "model_fingerprint": fingerprint,
+                "query_vector_digest": "sha256:" + "2" * 64,
+                "peak_rss_bytes": 1,
+                "model_load_ms": 1,
+                "query_embedding_ms": 1,
+            }
+        return {"compatibility_status": "passed"}
+
+    monkeypatch.setattr(proof, "_run", fake_run)
+    monkeypatch.setattr(proof, "_json_command", fake_json_command)
+
+    with pytest.raises(RuntimeError, match="compatibility proof failed"):
+        proof.run_deployment_proof(config)

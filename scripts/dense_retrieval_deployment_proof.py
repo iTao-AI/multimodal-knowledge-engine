@@ -14,6 +14,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+from mke.evaluation.dense_compatibility import (
+    CompatibilityValidationError,
+    load_dense_corpus_lock,
+    validate_dense_compatibility_report,
+)
+
 _STEP_TIMEOUT_SECONDS = 600.0
 _TOTAL_TIMEOUT_SECONDS = 600.0
 _OUTPUT_LIMIT = 512 * 1024
@@ -26,7 +32,6 @@ class DeploymentProofConfig:
     model_cache: Path
     python_version: str
     repository: Path = Path.cwd()
-    installed_environment: Path | None = None
 
     def __post_init__(self) -> None:
         if self.python_version not in {"3.12", "3.13"}:
@@ -41,16 +46,6 @@ class DeploymentProofConfig:
         cache = self.model_cache.resolve()
         if cache == repository or cache.is_relative_to(repository):
             raise ValueError("model cache must be outside the repository")
-        if self.installed_environment is not None:
-            installed = self.installed_environment.resolve(strict=False)
-            if installed == repository or installed.is_relative_to(repository):
-                raise ValueError("installed environment must be outside the repository")
-            if (
-                not installed.is_dir()
-                or not (installed / "bin/python").is_file()
-                or not (installed / "bin/mke").is_file()
-            ):
-                raise ValueError("installed environment is invalid")
 
 
 def isolated_runtime_environment() -> dict[str, str]:
@@ -179,45 +174,44 @@ def run_deployment_proof(config: DeploymentProofConfig) -> dict[str, object]:
         root = Path(temp).resolve()
         if root.is_relative_to(repository):
             raise RuntimeError("deployment proof external cwd is invalid")
-        runtime = config.installed_environment or (root / "venv")
-        if config.installed_environment is None:
-            constraints = root / "constraints.txt"
-            _run(
-                (
-                    "uv",
-                    "export",
-                    "--locked",
-                    "--extra",
-                    "embedding",
-                    "--no-dev",
-                    "--no-emit-project",
-                    "--output-file",
-                    str(constraints),
-                ),
-                cwd=repository,
-                environment=environment,
-                timeout=_remaining(started),
-            )
-            _run(
-                (
-                    "uv",
-                    "venv",
-                    "--clear",
-                    str(runtime),
-                    "--python",
-                    config.python_version,
-                    "--no-python-downloads",
-                ),
-                cwd=root,
-                environment=environment,
-                timeout=_remaining(started),
-            )
-            _run(
-                wheel_install_command(runtime / "bin/python", config.wheel, constraints),
-                cwd=root,
-                environment=environment,
-                timeout=_remaining(started),
-            )
+        runtime = root / "venv"
+        constraints = root / "constraints.txt"
+        _run(
+            (
+                "uv",
+                "export",
+                "--locked",
+                "--extra",
+                "embedding",
+                "--no-dev",
+                "--no-emit-project",
+                "--output-file",
+                str(constraints),
+            ),
+            cwd=repository,
+            environment=environment,
+            timeout=_remaining(started),
+        )
+        _run(
+            (
+                "uv",
+                "venv",
+                "--clear",
+                str(runtime),
+                "--python",
+                config.python_version,
+                "--no-python-downloads",
+            ),
+            cwd=root,
+            environment=environment,
+            timeout=_remaining(started),
+        )
+        _run(
+            wheel_install_command(runtime / "bin/python", config.wheel, constraints),
+            cwd=root,
+            environment=environment,
+            timeout=_remaining(started),
+        )
         python = runtime / "bin/python"
         mke = runtime / "bin/mke"
         identity = _json_command(
@@ -291,7 +285,15 @@ def run_deployment_proof(config: DeploymentProofConfig) -> dict[str, object]:
             environment=environment,
             timeout=_remaining(started),
         )
-        if report.get("compatibility_status") != "passed":
+        try:
+            corpus = load_dense_corpus_lock(
+                config.corpus_lock,
+                repository_root=repository,
+            )
+            validate_dense_compatibility_report(report, corpus)
+        except CompatibilityValidationError as error:
+            raise RuntimeError("installed dense compatibility proof failed") from error
+        if report["compatibility_status"] != "passed":
             raise RuntimeError("installed dense compatibility proof failed")
         return {
             "schema_version": "mke.dense_deployment_proof.v1",
@@ -378,7 +380,6 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--model-cache", type=Path, required=True)
     parser.add_argument("--python", choices=("3.12", "3.13"), required=True)
     parser.add_argument("--repository", type=Path, default=Path.cwd())
-    parser.add_argument("--installed-environment", type=Path)
     return parser
 
 
@@ -392,11 +393,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                 model_cache=args.model_cache.resolve(),
                 python_version=args.python,
                 repository=args.repository.resolve(),
-                installed_environment=(
-                    args.installed_environment.resolve()
-                    if args.installed_environment is not None
-                    else None
-                ),
             )
         )
     except Exception:
