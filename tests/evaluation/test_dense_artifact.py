@@ -18,6 +18,7 @@ from mke.evaluation.dense_artifact import (
 )
 from mke.evaluation.dense_compatibility import load_dense_corpus_lock
 from mke.evaluation.dense_protocol import load_dense_protocol_lock
+from mke.evaluation.dense_threshold import select_dense_threshold
 
 ROOT = Path(__file__).resolve().parents[2]
 PROTOCOL_PATH = ROOT / "tests/fixtures/retrieval-dense-v1/protocol-lock.json"
@@ -130,6 +131,8 @@ def test_threshold_inputs_do_not_count_current_runtime_hits_as_dense_recovery() 
     assert semantic_input.current_runtime_missed is False
     assert semantic_input.recovery_score is None
     assert semantic_input.ranked_scores_and_grades
+    report = select_dense_threshold(inputs)
+    assert report["development_status"] == "passed"
 
 
 def synthetic_artifact() -> dict[str, Any]:

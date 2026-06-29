@@ -456,7 +456,11 @@ def _validate_ranked_evidence(item: DenseThresholdInput) -> None:
         grade_two_scores = [
             score for score, grade in item.ranked_scores_and_grades if grade == 2
         ]
-        expected_recovery = max(grade_two_scores, default=None)
+        expected_recovery = (
+            max(grade_two_scores, default=None)
+            if item.current_runtime_missed
+            else None
+        )
         if item.recovery_score != expected_recovery:
             raise DenseThresholdValidationError(
                 "recovery score evidence is inconsistent"
