@@ -185,12 +185,20 @@ src/mke/
   domain/
   application/
   adapters/
+    embedding/
+      sentence_transformers.py
     pdf/
     sqlite/
+    vector/
+      exact_cosine.py
+      sqlite_vec.py
     video/
       faster_whisper.py
       faster_whisper_cli.py
       process.py
+  embeddings/
+    contracts.py
+    readiness.py
   interfaces/
   proof/
     transcription.py
@@ -205,11 +213,14 @@ src/mke/
     chinese_protocol.py
     chinese_report.py
     chinese_runner.py
+    dense_compatibility.py
     graded_metrics.py
     report.py
     runner.py
   retrieval/
     query_policy.py
+  vector/
+    contracts.py
 ```
 
 The domain and application layers must not depend on FastAPI, database implementations, model SDKs, LangChain, or LlamaIndex.
