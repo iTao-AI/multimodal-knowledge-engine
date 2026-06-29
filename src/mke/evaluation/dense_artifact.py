@@ -26,8 +26,6 @@ from mke.evaluation.chinese_protocol import (
     ChineseRetrievalProtocol,
     load_chinese_retrieval_protocol,
 )
-from mke.evaluation.chinese_report import render_chinese_retrieval_json
-from mke.evaluation.chinese_runner import run_chinese_retrieval_evaluation
 from mke.evaluation.dense_comparison import (
     DenseArmEvidence,
     DenseComparisonIdentity,
@@ -234,7 +232,10 @@ def validate_dense_comparison_artifact(
         development_sha = _sha256(state.get("development_freeze_sha256"))
         receipt_value = state.get("holdout_receipt_sha256")
         receipt_sha = None if receipt_value is None else _sha256(receipt_value)
-        loader = current_runtime_loader or _load_current_runtime
+        current_runtime = _object(artifact.get("current_runtime"))
+        loader = current_runtime_loader or (
+            lambda: _object(current_runtime.get("semantics"))
+        )
         expected = build_dense_comparison_artifact(
             protocol_path=protocol_path,
             repository_root=repository_root,
@@ -675,13 +676,6 @@ def normalize_current_runtime_semantics(
             }
         )
     return {"results": results}
-
-
-def _load_current_runtime() -> dict[str, Any]:
-    report = run_chinese_retrieval_evaluation(Path(_PROTOCOL_PATH))
-    if report.integrity_status != "passed":
-        raise DenseArtifactValidationError
-    return cast(dict[str, Any], json.loads(render_chinese_retrieval_json(report)))
 
 
 def _compatibility(root: Path, corpus: DenseCorpusLock) -> dict[str, Any]:

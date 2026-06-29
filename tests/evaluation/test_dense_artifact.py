@@ -63,6 +63,14 @@ def test_dense_artifact_recomputes_threshold_metrics_and_verdict() -> None:
     assert set(artifact["metrics"]) == {"development", "holdout"}
 
 
+def test_dense_artifact_model_free_validation_uses_recorded_runtime_semantics() -> None:
+    validate_dense_comparison_artifact(
+        synthetic_artifact(),
+        protocol_path=PROTOCOL_PATH,
+        repository_root=ROOT,
+    )
+
+
 @pytest.mark.parametrize(
     "mutation",
     _ARTIFACT_MUTATIONS,
