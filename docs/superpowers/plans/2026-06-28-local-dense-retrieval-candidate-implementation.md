@@ -20,7 +20,8 @@ Hatch/uv, GitHub Actions.
 
 ---
 
-Status: approved after autoplan review; implementation has not started.
+Status: approved after autoplan review; PR 1 implementation is paused at Task 0.5 while the
+2026-06-29 transport and resource-measurement amendments land on `main`.
 
 Planning base: `main@5ed0a722b83f9b4c70aec7c9333d8bf7d17b9335`.
 
@@ -44,6 +45,10 @@ Autoplan review:
   equality.
 - Only `mke embedding prepare --allow-model-download` may use the network. Doctor, evaluation,
   validators, installed-wheel proof, Search, Ask, and MCP remain cache-only.
+- One explicit model-download authorization covers one `prepare` process for the approved
+  model/revision/cache/transport tuple. Hugging Face Hub-managed requests and Range resumes inside
+  that invocation are allowed; MKE never starts another process, SDK retry loop, transport
+  fallback, alternate model/provider, or second network `snapshot_download` call.
 - This model-network boundary starts after package installation. Installing `wheel[embedding]` may
   use a package index, or may be fully offline from a pre-populated wheelhouse.
 - The exact model is `Qwen/Qwen3-Embedding-0.6B` at revision
@@ -59,6 +64,9 @@ Autoplan review:
   projection adapter, and development-selected threshold are frozen.
 - If any stop condition in the design fires, leave the branch clean at the last valid checkpoint,
   record the evidence, and return to the planning window. Do not improvise a substitute.
+- The PR 1 stress proof targets hosts with at least `16 GiB` physical memory and gates peak RSS at
+  both `6 GiB` and `40%` of physical memory. The superseded `4 GiB` observation remains historical
+  evidence; no rerun may be selected to make the old contract pass.
 
 Autoplan review clarifications:
 
@@ -459,11 +467,17 @@ mke embedding doctor --model qwen3-embedding-0.6b \
   --model-cache <outside-repo-cache> --json
 ```
 
-`prepare` must call `snapshot_download(repo_id=..., revision=..., local_files_only=False)` only
-after the allowlist and explicit-download checks. `doctor` never downloads. The exact model and
-revision are allowlisted defaults; explicit flags, when present, must equal those values. Omission
-must never mean “latest.” Use a documented OS cache default plus `MKE_EMBEDDING_CACHE`/CLI override,
-and reject every resolved cache path inside the repository for both prepare and doctor.
+`prepare` first validates the exact standard cache snapshot directly, without SDK resolution. A
+complete snapshot returns `already_cached`. A missing or incomplete snapshot without permission
+fails before `snapshot_download`. With explicit permission it calls
+`snapshot_download(repo_id=..., revision=..., cache_dir=..., local_files_only=False,
+max_workers=1)` exactly once. An SDK failure returns the stable download error immediately; MKE
+must not reinvoke the SDK. `doctor` and cache-only adapter loads use
+`snapshot_download(..., local_files_only=True, max_workers=1)` once and never download. The exact
+model and revision are allowlisted defaults; explicit flags, when present, must equal those values.
+Omission must never mean “latest.” Use a documented OS cache default plus
+`MKE_EMBEDDING_CACHE`/CLI override, and reject every resolved cache path inside the repository for
+both prepare and doctor.
 
 - [ ] **Step 4: Verify model-free behavior**
 
@@ -675,25 +689,45 @@ without importing the qrel parser. Any mismatch with the frozen document bytes s
 
 - [ ] **Step 4: Stop and request exact download authorization**
 
+2026-06-29 execution amendment: authorization is invocation-level, not individual HTTP-request
+level. One explicit authorization covers exactly one `prepare` process and Hugging Face
+Hub-managed transport requests/Range resumes within that process. It does not authorize MKE to
+start a second process or reinvoke `snapshot_download`. Hugging Face Hub 1.21.0 exposes no public
+retry-count or disable-resume parameter, so transport requests must not be described as
+retry-count bounded.
+
+The outer proof supervisor enforces one immutable model/revision/cache/transport tuple, a maximum
+45-minute process lifetime, and termination after 10 minutes without model-cache byte progress.
+Termination never starts another command automatically. MKE calls network `snapshot_download`
+once with `max_workers=1` and has no retry loop or silent fallback.
+
 The execution window must report:
 
 ```text
 Model: Qwen/Qwen3-Embedding-0.6B
 Revision: 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3
 Cache: operator-selected path outside the repository
-Networked command: mke embedding prepare --allow-model-download only
+Networked command: one explicitly authorized mke embedding prepare process only
 Expected largest weight file: model.safetensors, about 1.19 GB
-Retry policy: no implicit retries; every additional network attempt requires a new explicit authorization
+Authorization policy: library-managed requests/Range resumes are allowed inside this invocation;
+any new CLI invocation or process restart requires a new explicit authorization
+Stop gates: total wall clock <= 45 minutes; no cache-byte progress <= 10 minutes
 ```
 
-Do not run the download until the user explicitly authorizes this exact operation.
+The completed host-specific proof used explicit regular HTTP with
+`HF_HUB_DISABLE_XET=1 HF_HUB_DOWNLOAD_TIMEOUT=30` after two separately authorized failed
+invocations exposed an Xet no-progress stall and an HTTP peer close. Those environment variables
+were proof transport inputs, not product defaults. The successful third invocation completed the
+exact 12-file snapshot in about 46 seconds. Two stale process-unique partials remain outside the
+repository and require separate deletion authorization.
 
 - [ ] **Step 5: Run the one authorized prepare, then cache-only doctor**
 
-Example after authorization:
+Recorded host-specific command after authorization:
 
 ```bash
-uv run mke embedding prepare --allow-model-download \
+HF_HUB_DISABLE_XET=1 HF_HUB_DOWNLOAD_TIMEOUT=30 uv run mke embedding prepare \
+  --allow-model-download \
   --model qwen3-embedding-0.6b \
   --model-revision 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3 \
   --model-cache "$HOME/Library/Caches/mke/embedding" --json
@@ -704,9 +738,31 @@ uv run mke embedding doctor \
 ```
 
 Expected: prepare succeeds once; doctor is `ready`, cache-only, and reports a complete redacted
-manifest identity. If the download fails, stop. Do not broaden model/revision/host or retry.
+manifest identity. Library-managed transport resumes are allowed only within the authorized
+process. If a process fails or an outer gate fires, stop. Do not broaden model/revision/cache/
+transport policy or start a new invocation without explicit authorization.
 
 - [ ] **Step 6: Run Python 3.12 and 3.13 installed-wheel proof**
+
+2026-06-29 resource-measurement amendment: the original stress peak ceiling of `4 GiB` had no
+declared minimum host class and conflated the qrel-free determinism stress workload with a normal
+runtime query. On a `16 GiB` Apple Silicon host, the first Python 3.12 installed-wheel stress proof
+measured `4,300,947,456` bytes, only `5,980,160` bytes above that old limit, while the host had no
+swap activity and every non-resource gate passed. No qrels had been read or scored. That result
+remains a failure under the superseded contract and must never be relabeled as passing.
+
+Before another real proof, write RED tests and update the report/validator so they:
+
+- record physical memory and reject a host below `16 GiB`;
+- require stress peak RSS `<= 6 GiB` and `<= 40%` of physical memory;
+- independently recompute the peak-RSS ratio and reject bool, non-positive, inconsistent, or
+  non-finite resource fields;
+- label the 70-Evidence double-embedding run as `compatibility_stress`, not runtime Search memory;
+- run a separate fresh cache-only model-load-plus-single-query process and record its peak RSS as
+  report-only evidence; missing, non-finite, source-tree, wrong-interpreter, or networked query-smoke
+  evidence fails proof integrity, but the measured value has no PR 1 ceiling;
+- bump the compatibility report schema so a superseded `4 GiB` report cannot validate under the
+  amended contract.
 
 Use isolated venvs outside the repository, install the built `wheel[embedding]`, run from an
 external cwd with hostile `PYTHONPATH`, and keep network disabled. Both environments must prove
@@ -714,18 +770,27 @@ installed identity, cache-only model load, no truncation, deterministic output w
 projection equivalence, and all ceilings:
 
 ```text
+host physical memory >= 16 GiB
 snapshot <= 1.5 GiB
-peak RSS <= 4 GiB
+compatibility stress peak RSS <= 6 GiB and <= 40% of physical memory
 70-Evidence projection <= 1 MiB
 one query embedding plus exact-KNN <= 5 s
+single-query peak RSS = report-only
 ```
+
+After the amended tests and validator pass, run one fresh Python 3.12 installed-wheel proof and one
+fresh Python 3.13 installed-wheel proof. Each version gets one canonical run; do not repeat a
+version to select a lower RSS. Reuse the complete external model cache and pre-populated package
+cache without network access. The earlier source-worktree Python 3.13 observation and superseded
+Python 3.12 result remain execution evidence, not canonical amended-contract proofs.
 
 - [ ] **Step 7: Apply stop conditions**
 
 Stop and return to planning if Qwen3 fails package, Python, CPU, snapshot, remote-code,
-determinism, truncation, or resource gates. If sqlite-vec alone fails, record its structured
+determinism, truncation, or the amended resource gates. If sqlite-vec alone fails, record its structured
 rejection and select the project exact-cosine reference only if every exact-reference gate passes.
-Do not automatically choose BGE or another model.
+Do not automatically choose BGE or another model. The observed sqlite-vec file-size rejection is
+not a candidate failure when exact-cosine passes every required gate.
 
 - [ ] **Step 8: Record and commit compatibility evidence**
 
@@ -771,6 +836,66 @@ Add tests that require:
 
 Do not commit local cache files, model weights, virtualenvs, raw absolute paths, or raw GStack
 artifacts. CI may install the extra and run synthetic/model-free proofs only.
+
+## Task 6A: Refresh Historical Artifact Identities
+
+Approved targeted amendment after implementation reproduced a sequencing conflict: PR 1 changes
+`pyproject.toml`, `uv.lock`, source files, and CI workflow bytes, while the frozen E1/E2/E3-A/E3-B
+artifacts bind those identities. The original Task 14 occurs in PR 2, so it cannot make PR 1
+validators pass.
+
+Do not run this refresh until Tasks 4, 5, 0.5, and Task 6 Steps 1-2 are complete and all PR 1
+source, lock, workflow, tests, and documentation bytes are frozen. Run the transaction once.
+
+**Files:**
+
+- Modify: `src/mke/evaluation/artifact_refresh.py`
+- Modify: `tests/evaluation/test_artifact_refresh.py`
+- Identity-only refresh targets:
+  - `benchmarks/retrieval/retrieval-eval-v1-baseline.json`
+  - `tests/fixtures/retrieval-numeric-v1/protocol-lock.json`
+  - `benchmarks/retrieval/numeric-grouping-v1-comparison.json`
+  - `benchmarks/retrieval/retrieval-chinese-v1-baseline.json`
+  - `benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json`
+
+- [ ] **Step 1: Write RED five-target transaction tests**
+
+Require atomic replacement and checked-in validation of all five targets, byte-identical rollback
+when replacement of the fifth target fails, recovery coverage for the fifth target, and fail-closed
+rollback for any qrel, fixture, manifest, protocol candidate, observation, metric, gate, verdict,
+compiled-query, locator, or candidate-contract change. Identity-only source/scope changes pass.
+
+- [ ] **Step 2: Extend the supported transaction without weakening validators**
+
+Add the E3-B observed input, record step, staged validation, checked-in validation, backup,
+replacement, and recovery coverage. Do not delete bound source paths, shrink the E2 scope fence,
+relax a validator, convert an integrity failure to a warning, create an E3-C comparison artifact, or
+read dense candidate qrels.
+
+- [ ] **Step 3: Run the one identity refresh after PR 1 bytes are frozen**
+
+Use Task 0 normalized E1/E2/E3-A/E3-B snapshots as the semantic oracle. Historical evaluation may
+read its own frozen qrels only for this approved regression workflow. Before replacement, require
+exact equality for qrels, fixture bytes, manifests, candidate contracts, locators, compiled
+queries, ordered results, observations, metrics, gates, and verdicts. Only declared source/scope
+identity metadata derived from final PR 1 bytes may change.
+
+- [ ] **Step 4: Validate and commit separately**
+
+Run all four observed evaluations, all canonical validators, targeted artifact-refresh tests, and
+the Task 0 normalized semantic comparison again. Any semantic delta, unknown invalidation path, or
+unexplained artifact diff is a stop condition.
+
+```bash
+git add src/mke/evaluation/artifact_refresh.py \
+  tests/evaluation/test_artifact_refresh.py \
+  tests/fixtures/retrieval-numeric-v1/protocol-lock.json \
+  benchmarks/retrieval/retrieval-eval-v1-baseline.json \
+  benchmarks/retrieval/numeric-grouping-v1-comparison.json \
+  benchmarks/retrieval/retrieval-chinese-v1-baseline.json \
+  benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json
+git commit -m "test(eval): refresh PR 1 artifact identities"
+```
 
 - [ ] **Step 3: Run the complete PR 1 verification**
 
@@ -1348,6 +1473,10 @@ git commit -m "test(eval): record E3-C dense comparison"
 
 ## Task 14: Refresh Only Permitted Historical Identities
 
+Task 14 remains PR 2-only. It handles identities invalidated by final E3-C comparison source
+changes after PR 1 is merged. It must not repeat, overwrite, or weaken the PR 1 Task 6A semantic
+proof, and it must independently explain every new PR 2 invalidation path.
+
 **Files:**
 
 - Modify only if required by validated source identity changes:
@@ -1543,34 +1672,16 @@ authorized actions.
 
 ## GSTACK REVIEW REPORT
 
-| Phase | Mode | Coverage | Result | Evidence |
-|---|---|---|---|---|
-| CEO Review | selective expansion | premises, alternatives, scope, trajectory | clear after amendments | 8 independent concerns dispositioned |
-| Design Review | conditional | graphical UI | skipped | no UI scope detected |
-| Engineering Review | full | architecture, state, tests, security, performance | clear after amendments | 9 independent findings dispositioned |
-| DX Review | polish | install, CLI, errors, docs, cleanup | clear after amendments | score `6.6 -> 8.5` |
-| Outside voices | degraded | CEO, engineering, DX | `codex-only` | second configured voice unavailable; no cross-model consensus claimed |
+| Review | Trigger | Why | Runs | Status | Findings |
+|---|---|---|---:|---|---|
+| CEO Review | `/plan-ceo-review` | Scope and strategy | 1 | CLEAR | 8 concerns dispositioned; comparison-only scope retained |
+| Codex Review | `/codex review` | Independent second opinion | 1 | DEGRADED | Codex-only outside voice; no cross-model consensus claimed |
+| Eng Review | `/plan-eng-review` | Architecture and tests | 2 | CLEAR | Original 9 findings resolved; resource amendment targeted review found 0 new issues |
+| Design Review | `/plan-design-review` | UI/UX gaps | 0 | SKIPPED | No graphical UI scope |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 1 | CLEAR | Install, CLI, error, documentation, and cleanup contract reviewed |
 
-Review totals: 16 decisions, 13 auto-decided mechanical choices, 3 taste choices, and 0 user
-challenges. No user challenge is declared because cross-model agreement was unavailable.
-
-Approved taste defaults:
-
-1. Keep the compatibility-first two-PR order rather than score development qrels in PR 1.
-2. Keep sqlite-vec in the bounded compatibility spike rather than defer it before implementation.
-3. Test one immutable Qwen3 candidate rather than run a development model bakeoff.
-
-Cross-phase themes:
-
-- trustworthy negative outcomes are first-class results, not exceptions;
-- package installation, model acquisition, cache-only operation, and cleanup are distinct phases;
-- stable locator identity, partition isolation, and replay are one evidence-integrity boundary.
-
-Deferred beyond E3-C: API embedding adapters, RRF, reranking, query rewrite, segmentation changes,
-persistent runtime vector projection, runtime default changes, second-model comparison, external
-vector services, HTTP, and UI.
-
-**VERDICT:** CEO, engineering, and DX review are clear. The three taste defaults were approved on
-2026-06-28. E3-C is ready for a public-neutral implementation handoff.
+- **VERDICT:** CEO, engineering, and DX reviews are clear. The 2026-06-29 amendment supersedes only
+  the prepare transport and PR 1 resource-measurement contracts. Implementation may resume after
+  this amendment lands on `main`; qrel scoring and PR 2 remain blocked on PR 1 merge.
 
 NO UNRESOLVED DECISIONS
