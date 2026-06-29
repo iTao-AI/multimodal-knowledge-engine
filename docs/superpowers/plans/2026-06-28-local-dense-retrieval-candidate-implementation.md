@@ -20,8 +20,16 @@ Hatch/uv, GitHub Actions.
 
 ---
 
-Status: approved after autoplan review; PR 1 implementation is paused at Task 0.5 while the
-2026-06-29 transport and resource-measurement amendments land on `main`.
+Status: PR 1 Tasks 0-6A and the verification handoff are complete. The authoritative targeted
+re-review of `766f64b1a6b90c1443d44c423fb0fecf53b7a590` is CLEAN with `0 findings`. PR 2 has
+not started.
+
+The targeted re-review covered the four fixes since
+`00a4c0f2c95851635b17c5f55096a7f8fc4eb9a8`, durable documentation, and the permitted
+historical artifact identity refresh. Independent verification recorded `72` targeted tests,
+targeted Ruff, targeted Pyright with `0 errors`, model-free dense compatibility artifact
+validation, four artifact-refresh tests, `git diff --check`, and a clean worktree. No runtime,
+Search, Ask, MCP, default-strategy, or PR 2 scope drift was found.
 
 Planning base: `main@5ed0a722b83f9b4c70aec7c9333d8bf7d17b9335`.
 
@@ -140,7 +148,7 @@ that would amend this plan.
 - Read: `benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json`
 - Read: `src/mke/retrieval/strategy.py`
 
-- [ ] **Step 1: Confirm branch isolation and a clean baseline**
+- [x] **Step 1: Confirm branch isolation and a clean baseline**
 
 ```bash
 git status --short --branch
@@ -150,7 +158,7 @@ git diff --check origin/main...HEAD
 
 Expected: a clean new branch whose `HEAD` is the intended `origin/main` commit.
 
-- [ ] **Step 2: Run the current regression and artifact gates**
+- [x] **Step 2: Run the current regression and artifact gates**
 
 ```bash
 uv sync --all-extras --dev
@@ -196,7 +204,7 @@ uv run mke demo --verify
 Expected: all current tests and validators pass. If a command path has changed on latest `main`,
 inspect the actual CLI/module and update this plan before implementation; do not bypass a gate.
 
-- [ ] **Step 3: Capture semantic payloads for later equality checks**
+- [x] **Step 3: Capture semantic payloads for later equality checks**
 
 The generated reports live only under `/tmp`. Remove duration/platform fields and preserve
 normalized payloads for before/after comparison. Do not edit canonical artifacts in Task 0.
@@ -222,7 +230,7 @@ and vector path are reproducible and within the declared ceilings,” not “den
 - Modify: `src/mke/interfaces/public_errors.py`
 - Modify: `tests/interfaces/test_public_errors.py`
 
-- [ ] **Step 1: Write RED contract tests**
+- [x] **Step 1: Write RED contract tests**
 
 Cover:
 
@@ -282,7 +290,7 @@ class LocalEmbeddingRuntime(Protocol):
     def tokenize_lengths(self, texts: tuple[str, ...]) -> tuple[int, ...]: ...
 ```
 
-- [ ] **Step 2: Run the tests and confirm RED**
+- [x] **Step 2: Run the tests and confirm RED**
 
 ```bash
 uv run pytest tests/embeddings/test_contracts.py tests/interfaces/test_public_errors.py -q
@@ -290,7 +298,7 @@ uv run pytest tests/embeddings/test_contracts.py tests/interfaces/test_public_er
 
 Expected: failures because the embedding package and public mappings do not exist.
 
-- [ ] **Step 3: Implement immutable DTOs and validation**
+- [x] **Step 3: Implement immutable DTOs and validation**
 
 Keep validation in project code. SDK conversion belongs only in adapters. Store portable vectors as
 tuples of Python floats after validating their float32 origin; never serialize provider tensors.
@@ -311,7 +319,7 @@ embedding output contains non-finite values
 embedding output is not normalized
 ```
 
-- [ ] **Step 4: Run focused tests and static checks**
+- [x] **Step 4: Run focused tests and static checks**
 
 ```bash
 uv run pytest tests/embeddings/test_contracts.py tests/interfaces/test_public_errors.py -q
@@ -321,7 +329,7 @@ uv run pyright src/mke/embeddings tests/embeddings
 
 Expected: pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/mke/embeddings tests/embeddings \
@@ -338,7 +346,7 @@ git commit -m "feat(embedding): define local dense contracts"
 - Create: `tests/packaging/test_embedding_extra.py`
 - Modify: `.github/workflows/ci.yml`
 
-- [ ] **Step 1: Write RED packaging tests**
+- [x] **Step 1: Write RED packaging tests**
 
 Assert:
 
@@ -350,13 +358,13 @@ Assert:
   imports it;
 - no LangChain, LlamaIndex, external vector service, or provider API SDK is added.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 uv run pytest tests/packaging/test_embedding_extra.py -q
 ```
 
-- [ ] **Step 3: Add and lock the optional extra**
+- [x] **Step 3: Add and lock the optional extra**
 
 Use this direct boundary unless the resolver proves an incompatibility:
 
@@ -378,14 +386,14 @@ uv sync --extra embedding --dev
 uv tree --extra embedding
 ```
 
-- [ ] **Step 4: Add model-free Python 3.12/3.13 extra gates**
+- [x] **Step 4: Add model-free Python 3.12/3.13 extra gates**
 
 The CI gate may install the extra and run imports, contract tests, a synthetic exact-cosine proof,
 and a synthetic sqlite-vec compatibility proof. It must not download or load the Qwen snapshot.
 Use a separate job or an explicitly larger timeout rather than consuming the existing core
 10-minute job without evidence.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 ```bash
 uv run pytest tests/packaging/test_embedding_extra.py -q
@@ -405,7 +413,7 @@ git commit -m "build(embedding): lock local dense runtime extra"
 - Create: `tests/interfaces/test_cli_embedding.py`
 - Modify: `docs/reference/cli.md`
 
-- [ ] **Step 1: Write RED readiness tests**
+- [x] **Step 1: Write RED readiness tests**
 
 Cover:
 
@@ -447,13 +455,13 @@ class EmbeddingReadiness:
     next_step: str | None
 ```
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 uv run pytest tests/embeddings/test_readiness.py tests/interfaces/test_cli_embedding.py -q
 ```
 
-- [ ] **Step 3: Implement cache-only lifecycle and CLI**
+- [x] **Step 3: Implement cache-only lifecycle and CLI**
 
 Add:
 
@@ -479,7 +487,7 @@ Omission must never mean “latest.” Use a documented OS cache default plus
 `MKE_EMBEDDING_CACHE`/CLI override, and reject every resolved cache path inside the repository for
 both prepare and doctor.
 
-- [ ] **Step 4: Verify model-free behavior**
+- [x] **Step 4: Verify model-free behavior**
 
 ```bash
 uv run pytest tests/embeddings/test_readiness.py tests/interfaces/test_cli_embedding.py -q
@@ -491,7 +499,7 @@ uv run mke embedding doctor --model qwen3-embedding-0.6b \
 Expected: tests pass; the empty-cache doctor returns `not_ready`, a stable next step, no download,
 no absolute path, and no traceback.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/mke/embeddings/readiness.py src/mke/cli.py \
@@ -509,7 +517,7 @@ git commit -m "feat(embedding): add cache-only model lifecycle"
 - Create: `tests/adapters/test_sentence_transformers_embedding.py`
 - Modify: `src/mke/embeddings/__init__.py`
 
-- [ ] **Step 1: Write RED adapter tests using fakes**
+- [x] **Step 1: Write RED adapter tests using fakes**
 
 Verify:
 
@@ -528,18 +536,18 @@ Verify:
 - provider objects and absolute snapshot paths never escape in public results or errors;
 - cancellation between batches stops before the next encode call.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 uv run pytest tests/adapters/test_sentence_transformers_embedding.py -q
 ```
 
-- [ ] **Step 3: Implement the adapter behind `EmbeddingProvider`**
+- [x] **Step 3: Implement the adapter behind `EmbeddingProvider`**
 
 Keep imports inside the adapter factory. Do not add the adapter to normal `RuntimeConfig`,
 `KnowledgeEngine`, Search, Ask, or MCP.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 ```bash
 uv run pytest tests/adapters/test_sentence_transformers_embedding.py \
@@ -564,7 +572,7 @@ git commit -m "feat(embedding): add Qwen3 cache-only adapter"
 - Create: `tests/adapters/test_exact_cosine_projection.py`
 - Create: `tests/adapters/test_sqlite_vec_projection.py`
 
-- [ ] **Step 1: Write RED project-owned vector tests**
+- [x] **Step 1: Write RED project-owned vector tests**
 
 Use contracts equivalent to:
 
@@ -605,19 +613,19 @@ Test:
 - extension-unavailable and incompatible results fail closed; no lexical fallback;
 - temporary projection files remain outside the repository and are removed on normal completion.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 uv run pytest tests/vector tests/adapters/test_exact_cosine_projection.py \
   tests/adapters/test_sqlite_vec_projection.py -q
 ```
 
-- [ ] **Step 3: Implement the reference first, then sqlite-vec**
+- [x] **Step 3: Implement the reference first, then sqlite-vec**
 
 The project-owned reference is the correctness oracle. The selected sqlite-vec adapter must expose
 the same project-owned output. Do not compare or fuse lexical and cosine raw scores.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 ```bash
 uv run pytest tests/vector tests/adapters/test_exact_cosine_projection.py \
@@ -645,7 +653,7 @@ Historical regression commands elsewhere in PR 1 remain separate from this proof
 - Create: `tests/fixtures/retrieval-dense-v1/corpus-lock.json`
 - Create after successful proof: `benchmarks/retrieval/qwen3-embedding-0.6b-compatibility.json`
 
-- [ ] **Step 1: Write RED compatibility tests**
+- [x] **Step 1: Write RED compatibility tests**
 
 The report schema must contain no qrels or relevance metrics. It records:
 
@@ -664,14 +672,14 @@ The validator must reject missing fields, bool-as-int, non-finite values, wrong 
 wrong package versions, manifest tampering, impossible measurements, and a passing verdict with a
 failed gate.
 
-- [ ] **Step 2: Confirm RED with synthetic inputs**
+- [x] **Step 2: Confirm RED with synthetic inputs**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_compatibility.py \
   tests/scripts/test_dense_retrieval_deployment_proof.py -q
 ```
 
-- [ ] **Step 3: Implement a cache-only proof runner**
+- [x] **Step 3: Implement a cache-only proof runner**
 
 The proof runner must:
 
@@ -687,7 +695,7 @@ page/Evidence locator inventory, protocol file digest, and expected Evidence cou
 query, qrel, category, grade, development metric, or holdout metric. Build and validate this lock
 without importing the qrel parser. Any mismatch with the frozen document bytes stops the proof.
 
-- [ ] **Step 4: Stop and request exact download authorization**
+- [x] **Step 4: Stop and request exact download authorization**
 
 2026-06-29 execution amendment: authorization is invocation-level, not individual HTTP-request
 level. One explicit authorization covers exactly one `prepare` process and Hugging Face
@@ -721,7 +729,7 @@ were proof transport inputs, not product defaults. The successful third invocati
 exact 12-file snapshot in about 46 seconds. Two stale process-unique partials remain outside the
 repository and require separate deletion authorization.
 
-- [ ] **Step 5: Run the one authorized prepare, then cache-only doctor**
+- [x] **Step 5: Run the one authorized prepare, then cache-only doctor**
 
 Recorded host-specific command after authorization:
 
@@ -742,7 +750,7 @@ manifest identity. Library-managed transport resumes are allowed only within the
 process. If a process fails or an outer gate fires, stop. Do not broaden model/revision/cache/
 transport policy or start a new invocation without explicit authorization.
 
-- [ ] **Step 6: Run Python 3.12 and 3.13 installed-wheel proof**
+- [x] **Step 6: Run Python 3.12 and 3.13 installed-wheel proof**
 
 2026-06-29 resource-measurement amendment: the original stress peak ceiling of `4 GiB` had no
 declared minimum host class and conflated the qrel-free determinism stress workload with a normal
@@ -784,7 +792,7 @@ version to select a lower RSS. Reuse the complete external model cache and pre-p
 cache without network access. The earlier source-worktree Python 3.13 observation and superseded
 Python 3.12 result remain execution evidence, not canonical amended-contract proofs.
 
-- [ ] **Step 7: Apply stop conditions**
+- [x] **Step 7: Apply stop conditions**
 
 Stop and return to planning if Qwen3 fails package, Python, CPU, snapshot, remote-code,
 determinism, truncation, or the amended resource gates. If sqlite-vec alone fails, record its structured
@@ -792,7 +800,7 @@ rejection and select the project exact-cosine reference only if every exact-refe
 Do not automatically choose BGE or another model. The observed sqlite-vec file-size rejection is
 not a candidate failure when exact-cosine passes every required gate.
 
-- [ ] **Step 8: Record and commit compatibility evidence**
+- [x] **Step 8: Record and commit compatibility evidence**
 
 Only after both Python proofs pass:
 
@@ -819,7 +827,7 @@ git commit -m "test(embedding): prove Qwen3 dense compatibility"
   `docs/superpowers/reviews/2026-06-28-local-dense-prerequisites-review.md`
 - Modify: `.github/workflows/ci.yml`
 
-- [ ] **Step 1: Write RED documentation/packaging assertions**
+- [x] **Step 1: Write RED documentation/packaging assertions**
 
 Add tests that require:
 
@@ -832,7 +840,7 @@ Add tests that require:
 - architecture diagrams showing SDKs remain behind project-owned ports;
 - CI model-free gates and local cache-ready proof separation.
 
-- [ ] **Step 2: Update docs and the model-free CI gate**
+- [x] **Step 2: Update docs and the model-free CI gate**
 
 Do not commit local cache files, model weights, virtualenvs, raw absolute paths, or raw GStack
 artifacts. CI may install the extra and run synthetic/model-free proofs only.
@@ -858,21 +866,21 @@ source, lock, workflow, tests, and documentation bytes are frozen. Run the trans
   - `benchmarks/retrieval/retrieval-chinese-v1-baseline.json`
   - `benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json`
 
-- [ ] **Step 1: Write RED five-target transaction tests**
+- [x] **Step 1: Write RED five-target transaction tests**
 
 Require atomic replacement and checked-in validation of all five targets, byte-identical rollback
 when replacement of the fifth target fails, recovery coverage for the fifth target, and fail-closed
 rollback for any qrel, fixture, manifest, protocol candidate, observation, metric, gate, verdict,
 compiled-query, locator, or candidate-contract change. Identity-only source/scope changes pass.
 
-- [ ] **Step 2: Extend the supported transaction without weakening validators**
+- [x] **Step 2: Extend the supported transaction without weakening validators**
 
 Add the E3-B observed input, record step, staged validation, checked-in validation, backup,
 replacement, and recovery coverage. Do not delete bound source paths, shrink the E2 scope fence,
 relax a validator, convert an integrity failure to a warning, create an E3-C comparison artifact, or
 read dense candidate qrels.
 
-- [ ] **Step 3: Run the one identity refresh after PR 1 bytes are frozen**
+- [x] **Step 3: Run the one identity refresh after PR 1 bytes are frozen**
 
 Use Task 0 normalized E1/E2/E3-A/E3-B snapshots as the semantic oracle. Historical evaluation may
 read its own frozen qrels only for this approved regression workflow. Before replacement, require
@@ -880,7 +888,7 @@ exact equality for qrels, fixture bytes, manifests, candidate contracts, locator
 queries, ordered results, observations, metrics, gates, and verdicts. Only declared source/scope
 identity metadata derived from final PR 1 bytes may change.
 
-- [ ] **Step 4: Validate and commit separately**
+- [x] **Step 4: Validate and commit separately**
 
 Run all four observed evaluations, all canonical validators, targeted artifact-refresh tests, and
 the Task 0 normalized semantic comparison again. Any semantic delta, unknown invalidation path, or
@@ -897,7 +905,7 @@ git add src/mke/evaluation/artifact_refresh.py \
 git commit -m "test(eval): refresh PR 1 artifact identities"
 ```
 
-- [ ] **Step 3: Run the complete PR 1 verification**
+- [x] **Step 3: Run the complete PR 1 verification**
 
 ```bash
 uv run pytest -q
@@ -940,19 +948,19 @@ Python 3.12/3.13 installed-wheel proof. Compare the normalized
 E1/E2/E3-A/E3-B reports to Task 0. Only permitted identity metadata may differ; observations,
 metrics, gates, and verdicts must be equal.
 
-- [ ] **Step 4: Run `gstack-document-release` and light self-review**
+- [x] **Step 4: Run `gstack-document-release` and light self-review**
 
 Audit reference/how-to/explanation/README coverage and diagram drift. Do not run the planning
 window’s final authoritative `gstack-review` here unless explicitly instructed.
 
-- [ ] **Step 5: Commit documentation and CI**
+- [x] **Step 5: Commit documentation and CI**
 
 ```bash
 git add README.md docs .github/workflows/ci.yml
 git commit -m "docs(embedding): document local dense prerequisites"
 ```
 
-- [ ] **Step 6: Handoff PR 1 for authoritative review**
+- [x] **Step 6: Handoff PR 1 for authoritative review**
 
 Leave a clean local branch. Report exact base/HEAD/diff, dependency graph, model manifest identity,
 compatibility artifact identity, resource measurements, Python 3.12/3.13 proof, complete

@@ -58,3 +58,44 @@ def test_unknown_exception_is_fully_redacted() -> None:
         "active_publication_impact": "unchanged",
         "next_step": "check_server_logs",
     }
+
+
+def test_embedding_validation_causes_are_allowlisted_exactly() -> None:
+    causes = (
+        "embedding adapter failed",
+        "embedding cancelled",
+        "embedding optional dependency is not installed",
+        "embedding model cache is not readable",
+        "embedding model download failed",
+        "embedding tokenizer output is invalid",
+        "configured embedding model is not cached",
+        "configured embedding model snapshot is incomplete",
+        "configured embedding model snapshot exceeds size limit",
+        "configured embedding model revision is unavailable",
+        "embedding input would be truncated",
+        "embedding output count is invalid",
+        "embedding output dimension is invalid",
+        "embedding output dtype must be float32",
+        "embedding output contains non-finite values",
+        "embedding output is not normalized",
+        "vector extension is unavailable or incompatible",
+        "vector projection distance is invalid",
+        "vector projection identity mismatch",
+        "vector projection inventory is incomplete",
+        "vector projection replace failed",
+        "vector projection search inventory is incomplete",
+    )
+
+    for cause in causes:
+        error = public_error_from_cause(
+            cause,
+            problem="embedding_failed",
+            next_step="run_embedding_doctor",
+        )
+        assert error.payload() == {
+            "ok": False,
+            "problem": "embedding_failed",
+            "cause": cause,
+            "active_publication_impact": "unchanged",
+            "next_step": "run_embedding_doctor",
+        }

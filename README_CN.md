@@ -39,8 +39,16 @@ E3-F 将 `cjk-active-scan-overlap-v1` 提升为默认 owner-startup strategy。c
 走 active FTS5，包括 FTS zero-hit；只有 eligible compiled-empty CJK query 才扫描 SQLite
 domain truth 中 active Publication 的 Evidence。runtime 不创建 persistent CJK projection，
 MCP tool schema 也没有 request-time strategy override。Task 0.5 的 runtime evidence 为
-Recall@5 `0.659091`、nDCG@10 `0.619152`。HTTP、UI、embedding、vector search、hybrid
-retrieval、RRF、reranker 和 query rewrite 仍不在范围内；E3-C 到 E3-E 仍未实现。
+Recall@5 `0.659091`、nDCG@10 `0.619152`。HTTP、UI、vector search、hybrid retrieval、
+RRF、reranker 和 query rewrite 仍不在范围内。
+
+E3-C PR 1 新增 comparison-only 的本地 embedding 前置证明，候选为
+`qwen3-embedding-0.6b-exact-v1`，模型为 `Qwen/Qwen3-Embedding-0.6B`，revision 为
+`97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3`。它证明 optional package boundary、
+cache-only prepare/doctor lifecycle、exact-cosine reference，以及 Python 3.12/3.13
+installed-wheel compatibility。它不改变正常 Search、Ask、MCP 或 runtime default；E3-C
+dense comparison scoring、future API adapter、fusion、reranking 和 runtime promotion 仍是独立
+evidence-gated 工作。
 
 这个 proof 验证的是生命周期边界，不代表已经支持广泛媒体处理。当前不包含扫描 PDF OCR、任意视频处理、托管协调或外部 provider 调用。D3-A 增加了 trusted-local `LocalCommandTranscriptProvider`；D3-B 增加了供 CLI 和 owner-started MCP 显式选择的 optional cache-only faster-whisper runtime。`mke proof run` 与 `mke demo --verify` 仍保持 sidecar-backed、deterministic；`mke proof transcription-run` 使用可再分发的 spoken fixture 证明真实本地 ASR，`scripts/transcription_deployment_proof.py` 则证明隔离安装 wheel 后的 CLI 与 stdio MCP SDK 流程。只有显式 preparation 可以下载模型，doctor、ingest、proof 和 MCP 正常运行均为 cache-only。
 
@@ -74,6 +82,8 @@ numeric candidate 对比流程见
 [Evaluate The Numeric Retrieval Candidate](./docs/how-to/evaluate-numeric-retrieval.md)。
 当前中文 lexical failure profile 见
 [Run The Chinese Retrieval Evaluation](./docs/how-to/run-chinese-retrieval-evaluation.md)。
+E3-C PR 1 本地 embedding 前置准备与验证见
+[Prepare Local Embeddings](./docs/how-to/prepare-local-embeddings.md)。
 实施历史保存在 `docs/superpowers/`；长期架构决策保存在 `docs/decisions/`。
 
 开发流程见 [CONTRIBUTING.md](./CONTRIBUTING.md)，安全漏洞报告方式见 [SECURITY.md](./SECURITY.md)。

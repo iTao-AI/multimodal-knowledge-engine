@@ -84,11 +84,11 @@
     "files": [
       {
         "path": "pyproject.toml",
-        "sha256": "af5dd4884a5a1512fdf1cf583239ca94453f812271bec64a19a6b0aa86ac8373"
+        "sha256": "0ff3719c96f0444fe8e3fb152b183f9a0ba7d66020b46846e7b337892aef23cb"
       },
       {
         "path": "uv.lock",
-        "sha256": "e51f31d025d6ba6ff62d900c8967920d895e43af7373d7805d941cd4bc2f2bf5"
+        "sha256": "97bfa7d3554026be3cabdc676c982c88164ad769ad561b3e80a0bdaf96c1c326"
       },
       {
         "path": "src/mke/adapters/pdf/__init__.py",

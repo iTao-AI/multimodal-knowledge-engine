@@ -20,6 +20,18 @@ from mke.adapters.video.faster_whisper import (
 )
 from mke.application import AskValidationError, KnowledgeEngine, PdfIngestError, VideoIngestError
 from mke.domain import FailurePoint, PdfIntakeReport, SearchResult, TranscriptIntakeReport
+from mke.embeddings.contracts import MODEL_ID as EMBEDDING_MODEL_ID
+from mke.embeddings.contracts import MODEL_REVISION as EMBEDDING_MODEL_REVISION
+from mke.embeddings.readiness import (
+    MODEL_CLI_ID as EMBEDDING_MODEL_CLI_ID,
+)
+from mke.embeddings.readiness import (
+    EmbeddingModelError,
+    EmbeddingReadiness,
+    doctor_embedding,
+    prepare_embedding,
+    resolve_embedding_cache,
+)
 from mke.evaluation import (
     render_chinese_retrieval_human,
     render_chinese_retrieval_json,
@@ -250,6 +262,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     doctor.add_argument("--json", action="store_true", dest="json_output")
     add_transcription_runtime_arguments(doctor, default_provider="faster-whisper")
 
+    embedding = subcommands.add_parser("embedding")
+    embedding_subcommands = embedding.add_subparsers(
+        dest="embedding_command", required=True
+    )
+    embedding_prepare = embedding_subcommands.add_parser("prepare")
+    embedding_prepare.add_argument(
+        "--allow-model-download", action="store_true", required=True
+    )
+    embedding_prepare.add_argument("--json", action="store_true", dest="json_output")
+    add_embedding_runtime_arguments(embedding_prepare)
+    embedding_doctor = embedding_subcommands.add_parser("doctor")
+    embedding_doctor.add_argument("--json", action="store_true", dest="json_output")
+    add_embedding_runtime_arguments(embedding_doctor)
+
     args = parser.parse_args(argv)
     if args.command == "eval" and any(
         item == "--db" or item.startswith("--db=") for item in raw_argv
@@ -389,6 +415,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.transcription_command == "prepare":
             return _transcription_prepare(config, json_output=args.json_output)
         return _transcription_doctor(config, json_output=args.json_output)
+    if args.command == "embedding":
+        try:
+            cache_dir = resolve_embedding_cache(
+                args.model_cache,
+                repository_root=_discover_repository_root(Path.cwd()),
+            )
+        except EmbeddingModelError as error:
+            parser.error(error.cause)
+        if args.embedding_command == "prepare":
+            return _embedding_prepare(cache_dir, json_output=args.json_output)
+        return _embedding_doctor(cache_dir, json_output=args.json_output)
     if args.command == "retrieval":
         if args.retrieval_command == "doctor":
             return _retrieval_doctor(
@@ -1012,6 +1049,20 @@ def add_faster_whisper_runtime_arguments(parser: argparse.ArgumentParser) -> Non
     parser.add_argument("--transcription-timeout-seconds", type=float, default=900.0)
 
 
+def add_embedding_runtime_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--model",
+        choices=(EMBEDDING_MODEL_CLI_ID,),
+        default=EMBEDDING_MODEL_CLI_ID,
+    )
+    parser.add_argument(
+        "--model-revision",
+        choices=(EMBEDDING_MODEL_REVISION,),
+        default=EMBEDDING_MODEL_REVISION,
+    )
+    parser.add_argument("--model-cache", type=Path)
+
+
 def runtime_config_from_args(args: argparse.Namespace) -> RuntimeConfig:
     provider = getattr(args, "transcript_provider", "sidecar")
     transcription = (
@@ -1073,6 +1124,48 @@ def _transcription_doctor(
 ) -> int:
     readiness = doctor_transcription(config)
     payload = _readiness_payload(readiness)
+    if json_output:
+        print(json.dumps(payload))
+    else:
+        print(" ".join(f"{key}={value}" for key, value in payload.items() if key != "checks"))
+        for check in readiness.checks:
+            print(f"check={check.name} status={check.status} message={check.message}")
+    return 0 if readiness.status == "ready" else 1
+
+
+def _embedding_prepare(cache_dir: Path, *, json_output: bool) -> int:
+    try:
+        result = prepare_embedding(
+            cache_dir=cache_dir,
+            model=EMBEDDING_MODEL_ID,
+            revision=EMBEDDING_MODEL_REVISION,
+            allow_model_download=True,
+        )
+    except EmbeddingModelError as error:
+        _print_error_contract(
+            error.cause,
+            problem="embedding_not_ready",
+            next_step=error.next_step,
+            json_output=json_output,
+        )
+        return 1
+    payload = {
+        "status": result.status,
+        "model": result.model_id,
+        "model_revision": result.model_revision,
+        "snapshot_fingerprint": result.snapshot_fingerprint,
+    }
+    print(json.dumps(payload) if json_output else " ".join(f"{k}={v}" for k, v in payload.items()))
+    return 0
+
+
+def _embedding_doctor(cache_dir: Path, *, json_output: bool) -> int:
+    readiness = doctor_embedding(
+        cache_dir=cache_dir,
+        model=EMBEDDING_MODEL_ID,
+        revision=EMBEDDING_MODEL_REVISION,
+    )
+    payload = _embedding_readiness_payload(readiness)
     if json_output:
         print(json.dumps(payload))
     else:
@@ -1169,6 +1262,28 @@ def _readiness_payload(readiness: TranscriptionReadiness) -> dict[str, object]:
         "cause": readiness.cause,
         "next_step": readiness.next_step,
     }
+
+
+def _embedding_readiness_payload(readiness: EmbeddingReadiness) -> dict[str, object]:
+    return {
+        "status": readiness.status,
+        "model": readiness.model_id,
+        "model_revision": readiness.model_revision,
+        "snapshot_fingerprint": readiness.snapshot_fingerprint,
+        "checks": [
+            {"name": check.name, "status": check.status, "message": check.message}
+            for check in readiness.checks
+        ],
+        "cause": readiness.cause,
+        "next_step": readiness.next_step,
+    }
+
+
+def _discover_repository_root(start: Path) -> Path | None:
+    for candidate in (start, *start.parents):
+        if (candidate / ".git").exists() and (candidate / "pyproject.toml").is_file():
+            return candidate
+    return None
 
 
 def _pdf_intake_report_payload(report: PdfIntakeReport) -> dict[str, object]:

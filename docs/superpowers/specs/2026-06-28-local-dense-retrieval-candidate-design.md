@@ -1,9 +1,9 @@
 # Local Dense Retrieval Candidate Design
 
-Status: approved E3-C design, including the 2026-06-28 autoplan amendments; implementation has
-not started.
-Implementation has not started. This document defines an off-default, comparison-only local dense
-retrieval candidate and does not approve runtime promotion.
+Status: approved E3-C design, including the 2026-06-28 autoplan amendments. PR 1 dense
+prerequisites and compatibility evidence are implemented; PR 2 comparison work has not started.
+This document defines an off-default, comparison-only local dense retrieval candidate and does not
+approve runtime promotion.
 
 ## Context
 

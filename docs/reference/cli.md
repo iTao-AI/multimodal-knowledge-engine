@@ -380,6 +380,91 @@ pdf_pages=2 extracted_pages=2 empty_pages=0 extracted_chars=<chars> suspected_sc
 event_index=1 event=run_created
 ```
 
+## Embedding Model Setup
+
+Install the optional local embedding runtime explicitly. Installing packages may use a package
+index; model acquisition is a separate, explicit `prepare` step:
+
+```bash
+uv sync --locked --extra embedding
+uv build
+uv venv /tmp/mke-embedding-wheel --python 3.13
+uv pip install --python /tmp/mke-embedding-wheel/bin/python \
+  "dist/multimodal_knowledge_engine-0.0.0-py3-none-any.whl[embedding]"
+```
+
+```bash
+mke embedding prepare --allow-model-download \
+  --model qwen3-embedding-0.6b \
+  --model-revision 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3 \
+  --model-cache <outside-repository-cache> \
+  --json
+
+mke embedding doctor \
+  --model qwen3-embedding-0.6b \
+  --model-revision 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3 \
+  --model-cache <outside-repository-cache> \
+  --json
+```
+
+`prepare --allow-model-download` is the only embedding command permitted to acquire model files.
+It allowlists `Qwen/Qwen3-Embedding-0.6B` at the exact revision shown above before any network
+request. Repeated preparation of a complete snapshot is cache-only and reports
+`status=already_cached`. One operator authorization covers one `prepare` process and the
+Hugging Face Hub-managed transport requests or Range resumes inside that process for the approved
+model, revision, cache, and transport policy. MKE does not reinvoke preparation, retry the SDK,
+change transport, or start another process automatically; every new CLI invocation requires a new
+authorization. Proof supervision limits an authorized process to 45 minutes total and 10 minutes
+without model-cache byte progress.
+
+`doctor` is always cache-only and reports `0` when ready, `1` when not ready, and `2` for invalid
+usage. Both commands reject repository-local caches and never print an absolute cache path, SDK
+exception, URL query, or traceback. `MKE_EMBEDDING_CACHE` may provide the owner cache location when
+`--model-cache` is omitted. Host-specific transport environment variables used for one proof are
+explicit operator inputs, not global product defaults or silent fallbacks.
+
+This lifecycle is a comparison-only E3-C prerequisite. It does not add embeddings to normal
+Search, Ask, MCP, owner startup, or `active_evidence_fts`.
+
+Validate the checked-in PR 1 compatibility artifact model-free:
+
+```bash
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 uv run python - <<'PY'
+import json
+from pathlib import Path
+from mke.evaluation.dense_compatibility import (
+    load_dense_corpus_lock,
+    validate_dense_compatibility_report,
+)
+root = Path(".").resolve()
+lock = load_dense_corpus_lock(
+    Path("tests/fixtures/retrieval-dense-v1/corpus-lock.json"),
+    repository_root=root,
+)
+report = json.loads(
+    Path("benchmarks/retrieval/qwen3-embedding-0.6b-compatibility.json").read_text()
+)
+validate_dense_compatibility_report(report, lock)
+PY
+```
+
+Run the local cache-ready installed-wheel proof only after the exact model cache and package cache
+exist; it remains offline and cache-only:
+
+```bash
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 UV_OFFLINE=1 \
+python scripts/dense_retrieval_deployment_proof.py \
+  --wheel dist/multimodal_knowledge_engine-0.0.0-py3-none-any.whl \
+  --corpus-lock tests/fixtures/retrieval-dense-v1/corpus-lock.json \
+  --model-cache "$HOME/Library/Caches/mke/embedding" \
+  --python 3.13 \
+  --repository .
+```
+
+The canonical PR 1 artifact uses `qwen3-embedding-0.6b-exact-v1`,
+`Qwen/Qwen3-Embedding-0.6B`, revision
+`97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3`, and records the future API adapter as out of scope.
+
 ## Transcription Setup
 
 ```bash

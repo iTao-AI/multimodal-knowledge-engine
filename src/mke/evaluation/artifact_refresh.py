@@ -20,6 +20,10 @@ from mke.evaluation.chinese_artifact import (
     record_chinese_artifact,
     validate_chinese_artifact,
 )
+from mke.evaluation.cjk_lexical_artifact import (
+    record_cjk_lexical_artifact,
+    validate_cjk_lexical_artifact,
+)
 from mke.evaluation.numeric_artifact import (
     record_numeric_artifact,
     validate_numeric_artifact,
@@ -33,6 +37,7 @@ TARGETS = (
     "tests/fixtures/retrieval-numeric-v1/protocol-lock.json",
     "benchmarks/retrieval/numeric-grouping-v1-comparison.json",
     "benchmarks/retrieval/retrieval-chinese-v1-baseline.json",
+    "benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json",
 )
 
 
@@ -46,6 +51,7 @@ def refresh_artifact_set(
     e1_observed_path: Path,
     e2_observed_path: Path,
     e3_observed_path: Path,
+    e3b_observed_path: Path,
 ) -> dict[str, str]:
     root = repository_root.resolve()
     recover_artifact_refresh(root)
@@ -68,6 +74,7 @@ def refresh_artifact_set(
             e1_observed_path=e1_observed_path,
             e2_observed_path=e2_observed_path,
             e3_observed_path=e3_observed_path,
+            e3b_observed_path=e3b_observed_path,
         )
         _validate_staged(
             root=root,
@@ -76,6 +83,7 @@ def refresh_artifact_set(
             e1_observed_path=e1_observed_path,
             e2_observed_path=e2_observed_path,
             e3_observed_path=e3_observed_path,
+            e3b_observed_path=e3b_observed_path,
         )
         _require_semantic_preservation(root, transaction)
         for index, record in enumerate(records):
@@ -101,6 +109,7 @@ def refresh_artifact_set(
             e1_observed_path=e1_observed_path,
             e2_observed_path=e2_observed_path,
             e3_observed_path=e3_observed_path,
+            e3b_observed_path=e3b_observed_path,
         )
         manifest = {
             relative: _sha256(root / relative) for relative in TARGETS
@@ -209,6 +218,7 @@ def _stage_targets(
     e1_observed_path: Path,
     e2_observed_path: Path,
     e3_observed_path: Path,
+    e3b_observed_path: Path,
 ) -> None:
     del e1_observed_path
     e1_target = root / TARGETS[0]
@@ -242,7 +252,14 @@ def _stage_targets(
         / "tests/fixtures/retrieval-chinese-v1/protocol.json",
         repository_root=root,
     )
-    for index in range(4):
+    record_cjk_lexical_artifact(
+        observed_path=e3b_observed_path,
+        artifact_path=transaction / "staged/4",
+        protocol_path=root
+        / "tests/fixtures/retrieval-chinese-v1/protocol.json",
+        repository_root=root,
+    )
+    for index in range(5):
         _fsync_file(transaction / f"staged/{index}")
     _fsync_directory(transaction / "staged")
 
@@ -255,6 +272,7 @@ def _validate_staged(
     e1_observed_path: Path,
     e2_observed_path: Path,
     e3_observed_path: Path,
+    e3b_observed_path: Path,
 ) -> None:
     _validate_e1_observation(
         e1_observed_path, transaction / "staged/0"
@@ -288,6 +306,13 @@ def _validate_staged(
         / "tests/fixtures/retrieval-chinese-v1/protocol.json",
         repository_root=root,
     )
+    validate_cjk_lexical_artifact(
+        artifact_path=transaction / "staged/4",
+        observed_path=e3b_observed_path,
+        protocol_path=root
+        / "tests/fixtures/retrieval-chinese-v1/protocol.json",
+        repository_root=root,
+    )
 
 
 def _validate_checked_in(
@@ -296,6 +321,7 @@ def _validate_checked_in(
     e1_observed_path: Path,
     e2_observed_path: Path,
     e3_observed_path: Path,
+    e3b_observed_path: Path,
 ) -> None:
     _validate_e1_observation(e1_observed_path, root / TARGETS[0])
     validate_retrieval_baseline(
@@ -313,6 +339,13 @@ def _validate_checked_in(
     validate_chinese_artifact(
         artifact_path=root / TARGETS[3],
         observed_path=e3_observed_path,
+        protocol_path=root
+        / "tests/fixtures/retrieval-chinese-v1/protocol.json",
+        repository_root=root,
+    )
+    validate_cjk_lexical_artifact(
+        artifact_path=root / TARGETS[4],
+        observed_path=e3b_observed_path,
         protocol_path=root
         / "tests/fixtures/retrieval-chinese-v1/protocol.json",
         repository_root=root,
@@ -342,7 +375,27 @@ def _require_semantic_preservation(root: Path, transaction: Path) -> None:
 
     original_e2 = _load_object(root / TARGETS[2])
     staged_e2 = _load_object(transaction / "staged/2")
-    if original_e2.get("comparison") != staged_e2.get("comparison"):
+    for key in (
+        "schema_version",
+        "manifests",
+        "fixtures",
+        "candidate",
+        "environment",
+        "comparison",
+    ):
+        if original_e2.get(key) != staged_e2.get(key):
+            raise ArtifactRefreshError
+
+    original_e3 = _load_object(root / TARGETS[3])
+    staged_e3 = _load_object(transaction / "staged/3")
+    original_e3["source_identity"] = staged_e3["source_identity"]
+    if original_e3 != staged_e3:
+        raise ArtifactRefreshError
+
+    original_e3b = _load_object(root / TARGETS[4])
+    staged_e3b = _load_object(transaction / "staged/4")
+    original_e3b["source"] = staged_e3b["source"]
+    if original_e3b != staged_e3b:
         raise ArtifactRefreshError
 
 
@@ -474,12 +527,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("retrieval artifact recovery complete")
         return 0
     parser = argparse.ArgumentParser(
-        description="Refresh E1, E2, and E3-A artifacts as a recoverable set."
+        description="Refresh E1, E2, E3-A, and E3-B artifacts as a recoverable set."
     )
     parser.add_argument("--repository", type=Path, default=Path("."))
     parser.add_argument("--e1-observed", type=Path, required=True)
     parser.add_argument("--e2-observed", type=Path, required=True)
     parser.add_argument("--e3-observed", type=Path, required=True)
+    parser.add_argument("--e3b-observed", type=Path, required=True)
     args = parser.parse_args(arguments)
     try:
         manifest = refresh_artifact_set(
@@ -487,6 +541,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             e1_observed_path=args.e1_observed,
             e2_observed_path=args.e2_observed,
             e3_observed_path=args.e3_observed,
+            e3b_observed_path=args.e3b_observed,
         )
     except ArtifactRefreshError:
         print(

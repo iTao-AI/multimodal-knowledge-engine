@@ -1,0 +1,337 @@
+{
+  "schema_version": "mke.dense_corpus_lock.v1",
+  "corpus_id": "retrieval-dense-v1-compatibility",
+  "protocol": {
+    "path": "tests/fixtures/retrieval-chinese-v1/protocol.json",
+    "sha256": "00f72934018a52b5b5f5591fba119050882aee9b782e5dac199702b0cf995944"
+  },
+  "documents": [
+    {
+      "document_id": "ub-service-core",
+      "split": "development",
+      "path": "tests/fixtures/retrieval-chinese-v1/development/ub-service-core-2.0-zh.pdf",
+      "bytes": 1168641,
+      "sha256": "13e8f1da824de892931653e17df2a8b20f77fe84b2a7472b13113405efbf296d",
+      "pages": [
+        {
+          "page": 1,
+          "text_sha256": "07410ee4cf9d52e21c93e9bfc960671b21d17af895130a2bc6075781f2fa44d3"
+        },
+        {
+          "page": 2,
+          "text_sha256": "3456993aa6b7d9f8323c804b5ce4ae48a9724a411c9d5de8478bbeb02a518aac"
+        },
+        {
+          "page": 3,
+          "text_sha256": "9211afb97c369c4f801c6bc0d80f744c9ac92980d7cddb157dfe0076cf75d48b"
+        },
+        {
+          "page": 4,
+          "text_sha256": "b1acd2d48b2c98fdfd29ed2e49915a882902f77d1999abb9fd6a8f32caa83ad5"
+        },
+        {
+          "page": 5,
+          "text_sha256": "be61aa50b61be44f73c239d0e7bc6563a4b50088a2af6d421eedc4c94c59df49"
+        },
+        {
+          "page": 6,
+          "text_sha256": "af0f5284a8845737f25d1df3c32da97193469ff0309ec6c132c600e1f2a4cbee"
+        },
+        {
+          "page": 7,
+          "text_sha256": "f28e552e571d24e048e0281f65801ae81d37c0b2136ced638109a39630746d6d"
+        },
+        {
+          "page": 8,
+          "text_sha256": "f75770ad1d4353c0d4b7f79c15d5c684a017b559ea2afb7d67c62751b47cc881"
+        },
+        {
+          "page": 9,
+          "text_sha256": "a22b18dfde255491449717b2bdb7d21e4710eeb35a65da09c1965f8c090697b6"
+        },
+        {
+          "page": 10,
+          "text_sha256": "8e6315a70b0e71674c777d9519dc39059eb396b3c986e637e5d8626d909df588"
+        },
+        {
+          "page": 11,
+          "text_sha256": "e9cb5dce738db1db853182e1c8454a7f900618d9fac511f10b0a2fb8ebd11f58"
+        },
+        {
+          "page": 12,
+          "text_sha256": "39dccf11ca4511dd423f0f335bbdfcd8444e37166ed8e7bc756f466cd8b9e66f"
+        },
+        {
+          "page": 13,
+          "text_sha256": "679a53cb358902fbc367c34f69e172b4ea7bd6ac3317e524582e39d5b733275c"
+        },
+        {
+          "page": 14,
+          "text_sha256": "319c778a244f0d83ac2822883509fdfcf51ffae54063ea293648487b0ef8ef7b"
+        },
+        {
+          "page": 15,
+          "text_sha256": "1de791b4519fe73896b999e7fa21634f7eb5ac6b4d8716099742a62d88b41091"
+        },
+        {
+          "page": 16,
+          "text_sha256": "715b74a3dd59eeb0c2da39d4a496ebc0c4c2915c16cec72b91298eda28befb4d"
+        },
+        {
+          "page": 17,
+          "text_sha256": "4db312cc9149e33bbe248fa46718e5c76e6eb70bf464b51a7f6e16f76d759bd1"
+        },
+        {
+          "page": 18,
+          "text_sha256": "6e4afe23a4b5c7ffeea69d6672edd53d090a68043eaffc75f4c8c834f11a6c1c"
+        },
+        {
+          "page": 19,
+          "text_sha256": "59a1510377b23e5152e3211ee7ce6de21d14fe38e837c40ff564bfbae80cde9c"
+        },
+        {
+          "page": 20,
+          "text_sha256": "b49223f2f9fc5c18688c6cec89695d06ad99b255b9fff62198920c5758452b1c"
+        },
+        {
+          "page": 21,
+          "text_sha256": "d2172c027c285d1347b1511affb3f806df6b7d2f33e7a81e80ec7fba9b2c5020"
+        },
+        {
+          "page": 22,
+          "text_sha256": "4ac736bd0668b7066dbde112f9f150d1cdfe64626367c227722cce9b1c7b3073"
+        },
+        {
+          "page": 23,
+          "text_sha256": "8c93d9eae553560bddca64f637bc4c5f7e0ec60e2057db953e516ae9695ca1e2"
+        },
+        {
+          "page": 24,
+          "text_sha256": "fa41c398ce2a3cf3657b1bb138ba03f165e53ae9f6387d7b17738353b63d6525"
+        },
+        {
+          "page": 25,
+          "text_sha256": "826f76e29677cd5ea479daa6b59051a96016ddbe9837b416a1168f458058b5d2"
+        },
+        {
+          "page": 26,
+          "text_sha256": "f60c88392ddc82f5ca3f160772e67396d46ba3237ec7cacce297ba17e29a5046"
+        }
+      ]
+    },
+    {
+      "document_id": "development-adversarial",
+      "split": "development",
+      "path": "tests/fixtures/retrieval-chinese-v1/development/adversarial.pdf",
+      "bytes": 4350,
+      "sha256": "be3b88352b0a80d6d165de146ff81be224b706d3eb3721d969266e64505af8dd",
+      "pages": [
+        {
+          "page": 1,
+          "text_sha256": "5ed48b84347dff9642be34f6ebb72d3a1f92569bed4ad7cb43424537a1753af4"
+        },
+        {
+          "page": 2,
+          "text_sha256": "33c13891b7ccdc06239d8f8bbcc8b0bed1b863c4bdbbbf7c5e78f24b044a434e"
+        },
+        {
+          "page": 3,
+          "text_sha256": "f1dc378e652206d4d63a665a528b5f912230836e966522798e7437e881e76784"
+        },
+        {
+          "page": 4,
+          "text_sha256": "2fec86a390b58b62df154e4bf24bc1cddc3c691b013be0a60886a6d19accc304"
+        },
+        {
+          "page": 5,
+          "text_sha256": "d6834ad19c705e972d5df25cee46283fb3b3741558a9d691d28c4b8ce258da8c"
+        },
+        {
+          "page": 6,
+          "text_sha256": "8f13c684ec7fb8839a9536f818f5b621da3fe548c9d40a85a0b4d59b8f81ffbd"
+        },
+        {
+          "page": 7,
+          "text_sha256": "0700da1c438bdd8555f1f24cafff323050a6b6f3edbd97d4d483c5434de2879d"
+        },
+        {
+          "page": 8,
+          "text_sha256": "b5c673a9ce938054a96312332f304a1c39a99ac8b166844bb2c2455ca1752ec5"
+        }
+      ]
+    },
+    {
+      "document_id": "copyright-law",
+      "split": "holdout",
+      "path": "tests/fixtures/retrieval-chinese-v1/holdout/copyright-law-2020.pdf",
+      "bytes": 182479,
+      "sha256": "e1217f1df0bb98586a883819505f17a29140fb114ce5f1a444ea0a60d22c9d2b",
+      "pages": [
+        {
+          "page": 1,
+          "text_sha256": "c8b934da728845207c71d84e40e9786350e9f3c383bb39bb0555523f722a8492"
+        },
+        {
+          "page": 2,
+          "text_sha256": "11af1f1bd4e0b076af998b722ef61ebbf348f0cfb5526ae9e4a96749fb9c5fe6"
+        },
+        {
+          "page": 3,
+          "text_sha256": "46e69984d403358d540ace80dc08c4ecbb6969e5a82b7d851888aed9f7e3769b"
+        },
+        {
+          "page": 4,
+          "text_sha256": "88411498d00c4d80a23546a23a6c1e4e3a94b1bfa8d22a83d75bd8f82dfd7bb5"
+        },
+        {
+          "page": 5,
+          "text_sha256": "4baf415d140f114706a7635ecc2611b3691e2f49ae51f5ba375cac46a6f17b6e"
+        },
+        {
+          "page": 6,
+          "text_sha256": "9abdeabfcbbb26cbc135edf9284f1e7921ee2aff34bae109dbc664b2ca6f6dda"
+        },
+        {
+          "page": 7,
+          "text_sha256": "ca1731c40099ab092c6e4f70b3f26174d336a0210a2bbb3e9364027e34e0eb84"
+        },
+        {
+          "page": 8,
+          "text_sha256": "1b503187a21097c85aa97de034ce7ed54012361ef975062d9e8f0da942eee6bb"
+        },
+        {
+          "page": 9,
+          "text_sha256": "a9be9aa529c2234cbf5b174ddc535c55aa9f816bdb8a422690f733f566f1883a"
+        },
+        {
+          "page": 10,
+          "text_sha256": "b1c389a9053fbe3027d1088761325ca050f06b8eaa14265337ddb1d53572050c"
+        },
+        {
+          "page": 11,
+          "text_sha256": "42c94ce21c9ac764d3c20cc4b74bb6d659536e7794bba18588fccced77e7bf59"
+        },
+        {
+          "page": 12,
+          "text_sha256": "bfd24aa860a675514c96a05c4add3b6bf630559e44811a3fc9481726629ed12a"
+        },
+        {
+          "page": 13,
+          "text_sha256": "976b629a61a72a88307a7debb81c7641c523ace98e6560fe8b9d924c32fbb028"
+        },
+        {
+          "page": 14,
+          "text_sha256": "9da7dacc5492945bf2fe755b049860eed71742352ae49c34c9fd58608f831aa6"
+        }
+      ]
+    },
+    {
+      "document_id": "administrative-compulsion-law",
+      "split": "holdout",
+      "path": "tests/fixtures/retrieval-chinese-v1/holdout/administrative-compulsion-law-2011.pdf",
+      "bytes": 198629,
+      "sha256": "80d1a49a1641f73f53df7f2cfe008b4f8e8419a538f37d183f9758ec52e90d0d",
+      "pages": [
+        {
+          "page": 1,
+          "text_sha256": "2411ec836825e7803a258a90468e8e2ac0301f499a0b49e575ef373861324241"
+        },
+        {
+          "page": 2,
+          "text_sha256": "c0741724b74d6deb85e1d52bd5b4d8806f89aa1d99fa4b61e5c9bef69bc274fb"
+        },
+        {
+          "page": 3,
+          "text_sha256": "84f6a433fab34f35333f0a7d67cf9a504757647a6d3a5b7e2f7e0b70a3d6e264"
+        },
+        {
+          "page": 4,
+          "text_sha256": "54d490017177960b9f951eee1f2500e5ccf1501dd466bf63d0cd37e7f49ced42"
+        },
+        {
+          "page": 5,
+          "text_sha256": "ee9308ebdbb50ae44823e50207904e6b4d21414e742188dac404ed9801287915"
+        },
+        {
+          "page": 6,
+          "text_sha256": "795608e7767d6d7d3466ca2a8e43cf52c64f2685b115d5d822dc78056d1489cf"
+        },
+        {
+          "page": 7,
+          "text_sha256": "97de815270a5aee18ccac51de69102ccd58d8183841a74df03fbdf1d0b7e5641"
+        },
+        {
+          "page": 8,
+          "text_sha256": "873f50be7a380e811ad6970c6848509acbf2e049646e039c4dc82cde5286c7dd"
+        },
+        {
+          "page": 9,
+          "text_sha256": "f1be396ba6fbba069d6cb5f306f938ebcefe672ca751eee2613bc5c0016b52ad"
+        },
+        {
+          "page": 10,
+          "text_sha256": "af4878b6678435fc099ba06a207e3480a317b0f4aff732738b41441ce09e7739"
+        },
+        {
+          "page": 11,
+          "text_sha256": "9912352330af3416295c5d8070efdbe1c36e4ec08a92bd073843e81cf934e57d"
+        },
+        {
+          "page": 12,
+          "text_sha256": "3d57093f414406f76cde33e292816ba808e61a57590f26099f8e6dd372879caa"
+        },
+        {
+          "page": 13,
+          "text_sha256": "b98d874fdfb9e2fb7e7aaf91dc39eedeb1c4d9e140023f2cef5714c455af1dd5"
+        },
+        {
+          "page": 14,
+          "text_sha256": "1acd016ad86bf75bacab8a385840f2db1aa953a03823cf457d1c16ae9333f1cf"
+        }
+      ]
+    },
+    {
+      "document_id": "holdout-adversarial",
+      "split": "holdout",
+      "path": "tests/fixtures/retrieval-chinese-v1/holdout/adversarial.pdf",
+      "bytes": 4399,
+      "sha256": "52d2319515195c7a0b8572f4a6f86eec6856cb189a24f3272c2792ad5fe76924",
+      "pages": [
+        {
+          "page": 1,
+          "text_sha256": "ba110e3328d43cb45f0d1a3a07e225455acf121d9f8dfaa5d584cf85b3bf0115"
+        },
+        {
+          "page": 2,
+          "text_sha256": "919b7dd7a3958a85ad3b49e43fda6f3fb150101331425a4bc85caa6cc0d41442"
+        },
+        {
+          "page": 3,
+          "text_sha256": "91c4e1c04e420b179c1ccc3e74850d4cc31f907c82322e44635f4ee4bc63642a"
+        },
+        {
+          "page": 4,
+          "text_sha256": "044a41896e137e1140aac3161e769de3885c15ebbc6df250801a00e5c15ac42a"
+        },
+        {
+          "page": 5,
+          "text_sha256": "5c0702118bbb19c5adfe8ad9f59fa85d32c9cb6e0e0f21bce8bd7c2e504b7e96"
+        },
+        {
+          "page": 6,
+          "text_sha256": "63a0dd3c312192ad686d7efefc05022da00b982f10cc8bf95a30823f619fc01c"
+        },
+        {
+          "page": 7,
+          "text_sha256": "4c80a9bc6d620f51dcaff309f32ed547d4e032cd0271d5c90effd08f841c6172"
+        },
+        {
+          "page": 8,
+          "text_sha256": "5bf79322a7673940a16fc79210bce8275a96330bae38fd77e31d1a7a7b9e817d"
+        }
+      ]
+    }
+  ],
+  "evidence_count": 70,
+  "aggregate_sha256": "9c69d36076bf488bdd79188f5c5e66a48c5f4fbc9a4bbca5d8058439e41c1f05"
+}

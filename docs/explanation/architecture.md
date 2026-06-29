@@ -162,6 +162,15 @@ or `current` requires no migration. E3-C through E3-E remain future, evidence-ga
 does not add embedding, vector search, hybrid retrieval, RRF, reranking, query rewrite,
 Passage/chunk, OCR, HTTP, or UI behavior.
 
+E3-C PR 1 adds a comparison-only local embedding prerequisite without adding runtime dense
+retrieval. Provider-neutral DTOs live under `mke.embeddings` and `mke.vector`; SentenceTransformers,
+Hugging Face Hub, torch, NumPy adapter details, and `sqlite-vec` stay behind adapter boundaries.
+The `qwen3-embedding-0.6b-exact-v1` compatibility proof validates the exact
+`Qwen/Qwen3-Embedding-0.6B` revision `97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3`, cache-only CPU
+float32 loading, zero truncation for the frozen 70-page corpus, deterministic vectors, exact-cosine
+ordering, and the amended resource ceilings. This proof does not change normal Search, Ask, MCP,
+or the runtime default and does not approve a future API adapter, fusion, reranking, or promotion.
+
 CLI and MCP errors share one project-owned `PublicError` serializer. Only allowlisted stable causes
 can reach public output; unknown exception text is replaced with
 `operation failed; details were redacted`. Public payloads contain `problem`, `cause`,
@@ -176,12 +185,20 @@ src/mke/
   domain/
   application/
   adapters/
+    embedding/
+      sentence_transformers.py
     pdf/
     sqlite/
+    vector/
+      exact_cosine.py
+      sqlite_vec.py
     video/
       faster_whisper.py
       faster_whisper_cli.py
       process.py
+  embeddings/
+    contracts.py
+    readiness.py
   interfaces/
   proof/
     transcription.py
@@ -196,11 +213,14 @@ src/mke/
     chinese_protocol.py
     chinese_report.py
     chinese_runner.py
+    dense_compatibility.py
     graded_metrics.py
     report.py
     runner.py
   retrieval/
     query_policy.py
+  vector/
+    contracts.py
 ```
 
 The domain and application layers must not depend on FastAPI, database implementations, model SDKs, LangChain, or LlamaIndex.
