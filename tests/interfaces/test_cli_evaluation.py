@@ -786,6 +786,44 @@ def test_cli_eval_dense_holdout_valid_negative_exits_zero(
     assert payload["e3d_status"] == "not_eligible"
 
 
+def test_cli_eval_dense_known_workflow_failure_returns_stable_cause(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: CaptureFixture[str],
+) -> None:
+    from mke.evaluation.dense_workflow import DenseWorkflowError
+
+    def fail_phase(**kwargs: object) -> dict[str, object]:
+        del kwargs
+        raise DenseWorkflowError("development threshold inputs are invalid")
+
+    monkeypatch.setattr("mke.cli.run_dense_evaluation_phase", fail_phase)
+
+    assert main(
+        [
+            "eval",
+            "retrieval-dense",
+            "--protocol",
+            str(DENSE_PROTOCOL),
+            "--candidate",
+            "qwen3-embedding-0.6b-exact-v1",
+            "--model-cache",
+            str(tmp_path / "model-cache"),
+            "--development-only",
+            "--record-development-freeze",
+            str(tmp_path / "freeze.json"),
+            "--json",
+        ]
+    ) == 1
+
+    output = capsys.readouterr()
+    payload = json.loads(output.out)
+    assert output.err == ""
+    assert payload["failure"]["cause"] == "development threshold inputs are invalid"
+    assert "Traceback" not in output.out
+    assert "/Users/" not in output.out
+
+
 @pytest.mark.parametrize(
     "argv",
     (

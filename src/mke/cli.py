@@ -51,7 +51,7 @@ from mke.evaluation.chinese_report import ChineseRetrievalReport
 from mke.evaluation.cjk_lexical_artifact import record_cjk_lexical_artifact
 from mke.evaluation.cjk_lexical_candidate import CJK_LEXICAL_CANDIDATE
 from mke.evaluation.cjk_lexical_comparison import CjkLexicalComparisonReport
-from mke.evaluation.dense_workflow import run_dense_evaluation_phase
+from mke.evaluation.dense_workflow import DenseWorkflowError, run_dense_evaluation_phase
 from mke.evaluation.numeric_comparison import NumericComparisonReport
 from mke.evaluation.report import RetrievalEvaluationReport
 from mke.interfaces.mcp_contract import McpRuntimeConfig, transcript_intake_report_payload
@@ -426,7 +426,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     record=args.record,
                     record_holdout_receipt=args.record_holdout_receipt,
                 )
-            except Exception:
+            except Exception as error:
                 payload = {
                     "phase": "development" if args.development_only else "holdout",
                     "integrity_status": "failed",
@@ -435,7 +435,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "runtime_promotion_status": "not_evaluated",
                     "failure": {
                         "problem": "dense_comparison_incomplete",
-                        "cause": "dense comparison did not complete",
+                        "cause": _dense_failure_cause(error),
                         "next_step": "inspect_dense_comparison_inputs",
                     },
                 }
@@ -574,6 +574,16 @@ def _render_dense_evaluation(
             "next_step=inspect_dense_comparison_inputs"
         )
     return "\n".join(lines)
+
+
+def _dense_failure_cause(error: Exception) -> str:
+    cause = str(error)
+    if not cause or "Traceback" in cause or "/Users/" in cause:
+        return "dense comparison did not complete"
+    module = type(error).__module__
+    if isinstance(error, DenseWorkflowError) or module.startswith("mke."):
+        return cause
+    return "dense comparison did not complete"
 
 
 def _render_retrieval_report_safely(
