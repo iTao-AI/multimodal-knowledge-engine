@@ -20,8 +20,9 @@ Hatch/uv, GitHub Actions.
 
 ---
 
-Status: PR 1 implementation in progress. Tasks 0-5 are complete; Task 0.5 is at the exact-model
-prepare authorization gate after the 2026-06-29 transport-policy amendment below.
+Status: PR 1 implementation resumed after the 2026-06-29 transport and resource-measurement
+amendments landed on `main`; Tasks 0-5 are complete and Task 0.5 is being revised under the
+amended compatibility/resource contract.
 
 Planning base: `main@5ed0a722b83f9b4c70aec7c9333d8bf7d17b9335`.
 
@@ -45,13 +46,10 @@ Autoplan review:
   equality.
 - Only `mke embedding prepare --allow-model-download` may use the network. Doctor, evaluation,
   validators, installed-wheel proof, Search, Ask, and MCP remain cache-only.
-- One explicit model-download authorization covers exactly one `prepare` process/invocation for
-  the approved model, revision, external cache, and transport policy. Hugging Face Hub-managed
-  transport requests and Range resumes inside that invocation are allowed. Any new CLI invocation
-  or process restart requires a new explicit authorization; MKE never starts one automatically.
-- MKE does not implement a download retry loop, transport fallback, alternate host, alternate
-  model/provider, or a second network `snapshot_download` call. A complete exact cache is validated
-  directly; a permitted cache miss makes one SDK network-resolution call with `max_workers=1`.
+- One explicit model-download authorization covers one `prepare` process for the approved
+  model/revision/cache/transport tuple. Hugging Face Hub-managed requests and Range resumes inside
+  that invocation are allowed; MKE never starts another process, SDK retry loop, transport
+  fallback, alternate model/provider, or second network `snapshot_download` call.
 - This model-network boundary starts after package installation. Installing `wheel[embedding]` may
   use a package index, or may be fully offline from a pre-populated wheelhouse.
 - The exact model is `Qwen/Qwen3-Embedding-0.6B` at revision
@@ -67,6 +65,9 @@ Autoplan review:
   projection adapter, and development-selected threshold are frozen.
 - If any stop condition in the design fires, leave the branch clean at the last valid checkpoint,
   record the evidence, and return to the planning window. Do not improvise a substitute.
+- The PR 1 stress proof targets hosts with at least `16 GiB` physical memory and gates peak RSS at
+  both `6 GiB` and `40%` of physical memory. The superseded `4 GiB` observation remains historical
+  evidence; no rerun may be selected to make the old contract pass.
 
 Autoplan review clarifications:
 
@@ -692,29 +693,14 @@ without importing the qrel parser. Any mismatch with the frozen document bytes s
 2026-06-29 execution amendment: authorization is invocation-level, not individual HTTP-request
 level. One explicit authorization covers exactly one `prepare` process and Hugging Face
 Hub-managed transport requests/Range resumes within that process. It does not authorize MKE to
-start a second process or reinvoke `snapshot_download`. Hugging Face Hub 1.21.0 does not expose a
-public retry-count or disable-resume parameter; its regular HTTP progress can reset the internal
-retry allowance, so documentation must not describe transport requests as retry-count bounded.
+start a second process or reinvoke `snapshot_download`. Hugging Face Hub 1.21.0 exposes no public
+retry-count or disable-resume parameter, so transport requests must not be described as
+retry-count bounded.
 
-The outer proof harness or supervising execution window enforces all of these gates:
-
-- exactly one process/invocation using the approved model, revision, cache, and transport policy;
-- total wall clock no greater than 45 minutes;
-- no model-cache byte progress for no greater than 10 minutes;
-- stop and terminate the current invocation on either limit, without starting another command.
-
-Two authorized attempts informed this amendment without producing a valid snapshot:
-
-1. Default Xet reached 7 of 12 files and left an 880,731,994-byte process-unique partial. It made
-   no byte progress for about 14 minutes while its workers waited through a local system proxy.
-   This proves a host-specific Xet no-progress stall; it does not prove a specific proxy defect.
-2. Explicit regular HTTP received 28,321,633 of 1,191,586,416 weight bytes before the peer closed
-   the connection. Hugging Face Hub began a managed Range resume before the process was stopped
-   under the older contract, leaving a second 262,144,000-byte process-unique partial.
-
-Hugging Face Hub 1.21.0 uses process-unique incomplete files. These two stale files are not inputs
-to a later invocation and remain untouched. Deletion requires separate authorization even after a
-successful proof.
+The outer proof supervisor enforces one immutable model/revision/cache/transport tuple, a maximum
+45-minute process lifetime, and termination after 10 minutes without model-cache byte progress.
+Termination never starts another command automatically. MKE calls network `snapshot_download`
+once with `max_workers=1` and has no retry loop or silent fallback.
 
 The execution window must report:
 
@@ -722,32 +708,23 @@ The execution window must report:
 Model: Qwen/Qwen3-Embedding-0.6B
 Revision: 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3
 Cache: operator-selected path outside the repository
-Networked command: the exact one-process command below
+Networked command: one explicitly authorized mke embedding prepare process only
 Expected largest weight file: model.safetensors, about 1.19 GB
 Authorization policy: library-managed requests/Range resumes are allowed inside this invocation;
 any new CLI invocation or process restart requires a new explicit authorization
 Stop gates: total wall clock <= 45 minutes; no cache-byte progress <= 10 minutes
 ```
 
-For the next host-specific proof, use regular HTTP explicitly to avoid repeating the observed Xet
-stall and set the public Hub download timeout. This is not a global product default or silent
-fallback:
-
-```bash
-HF_HUB_DISABLE_XET=1 HF_HUB_DOWNLOAD_TIMEOUT=30 uv run mke embedding prepare \
-  --allow-model-download \
-  --model qwen3-embedding-0.6b \
-  --model-revision 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3 \
-  --model-cache "$HOME/Library/Caches/mke/embedding" \
-  --json
-```
-
-Do not run this third invocation until the user explicitly authorizes this exact command and its
-in-process transport-resume policy.
+The completed host-specific proof used explicit regular HTTP with
+`HF_HUB_DISABLE_XET=1 HF_HUB_DOWNLOAD_TIMEOUT=30` after two separately authorized failed
+invocations exposed an Xet no-progress stall and an HTTP peer close. Those environment variables
+were proof transport inputs, not product defaults. The successful third invocation completed the
+exact 12-file snapshot in about 46 seconds. Two stale process-unique partials remain outside the
+repository and require separate deletion authorization.
 
 - [ ] **Step 5: Run the one authorized prepare, then cache-only doctor**
 
-Exact host-specific command after authorization:
+Recorded host-specific command after authorization:
 
 ```bash
 HF_HUB_DISABLE_XET=1 HF_HUB_DOWNLOAD_TIMEOUT=30 uv run mke embedding prepare \
@@ -762,12 +739,31 @@ uv run mke embedding doctor \
 ```
 
 Expected: prepare succeeds once; doctor is `ready`, cache-only, and reports a complete redacted
-manifest identity. Hugging Face Hub may issue transport requests/Range resumes within this one
-process. If the process fails or either outer time/progress gate fires, stop it. Do not broaden
-model/revision/cache/transport policy, and do not start a fourth invocation without new explicit
-authorization.
+manifest identity. Library-managed transport resumes are allowed only within the authorized
+process. If a process fails or an outer gate fires, stop. Do not broaden model/revision/cache/
+transport policy or start a new invocation without explicit authorization.
 
 - [ ] **Step 6: Run Python 3.12 and 3.13 installed-wheel proof**
+
+2026-06-29 resource-measurement amendment: the original stress peak ceiling of `4 GiB` had no
+declared minimum host class and conflated the qrel-free determinism stress workload with a normal
+runtime query. On a `16 GiB` Apple Silicon host, the first Python 3.12 installed-wheel stress proof
+measured `4,300,947,456` bytes, only `5,980,160` bytes above that old limit, while the host had no
+swap activity and every non-resource gate passed. No qrels had been read or scored. That result
+remains a failure under the superseded contract and must never be relabeled as passing.
+
+Before another real proof, write RED tests and update the report/validator so they:
+
+- record physical memory and reject a host below `16 GiB`;
+- require stress peak RSS `<= 6 GiB` and `<= 40%` of physical memory;
+- independently recompute the peak-RSS ratio and reject bool, non-positive, inconsistent, or
+  non-finite resource fields;
+- label the 70-Evidence double-embedding run as `compatibility_stress`, not runtime Search memory;
+- run a separate fresh cache-only model-load-plus-single-query process and record its peak RSS as
+  report-only evidence; missing, non-finite, source-tree, wrong-interpreter, or networked query-smoke
+  evidence fails proof integrity, but the measured value has no PR 1 ceiling;
+- bump the compatibility report schema so a superseded `4 GiB` report cannot validate under the
+  amended contract.
 
 Use isolated venvs outside the repository, install the built `wheel[embedding]`, run from an
 external cwd with hostile `PYTHONPATH`, and keep network disabled. Both environments must prove
@@ -775,20 +771,27 @@ installed identity, cache-only model load, no truncation, deterministic output w
 projection equivalence, and all ceilings:
 
 ```text
+host physical memory >= 16 GiB
 snapshot <= 1.5 GiB
-peak RSS <= 4 GiB
+compatibility stress peak RSS <= 6 GiB and <= 40% of physical memory
 70-Evidence projection <= 1 MiB
 one query embedding plus exact-KNN <= 5 s
+single-query peak RSS = report-only
 ```
+
+After the amended tests and validator pass, run one fresh Python 3.12 installed-wheel proof and one
+fresh Python 3.13 installed-wheel proof. Each version gets one canonical run; do not repeat a
+version to select a lower RSS. Reuse the complete external model cache and pre-populated package
+cache without network access. The earlier source-worktree Python 3.13 observation and superseded
+Python 3.12 result remain execution evidence, not canonical amended-contract proofs.
 
 - [ ] **Step 7: Apply stop conditions**
 
 Stop and return to planning if Qwen3 fails package, Python, CPU, snapshot, remote-code,
-determinism, truncation, or resource gates. If sqlite-vec alone fails, record its structured
+determinism, truncation, or the amended resource gates. If sqlite-vec alone fails, record its structured
 rejection and select the project exact-cosine reference only if every exact-reference gate passes.
-Do not automatically choose BGE or another model. Hugging Face Hub-managed transport resumes inside
-one authorized invocation are not a new MKE invocation; MKE-owned loops, process restarts, second
-network `snapshot_download` calls, and silent transport fallback remain prohibited.
+Do not automatically choose BGE or another model. The observed sqlite-vec file-size rejection is
+not a candidate failure when exact-cosine passes every required gate.
 
 - [ ] **Step 8: Record and commit compatibility evidence**
 
@@ -835,12 +838,12 @@ Add tests that require:
 Do not commit local cache files, model weights, virtualenvs, raw absolute paths, or raw GStack
 artifacts. CI may install the extra and run synthetic/model-free proofs only.
 
-### Task 6A: Refresh Historical Artifact Identities
+## Task 6A: Refresh Historical Artifact Identities
 
-Approved targeted amendment on 2026-06-28 after implementation reproduced a sequencing conflict:
-PR 1 must change `pyproject.toml`, `uv.lock`, source files, and CI workflow bytes, while the frozen
-E1/E2/E3-A/E3-B artifacts bind those identities. The original plan placed refresh only in PR 2
-Task 14, making the PR 1 all-validator gate impossible.
+Approved targeted amendment after implementation reproduced a sequencing conflict: PR 1 changes
+`pyproject.toml`, `uv.lock`, source files, and CI workflow bytes, while the frozen E1/E2/E3-A/E3-B
+artifacts bind those identities. The original Task 14 occurs in PR 2, so it cannot make PR 1
+validators pass.
 
 Do not run this refresh until Tasks 4, 5, 0.5, and Task 6 Steps 1-2 are complete and all PR 1
 source, lock, workflow, tests, and documentation bytes are frozen. Run the transaction once.
@@ -861,14 +864,14 @@ source, lock, workflow, tests, and documentation bytes are frozen. Run the trans
 Require atomic replacement and checked-in validation of all five targets, byte-identical rollback
 when replacement of the fifth target fails, recovery coverage for the fifth target, and fail-closed
 rollback for any qrel, fixture, manifest, protocol candidate, observation, metric, gate, verdict,
-compiled-query, locator, or candidate-contract change. Identity-only source/scope changes must pass.
+compiled-query, locator, or candidate-contract change. Identity-only source/scope changes pass.
 
 - [ ] **Step 2: Extend the supported transaction without weakening validators**
 
 Add the E3-B observed input, record step, staged validation, checked-in validation, backup,
 replacement, and recovery coverage. Do not delete bound source paths, shrink the E2 scope fence,
-relax a validator, convert an integrity failure to a warning, create an E3-C artifact, or read dense
-candidate qrels.
+relax a validator, convert an integrity failure to a warning, create an E3-C comparison artifact, or
+read dense candidate qrels.
 
 - [ ] **Step 3: Run the one identity refresh after PR 1 bytes are frozen**
 
@@ -876,7 +879,7 @@ Use Task 0 normalized E1/E2/E3-A/E3-B snapshots as the semantic oracle. Historic
 read its own frozen qrels only for this approved regression workflow. Before replacement, require
 exact equality for qrels, fixture bytes, manifests, candidate contracts, locators, compiled
 queries, ordered results, observations, metrics, gates, and verdicts. Only declared source/scope
-identity metadata derived from the final PR 1 bytes may change.
+identity metadata derived from final PR 1 bytes may change.
 
 - [ ] **Step 4: Validate and commit separately**
 
@@ -1670,34 +1673,16 @@ authorized actions.
 
 ## GSTACK REVIEW REPORT
 
-| Phase | Mode | Coverage | Result | Evidence |
-|---|---|---|---|---|
-| CEO Review | selective expansion | premises, alternatives, scope, trajectory | clear after amendments | 8 independent concerns dispositioned |
-| Design Review | conditional | graphical UI | skipped | no UI scope detected |
-| Engineering Review | full | architecture, state, tests, security, performance | clear after amendments | 9 independent findings dispositioned |
-| DX Review | polish | install, CLI, errors, docs, cleanup | clear after amendments | score `6.6 -> 8.5` |
-| Outside voices | degraded | CEO, engineering, DX | `codex-only` | second configured voice unavailable; no cross-model consensus claimed |
+| Review | Trigger | Why | Runs | Status | Findings |
+|---|---|---|---:|---|---|
+| CEO Review | `/plan-ceo-review` | Scope and strategy | 1 | CLEAR | 8 concerns dispositioned; comparison-only scope retained |
+| Codex Review | `/codex review` | Independent second opinion | 1 | DEGRADED | Codex-only outside voice; no cross-model consensus claimed |
+| Eng Review | `/plan-eng-review` | Architecture and tests | 2 | CLEAR | Original 9 findings resolved; resource amendment targeted review found 0 new issues |
+| Design Review | `/plan-design-review` | UI/UX gaps | 0 | SKIPPED | No graphical UI scope |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 1 | CLEAR | Install, CLI, error, documentation, and cleanup contract reviewed |
 
-Review totals: 16 decisions, 13 auto-decided mechanical choices, 3 taste choices, and 0 user
-challenges. No user challenge is declared because cross-model agreement was unavailable.
-
-Approved taste defaults:
-
-1. Keep the compatibility-first two-PR order rather than score development qrels in PR 1.
-2. Keep sqlite-vec in the bounded compatibility spike rather than defer it before implementation.
-3. Test one immutable Qwen3 candidate rather than run a development model bakeoff.
-
-Cross-phase themes:
-
-- trustworthy negative outcomes are first-class results, not exceptions;
-- package installation, model acquisition, cache-only operation, and cleanup are distinct phases;
-- stable locator identity, partition isolation, and replay are one evidence-integrity boundary.
-
-Deferred beyond E3-C: API embedding adapters, RRF, reranking, query rewrite, segmentation changes,
-persistent runtime vector projection, runtime default changes, second-model comparison, external
-vector services, HTTP, and UI.
-
-**VERDICT:** CEO, engineering, and DX review are clear. The three taste defaults were approved on
-2026-06-28. E3-C is ready for a public-neutral implementation handoff.
+- **VERDICT:** CEO, engineering, and DX reviews are clear. The 2026-06-29 amendment supersedes only
+  the prepare transport and PR 1 resource-measurement contracts. Implementation may resume after
+  this amendment lands on `main`; qrel scoring and PR 2 remain blocked on PR 1 merge.
 
 NO UNRESOLVED DECISIONS

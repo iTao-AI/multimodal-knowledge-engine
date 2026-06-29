@@ -1,7 +1,7 @@
 # Local Dense Retrieval Candidate Autoplan Review
 
-Status: clean and approved; PR 1 implementation is in progress. The 2026-06-29 execution amendment
-below supersedes only the original prepare retry wording.
+Status: clean and approved with 2026-06-29 execution amendments; PR 1 is paused until this amended
+plan lands on `main`.
 
 Review date: 2026-06-28
 
@@ -21,66 +21,127 @@ UI review: skipped because E3-C adds no graphical interface.
 DX review: included because E3-C adds an optional package extra, model lifecycle CLI, evaluation
 CLI, validation commands, and operator recovery paths.
 
-## 2026-06-29 Prepare Transport Execution Amendment
+## 2026-06-29 Prepare Transport Amendment
+
+Two separately authorized prepare invocations exposed a mismatch between the original
+request-level retry wording and the pinned `huggingface-hub==1.21.0` public API. The SDK performs
+managed Range resumes and exposes no public retry-count or disable-resume setting. A project-owned
+downloader or private monkeypatch would exceed PR 1 and add an avoidable supply-chain surface.
+
+The approved boundary is therefore one explicitly authorized `prepare` process for one immutable
+model/revision/cache/transport tuple. Hugging Face Hub-managed requests and resumes may occur
+inside that process. MKE calls network `snapshot_download` once with `max_workers=1`, has no retry
+loop or fallback, and never starts another process automatically. The outer proof gate limits the
+process to 45 minutes and 10 minutes without cache-byte progress. Any new process requires new
+authorization; stale partial deletion remains a separate operator action.
+
+The third authorized invocation used explicit regular HTTP after the default Xet path stalled and
+the first regular-HTTP response closed early. It completed the exact 12-file snapshot in about
+46 seconds. This host-specific transport input is not a product default.
+
+## 2026-06-29 Resource Measurement Amendment
 
 ### Finding
 
-The original wording prohibited every implicit retry and required new authorization for every
-additional network request. That boundary is not implementable through the pinned
-`huggingface-hub==1.21.0` public API without a private monkeypatch or a project-owned downloader:
+The original `4 GiB` peak-RSS ceiling named no minimum host class and treated the qrel-free
+compatibility stress process as if it were a steady-state runtime query. The stress runner loads the
+FP32 model, embeds all 70 Evidence rows twice for determinism, and exercises exact-cosine and
+sqlite-vec compatibility in one process.
 
-- `snapshot_download` exposes no retry-count or disable-resume parameter;
-- regular HTTP performs managed Range resumes for connection, timeout, and remote-protocol errors;
-- internal progress can reset its retry allowance, so request count is not strictly bounded;
-- process-unique incomplete files left by a terminated process are not reused by a later process.
+On a `16 GiB` Apple Silicon host, the first Python 3.12 installed-wheel run measured
+`4,300,947,456` bytes against the original `4,294,967,296`-byte ceiling, a difference of
+`5,980,160` bytes. The host had no swap activity. Model identity, cache-only loading, CPU float32,
+remote-code disablement, zero truncation, deterministic document/query/vector digests,
+exact-cosine identity, and latency passed. sqlite-vec ordering and scores matched the reference but
+its `4,268,032`-byte database exceeded the independent `1 MiB` projection limit, so exact-cosine
+was selected as designed. No dense qrels were read or scored.
 
-Building a separate downloader would exceed PR 1, weaken the supported SDK boundary, and add a
-large-file supply-chain maintenance surface. The review therefore accepts an invocation-level
-authorization boundary while retaining strict MKE-owned fail-closed behavior.
-
-### Execution Evidence
-
-Two separately authorized invocations failed before compatibility proof:
-
-1. Default Xet reached 7 of 12 files and left an 880,731,994-byte weight partial. No cache-byte
-   progress occurred for about 14 minutes while Xet workers waited through a local system proxy.
-   This is evidence of a host-specific Xet no-progress stall, not evidence of a specific proxy
-   implementation defect.
-2. Explicit regular HTTP received 28,321,633 of 1,191,586,416 bytes before the peer closed the
-   response. Hugging Face Hub then began a Range resume. The process was stopped under the older
-   authorization wording and left a 262,144,000-byte process-unique partial.
-
-Neither invocation produced a valid snapshot. Doctor, cache-ready compatibility, installed-wheel
-model proof, and the compatibility artifact were not run. Both stale files remain in the external
-operator cache and are neither reused nor deleted by this amendment.
+The execution window correctly stopped under the old contract and did not rerun to select a lower
+measurement. The review rejects both relabeling that result as a pass and terminating the model
+solely because an unsupported, undocumented `4 GiB` host assumption was too narrow.
 
 ### Approved Boundary
 
-- One explicit authorization covers exactly one `prepare` process/invocation, one immutable
-  model/revision/cache tuple, and one stated transport policy.
-- Hugging Face Hub-managed requests and Range resumes inside that process are allowed. They are
-  not described as retry-count bounded.
-- MKE validates a complete exact cache without SDK network resolution. On an authorized cache
-  miss it calls network `snapshot_download` exactly once with `max_workers=1`; it has no retry
-  loop, second SDK call, alternate host/model/provider, or silent transport fallback.
-- Doctor and operational paths remain cache-only and also use `max_workers=1` for local SDK
-  resolution.
-- The outer proof gate limits the process to 45 minutes total and 10 minutes without cache-byte
-  progress. A limit or process failure stops execution; no new command starts automatically.
-- The next host-specific proof may explicitly set `HF_HUB_DISABLE_XET=1` and
-  `HF_HUB_DOWNLOAD_TIMEOUT=30`. These are proof transport inputs, not global product defaults.
-- Any new process, including a restart after failure, requires new explicit authorization. Stale
-  partial deletion requires separate authorization.
+- Required real-proof host class is at least `16 GiB` physical memory.
+- Compatibility stress peak RSS must be `<= 6 GiB` and `<= 40%` of physical memory.
+- The report records physical memory and independently recomputable peak-RSS ratio.
+- A separate fresh cache-only model-load-plus-single-query process records peak RSS as report-only
+  evidence; it is not inferred from the stress process and does not approve runtime promotion.
+  Missing, invalid, source-tree, wrong-interpreter, or networked evidence fails proof integrity even
+  though the measured value has no PR 1 ceiling.
+- The compatibility report schema changes so reports under the superseded resource contract cannot
+  validate under the amended contract.
+- The superseded Python 3.12 result remains historical evidence. It is neither canonical nor
+  rewritten.
+- After model-free TDD, exactly one fresh Python 3.12 and one fresh Python 3.13 installed-wheel proof
+  run under the amended contract. Neither version may be repeated to choose a lower RSS.
+- Both proofs remain offline and reuse the already complete external model cache and populated
+  package cache. No model download, qrel scoring, PR 2 work, or runtime behavior change is allowed.
 
-### Required Verification Before The Next Authorization
+This is a pre-qrel measurement correction based on the supported host class and actual harness
+semantics, not a quality-gate relaxation. A future runtime promotion still requires its own memory
+and latency decision.
 
-- Tests prove complete-cache prepare performs no SDK resolution and cache miss performs only one
-  exact network `snapshot_download` call.
-- Tests prove both local and network SDK calls use `max_workers=1` with the exact repository,
-  revision, cache, and `local_files_only` value.
-- A fake network failure maps immediately to the stable download error with no MKE reinvocation.
-- The implementation plan and CLI reference carry the invocation/transport distinction and outer
-  proof gates.
+### Targeted Engineering Review
+
+What already exists:
+
+- the compatibility process already uses per-process `ru_maxrss`; retain it rather than add a
+  monitoring dependency;
+- the deployment proof already launches installed-wheel child processes from an external working
+  directory with network disabled;
+- the complete exact snapshot and populated package cache already exist outside the repository, so
+  the amended proof needs no network access;
+- the current validator already derives one fail-closed resource verdict; extend that derivation
+  instead of creating a parallel validator.
+
+```text
+installed-wheel proof (Python 3.12, then Python 3.13; one run each)
+  |
+  +-- validate installed identity + offline doctor
+  |
+  +-- query-smoke child
+  |     +-- cache-only model load
+  |     +-- one fixed query embedding
+  |     +-- valid RSS required; value report-only
+  |
+  +-- compatibility-stress child
+        +-- host memory >= 16 GiB
+        +-- 70 Evidence embedded twice
+        +-- exact-cosine + sqlite-vec proof
+        +-- peak <= 6 GiB and <= 40%
+        +-- all existing integrity gates
+```
+
+Coverage requirements:
+
+- unit tests cover minimum-host, exact ceiling, just-over ceiling, exact 40%, just-over 40%,
+  bool/non-finite/ratio-tamper rejection, and superseded-schema rejection;
+- proof tests cover external installed identity, hostile environment clearing, offline query-smoke,
+  missing or malformed query-smoke output, and no second canonical run per version;
+- cache-ready evidence covers one Python 3.12 and one Python 3.13 run with exact model and package
+  identities; no qrel or runtime Search path is involved.
+
+Failure modes are explicit: unavailable host-memory measurement, a host below the minimum, invalid
+query-smoke evidence, a stress process over either ceiling, network access, or installed-identity
+mismatch all fail proof. No path silently falls back or converts missing evidence to a warning.
+
+NOT in scope: changing model, revision, dtype, batch size, snapshot, qrels, runtime retrieval,
+Search/Ask/MCP behavior, API adapters, quantization, container/cgroup support, or promotion
+budgets. Those require separate evidence or a later design.
+
+Implementation is sequential because report schema, validator, proof runner, and canonical evidence
+share one compatibility boundary. Parallel worktrees would add merge and evidence-order risk.
+
+Implementation tasks:
+
+1. Amend the resource report schema and validator with TDD.
+2. Add the isolated cache-only query-smoke measurement and proof-integrity tests.
+3. Run one fresh installed-wheel proof per Python version, then record the canonical compatibility
+   artifact only if both pass.
+
+Targeted review result: `CLEAN`; zero unresolved architecture, code-quality, test, or performance
+findings after the boundaries above were made explicit.
 
 Outside voice: one independent Codex review ran for each applicable phase. A second configured
 review voice was unavailable, so outside-voice conclusions were treated as findings to verify,
