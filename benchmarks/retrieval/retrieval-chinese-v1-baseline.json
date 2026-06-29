@@ -48,7 +48,7 @@
     "integrity_claim": "adjudication_record_integrity"
   },
   "source_identity": {
-    "sha256": "f9844996d3dae9f32b357cc160d3e3382e3d06f1fff3a62b4fbd2a9cd7be1048",
+    "sha256": "2765f88f5147b2d47f63ae8f85e6fdcb4603e5a1fd7c6f42b39304af4c9f004e",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -167,8 +167,8 @@
       },
       {
         "path": "src/mke/embeddings/readiness.py",
-        "bytes": 12651,
-        "sha256": "69d0a06ac289ff3cdc5ab6039950503d2ff2b1f959873c43c5ba42a2ed6eae13"
+        "bytes": 13373,
+        "sha256": "418d5fd67f0927715ae362621fec4af2ef89c9dafc72cac399fb597fa03041f3"
       },
       {
         "path": "src/mke/evaluation/__init__.py",
@@ -227,8 +227,8 @@
       },
       {
         "path": "src/mke/evaluation/dense_compatibility.py",
-        "bytes": 48611,
-        "sha256": "7649746e65115f9c30c28d717eb20207d9c25ca429e25b6b688f73b4331a5229"
+        "bytes": 47893,
+        "sha256": "be42ee2fb24f68a975cddeac30065e8faf8216c46662319529e2b9cba20440d3"
       },
       {
         "path": "src/mke/evaluation/diagnostic_ports.py",
