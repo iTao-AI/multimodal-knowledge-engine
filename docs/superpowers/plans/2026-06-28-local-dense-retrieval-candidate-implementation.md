@@ -1087,7 +1087,7 @@ git commit -m "test(eval): freeze E3-C dense comparison protocol"
 - Create: `tests/evaluation/test_dense_candidate.py`
 - Modify: `src/mke/evaluation/__init__.py`
 
-- [ ] **Step 1: Write RED candidate tests**
+- [x] **Step 1: Write RED candidate tests**
 
 Test:
 
@@ -1110,18 +1110,18 @@ Test:
 - a development-only API cannot receive a holdout partition;
 - cancellation and partial embedding/projection results fail closed.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_candidate.py -q
 ```
 
-- [ ] **Step 3: Implement the development-only runner**
+- [x] **Step 3: Implement the development-only runner**
 
 Separate candidate generation from qrel grading. The candidate layer returns ordered retrieval
 observations; metrics and gate decisions belong in comparison code.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_candidate.py -q

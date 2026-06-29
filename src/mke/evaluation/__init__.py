@@ -8,6 +8,11 @@ from mke.evaluation.cjk_lexical_comparison import (
     render_cjk_lexical_comparison_json,
     run_cjk_lexical_comparison,
 )
+from mke.evaluation.dense_candidate import (
+    DenseCandidateError,
+    run_dense_candidate_partition,
+    run_dense_development_candidate,
+)
 from mke.evaluation.manifest import (
     FixtureValidationError,
     ManifestValidationError,
@@ -30,6 +35,7 @@ __all__ = [
     "FixtureValidationError",
     "ManifestValidationError",
     "RetrievalEvaluationManifest",
+    "DenseCandidateError",
     "load_retrieval_manifest",
     "render_chinese_retrieval_human",
     "render_chinese_retrieval_json",
@@ -42,6 +48,8 @@ __all__ = [
     "run_numeric_comparison",
     "run_chinese_retrieval_evaluation",
     "run_cjk_lexical_comparison",
+    "run_dense_candidate_partition",
+    "run_dense_development_candidate",
     "run_retrieval_evaluation",
     "snapshot_retrieval_fixtures",
 ]
