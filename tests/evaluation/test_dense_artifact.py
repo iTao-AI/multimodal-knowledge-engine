@@ -135,6 +135,37 @@ def test_threshold_inputs_do_not_count_current_runtime_hits_as_dense_recovery() 
     assert report["development_status"] == "passed"
 
 
+def test_threshold_inputs_allow_unanswerable_ranked_no_hit_evidence() -> None:
+    candidate = synthetic_candidate_report("development")
+    result = deepcopy(candidate["observations"][0]["results"][0])
+    result["portable_score"] = 0.75
+    result["raw_score"] = 0.75
+    unanswerable = next(
+        item
+        for item in candidate["observations"]
+        if item["category"] == "unanswerable"
+    )
+    unanswerable["results"] = [result]
+    chinese = load_chinese_retrieval_protocol(
+        ROOT / "tests/fixtures/retrieval-chinese-v1/protocol.json"
+    )
+
+    inputs = derive_dense_threshold_inputs(
+        candidate,
+        partition="development",
+        chinese=chinese,
+        runtime=_current_runtime_semantics(),
+    )
+
+    unanswerable_input = next(item for item in inputs if item.category == "unanswerable")
+    assert unanswerable_input.unanswerable_top_score == 0.75
+    assert unanswerable_input.hard_negative_failure_score is None
+    assert unanswerable_input.ideal_grades == ()
+    assert unanswerable_input.ranked_scores_and_grades == ((0.75, 0),)
+    report = select_dense_threshold(inputs)
+    assert report["threshold_trace"]
+
+
 def synthetic_artifact() -> dict[str, Any]:
     return build_dense_comparison_artifact(
         protocol_path=PROTOCOL_PATH,

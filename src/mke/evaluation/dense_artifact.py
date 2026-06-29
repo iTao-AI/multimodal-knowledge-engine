@@ -502,7 +502,9 @@ def derive_dense_threshold_inputs(
                     if query.category == "unanswerable" and results
                     else (-1.0 if query.category == "unanswerable" else None)
                 ),
-                hard_negative_failure_score=hard_score,
+                hard_negative_failure_score=(
+                    hard_score if any(item.grade == 0 for item in query.qrels) else None
+                ),
                 ranked_scores_and_grades=ranked,
                 ideal_grades=tuple(
                     sorted((item.grade for item in query.qrels), reverse=True)

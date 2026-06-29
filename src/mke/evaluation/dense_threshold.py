@@ -450,7 +450,11 @@ def _validate_ranked_evidence(item: DenseThresholdInput) -> None:
         previous = score
     if any(type(grade) is not int or grade not in {0, 1, 2} for grade in item.ideal_grades):
         raise DenseThresholdValidationError("ideal grade evidence is invalid")
-    if item.ranked_scores_and_grades and not item.ideal_grades:
+    if (
+        item.ranked_scores_and_grades
+        and not item.ideal_grades
+        and item.category != "unanswerable"
+    ):
         raise DenseThresholdValidationError("ideal grade evidence is invalid")
     if item.ranked_scores_and_grades:
         grade_two_scores = [
