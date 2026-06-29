@@ -1,6 +1,7 @@
 # Local Dense Retrieval Candidate Autoplan Review
 
-Status: clean and approved; implementation has not started.
+Status: clean and approved; PR 1 implementation is in progress. The 2026-06-29 execution amendment
+below supersedes only the original prepare retry wording.
 
 Review date: 2026-06-28
 
@@ -19,6 +20,67 @@ UI review: skipped because E3-C adds no graphical interface.
 
 DX review: included because E3-C adds an optional package extra, model lifecycle CLI, evaluation
 CLI, validation commands, and operator recovery paths.
+
+## 2026-06-29 Prepare Transport Execution Amendment
+
+### Finding
+
+The original wording prohibited every implicit retry and required new authorization for every
+additional network request. That boundary is not implementable through the pinned
+`huggingface-hub==1.21.0` public API without a private monkeypatch or a project-owned downloader:
+
+- `snapshot_download` exposes no retry-count or disable-resume parameter;
+- regular HTTP performs managed Range resumes for connection, timeout, and remote-protocol errors;
+- internal progress can reset its retry allowance, so request count is not strictly bounded;
+- process-unique incomplete files left by a terminated process are not reused by a later process.
+
+Building a separate downloader would exceed PR 1, weaken the supported SDK boundary, and add a
+large-file supply-chain maintenance surface. The review therefore accepts an invocation-level
+authorization boundary while retaining strict MKE-owned fail-closed behavior.
+
+### Execution Evidence
+
+Two separately authorized invocations failed before compatibility proof:
+
+1. Default Xet reached 7 of 12 files and left an 880,731,994-byte weight partial. No cache-byte
+   progress occurred for about 14 minutes while Xet workers waited through a local system proxy.
+   This is evidence of a host-specific Xet no-progress stall, not evidence of a specific proxy
+   implementation defect.
+2. Explicit regular HTTP received 28,321,633 of 1,191,586,416 bytes before the peer closed the
+   response. Hugging Face Hub then began a Range resume. The process was stopped under the older
+   authorization wording and left a 262,144,000-byte process-unique partial.
+
+Neither invocation produced a valid snapshot. Doctor, cache-ready compatibility, installed-wheel
+model proof, and the compatibility artifact were not run. Both stale files remain in the external
+operator cache and are neither reused nor deleted by this amendment.
+
+### Approved Boundary
+
+- One explicit authorization covers exactly one `prepare` process/invocation, one immutable
+  model/revision/cache tuple, and one stated transport policy.
+- Hugging Face Hub-managed requests and Range resumes inside that process are allowed. They are
+  not described as retry-count bounded.
+- MKE validates a complete exact cache without SDK network resolution. On an authorized cache
+  miss it calls network `snapshot_download` exactly once with `max_workers=1`; it has no retry
+  loop, second SDK call, alternate host/model/provider, or silent transport fallback.
+- Doctor and operational paths remain cache-only and also use `max_workers=1` for local SDK
+  resolution.
+- The outer proof gate limits the process to 45 minutes total and 10 minutes without cache-byte
+  progress. A limit or process failure stops execution; no new command starts automatically.
+- The next host-specific proof may explicitly set `HF_HUB_DISABLE_XET=1` and
+  `HF_HUB_DOWNLOAD_TIMEOUT=30`. These are proof transport inputs, not global product defaults.
+- Any new process, including a restart after failure, requires new explicit authorization. Stale
+  partial deletion requires separate authorization.
+
+### Required Verification Before The Next Authorization
+
+- Tests prove complete-cache prepare performs no SDK resolution and cache miss performs only one
+  exact network `snapshot_download` call.
+- Tests prove both local and network SDK calls use `max_workers=1` with the exact repository,
+  revision, cache, and `local_files_only` value.
+- A fake network failure maps immediately to the stable download error with no MKE reinvocation.
+- The implementation plan and CLI reference carry the invocation/transport distinction and outer
+  proof gates.
 
 Outside voice: one independent Codex review ran for each applicable phase. A second configured
 review voice was unavailable, so outside-voice conclusions were treated as findings to verify,

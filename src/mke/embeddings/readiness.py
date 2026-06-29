@@ -20,6 +20,8 @@ _REQUIRED_SNAPSHOT_FILES = frozenset(
     {"modules.json", "tokenizer_config.json", "config.json", "model.safetensors"}
 )
 _HASH_CHUNK_BYTES = 1024 * 1024
+_MODEL_CACHE_DIRECTORY = "models--" + MODEL_ID.replace("/", "--")
+_SNAPSHOT_MAX_WORKERS = 1
 
 
 class _SnapshotDownload(Protocol):
@@ -30,6 +32,7 @@ class _SnapshotDownload(Protocol):
         revision: str,
         cache_dir: str,
         local_files_only: bool,
+        max_workers: int,
     ) -> str: ...
 
 
@@ -195,8 +198,7 @@ def prepare_embedding(
     model_id, model_revision = require_embedding_model_identity(model, revision)
     cache = resolve_embedding_cache(cache_dir)
     try:
-        snapshot = _resolve_snapshot(cache, local_files_only=True)
-        manifest = validate_embedding_snapshot(snapshot, cache_dir=cache)
+        manifest = _load_exact_cached_snapshot(cache)
     except EmbeddingModelError as error:
         downloadable = error.cause in {
             "configured embedding model is not cached",
@@ -274,10 +276,26 @@ def _resolve_snapshot(cache_dir: Path, *, local_files_only: bool) -> Path:
             revision=MODEL_REVISION,
             cache_dir=str(cache_dir),
             local_files_only=local_files_only,
+            max_workers=_SNAPSHOT_MAX_WORKERS,
         )
     except Exception as error:
         raise _classify_resolution_error(error, local_files_only=local_files_only) from error
     return Path(resolved)
+
+
+def _load_exact_cached_snapshot(cache_dir: Path) -> EmbeddingSnapshotManifest:
+    snapshot = (
+        cache_dir
+        / _MODEL_CACHE_DIRECTORY
+        / "snapshots"
+        / MODEL_REVISION
+    )
+    if not snapshot.exists():
+        raise EmbeddingModelError(
+            "configured embedding model is not cached",
+            "run_embedding_prepare",
+        )
+    return validate_embedding_snapshot(snapshot, cache_dir=cache_dir)
 
 
 def _classify_resolution_error(

@@ -399,10 +399,18 @@ mke embedding doctor \
 `prepare --allow-model-download` is the only embedding command permitted to acquire model files.
 It allowlists `Qwen/Qwen3-Embedding-0.6B` at the exact revision shown above before any network
 request. Repeated preparation of a complete snapshot is cache-only and reports
-`status=already_cached`. `doctor` is always cache-only and reports `0` when ready, `1` when not
-ready, and `2` for invalid usage. Both commands reject repository-local caches and never print an
-absolute cache path, SDK exception, URL query, or traceback. `MKE_EMBEDDING_CACHE` may provide the
-owner cache location when `--model-cache` is omitted.
+`status=already_cached`. One operator authorization covers one `prepare` process and the
+Hugging Face Hub-managed transport requests or Range resumes inside that process for the approved
+model, revision, cache, and transport policy. MKE does not reinvoke preparation, retry the SDK,
+change transport, or start another process automatically; every new CLI invocation requires a new
+authorization. Proof supervision limits an authorized process to 45 minutes total and 10 minutes
+without model-cache byte progress.
+
+`doctor` is always cache-only and reports `0` when ready, `1` when not ready, and `2` for invalid
+usage. Both commands reject repository-local caches and never print an absolute cache path, SDK
+exception, URL query, or traceback. `MKE_EMBEDDING_CACHE` may provide the owner cache location when
+`--model-cache` is omitted. Host-specific transport environment variables used for one proof are
+explicit operator inputs, not global product defaults or silent fallbacks.
 
 This lifecycle is a comparison-only E3-C prerequisite. It does not add embeddings to normal
 Search, Ask, MCP, owner startup, or `active_evidence_fts`.

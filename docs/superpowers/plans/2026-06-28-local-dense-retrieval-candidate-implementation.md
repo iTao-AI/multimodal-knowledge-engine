@@ -20,7 +20,8 @@ Hatch/uv, GitHub Actions.
 
 ---
 
-Status: approved after autoplan review; implementation has not started.
+Status: PR 1 implementation in progress. Tasks 0-5 are complete; Task 0.5 is at the exact-model
+prepare authorization gate after the 2026-06-29 transport-policy amendment below.
 
 Planning base: `main@5ed0a722b83f9b4c70aec7c9333d8bf7d17b9335`.
 
@@ -44,6 +45,13 @@ Autoplan review:
   equality.
 - Only `mke embedding prepare --allow-model-download` may use the network. Doctor, evaluation,
   validators, installed-wheel proof, Search, Ask, and MCP remain cache-only.
+- One explicit model-download authorization covers exactly one `prepare` process/invocation for
+  the approved model, revision, external cache, and transport policy. Hugging Face Hub-managed
+  transport requests and Range resumes inside that invocation are allowed. Any new CLI invocation
+  or process restart requires a new explicit authorization; MKE never starts one automatically.
+- MKE does not implement a download retry loop, transport fallback, alternate host, alternate
+  model/provider, or a second network `snapshot_download` call. A complete exact cache is validated
+  directly; a permitted cache miss makes one SDK network-resolution call with `max_workers=1`.
 - This model-network boundary starts after package installation. Installing `wheel[embedding]` may
   use a package index, or may be fully offline from a pre-populated wheelhouse.
 - The exact model is `Qwen/Qwen3-Embedding-0.6B` at revision
@@ -132,7 +140,7 @@ that would amend this plan.
 - Read: `benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json`
 - Read: `src/mke/retrieval/strategy.py`
 
-- [ ] **Step 1: Confirm branch isolation and a clean baseline**
+- [x] **Step 1: Confirm branch isolation and a clean baseline**
 
 ```bash
 git status --short --branch
@@ -142,7 +150,7 @@ git diff --check origin/main...HEAD
 
 Expected: a clean new branch whose `HEAD` is the intended `origin/main` commit.
 
-- [ ] **Step 2: Run the current regression and artifact gates**
+- [x] **Step 2: Run the current regression and artifact gates**
 
 ```bash
 uv sync --all-extras --dev
@@ -188,7 +196,7 @@ uv run mke demo --verify
 Expected: all current tests and validators pass. If a command path has changed on latest `main`,
 inspect the actual CLI/module and update this plan before implementation; do not bypass a gate.
 
-- [ ] **Step 3: Capture semantic payloads for later equality checks**
+- [x] **Step 3: Capture semantic payloads for later equality checks**
 
 The generated reports live only under `/tmp`. Remove duration/platform fields and preserve
 normalized payloads for before/after comparison. Do not edit canonical artifacts in Task 0.
@@ -214,7 +222,7 @@ and vector path are reproducible and within the declared ceilings,” not “den
 - Modify: `src/mke/interfaces/public_errors.py`
 - Modify: `tests/interfaces/test_public_errors.py`
 
-- [ ] **Step 1: Write RED contract tests**
+- [x] **Step 1: Write RED contract tests**
 
 Cover:
 
@@ -274,7 +282,7 @@ class LocalEmbeddingRuntime(Protocol):
     def tokenize_lengths(self, texts: tuple[str, ...]) -> tuple[int, ...]: ...
 ```
 
-- [ ] **Step 2: Run the tests and confirm RED**
+- [x] **Step 2: Run the tests and confirm RED**
 
 ```bash
 uv run pytest tests/embeddings/test_contracts.py tests/interfaces/test_public_errors.py -q
@@ -282,7 +290,7 @@ uv run pytest tests/embeddings/test_contracts.py tests/interfaces/test_public_er
 
 Expected: failures because the embedding package and public mappings do not exist.
 
-- [ ] **Step 3: Implement immutable DTOs and validation**
+- [x] **Step 3: Implement immutable DTOs and validation**
 
 Keep validation in project code. SDK conversion belongs only in adapters. Store portable vectors as
 tuples of Python floats after validating their float32 origin; never serialize provider tensors.
@@ -303,7 +311,7 @@ embedding output contains non-finite values
 embedding output is not normalized
 ```
 
-- [ ] **Step 4: Run focused tests and static checks**
+- [x] **Step 4: Run focused tests and static checks**
 
 ```bash
 uv run pytest tests/embeddings/test_contracts.py tests/interfaces/test_public_errors.py -q
@@ -313,7 +321,7 @@ uv run pyright src/mke/embeddings tests/embeddings
 
 Expected: pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/mke/embeddings tests/embeddings \
@@ -330,7 +338,7 @@ git commit -m "feat(embedding): define local dense contracts"
 - Create: `tests/packaging/test_embedding_extra.py`
 - Modify: `.github/workflows/ci.yml`
 
-- [ ] **Step 1: Write RED packaging tests**
+- [x] **Step 1: Write RED packaging tests**
 
 Assert:
 
@@ -342,13 +350,13 @@ Assert:
   imports it;
 - no LangChain, LlamaIndex, external vector service, or provider API SDK is added.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 uv run pytest tests/packaging/test_embedding_extra.py -q
 ```
 
-- [ ] **Step 3: Add and lock the optional extra**
+- [x] **Step 3: Add and lock the optional extra**
 
 Use this direct boundary unless the resolver proves an incompatibility:
 
@@ -370,14 +378,14 @@ uv sync --extra embedding --dev
 uv tree --extra embedding
 ```
 
-- [ ] **Step 4: Add model-free Python 3.12/3.13 extra gates**
+- [x] **Step 4: Add model-free Python 3.12/3.13 extra gates**
 
 The CI gate may install the extra and run imports, contract tests, a synthetic exact-cosine proof,
 and a synthetic sqlite-vec compatibility proof. It must not download or load the Qwen snapshot.
 Use a separate job or an explicitly larger timeout rather than consuming the existing core
 10-minute job without evidence.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 ```bash
 uv run pytest tests/packaging/test_embedding_extra.py -q
@@ -397,7 +405,7 @@ git commit -m "build(embedding): lock local dense runtime extra"
 - Create: `tests/interfaces/test_cli_embedding.py`
 - Modify: `docs/reference/cli.md`
 
-- [ ] **Step 1: Write RED readiness tests**
+- [x] **Step 1: Write RED readiness tests**
 
 Cover:
 
@@ -439,13 +447,13 @@ class EmbeddingReadiness:
     next_step: str | None
 ```
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 uv run pytest tests/embeddings/test_readiness.py tests/interfaces/test_cli_embedding.py -q
 ```
 
-- [ ] **Step 3: Implement cache-only lifecycle and CLI**
+- [x] **Step 3: Implement cache-only lifecycle and CLI**
 
 Add:
 
@@ -459,13 +467,19 @@ mke embedding doctor --model qwen3-embedding-0.6b \
   --model-cache <outside-repo-cache> --json
 ```
 
-`prepare` must call `snapshot_download(repo_id=..., revision=..., local_files_only=False)` only
-after the allowlist and explicit-download checks. `doctor` never downloads. The exact model and
-revision are allowlisted defaults; explicit flags, when present, must equal those values. Omission
-must never mean “latest.” Use a documented OS cache default plus `MKE_EMBEDDING_CACHE`/CLI override,
-and reject every resolved cache path inside the repository for both prepare and doctor.
+`prepare` first validates the exact standard cache snapshot directly, without SDK resolution. A
+complete snapshot returns `already_cached`. A missing or incomplete snapshot without permission
+fails before `snapshot_download`. With explicit permission it calls
+`snapshot_download(repo_id=..., revision=..., cache_dir=..., local_files_only=False,
+max_workers=1)` exactly once. An SDK failure returns the stable download error immediately; MKE
+must not reinvoke the SDK. `doctor` and cache-only adapter loads use
+`snapshot_download(..., local_files_only=True, max_workers=1)` once and never download. The exact
+model and revision are allowlisted defaults; explicit flags, when present, must equal those values.
+Omission must never mean “latest.” Use a documented OS cache default plus
+`MKE_EMBEDDING_CACHE`/CLI override, and reject every resolved cache path inside the repository for
+both prepare and doctor.
 
-- [ ] **Step 4: Verify model-free behavior**
+- [x] **Step 4: Verify model-free behavior**
 
 ```bash
 uv run pytest tests/embeddings/test_readiness.py tests/interfaces/test_cli_embedding.py -q
@@ -477,7 +491,7 @@ uv run mke embedding doctor --model qwen3-embedding-0.6b \
 Expected: tests pass; the empty-cache doctor returns `not_ready`, a stable next step, no download,
 no absolute path, and no traceback.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/mke/embeddings/readiness.py src/mke/cli.py \
@@ -495,7 +509,7 @@ git commit -m "feat(embedding): add cache-only model lifecycle"
 - Create: `tests/adapters/test_sentence_transformers_embedding.py`
 - Modify: `src/mke/embeddings/__init__.py`
 
-- [ ] **Step 1: Write RED adapter tests using fakes**
+- [x] **Step 1: Write RED adapter tests using fakes**
 
 Verify:
 
@@ -514,18 +528,18 @@ Verify:
 - provider objects and absolute snapshot paths never escape in public results or errors;
 - cancellation between batches stops before the next encode call.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 uv run pytest tests/adapters/test_sentence_transformers_embedding.py -q
 ```
 
-- [ ] **Step 3: Implement the adapter behind `EmbeddingProvider`**
+- [x] **Step 3: Implement the adapter behind `EmbeddingProvider`**
 
 Keep imports inside the adapter factory. Do not add the adapter to normal `RuntimeConfig`,
 `KnowledgeEngine`, Search, Ask, or MCP.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 ```bash
 uv run pytest tests/adapters/test_sentence_transformers_embedding.py \
@@ -550,7 +564,7 @@ git commit -m "feat(embedding): add Qwen3 cache-only adapter"
 - Create: `tests/adapters/test_exact_cosine_projection.py`
 - Create: `tests/adapters/test_sqlite_vec_projection.py`
 
-- [ ] **Step 1: Write RED project-owned vector tests**
+- [x] **Step 1: Write RED project-owned vector tests**
 
 Use contracts equivalent to:
 
@@ -591,19 +605,19 @@ Test:
 - extension-unavailable and incompatible results fail closed; no lexical fallback;
 - temporary projection files remain outside the repository and are removed on normal completion.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 uv run pytest tests/vector tests/adapters/test_exact_cosine_projection.py \
   tests/adapters/test_sqlite_vec_projection.py -q
 ```
 
-- [ ] **Step 3: Implement the reference first, then sqlite-vec**
+- [x] **Step 3: Implement the reference first, then sqlite-vec**
 
 The project-owned reference is the correctness oracle. The selected sqlite-vec adapter must expose
 the same project-owned output. Do not compare or fuse lexical and cosine raw scores.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 ```bash
 uv run pytest tests/vector tests/adapters/test_exact_cosine_projection.py \
@@ -631,7 +645,7 @@ Historical regression commands elsewhere in PR 1 remain separate from this proof
 - Create: `tests/fixtures/retrieval-dense-v1/corpus-lock.json`
 - Create after successful proof: `benchmarks/retrieval/qwen3-embedding-0.6b-compatibility.json`
 
-- [ ] **Step 1: Write RED compatibility tests**
+- [x] **Step 1: Write RED compatibility tests**
 
 The report schema must contain no qrels or relevance metrics. It records:
 
@@ -650,14 +664,14 @@ The validator must reject missing fields, bool-as-int, non-finite values, wrong 
 wrong package versions, manifest tampering, impossible measurements, and a passing verdict with a
 failed gate.
 
-- [ ] **Step 2: Confirm RED with synthetic inputs**
+- [x] **Step 2: Confirm RED with synthetic inputs**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_compatibility.py \
   tests/scripts/test_dense_retrieval_deployment_proof.py -q
 ```
 
-- [ ] **Step 3: Implement a cache-only proof runner**
+- [x] **Step 3: Implement a cache-only proof runner**
 
 The proof runner must:
 
@@ -675,25 +689,69 @@ without importing the qrel parser. Any mismatch with the frozen document bytes s
 
 - [ ] **Step 4: Stop and request exact download authorization**
 
+2026-06-29 execution amendment: authorization is invocation-level, not individual HTTP-request
+level. One explicit authorization covers exactly one `prepare` process and Hugging Face
+Hub-managed transport requests/Range resumes within that process. It does not authorize MKE to
+start a second process or reinvoke `snapshot_download`. Hugging Face Hub 1.21.0 does not expose a
+public retry-count or disable-resume parameter; its regular HTTP progress can reset the internal
+retry allowance, so documentation must not describe transport requests as retry-count bounded.
+
+The outer proof harness or supervising execution window enforces all of these gates:
+
+- exactly one process/invocation using the approved model, revision, cache, and transport policy;
+- total wall clock no greater than 45 minutes;
+- no model-cache byte progress for no greater than 10 minutes;
+- stop and terminate the current invocation on either limit, without starting another command.
+
+Two authorized attempts informed this amendment without producing a valid snapshot:
+
+1. Default Xet reached 7 of 12 files and left an 880,731,994-byte process-unique partial. It made
+   no byte progress for about 14 minutes while its workers waited through a local system proxy.
+   This proves a host-specific Xet no-progress stall; it does not prove a specific proxy defect.
+2. Explicit regular HTTP received 28,321,633 of 1,191,586,416 weight bytes before the peer closed
+   the connection. Hugging Face Hub began a managed Range resume before the process was stopped
+   under the older contract, leaving a second 262,144,000-byte process-unique partial.
+
+Hugging Face Hub 1.21.0 uses process-unique incomplete files. These two stale files are not inputs
+to a later invocation and remain untouched. Deletion requires separate authorization even after a
+successful proof.
+
 The execution window must report:
 
 ```text
 Model: Qwen/Qwen3-Embedding-0.6B
 Revision: 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3
 Cache: operator-selected path outside the repository
-Networked command: mke embedding prepare --allow-model-download only
+Networked command: the exact one-process command below
 Expected largest weight file: model.safetensors, about 1.19 GB
-Retry policy: no implicit retries; every additional network attempt requires a new explicit authorization
+Authorization policy: library-managed requests/Range resumes are allowed inside this invocation;
+any new CLI invocation or process restart requires a new explicit authorization
+Stop gates: total wall clock <= 45 minutes; no cache-byte progress <= 10 minutes
 ```
 
-Do not run the download until the user explicitly authorizes this exact operation.
+For the next host-specific proof, use regular HTTP explicitly to avoid repeating the observed Xet
+stall and set the public Hub download timeout. This is not a global product default or silent
+fallback:
+
+```bash
+HF_HUB_DISABLE_XET=1 HF_HUB_DOWNLOAD_TIMEOUT=30 uv run mke embedding prepare \
+  --allow-model-download \
+  --model qwen3-embedding-0.6b \
+  --model-revision 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3 \
+  --model-cache "$HOME/Library/Caches/mke/embedding" \
+  --json
+```
+
+Do not run this third invocation until the user explicitly authorizes this exact command and its
+in-process transport-resume policy.
 
 - [ ] **Step 5: Run the one authorized prepare, then cache-only doctor**
 
-Example after authorization:
+Exact host-specific command after authorization:
 
 ```bash
-uv run mke embedding prepare --allow-model-download \
+HF_HUB_DISABLE_XET=1 HF_HUB_DOWNLOAD_TIMEOUT=30 uv run mke embedding prepare \
+  --allow-model-download \
   --model qwen3-embedding-0.6b \
   --model-revision 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3 \
   --model-cache "$HOME/Library/Caches/mke/embedding" --json
@@ -704,7 +762,10 @@ uv run mke embedding doctor \
 ```
 
 Expected: prepare succeeds once; doctor is `ready`, cache-only, and reports a complete redacted
-manifest identity. If the download fails, stop. Do not broaden model/revision/host or retry.
+manifest identity. Hugging Face Hub may issue transport requests/Range resumes within this one
+process. If the process fails or either outer time/progress gate fires, stop it. Do not broaden
+model/revision/cache/transport policy, and do not start a fourth invocation without new explicit
+authorization.
 
 - [ ] **Step 6: Run Python 3.12 and 3.13 installed-wheel proof**
 
@@ -725,7 +786,9 @@ one query embedding plus exact-KNN <= 5 s
 Stop and return to planning if Qwen3 fails package, Python, CPU, snapshot, remote-code,
 determinism, truncation, or resource gates. If sqlite-vec alone fails, record its structured
 rejection and select the project exact-cosine reference only if every exact-reference gate passes.
-Do not automatically choose BGE or another model.
+Do not automatically choose BGE or another model. Hugging Face Hub-managed transport resumes inside
+one authorized invocation are not a new MKE invocation; MKE-owned loops, process restarts, second
+network `snapshot_download` calls, and silent transport fallback remain prohibited.
 
 - [ ] **Step 8: Record and commit compatibility evidence**
 

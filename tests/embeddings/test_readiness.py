@@ -72,7 +72,7 @@ def test_embedding_cache_uses_owner_override_and_rejects_repository_paths(
         resolve_embedding_cache(repository / "cache", repository_root=repository)
 
 
-def test_prepare_is_the_only_network_path_and_reuses_complete_cache(
+def test_prepare_reuses_complete_exact_cache_without_sdk_resolution(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     cache = tmp_path / "cache"
@@ -96,27 +96,17 @@ def test_prepare_is_the_only_network_path_and_reuses_complete_cache(
     assert result.model_id == MODEL_ID
     assert result.model_revision == MODEL_REVISION
     assert result.snapshot_fingerprint.startswith("sha256:")
-    assert calls == [
-        {
-            "repo_id": MODEL_ID,
-            "revision": MODEL_REVISION,
-            "cache_dir": str(cache.resolve()),
-            "local_files_only": True,
-        }
-    ]
+    assert calls == []
 
 
 def test_prepare_downloads_only_after_cache_miss_and_explicit_permission(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     cache = tmp_path / "cache"
-    calls: list[bool] = []
+    calls: list[dict[str, object]] = []
 
     def snapshot_download(**kwargs: object) -> str:
-        local_only = bool(kwargs["local_files_only"])
-        calls.append(local_only)
-        if local_only:
-            raise FileNotFoundError("private/cache/path")
+        calls.append(dict(kwargs))
         return str(_complete_snapshot(cache))
 
     _install_fake_hub(monkeypatch, snapshot_download)
@@ -129,17 +119,25 @@ def test_prepare_downloads_only_after_cache_miss_and_explicit_permission(
     )
 
     assert result.status == "downloaded"
-    assert calls == [True, False]
+    assert calls == [
+        {
+            "repo_id": MODEL_ID,
+            "revision": MODEL_REVISION,
+            "cache_dir": str(cache.resolve()),
+            "local_files_only": False,
+            "max_workers": 1,
+        }
+    ]
 
 
 def test_prepare_without_permission_never_attempts_network(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    calls: list[bool] = []
+    calls: list[dict[str, object]] = []
 
     def snapshot_download(**kwargs: object) -> str:
-        calls.append(bool(kwargs["local_files_only"]))
-        raise FileNotFoundError("private/cache/path")
+        calls.append(dict(kwargs))
+        raise AssertionError("snapshot_download must not be called")
 
     _install_fake_hub(monkeypatch, snapshot_download)
 
@@ -152,7 +150,43 @@ def test_prepare_without_permission_never_attempts_network(
         )
 
     assert exc_info.value.cause == "configured embedding model is not cached"
-    assert calls == [True]
+    assert calls == []
+
+
+def test_prepare_network_failure_is_stable_and_never_reinvokes_snapshot_download(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cache = tmp_path / "secret-cache"
+    calls: list[dict[str, object]] = []
+
+    def snapshot_download(**kwargs: object) -> str:
+        calls.append(dict(kwargs))
+        raise RuntimeError(f"peer closed {cache}?token=secret Traceback")
+
+    _install_fake_hub(monkeypatch, snapshot_download)
+
+    with pytest.raises(EmbeddingModelError) as exc_info:
+        prepare_embedding(
+            cache_dir=cache,
+            model=MODEL_ID,
+            revision=MODEL_REVISION,
+            allow_model_download=True,
+        )
+
+    assert exc_info.value.cause == "embedding model download failed"
+    assert exc_info.value.next_step == "check_network_before_authorized_retry"
+    assert calls == [
+        {
+            "repo_id": MODEL_ID,
+            "revision": MODEL_REVISION,
+            "cache_dir": str(cache.resolve()),
+            "local_files_only": False,
+            "max_workers": 1,
+        }
+    ]
+    assert str(cache) not in repr(exc_info.value)
+    assert "secret" not in repr(exc_info.value)
+    assert "Traceback" not in repr(exc_info.value)
 
 
 def test_doctor_is_cache_only_and_reports_redacted_manifest_identity(
@@ -160,10 +194,10 @@ def test_doctor_is_cache_only_and_reports_redacted_manifest_identity(
 ) -> None:
     cache = tmp_path / "secret-cache"
     snapshot = _complete_snapshot(cache)
-    calls: list[bool] = []
+    calls: list[dict[str, object]] = []
 
     def snapshot_download(**kwargs: object) -> str:
-        calls.append(bool(kwargs["local_files_only"]))
+        calls.append(dict(kwargs))
         return str(snapshot)
 
     _install_fake_hub(monkeypatch, snapshot_download)
@@ -178,7 +212,15 @@ def test_doctor_is_cache_only_and_reports_redacted_manifest_identity(
     assert readiness.model_id == MODEL_ID
     assert readiness.model_revision == MODEL_REVISION
     assert readiness.snapshot_fingerprint is not None
-    assert calls == [True]
+    assert calls == [
+        {
+            "repo_id": MODEL_ID,
+            "revision": MODEL_REVISION,
+            "cache_dir": str(cache),
+            "local_files_only": True,
+            "max_workers": 1,
+        }
+    ]
     assert str(cache) not in repr(readiness)
 
 
