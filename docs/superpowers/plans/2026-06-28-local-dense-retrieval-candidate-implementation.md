@@ -1033,7 +1033,7 @@ git commit -m "test(eval): audit residual Chinese retrieval misses"
 - Create: `src/mke/evaluation/dense_protocol.py`
 - Create: `tests/evaluation/test_dense_protocol.py`
 
-- [ ] **Step 1: Write RED protocol tests**
+- [x] **Step 1: Write RED protocol tests**
 
 Freeze and validate:
 
@@ -1058,19 +1058,19 @@ Reject missing/extra fields, duplicate thresholds, reordered target classes, boo
 non-finite numbers, path traversal, absolute locators, unknown Evidence IDs, and any qrel/fixture
 identity drift.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_protocol.py -q
 ```
 
-- [ ] **Step 3: Implement strict protocol loading**
+- [x] **Step 3: Implement strict protocol loading**
 
 Use repository-relative locators and `Path.resolve()` containment checks. Do not bind feature
 commit ancestry; bind durable file bytes, candidate/model identity, and explicit source inventory
 so squash merge and shallow clones remain valid.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_protocol.py -q
