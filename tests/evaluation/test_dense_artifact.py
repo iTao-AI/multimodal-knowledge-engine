@@ -13,6 +13,7 @@ from mke.evaluation.chinese_protocol import load_chinese_retrieval_protocol
 from mke.evaluation.dense_artifact import (
     DenseArtifactValidationError,
     build_dense_comparison_artifact,
+    derive_dense_threshold_inputs,
     validate_dense_comparison_artifact,
 )
 from mke.evaluation.dense_compatibility import load_dense_corpus_lock
@@ -103,6 +104,32 @@ def test_dense_artifact_rejects_runtime_and_compatibility_identity_drift() -> No
             repository_root=ROOT,
             current_runtime_loader=_current_runtime_semantics,
         )
+
+
+def test_threshold_inputs_do_not_count_current_runtime_hits_as_dense_recovery() -> None:
+    candidate = synthetic_candidate_report("development")
+    runtime = _current_runtime_semantics()
+    semantic_query = next(
+        item
+        for item in runtime["results"]
+        if item["category"] == "semantic_paraphrase"
+    )
+    semantic_query["direct_ranks"] = [1]
+    chinese = load_chinese_retrieval_protocol(
+        ROOT / "tests/fixtures/retrieval-chinese-v1/protocol.json"
+    )
+
+    inputs = derive_dense_threshold_inputs(
+        candidate,
+        partition="development",
+        chinese=chinese,
+        runtime=runtime,
+    )
+
+    semantic_input = next(item for item in inputs if item.query_id == semantic_query["query_id"])
+    assert semantic_input.current_runtime_missed is False
+    assert semantic_input.recovery_score is None
+    assert semantic_input.ranked_scores_and_grades
 
 
 def synthetic_artifact() -> dict[str, Any]:

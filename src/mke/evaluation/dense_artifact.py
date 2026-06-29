@@ -482,15 +482,20 @@ def derive_dense_threshold_inputs(
         hard_score = _hard_negative_failure_score(ranked)
         results = cast(list[dict[str, Any]], observation["results"])
         runtime_item = runtime_by_id[query.query_id]
+        current_runtime_missed = (
+            query.category != "unanswerable"
+            and not cast(list[object], runtime_item["direct_ranks"])
+        )
         inputs.append(
             DenseThresholdInput(
                 query_id=query.query_id,
                 category=query.category,
-                current_runtime_missed=(
-                    query.category != "unanswerable"
-                    and not cast(list[object], runtime_item["direct_ranks"])
+                current_runtime_missed=current_runtime_missed,
+                recovery_score=(
+                    max(grade_two_scores, default=None)
+                    if current_runtime_missed
+                    else None
                 ),
-                recovery_score=max(grade_two_scores, default=None),
                 dense_ndcg_at_10=0.0,
                 unanswerable_top_score=(
                     cast(float, results[0]["portable_score"])
