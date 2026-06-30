@@ -1,0 +1,92 @@
+{
+  "arms": {
+    "dense": "qwen3-embedding-0.6b-exact-v1",
+    "lexical": "cjk-active-scan-overlap-v1"
+  },
+  "candidate": {
+    "candidate_id": "cjk-active-scan-qwen3-rrf-v1",
+    "candidate_revision": 1
+  },
+  "dedupe": {
+    "key": [
+      "stable_locator_id",
+      "source_text_digest"
+    ],
+    "source_text_digest_required": true
+  },
+  "inputs": {
+    "artifact_source": {
+      "bytes": 5445,
+      "path": "src/mke/evaluation/hybrid_rrf_artifact.py",
+      "sha256": "8f52e52f972682fdff6cf7edf15d0967f3c6dcb5a1966d4a50728f1ff64605a9"
+    },
+    "chinese_protocol": {
+      "bytes": 26661,
+      "path": "tests/fixtures/retrieval-chinese-v1/protocol.json",
+      "sha256": "00f72934018a52b5b5f5591fba119050882aee9b782e5dac199702b0cf995944"
+    },
+    "cli_source": {
+      "bytes": 63657,
+      "path": "src/mke/cli.py",
+      "sha256": "a2f1af2945b75a4700917d12b3e41fef1ba705c0fdec780427b3250f0dd17da1"
+    },
+    "dense_artifact": {
+      "bytes": 403821,
+      "path": "benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json",
+      "sha256": "dd0093bfdf972507dc682dcc0a76b2c130f9f97e9017b1f5bdbdf40dc9f86f95"
+    },
+    "metrics_source": {
+      "bytes": 8849,
+      "path": "src/mke/evaluation/graded_metrics.py",
+      "sha256": "7e28e8e53044d0dc92c721e0c3b554b2c89bcb92efa52bf073a9f9f5185c1ba5"
+    },
+    "qrel_adjudication": {
+      "bytes": 341947,
+      "path": "tests/fixtures/retrieval-chinese-v1/qrel-adjudication.json",
+      "sha256": "b638a7729725d495e809bb52a93b071e65a51b0f0ebcb218d3ee3298a04bd0c4"
+    },
+    "rrf_source": {
+      "bytes": 7268,
+      "path": "src/mke/evaluation/rrf_fusion.py",
+      "sha256": "1f5d09c9c5436614786d54953b5fcab2be92db843cedd622b25e916b51333429"
+    },
+    "runtime_strategy_source": {
+      "bytes": 3370,
+      "path": "src/mke/retrieval/strategy.py",
+      "sha256": "437aaa050f06c0d2a3eb9e9c891c5060e38df137ef691235281b2fd25adeb665"
+    },
+    "workflow_source": {
+      "bytes": 29870,
+      "path": "src/mke/evaluation/hybrid_rrf_workflow.py",
+      "sha256": "49b9f2a9a3f4823046d673c596afb3bc9d9d1257b15fa3bb4ecbd25aaf7b2c5e"
+    }
+  },
+  "rrf": {
+    "dense_weight": 1.0,
+    "input_depth": 10,
+    "k": 60,
+    "lexical_weight": 1.0,
+    "output_depth": 10,
+    "rank_base": 1,
+    "score_decimals": 12,
+    "tie_break_order": [
+      "fused_score_desc",
+      "arm_hit_count_desc",
+      "best_individual_rank_asc",
+      "lexical_rank_asc",
+      "dense_rank_asc",
+      "stable_locator_id_asc"
+    ]
+  },
+  "schema_version": "mke.hybrid_rrf_protocol.v1",
+  "splits": [
+    "development",
+    "holdout"
+  ],
+  "state": {
+    "candidate_status_initial": "not_evaluated",
+    "development_freeze_required_before_holdout": true,
+    "holdout_receipt_mode": "exclusive_create",
+    "runtime_promotion_status": "not_evaluated"
+  }
+}

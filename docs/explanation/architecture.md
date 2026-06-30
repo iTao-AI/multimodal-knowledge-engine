@@ -181,6 +181,14 @@ compares four arms: E3-A historical FTS5, `cjk-trigram-overlap-v1`,
 may be planned; it is not runtime promotion and does not change Search, Ask, MCP, owner startup,
 SQLite domain truth, API adapters, RRF, reranking, query rewrite, HTTP, or UI.
 
+E3-D adds a comparison-only RRF fusion artifact over the current
+`cjk-active-scan-overlap-v1` runtime observations and the E3-C
+`qwen3-embedding-0.6b-exact-v1` dense observations. It uses rank-only fusion and does not combine raw lexical and dense scores.
+Development recorded `development_status=valid_negative` because
+the fused unanswerable no-hit gate regressed, so holdout was not observed. This evidence does not
+change Search, Ask, MCP, owner startup, SQLite domain truth, Publication, ingestion, or runtime
+default behavior.
+
 CLI and MCP errors share one project-owned `PublicError` serializer. Only allowlisted stable causes
 can reach public output; unknown exception text is replaced with
 `operation failed; details were redacted`. Public payloads contain `problem`, `cause`,

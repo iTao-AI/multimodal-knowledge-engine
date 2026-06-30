@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from hashlib import sha256
 from pathlib import Path
 
 ROOT = Path(__file__).parents[2]
@@ -183,3 +184,9 @@ def test_dense_comparison_docs_record_actual_pr2_result_and_limits() -> None:
     assert comparison["e3d_status"] in public_docs
     assert "evaluate-dense-retrieval.md" in public_docs
     assert "runtime_promotion_status=not_evaluated" in public_docs
+    assert sha256(
+        (
+            ROOT
+            / "benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json"
+        ).read_bytes()
+    ).hexdigest() in guide

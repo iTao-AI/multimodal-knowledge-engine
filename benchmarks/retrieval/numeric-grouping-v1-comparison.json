@@ -41,7 +41,7 @@
     "revision": 1
   },
   "source": {
-    "sha256": "110780166312f08f617e4175ad876423afb08573e30f2854067e36a9e3ad843e",
+    "sha256": "5ea6c8e4bff0c2b32ec6ab72d726b56b96742c8789e4fcbf83d502e381333a5d",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -140,8 +140,8 @@
       },
       {
         "path": "src/mke/cli.py",
-        "bytes": 54452,
-        "sha256": "923ae7898108fc7e0d95472e957731455badc34fed7385e7b9cfb29829ea7449"
+        "bytes": 63657,
+        "sha256": "a2f1af2945b75a4700917d12b3e41fef1ba705c0fdec780427b3250f0dd17da1"
       },
       {
         "path": "src/mke/domain/__init__.py",
@@ -274,6 +274,21 @@
         "sha256": "7e28e8e53044d0dc92c721e0c3b554b2c89bcb92efa52bf073a9f9f5185c1ba5"
       },
       {
+        "path": "src/mke/evaluation/hybrid_rrf_artifact.py",
+        "bytes": 5445,
+        "sha256": "8f52e52f972682fdff6cf7edf15d0967f3c6dcb5a1966d4a50728f1ff64605a9"
+      },
+      {
+        "path": "src/mke/evaluation/hybrid_rrf_protocol.py",
+        "bytes": 7889,
+        "sha256": "9177fe2476b31b5eed69cff903574b5527b788e09811e92443cc99820fb9cb35"
+      },
+      {
+        "path": "src/mke/evaluation/hybrid_rrf_workflow.py",
+        "bytes": 29870,
+        "sha256": "49b9f2a9a3f4823046d673c596afb3bc9d9d1257b15fa3bb4ecbd25aaf7b2c5e"
+      },
+      {
         "path": "src/mke/evaluation/manifest.py",
         "bytes": 15118,
         "sha256": "2df221e37e9cee1b84a144ca33b55d1cce6103f4d5ff005b696956738d0d9378"
@@ -297,6 +312,11 @@
         "path": "src/mke/evaluation/report.py",
         "bytes": 7473,
         "sha256": "ced2e09aefda720edfa2d4ca43b3b9fb3ab538236495a198ad2dae6e2e28ccbe"
+      },
+      {
+        "path": "src/mke/evaluation/rrf_fusion.py",
+        "bytes": 7268,
+        "sha256": "1f5d09c9c5436614786d54953b5fcab2be92db843cedd622b25e916b51333429"
       },
       {
         "path": "src/mke/evaluation/runner.py",

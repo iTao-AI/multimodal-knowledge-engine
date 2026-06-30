@@ -1,6 +1,7 @@
 import json
 from dataclasses import replace
 from pathlib import Path
+from typing import cast
 
 import pytest
 from pytest import CaptureFixture
@@ -13,6 +14,12 @@ NUMERIC_PROTOCOL = Path(
 )
 CHINESE_PROTOCOL = Path("tests/fixtures/retrieval-chinese-v1/protocol.json")
 DENSE_PROTOCOL = Path("tests/fixtures/retrieval-dense-v1/protocol-lock.json")
+HYBRID_RRF_PROTOCOL = Path(
+    "tests/fixtures/retrieval-hybrid-rrf-v1/protocol-lock.json"
+)
+HYBRID_RRF_DENSE_ARTIFACT = Path(
+    "benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json"
+)
 
 
 def test_cli_eval_retrieval_outputs_human_baseline(
@@ -867,3 +874,210 @@ def test_cli_eval_dense_help_is_comparison_only(
     assert "--development-only" in normalized
     assert "--record-holdout-receipt" in normalized
     assert "does not change Search, Ask, MCP, or runtime defaults" in normalized
+
+
+def test_cli_eval_hybrid_rrf_development_records_freeze(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: CaptureFixture[str],
+) -> None:
+    captured: dict[str, object] = {}
+
+    def run_development(**kwargs: object) -> dict[str, object]:
+        captured.update(kwargs)
+        return {
+            "schema_version": "mke.hybrid_rrf_development.v1",
+            "candidate": {
+                "candidate_id": "cjk-active-scan-qwen3-rrf-v1",
+                "candidate_revision": 1,
+            },
+            "development_status": "valid_negative",
+            "holdout_status": "not_observed",
+            "runtime_promotion_status": "not_evaluated",
+            "metrics": {},
+            "diagnostics": {
+                "ranking_headroom_count": 1,
+                "neither_arm_miss_count": 4,
+            },
+        }
+
+    def record_freeze(**kwargs: object) -> dict[str, object]:
+        captured.update(kwargs)
+        return cast(dict[str, object], kwargs["report"])
+
+    monkeypatch.setattr("mke.cli.run_hybrid_rrf_development", run_development)
+    monkeypatch.setattr("mke.cli.record_hybrid_rrf_development_freeze", record_freeze)
+    freeze = tmp_path / "freeze.json"
+
+    assert main(
+        [
+            "eval",
+            "retrieval-hybrid-rrf",
+            "--protocol",
+            str(HYBRID_RRF_PROTOCOL),
+            "--candidate",
+            "cjk-active-scan-qwen3-rrf-v1",
+            "--dense-artifact",
+            str(HYBRID_RRF_DENSE_ARTIFACT),
+            "--development-only",
+            "--record-development-freeze",
+            str(freeze),
+            "--json",
+        ]
+    ) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["development_status"] == "valid_negative"
+    assert payload["e3e_status"] == "eligible"
+    assert payload["segmentation_status"] == "eligible"
+    assert payload["runtime_promotion_status"] == "not_evaluated"
+    assert captured["protocol_path"] == HYBRID_RRF_PROTOCOL
+    assert captured["dense_artifact_path"] == HYBRID_RRF_DENSE_ARTIFACT
+    assert captured["target_path"] == freeze
+
+
+@pytest.mark.parametrize(
+    "argv",
+    (
+        ["--development-only"],
+        ["--record-development-freeze", "freeze.json"],
+        ["--development-freeze", "freeze.json", "--record", "artifact.json"],
+        [
+            "--development-only",
+            "--record-development-freeze",
+            "freeze.json",
+            "--record",
+            "artifact.json",
+        ],
+    ),
+)
+def test_cli_eval_hybrid_rrf_rejects_incompatible_phase_flags(
+    capsys: CaptureFixture[str],
+    argv: list[str],
+) -> None:
+    base = [
+        "eval",
+        "retrieval-hybrid-rrf",
+        "--protocol",
+        str(HYBRID_RRF_PROTOCOL),
+        "--candidate",
+        "cjk-active-scan-qwen3-rrf-v1",
+        "--dense-artifact",
+        str(HYBRID_RRF_DENSE_ARTIFACT),
+    ]
+
+    with pytest.raises(SystemExit) as error:
+        main([*base, *argv])
+
+    assert error.value.code == 2
+    assert "incomplete or incompatible" in capsys.readouterr().err
+
+
+def test_cli_eval_hybrid_rrf_holdout_dispatches_all_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: CaptureFixture[str],
+) -> None:
+    captured: dict[str, object] = {}
+
+    def run_holdout(**kwargs: object) -> dict[str, object]:
+        captured.update(kwargs)
+        return {
+            "candidate_status": "completed",
+            "development_status": "passed",
+            "holdout_status": "observed",
+            "e3e_status": "eligible",
+            "segmentation_status": "not_evaluated",
+            "runtime_promotion_status": "not_evaluated",
+        }
+
+    monkeypatch.setattr("mke.cli.run_hybrid_rrf_holdout", run_holdout)
+    freeze = tmp_path / "freeze.json"
+    artifact = tmp_path / "artifact.json"
+    receipt = tmp_path / "receipt.json"
+
+    assert main(
+        [
+            "eval",
+            "retrieval-hybrid-rrf",
+            "--protocol",
+            str(HYBRID_RRF_PROTOCOL),
+            "--candidate",
+            "cjk-active-scan-qwen3-rrf-v1",
+            "--dense-artifact",
+            str(HYBRID_RRF_DENSE_ARTIFACT),
+            "--development-freeze",
+            str(freeze),
+            "--record",
+            str(artifact),
+            "--record-holdout-receipt",
+            str(receipt),
+        ]
+    ) == 0
+
+    output = capsys.readouterr().out
+    assert "candidate_status=completed" in output
+    assert "holdout_status=observed" in output
+    assert "runtime_promotion_status=not_evaluated" in output
+    assert captured["development_freeze_path"] == freeze
+    assert captured["record_path"] == artifact
+    assert captured["holdout_receipt_path"] == receipt
+
+
+@pytest.mark.parametrize(
+    ("protocol", "dense_artifact", "problem"),
+    (
+        (Path("missing-protocol.json"), HYBRID_RRF_DENSE_ARTIFACT, "rrf_protocol_invalid"),
+        (HYBRID_RRF_PROTOCOL, Path("missing-dense.json"), "rrf_dense_artifact_invalid"),
+    ),
+)
+def test_cli_eval_hybrid_rrf_input_failure_is_stable_public_json(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+    protocol: Path,
+    dense_artifact: Path,
+    problem: str,
+) -> None:
+    assert main(
+        [
+            "eval",
+            "retrieval-hybrid-rrf",
+            "--protocol",
+            str(tmp_path / protocol) if protocol.name.startswith("missing") else str(protocol),
+            "--candidate",
+            "cjk-active-scan-qwen3-rrf-v1",
+            "--dense-artifact",
+            (
+                str(tmp_path / dense_artifact)
+                if dense_artifact.name.startswith("missing")
+                else str(dense_artifact)
+            ),
+            "--development-only",
+            "--record-development-freeze",
+            str(tmp_path / "freeze.json"),
+            "--json",
+        ]
+    ) == 1
+
+    output = capsys.readouterr()
+    payload = json.loads(output.out)
+    assert output.err == ""
+    assert payload["failure"]["problem"] == problem
+    assert payload["runtime_promotion_status"] == "not_evaluated"
+    assert "Traceback" not in output.out
+    assert str(tmp_path) not in output.out
+
+
+def test_cli_eval_hybrid_rrf_help_is_comparison_only(
+    capsys: CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as error:
+        main(["eval", "retrieval-hybrid-rrf", "--help"])
+
+    assert error.value.code == 0
+    normalized = " ".join(capsys.readouterr().out.split())
+    assert "comparison-only" in normalized
+    assert "rank-only RRF" in normalized
+    assert "does not promote or change the runtime default" in normalized
+    assert "--record-development-freeze" in normalized
+    assert "--record-holdout-receipt" in normalized

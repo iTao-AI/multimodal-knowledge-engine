@@ -9,6 +9,7 @@ import tempfile
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
+from typing import cast
 
 from mke.adapters.video import LocalCommandTranscriptConfig, LocalCommandTranscriptProvider
 from mke.adapters.video.contracts import VideoTranscriptionLimits
@@ -52,6 +53,16 @@ from mke.evaluation.cjk_lexical_artifact import record_cjk_lexical_artifact
 from mke.evaluation.cjk_lexical_candidate import CJK_LEXICAL_CANDIDATE
 from mke.evaluation.cjk_lexical_comparison import CjkLexicalComparisonReport
 from mke.evaluation.dense_workflow import DenseWorkflowError, run_dense_evaluation_phase
+from mke.evaluation.hybrid_rrf_protocol import (
+    CANDIDATE_ID as HYBRID_RRF_CANDIDATE_ID,
+)
+from mke.evaluation.hybrid_rrf_protocol import HybridRrfProtocolError
+from mke.evaluation.hybrid_rrf_workflow import (
+    HybridRrfWorkflowError,
+    record_hybrid_rrf_development_freeze,
+    run_hybrid_rrf_development,
+    run_hybrid_rrf_holdout,
+)
 from mke.evaluation.numeric_comparison import NumericComparisonReport
 from mke.evaluation.report import RetrievalEvaluationReport
 from mke.interfaces.mcp_contract import McpRuntimeConfig, transcript_intake_report_payload
@@ -266,6 +277,27 @@ def main(argv: Sequence[str] | None = None) -> int:
     dense_retrieval.add_argument("--record", type=Path)
     dense_retrieval.add_argument("--record-holdout-receipt", type=Path)
     dense_retrieval.add_argument("--json", action="store_true", dest="json_output")
+    hybrid_rrf_retrieval = evaluation_subcommands.add_parser(
+        "retrieval-hybrid-rrf",
+        description=(
+            "Run the E3-D comparison-only rank-only RRF candidate over frozen "
+            "lexical and dense observations. This command does not promote or "
+            "change the runtime default, Search, Ask, MCP, or Publication behavior."
+        ),
+    )
+    hybrid_rrf_retrieval.add_argument("--protocol", type=Path, required=True)
+    hybrid_rrf_retrieval.add_argument(
+        "--candidate", choices=(HYBRID_RRF_CANDIDATE_ID,), required=True
+    )
+    hybrid_rrf_retrieval.add_argument("--dense-artifact", type=Path, required=True)
+    hybrid_rrf_retrieval.add_argument("--development-only", action="store_true")
+    hybrid_rrf_retrieval.add_argument("--record-development-freeze", type=Path)
+    hybrid_rrf_retrieval.add_argument("--development-freeze", type=Path)
+    hybrid_rrf_retrieval.add_argument("--record", type=Path)
+    hybrid_rrf_retrieval.add_argument("--record-holdout-receipt", type=Path)
+    hybrid_rrf_retrieval.add_argument(
+        "--json", action="store_true", dest="json_output"
+    )
 
     mcp = subcommands.add_parser("mcp")
     mcp.add_argument("--allowed-root", type=Path, default=Path.cwd())
@@ -443,6 +475,73 @@ def main(argv: Sequence[str] | None = None) -> int:
                 return 1
             print(_render_dense_evaluation(payload, json_output=args.json_output))
             return 0
+        if args.evaluation_command == "retrieval-hybrid-rrf":
+            development_paths = (
+                args.record_development_freeze is not None
+                and args.development_freeze is None
+                and args.record is None
+                and args.record_holdout_receipt is None
+            )
+            holdout_paths = (
+                args.record_development_freeze is None
+                and args.development_freeze is not None
+                and args.record is not None
+                and args.record_holdout_receipt is not None
+            )
+            if (args.development_only and not development_paths) or (
+                not args.development_only and not holdout_paths
+            ):
+                parser.error(
+                    "retrieval-hybrid-rrf phase flags are incomplete or incompatible"
+                )
+            phase = "development" if args.development_only else "holdout"
+            try:
+                if args.development_only:
+                    target_path = args.record_development_freeze
+                    if not isinstance(target_path, Path):
+                        raise HybridRrfWorkflowError(
+                            "development freeze path is invalid"
+                        )
+                    report = run_hybrid_rrf_development(
+                        protocol_path=args.protocol,
+                        dense_artifact_path=args.dense_artifact,
+                        repository_root=Path.cwd(),
+                    )
+                    record_hybrid_rrf_development_freeze(
+                        report=report,
+                        target_path=target_path,
+                    )
+                    payload = _hybrid_rrf_development_payload(report)
+                else:
+                    development_freeze_path = args.development_freeze
+                    record_path = args.record
+                    holdout_receipt_path = args.record_holdout_receipt
+                    if not all(
+                        isinstance(path, Path)
+                        for path in (
+                            development_freeze_path,
+                            record_path,
+                            holdout_receipt_path,
+                        )
+                    ):
+                        raise HybridRrfWorkflowError("holdout paths are invalid")
+                    assert isinstance(development_freeze_path, Path)
+                    assert isinstance(record_path, Path)
+                    assert isinstance(holdout_receipt_path, Path)
+                    payload = run_hybrid_rrf_holdout(
+                        protocol_path=args.protocol,
+                        dense_artifact_path=args.dense_artifact,
+                        development_freeze_path=development_freeze_path,
+                        record_path=record_path,
+                        holdout_receipt_path=holdout_receipt_path,
+                        repository_root=Path.cwd(),
+                    )
+            except Exception as error:
+                payload = _hybrid_rrf_failure_payload(error, phase=phase)
+                print(_render_hybrid_rrf_evaluation(payload, json_output=args.json_output))
+                return 1
+            print(_render_hybrid_rrf_evaluation(payload, json_output=args.json_output))
+            return 0
         parser.error("unsupported evaluation command")
     if args.command == "demo":
         return _demo_verify(args.fixture, args.revised_fixture, args.video_fixture)
@@ -584,6 +683,140 @@ def _dense_failure_cause(error: Exception) -> str:
     if isinstance(error, DenseWorkflowError) or module.startswith("mke."):
         return cause
     return "dense comparison did not complete"
+
+
+def _hybrid_rrf_development_payload(
+    report: dict[str, object],
+) -> dict[str, object]:
+    diagnostics = _object_mapping(report.get("diagnostics"), "hybrid RRF diagnostics")
+    return {
+        **report,
+        "phase": "development",
+        "candidate_status": "completed",
+        "e3e_status": _hybrid_rrf_followup_status(diagnostics),
+        "segmentation_status": _hybrid_rrf_segmentation_status(diagnostics),
+    }
+
+
+def _hybrid_rrf_followup_status(diagnostics: Mapping[str, object]) -> str:
+    return (
+        "eligible"
+        if _strict_nonnegative_int(diagnostics.get("ranking_headroom_count")) > 0
+        else "not_evaluated"
+    )
+
+
+def _hybrid_rrf_segmentation_status(diagnostics: Mapping[str, object]) -> str:
+    return (
+        "eligible"
+        if _strict_nonnegative_int(diagnostics.get("neither_arm_miss_count")) > 0
+        else "not_evaluated"
+    )
+
+
+def _object_mapping(value: object, subject: str) -> Mapping[str, object]:
+    if not isinstance(value, dict):
+        raise HybridRrfWorkflowError(f"{subject} is invalid")
+    return cast(Mapping[str, object], value)
+
+
+def _strict_nonnegative_int(value: object) -> int:
+    if type(value) is not int or value < 0:
+        raise HybridRrfWorkflowError("hybrid RRF diagnostics are invalid")
+    return value
+
+
+def _render_hybrid_rrf_evaluation(
+    payload: Mapping[str, object], *, json_output: bool
+) -> str:
+    if json_output:
+        return json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    lines = [
+        "mke eval retrieval-hybrid-rrf",
+        f"phase={payload.get('phase', 'holdout')}",
+    ]
+    for key in (
+        "candidate_status",
+        "development_status",
+        "holdout_status",
+        "e3e_status",
+        "segmentation_status",
+        "runtime_promotion_status",
+    ):
+        lines.append(f"{key}={payload.get(key, 'not_evaluated')}")
+    failure = payload.get("failure")
+    if isinstance(failure, dict):
+        failure_payload = cast(dict[str, object], failure)
+        lines.append(
+            "failure "
+            f"problem={failure_payload.get('problem')} "
+            f"cause={failure_payload.get('cause')} "
+            f"next_step={failure_payload.get('next_step')}"
+        )
+    return "\n".join(lines)
+
+
+def _hybrid_rrf_failure_payload(
+    error: Exception,
+    *,
+    phase: str,
+) -> dict[str, object]:
+    problem, cause, next_step = _hybrid_rrf_public_failure(error)
+    return {
+        "schema_version": "mke.hybrid_rrf_evaluation.v1",
+        "phase": phase,
+        "candidate_status": "failed",
+        "development_status": "failed" if phase == "development" else "unknown",
+        "holdout_status": "not_observed",
+        "e3e_status": "not_evaluated",
+        "segmentation_status": "not_evaluated",
+        "runtime_promotion_status": "not_evaluated",
+        "failure": {
+            "problem": problem,
+            "cause": cause,
+            "next_step": next_step,
+        },
+    }
+
+
+def _hybrid_rrf_public_failure(error: Exception) -> tuple[str, str, str]:
+    if isinstance(error, HybridRrfProtocolError):
+        return (
+            "rrf_protocol_invalid",
+            "hybrid RRF protocol is invalid",
+            "restore_checked_in_protocol",
+        )
+    cause = str(error)
+    if isinstance(error, HybridRrfWorkflowError):
+        if "dense artifact" in cause:
+            return (
+                "rrf_dense_artifact_invalid",
+                "dense comparison artifact is invalid",
+                "restore_canonical_dense_artifact",
+            )
+        if "development freeze is missing" in cause:
+            return (
+                "rrf_development_freeze_missing",
+                "development freeze is missing",
+                "run_development_phase",
+            )
+        if "holdout receipt already exists" in cause:
+            return (
+                "rrf_holdout_already_observed",
+                "holdout was already observed",
+                "preserve_existing_holdout_receipt",
+            )
+        if "identity mismatch" in cause:
+            return (
+                "rrf_identity_mismatch",
+                "hybrid RRF input identity does not match the freeze",
+                "restore_frozen_inputs",
+            )
+    return (
+        "rrf_artifact_invalid",
+        "hybrid RRF evaluation artifact is invalid",
+        "inspect_hybrid_rrf_inputs",
+    )
 
 
 def _render_retrieval_report_safely(

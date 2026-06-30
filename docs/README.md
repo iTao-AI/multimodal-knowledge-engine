@@ -42,6 +42,9 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [Evaluate The Dense Retrieval Candidate](./how-to/evaluate-dense-retrieval.md) records the E3-C
   PR 2 comparison-only result: `selected_threshold=0.58`, `candidate_status=completed`,
   `e3d_status=eligible`, and `runtime_promotion_status=not_evaluated`.
+- [Evaluate The Hybrid RRF Retrieval Candidate](./how-to/evaluate-hybrid-rrf-retrieval.md) records
+  the E3-D `cjk-active-scan-qwen3-rrf-v1` valid negative, its rank-only contract, and the
+  `holdout_status=not_observed` boundary.
 - [Use MKE As A Local MCP Server](./how-to/use-mke-mcp.md) explains the first Agent-facing stdio interface.
 - [Use Local Transcription](./how-to/use-local-transcription.md) covers prepare, doctor, ingest, real ASR proof, and recovery.
 - [Real Local Transcription Deployment Proof Design](./superpowers/specs/2026-06-18-real-local-transcription-deployment-proof-design.md) defines the redistribution-safe fixture, cache-only proof, and isolated wheel deployment evidence.
@@ -88,6 +91,7 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [CJK Lexical Dense RRF Fusion Candidate Design](./superpowers/specs/2026-06-30-cjk-lexical-dense-rrf-fusion-design.md) defines the approved comparison-only E3-D rank-only RRF experiment over current lexical runtime and the E3-C dense candidate.
 - [CJK Lexical Dense RRF Fusion Candidate Implementation Plan](./superpowers/plans/2026-06-30-cjk-lexical-dense-rrf-fusion-implementation.md) defines the E3-D TDD tasks, artifact protocol, validators, diagnostics, and stop conditions.
 - [CJK Lexical Dense RRF Fusion Candidate Autoplan Review](./superpowers/reviews/2026-06-30-cjk-lexical-dense-rrf-fusion-autoplan-review.md) records the approved E3-D plan review and evidence-boundary amendments.
+- [CJK Lexical Dense RRF Fusion Implementation Review](./superpowers/reviews/2026-06-30-cjk-lexical-dense-rrf-fusion-review.md) records the valid-negative result, validator evidence, rejected scope drift, and pending scheme-window review.
 
 ## Development Verification
 

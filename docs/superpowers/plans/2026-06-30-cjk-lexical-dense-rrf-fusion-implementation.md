@@ -11,14 +11,16 @@ Publication, or runtime defaults.
 **Architecture:** Add model-free evaluation modules that load the canonical E3-C dense artifact,
 bind lexical and dense observations to stable Evidence identity, run deterministic rank-only RRF,
 record development and holdout artifacts, and validate every derived field independently. Dense
-cache-ready replay remains a verification gate, not a second fusion scoring source.
+cache-ready replay remains optional corroboration, not an E3-D acceptance gate or second fusion
+scoring source.
 
 **Tech Stack:** Python 3.12/3.13, SQLite-backed existing evaluation fixtures, JSON artifacts,
 pytest, Ruff, Pyright, Hatch/uv, existing `mke eval` CLI patterns.
 
 ---
 
-Status: implementation not started. This plan depends on the approved
+Status: implementation complete with a development valid negative; holdout was not observed. This
+plan depends on the approved
 [CJK Lexical Dense RRF Fusion Candidate Design](../specs/2026-06-30-cjk-lexical-dense-rrf-fusion-design.md).
 
 Planning base: `main@0fe1d5640f914e8307ec938e36ba145419c64872`.
@@ -92,7 +94,7 @@ Create or modify these files:
 - Read: `tests/fixtures/retrieval-chinese-v1/protocol.json`
 - Read: `src/mke/retrieval/strategy.py`
 
-- [ ] **Step 1: Confirm implementation starts from latest main**
+- [x] **Step 1: Confirm implementation starts from latest main**
 
 Run:
 
@@ -106,7 +108,7 @@ gh pr list --state open --json number,title,headRefName,mergeStateStatus,isDraft
 Expected: branch is clean and based on the intended latest `origin/main`; no open prerequisite PR
 blocks E3-D. If the branch is not based on latest `origin/main`, stop and recreate the worktree.
 
-- [ ] **Step 2: Run current baseline validators before editing**
+- [x] **Step 2: Run current baseline validators before editing**
 
 Run:
 
@@ -151,7 +153,7 @@ uv run python -m mke.evaluation.dense_artifact validate \
 Expected: every validator passes. If a validator fails only because source identity includes future
 E3-D files, do not refresh now; that belongs after implementation and semantic equality checks.
 
-- [ ] **Step 3: Save normalized pre-change semantic snapshots**
+- [x] **Step 3: Save normalized pre-change semantic snapshots**
 
 Create a local-only helper under `/tmp`, not the repository:
 
@@ -188,7 +190,7 @@ committed.
 - Create: `src/mke/evaluation/rrf_fusion.py`
 - Create: `tests/evaluation/test_rrf_fusion.py`
 
-- [ ] **Step 1: Write RED tests for rank-only scoring and validation**
+- [x] **Step 1: Write RED tests for rank-only scoring and validation**
 
 Add tests shaped like:
 
@@ -260,7 +262,7 @@ def test_invalid_rank_bool_fails() -> None:
         fuse_ranked_results(query_id="q1", lexical=(bad,), dense=(), config=config)
 ```
 
-- [ ] **Step 2: Run RED tests**
+- [x] **Step 2: Run RED tests**
 
 Run:
 
@@ -270,7 +272,7 @@ uv run pytest tests/evaluation/test_rrf_fusion.py -q
 
 Expected: fails because `mke.evaluation.rrf_fusion` does not exist.
 
-- [ ] **Step 3: Implement minimal RRF dataclasses and fusion**
+- [x] **Step 3: Implement minimal RRF dataclasses and fusion**
 
 Implement `src/mke/evaluation/rrf_fusion.py` with these public names:
 
@@ -362,7 +364,7 @@ Implementation rules:
 The signature above is the required public function signature. The implementation must provide a
 real body following the rules in this step before the GREEN test run.
 
-- [ ] **Step 4: Run fusion tests**
+- [x] **Step 4: Run fusion tests**
 
 Run:
 
@@ -372,7 +374,7 @@ uv run pytest tests/evaluation/test_rrf_fusion.py -q
 
 Expected: all `test_rrf_fusion.py` tests pass.
 
-- [ ] **Step 5: Commit Task 1**
+- [x] **Step 5: Commit Task 1**
 
 Run:
 
@@ -389,7 +391,7 @@ git commit -m "feat(eval): add rank-only RRF fusion contract"
 - Create: `tests/evaluation/test_hybrid_rrf_protocol.py`
 - Create: `tests/fixtures/retrieval-hybrid-rrf-v1/protocol-lock.json`
 
-- [ ] **Step 1: Write RED protocol tests**
+- [x] **Step 1: Write RED protocol tests**
 
 Add tests for:
 
@@ -432,7 +434,7 @@ def test_protocol_rejects_bool_revision(repository_root: Path) -> None:
         validate_hybrid_rrf_protocol_lock(protocol, repository_root=repository_root)
 ```
 
-- [ ] **Step 2: Run RED protocol tests**
+- [x] **Step 2: Run RED protocol tests**
 
 Run:
 
@@ -442,7 +444,7 @@ uv run pytest tests/evaluation/test_hybrid_rrf_protocol.py -q
 
 Expected: fails because the module does not exist.
 
-- [ ] **Step 3: Implement protocol builder and validator**
+- [x] **Step 3: Implement protocol builder and validator**
 
 Implement `src/mke/evaluation/hybrid_rrf_protocol.py` with:
 
@@ -475,7 +477,7 @@ The builder must produce deterministic sorted JSON containing:
 Use `Path.read_bytes()` and SHA-256 for file identities. Reject absolute paths and missing files
 with `HybridRrfProtocolError("hybrid RRF protocol identity drift")`.
 
-- [ ] **Step 4: Generate the checked-in protocol lock**
+- [x] **Step 4: Generate the checked-in protocol lock**
 
 Run:
 
@@ -498,7 +500,7 @@ PY
 
 Expected: `tests/fixtures/retrieval-hybrid-rrf-v1/protocol-lock.json` is created and validates.
 
-- [ ] **Step 5: Run protocol tests**
+- [x] **Step 5: Run protocol tests**
 
 Run:
 
@@ -508,7 +510,7 @@ uv run pytest tests/evaluation/test_hybrid_rrf_protocol.py -q
 
 Expected: protocol tests pass.
 
-- [ ] **Step 6: Commit Task 2**
+- [x] **Step 6: Commit Task 2**
 
 Run:
 
@@ -526,7 +528,7 @@ git commit -m "feat(eval): freeze hybrid RRF protocol"
 - Modify: `src/mke/evaluation/hybrid_rrf_workflow.py`
 - Modify: `tests/evaluation/test_hybrid_rrf_workflow.py`
 
-- [ ] **Step 1: Write RED tests for arm extraction and identity binding**
+- [x] **Step 1: Write RED tests for arm extraction and identity binding**
 
 Add tests for:
 
@@ -567,7 +569,7 @@ def test_load_hybrid_inputs_binds_development_and_holdout(repository_root: Path)
     assert inputs.state.runtime_promotion_status == "not_evaluated"
 ```
 
-- [ ] **Step 2: Run RED workflow tests**
+- [x] **Step 2: Run RED workflow tests**
 
 Run:
 
@@ -577,7 +579,7 @@ uv run pytest tests/evaluation/test_hybrid_rrf_workflow.py -q
 
 Expected: fails because workflow module or functions do not exist.
 
-- [ ] **Step 3: Implement input DTOs and loader**
+- [x] **Step 3: Implement input DTOs and loader**
 
 Add focused dataclasses:
 
@@ -623,7 +625,7 @@ Implementation notes:
 - use frozen locator inventory from dense candidate results and qrels to attach source-text digest;
 - raise `HybridRrfWorkflowError` with stable messages, not raw JSON key errors.
 
-- [ ] **Step 4: Run input binding tests**
+- [x] **Step 4: Run input binding tests**
 
 Run:
 
@@ -633,7 +635,7 @@ uv run pytest tests/evaluation/test_hybrid_rrf_workflow.py -q
 
 Expected: all current workflow tests pass.
 
-- [ ] **Step 5: Commit Task 3**
+- [x] **Step 5: Commit Task 3**
 
 Run:
 
@@ -650,7 +652,7 @@ git commit -m "feat(eval): bind hybrid RRF arm inputs"
 - Modify: `tests/evaluation/test_hybrid_rrf_workflow.py`
 - Modify: `tests/evaluation/test_rrf_fusion.py`
 
-- [ ] **Step 1: Write RED tests for development metrics and diagnostics**
+- [x] **Step 1: Write RED tests for development metrics and diagnostics**
 
 Add tests that assert:
 
@@ -680,7 +682,7 @@ def test_development_records_complete_diagnostics(repository_root: Path) -> None
     assert "union_grade2_coverage_at_10" in report["diagnostics"]
 ```
 
-- [ ] **Step 2: Run RED development tests**
+- [x] **Step 2: Run RED development tests**
 
 Run:
 
@@ -690,7 +692,7 @@ uv run pytest tests/evaluation/test_hybrid_rrf_workflow.py tests/evaluation/test
 
 Expected: fails because `run_hybrid_rrf_development` is not implemented.
 
-- [ ] **Step 3: Implement development runner**
+- [x] **Step 3: Implement development runner**
 
 Implement:
 
@@ -718,7 +720,7 @@ Rules:
 The signature above is the required public function signature. The implementation must provide a
 real body following the rules in this step before the GREEN test run.
 
-- [ ] **Step 4: Run development tests**
+- [x] **Step 4: Run development tests**
 
 Run:
 
@@ -728,7 +730,7 @@ uv run pytest tests/evaluation/test_hybrid_rrf_workflow.py tests/evaluation/test
 
 Expected: development tests pass.
 
-- [ ] **Step 5: Commit Task 4**
+- [x] **Step 5: Commit Task 4**
 
 Run:
 
@@ -746,7 +748,7 @@ git commit -m "feat(eval): score hybrid RRF development"
 - Modify: `src/mke/evaluation/hybrid_rrf_workflow.py`
 - Modify: `tests/evaluation/test_hybrid_rrf_workflow.py`
 
-- [ ] **Step 1: Write RED state-machine tests**
+- [x] **Step 1: Write RED state-machine tests**
 
 Cover:
 
@@ -775,7 +777,7 @@ def test_holdout_refuses_existing_receipt(tmp_path: Path, repository_root: Path)
         )
 ```
 
-- [ ] **Step 2: Run RED holdout tests**
+- [x] **Step 2: Run RED holdout tests**
 
 Run:
 
@@ -785,7 +787,7 @@ uv run pytest tests/evaluation/test_hybrid_rrf_workflow.py -q
 
 Expected: fails on missing freeze/holdout functions.
 
-- [ ] **Step 3: Implement freeze and holdout functions**
+- [x] **Step 3: Implement freeze and holdout functions**
 
 Implement:
 
@@ -821,7 +823,7 @@ Rules:
 The signatures above are the required public function signatures. The implementation must provide
 real bodies following the rules in this step before the GREEN test run.
 
-- [ ] **Step 4: Run holdout tests**
+- [x] **Step 4: Run holdout tests**
 
 Run:
 
@@ -831,7 +833,7 @@ uv run pytest tests/evaluation/test_hybrid_rrf_workflow.py -q
 
 Expected: holdout state-machine tests pass.
 
-- [ ] **Step 5: Commit Task 5**
+- [x] **Step 5: Commit Task 5**
 
 Run:
 
@@ -847,7 +849,7 @@ git commit -m "feat(eval): freeze hybrid RRF holdout state"
 - Create: `src/mke/evaluation/hybrid_rrf_artifact.py`
 - Create: `tests/evaluation/test_hybrid_rrf_artifact.py`
 
-- [ ] **Step 1: Write RED artifact validator tests**
+- [x] **Step 1: Write RED artifact validator tests**
 
 Add tests for:
 
@@ -881,7 +883,7 @@ Before Task 8 records the canonical artifact, this test must point to a temporar
 under `tmp_path`. Do not leave a permanent skip. After Task 8, update the same test to validate the
 checked-in canonical artifact.
 
-- [ ] **Step 2: Run RED artifact tests**
+- [x] **Step 2: Run RED artifact tests**
 
 Run:
 
@@ -891,7 +893,7 @@ uv run pytest tests/evaluation/test_hybrid_rrf_artifact.py -q
 
 Expected: fails because artifact module does not exist.
 
-- [ ] **Step 3: Implement model-free artifact validator and module CLI**
+- [x] **Step 3: Implement model-free artifact validator and module CLI**
 
 Implement:
 
@@ -926,7 +928,7 @@ Failure behavior:
 The signature above is the required public function signature. The implementation must provide a
 real body following the validator behavior in this step before the GREEN test run.
 
-- [ ] **Step 4: Run artifact tests with temporary artifact**
+- [x] **Step 4: Run artifact tests with temporary artifact**
 
 Run:
 
@@ -937,7 +939,7 @@ uv run pytest tests/evaluation/test_hybrid_rrf_artifact.py tests/evaluation/test
 Expected: all tests that do not require the final checked-in artifact pass. The temporary artifact
 validator test must run against a `tmp_path` artifact rather than skip.
 
-- [ ] **Step 5: Commit Task 6**
+- [x] **Step 5: Commit Task 6**
 
 Run:
 
@@ -954,7 +956,7 @@ git commit -m "feat(eval): validate hybrid RRF artifacts"
 - Modify: `src/mke/evaluation/__init__.py`
 - Test: existing CLI evaluation test file or `tests/interfaces/test_cli_evaluation.py`
 
-- [ ] **Step 1: Write RED CLI tests**
+- [x] **Step 1: Write RED CLI tests**
 
 Cover:
 
@@ -968,7 +970,7 @@ Cover:
 
 Use subprocess-style tests consistent with existing CLI tests.
 
-- [ ] **Step 2: Run RED CLI tests**
+- [x] **Step 2: Run RED CLI tests**
 
 Run:
 
@@ -978,7 +980,7 @@ uv run pytest tests/interfaces/test_cli_evaluation.py -q
 
 Expected: fails until CLI command exists.
 
-- [ ] **Step 3: Wire `retrieval-hybrid-rrf` under `mke eval`**
+- [x] **Step 3: Wire `retrieval-hybrid-rrf` under `mke eval`**
 
 Follow existing parser style in `src/mke/cli.py`.
 
@@ -1014,7 +1016,7 @@ Stable problems:
 - `rrf_identity_mismatch`;
 - `rrf_artifact_invalid`.
 
-- [ ] **Step 4: Run CLI tests**
+- [x] **Step 4: Run CLI tests**
 
 Run:
 
@@ -1024,7 +1026,7 @@ uv run pytest tests/interfaces/test_cli_evaluation.py tests/evaluation/test_hybr
 
 Expected: CLI and workflow tests pass.
 
-- [ ] **Step 5: Commit Task 7**
+- [x] **Step 5: Commit Task 7**
 
 Run:
 
@@ -1039,10 +1041,11 @@ git commit -m "feat(cli): expose hybrid RRF evaluation"
 
 - Create: `benchmarks/retrieval/cjk-active-scan-qwen3-rrf-v1-development-freeze.json`
 - Create: `benchmarks/retrieval/cjk-active-scan-qwen3-rrf-v1-comparison.json`
-- Create: `benchmarks/retrieval/cjk-active-scan-qwen3-rrf-v1-holdout-receipt.json`
+- Not created after valid negative:
+  `benchmarks/retrieval/cjk-active-scan-qwen3-rrf-v1-holdout-receipt.json`
 - Modify: tests that referenced temporary artifacts in Task 6
 
-- [ ] **Step 1: Run development phase once**
+- [x] **Step 1: Run development phase once**
 
 Run:
 
@@ -1065,7 +1068,7 @@ Expected:
 If development is `valid_negative`, stop after Task 8 Step 3, do not run holdout, and update docs
 to record the valid negative.
 
-- [ ] **Step 2: Run holdout phase only if development passed**
+- [x] **Step 2: Skip holdout because development was `valid_negative`**
 
 Run only when `/tmp/mke-e3d-development.json` reports `development_status=passed`:
 
@@ -1087,7 +1090,7 @@ Expected:
 - `runtime_promotion_status=not_evaluated`;
 - holdout receipt path did not exist before command.
 
-- [ ] **Step 3: Validate canonical artifact**
+- [x] **Step 3: Validate canonical artifact**
 
 Run:
 
@@ -1101,7 +1104,7 @@ uv run python -m mke.evaluation.hybrid_rrf_artifact validate \
 
 Expected: `hybrid RRF artifact valid`.
 
-- [ ] **Step 4: Switch temporary artifact tests to the checked-in artifact**
+- [x] **Step 4: Switch temporary artifact tests to the checked-in artifact**
 
 Update any Task 6 temporary-artifact test to use the checked-in artifact.
 
@@ -1113,7 +1116,7 @@ uv run pytest tests/evaluation/test_hybrid_rrf_artifact.py tests/evaluation/test
 
 Expected: no temporary artifact indirection remains for the canonical validation path; tests pass.
 
-- [ ] **Step 5: Commit Task 8**
+- [x] **Step 5: Commit Task 8**
 
 Run:
 
@@ -1138,7 +1141,7 @@ git commit -m "test(eval): record hybrid RRF comparison artifact"
   - `benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json`
   - `benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json`
 
-- [ ] **Step 1: Re-run historical observed evaluations**
+- [x] **Step 1: Re-run historical observed evaluations**
 
 Run:
 
@@ -1159,7 +1162,7 @@ uv run mke eval retrieval-cjk-lexical \
 
 Expected: all commands exit `0`.
 
-- [ ] **Step 2: Compare normalized semantics to Task 0**
+- [x] **Step 2: Compare normalized semantics to Task 0**
 
 Run:
 
@@ -1191,7 +1194,7 @@ PY
 Expected: prints semantic equality for all four. If any semantic drift occurs, stop for planning
 review. Do not refresh artifacts.
 
-- [ ] **Step 3: Refresh only permitted source/scope identities if validators require it**
+- [x] **Step 3: Refresh only permitted source/scope identities if validators require it**
 
 Run validators first. If they fail only because new E3-D source files changed source identity, use
 the existing supported artifact refresh helpers. Do not alter metrics, observations, qrels,
@@ -1227,7 +1230,7 @@ uv run python -m mke.evaluation.dense_artifact validate \
 
 Expected: all validators pass. Any required refresh is identity-only.
 
-- [ ] **Step 4: Commit Task 9 if files changed**
+- [x] **Step 4: Commit Task 9 if files changed**
 
 If no files changed, record that in the handoff. If files changed, run:
 
@@ -1252,19 +1255,19 @@ git commit -m "test(eval): refresh hybrid RRF artifact identities"
 - Create: `docs/superpowers/reviews/2026-06-30-cjk-lexical-dense-rrf-fusion-review.md`
 - Modify tests if existing documentation tests require a new expected document.
 
-- [ ] **Step 1: Write the how-to guide**
+- [x] **Step 1: Write the how-to guide**
 
 The guide must include:
 
 - candidate ID and comparison-only status;
 - exact development and holdout commands;
 - artifact validator command;
-- dense cache-ready replay command as verification, not scoring;
+- dense cache-ready replay command as optional corroboration, not scoring;
 - current metrics table after Task 8;
 - explicit non-scope: runtime promotion, API adapter, reranker, query rewrite, segmentation,
   HTTP/UI.
 
-- [ ] **Step 2: Update architecture and docs index**
+- [x] **Step 2: Update architecture and docs index**
 
 Add one concise architecture paragraph:
 
@@ -1278,7 +1281,7 @@ MCP, owner startup, SQLite domain truth, or runtime default behavior.
 
 Link the how-to, design, plan, and review from `docs/README.md`.
 
-- [ ] **Step 3: Update durable review and plan status**
+- [x] **Step 3: Update durable review and plan status**
 
 Create the review file with:
 
@@ -1288,11 +1291,11 @@ Create the review file with:
 - holdout status;
 - rejected scope drift;
 - remaining risks;
-- pre-PR review status initially `pending`.
+- pre-PR review status initially waiting for review.
 
 Update this plan's status line and checklist with actual completed evidence.
 
-- [ ] **Step 4: Run documentation checks**
+- [x] **Step 4: Run documentation checks**
 
 Run:
 
@@ -1337,7 +1340,7 @@ rg -n "/User[s]/|00_Inbox|[.]gstack|toke[n]=|api[_-]?ke[y]|[s]ecret|passwor[d]|T
 Expected: documentation tests and link check pass. Any `rg` hit must be an intentional public
 boundary test string; otherwise remove it.
 
-- [ ] **Step 5: Commit Task 10**
+- [x] **Step 5: Commit Task 10**
 
 Run:
 
@@ -1359,7 +1362,7 @@ git commit -m "docs(eval): document hybrid RRF comparison"
 - Read all changed files.
 - Update plan/review docs only if verification evidence changes.
 
-- [ ] **Step 1: Run focused tests**
+- [x] **Step 1: Run focused tests**
 
 Run:
 
@@ -1373,7 +1376,7 @@ uv run pytest tests/evaluation/test_rrf_fusion.py \
 
 Expected: focused tests pass.
 
-- [ ] **Step 2: Run full local verification**
+- [x] **Step 2: Run full local verification**
 
 Run:
 
@@ -1389,7 +1392,7 @@ git diff --check origin/main...HEAD
 
 Expected: all pass.
 
-- [ ] **Step 3: Run canonical validators**
+- [x] **Step 3: Run canonical validators**
 
 Run:
 
@@ -1426,7 +1429,7 @@ uv run python -m mke.evaluation.hybrid_rrf_artifact validate \
 
 Expected: all validators pass.
 
-- [ ] **Step 4: Run cache-ready dense replay if model cache is available**
+- [ ] **Step 4: Cache-ready dense replay optional corroboration remains unmet**
 
 Run:
 
@@ -1435,14 +1438,22 @@ HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 UV_OFFLINE=1 TOKENIZERS_PARALLELISM=fals
 uv run python -m mke.evaluation.dense_replay validate \
   --artifact benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json \
   --protocol tests/fixtures/retrieval-dense-v1/protocol-lock.json \
-  --model-cache "$HOME/Library/Caches/mke/embedding" \
+  --model-cache <model-cache> \
   --repository .
 ```
 
-Expected: prints `{"mode":"cache-ready","status":"passed"}` and exits `0`. If the model cache is
-not available, do not download. Report the skipped proof explicitly.
+Expected when prerequisites are already satisfied: prints
+`{"mode":"cache-ready","status":"passed"}` and exits `0`. If the embedding extra or model cache is
+not available, do not install dependencies or download models without explicit authorization. Report
+the unmet optional corroboration explicitly.
 
-- [ ] **Step 5: Public-boundary scan**
+Actual: replay failed with `{"mode":"cache-ready","status":"failed"}` and exit `1` because the
+embedding optional dependency was not installed (`ModuleNotFoundError: No module named
+'huggingface_hub'`, with `sentence_transformers` unavailable as well). No dependency installation,
+download, or dense rescoring was performed. This remains unmet optional corroboration, not a
+completed required verification.
+
+- [x] **Step 5: Public-boundary scan**
 
 Run:
 
@@ -1455,7 +1466,7 @@ git diff origin/main...HEAD -- . \
 Expected: no real private path, credential, raw GStack artifact, model cache, venv, or personal
 context is present. Intentional synthetic test strings must be documented in the handoff.
 
-- [ ] **Step 6: Final commit if verification docs changed**
+- [x] **Step 6: Final commit if verification docs changed**
 
 If Task 11 updates the plan/review evidence, run:
 
@@ -1465,7 +1476,7 @@ git add docs/superpowers/plans/2026-06-30-cjk-lexical-dense-rrf-fusion-implement
 git commit -m "docs(eval): record hybrid RRF verification"
 ```
 
-- [ ] **Step 7: Stop for scheme-window review**
+- [x] **Step 7: Stop for scheme-window review**
 
 Do not push or create a PR. Hand off:
 
