@@ -10,7 +10,9 @@ import mke.evaluation.hybrid_rrf_workflow as workflow
 from mke.evaluation.hybrid_rrf_workflow import (
     HybridRrfWorkflowError,
     load_hybrid_rrf_inputs,
+    record_hybrid_rrf_development_freeze,
     run_hybrid_rrf_development,
+    run_hybrid_rrf_holdout,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -203,6 +205,148 @@ def test_development_valid_negative_does_not_require_holdout(
     assert report["development_status"] == "valid_negative"
     assert report["holdout_status"] == "not_observed"
     assert "holdout" not in report
+
+
+def test_record_development_freeze_refuses_overwrite(
+    repository_root: Path,
+    tmp_path: Path,
+) -> None:
+    report = run_hybrid_rrf_development(
+        protocol_path=PROTOCOL,
+        dense_artifact_path=DENSE_ARTIFACT,
+        repository_root=repository_root,
+    )
+    target = tmp_path / "freeze.json"
+    record_hybrid_rrf_development_freeze(report=report, target_path=target)
+
+    with pytest.raises(HybridRrfWorkflowError, match="freeze"):
+        record_hybrid_rrf_development_freeze(report=report, target_path=target)
+
+
+def test_holdout_refuses_missing_or_valid_negative_freeze(
+    repository_root: Path,
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(HybridRrfWorkflowError, match="development freeze"):
+        run_hybrid_rrf_holdout(
+            protocol_path=PROTOCOL,
+            dense_artifact_path=DENSE_ARTIFACT,
+            development_freeze_path=tmp_path / "missing-freeze.json",
+            record_path=tmp_path / "comparison.json",
+            holdout_receipt_path=tmp_path / "receipt.json",
+            repository_root=repository_root,
+        )
+
+    report = run_hybrid_rrf_development(
+        protocol_path=PROTOCOL,
+        dense_artifact_path=DENSE_ARTIFACT,
+        repository_root=repository_root,
+    )
+    freeze = tmp_path / "freeze.json"
+    record_hybrid_rrf_development_freeze(report=report, target_path=freeze)
+
+    with pytest.raises(HybridRrfWorkflowError, match="valid_negative"):
+        run_hybrid_rrf_holdout(
+            protocol_path=PROTOCOL,
+            dense_artifact_path=DENSE_ARTIFACT,
+            development_freeze_path=freeze,
+            record_path=tmp_path / "comparison.json",
+            holdout_receipt_path=tmp_path / "receipt.json",
+            repository_root=repository_root,
+        )
+
+
+def test_holdout_refuses_existing_receipt(
+    repository_root: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    freeze = _passed_freeze(repository_root, tmp_path, monkeypatch)
+    receipt = tmp_path / "receipt.json"
+    receipt.write_text("{}", encoding="utf-8")
+
+    with pytest.raises(HybridRrfWorkflowError, match="holdout"):
+        run_hybrid_rrf_holdout(
+            protocol_path=PROTOCOL,
+            dense_artifact_path=DENSE_ARTIFACT,
+            development_freeze_path=freeze,
+            record_path=tmp_path / "comparison.json",
+            holdout_receipt_path=receipt,
+            repository_root=repository_root,
+        )
+
+
+def test_holdout_records_once_with_exclusive_receipt(
+    repository_root: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    freeze = _passed_freeze(repository_root, tmp_path, monkeypatch)
+    receipt = tmp_path / "receipt.json"
+    record = tmp_path / "comparison.json"
+
+    result = run_hybrid_rrf_holdout(
+        protocol_path=PROTOCOL,
+        dense_artifact_path=DENSE_ARTIFACT,
+        development_freeze_path=freeze,
+        record_path=record,
+        holdout_receipt_path=receipt,
+        repository_root=repository_root,
+    )
+
+    assert result["holdout_status"] == "observed"
+    assert receipt.exists()
+    assert record.exists()
+    with pytest.raises(HybridRrfWorkflowError, match="holdout"):
+        run_hybrid_rrf_holdout(
+            protocol_path=PROTOCOL,
+            dense_artifact_path=DENSE_ARTIFACT,
+            development_freeze_path=freeze,
+            record_path=record,
+            holdout_receipt_path=receipt,
+            repository_root=repository_root,
+        )
+
+
+def test_holdout_rejects_freeze_identity_mismatch(
+    repository_root: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    freeze = _passed_freeze(repository_root, tmp_path, monkeypatch)
+    payload = json.loads(freeze.read_text(encoding="utf-8"))
+    payload["dense_artifact_sha256"] = "0" * 64
+    freeze.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(HybridRrfWorkflowError, match="identity"):
+        run_hybrid_rrf_holdout(
+            protocol_path=PROTOCOL,
+            dense_artifact_path=DENSE_ARTIFACT,
+            development_freeze_path=freeze,
+            record_path=tmp_path / "comparison.json",
+            holdout_receipt_path=tmp_path / "receipt.json",
+            repository_root=repository_root,
+        )
+
+
+def _passed_freeze(
+    repository_root: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> Path:
+    monkeypatch.setattr(
+        workflow,
+        "_development_status",
+        lambda metrics, diagnostics: "passed",
+    )
+    report = run_hybrid_rrf_development(
+        protocol_path=PROTOCOL,
+        dense_artifact_path=DENSE_ARTIFACT,
+        repository_root=repository_root,
+    )
+    freeze = tmp_path / "freeze.json"
+    record_hybrid_rrf_development_freeze(report=report, target_path=freeze)
+    return freeze
 
 
 def _artifact_copy() -> dict[str, object]:

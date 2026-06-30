@@ -56,9 +56,9 @@
       "sha256": "437aaa050f06c0d2a3eb9e9c891c5060e38df137ef691235281b2fd25adeb665"
     },
     "workflow_source": {
-      "bytes": 23398,
+      "bytes": 29661,
       "path": "src/mke/evaluation/hybrid_rrf_workflow.py",
-      "sha256": "dd20656948bbaeeccfad05d26f0c7c6a51c499c419c7356b54b30ea9d8f63d69"
+      "sha256": "63ef0654a2b913a2dc2ed174ce214ea87ebac66c27c75417c77c59e0a505f897"
     }
   },
   "rrf": {

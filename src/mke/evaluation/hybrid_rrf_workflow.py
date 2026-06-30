@@ -111,6 +111,7 @@ def run_hybrid_rrf_development(
             "candidate_revision": config.candidate_revision,
         },
         "dense_artifact_sha256": inputs.dense_artifact_sha256,
+        "protocol_sha256": _file_sha256(protocol_path),
         "current_runtime_semantic_digest": inputs.current_runtime_semantic_digest,
         "development_status": status,
         "holdout_status": "not_observed",
@@ -130,6 +131,119 @@ def run_hybrid_rrf_development(
             for query in inputs.development.queries
         ],
     }
+
+
+def record_hybrid_rrf_development_freeze(
+    *,
+    report: dict[str, object],
+    target_path: Path,
+) -> dict[str, object]:
+    freeze = _json_normalized(
+        {
+            "schema_version": "mke.hybrid_rrf_development_freeze.v1",
+            "candidate": report["candidate"],
+            "development_status": report["development_status"],
+            "holdout_status": "not_observed",
+            "runtime_promotion_status": "not_evaluated",
+            "protocol_sha256": report["protocol_sha256"],
+            "dense_artifact_sha256": report["dense_artifact_sha256"],
+            "current_runtime_semantic_digest": report[
+                "current_runtime_semantic_digest"
+            ],
+            "metrics": report["metrics"],
+            "diagnostics": report["diagnostics"],
+        }
+    )
+    _write_json_exclusive(target_path, freeze, subject="development freeze")
+    return freeze
+
+
+def run_hybrid_rrf_holdout(
+    *,
+    protocol_path: Path,
+    dense_artifact_path: Path,
+    development_freeze_path: Path,
+    record_path: Path,
+    holdout_receipt_path: Path,
+    repository_root: Path,
+) -> dict[str, object]:
+    if holdout_receipt_path.exists():
+        raise HybridRrfWorkflowError("holdout receipt already exists")
+    freeze = _load_freeze(development_freeze_path)
+    if freeze.get("development_status") == "valid_negative":
+        raise HybridRrfWorkflowError("valid_negative development blocks holdout")
+    if freeze.get("development_status") != "passed":
+        raise HybridRrfWorkflowError("development freeze is invalid")
+    _validate_freeze_identity(
+        freeze,
+        protocol_path=protocol_path,
+        dense_artifact_path=dense_artifact_path,
+    )
+    inputs = load_hybrid_rrf_inputs(
+        dense_artifact_path=dense_artifact_path,
+        protocol_path=protocol_path,
+        repository_root=repository_root,
+    )
+    config = RrfCandidateConfig.default()
+    fused_by_query = {
+        query.query_id: fuse_ranked_results(
+            query_id=query.query_id,
+            lexical=query.lexical,
+            dense=query.dense,
+            config=config,
+        )
+        for query in inputs.holdout.queries
+    }
+    metrics = {
+        "fused": _metrics_for(inputs.holdout.queries, fused_by_query),
+        "lexical": _metrics_for_arm(inputs.holdout.queries, arm="lexical"),
+        "dense": _metrics_for_arm(inputs.holdout.queries, arm="dense"),
+    }
+    diagnostics = _diagnostics(inputs.holdout.queries, fused_by_query)
+    receipt = {
+        "schema_version": "mke.hybrid_rrf_holdout_receipt.v1",
+        "candidate": freeze["candidate"],
+        "protocol_sha256": freeze["protocol_sha256"],
+        "dense_artifact_sha256": freeze["dense_artifact_sha256"],
+    }
+    _write_json_exclusive(holdout_receipt_path, receipt, subject="holdout receipt")
+    artifact = _json_normalized(
+        {
+            "schema_version": "mke.hybrid_rrf_comparison_artifact.v1",
+            "candidate": freeze["candidate"],
+            "candidate_status": "completed",
+            "development_status": "passed",
+            "holdout_status": "observed",
+            "runtime_promotion_status": "not_evaluated",
+            "e3e_status": _followup_status(diagnostics),
+            "segmentation_status": _segmentation_status(diagnostics),
+            "development": freeze,
+            "holdout": {
+                "metrics": metrics,
+                "diagnostics": diagnostics,
+                "results": [
+                    {
+                        "query_id": query.query_id,
+                        "split": query.split,
+                        "category": query.category,
+                        "fused_results": [
+                            _fused_result_payload(row)
+                            for row in fused_by_query[query.query_id]
+                        ],
+                    }
+                    for query in inputs.holdout.queries
+                ],
+            },
+            "state": {
+                "development_freeze_sha256": _file_sha256(
+                    development_freeze_path
+                ),
+                "holdout_receipt_sha256": _file_sha256(holdout_receipt_path),
+            },
+        }
+    )
+    _write_json_exclusive(record_path, artifact, subject="comparison artifact")
+    return artifact
 
 
 def load_hybrid_rrf_inputs(
@@ -402,6 +516,64 @@ def _stable_locator(row: ArmRankedResult | FusedRrfResult) -> StableLocator:
 
 def _json_normalized(value: object) -> dict[str, Any]:
     return cast(dict[str, Any], json.loads(json.dumps(value, ensure_ascii=False)))
+
+
+def _load_freeze(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as error:
+        raise HybridRrfWorkflowError("development freeze is missing") from error
+    except (OSError, json.JSONDecodeError) as error:
+        raise HybridRrfWorkflowError("development freeze is invalid") from error
+    if not isinstance(payload, dict):
+        raise HybridRrfWorkflowError("development freeze is invalid")
+    return cast(dict[str, Any], payload)
+
+
+def _validate_freeze_identity(
+    freeze: dict[str, Any],
+    *,
+    protocol_path: Path,
+    dense_artifact_path: Path,
+) -> None:
+    if (
+        freeze.get("protocol_sha256") != _file_sha256(protocol_path)
+        or freeze.get("dense_artifact_sha256") != _file_sha256(dense_artifact_path)
+    ):
+        raise HybridRrfWorkflowError("freeze identity mismatch")
+
+
+def _write_json_exclusive(
+    path: Path,
+    payload: dict[str, object],
+    *,
+    subject: str,
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with path.open("x", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+            handle.write("\n")
+    except FileExistsError as error:
+        raise HybridRrfWorkflowError(f"{subject} already exists") from error
+    except OSError as error:
+        raise HybridRrfWorkflowError(f"{subject} is not writable") from error
+
+
+def _followup_status(diagnostics: dict[str, object]) -> str:
+    if cast(int, diagnostics["ranking_headroom_count"]) > 0:
+        return "eligible"
+    return "not_evaluated"
+
+
+def _segmentation_status(diagnostics: dict[str, object]) -> str:
+    if cast(int, diagnostics["neither_arm_miss_count"]) > 0:
+        return "eligible"
+    return "not_evaluated"
+
+
+def _file_sha256(path: Path) -> str:
+    return sha256(path.read_bytes()).hexdigest()
 
 
 def _load_dense_artifact(path: Path) -> dict[str, Any]:
