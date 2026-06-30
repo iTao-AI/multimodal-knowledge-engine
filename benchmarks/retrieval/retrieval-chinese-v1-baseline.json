@@ -48,7 +48,7 @@
     "integrity_claim": "adjudication_record_integrity"
   },
   "source_identity": {
-    "sha256": "2765f88f5147b2d47f63ae8f85e6fdcb4603e5a1fd7c6f42b39304af4c9f004e",
+    "sha256": "110780166312f08f617e4175ad876423afb08573e30f2854067e36a9e3ad843e",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -147,8 +147,8 @@
       },
       {
         "path": "src/mke/cli.py",
-        "bytes": 49722,
-        "sha256": "b1ddaa476a7df3e9d35876c8c2debca52a8644d9ddf2ad9f3779e6e88978c31f"
+        "bytes": 54452,
+        "sha256": "923ae7898108fc7e0d95472e957731455badc34fed7385e7b9cfb29829ea7449"
       },
       {
         "path": "src/mke/domain/__init__.py",
@@ -172,8 +172,8 @@
       },
       {
         "path": "src/mke/evaluation/__init__.py",
-        "bytes": 1491,
-        "sha256": "ce1dfc04a55a4f566d284bf4a790c5945fc94419a3dbf615b137169d72729ac6"
+        "bytes": 2358,
+        "sha256": "1e28237775152b34f95b81914d6c61a41af52ecfb776791e2576ea778791bead"
       },
       {
         "path": "src/mke/evaluation/artifact_refresh.py",
@@ -226,9 +226,49 @@
         "sha256": "ac4d5b2e96b925c56e2e6edc5203d940f5fa3031b2b75d5534eb5fb2e21a127f"
       },
       {
+        "path": "src/mke/evaluation/dense_artifact.py",
+        "bytes": 28723,
+        "sha256": "f7f7be42427c782b3f2636d6af8814b02c7feafff82134ba06451b533750a7c6"
+      },
+      {
+        "path": "src/mke/evaluation/dense_candidate.py",
+        "bytes": 5872,
+        "sha256": "a7e255f9e5657a3e491254341f88eefb146c6599efc0d48115704426e13fa8b3"
+      },
+      {
+        "path": "src/mke/evaluation/dense_comparison.py",
+        "bytes": 11656,
+        "sha256": "e7dd58da43127649e8ce046ec31335a44ee888869c7f82184f793e6dd41e81ed"
+      },
+      {
         "path": "src/mke/evaluation/dense_compatibility.py",
         "bytes": 47893,
         "sha256": "be42ee2fb24f68a975cddeac30065e8faf8216c46662319529e2b9cba20440d3"
+      },
+      {
+        "path": "src/mke/evaluation/dense_miss_audit.py",
+        "bytes": 12573,
+        "sha256": "c35f5605e27f748e317b932d8b625ced5080d8952d9eb65f5ed0ea66c6b6ed51"
+      },
+      {
+        "path": "src/mke/evaluation/dense_protocol.py",
+        "bytes": 12091,
+        "sha256": "7eb893f309f5793d2313843866d5dbd23d79d09c6b933d1883fd7db719d7c538"
+      },
+      {
+        "path": "src/mke/evaluation/dense_replay.py",
+        "bytes": 7376,
+        "sha256": "4d8809efe02186d394acb4cf5293700efbde51f1de1322dd5471b78401380adf"
+      },
+      {
+        "path": "src/mke/evaluation/dense_threshold.py",
+        "bytes": 17592,
+        "sha256": "5b32fb4aed687dd9460a8df455a14b4606749df460dc86a03d7cb2252b33f61f"
+      },
+      {
+        "path": "src/mke/evaluation/dense_workflow.py",
+        "bytes": 14217,
+        "sha256": "7bbfd2e1bc023ad8775cf70e9805a0bf5dc67ac330eae3350de8a74e8f65bb78"
       },
       {
         "path": "src/mke/evaluation/diagnostic_ports.py",

@@ -12,6 +12,7 @@ NUMERIC_PROTOCOL = Path(
     "tests/fixtures/retrieval-numeric-v1/protocol-lock.json"
 )
 CHINESE_PROTOCOL = Path("tests/fixtures/retrieval-chinese-v1/protocol.json")
+DENSE_PROTOCOL = Path("tests/fixtures/retrieval-dense-v1/protocol-lock.json")
 
 
 def test_cli_eval_retrieval_outputs_human_baseline(
@@ -694,3 +695,175 @@ def test_cli_eval_cjk_lexical_renderer_failure_is_redacted(
         assert payload["schema_version"] == "mke.cjk_lexical_comparison.v1"
         assert payload["integrity_status"] == "failed"
         assert output.err == ""
+
+
+def test_cli_eval_dense_development_invokes_cache_only_phase(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: CaptureFixture[str],
+) -> None:
+    captured: dict[str, object] = {}
+
+    def run_phase(**kwargs: object) -> dict[str, object]:
+        captured.update(kwargs)
+        return {
+            "phase": "development",
+            "development_status": "passed",
+            "selected_threshold": 0.42,
+            "candidate_status": "not_evaluated",
+            "e3d_status": "not_evaluated",
+            "runtime_promotion_status": "not_evaluated",
+        }
+
+    monkeypatch.setattr("mke.cli.run_dense_evaluation_phase", run_phase)
+    freeze = tmp_path / "development-freeze.json"
+
+    assert main(
+        [
+            "eval",
+            "retrieval-dense",
+            "--protocol",
+            str(DENSE_PROTOCOL),
+            "--candidate",
+            "qwen3-embedding-0.6b-exact-v1",
+            "--model-cache",
+            str(tmp_path / "model-cache"),
+            "--development-only",
+            "--record-development-freeze",
+            str(freeze),
+            "--json",
+        ]
+    ) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["selected_threshold"] == 0.42
+    assert captured["phase"] == "development"
+    assert captured["record_development_freeze"] == freeze
+
+
+def test_cli_eval_dense_holdout_valid_negative_exits_zero(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: CaptureFixture[str],
+) -> None:
+    def run_negative(**kwargs: object) -> dict[str, object]:
+        del kwargs
+        return {
+            "phase": "holdout",
+            "holdout_status": "observed",
+            "candidate_status": "completed",
+            "e3d_status": "not_eligible",
+            "runtime_promotion_status": "not_evaluated",
+        }
+
+    monkeypatch.setattr(
+        "mke.cli.run_dense_evaluation_phase",
+        run_negative,
+    )
+
+    assert main(
+        [
+            "eval",
+            "retrieval-dense",
+            "--protocol",
+            str(DENSE_PROTOCOL),
+            "--candidate",
+            "qwen3-embedding-0.6b-exact-v1",
+            "--model-cache",
+            str(tmp_path / "model-cache"),
+            "--development-freeze",
+            str(tmp_path / "freeze.json"),
+            "--record",
+            str(tmp_path / "artifact.json"),
+            "--record-holdout-receipt",
+            str(tmp_path / "receipt.json"),
+            "--json",
+        ]
+    ) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["candidate_status"] == "completed"
+    assert payload["e3d_status"] == "not_eligible"
+
+
+def test_cli_eval_dense_known_workflow_failure_returns_stable_cause(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: CaptureFixture[str],
+) -> None:
+    from mke.evaluation.dense_workflow import DenseWorkflowError
+
+    def fail_phase(**kwargs: object) -> dict[str, object]:
+        del kwargs
+        raise DenseWorkflowError("development threshold inputs are invalid")
+
+    monkeypatch.setattr("mke.cli.run_dense_evaluation_phase", fail_phase)
+
+    assert main(
+        [
+            "eval",
+            "retrieval-dense",
+            "--protocol",
+            str(DENSE_PROTOCOL),
+            "--candidate",
+            "qwen3-embedding-0.6b-exact-v1",
+            "--model-cache",
+            str(tmp_path / "model-cache"),
+            "--development-only",
+            "--record-development-freeze",
+            str(tmp_path / "freeze.json"),
+            "--json",
+        ]
+    ) == 1
+
+    output = capsys.readouterr()
+    payload = json.loads(output.out)
+    assert output.err == ""
+    assert payload["failure"]["cause"] == "development threshold inputs are invalid"
+    assert "Traceback" not in output.out
+    assert "/Users/" not in output.out
+
+
+@pytest.mark.parametrize(
+    "argv",
+    (
+        ["--development-only"],
+        ["--record-development-freeze", "freeze.json"],
+        ["--development-freeze", "freeze.json", "--record", "artifact.json"],
+        ["--allow-model-download"],
+    ),
+)
+def test_cli_eval_dense_rejects_incomplete_or_download_phase_flags(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+    argv: list[str],
+) -> None:
+    base = [
+        "eval",
+        "retrieval-dense",
+        "--protocol",
+        str(DENSE_PROTOCOL),
+        "--candidate",
+        "qwen3-embedding-0.6b-exact-v1",
+        "--model-cache",
+        str(tmp_path / "model-cache"),
+    ]
+    with pytest.raises(SystemExit) as error:
+        main([*base, *argv])
+
+    assert error.value.code == 2
+    assert "Traceback" not in capsys.readouterr().err
+
+
+def test_cli_eval_dense_help_is_comparison_only(
+    capsys: CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as error:
+        main(["eval", "retrieval-dense", "--help"])
+
+    assert error.value.code == 0
+    normalized = " ".join(capsys.readouterr().out.split())
+    assert "comparison-only" in normalized
+    assert "--development-only" in normalized
+    assert "--record-holdout-receipt" in normalized
+    assert "does not change Search, Ask, MCP, or runtime defaults" in normalized

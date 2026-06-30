@@ -1,0 +1,25 @@
+{
+  "candidate_id": "qwen3-embedding-0.6b-exact-v1",
+  "candidate_revision": 1,
+  "development_freeze_sha256": "e2c791bf2a9d7ad6ea3047f89fad2c3157038da88f960b3befa1df131d26002d",
+  "execution": {
+    "cache_only": true,
+    "holdout_observation_count": 1,
+    "network": false
+  },
+  "holdout_result_sha256": "sha256:0e23bb15402f2842636f13d669067f08ced2d14a95eda654f2b90c0ac7a6feba",
+  "projection": {
+    "adapter_id": "exact-cosine-v1",
+    "identity": {
+      "adapter_id": "exact-cosine-v1",
+      "dimension": 1024,
+      "locator_digest": "sha256:be036d122a8a2b56533f243e53bba57e46e13e40349d4b06c38077bbe3986b5d",
+      "model_fingerprint": "sha256:05b8ff893f9930fc968d88c51facc8c2fb67d3d6a6f0d16413dc94dee1adbf42",
+      "row_count": 36,
+      "source_text_digest": "sha256:f2a8c50394d4d152117b5c4bbb84b4e61cf43a400267e9605a3592844dcb0eab",
+      "vector_digest": "sha256:1da2f608a6f74168ef6fc9ea8f14f20b85e01c6afd1d8ffb70ea27bff2b67b06"
+    },
+    "projection_id": "qwen3-embedding-0.6b-exact-v1-holdout"
+  },
+  "schema_version": "mke.dense_holdout_receipt.v1"
+}

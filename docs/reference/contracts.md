@@ -39,6 +39,7 @@ Status:
 | `mke transcription doctor` | implemented in D3-B | Read-only dependency, profile, language, and cache checks. |
 | `mke eval retrieval-chinese --protocol <protocol.json>` | implemented in E3-A | Records the current FTS5 lexical baseline over isolated Chinese development/public-holdout corpora; no quality threshold or runtime promotion. |
 | `mke eval retrieval-cjk-lexical --protocol <protocol.json> --candidate cjk-trigram-overlap-v1` | implemented in E3-B | Runs an off-default comparison-only CJK trigram-overlap candidate for compiled-empty queries; no runtime default, HTTP, UI, MCP, embedding, vector, hybrid, RRF, reranker, or query-rewrite change. |
+| `mke eval retrieval-dense --protocol <protocol-lock.json> --candidate qwen3-embedding-0.6b-exact-v1` | implemented in E3-C PR 2 | Runs a cache-only comparison-only dense protocol with a committed development freeze and one holdout receipt; `e3d_status=eligible` is experiment eligibility only and `runtime_promotion_status=not_evaluated`. |
 | `mke retrieval doctor --strategy <strategy>` | implemented in E3-F | Read-only SQLite, active Publication, and required base FTS consistency inspection. |
 | `mke retrieval rebuild --strategy <strategy>` | implemented in E3-F | Additional CJK projection no-op for active scan; base FTS rebuild returns stable not-supported. |
 | `mke init` | planned | Workspace initialization after lifecycle proof. |

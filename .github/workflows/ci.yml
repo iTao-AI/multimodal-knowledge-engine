@@ -39,8 +39,14 @@ jobs:
             tests/adapters/test_exact_cosine_projection.py \
             tests/adapters/test_sqlite_vec_projection.py \
             tests/evaluation/test_dense_compatibility.py \
+            tests/evaluation/test_dense_candidate.py \
+            tests/evaluation/test_dense_threshold.py \
+            tests/evaluation/test_dense_comparison.py \
+            tests/evaluation/test_dense_artifact.py \
+            tests/evaluation/test_dense_replay.py \
             tests/evaluation/test_dense_documentation.py \
             tests/scripts/test_dense_retrieval_deployment_proof.py \
+            tests/scripts/test_dense_retrieval_measurement.py \
             -q
       - name: Validate dense compatibility artifact without model cache
         env:
@@ -149,6 +155,16 @@ jobs:
             --observed /tmp/mke-cjk-lexical-comparison.json \
             --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
             --repository .
+      - name: Validate dense comparison artifact model-free
+        env:
+          HF_HUB_OFFLINE: "1"
+          TRANSFORMERS_OFFLINE: "1"
+        run: |
+          uv run python scripts/dense_retrieval_measurement.py \
+            --repository . \
+            --protocol tests/fixtures/retrieval-dense-v1/protocol-lock.json \
+            --artifact benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json \
+            --model-free
       - run: uv build
       - name: Verify spoken fixture with transcription extra
         env:

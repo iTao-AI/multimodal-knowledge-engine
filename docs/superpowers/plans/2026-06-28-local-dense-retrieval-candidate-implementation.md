@@ -994,7 +994,7 @@ cache-ready proof still validate before reading qrels.
 - Create after validation:
   `benchmarks/retrieval/qwen3-embedding-0.6b-development-miss-audit.json`
 
-- [ ] **Step 1: Write RED audit tests**
+- [x] **Step 1: Write RED audit tests**
 
 For every current-runtime development grade-2 miss in `semantic_paraphrase`, `multi_condition`,
 and `ranking_hard_negative`, record the compiled query, active-scan terms, lexical overlap with
@@ -1006,7 +1006,7 @@ category is not causal evidence.
 Reject holdout input, missing target misses, changed qrels/locators, subjective causal labels,
 private paths, and any report that silently reclassifies a query.
 
-- [ ] **Step 2: Implement and validate the development-only audit**
+- [x] **Step 2: Implement and validate the development-only audit**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_miss_audit.py -q
@@ -1016,7 +1016,7 @@ The audit does not alter the approved candidate or gates. If it proves the targe
 plausibly addressable by page-level semantic similarity, stop for a plan amendment before dense
 scoring.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/mke/evaluation/dense_miss_audit.py \
@@ -1033,7 +1033,7 @@ git commit -m "test(eval): audit residual Chinese retrieval misses"
 - Create: `src/mke/evaluation/dense_protocol.py`
 - Create: `tests/evaluation/test_dense_protocol.py`
 
-- [ ] **Step 1: Write RED protocol tests**
+- [x] **Step 1: Write RED protocol tests**
 
 Freeze and validate:
 
@@ -1058,19 +1058,19 @@ Reject missing/extra fields, duplicate thresholds, reordered target classes, boo
 non-finite numbers, path traversal, absolute locators, unknown Evidence IDs, and any qrel/fixture
 identity drift.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_protocol.py -q
 ```
 
-- [ ] **Step 3: Implement strict protocol loading**
+- [x] **Step 3: Implement strict protocol loading**
 
 Use repository-relative locators and `Path.resolve()` containment checks. Do not bind feature
 commit ancestry; bind durable file bytes, candidate/model identity, and explicit source inventory
 so squash merge and shallow clones remain valid.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_protocol.py -q
@@ -1087,7 +1087,7 @@ git commit -m "test(eval): freeze E3-C dense comparison protocol"
 - Create: `tests/evaluation/test_dense_candidate.py`
 - Modify: `src/mke/evaluation/__init__.py`
 
-- [ ] **Step 1: Write RED candidate tests**
+- [x] **Step 1: Write RED candidate tests**
 
 Test:
 
@@ -1110,18 +1110,18 @@ Test:
 - a development-only API cannot receive a holdout partition;
 - cancellation and partial embedding/projection results fail closed.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_candidate.py -q
 ```
 
-- [ ] **Step 3: Implement the development-only runner**
+- [x] **Step 3: Implement the development-only runner**
 
 Separate candidate generation from qrel grading. The candidate layer returns ordered retrieval
 observations; metrics and gate decisions belong in comparison code.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_candidate.py -q
@@ -1141,7 +1141,7 @@ git commit -m "feat(eval): add cache-only dense candidate runner"
 - Create: `src/mke/evaluation/dense_threshold.py`
 - Create: `tests/evaluation/test_dense_threshold.py`
 
-- [ ] **Step 1: Write RED threshold-selection tests**
+- [x] **Step 1: Write RED threshold-selection tests**
 
 Use synthetic observations to prove this exact order:
 
@@ -1165,18 +1165,18 @@ Also test:
 - bool, non-finite, out-of-range, missing, reordered, or coordinated trace/verdict tampering is
   rejected.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_threshold.py -q
 ```
 
-- [ ] **Step 3: Implement pure selection functions**
+- [x] **Step 3: Implement pure selection functions**
 
 Keep selection deterministic and independent of the model adapter. Use existing graded metric
 functions where their exact semantics match; add focused tests before extending them.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_threshold.py \
@@ -1192,7 +1192,7 @@ git commit -m "feat(eval): select dense refusal threshold"
 - Create: `src/mke/evaluation/dense_comparison.py`
 - Create: `tests/evaluation/test_dense_comparison.py`
 
-- [ ] **Step 1: Write RED comparison tests with frozen synthetic reports**
+- [x] **Step 1: Write RED comparison tests with frozen synthetic reports**
 
 Require four separately identified arms:
 
@@ -1223,19 +1223,19 @@ Test:
   qualify E3-D;
 - no arm raw scores are fused or compared across score spaces.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_comparison.py -q
 ```
 
-- [ ] **Step 3: Implement the comparison state machine**
+- [x] **Step 3: Implement the comparison state machine**
 
 Use immutable intermediate results. The only path to holdout accepts a frozen development result
 containing the selected threshold and candidate/projection/model identities. Any identity change
 between partitions fails closed.
 
-- [ ] **Step 4: Verify and commit before real qrel scoring**
+- [x] **Step 4: Verify and commit before real qrel scoring**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_protocol.py \
@@ -1257,7 +1257,7 @@ git commit -m "feat(eval): compare dense retrieval complementarity"
 - Modify: `src/mke/evaluation/artifact_refresh.py`
 - Modify: `tests/evaluation/test_artifact_refresh.py`
 
-- [ ] **Step 1: Write RED model-free artifact tests**
+- [x] **Step 1: Write RED model-free artifact tests**
 
 The validator must independently recompute from recorded observations:
 
@@ -1276,7 +1276,7 @@ must pass in a shallow squash-landed clone without feature commit ancestry. A co
 replacement of retrieval observations plus all derived fields is outside the model-free oracle and
 must be rejected by cache-ready replay instead.
 
-- [ ] **Step 2: Write RED cache-ready replay tests**
+- [x] **Step 2: Write RED cache-ready replay tests**
 
 Replay must:
 
@@ -1286,9 +1286,12 @@ Replay must:
 - compare locator/order exactly and portable cosine scores with absolute tolerance `1e-5`;
 - reject a true `>1e-5` score mutation, order mutation, vector/source digest mutation, model-file
   mutation, and coordinated report+artifact mutation;
+- expose a real `python -m mke.evaluation.dense_replay validate` CLI that reads the artifact,
+  protocol, repository, and external model cache; a missing or tampered artifact must exit non-zero
+  instead of succeeding as a no-op module execution;
 - never download or silently use another adapter.
 
-- [ ] **Step 3: Confirm RED**
+- [x] **Step 3: Confirm RED**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_artifact.py \
@@ -1296,13 +1299,13 @@ uv run pytest tests/evaluation/test_dense_artifact.py \
   tests/evaluation/test_artifact_refresh.py -q
 ```
 
-- [ ] **Step 4: Implement strict record/validate/replay paths**
+- [x] **Step 4: Implement strict record/validate/replay paths**
 
 Keep model-free CI validation separate from cache-ready local replay. `artifact_refresh.py` may
 refresh only allowlisted source/scope identities and must require before/after semantic equality.
 It must not regenerate relevance observations opportunistically.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_artifact.py \
@@ -1326,7 +1329,7 @@ git commit -m "feat(eval): validate dense comparison evidence"
 - Create: `tests/scripts/test_dense_retrieval_measurement.py`
 - Modify: `.github/workflows/ci.yml`
 
-- [ ] **Step 1: Write RED CLI tests**
+- [x] **Step 1: Write RED CLI tests**
 
 Command shape:
 
@@ -1372,20 +1375,20 @@ Test:
   maintenance workflow;
 - no normal Search/Ask/MCP help or schema changes.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 uv run pytest tests/interfaces/test_cli_evaluation.py \
   tests/scripts/test_dense_retrieval_measurement.py -q
 ```
 
-- [ ] **Step 3: Implement CLI and measurement separation**
+- [x] **Step 3: Implement CLI and measurement separation**
 
 The CI measurement path validates the checked-in artifact model-free. The cache-ready local
 measurement path requires an already prepared exact model and may run replay. Neither path
 downloads.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 ```bash
 uv run pytest tests/interfaces/test_cli_evaluation.py \
@@ -1403,7 +1406,7 @@ git commit -m "feat(cli): expose dense retrieval comparison"
 
 Do not begin until Tasks 7–12 pass and the exact PR 1 compatibility artifact validates.
 
-- [ ] **Step 1: Run pre-qrel integrity gates**
+- [x] **Step 1: Run pre-qrel integrity gates**
 
 ```bash
 uv run pytest tests/evaluation/test_dense_protocol.py \
@@ -1417,7 +1420,14 @@ uv run pytest tests/evaluation/test_dense_protocol.py \
 Revalidate all historical artifacts, exact fixture/qrel bytes, runtime default, model manifest,
 and projection adapter. Any mismatch stops the run.
 
-- [ ] **Step 2: Run development and freeze the result**
+2026-06-29 amendment: PR 2 source additions invalidated E1/E2/E3-A source/scope identities before
+dense qrel scoring, while E1/E2/E3-A/E3-B observed evaluations remained normalized-semantics equal
+to the Task 0 snapshots. To avoid a gate deadlock, the required Task 14 identity-only refresh is a
+Task 13 pre-qrel prerequisite. Do not run development scoring or observe holdout until the refresh
+commit exists and E1/E2/E3-A/E3-B validators pass. This amendment does not permit runtime
+promotion, threshold tuning before validators, or any semantic artifact drift.
+
+- [x] **Step 2: Run development and freeze the result**
 
 Run the fixed `--development-only --record-development-freeze` command; do not substitute an
 unreviewed library entry point. Inspect the full threshold trace. Record:
@@ -1434,7 +1444,7 @@ the canonical comparison artifact with `holdout_status=not_observed`, no holdout
 `runtime_promotion_status=not_evaluated`; validate it model-free and cache-ready, return exit `0`,
 and do not run holdout.
 
-- [ ] **Step 3: Lock the development configuration before holdout**
+- [x] **Step 3: Lock the development configuration before holdout**
 
 Generate and verify
 `benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-development-freeze.json`, binding model
@@ -1447,7 +1457,7 @@ git add benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-development-freeze.js
 git commit -m "test(eval): freeze E3-C development selection"
 ```
 
-- [ ] **Step 4: Run holdout exactly once**
+- [x] **Step 4: Run holdout exactly once**
 
 Only if development gates pass, run the one full comparison command with the frozen development
 record. The command creates
@@ -1456,7 +1466,7 @@ semantics and refuses an existing receipt. It binds the development-freeze diges
 digest, model/projection identity, and public-safe execution identity. Do not tune after viewing
 holdout. A failed holdout gate is an honest valid result.
 
-- [ ] **Step 5: Record the canonical artifact atomically**
+- [x] **Step 5: Record the canonical artifact atomically**
 
 Target:
 
@@ -1476,7 +1486,7 @@ uv run python -m mke.evaluation.dense_replay validate \
   --repository .
 ```
 
-- [ ] **Step 6: Commit evidence without changing the result**
+- [x] **Step 6: Commit evidence without changing the result**
 
 ```bash
 git add tests/fixtures/retrieval-dense-v1/protocol-lock.json \
@@ -1492,6 +1502,13 @@ Task 14 remains PR 2-only. It handles identities invalidated by final E3-C compa
 changes after PR 1 is merged. It must not repeat, overwrite, or weaken the PR 1 Task 6A semantic
 proof, and it must independently explain every new PR 2 invalidation path.
 
+2026-06-29 execution amendment: the necessary identity-only refresh was moved before Task 13
+development scoring because Task 13 requires all historical validators to pass before qrels are
+scored. The refresh is limited to actual PR 2 invalidations: E1, E2, and E3-A source/scope identity
+metadata. E3-B validated before refresh and must remain byte-identical unless a later validator
+proves it is invalid. After this pre-qrel refresh is committed, do not repeat, overwrite, or weaken
+the semantic-preservation proof in a later Task 14 step.
+
 **Files:**
 
 - Modify only if required by validated source identity changes:
@@ -1504,18 +1521,18 @@ proof, and it must independently explain every new PR 2 invalidation path.
   `benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json`
 - Modify: `tests/evaluation/test_artifact_refresh.py`
 
-- [ ] **Step 1: Identify actual invalidated source inventories**
+- [x] **Step 1: Identify actual invalidated source inventories**
 
 Run every validator before refreshing. Do not assume a new file invalidates an artifact. For each
 failing source/scope identity, show the exact changed path and explain why it is within the
 artifact’s declared source boundary.
 
-- [ ] **Step 2: Use the supported refresh workflow**
+- [x] **Step 2: Use the supported refresh workflow**
 
 Refresh identity metadata only. Compare normalized before/after observations, metrics, gates, and
 verdicts byte-for-byte or structurally. Any semantic delta is a stop condition.
 
-- [ ] **Step 3: Verify all artifacts and commit separately**
+- [x] **Step 3: Verify all artifacts and commit separately**
 
 ```bash
 uv run pytest tests/evaluation/test_artifact_refresh.py -q
@@ -1541,7 +1558,7 @@ If no historical artifact requires refresh, do not create this commit.
   `docs/superpowers/reviews/2026-06-28-local-dense-retrieval-candidate-review.md`
 - Create/modify documentation tests under `tests/evaluation/`
 
-- [ ] **Step 1: Write RED documentation tests**
+- [x] **Step 1: Write RED documentation tests**
 
 Require docs to state:
 
@@ -1564,12 +1581,12 @@ Require docs to state:
 - a new model revision or prompt requires a new candidate ID/revision and cannot overwrite this
   candidate's artifact.
 
-- [ ] **Step 2: Update docs from actual evidence**
+- [x] **Step 2: Update docs from actual evidence**
 
 Do not prewrite a positive outcome. If E3-C is negative, document the negative result and why E3-D
 remains ineligible. Do not add an ADR because no runtime behavior is promoted.
 
-- [ ] **Step 3: Run document-release audit and commit**
+- [x] **Step 3: Run document-release audit and commit**
 
 Use `gstack-document-release` to check Diataxis coverage and diagram drift. Keep raw tool artifacts
 outside the repository.
@@ -1583,7 +1600,7 @@ git commit -m "docs(eval): document E3-C dense evidence"
 
 ## Task 16: Final Verification And Authoritative Review Handoff
 
-- [ ] **Step 1: Run the complete suite**
+- [x] **Step 1: Run the complete suite**
 
 ```bash
 uv run pytest -q
@@ -1595,12 +1612,12 @@ uv run mke demo --verify
 git diff --check origin/main...HEAD
 ```
 
-- [ ] **Step 2: Run all canonical evaluations and validators**
+- [x] **Step 2: Run all canonical evaluations and validators**
 
 Run E1, E2, E3-A, E3-B, and E3-C. Validate every artifact. Confirm E1/E2/E3-A/E3-B normalized
 semantic equality to Task 0. Run E3-C model-free validation and cache-ready replay.
 
-- [ ] **Step 3: Run installed-wheel proofs**
+- [x] **Step 3: Run installed-wheel proofs**
 
 In isolated Python 3.12 and 3.13 environments, install the built `wheel[embedding]` offline from
 pre-populated package/model caches, run from external cwd with hostile environment variables and
@@ -1612,7 +1629,7 @@ network disabled, and prove:
 - model-free validator and cache-ready replay pass;
 - core wheel without the extra still imports and retains current runtime behavior.
 
-- [ ] **Step 4: Inspect the final diff and repository boundary**
+- [x] **Step 4: Inspect the final diff and repository boundary**
 
 ```bash
 git status --short --branch
@@ -1625,7 +1642,7 @@ git grep -n -E '\.gstack|token|api[_-]?key' \
 Verify no model weights, cache files, virtualenvs, raw GStack artifacts, private paths, credentials,
 or unrelated runtime changes are present.
 
-- [ ] **Step 5: Leave a clean local branch and hand off**
+- [x] **Step 5: Leave a clean local branch and hand off**
 
 Report exact base/HEAD/diff, commits, candidate and E3-D verdicts, threshold, metrics,
 complementarity recovery IDs, model/projection/artifact identities, resource data, Python proofs,
@@ -1637,30 +1654,45 @@ diff, artifact, and command evidence. Confirmed findings return to the execution
 push and create a Ready PR. Merge/cleanup and a docs-only post-merge closeout are separate
 authorized actions.
 
+2026-06-29 targeted review resolution: the first authoritative PR 2 review found that
+`python -m mke.evaluation.dense_replay validate` had no module entrypoint and could exit `0` without
+reading the artifact. The remediation adds a RED regression for a missing artifact, implements the
+real cache-ready replay CLI, rejects repository-internal model caches, and records the public
+success/failure JSON contract in the dense evaluation guide. This does not change the recorded
+candidate result, threshold, holdout receipt, runtime defaults, or Search/Ask/MCP behavior.
+
+2026-06-30 targeted re-review resolution: the follow-up review found that the E3-C artifact still
+carried the pre-refresh E3-A historical arm digest after E1/E2/E3-A identity artifacts were
+refreshed. The remediation adds a checked-in-artifact regression that compares
+`historical_arms.e3a`, `historical_arms.e3b`, and the first two `comparison.arms` against the
+current artifact files, then rebuilds the E3-C artifact identity bindings. The rebuild preserves
+metrics, candidate observations, threshold selection, development freeze, holdout receipt, E3-D
+status, and `runtime_promotion_status=not_evaluated`.
+
 ## Final Acceptance Checklist
 
 - [x] PR 1 merged before PR 2 starts.
-- [ ] Exact Qwen model/revision and installed dependency graph are frozen.
-- [ ] Only prepare can network; every operational/evaluation path is cache-only.
-- [ ] Python 3.12/3.13 installed-wheel compatibility and replay pass.
-- [ ] No frozen Evidence truncates; embeddings and ranks satisfy the determinism contract.
-- [ ] sqlite-vec passes exact-reference equivalence, or its rejection and project reference
+- [x] Exact Qwen model/revision and installed dependency graph are frozen.
+- [x] Only prepare can network; every operational/evaluation path is cache-only.
+- [x] Python 3.12/3.13 installed-wheel compatibility and replay pass.
+- [x] No frozen Evidence truncates; embeddings and ranks satisfy the determinism contract.
+- [x] sqlite-vec passes exact-reference equivalence, or its rejection and project reference
   fallback are explicitly recorded before qrel scoring.
-- [ ] Development selects one threshold from the full frozen trace.
-- [ ] Threshold plateau and development leave-one-query-out sensitivity are recorded without
+- [x] Development selects one threshold from the full frozen trace.
+- [x] Threshold plateau and development leave-one-query-out sensitivity are recorded without
   changing the selection rule.
-- [ ] Development and holdout use separate snapshot/projection inventories.
-- [ ] Cross-run identities use stable document locators and text digests, not random runtime IDs.
-- [ ] A committed development-freeze file precedes one exclusive-create holdout receipt.
-- [ ] Model-free validator independently recomputes structure, metrics, gates, and verdicts from
+- [x] Development and holdout use separate snapshot/projection inventories.
+- [x] Cross-run identities use stable document locators and text digests, not random runtime IDs.
+- [x] A committed development-freeze file precedes one exclusive-create holdout receipt.
+- [x] Model-free validator independently recomputes structure, metrics, gates, and verdicts from
   recorded observations without claiming to authenticate coordinated observation replacement.
-- [ ] Cache-ready replay independently regenerates embeddings and exact-KNN results.
-- [ ] E1/E2/E3-A/E3-B semantics, qrels, fixtures, and runtime default remain unchanged.
-- [ ] E3-C records an honest positive or negative candidate-specific result, derives `e3d_status`
+- [x] Cache-ready replay independently regenerates embeddings and exact-KNN results.
+- [x] E1/E2/E3-A/E3-B semantics, qrels, fixtures, and runtime default remain unchanged.
+- [x] E3-C records an honest positive or negative candidate-specific result, derives `e3d_status`
   from gates, and keeps runtime promotion not evaluated.
-- [ ] Search, Ask, CLI runtime, MCP, and normal SQLite domain truth are unchanged.
-- [ ] Documentation describes the local reference boundary and actual limitations.
-- [ ] Documentation separates install-time network, model prepare network, cache-only operation,
+- [x] Search, Ask, CLI runtime, MCP, and normal SQLite domain truth are unchanged.
+- [x] Documentation describes the local reference boundary and actual limitations.
+- [x] Documentation separates install-time network, model prepare network, cache-only operation,
   manual uninstall/cache cleanup, and valid-negative automation semantics.
 - [ ] The final branch is clean and passes authoritative pre-PR review.
 

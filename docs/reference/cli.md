@@ -205,6 +205,39 @@ Copy-paste recovery commands are in the how-to guide.
 
 See [Run The Chinese Retrieval Evaluation](../how-to/run-chinese-retrieval-evaluation.md).
 
+## Dense Retrieval Comparison
+
+```bash
+mke eval retrieval-dense \
+  --protocol tests/fixtures/retrieval-dense-v1/protocol-lock.json \
+  --candidate qwen3-embedding-0.6b-exact-v1 \
+  --model-cache "$HOME/Library/Caches/mke/embedding" \
+  --development-only \
+  --record-development-freeze benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-development-freeze.json \
+  [--json]
+```
+
+The holdout phase omits `--development-only` and requires `--development-freeze`, `--record`, and
+`--record-holdout-receipt`. The command is comparison-only, cache-only, and protocol-owned. It does
+not change Search, Ask, MCP, or runtime defaults. It also does not implement API adapter,
+hybrid/RRF, reranker, query rewrite, HTTP, or UI.
+
+The canonical E3-C PR 2 run records:
+
+```text
+candidate_status=completed
+e3d_status=eligible
+runtime_promotion_status=not_evaluated
+selected_threshold=0.58
+holdout_status=observed
+```
+
+`e3d_status=eligible` means the dense candidate produced enough complementarity evidence to plan a
+future E3-D experiment. It does not select the runtime strategy. Development valid negative results
+are successful comparison outcomes and should be handled by checking `e3d_status` in JSON output.
+
+See [Evaluate The Dense Retrieval Candidate](../how-to/evaluate-dense-retrieval.md).
+
 ## CJK Lexical Candidate Comparison
 
 ```bash
