@@ -62,3 +62,19 @@ query rewrite, HTTP, or UI. E3-D eligibility only means a future experiment may 
 The result is bound to a small public Chinese page-level corpus with a public non-blind holdout.
 It is not a production-quality or statistical-significance claim and does not generalize to
 Japanese, Korean, other model revisions, API embeddings, segmentation, or future temporal data.
+
+## Post-Merge Closeout
+
+The authoritative pre-PR review findings were remediated, and the final targeted re-review was
+`CLEAN` with `0 findings`. [PR #43](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/43)
+was squash-merged to `main@21a7de967e72d2a901019fa8d579ee06b928c6ae`. Post-merge Python 3.12/3.13
+core and embedding-extra CI jobs and CodeQL completed successfully.
+
+The merged result remains comparison-only:
+
+- `candidate_status=completed`
+- `e3d_status=eligible`
+- `runtime_promotion_status=not_evaluated`
+
+No E3-D fusion, runtime promotion, reranker, API adapter, query rewrite, HTTP, or UI work is part
+of this closeout.
