@@ -1737,7 +1737,11 @@ status, and `runtime_promotion_status=not_evaluated`.
 | DX Review | `/plan-devex-review` | Developer experience gaps | 1 | CLEAR | Install, CLI, error, documentation, and cleanup contract reviewed |
 
 - **VERDICT:** CEO, engineering, and DX reviews are clear. The 2026-06-29 amendment supersedes only
-  the prepare transport and PR 1 resource-measurement contracts. PR 1 has merged to `main`; PR 2
-  may start from latest `main` after separate authorization and must not stack on PR #41 history.
+  the prepare transport and PR 1 resource-measurement contracts. PR 1 and PR 2 are complete and
+  merged; [PR #43](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/43) was squash-merged
+  to `main@21a7de967e72d2a901019fa8d579ee06b928c6ae` after a final targeted re-review verdict of
+  `CLEAN` with `0 findings`. E3-C remains comparison-only with `candidate_status=completed`,
+  `e3d_status=eligible`, and `runtime_promotion_status=not_evaluated`. E3-D is a possible separate
+  future plan, not an unfinished task in this plan.
 
 NO UNRESOLVED DECISIONS
