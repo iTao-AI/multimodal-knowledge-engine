@@ -32,7 +32,7 @@
     "main_merge_base": "721784eabcb9fbb737166578010c9e1a46a25fef",
     "implementation_start": "3992b0e9371d1a8c9e019d3bbe2b32aac9665914",
     "evaluation_commit": "79bafb07ac592b684e6ceab15dc389dc33702978",
-    "evaluation_content_sha256": "110780166312f08f617e4175ad876423afb08573e30f2854067e36a9e3ad843e",
+    "evaluation_content_sha256": "35022b05b463cf5a9c041c4b17bee8f1d9cd6f1f031a878c45c8ff8f7c76be53",
     "evaluation_content_files": [
       {
         "path": "src/mke/__init__.py",
@@ -131,8 +131,8 @@
       },
       {
         "path": "src/mke/cli.py",
-        "bytes": 54452,
-        "sha256": "923ae7898108fc7e0d95472e957731455badc34fed7385e7b9cfb29829ea7449"
+        "bytes": 62652,
+        "sha256": "2d7d73f390416fab62d2846d486313263d51ddf37d8755a4b127cfb301dc98a6"
       },
       {
         "path": "src/mke/domain/__init__.py",
@@ -265,6 +265,21 @@
         "sha256": "7e28e8e53044d0dc92c721e0c3b554b2c89bcb92efa52bf073a9f9f5185c1ba5"
       },
       {
+        "path": "src/mke/evaluation/hybrid_rrf_artifact.py",
+        "bytes": 5445,
+        "sha256": "8f52e52f972682fdff6cf7edf15d0967f3c6dcb5a1966d4a50728f1ff64605a9"
+      },
+      {
+        "path": "src/mke/evaluation/hybrid_rrf_protocol.py",
+        "bytes": 7889,
+        "sha256": "9177fe2476b31b5eed69cff903574b5527b788e09811e92443cc99820fb9cb35"
+      },
+      {
+        "path": "src/mke/evaluation/hybrid_rrf_workflow.py",
+        "bytes": 29828,
+        "sha256": "9855ce503a2d84b5ed401142ec5585964edadb2b5bb2cd5cba9e31812106a316"
+      },
+      {
         "path": "src/mke/evaluation/manifest.py",
         "bytes": 15118,
         "sha256": "2df221e37e9cee1b84a144ca33b55d1cce6103f4d5ff005b696956738d0d9378"
@@ -288,6 +303,11 @@
         "path": "src/mke/evaluation/report.py",
         "bytes": 7473,
         "sha256": "ced2e09aefda720edfa2d4ca43b3b9fb3ab538236495a198ad2dae6e2e28ccbe"
+      },
+      {
+        "path": "src/mke/evaluation/rrf_fusion.py",
+        "bytes": 7257,
+        "sha256": "553fa24e373595fa58dfd51e0bde2a01a519cf96698eec43f6f6b4ca43b7cd2e"
       },
       {
         "path": "src/mke/evaluation/runner.py",
