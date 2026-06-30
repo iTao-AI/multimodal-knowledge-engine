@@ -16,9 +16,9 @@
   },
   "inputs": {
     "artifact_source": {
-      "bytes": 222,
+      "bytes": 5445,
       "path": "src/mke/evaluation/hybrid_rrf_artifact.py",
-      "sha256": "a29a20ecbab7c04e88b71c1ff4d563ff5600fdb7e0109ba5657ce56ffb622a43"
+      "sha256": "8f52e52f972682fdff6cf7edf15d0967f3c6dcb5a1966d4a50728f1ff64605a9"
     },
     "chinese_protocol": {
       "bytes": 26661,
@@ -56,9 +56,9 @@
       "sha256": "437aaa050f06c0d2a3eb9e9c891c5060e38df137ef691235281b2fd25adeb665"
     },
     "workflow_source": {
-      "bytes": 29661,
+      "bytes": 29828,
       "path": "src/mke/evaluation/hybrid_rrf_workflow.py",
-      "sha256": "63ef0654a2b913a2dc2ed174ce214ea87ebac66c27c75417c77c59e0a505f897"
+      "sha256": "9855ce503a2d84b5ed401142ec5585964edadb2b5bb2cd5cba9e31812106a316"
     }
   },
   "rrf": {

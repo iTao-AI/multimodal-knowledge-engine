@@ -138,7 +138,16 @@ def record_hybrid_rrf_development_freeze(
     report: dict[str, object],
     target_path: Path,
 ) -> dict[str, object]:
-    freeze = _json_normalized(
+    freeze = build_hybrid_rrf_development_freeze(report=report)
+    _write_json_exclusive(target_path, freeze, subject="development freeze")
+    return freeze
+
+
+def build_hybrid_rrf_development_freeze(
+    *,
+    report: dict[str, object],
+) -> dict[str, object]:
+    return _json_normalized(
         {
             "schema_version": "mke.hybrid_rrf_development_freeze.v1",
             "candidate": report["candidate"],
@@ -154,8 +163,6 @@ def record_hybrid_rrf_development_freeze(
             "diagnostics": report["diagnostics"],
         }
     )
-    _write_json_exclusive(target_path, freeze, subject="development freeze")
-    return freeze
 
 
 def run_hybrid_rrf_holdout(
