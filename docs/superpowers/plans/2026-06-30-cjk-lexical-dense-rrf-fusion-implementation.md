@@ -11,7 +11,8 @@ Publication, or runtime defaults.
 **Architecture:** Add model-free evaluation modules that load the canonical E3-C dense artifact,
 bind lexical and dense observations to stable Evidence identity, run deterministic rank-only RRF,
 record development and holdout artifacts, and validate every derived field independently. Dense
-cache-ready replay remains a verification gate, not a second fusion scoring source.
+cache-ready replay remains optional corroboration, not an E3-D acceptance gate or second fusion
+scoring source.
 
 **Tech Stack:** Python 3.12/3.13, SQLite-backed existing evaluation fixtures, JSON artifacts,
 pytest, Ruff, Pyright, Hatch/uv, existing `mke eval` CLI patterns.
@@ -1261,7 +1262,7 @@ The guide must include:
 - candidate ID and comparison-only status;
 - exact development and holdout commands;
 - artifact validator command;
-- dense cache-ready replay command as verification, not scoring;
+- dense cache-ready replay command as optional corroboration, not scoring;
 - current metrics table after Task 8;
 - explicit non-scope: runtime promotion, API adapter, reranker, query rewrite, segmentation,
   HTTP/UI.
@@ -1290,7 +1291,7 @@ Create the review file with:
 - holdout status;
 - rejected scope drift;
 - remaining risks;
-- pre-PR review status initially `pending`.
+- pre-PR review status initially waiting for review.
 
 Update this plan's status line and checklist with actual completed evidence.
 
@@ -1428,7 +1429,7 @@ uv run python -m mke.evaluation.hybrid_rrf_artifact validate \
 
 Expected: all validators pass.
 
-- [x] **Step 4: Attempt cache-ready dense replay if model cache is available**
+- [ ] **Step 4: Cache-ready dense replay optional corroboration remains unmet**
 
 Run:
 
@@ -1437,18 +1438,20 @@ HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 UV_OFFLINE=1 TOKENIZERS_PARALLELISM=fals
 uv run python -m mke.evaluation.dense_replay validate \
   --artifact benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json \
   --protocol tests/fixtures/retrieval-dense-v1/protocol-lock.json \
-  --model-cache "$HOME/Library/Caches/mke/embedding" \
+  --model-cache <model-cache> \
   --repository .
 ```
 
-Expected: prints `{"mode":"cache-ready","status":"passed"}` and exits `0`. If the model cache is
-not available, do not download. Report the skipped proof explicitly.
+Expected when prerequisites are already satisfied: prints
+`{"mode":"cache-ready","status":"passed"}` and exits `0`. If the embedding extra or model cache is
+not available, do not install dependencies or download models without explicit authorization. Report
+the unmet optional corroboration explicitly.
 
-Actual: the cache directory existed, but the replay failed with
-`{"mode":"cache-ready","status":"failed"}` and exit `1` because the embedding optional dependency
-was not installed (`ModuleNotFoundError: No module named 'huggingface_hub'`, with
-`sentence_transformers` unavailable as well). No dependency installation, download, or dense
-rescoring was performed.
+Actual: replay failed with `{"mode":"cache-ready","status":"failed"}` and exit `1` because the
+embedding optional dependency was not installed (`ModuleNotFoundError: No module named
+'huggingface_hub'`, with `sentence_transformers` unavailable as well). No dependency installation,
+download, or dense rescoring was performed. This remains unmet optional corroboration, not a
+completed required verification.
 
 - [x] **Step 5: Public-boundary scan**
 

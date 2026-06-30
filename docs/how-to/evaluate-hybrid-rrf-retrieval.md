@@ -46,11 +46,11 @@ Development diagnostics:
 Canonical identities:
 
 - Development freeze SHA-256:
-  `8c9352782ee7a7936804ba68edf135cc620b0886741de97bb1ae6c43204442da`
+  `b3396dbd0e79582fd374c0189a34a3581ffa7edfe82771c89c5ecd81fc82b477`
 - Comparison artifact SHA-256:
-  `fd958c2b87c3b5e971e5b17cd8ef1369a7dc0bd63f1ea83b8b207fa9e83b26e4`
+  `a06a54b3d58417321192c535041bf798cbebfa5fac83a48c71a218cef8c33699`
 - Canonical E3-C dense artifact SHA-256:
-  `cd8bd81ac461e3fd2333fde925ab4095cd360de0cc399dc7f95d305a8eb923f6`
+  `dd0093bfdf972507dc682dcc0a76b2c130f9f97e9017b1f5bdbdf40dc9f86f95`
 - Current runtime semantic digest:
   `sha256:b32dc4a1479cb3ea8e0ebedf2c27b04a10a6d91eee96e0cd0308bcf921e97959`
 
@@ -99,15 +99,16 @@ uv run python -m mke.evaluation.hybrid_rrf_artifact validate \
   --repository .
 ```
 
-Dense cache-ready replay remains a verification gate, not a fusion scoring source. It does not
-retune the selected threshold or regenerate E3-D ranks:
+Dense cache-ready replay is an optional corroborating check when the embedding extra and an
+already-populated local model cache are available. It is not an E3-D artifact acceptance gate and
+does not retune the selected threshold or regenerate E3-D ranks:
 
 ```bash
 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 UV_OFFLINE=1 TOKENIZERS_PARALLELISM=false \
 uv run python -m mke.evaluation.dense_replay validate \
   --artifact benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json \
   --protocol tests/fixtures/retrieval-dense-v1/protocol-lock.json \
-  --model-cache "$HOME/Library/Caches/mke/embedding" \
+  --model-cache <model-cache> \
   --repository .
 ```
 

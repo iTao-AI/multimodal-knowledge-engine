@@ -40,7 +40,8 @@ def test_hybrid_rrf_guide_matches_canonical_valid_negative() -> None:
         "--record-holdout-receipt",
         "python -m mke.evaluation.hybrid_rrf_artifact validate",
         "python -m mke.evaluation.dense_replay validate",
-        "verification gate, not a fusion scoring source",
+        "optional corroborating check",
+        "--model-cache <model-cache>",
         "Search, Ask, MCP, owner startup, Publication, ingestion",
         "API adapter, reranker, query rewrite, segmentation, HTTP/UI",
         "Milvus, Redis, or pgvector",
@@ -83,5 +84,6 @@ def test_hybrid_rrf_docs_are_discoverable_and_reviewed_without_promotion() -> No
     assert "holdout was not observed" in review
     assert "valid negative" in review
     assert "pre-PR review" in review
-    assert "pending" in review
+    assert "targeted re-review" in review
+    assert "pending" not in review
     assert "holdout_status=not_observed" in guide

@@ -25,9 +25,9 @@ make future E3-E and segmentation investigations eligible; they do not implement
 - E1/E2/E3-A/E3-B normalized semantics remained equal before identity-only refresh.
 - E1/E2/E3-A/E3-B/E3-C/E3-D canonical validators pass after the refresh chain.
 - Development freeze SHA-256 is
-  `8c9352782ee7a7936804ba68edf135cc620b0886741de97bb1ae6c43204442da`.
+  `b3396dbd0e79582fd374c0189a34a3581ffa7edfe82771c89c5ecd81fc82b477`.
 - Comparison artifact SHA-256 is
-  `fd958c2b87c3b5e971e5b17cd8ef1369a7dc0bd63f1ea83b8b207fa9e83b26e4`.
+  `a06a54b3d58417321192c535041bf798cbebfa5fac83a48c71a218cef8c33699`.
 
 ## Scope Limits
 
@@ -44,15 +44,15 @@ negative result.
 - Canonical E1/E2/E3-A/E3-B/E3-C/E3-D validators passed after the final artifact identity refresh.
 - Public-boundary scan found only synthetic command/test-string matches for `Traceback` redaction,
   not private paths, credentials, raw GStack artifacts, model cache, venv, or personal context.
-- Cache-ready dense replay was attempted with the existing model cache but failed before replay
-  because the embedding optional dependency was not installed (`huggingface_hub` and
+- Cache-ready dense replay is unmet optional corroboration, not a completed gate. It failed before
+  replay because the embedding optional dependency was not installed (`huggingface_hub` and
   `sentence_transformers` unavailable). No dependency installation, download, or dense rescoring was
   performed.
-- Final local `gstack-review` checklist pass found no unresolved critical or informational findings.
+- Scheme-window review findings have been addressed in this branch; targeted re-review is the next
+  publication step.
 
 ## Review Status
 
-The implementation self-review found no scope expansion. The final local pre-PR review checklist
-pass found no unresolved findings. Authoritative scheme-window review remains the next step before
-any PR publication, so the scheme-window pre-PR review status is still `pending`; no PR has been
-created.
+The implementation self-review found no scope expansion. Scheme-window pre-PR review findings were
+addressed in this branch, and targeted re-review is the next step before any PR publication. No PR
+has been created.

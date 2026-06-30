@@ -895,7 +895,10 @@ def test_cli_eval_hybrid_rrf_development_records_freeze(
             "holdout_status": "not_observed",
             "runtime_promotion_status": "not_evaluated",
             "metrics": {},
-            "diagnostics": {},
+            "diagnostics": {
+                "ranking_headroom_count": 1,
+                "neither_arm_miss_count": 4,
+            },
         }
 
     def record_freeze(**kwargs: object) -> dict[str, object]:
@@ -925,6 +928,8 @@ def test_cli_eval_hybrid_rrf_development_records_freeze(
 
     payload = json.loads(capsys.readouterr().out)
     assert payload["development_status"] == "valid_negative"
+    assert payload["e3e_status"] == "eligible"
+    assert payload["segmentation_status"] == "eligible"
     assert payload["runtime_promotion_status"] == "not_evaluated"
     assert captured["protocol_path"] == HYBRID_RRF_PROTOCOL
     assert captured["dense_artifact_path"] == HYBRID_RRF_DENSE_ARTIFACT

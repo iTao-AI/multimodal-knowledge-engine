@@ -688,13 +688,42 @@ def _dense_failure_cause(error: Exception) -> str:
 def _hybrid_rrf_development_payload(
     report: dict[str, object],
 ) -> dict[str, object]:
+    diagnostics = _object_mapping(report.get("diagnostics"), "hybrid RRF diagnostics")
     return {
         **report,
         "phase": "development",
         "candidate_status": "completed",
-        "e3e_status": "not_evaluated",
-        "segmentation_status": "not_evaluated",
+        "e3e_status": _hybrid_rrf_followup_status(diagnostics),
+        "segmentation_status": _hybrid_rrf_segmentation_status(diagnostics),
     }
+
+
+def _hybrid_rrf_followup_status(diagnostics: Mapping[str, object]) -> str:
+    return (
+        "eligible"
+        if _strict_nonnegative_int(diagnostics.get("ranking_headroom_count")) > 0
+        else "not_evaluated"
+    )
+
+
+def _hybrid_rrf_segmentation_status(diagnostics: Mapping[str, object]) -> str:
+    return (
+        "eligible"
+        if _strict_nonnegative_int(diagnostics.get("neither_arm_miss_count")) > 0
+        else "not_evaluated"
+    )
+
+
+def _object_mapping(value: object, subject: str) -> Mapping[str, object]:
+    if not isinstance(value, dict):
+        raise HybridRrfWorkflowError(f"{subject} is invalid")
+    return cast(Mapping[str, object], value)
+
+
+def _strict_nonnegative_int(value: object) -> int:
+    if type(value) is not int or value < 0:
+        raise HybridRrfWorkflowError("hybrid RRF diagnostics are invalid")
+    return value
 
 
 def _render_hybrid_rrf_evaluation(

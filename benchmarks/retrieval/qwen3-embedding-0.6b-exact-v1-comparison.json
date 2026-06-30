@@ -10,7 +10,7 @@
     "arms": [
       {
         "arm_id": "e3a-historical-fts5-baseline",
-        "semantic_digest": "05e95e8bcd35a236d413d83d9b7deac71a7da52a7183041bb73966cd9b44f383"
+        "semantic_digest": "96daa133681bd09200760d7c4e6e9caeaa7fdf8daa8241ee1e3b7419122a9c1d"
       },
       {
         "arm_id": "cjk-trigram-overlap-v1",
@@ -4341,7 +4341,7 @@
     "e3a": {
       "bytes": 114265,
       "path": "benchmarks/retrieval/retrieval-chinese-v1-baseline.json",
-      "sha256": "05e95e8bcd35a236d413d83d9b7deac71a7da52a7183041bb73966cd9b44f383"
+      "sha256": "96daa133681bd09200760d7c4e6e9caeaa7fdf8daa8241ee1e3b7419122a9c1d"
     },
     "e3b": {
       "bytes": 196145,
@@ -9514,9 +9514,9 @@
         "sha256": "762bcf63e695eb08dcf181c2ef5888254295c3b07340f11b56d2ac0c9787ffc9"
       },
       {
-        "bytes": 62652,
+        "bytes": 63657,
         "path": "src/mke/cli.py",
-        "sha256": "2d7d73f390416fab62d2846d486313263d51ddf37d8755a4b127cfb301dc98a6"
+        "sha256": "a2f1af2945b75a4700917d12b3e41fef1ba705c0fdec780427b3250f0dd17da1"
       },
       {
         "bytes": 28723,
@@ -9564,7 +9564,7 @@
         "sha256": "1c838b1464be9426c67887bfe5e0ff082d5a81d0addaf6addb4e7b7317c3627b"
       }
     ],
-    "sha256": "sha256:4d100b9c2bc8aa7226fe4ac55fa4386cf04610574ddbbd8a23fda8470e156700"
+    "sha256": "sha256:2b0f14c8abafe5fef6e854986f64b2b6895393762d3bddc4bfa1b3b5627c84d6"
   },
   "state": {
     "development_freeze_sha256": "e2c791bf2a9d7ad6ea3047f89fad2c3157038da88f960b3befa1df131d26002d",
