@@ -85,6 +85,9 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [Local Dense Retrieval Candidate Autoplan Review](./superpowers/reviews/2026-06-28-local-dense-retrieval-candidate-autoplan-review.md) records the scope, engineering, evidence-integrity, and CLI/DX amendments required before E3-C implementation.
 - [Local Dense Prerequisites Implementation Review](./superpowers/reviews/2026-06-28-local-dense-prerequisites-review.md) records the PR 1 compatibility proof, resource results, and no-qrel boundary.
 - [Local Dense Retrieval Candidate Implementation Review](./superpowers/reviews/2026-06-28-local-dense-retrieval-candidate-review.md) records the PR 2 dense comparison evidence and scope limits.
+- [CJK Lexical Dense RRF Fusion Candidate Design](./superpowers/specs/2026-06-30-cjk-lexical-dense-rrf-fusion-design.md) defines the approved comparison-only E3-D rank-only RRF experiment over current lexical runtime and the E3-C dense candidate.
+- [CJK Lexical Dense RRF Fusion Candidate Implementation Plan](./superpowers/plans/2026-06-30-cjk-lexical-dense-rrf-fusion-implementation.md) defines the E3-D TDD tasks, artifact protocol, validators, diagnostics, and stop conditions.
+- [CJK Lexical Dense RRF Fusion Candidate Autoplan Review](./superpowers/reviews/2026-06-30-cjk-lexical-dense-rrf-fusion-autoplan-review.md) records the approved E3-D plan review and evidence-boundary amendments.
 
 ## Development Verification
 
