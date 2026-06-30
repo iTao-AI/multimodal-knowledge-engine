@@ -19,8 +19,10 @@ pytest, Ruff, Pyright, Hatch/uv, existing `mke eval` CLI patterns.
 
 ---
 
-Status: implementation complete with a development valid negative; holdout was not observed. This
-plan depends on the approved
+Status: implementation complete and merged by PR #46. E3-D recorded a development valid negative;
+holdout was not observed and `runtime_promotion_status=not_evaluated` remains frozen. PR #46 was
+squash merged to `main@158d0614fec2ef49da9db5882c589a832c48331f`; post-merge CI and CodeQL checks
+passed. This plan depends on the approved
 [CJK Lexical Dense RRF Fusion Candidate Design](../specs/2026-06-30-cjk-lexical-dense-rrf-fusion-design.md).
 
 Planning base: `main@0fe1d5640f914e8307ec938e36ba145419c64872`.
@@ -1291,7 +1293,7 @@ Create the review file with:
 - holdout status;
 - rejected scope drift;
 - remaining risks;
-- pre-PR review status initially waiting for review.
+- scheme-window targeted re-review status and post-merge PR #46 closeout.
 
 Update this plan's status line and checklist with actual completed evidence.
 
@@ -1491,6 +1493,11 @@ Do not push or create a PR. Hand off:
 - remaining risks.
 
 The scheme/review window then runs authoritative `gstack-review` before PR publication.
+
+Post-merge closeout: scheme-window targeted re-review completed with `CLEAN / 0 findings`, PR #46
+was opened as Ready, passed CI/CodeQL, and was squash merged to
+`main@158d0614fec2ef49da9db5882c589a832c48331f`. This closeout does not change runtime code,
+artifact metrics, protocol, qrels, fixtures, Search/Ask/MCP behavior, or runtime defaults.
 
 ## Stop Conditions
 

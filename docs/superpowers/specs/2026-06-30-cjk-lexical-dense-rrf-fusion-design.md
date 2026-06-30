@@ -1,6 +1,10 @@
 # CJK Lexical Dense RRF Fusion Candidate Design
 
-Status: approved E3-D design; implementation plan pending.
+Status: implemented and merged by PR #46. E3-D recorded a development valid negative;
+holdout was not observed and `runtime_promotion_status=not_evaluated` remains frozen.
+
+Post-merge closeout: PR #46 was squash merged to `main@158d0614fec2ef49da9db5882c589a832c48331f`;
+post-merge CI and CodeQL checks passed.
 
 ## Context
 
@@ -245,8 +249,8 @@ Development gates:
 - model-free validation of E1, E2, E3-A, E3-B, and E3-C passes before scoring;
 - current runtime semantic observations match the frozen Task 0 snapshot;
 - dense artifact validation passes;
-- cache-ready dense replay remains a final publication verification item, not a fusion scoring
-  input;
+- cache-ready dense replay remains optional corroboration, not a fusion scoring input or an E3-D
+  acceptance gate;
 - fused Recall@5 is not lower than both input arms on development;
 - fused nDCG@10 is not lower than both input arms on development;
 - fused candidate has at least one strict development improvement over the best single arm in
@@ -309,15 +313,16 @@ uv run mke eval retrieval-hybrid-rrf \
   --json
 ```
 
-The E3-D evaluator itself should be model-free. Cache-ready dense replay remains a required
-verification command, not a second dense scoring source:
+The E3-D evaluator itself should be model-free. Cache-ready dense replay remains optional
+corroboration when the embedding extra and an already-populated local model cache are available,
+not a second dense scoring source or an E3-D acceptance gate:
 
 ```bash
 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 UV_OFFLINE=1 TOKENIZERS_PARALLELISM=false \
 uv run python -m mke.evaluation.dense_replay validate \
   --artifact benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json \
   --protocol tests/fixtures/retrieval-dense-v1/protocol-lock.json \
-  --model-cache "$HOME/Library/Caches/mke/embedding" \
+  --model-cache <model-cache> \
   --repository .
 ```
 

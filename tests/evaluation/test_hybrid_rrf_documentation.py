@@ -17,6 +17,13 @@ REVIEW = (
     ROOT
     / "docs/superpowers/reviews/2026-06-30-cjk-lexical-dense-rrf-fusion-review.md"
 )
+SPEC = (
+    ROOT / "docs/superpowers/specs/2026-06-30-cjk-lexical-dense-rrf-fusion-design.md"
+)
+PLAN = (
+    ROOT
+    / "docs/superpowers/plans/2026-06-30-cjk-lexical-dense-rrf-fusion-implementation.md"
+)
 
 
 def test_hybrid_rrf_guide_matches_canonical_valid_negative() -> None:
@@ -69,6 +76,8 @@ def test_hybrid_rrf_guide_matches_canonical_valid_negative() -> None:
 def test_hybrid_rrf_docs_are_discoverable_and_reviewed_without_promotion() -> None:
     guide = GUIDE.read_text(encoding="utf-8")
     review = REVIEW.read_text(encoding="utf-8")
+    spec = SPEC.read_text(encoding="utf-8")
+    plan = PLAN.read_text(encoding="utf-8")
     public_docs = "\n".join(
         (ROOT / relative).read_text(encoding="utf-8")
         for relative in (
@@ -86,5 +95,13 @@ def test_hybrid_rrf_docs_are_discoverable_and_reviewed_without_promotion() -> No
     assert "pre-PR review" in review
     assert "scheme-window targeted re-review CLEAN / 0 findings" in review
     assert "no unresolved implementation findings" in review
+    assert "PR #46" in review
+    assert "main@158d0614fec2ef49da9db5882c589a832c48331f" in review
+    assert "post-merge CI and CodeQL" in review
     assert "pending" not in review
+    assert "No PR has been created" not in review
     assert "holdout_status=not_observed" in guide
+    for durable_doc in (spec, plan, review):
+        assert "PR #46" in durable_doc
+        assert "main@158d0614fec2ef49da9db5882c589a832c48331f" in durable_doc
+    assert "implementation plan pending" not in spec
