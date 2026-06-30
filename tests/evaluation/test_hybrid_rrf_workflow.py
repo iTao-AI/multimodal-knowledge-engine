@@ -6,9 +6,11 @@ from typing import cast
 
 import pytest
 
+import mke.evaluation.hybrid_rrf_workflow as workflow
 from mke.evaluation.hybrid_rrf_workflow import (
     HybridRrfWorkflowError,
     load_hybrid_rrf_inputs,
+    run_hybrid_rrf_development,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -154,6 +156,53 @@ def test_loader_rejects_unbound_lexical_locator(
             protocol_path=PROTOCOL,
             repository_root=repository_root,
         )
+
+
+def test_development_records_complete_diagnostics(repository_root: Path) -> None:
+    report = run_hybrid_rrf_development(
+        protocol_path=PROTOCOL,
+        dense_artifact_path=DENSE_ARTIFACT,
+        repository_root=repository_root,
+    )
+
+    assert report["candidate"] == {
+        "candidate_id": "cjk-active-scan-qwen3-rrf-v1",
+        "candidate_revision": 1,
+    }
+    assert report["development_status"] in {"passed", "valid_negative"}
+    assert report["holdout_status"] == "not_observed"
+    diagnostics = cast(dict[str, object], report["diagnostics"])
+    assert diagnostics["query_count"] == 24
+    assert "union_grade2_coverage_at_10" in diagnostics
+    assert "fused_lost_union_grade2_count" in diagnostics
+    assert "ranking_headroom_count" in diagnostics
+    assert "lexical_only_recovery_count" in diagnostics
+    assert "dense_only_recovery_count" in diagnostics
+    assert "both_arm_recovery_count" in diagnostics
+    assert "neither_arm_miss_count" in diagnostics
+    metrics = cast(dict[str, object], report["metrics"])
+    assert set(metrics) == {"fused", "lexical", "dense"}
+
+
+def test_development_valid_negative_does_not_require_holdout(
+    repository_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        workflow,
+        "_development_status",
+        lambda metrics, diagnostics: "valid_negative",
+    )
+
+    report = run_hybrid_rrf_development(
+        protocol_path=PROTOCOL,
+        dense_artifact_path=DENSE_ARTIFACT,
+        repository_root=repository_root,
+    )
+
+    assert report["development_status"] == "valid_negative"
+    assert report["holdout_status"] == "not_observed"
+    assert "holdout" not in report
 
 
 def _artifact_copy() -> dict[str, object]:

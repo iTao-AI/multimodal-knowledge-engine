@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from hashlib import sha256
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -18,8 +18,18 @@ from mke.evaluation.dense_artifact import (
     DenseArtifactValidationError,
     validate_dense_comparison_artifact,
 )
+from mke.evaluation.graded_metrics import (
+    GradedQueryMetricInput,
+    calculate_graded_metrics,
+)
 from mke.evaluation.hybrid_rrf_protocol import load_hybrid_rrf_protocol_lock
-from mke.evaluation.rrf_fusion import ArmRankedResult
+from mke.evaluation.manifest import StableLocator
+from mke.evaluation.rrf_fusion import (
+    ArmRankedResult,
+    FusedRrfResult,
+    RrfCandidateConfig,
+    fuse_ranked_results,
+)
 
 
 class HybridRrfWorkflowError(ValueError):
@@ -64,6 +74,62 @@ class HybridRrfInputs:
     state: HybridRrfState
     dense_artifact_sha256: str
     current_runtime_semantic_digest: str
+
+
+def run_hybrid_rrf_development(
+    *,
+    protocol_path: Path,
+    dense_artifact_path: Path,
+    repository_root: Path,
+) -> dict[str, object]:
+    inputs = load_hybrid_rrf_inputs(
+        dense_artifact_path=dense_artifact_path,
+        protocol_path=protocol_path,
+        repository_root=repository_root,
+    )
+    config = RrfCandidateConfig.default()
+    fused_by_query = {
+        query.query_id: fuse_ranked_results(
+            query_id=query.query_id,
+            lexical=query.lexical,
+            dense=query.dense,
+            config=config,
+        )
+        for query in inputs.development.queries
+    }
+    metrics = {
+        "fused": _metrics_for(inputs.development.queries, fused_by_query),
+        "lexical": _metrics_for_arm(inputs.development.queries, arm="lexical"),
+        "dense": _metrics_for_arm(inputs.development.queries, arm="dense"),
+    }
+    diagnostics = _diagnostics(inputs.development.queries, fused_by_query)
+    status = _development_status(metrics, diagnostics)
+    return {
+        "schema_version": "mke.hybrid_rrf_development.v1",
+        "candidate": {
+            "candidate_id": config.candidate_id,
+            "candidate_revision": config.candidate_revision,
+        },
+        "dense_artifact_sha256": inputs.dense_artifact_sha256,
+        "current_runtime_semantic_digest": inputs.current_runtime_semantic_digest,
+        "development_status": status,
+        "holdout_status": "not_observed",
+        "runtime_promotion_status": "not_evaluated",
+        "metrics": metrics,
+        "diagnostics": diagnostics,
+        "results": [
+            {
+                "query_id": query.query_id,
+                "split": query.split,
+                "category": query.category,
+                "fused_results": [
+                    _fused_result_payload(row)
+                    for row in fused_by_query[query.query_id]
+                ],
+            }
+            for query in inputs.development.queries
+        ],
+    }
 
 
 def load_hybrid_rrf_inputs(
@@ -149,6 +215,193 @@ def load_hybrid_rrf_inputs(
             "current runtime semantic digest",
         ),
     )
+
+
+def _metrics_for(
+    queries: tuple[HybridRrfQueryInput, ...],
+    fused_by_query: dict[str, tuple[FusedRrfResult, ...]],
+) -> dict[str, Any]:
+    return _metric_payload(
+        tuple(
+            GradedQueryMetricInput(
+                query_id=query.query_id,
+                category=query.category,
+                qrels=query.qrels,
+                retrieved=tuple(
+                    _stable_locator(row)
+                    for row in fused_by_query[query.query_id]
+                ),
+                ask_status=query.ask_status,
+                compiled_query_empty=query.compiled_query_empty,
+                ascii_token_count=query.ascii_token_count,
+            )
+            for query in queries
+        )
+    )
+
+
+def _metrics_for_arm(
+    queries: tuple[HybridRrfQueryInput, ...],
+    *,
+    arm: Literal["lexical", "dense"],
+) -> dict[str, Any]:
+    return _metric_payload(
+        tuple(
+            GradedQueryMetricInput(
+                query_id=query.query_id,
+                category=query.category,
+                qrels=query.qrels,
+                retrieved=tuple(
+                    _stable_locator(row)
+                    for row in (query.lexical if arm == "lexical" else query.dense)
+                ),
+                ask_status=query.ask_status,
+                compiled_query_empty=query.compiled_query_empty,
+                ascii_token_count=query.ascii_token_count,
+            )
+            for query in queries
+        )
+    )
+
+
+def _metric_payload(inputs: tuple[GradedQueryMetricInput, ...]) -> dict[str, Any]:
+    return _json_normalized(asdict(calculate_graded_metrics(inputs)))
+
+
+def _diagnostics(
+    queries: tuple[HybridRrfQueryInput, ...],
+    fused_by_query: dict[str, tuple[FusedRrfResult, ...]],
+) -> dict[str, object]:
+    union_grade2 = 0
+    fused_lost = 0
+    lexical_only = 0
+    dense_only = 0
+    both = 0
+    neither = 0
+    per_category: dict[str, dict[str, int]] = {}
+    for query in queries:
+        category = per_category.setdefault(
+            query.category,
+            {
+                "query_count": 0,
+                "union_grade2_coverage_at_10_count": 0,
+                "fused_lost_union_grade2_count": 0,
+            },
+        )
+        category["query_count"] += 1
+        if query.category == "unanswerable":
+            continue
+        grade2 = {qrel.locator for qrel in query.qrels if qrel.grade == 2}
+        lexical_hit = bool(grade2 & {_stable_locator(row) for row in query.lexical[:10]})
+        dense_hit = bool(grade2 & {_stable_locator(row) for row in query.dense[:10]})
+        fused_hit = bool(
+            grade2
+            & {
+                _stable_locator(row)
+                for row in fused_by_query[query.query_id][:5]
+            }
+        )
+        union_hit = lexical_hit or dense_hit
+        if union_hit:
+            union_grade2 += 1
+            category["union_grade2_coverage_at_10_count"] += 1
+        if union_hit and not fused_hit:
+            fused_lost += 1
+            category["fused_lost_union_grade2_count"] += 1
+        if lexical_hit and dense_hit:
+            both += 1
+        elif lexical_hit:
+            lexical_only += 1
+        elif dense_hit:
+            dense_only += 1
+        else:
+            neither += 1
+    return {
+        "query_count": len(queries),
+        "union_grade2_coverage_at_10": union_grade2,
+        "fused_lost_union_grade2_count": fused_lost,
+        "ranking_headroom_count": fused_lost,
+        "lexical_only_recovery_count": lexical_only,
+        "dense_only_recovery_count": dense_only,
+        "both_arm_recovery_count": both,
+        "neither_arm_miss_count": neither,
+        "per_category_delta": per_category,
+    }
+
+
+def _development_status(
+    metrics: dict[str, dict[str, Any]],
+    diagnostics: dict[str, object],
+) -> Literal["passed", "valid_negative"]:
+    fused = metrics["fused"]
+    lexical = metrics["lexical"]
+    dense = metrics["dense"]
+    quality_gates = (
+        _metric_value(fused, "recall_at_5") >= _metric_value(lexical, "recall_at_5")
+        and _metric_value(fused, "recall_at_5") >= _metric_value(dense, "recall_at_5")
+        and _metric_value(fused, "ndcg_at_10") >= _metric_value(lexical, "ndcg_at_10")
+        and _metric_value(fused, "ndcg_at_10") >= _metric_value(dense, "ndcg_at_10")
+        and _metric_value(fused, "unanswerable_no_hit_rate")
+        >= _metric_value(lexical, "unanswerable_no_hit_rate")
+        and _metric_value(fused, "hard_negative_failure_rate")
+        <= _metric_value(lexical, "hard_negative_failure_rate")
+    )
+    strict_improvement = (
+        _metric_value(fused, "recall_at_5")
+        > max(
+            _metric_value(lexical, "recall_at_5"),
+            _metric_value(dense, "recall_at_5"),
+        )
+        or _metric_value(fused, "ndcg_at_10")
+        > max(
+            _metric_value(lexical, "ndcg_at_10"),
+            _metric_value(dense, "ndcg_at_10"),
+        )
+        or _metric_value(fused, "mrr_at_5")
+        > max(
+            _metric_value(lexical, "mrr_at_5"),
+            _metric_value(dense, "mrr_at_5"),
+        )
+        or cast(int, diagnostics["dense_only_recovery_count"]) > 0
+    )
+    return "passed" if quality_gates and strict_improvement else "valid_negative"
+
+
+def _metric_value(payload: dict[str, Any], name: str) -> float:
+    value = _object(payload.get(name), name).get("value")
+    if type(value) not in {float, int}:
+        raise HybridRrfWorkflowError("metric value is invalid")
+    return float(value)
+
+
+def _fused_result_payload(row: FusedRrfResult) -> dict[str, object]:
+    return {
+        "rank": row.rank,
+        "stable_locator_id": row.stable_locator_id,
+        "document_id": row.document_id,
+        "locator_kind": row.locator_kind,
+        "locator_start": row.locator_start,
+        "locator_end": row.locator_end,
+        "source_text_digest": row.source_text_digest,
+        "portable_score": row.portable_score,
+        "arms": list(row.arms),
+        "lexical_rank": row.lexical_rank,
+        "dense_rank": row.dense_rank,
+        "best_individual_rank": row.best_individual_rank,
+    }
+
+
+def _stable_locator(row: ArmRankedResult | FusedRrfResult) -> StableLocator:
+    return StableLocator(
+        document_id=row.document_id,
+        locator_kind=cast(Literal["page", "timestamp_ms"], row.locator_kind),
+        locator_start=row.locator_start,
+        locator_end=row.locator_end,
+    )
+
+
+def _json_normalized(value: object) -> dict[str, Any]:
+    return cast(dict[str, Any], json.loads(json.dumps(value, ensure_ascii=False)))
 
 
 def _load_dense_artifact(path: Path) -> dict[str, Any]:
