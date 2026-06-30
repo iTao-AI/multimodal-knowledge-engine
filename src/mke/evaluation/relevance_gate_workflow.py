@@ -8,6 +8,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any, Literal, cast
 
+import mke.evaluation.hybrid_rrf_workflow as hybrid_rrf_workflow
 from mke.adapters.pdf.extractor import PyMuPDFPdfExtractor
 from mke.evaluation.chinese_protocol import (
     ChineseEvaluationQuery,
@@ -21,7 +22,6 @@ from mke.evaluation.graded_metrics import (
     GradedQueryMetricInput,
     calculate_graded_metrics,
 )
-from mke.evaluation.hybrid_rrf_workflow import load_hybrid_rrf_inputs
 from mke.evaluation.manifest import StableLocator
 from mke.evaluation.relevance_gate_candidate import (
     PROFILE_CATALOG,
@@ -623,19 +623,40 @@ def _build_holdout_rrf_partition(
     dense_artifact_path: Path,
     repository_root: Path,
 ) -> list[object]:
-    hybrid_inputs = load_hybrid_rrf_inputs(
-        dense_artifact_path=dense_artifact_path,
-        protocol_path=repository_root
-        / "tests/fixtures/retrieval-hybrid-rrf-v1/protocol-lock.json",
-        repository_root=repository_root,
+    dense_artifact = hybrid_rrf_workflow._load_dense_artifact(dense_artifact_path)
+    state = hybrid_rrf_workflow._state(dense_artifact)
+    inventory = hybrid_rrf_workflow._locator_inventory(dense_artifact)
+    runtime_results = hybrid_rrf_workflow._runtime_results(dense_artifact)
+    dense_observations = hybrid_rrf_workflow._dense_observations(
+        dense_artifact,
+        partition="holdout",
+        threshold=state.selected_threshold,
     )
+    chinese = load_chinese_retrieval_protocol(
+        repository_root / "tests/fixtures/retrieval-chinese-v1/protocol.json"
+    )
+    runtime_by_id = {
+        item["query_id"]: item
+        for item in runtime_results
+        if item.get("split") == "holdout"
+    }
+    dense_by_id = {item["query_id"]: item for item in dense_observations}
     config = RrfCandidateConfig.default()
     results: list[object] = []
-    for query in hybrid_inputs.holdout.queries:
+    for query in (item for item in chinese.queries if item.split == "holdout"):
+        runtime = runtime_by_id.get(query.query_id)
+        dense = dense_by_id.get(query.query_id)
+        if runtime is None or dense is None:
+            raise RelevanceGateWorkflowError("holdout query observation is missing")
+        lexical_rows = hybrid_rrf_workflow._lexical_rows(runtime, inventory)
+        dense_rows = hybrid_rrf_workflow._dense_rows(
+            dense,
+            threshold=state.selected_threshold,
+        )
         fused = fuse_ranked_results(
             query_id=query.query_id,
-            lexical=query.lexical,
-            dense=query.dense,
+            lexical=lexical_rows,
+            dense=dense_rows,
             config=config,
         )
         results.append(

@@ -64,6 +64,16 @@ from mke.evaluation.hybrid_rrf_workflow import (
     run_hybrid_rrf_holdout,
 )
 from mke.evaluation.numeric_comparison import NumericComparisonReport
+from mke.evaluation.relevance_gate_protocol import (
+    CANDIDATE_ID as RELEVANCE_GATE_CANDIDATE_ID,
+)
+from mke.evaluation.relevance_gate_protocol import RelevanceGateProtocolError
+from mke.evaluation.relevance_gate_workflow import (
+    RelevanceGateWorkflowError,
+    record_relevance_gate_development_freeze,
+    run_relevance_gate_development,
+    run_relevance_gate_holdout,
+)
 from mke.evaluation.report import RetrievalEvaluationReport
 from mke.interfaces.mcp_contract import McpRuntimeConfig, transcript_intake_report_payload
 from mke.interfaces.mcp_server import run_mcp_server
@@ -296,6 +306,27 @@ def main(argv: Sequence[str] | None = None) -> int:
     hybrid_rrf_retrieval.add_argument("--record", type=Path)
     hybrid_rrf_retrieval.add_argument("--record-holdout-receipt", type=Path)
     hybrid_rrf_retrieval.add_argument(
+        "--json", action="store_true", dest="json_output"
+    )
+    relevance_gate_retrieval = evaluation_subcommands.add_parser(
+        "retrieval-relevance-gate",
+        description=(
+            "Run the E3-E comparison-only deterministic relevance gate and "
+            "reranker protocol. This command does not promote or change the "
+            "runtime default, Search, Ask, MCP, owner startup, Publication, "
+            "or ingestion behavior."
+        ),
+    )
+    relevance_gate_retrieval.add_argument("--protocol", type=Path, required=True)
+    relevance_gate_retrieval.add_argument(
+        "--candidate", choices=(RELEVANCE_GATE_CANDIDATE_ID,), required=True
+    )
+    relevance_gate_retrieval.add_argument("--development-only", action="store_true")
+    relevance_gate_retrieval.add_argument("--record-development-freeze", type=Path)
+    relevance_gate_retrieval.add_argument("--development-freeze", type=Path)
+    relevance_gate_retrieval.add_argument("--record", type=Path)
+    relevance_gate_retrieval.add_argument("--record-holdout-receipt", type=Path)
+    relevance_gate_retrieval.add_argument(
         "--json", action="store_true", dest="json_output"
     )
 
@@ -541,6 +572,84 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(_render_hybrid_rrf_evaluation(payload, json_output=args.json_output))
                 return 1
             print(_render_hybrid_rrf_evaluation(payload, json_output=args.json_output))
+            return 0
+        if args.evaluation_command == "retrieval-relevance-gate":
+            development_paths = (
+                args.record_development_freeze is not None
+                and args.development_freeze is None
+                and args.record is None
+                and args.record_holdout_receipt is None
+            )
+            holdout_paths = (
+                args.record_development_freeze is None
+                and args.development_freeze is not None
+                and args.record is not None
+                and args.record_holdout_receipt is not None
+            )
+            if (args.development_only and not development_paths) or (
+                not args.development_only and not holdout_paths
+            ):
+                parser.error(
+                    "retrieval-relevance-gate phase flags are incomplete or incompatible"
+                )
+            phase = "development" if args.development_only else "holdout"
+            try:
+                if args.development_only:
+                    target_path = args.record_development_freeze
+                    if not isinstance(target_path, Path):
+                        raise RelevanceGateWorkflowError(
+                            "development freeze path is invalid"
+                        )
+                    report = run_relevance_gate_development(
+                        protocol_path=args.protocol,
+                        candidate_id=args.candidate,
+                        repository_root=Path.cwd(),
+                    )
+                    record_relevance_gate_development_freeze(
+                        report=report,
+                        target_path=target_path,
+                    )
+                    payload = {**report, "phase": "development"}
+                else:
+                    development_freeze_path = args.development_freeze
+                    record_path = args.record
+                    holdout_receipt_path = args.record_holdout_receipt
+                    if not all(
+                        isinstance(path, Path)
+                        for path in (
+                            development_freeze_path,
+                            record_path,
+                            holdout_receipt_path,
+                        )
+                    ):
+                        raise RelevanceGateWorkflowError("holdout paths are invalid")
+                    assert isinstance(development_freeze_path, Path)
+                    assert isinstance(record_path, Path)
+                    assert isinstance(holdout_receipt_path, Path)
+                    payload = run_relevance_gate_holdout(
+                        protocol_path=args.protocol,
+                        candidate_id=args.candidate,
+                        development_freeze_path=development_freeze_path,
+                        record_path=record_path,
+                        holdout_receipt_path=holdout_receipt_path,
+                        repository_root=Path.cwd(),
+                    )
+                    payload = {**payload, "phase": "holdout"}
+            except Exception as error:
+                payload = _relevance_gate_failure_payload(error, phase=phase)
+                print(
+                    _render_relevance_gate_evaluation(
+                        payload,
+                        json_output=args.json_output,
+                    )
+                )
+                return 1
+            print(
+                _render_relevance_gate_evaluation(
+                    payload,
+                    json_output=args.json_output,
+                )
+            )
             return 0
         parser.error("unsupported evaluation command")
     if args.command == "demo":
@@ -816,6 +925,102 @@ def _hybrid_rrf_public_failure(error: Exception) -> tuple[str, str, str]:
         "rrf_artifact_invalid",
         "hybrid RRF evaluation artifact is invalid",
         "inspect_hybrid_rrf_inputs",
+    )
+
+
+def _render_relevance_gate_evaluation(
+    payload: Mapping[str, object], *, json_output: bool
+) -> str:
+    if json_output:
+        return json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    lines = [
+        "mke eval retrieval-relevance-gate",
+        f"phase={payload.get('phase', 'holdout')}",
+    ]
+    for key in (
+        "candidate_status",
+        "development_status",
+        "holdout_status",
+        "selected_profile",
+        "runtime_promotion_status",
+    ):
+        lines.append(f"{key}={payload.get(key, 'not_evaluated')}")
+    holdout = payload.get("holdout")
+    if isinstance(holdout, dict):
+        lines.append(
+            "holdout_gate_status="
+            f"{cast(dict[str, object], holdout).get('holdout_gate_status', 'not_evaluated')}"
+        )
+    failure = payload.get("failure")
+    if isinstance(failure, dict):
+        failure_payload = cast(dict[str, object], failure)
+        lines.append(
+            "failure "
+            f"problem={failure_payload.get('problem')} "
+            f"cause={failure_payload.get('cause')} "
+            f"next_step={failure_payload.get('next_step')}"
+        )
+    return "\n".join(lines)
+
+
+def _relevance_gate_failure_payload(
+    error: Exception,
+    *,
+    phase: str,
+) -> dict[str, object]:
+    problem, cause, next_step = _relevance_gate_public_failure(error)
+    return {
+        "schema_version": "mke.relevance_gate_evaluation.v1",
+        "phase": phase,
+        "candidate_status": "failed",
+        "development_status": "failed" if phase == "development" else "unknown",
+        "holdout_status": "not_observed",
+        "selected_profile": None,
+        "runtime_promotion_status": "not_evaluated",
+        "failure": {
+            "problem": problem,
+            "cause": cause,
+            "next_step": next_step,
+        },
+    }
+
+
+def _relevance_gate_public_failure(error: Exception) -> tuple[str, str, str]:
+    if isinstance(error, RelevanceGateProtocolError):
+        return (
+            "relevance_gate_protocol_invalid",
+            "relevance gate protocol is invalid",
+            "restore_checked_in_protocol",
+        )
+    cause = str(error)
+    if isinstance(error, RelevanceGateWorkflowError):
+        if "development freeze is missing" in cause:
+            return (
+                "relevance_gate_development_freeze_missing",
+                "development freeze is missing",
+                "run_development_phase",
+            )
+        if "holdout receipt already exists" in cause:
+            return (
+                "relevance_gate_holdout_already_observed",
+                "holdout was already observed",
+                "preserve_existing_holdout_receipt",
+            )
+        if "identity mismatch" in cause:
+            return (
+                "relevance_gate_identity_mismatch",
+                "relevance gate input identity does not match the freeze",
+                "restore_frozen_inputs",
+            )
+        return (
+            "relevance_gate_evaluation_failed",
+            cause,
+            "inspect_relevance_gate_inputs",
+        )
+    return (
+        "relevance_gate_evaluation_failed",
+        "relevance gate evaluation did not complete",
+        "inspect_relevance_gate_inputs",
     )
 
 

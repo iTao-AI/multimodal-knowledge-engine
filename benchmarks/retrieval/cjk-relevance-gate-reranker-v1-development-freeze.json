@@ -971,7 +971,7 @@
       "value": 0.5
     }
   },
-  "protocol_sha256": "c09b5dbcef81be5e1b8f44be795822481ae152f3bc1d4bedd2658cad24983aa0",
+  "protocol_sha256": "eeae38ff6c0e620d0ef92cb6390a38bf49a7f7ac61b706f9ea20d10325ea38be",
   "rrf_artifact_sha256": "a06a54b3d58417321192c535041bf798cbebfa5fac83a48c71a218cef8c33699",
   "runtime_promotion_status": "not_evaluated",
   "schema_version": "mke.relevance_gate_development_freeze.v1",

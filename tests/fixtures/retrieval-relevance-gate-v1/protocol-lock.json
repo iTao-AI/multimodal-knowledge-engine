@@ -22,9 +22,9 @@
       "sha256": "00f72934018a52b5b5f5591fba119050882aee9b782e5dac199702b0cf995944"
     },
     "cli_source": {
-      "bytes": 63657,
+      "bytes": 72001,
       "path": "src/mke/cli.py",
-      "sha256": "a2f1af2945b75a4700917d12b3e41fef1ba705c0fdec780427b3250f0dd17da1"
+      "sha256": "59013a0a3853e41fe3f4aefa8fd48c01b5426d69948d71659644abc7c44271fa"
     },
     "dense_artifact": {
       "bytes": 403821,
