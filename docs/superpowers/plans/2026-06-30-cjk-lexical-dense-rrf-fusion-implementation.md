@@ -532,9 +532,18 @@ Add tests for:
 
 - extracting 24 development and 24 holdout dense observations from the E3-C artifact;
 - extracting matching current-runtime lexical observations from the E3-C artifact;
+- deriving lexical rank strictly from each observation's `retrieved_locators` list order;
+- rejecting non-list lexical `retrieved_locators`, duplicate lexical locators for one query, or
+  lexical rows missing `query_id`, `split`, or `category`;
 - rebinding lexical locators to source-text digests through the dense artifact inventory;
 - rejecting a lexical locator that cannot be rebound;
+- filtering dense rows by the frozen E3-C selected threshold and proving a below-threshold dense row
+  is excluded before RRF input construction;
+- preserving dense arm rank from the recorded E3-C dense row after threshold filtering; thresholding
+  must not renumber a surviving dense result;
 - rejecting duplicate dense stable locator IDs;
+- rejecting dense observations whose `rank` order disagrees with their list order or whose selected
+  threshold disagrees between E3-C comparison state and threshold report;
 - rejecting a dense artifact whose `e3d_status` is not `eligible`;
 - rejecting a dense artifact whose `runtime_promotion_status` is not `not_evaluated`.
 
@@ -606,7 +615,11 @@ Implementation notes:
 - load and validate the E3-C dense artifact with the existing dense artifact validator;
 - lexical observations come from `current_runtime.semantics.results`;
 - dense observations come from `development_candidate.observations` and `holdout_candidate.observations`;
+- lexical ranks are `1..N` from the recorded `retrieved_locators` order and must not use any lexical
+  score field;
 - only use dense results that satisfy the selected threshold already recorded by E3-C;
+- dense ranks are the recorded E3-C `rank` values after threshold filtering; do not recompute,
+  compress, or renumber dense ranks;
 - use frozen locator inventory from dense candidate results and qrels to attach source-text digest;
 - raise `HybridRrfWorkflowError` with stable messages, not raw JSON key errors.
 
@@ -864,8 +877,9 @@ def test_artifact_validator_recomputes_from_inputs(repository_root: Path) -> Non
     )
 ```
 
-This test will remain skipped or point to a temporary generated artifact until Task 8 records the
-canonical artifact. Do not leave a permanent skip after Task 8.
+Before Task 8 records the canonical artifact, this test must point to a temporary generated artifact
+under `tmp_path`. Do not leave a permanent skip. After Task 8, update the same test to validate the
+checked-in canonical artifact.
 
 - [ ] **Step 2: Run RED artifact tests**
 
@@ -920,8 +934,8 @@ Run:
 uv run pytest tests/evaluation/test_hybrid_rrf_artifact.py tests/evaluation/test_hybrid_rrf_workflow.py -q
 ```
 
-Expected: all tests that do not require the final checked-in artifact pass. If tests are skipped
-waiting for Task 8, each skip must name Task 8 explicitly.
+Expected: all tests that do not require the final checked-in artifact pass. The temporary artifact
+validator test must run against a `tmp_path` artifact rather than skip.
 
 - [ ] **Step 5: Commit Task 6**
 
@@ -1087,9 +1101,9 @@ uv run python -m mke.evaluation.hybrid_rrf_artifact validate \
 
 Expected: `hybrid RRF artifact valid`.
 
-- [ ] **Step 4: Remove temporary skips and run artifact tests**
+- [ ] **Step 4: Switch temporary artifact tests to the checked-in artifact**
 
-Update any Task 6 temporary skip to use the checked-in artifact.
+Update any Task 6 temporary-artifact test to use the checked-in artifact.
 
 Run:
 
@@ -1097,7 +1111,7 @@ Run:
 uv run pytest tests/evaluation/test_hybrid_rrf_artifact.py tests/evaluation/test_hybrid_rrf_workflow.py -q
 ```
 
-Expected: no temporary skip remains; tests pass.
+Expected: no temporary artifact indirection remains for the canonical validation path; tests pass.
 
 - [ ] **Step 5: Commit Task 8**
 
@@ -1313,7 +1327,7 @@ if errors:
     sys.exit(1)
 print("scoped markdown links valid")
 PY
-rg -n "Career|字节|RAG实践|/Users/mac|raw GStack|求职|面试|token=|Traceback" \
+rg -n "/User[s]/|00_Inbox|[.]gstack|toke[n]=|api[_-]?ke[y]|[s]ecret|passwor[d]|Tracebac[k]" \
   docs/how-to/evaluate-hybrid-rrf-retrieval.md \
   docs/superpowers/specs/2026-06-30-cjk-lexical-dense-rrf-fusion-design.md \
   docs/superpowers/plans/2026-06-30-cjk-lexical-dense-rrf-fusion-implementation.md \
@@ -1435,7 +1449,7 @@ Run:
 ```bash
 git diff --name-only origin/main...HEAD
 git diff origin/main...HEAD -- . \
-  | rg -n "Career|字节|RAG实践|/Users/mac|raw GStack|求职|面试|token=|secret|password|Traceback" || true
+  | rg -n "/User[s]/|00_Inbox|[.]gstack|toke[n]=|api[_-]?ke[y]|[s]ecret|passwor[d]|Tracebac[k]" || true
 ```
 
 Expected: no real private path, credential, raw GStack artifact, model cache, venv, or personal
@@ -1492,3 +1506,20 @@ The final PR body must state:
 - No API adapter, reranker, query rewrite, segmentation, HTTP, UI, Milvus, Redis, pgvector, or
   runtime promotion is included.
 - E3-D diagnostics decide whether the next plan is reranker or Passage/segmentation.
+
+## GSTACK REVIEW REPORT
+
+Autoplan review result: `CLEAN` after plan amendments.
+
+Durable review:
+[CJK Lexical Dense RRF Fusion Candidate Autoplan Review](../reviews/2026-06-30-cjk-lexical-dense-rrf-fusion-autoplan-review.md).
+
+| Review | Status | Notes |
+|---|---|---|
+| CEO | `CLEAN` | E3-D remains comparison-only; reranker and segmentation stay follow-up decisions. |
+| Design | `SKIPPED` | No graphical UI scope. |
+| Engineering | `CLEAN` | Plan now freezes lexical rank derivation, dense threshold filtering, dense rank preservation, and no-skip validator testing. |
+| DX | `CLEAN` | CLI, validator, docs, and public error-output boundaries are specified. |
+| Outside voice | `N/A` | Current host rules prevented subagent use; no cross-model consensus was claimed. |
+
+NO UNRESOLVED DECISIONS
