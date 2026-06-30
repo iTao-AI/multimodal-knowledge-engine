@@ -1,0 +1,115 @@
+{
+  "candidate": {
+    "candidate_id": "cjk-relevance-gate-reranker-v1",
+    "candidate_revision": 1
+  },
+  "comparison_scope": {
+    "candidate_type": "deterministic_relevance_gate_reranker",
+    "runtime_promotion_status": "not_evaluated",
+    "search_ask_mcp_runtime_changed": false
+  },
+  "development_gates": {
+    "hard_negative_failure_maximum": 0.2,
+    "mrr_at_5_minimum": 0.636364,
+    "ndcg_at_10_minimum": 0.64339,
+    "recall_at_5_minimum": 0.681818,
+    "unanswerable_no_hit_minimum": 0.5
+  },
+  "inputs": {
+    "chinese_protocol": {
+      "bytes": 26661,
+      "path": "tests/fixtures/retrieval-chinese-v1/protocol.json",
+      "sha256": "00f72934018a52b5b5f5591fba119050882aee9b782e5dac199702b0cf995944"
+    },
+    "cli_source": {
+      "bytes": 63657,
+      "path": "src/mke/cli.py",
+      "sha256": "a2f1af2945b75a4700917d12b3e41fef1ba705c0fdec780427b3250f0dd17da1"
+    },
+    "dense_artifact": {
+      "bytes": 403821,
+      "path": "benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json",
+      "sha256": "dd0093bfdf972507dc682dcc0a76b2c130f9f97e9017b1f5bdbdf40dc9f86f95"
+    },
+    "metrics_source": {
+      "bytes": 8849,
+      "path": "src/mke/evaluation/graded_metrics.py",
+      "sha256": "7e28e8e53044d0dc92c721e0c3b554b2c89bcb92efa52bf073a9f9f5185c1ba5"
+    },
+    "protocol_source": {
+      "bytes": 13223,
+      "path": "src/mke/evaluation/relevance_gate_protocol.py",
+      "sha256": "cd20af2ed307b0ad161106b9d11e62a7f11da2665d36ec6e2b57130129382d31"
+    },
+    "qrel_adjudication": {
+      "bytes": 341947,
+      "path": "tests/fixtures/retrieval-chinese-v1/qrel-adjudication.json",
+      "sha256": "b638a7729725d495e809bb52a93b071e65a51b0f0ebcb218d3ee3298a04bd0c4"
+    },
+    "rrf_artifact": {
+      "bytes": 117521,
+      "path": "benchmarks/retrieval/cjk-active-scan-qwen3-rrf-v1-comparison.json",
+      "sha256": "a06a54b3d58417321192c535041bf798cbebfa5fac83a48c71a218cef8c33699"
+    }
+  },
+  "profiles": [
+    {
+      "profile_id": "lexical-floor",
+      "profile_revision": 1
+    },
+    {
+      "profile_id": "balanced-constraint",
+      "profile_revision": 1
+    },
+    {
+      "profile_id": "strict-constraint",
+      "profile_revision": 1
+    }
+  ],
+  "schema_version": "mke.relevance_gate_protocol.v1",
+  "scoring_inputs": {
+    "allowed": [
+      "query_text",
+      "evidence_text",
+      "stable_locator_id",
+      "source_text_digest",
+      "document_id",
+      "locator_identity",
+      "arm_provenance",
+      "rank_provenance"
+    ],
+    "forbidden": [
+      "qrel_grades",
+      "expected_locators",
+      "query_category_labels",
+      "split_labels",
+      "ask_outcome_labels",
+      "artifact_metric_values",
+      "manual_query_allowlists"
+    ]
+  },
+  "selection_objective": [
+    "pass_refusal_and_hard_negative_gates",
+    "maximize_recall_at_5",
+    "maximize_ndcg_at_10",
+    "preserve_dense_or_union_only_recovery_when_possible",
+    "tie_break_stricter_profile"
+  ],
+  "source_inventory": {
+    "eval_only_modules": [
+      "src/mke/evaluation/relevance_gate_features.py",
+      "src/mke/evaluation/relevance_gate_candidate.py",
+      "src/mke/evaluation/relevance_gate_workflow.py",
+      "src/mke/evaluation/relevance_gate_artifact.py",
+      "src/mke/evaluation/relevance_gate_protocol.py"
+    ],
+    "runtime_modules_changed": []
+  },
+  "state": {
+    "candidate_status_initial": "not_evaluated",
+    "development_freeze_mode": "exclusive_create",
+    "development_freeze_required_before_holdout": true,
+    "holdout_receipt_mode": "exclusive_create",
+    "runtime_promotion_status": "not_evaluated"
+  }
+}
