@@ -25,9 +25,9 @@ make future E3-E and segmentation investigations eligible; they do not implement
 - E1/E2/E3-A/E3-B normalized semantics remained equal before identity-only refresh.
 - E1/E2/E3-A/E3-B/E3-C/E3-D canonical validators pass after the refresh chain.
 - Development freeze SHA-256 is
-  `4f772e358e18bd29a62d343d8476e544518529eaeac08cf663cd0ae703af6216`.
+  `8c9352782ee7a7936804ba68edf135cc620b0886741de97bb1ae6c43204442da`.
 - Comparison artifact SHA-256 is
-  `52b8c97a8e8eec8f7efe321eb62b15346cba389cd273203339008c577ab95388`.
+  `fd958c2b87c3b5e971e5b17cd8ef1369a7dc0bd63f1ea83b8b207fa9e83b26e4`.
 
 ## Scope Limits
 
@@ -36,7 +36,23 @@ does not add API embeddings, reranking, query rewrite, segmentation, HTTP/UI, Mi
 pgvector. It did not rerun dense scoring for tuning and did not observe holdout after the valid
 negative result.
 
+## Task 11 Verification
+
+- Focused RRF/protocol/workflow/artifact/CLI tests passed.
+- Full verification passed: `uv run pytest -q`, `uv run ruff check .`, `uv run pyright`,
+  `uv build`, `uv run mke proof run`, and `uv run mke demo --verify`.
+- Canonical E1/E2/E3-A/E3-B/E3-C/E3-D validators passed after the final artifact identity refresh.
+- Public-boundary scan found only synthetic command/test-string matches for `Traceback` redaction,
+  not private paths, credentials, raw GStack artifacts, model cache, venv, or personal context.
+- Cache-ready dense replay was attempted with the existing model cache but failed before replay
+  because the embedding optional dependency was not installed (`huggingface_hub` and
+  `sentence_transformers` unavailable). No dependency installation, download, or dense rescoring was
+  performed.
+- Final local `gstack-review` checklist pass found no unresolved critical or informational findings.
+
 ## Review Status
 
-The implementation self-review found no scope expansion. Authoritative pre-PR review remains
-`pending` in the scheme-window; no PR has been created.
+The implementation self-review found no scope expansion. The final local pre-PR review checklist
+pass found no unresolved findings. Authoritative scheme-window review remains the next step before
+any PR publication, so the scheme-window pre-PR review status is still `pending`; no PR has been
+created.

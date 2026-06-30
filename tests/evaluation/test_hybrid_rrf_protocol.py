@@ -77,7 +77,7 @@ def test_protocol_freezes_candidate_rrf_arms_and_inputs(repository_root: Path) -
     }
     assert all(cast(int, item["bytes"]) >= 0 for item in inputs.values())
     assert all(
-        isinstance(item["sha256"], str) and len(cast(str, item["sha256"])) == 64
+        isinstance(item["sha256"], str) and len(item["sha256"]) == 64
         for item in inputs.values()
     )
 

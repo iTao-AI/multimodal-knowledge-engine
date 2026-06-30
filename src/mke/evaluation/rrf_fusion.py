@@ -228,7 +228,7 @@ def _missing_last(rank: int | None) -> int:
 
 
 def _arms(item: _Accumulator) -> tuple[str, ...]:
-    arms = []
+    arms: list[str] = []
     if item.dense_rank is not None:
         arms.append("dense")
     if item.lexical_rank is not None:

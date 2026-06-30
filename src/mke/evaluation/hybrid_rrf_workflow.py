@@ -207,7 +207,7 @@ def run_hybrid_rrf_holdout(
         "dense": _metrics_for_arm(inputs.holdout.queries, arm="dense"),
     }
     diagnostics = _diagnostics(inputs.holdout.queries, fused_by_query)
-    receipt = {
+    receipt: dict[str, object] = {
         "schema_version": "mke.hybrid_rrf_holdout_receipt.v1",
         "candidate": freeze["candidate"],
         "protocol_sha256": freeze["protocol_sha256"],
@@ -490,9 +490,7 @@ def _development_status(
 
 def _metric_value(payload: dict[str, Any], name: str) -> float:
     value = _object(payload.get(name), name).get("value")
-    if type(value) not in {float, int}:
-        raise HybridRrfWorkflowError("metric value is invalid")
-    return float(value)
+    return _float(value, "metric value")
 
 
 def _fused_result_payload(row: FusedRrfResult) -> dict[str, object]:
@@ -715,9 +713,10 @@ def _lexical_rows(
     raw_locators = observation.get("retrieved_locators")
     if not isinstance(raw_locators, list):
         raise HybridRrfWorkflowError("retrieved_locators is invalid")
+    locator_values = cast(list[object], raw_locators)
     seen: set[tuple[str, str]] = set()
     rows: list[ArmRankedResult] = []
-    for rank, raw in enumerate(raw_locators, start=1):
+    for rank, raw in enumerate(locator_values, start=1):
         locator = _object(raw, "lexical locator")
         key = _locator_key(locator)
         bound = inventory.get(key)
@@ -811,10 +810,10 @@ def _object(value: object, subject: str) -> dict[str, Any]:
     return cast(dict[str, Any], value)
 
 
-def _list(value: object, subject: str) -> list[Any]:
+def _list(value: object, subject: str) -> list[object]:
     if not isinstance(value, list):
         raise HybridRrfWorkflowError(f"{subject} is invalid")
-    return value
+    return cast(list[object], value)
 
 
 def _string(value: object, subject: str) -> str:
@@ -830,6 +829,6 @@ def _int(value: object, subject: str) -> int:
 
 
 def _float(value: object, subject: str) -> float:
-    if type(value) not in {float, int}:
+    if isinstance(value, bool) or not isinstance(value, (float, int)):
         raise HybridRrfWorkflowError(f"{subject} is invalid")
     return float(value)

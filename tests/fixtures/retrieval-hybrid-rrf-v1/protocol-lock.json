@@ -33,7 +33,7 @@
     "dense_artifact": {
       "bytes": 403821,
       "path": "benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json",
-      "sha256": "08b8176599bb76eb29159e1f271f898c68e3a5cee65e35f776f662ba45914134"
+      "sha256": "cd8bd81ac461e3fd2333fde925ab4095cd360de0cc399dc7f95d305a8eb923f6"
     },
     "metrics_source": {
       "bytes": 8849,
@@ -46,9 +46,9 @@
       "sha256": "b638a7729725d495e809bb52a93b071e65a51b0f0ebcb218d3ee3298a04bd0c4"
     },
     "rrf_source": {
-      "bytes": 7257,
+      "bytes": 7268,
       "path": "src/mke/evaluation/rrf_fusion.py",
-      "sha256": "553fa24e373595fa58dfd51e0bde2a01a519cf96698eec43f6f6b4ca43b7cd2e"
+      "sha256": "1f5d09c9c5436614786d54953b5fcab2be92db843cedd622b25e916b51333429"
     },
     "runtime_strategy_source": {
       "bytes": 3370,
@@ -56,9 +56,9 @@
       "sha256": "437aaa050f06c0d2a3eb9e9c891c5060e38df137ef691235281b2fd25adeb665"
     },
     "workflow_source": {
-      "bytes": 29828,
+      "bytes": 29870,
       "path": "src/mke/evaluation/hybrid_rrf_workflow.py",
-      "sha256": "9855ce503a2d84b5ed401142ec5585964edadb2b5bb2cd5cba9e31812106a316"
+      "sha256": "49b9f2a9a3f4823046d673c596afb3bc9d9d1257b15fa3bb4ecbd25aaf7b2c5e"
     }
   },
   "rrf": {

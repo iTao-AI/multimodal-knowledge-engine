@@ -1361,7 +1361,7 @@ git commit -m "docs(eval): document hybrid RRF comparison"
 - Read all changed files.
 - Update plan/review docs only if verification evidence changes.
 
-- [ ] **Step 1: Run focused tests**
+- [x] **Step 1: Run focused tests**
 
 Run:
 
@@ -1375,7 +1375,7 @@ uv run pytest tests/evaluation/test_rrf_fusion.py \
 
 Expected: focused tests pass.
 
-- [ ] **Step 2: Run full local verification**
+- [x] **Step 2: Run full local verification**
 
 Run:
 
@@ -1391,7 +1391,7 @@ git diff --check origin/main...HEAD
 
 Expected: all pass.
 
-- [ ] **Step 3: Run canonical validators**
+- [x] **Step 3: Run canonical validators**
 
 Run:
 
@@ -1428,7 +1428,7 @@ uv run python -m mke.evaluation.hybrid_rrf_artifact validate \
 
 Expected: all validators pass.
 
-- [ ] **Step 4: Run cache-ready dense replay if model cache is available**
+- [x] **Step 4: Attempt cache-ready dense replay if model cache is available**
 
 Run:
 
@@ -1444,7 +1444,13 @@ uv run python -m mke.evaluation.dense_replay validate \
 Expected: prints `{"mode":"cache-ready","status":"passed"}` and exits `0`. If the model cache is
 not available, do not download. Report the skipped proof explicitly.
 
-- [ ] **Step 5: Public-boundary scan**
+Actual: the cache directory existed, but the replay failed with
+`{"mode":"cache-ready","status":"failed"}` and exit `1` because the embedding optional dependency
+was not installed (`ModuleNotFoundError: No module named 'huggingface_hub'`, with
+`sentence_transformers` unavailable as well). No dependency installation, download, or dense
+rescoring was performed.
+
+- [x] **Step 5: Public-boundary scan**
 
 Run:
 
@@ -1457,7 +1463,7 @@ git diff origin/main...HEAD -- . \
 Expected: no real private path, credential, raw GStack artifact, model cache, venv, or personal
 context is present. Intentional synthetic test strings must be documented in the handoff.
 
-- [ ] **Step 6: Final commit if verification docs changed**
+- [x] **Step 6: Final commit if verification docs changed**
 
 If Task 11 updates the plan/review evidence, run:
 
@@ -1467,7 +1473,7 @@ git add docs/superpowers/plans/2026-06-30-cjk-lexical-dense-rrf-fusion-implement
 git commit -m "docs(eval): record hybrid RRF verification"
 ```
 
-- [ ] **Step 7: Stop for scheme-window review**
+- [x] **Step 7: Stop for scheme-window review**
 
 Do not push or create a PR. Hand off:
 

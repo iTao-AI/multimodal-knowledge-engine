@@ -25,6 +25,20 @@ CANONICAL_ARTIFACT = (
     ROOT / "benchmarks/retrieval/cjk-active-scan-qwen3-rrf-v1-comparison.json"
 )
 ArtifactMutation = Callable[[dict[str, Any]], None]
+_DERIVED_FIELD_MUTATIONS: tuple[ArtifactMutation, ...] = (
+    lambda payload: _first_fused(payload).__setitem__("rank", 2),
+    lambda payload: _first_fused(payload).__setitem__("portable_score", "0"),
+    lambda payload: _first_fused(payload).__setitem__("arms", ["dense"]),
+    lambda payload: cast(dict[str, Any], payload["development"])[
+        "diagnostics"
+    ].__setitem__("ranking_headroom_count", 99),
+    lambda payload: payload.__setitem__("runtime_promotion_status", "promoted"),
+)
+_MALFORMED_FIELD_MUTATIONS: tuple[ArtifactMutation, ...] = (
+    lambda payload: _first_fused(payload).__setitem__("rank", True),
+    lambda payload: _first_fused(payload).__setitem__("locator_start", True),
+    lambda payload: _first_fused(payload).__setitem__("locator_kind", "unknown"),
+)
 
 
 @pytest.fixture
@@ -54,15 +68,7 @@ def test_artifact_validator_recomputes_from_inputs() -> None:
 
 @pytest.mark.parametrize(
     "mutation",
-    (
-        lambda payload: _first_fused(payload).__setitem__("rank", 2),
-        lambda payload: _first_fused(payload).__setitem__("portable_score", "0"),
-        lambda payload: _first_fused(payload).__setitem__("arms", ["dense"]),
-        lambda payload: payload["development"]["diagnostics"].__setitem__(
-            "ranking_headroom_count", 99
-        ),
-        lambda payload: payload.__setitem__("runtime_promotion_status", "promoted"),
-    ),
+    _DERIVED_FIELD_MUTATIONS,
 )
 def test_artifact_validator_rejects_derived_field_tampering(
     temporary_artifact: Path,
@@ -106,11 +112,7 @@ def test_artifact_validator_rejects_coordinated_report_tampering(
 
 @pytest.mark.parametrize(
     "mutation",
-    (
-        lambda payload: _first_fused(payload).__setitem__("rank", True),
-        lambda payload: _first_fused(payload).__setitem__("locator_start", True),
-        lambda payload: _first_fused(payload).__setitem__("locator_kind", "unknown"),
-    ),
+    _MALFORMED_FIELD_MUTATIONS,
 )
 def test_artifact_validator_rejects_bool_integer_and_malformed_locator_fields(
     temporary_artifact: Path,

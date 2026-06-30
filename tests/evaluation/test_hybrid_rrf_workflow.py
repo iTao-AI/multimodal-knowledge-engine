@@ -190,10 +190,14 @@ def test_development_valid_negative_does_not_require_holdout(
     repository_root: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    def valid_negative(metrics: object, diagnostics: object) -> str:
+        del metrics, diagnostics
+        return "valid_negative"
+
     monkeypatch.setattr(
         workflow,
         "_development_status",
-        lambda metrics, diagnostics: "valid_negative",
+        valid_negative,
     )
 
     report = run_hybrid_rrf_development(
@@ -334,10 +338,14 @@ def _passed_freeze(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> Path:
+    def passed(metrics: object, diagnostics: object) -> str:
+        del metrics, diagnostics
+        return "passed"
+
     monkeypatch.setattr(
         workflow,
         "_development_status",
-        lambda metrics, diagnostics: "passed",
+        passed,
     )
     report = run_hybrid_rrf_development(
         protocol_path=PROTOCOL,
