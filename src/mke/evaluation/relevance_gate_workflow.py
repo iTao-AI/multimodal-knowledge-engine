@@ -8,8 +8,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any, Literal, cast
 
-import fitz  # pyright: ignore[reportMissingTypeStubs]
-
+from mke.adapters.pdf.extractor import PyMuPDFPdfExtractor
 from mke.evaluation.chinese_protocol import (
     ChineseEvaluationQuery,
     ChineseQueryCategory,
@@ -22,6 +21,7 @@ from mke.evaluation.graded_metrics import (
     GradedQueryMetricInput,
     calculate_graded_metrics,
 )
+from mke.evaluation.hybrid_rrf_workflow import load_hybrid_rrf_inputs
 from mke.evaluation.manifest import StableLocator
 from mke.evaluation.relevance_gate_candidate import (
     PROFILE_CATALOG,
@@ -38,6 +38,11 @@ from mke.evaluation.relevance_gate_features import (
 from mke.evaluation.relevance_gate_protocol import (
     CANDIDATE_ID,
     load_relevance_gate_protocol_lock,
+)
+from mke.evaluation.rrf_fusion import (
+    FusedRrfResult,
+    RrfCandidateConfig,
+    fuse_ranked_results,
 )
 
 
@@ -89,7 +94,13 @@ def load_relevance_gate_inputs(
     rrf_artifact = _load_json(rrf_artifact_path, "RRF artifact")
     chinese = load_chinese_retrieval_protocol(chinese_protocol_path)
     page_text = _page_text_inventory(chinese)
-    partition = _load_rrf_partition(rrf_artifact, split=split)
+    if split == "holdout" and rrf_artifact.get("holdout") is None:
+        partition = _build_holdout_rrf_partition(
+            dense_artifact_path=dense_artifact_path,
+            repository_root=root,
+        )
+    else:
+        partition = _load_rrf_partition(rrf_artifact, split=split)
     by_query = {query.query_id: query for query in chinese.queries if query.split == split}
     queries: list[RelevanceGateQueryInput] = []
     for raw_result in partition:
@@ -247,11 +258,105 @@ def run_relevance_gate_holdout(
     holdout_receipt_path: Path,
     repository_root: Path,
 ) -> dict[str, object]:
-    del protocol_path, candidate_id, record_path, holdout_receipt_path, repository_root
+    if candidate_id != CANDIDATE_ID:
+        raise RelevanceGateWorkflowError("candidate is invalid")
+    if record_path.exists():
+        raise RelevanceGateWorkflowError("comparison artifact already exists")
+    if holdout_receipt_path.exists():
+        raise RelevanceGateWorkflowError("holdout receipt already exists")
     freeze = _load_freeze(development_freeze_path)
     if freeze.get("development_status") != "passed":
         raise RelevanceGateWorkflowError("development freeze does not allow holdout")
-    raise RelevanceGateWorkflowError("holdout workflow is not implemented")
+    _validate_freeze_identity(
+        freeze,
+        protocol_path=protocol_path,
+        repository_root=repository_root,
+    )
+    receipt = {
+        "schema_version": "mke.relevance_gate_holdout_receipt.v1",
+        "candidate": freeze["candidate"],
+        "development_freeze_sha256": _file_sha256(development_freeze_path),
+        "protocol_sha256": freeze["protocol_sha256"],
+        "dense_artifact_sha256": freeze["dense_artifact_sha256"],
+        "rrf_artifact_sha256": freeze["rrf_artifact_sha256"],
+        "selected_profile": freeze["selected_profile"],
+    }
+    _write_json_exclusive(
+        holdout_receipt_path,
+        _json_normalized(receipt),
+        subject="holdout receipt",
+    )
+    holdout = build_relevance_gate_holdout_report(
+        protocol_path=protocol_path,
+        selected_profile=_string(freeze.get("selected_profile"), "selected profile"),
+        repository_root=repository_root,
+    )
+    artifact = build_relevance_gate_comparison_artifact(
+        freeze=freeze,
+        holdout=holdout,
+        development_freeze_path=development_freeze_path,
+        holdout_receipt_path=holdout_receipt_path,
+        repository_root=repository_root,
+    )
+    _write_json_exclusive(record_path, artifact, subject="comparison artifact")
+    return artifact
+
+
+def build_relevance_gate_holdout_report(
+    *,
+    protocol_path: Path,
+    selected_profile: str,
+    repository_root: Path,
+) -> dict[str, object]:
+    inputs = load_relevance_gate_inputs(
+        protocol_path=protocol_path,
+        repository_root=repository_root,
+        split="holdout",
+    )
+    report = _score_partition_for_profile(inputs, profile_id=selected_profile)
+    gate_failures = _holdout_gate_failures(cast(dict[str, Any], report["metrics"]))
+    report["holdout_gate_failures"] = gate_failures
+    report["holdout_gate_status"] = "passed" if not gate_failures else "failed"
+    return _json_normalized(report)
+
+
+def build_relevance_gate_comparison_artifact(
+    *,
+    freeze: dict[str, Any],
+    holdout: dict[str, object],
+    development_freeze_path: Path,
+    holdout_receipt_path: Path,
+    repository_root: Path,
+) -> dict[str, object]:
+    return _json_normalized(
+        {
+            "schema_version": "mke.relevance_gate_comparison_artifact.v1",
+            "candidate": freeze["candidate"],
+            "candidate_status": "completed",
+            "development_status": freeze["development_status"],
+            "holdout_status": "observed",
+            "runtime_promotion_status": "not_evaluated",
+            "e3f_runtime_status": "not_evaluated",
+            "reranker_model_status": "eligible",
+            "query_rewrite_status": "not_evaluated",
+            "segmentation_status": _segmentation_status(holdout),
+            "selected_profile": freeze["selected_profile"],
+            "development": freeze,
+            "holdout": holdout,
+            "state": {
+                "development_freeze_path": _public_path(
+                    development_freeze_path,
+                    repository_root=repository_root,
+                ),
+                "development_freeze_sha256": _file_sha256(development_freeze_path),
+                "holdout_receipt_path": _public_path(
+                    holdout_receipt_path,
+                    repository_root=repository_root,
+                ),
+                "holdout_receipt_sha256": _file_sha256(holdout_receipt_path),
+            },
+        }
+    )
 
 
 def _score_partition_for_profile(
@@ -297,6 +402,15 @@ def _score_partition_for_profile(
             ],
         }
     )
+
+
+def _holdout_gate_failures(metrics: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    if _metric_value(metrics, "unanswerable_no_hit_rate") < 0.5:
+        failures.append("holdout_unanswerable_no_hit_below_current_runtime")
+    if _metric_value(metrics, "hard_negative_failure_rate") > 0.0:
+        failures.append("holdout_hard_negative_failure_above_current_runtime")
+    return failures
 
 
 def _metric_payload(
@@ -504,31 +618,71 @@ def _union_row(
     )
 
 
+def _build_holdout_rrf_partition(
+    *,
+    dense_artifact_path: Path,
+    repository_root: Path,
+) -> list[object]:
+    hybrid_inputs = load_hybrid_rrf_inputs(
+        dense_artifact_path=dense_artifact_path,
+        protocol_path=repository_root
+        / "tests/fixtures/retrieval-hybrid-rrf-v1/protocol-lock.json",
+        repository_root=repository_root,
+    )
+    config = RrfCandidateConfig.default()
+    results: list[object] = []
+    for query in hybrid_inputs.holdout.queries:
+        fused = fuse_ranked_results(
+            query_id=query.query_id,
+            lexical=query.lexical,
+            dense=query.dense,
+            config=config,
+        )
+        results.append(
+            {
+                "query_id": query.query_id,
+                "split": "holdout",
+                "category": query.category,
+                "fused_results": [_fused_result_payload(row) for row in fused],
+            }
+        )
+    return results
+
+
+def _fused_result_payload(row: FusedRrfResult) -> dict[str, object]:
+    return {
+        "rank": row.rank,
+        "stable_locator_id": row.stable_locator_id,
+        "document_id": row.document_id,
+        "locator_kind": row.locator_kind,
+        "locator_start": row.locator_start,
+        "locator_end": row.locator_end,
+        "source_text_digest": row.source_text_digest,
+        "portable_score": row.portable_score,
+        "arms": list(row.arms),
+        "lexical_rank": row.lexical_rank,
+        "dense_rank": row.dense_rank,
+        "best_individual_rank": row.best_individual_rank,
+    }
+
+
 def _page_text_inventory(
     protocol: ChineseRetrievalProtocol,
 ) -> dict[StableLocator, str]:
     inventory: dict[StableLocator, str] = {}
+    extractor = PyMuPDFPdfExtractor()
     try:
         for document in protocol.documents:
-            with fitz.open(protocol.resolve(document.primary_file)) as pdf:
-                for index in range(1, len(pdf) + 1):
-                    page = pdf[index - 1]  # pyright: ignore[reportUnknownVariableType]
-                    text = cast(
-                        object,
-                        page.get_text(  # pyright: ignore[reportUnknownMemberType]
-                            "text", sort=True
-                        ),
+            extracted = extractor.extract(protocol.resolve(document.primary_file))
+            for page in extracted.pages:
+                inventory[
+                    StableLocator(
+                        document_id=document.document_id,
+                        locator_kind="page",
+                        locator_start=page.page_number,
+                        locator_end=page.page_number,
                     )
-                    if not isinstance(text, str):
-                        raise RelevanceGateWorkflowError("source text is invalid")
-                    inventory[
-                        StableLocator(
-                            document_id=document.document_id,
-                            locator_kind="page",
-                            locator_start=index,
-                            locator_end=index,
-                        )
-                    ] = text
+                ] = page.text
     except Exception as error:
         raise RelevanceGateWorkflowError("source text inventory is invalid") from error
     return inventory
@@ -555,6 +709,26 @@ def _load_freeze(path: Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise RelevanceGateWorkflowError("development freeze is invalid")
     return cast(dict[str, Any], payload)
+
+
+def _validate_freeze_identity(
+    freeze: dict[str, Any],
+    *,
+    protocol_path: Path,
+    repository_root: Path,
+) -> None:
+    protocol = load_relevance_gate_protocol_lock(
+        protocol_path,
+        repository_root=repository_root,
+    )
+    if freeze.get("protocol_sha256") != _file_sha256(protocol_path):
+        raise RelevanceGateWorkflowError("development freeze identity mismatch")
+    for name, field in (
+        ("dense_artifact", "dense_artifact_sha256"),
+        ("rrf_artifact", "rrf_artifact_sha256"),
+    ):
+        if freeze.get(field) != _file_sha256(_input_path(protocol, name, repository_root)):
+            raise RelevanceGateWorkflowError("development freeze identity mismatch")
 
 
 def _write_json_exclusive(
@@ -639,6 +813,25 @@ def _strictness(profile_id: str) -> int:
 
 def _file_sha256(path: Path) -> str:
     return sha256(path.read_bytes()).hexdigest()
+
+
+def _public_path(path: Path, *, repository_root: Path) -> str:
+    resolved = path.resolve()
+    root = repository_root.resolve()
+    if resolved.is_relative_to(root):
+        return resolved.relative_to(root).as_posix()
+    return path.name
+
+
+def _segmentation_status(holdout: dict[str, object]) -> str:
+    diagnostics = _object(holdout.get("diagnostics"), "holdout diagnostics")
+    if _int(
+        diagnostics.get("dropped_grade2_count"),
+        "dropped grade2 count",
+        allow_zero=True,
+    ):
+        return "eligible"
+    return "not_evaluated"
 
 
 def _load_json(path: Path, subject: str) -> dict[str, Any]:
