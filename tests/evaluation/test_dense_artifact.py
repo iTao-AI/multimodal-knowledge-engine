@@ -71,6 +71,36 @@ def test_dense_artifact_model_free_validation_uses_recorded_runtime_semantics() 
     )
 
 
+def test_checked_in_dense_artifact_binds_current_historical_arm_identities() -> None:
+    artifact = json.loads(
+        (
+            ROOT
+            / "benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json"
+        ).read_text(encoding="utf-8")
+    )
+    e3a_sha = sha256(
+        (ROOT / "benchmarks/retrieval/retrieval-chinese-v1-baseline.json").read_bytes()
+    ).hexdigest()
+    e3b_sha = sha256(
+        (
+            ROOT / "benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json"
+        ).read_bytes()
+    ).hexdigest()
+
+    assert artifact["historical_arms"]["e3a"]["sha256"] == e3a_sha
+    assert artifact["historical_arms"]["e3b"]["sha256"] == e3b_sha
+    assert artifact["comparison"]["arms"][:2] == [
+        {
+            "arm_id": "e3a-historical-fts5-baseline",
+            "semantic_digest": e3a_sha,
+        },
+        {
+            "arm_id": "cjk-trigram-overlap-v1",
+            "semantic_digest": e3b_sha,
+        },
+    ]
+
+
 @pytest.mark.parametrize(
     "mutation",
     _ARTIFACT_MUTATIONS,

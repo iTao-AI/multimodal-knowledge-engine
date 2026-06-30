@@ -30,7 +30,7 @@ recovered `zh-hold-hard-01`, `zh-hold-multi-02`, `zh-hold-multi-03`,
 - The holdout receipt was created once with SHA-256
   `69d723fe9ca182404ea25c5f4742edaede9e7ddd4d9b21aa1156f823b205928d`.
 - The comparison artifact SHA-256 is
-  `de967337fcdb0638e07dc935fdb8bc75fb62eac9fc5f8e9e84133c3bd700c903`.
+  `25a46056052b36034492f481370c645c6c499185569da756769bbe378848d298`.
 - E1/E2/E3-A/E3-B normalized semantic equality to Task 0 snapshots remained true after
   source/scope identity refresh.
 
@@ -46,6 +46,12 @@ model-free artifact validator and measurement harness.
 The remediation is validator plumbing only. It does not regenerate qrels, rerun holdout, change the
 selected threshold, alter the comparison artifact result, or promote dense retrieval into runtime
 Search/Ask/MCP behavior.
+
+Follow-up targeted re-review found that the E3-C artifact source rebinding had not propagated the
+refreshed E3-A historical artifact identity into `historical_arms.e3a` and
+`comparison.arms[0]`. The fix adds a checked-in-artifact regression for historical arm identities
+and rebuilds only the E3-C identity bindings. Metrics, candidate observations, threshold,
+development freeze, holdout receipt, E3-D status, and runtime promotion status remain unchanged.
 
 ## Scope Limits
 

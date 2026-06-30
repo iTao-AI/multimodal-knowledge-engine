@@ -1661,6 +1661,14 @@ real cache-ready replay CLI, rejects repository-internal model caches, and recor
 success/failure JSON contract in the dense evaluation guide. This does not change the recorded
 candidate result, threshold, holdout receipt, runtime defaults, or Search/Ask/MCP behavior.
 
+2026-06-30 targeted re-review resolution: the follow-up review found that the E3-C artifact still
+carried the pre-refresh E3-A historical arm digest after E1/E2/E3-A identity artifacts were
+refreshed. The remediation adds a checked-in-artifact regression that compares
+`historical_arms.e3a`, `historical_arms.e3b`, and the first two `comparison.arms` against the
+current artifact files, then rebuilds the E3-C artifact identity bindings. The rebuild preserves
+metrics, candidate observations, threshold selection, development freeze, holdout receipt, E3-D
+status, and `runtime_promotion_status=not_evaluated`.
+
 ## Final Acceptance Checklist
 
 - [x] PR 1 merged before PR 2 starts.
