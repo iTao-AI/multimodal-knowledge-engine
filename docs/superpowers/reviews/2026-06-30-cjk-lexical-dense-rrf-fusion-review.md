@@ -54,5 +54,11 @@ negative result.
 ## Review Status
 
 The implementation self-review found no scope expansion. pre-PR review status:
-scheme-window targeted re-review CLEAN / 0 findings, with no unresolved implementation findings. No
-PR has been created.
+scheme-window targeted re-review CLEAN / 0 findings, with no unresolved implementation findings.
+PR #46 was created as Ready, passed post-merge CI and CodeQL, and was squash merged to
+`main@158d0614fec2ef49da9db5882c589a832c48331f`.
+
+Post-merge status: E3-D remains a valid negative. Holdout was not observed, no holdout receipt
+exists, and `runtime_promotion_status=not_evaluated` remains frozen. No Search, Ask, MCP, owner
+startup, Publication, ingestion, runtime default, artifact metric, protocol, qrel, or fixture
+changes were made after the merge.
