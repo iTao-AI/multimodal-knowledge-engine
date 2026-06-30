@@ -21,6 +21,9 @@ PROTOCOL = ROOT / "tests/fixtures/retrieval-hybrid-rrf-v1/protocol-lock.json"
 DENSE_ARTIFACT = (
     ROOT / "benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json"
 )
+CANONICAL_ARTIFACT = (
+    ROOT / "benchmarks/retrieval/cjk-active-scan-qwen3-rrf-v1-comparison.json"
+)
 ArtifactMutation = Callable[[dict[str, Any]], None]
 
 
@@ -40,9 +43,9 @@ def temporary_artifact(tmp_path: Path) -> Path:
     return path
 
 
-def test_artifact_validator_recomputes_from_inputs(temporary_artifact: Path) -> None:
+def test_artifact_validator_recomputes_from_inputs() -> None:
     validate_hybrid_rrf_artifact(
-        artifact_path=temporary_artifact,
+        artifact_path=CANONICAL_ARTIFACT,
         protocol_path=PROTOCOL,
         dense_artifact_path=DENSE_ARTIFACT,
         repository_root=ROOT,

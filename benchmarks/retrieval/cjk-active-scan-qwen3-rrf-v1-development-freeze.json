@@ -1,0 +1,2767 @@
+{
+  "candidate": {
+    "candidate_id": "cjk-active-scan-qwen3-rrf-v1",
+    "candidate_revision": 1
+  },
+  "current_runtime_semantic_digest": "sha256:b32dc4a1479cb3ea8e0ebedf2c27b04a10a6d91eee96e0cd0308bcf921e97959",
+  "dense_artifact_sha256": "e37bae56b985cd7cadd1edb9c7385016621dd96c2b4f1910b9fdbd6975b1542c",
+  "development_status": "valid_negative",
+  "diagnostics": {
+    "both_arm_recovery_count": 10,
+    "dense_only_recovery_count": 2,
+    "fused_lost_union_grade2_count": 1,
+    "lexical_only_recovery_count": 6,
+    "neither_arm_miss_count": 4,
+    "per_category_delta": {
+      "chinese_exact_lexical": {
+        "fused_lost_union_grade2_count": 0,
+        "query_count": 4,
+        "union_grade2_coverage_at_10_count": 4
+      },
+      "chinese_word_boundary": {
+        "fused_lost_union_grade2_count": 0,
+        "query_count": 3,
+        "union_grade2_coverage_at_10_count": 3
+      },
+      "multi_condition": {
+        "fused_lost_union_grade2_count": 0,
+        "query_count": 3,
+        "union_grade2_coverage_at_10_count": 1
+      },
+      "number_date_unit": {
+        "fused_lost_union_grade2_count": 0,
+        "query_count": 3,
+        "union_grade2_coverage_at_10_count": 1
+      },
+      "proper_noun_mixed": {
+        "fused_lost_union_grade2_count": 0,
+        "query_count": 3,
+        "union_grade2_coverage_at_10_count": 3
+      },
+      "ranking_hard_negative": {
+        "fused_lost_union_grade2_count": 0,
+        "query_count": 2,
+        "union_grade2_coverage_at_10_count": 2
+      },
+      "semantic_paraphrase": {
+        "fused_lost_union_grade2_count": 1,
+        "query_count": 4,
+        "union_grade2_coverage_at_10_count": 4
+      },
+      "unanswerable": {
+        "fused_lost_union_grade2_count": 0,
+        "query_count": 2,
+        "union_grade2_coverage_at_10_count": 0
+      }
+    },
+    "query_count": 24,
+    "ranking_headroom_count": 1,
+    "union_grade2_coverage_at_10": 18
+  },
+  "holdout_status": "not_observed",
+  "metrics": {
+    "dense": {
+      "answerable_zero_hit_rate": {
+        "count": 22,
+        "sum": 10.0,
+        "value": 0.454545
+      },
+      "ascii_token_count_metrics": [
+        {
+          "answerable_zero_hit_rate": {
+            "count": 22,
+            "sum": 10.0,
+            "value": 0.454545
+          },
+          "ask_evidence_found_rate": {
+            "count": 24,
+            "sum": 22.0,
+            "value": 0.916667
+          },
+          "ask_input_rejection_rate": {
+            "count": 24,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 24,
+            "sum": 2.0,
+            "value": 0.083333
+          },
+          "hard_negative_failure_rate": {
+            "count": 10,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "0",
+          "mrr_at_5": {
+            "count": 22,
+            "sum": 12.0,
+            "value": 0.545455
+          },
+          "ndcg_at_10": {
+            "count": 22,
+            "sum": 12.633376837500052,
+            "value": 0.574244
+          },
+          "ndcg_at_5": {
+            "count": 22,
+            "sum": 12.633376837500052,
+            "value": 0.574244
+          },
+          "query_count": 24,
+          "recall_at_1": {
+            "count": 22,
+            "sum": 12.0,
+            "value": 0.545455
+          },
+          "recall_at_3": {
+            "count": 22,
+            "sum": 12.0,
+            "value": 0.545455
+          },
+          "recall_at_5": {
+            "count": 22,
+            "sum": 12.0,
+            "value": 0.545455
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 2,
+            "sum": 1.0,
+            "value": 0.5
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "1",
+          "mrr_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_10": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "query_count": 0,
+          "recall_at_1": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_3": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "2_plus",
+          "mrr_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_10": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "query_count": 0,
+          "recall_at_1": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_3": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        }
+      ],
+      "ask_evidence_found_rate": {
+        "count": 24,
+        "sum": 22.0,
+        "value": 0.916667
+      },
+      "ask_input_rejection_rate": {
+        "count": 24,
+        "sum": 0.0,
+        "value": 0.0
+      },
+      "ask_insufficient_evidence_rate": {
+        "count": 24,
+        "sum": 2.0,
+        "value": 0.083333
+      },
+      "category_metrics": [
+        {
+          "answerable_zero_hit_rate": {
+            "count": 4,
+            "sum": 1.0,
+            "value": 0.25
+          },
+          "ask_evidence_found_rate": {
+            "count": 4,
+            "sum": 4.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "chinese_exact_lexical",
+          "mrr_at_5": {
+            "count": 4,
+            "sum": 3.0,
+            "value": 0.75
+          },
+          "ndcg_at_10": {
+            "count": 4,
+            "sum": 3.23935198569284,
+            "value": 0.809838
+          },
+          "ndcg_at_5": {
+            "count": 4,
+            "sum": 3.23935198569284,
+            "value": 0.809838
+          },
+          "query_count": 4,
+          "recall_at_1": {
+            "count": 4,
+            "sum": 3.0,
+            "value": 0.75
+          },
+          "recall_at_3": {
+            "count": 4,
+            "sum": 3.0,
+            "value": 0.75
+          },
+          "recall_at_5": {
+            "count": 4,
+            "sum": 3.0,
+            "value": 0.75
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 3,
+            "sum": 2.0,
+            "value": 0.666667
+          },
+          "ask_evidence_found_rate": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "chinese_word_boundary",
+          "mrr_at_5": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "ndcg_at_10": {
+            "count": 3,
+            "sum": 1.3940248518072127,
+            "value": 0.464675
+          },
+          "ndcg_at_5": {
+            "count": 3,
+            "sum": 1.3940248518072127,
+            "value": 0.464675
+          },
+          "query_count": 3,
+          "recall_at_1": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "recall_at_3": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "recall_at_5": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "ask_evidence_found_rate": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 1,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "proper_noun_mixed",
+          "mrr_at_5": {
+            "count": 3,
+            "sum": 2.0,
+            "value": 0.666667
+          },
+          "ndcg_at_10": {
+            "count": 3,
+            "sum": 2.0,
+            "value": 0.666667
+          },
+          "ndcg_at_5": {
+            "count": 3,
+            "sum": 2.0,
+            "value": 0.666667
+          },
+          "query_count": 3,
+          "recall_at_1": {
+            "count": 3,
+            "sum": 2.0,
+            "value": 0.666667
+          },
+          "recall_at_3": {
+            "count": 3,
+            "sum": 2.0,
+            "value": 0.666667
+          },
+          "recall_at_5": {
+            "count": 3,
+            "sum": 2.0,
+            "value": 0.666667
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 3,
+            "sum": 2.0,
+            "value": 0.666667
+          },
+          "ask_evidence_found_rate": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 1,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "number_date_unit",
+          "mrr_at_5": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "ndcg_at_10": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "ndcg_at_5": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "query_count": 3,
+          "recall_at_1": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "recall_at_3": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "recall_at_5": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "ask_evidence_found_rate": {
+            "count": 4,
+            "sum": 4.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "semantic_paraphrase",
+          "mrr_at_5": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "ndcg_at_10": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "ndcg_at_5": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "query_count": 4,
+          "recall_at_1": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "recall_at_3": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "recall_at_5": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 3,
+            "sum": 2.0,
+            "value": 0.666667
+          },
+          "ask_evidence_found_rate": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 1,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "multi_condition",
+          "mrr_at_5": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "ndcg_at_10": {
+            "count": 3,
+            "sum": 1.17376534287144,
+            "value": 0.391255
+          },
+          "ndcg_at_5": {
+            "count": 3,
+            "sum": 1.17376534287144,
+            "value": 0.391255
+          },
+          "query_count": 3,
+          "recall_at_1": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "recall_at_3": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "recall_at_5": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 2,
+            "sum": 2.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "ranking_hard_negative",
+          "mrr_at_5": {
+            "count": 2,
+            "sum": 2.0,
+            "value": 1.0
+          },
+          "ndcg_at_10": {
+            "count": 2,
+            "sum": 1.82623465712856,
+            "value": 0.913117
+          },
+          "ndcg_at_5": {
+            "count": 2,
+            "sum": 1.82623465712856,
+            "value": 0.913117
+          },
+          "query_count": 2,
+          "recall_at_1": {
+            "count": 2,
+            "sum": 2.0,
+            "value": 1.0
+          },
+          "recall_at_3": {
+            "count": 2,
+            "sum": 2.0,
+            "value": 1.0
+          },
+          "recall_at_5": {
+            "count": 2,
+            "sum": 2.0,
+            "value": 1.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 2,
+            "sum": 2.0,
+            "value": 1.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "unanswerable",
+          "mrr_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_10": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "query_count": 2,
+          "recall_at_1": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_3": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 2,
+            "sum": 1.0,
+            "value": 0.5
+          }
+        }
+      ],
+      "compiled_query_empty_metrics": [
+        {
+          "answerable_zero_hit_rate": {
+            "count": 22,
+            "sum": 10.0,
+            "value": 0.454545
+          },
+          "ask_evidence_found_rate": {
+            "count": 24,
+            "sum": 22.0,
+            "value": 0.916667
+          },
+          "ask_input_rejection_rate": {
+            "count": 24,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 24,
+            "sum": 2.0,
+            "value": 0.083333
+          },
+          "hard_negative_failure_rate": {
+            "count": 10,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "false",
+          "mrr_at_5": {
+            "count": 22,
+            "sum": 12.0,
+            "value": 0.545455
+          },
+          "ndcg_at_10": {
+            "count": 22,
+            "sum": 12.633376837500052,
+            "value": 0.574244
+          },
+          "ndcg_at_5": {
+            "count": 22,
+            "sum": 12.633376837500052,
+            "value": 0.574244
+          },
+          "query_count": 24,
+          "recall_at_1": {
+            "count": 22,
+            "sum": 12.0,
+            "value": 0.545455
+          },
+          "recall_at_3": {
+            "count": 22,
+            "sum": 12.0,
+            "value": 0.545455
+          },
+          "recall_at_5": {
+            "count": 22,
+            "sum": 12.0,
+            "value": 0.545455
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 2,
+            "sum": 1.0,
+            "value": 0.5
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "true",
+          "mrr_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_10": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "query_count": 0,
+          "recall_at_1": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_3": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        }
+      ],
+      "hard_negative_failure_rate": {
+        "count": 10,
+        "sum": 0.0,
+        "value": 0.0
+      },
+      "mrr_at_5": {
+        "count": 22,
+        "sum": 12.0,
+        "value": 0.545455
+      },
+      "ndcg_at_10": {
+        "count": 22,
+        "sum": 12.633376837500052,
+        "value": 0.574244
+      },
+      "ndcg_at_5": {
+        "count": 22,
+        "sum": 12.633376837500052,
+        "value": 0.574244
+      },
+      "recall_at_1": {
+        "count": 22,
+        "sum": 12.0,
+        "value": 0.545455
+      },
+      "recall_at_3": {
+        "count": 22,
+        "sum": 12.0,
+        "value": 0.545455
+      },
+      "recall_at_5": {
+        "count": 22,
+        "sum": 12.0,
+        "value": 0.545455
+      },
+      "unanswerable_no_hit_rate": {
+        "count": 2,
+        "sum": 1.0,
+        "value": 0.5
+      }
+    },
+    "fused": {
+      "answerable_zero_hit_rate": {
+        "count": 22,
+        "sum": 4.0,
+        "value": 0.181818
+      },
+      "ascii_token_count_metrics": [
+        {
+          "answerable_zero_hit_rate": {
+            "count": 22,
+            "sum": 4.0,
+            "value": 0.181818
+          },
+          "ask_evidence_found_rate": {
+            "count": 24,
+            "sum": 22.0,
+            "value": 0.916667
+          },
+          "ask_input_rejection_rate": {
+            "count": 24,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 24,
+            "sum": 2.0,
+            "value": 0.083333
+          },
+          "hard_negative_failure_rate": {
+            "count": 10,
+            "sum": 2.0,
+            "value": 0.2
+          },
+          "label": "0",
+          "mrr_at_5": {
+            "count": 22,
+            "sum": 15.2,
+            "value": 0.690909
+          },
+          "ndcg_at_10": {
+            "count": 22,
+            "sum": 16.17335919187098,
+            "value": 0.735153
+          },
+          "ndcg_at_5": {
+            "count": 22,
+            "sum": 15.857894315085252,
+            "value": 0.720813
+          },
+          "query_count": 24,
+          "recall_at_1": {
+            "count": 22,
+            "sum": 14.0,
+            "value": 0.636364
+          },
+          "recall_at_3": {
+            "count": 22,
+            "sum": 16.0,
+            "value": 0.727273
+          },
+          "recall_at_5": {
+            "count": 22,
+            "sum": 17.0,
+            "value": 0.772727
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "1",
+          "mrr_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_10": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "query_count": 0,
+          "recall_at_1": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_3": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "2_plus",
+          "mrr_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_10": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "query_count": 0,
+          "recall_at_1": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_3": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        }
+      ],
+      "ask_evidence_found_rate": {
+        "count": 24,
+        "sum": 22.0,
+        "value": 0.916667
+      },
+      "ask_input_rejection_rate": {
+        "count": 24,
+        "sum": 0.0,
+        "value": 0.0
+      },
+      "ask_insufficient_evidence_rate": {
+        "count": 24,
+        "sum": 2.0,
+        "value": 0.083333
+      },
+      "category_metrics": [
+        {
+          "answerable_zero_hit_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 4,
+            "sum": 4.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "chinese_exact_lexical",
+          "mrr_at_5": {
+            "count": 4,
+            "sum": 3.5,
+            "value": 0.875
+          },
+          "ndcg_at_10": {
+            "count": 4,
+            "sum": 3.796707580990507,
+            "value": 0.949177
+          },
+          "ndcg_at_5": {
+            "count": 4,
+            "sum": 3.796707580990507,
+            "value": 0.949177
+          },
+          "query_count": 4,
+          "recall_at_1": {
+            "count": 4,
+            "sum": 3.0,
+            "value": 0.75
+          },
+          "recall_at_3": {
+            "count": 4,
+            "sum": 4.0,
+            "value": 1.0
+          },
+          "recall_at_5": {
+            "count": 4,
+            "sum": 4.0,
+            "value": 1.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "chinese_word_boundary",
+          "mrr_at_5": {
+            "count": 3,
+            "sum": 1.7,
+            "value": 0.566667
+          },
+          "ndcg_at_10": {
+            "count": 3,
+            "sum": 2.2349520769661853,
+            "value": 0.744984
+          },
+          "ndcg_at_5": {
+            "count": 3,
+            "sum": 2.2349520769661853,
+            "value": 0.744984
+          },
+          "query_count": 3,
+          "recall_at_1": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "recall_at_3": {
+            "count": 3,
+            "sum": 2.0,
+            "value": 0.666667
+          },
+          "recall_at_5": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 1,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "proper_noun_mixed",
+          "mrr_at_5": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "ndcg_at_10": {
+            "count": 3,
+            "sum": 2.82623465712856,
+            "value": 0.942078
+          },
+          "ndcg_at_5": {
+            "count": 3,
+            "sum": 2.82623465712856,
+            "value": 0.942078
+          },
+          "query_count": 3,
+          "recall_at_1": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "recall_at_3": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "recall_at_5": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 3,
+            "sum": 2.0,
+            "value": 0.666667
+          },
+          "ask_evidence_found_rate": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 1,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "number_date_unit",
+          "mrr_at_5": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "ndcg_at_10": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "ndcg_at_5": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "query_count": 3,
+          "recall_at_1": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "recall_at_3": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "recall_at_5": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 4,
+            "sum": 4.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 2,
+            "sum": 1.0,
+            "value": 0.5
+          },
+          "label": "semantic_paraphrase",
+          "mrr_at_5": {
+            "count": 4,
+            "sum": 3.0,
+            "value": 0.75
+          },
+          "ndcg_at_10": {
+            "count": 4,
+            "sum": 3.315464876785729,
+            "value": 0.828866
+          },
+          "ndcg_at_5": {
+            "count": 4,
+            "sum": 3.0,
+            "value": 0.75
+          },
+          "query_count": 4,
+          "recall_at_1": {
+            "count": 4,
+            "sum": 3.0,
+            "value": 0.75
+          },
+          "recall_at_3": {
+            "count": 4,
+            "sum": 3.0,
+            "value": 0.75
+          },
+          "recall_at_5": {
+            "count": 4,
+            "sum": 3.0,
+            "value": 0.75
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 3,
+            "sum": 2.0,
+            "value": 0.666667
+          },
+          "ask_evidence_found_rate": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 1,
+            "sum": 1.0,
+            "value": 1.0
+          },
+          "label": "multi_condition",
+          "mrr_at_5": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "ndcg_at_10": {
+            "count": 3,
+            "sum": 1.17376534287144,
+            "value": 0.391255
+          },
+          "ndcg_at_5": {
+            "count": 3,
+            "sum": 1.17376534287144,
+            "value": 0.391255
+          },
+          "query_count": 3,
+          "recall_at_1": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "recall_at_3": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "recall_at_5": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 2,
+            "sum": 2.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "ranking_hard_negative",
+          "mrr_at_5": {
+            "count": 2,
+            "sum": 2.0,
+            "value": 1.0
+          },
+          "ndcg_at_10": {
+            "count": 2,
+            "sum": 1.82623465712856,
+            "value": 0.913117
+          },
+          "ndcg_at_5": {
+            "count": 2,
+            "sum": 1.82623465712856,
+            "value": 0.913117
+          },
+          "query_count": 2,
+          "recall_at_1": {
+            "count": 2,
+            "sum": 2.0,
+            "value": 1.0
+          },
+          "recall_at_3": {
+            "count": 2,
+            "sum": 2.0,
+            "value": 1.0
+          },
+          "recall_at_5": {
+            "count": 2,
+            "sum": 2.0,
+            "value": 1.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 2,
+            "sum": 2.0,
+            "value": 1.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "unanswerable",
+          "mrr_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_10": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "query_count": 2,
+          "recall_at_1": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_3": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        }
+      ],
+      "compiled_query_empty_metrics": [
+        {
+          "answerable_zero_hit_rate": {
+            "count": 22,
+            "sum": 4.0,
+            "value": 0.181818
+          },
+          "ask_evidence_found_rate": {
+            "count": 24,
+            "sum": 22.0,
+            "value": 0.916667
+          },
+          "ask_input_rejection_rate": {
+            "count": 24,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 24,
+            "sum": 2.0,
+            "value": 0.083333
+          },
+          "hard_negative_failure_rate": {
+            "count": 10,
+            "sum": 2.0,
+            "value": 0.2
+          },
+          "label": "false",
+          "mrr_at_5": {
+            "count": 22,
+            "sum": 15.2,
+            "value": 0.690909
+          },
+          "ndcg_at_10": {
+            "count": 22,
+            "sum": 16.17335919187098,
+            "value": 0.735153
+          },
+          "ndcg_at_5": {
+            "count": 22,
+            "sum": 15.857894315085252,
+            "value": 0.720813
+          },
+          "query_count": 24,
+          "recall_at_1": {
+            "count": 22,
+            "sum": 14.0,
+            "value": 0.636364
+          },
+          "recall_at_3": {
+            "count": 22,
+            "sum": 16.0,
+            "value": 0.727273
+          },
+          "recall_at_5": {
+            "count": 22,
+            "sum": 17.0,
+            "value": 0.772727
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "true",
+          "mrr_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_10": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "query_count": 0,
+          "recall_at_1": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_3": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        }
+      ],
+      "hard_negative_failure_rate": {
+        "count": 10,
+        "sum": 2.0,
+        "value": 0.2
+      },
+      "mrr_at_5": {
+        "count": 22,
+        "sum": 15.2,
+        "value": 0.690909
+      },
+      "ndcg_at_10": {
+        "count": 22,
+        "sum": 16.17335919187098,
+        "value": 0.735153
+      },
+      "ndcg_at_5": {
+        "count": 22,
+        "sum": 15.857894315085252,
+        "value": 0.720813
+      },
+      "recall_at_1": {
+        "count": 22,
+        "sum": 14.0,
+        "value": 0.636364
+      },
+      "recall_at_3": {
+        "count": 22,
+        "sum": 16.0,
+        "value": 0.727273
+      },
+      "recall_at_5": {
+        "count": 22,
+        "sum": 17.0,
+        "value": 0.772727
+      },
+      "unanswerable_no_hit_rate": {
+        "count": 2,
+        "sum": 0.0,
+        "value": 0.0
+      }
+    },
+    "lexical": {
+      "answerable_zero_hit_rate": {
+        "count": 22,
+        "sum": 6.0,
+        "value": 0.272727
+      },
+      "ascii_token_count_metrics": [
+        {
+          "answerable_zero_hit_rate": {
+            "count": 22,
+            "sum": 6.0,
+            "value": 0.272727
+          },
+          "ask_evidence_found_rate": {
+            "count": 24,
+            "sum": 22.0,
+            "value": 0.916667
+          },
+          "ask_input_rejection_rate": {
+            "count": 24,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 24,
+            "sum": 2.0,
+            "value": 0.083333
+          },
+          "hard_negative_failure_rate": {
+            "count": 10,
+            "sum": 3.0,
+            "value": 0.3
+          },
+          "label": "0",
+          "mrr_at_5": {
+            "count": 22,
+            "sum": 14.0,
+            "value": 0.636364
+          },
+          "ndcg_at_10": {
+            "count": 22,
+            "sum": 14.154584572043483,
+            "value": 0.64339
+          },
+          "ndcg_at_5": {
+            "count": 22,
+            "sum": 13.839119695257754,
+            "value": 0.629051
+          },
+          "query_count": 24,
+          "recall_at_1": {
+            "count": 22,
+            "sum": 13.0,
+            "value": 0.590909
+          },
+          "recall_at_3": {
+            "count": 22,
+            "sum": 15.0,
+            "value": 0.681818
+          },
+          "recall_at_5": {
+            "count": 22,
+            "sum": 15.0,
+            "value": 0.681818
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 2,
+            "sum": 1.0,
+            "value": 0.5
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "1",
+          "mrr_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_10": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "query_count": 0,
+          "recall_at_1": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_3": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "2_plus",
+          "mrr_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_10": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "query_count": 0,
+          "recall_at_1": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_3": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        }
+      ],
+      "ask_evidence_found_rate": {
+        "count": 24,
+        "sum": 22.0,
+        "value": 0.916667
+      },
+      "ask_input_rejection_rate": {
+        "count": 24,
+        "sum": 0.0,
+        "value": 0.0
+      },
+      "ask_insufficient_evidence_rate": {
+        "count": 24,
+        "sum": 2.0,
+        "value": 0.083333
+      },
+      "category_metrics": [
+        {
+          "answerable_zero_hit_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 4,
+            "sum": 4.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "chinese_exact_lexical",
+          "mrr_at_5": {
+            "count": 4,
+            "sum": 3.5,
+            "value": 0.875
+          },
+          "ndcg_at_10": {
+            "count": 4,
+            "sum": 3.796707580990507,
+            "value": 0.949177
+          },
+          "ndcg_at_5": {
+            "count": 4,
+            "sum": 3.796707580990507,
+            "value": 0.949177
+          },
+          "query_count": 4,
+          "recall_at_1": {
+            "count": 4,
+            "sum": 3.0,
+            "value": 0.75
+          },
+          "recall_at_3": {
+            "count": 4,
+            "sum": 4.0,
+            "value": 1.0
+          },
+          "recall_at_5": {
+            "count": 4,
+            "sum": 4.0,
+            "value": 1.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "chinese_word_boundary",
+          "mrr_at_5": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "ndcg_at_10": {
+            "count": 3,
+            "sum": 2.9327783893101107,
+            "value": 0.977593
+          },
+          "ndcg_at_5": {
+            "count": 3,
+            "sum": 2.9327783893101107,
+            "value": 0.977593
+          },
+          "query_count": 3,
+          "recall_at_1": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "recall_at_3": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "recall_at_5": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 1,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "proper_noun_mixed",
+          "mrr_at_5": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "ndcg_at_10": {
+            "count": 3,
+            "sum": 2.82623465712856,
+            "value": 0.942078
+          },
+          "ndcg_at_5": {
+            "count": 3,
+            "sum": 2.82623465712856,
+            "value": 0.942078
+          },
+          "query_count": 3,
+          "recall_at_1": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "recall_at_3": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "recall_at_5": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 3,
+            "sum": 2.0,
+            "value": 0.666667
+          },
+          "ask_evidence_found_rate": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 1,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "number_date_unit",
+          "mrr_at_5": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "ndcg_at_10": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "ndcg_at_5": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "query_count": 3,
+          "recall_at_1": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "recall_at_3": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "recall_at_5": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 4,
+            "sum": 1.0,
+            "value": 0.25
+          },
+          "ask_evidence_found_rate": {
+            "count": 4,
+            "sum": 4.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 4,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 2,
+            "sum": 1.0,
+            "value": 0.5
+          },
+          "label": "semantic_paraphrase",
+          "mrr_at_5": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "ndcg_at_10": {
+            "count": 4,
+            "sum": 2.141699533914289,
+            "value": 0.535425
+          },
+          "ndcg_at_5": {
+            "count": 4,
+            "sum": 1.82623465712856,
+            "value": 0.456559
+          },
+          "query_count": 4,
+          "recall_at_1": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "recall_at_3": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "recall_at_5": {
+            "count": 4,
+            "sum": 2.0,
+            "value": 0.5
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 3,
+            "sum": 2.0,
+            "value": 0.666667
+          },
+          "ask_evidence_found_rate": {
+            "count": 3,
+            "sum": 3.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 3,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 1,
+            "sum": 1.0,
+            "value": 1.0
+          },
+          "label": "multi_condition",
+          "mrr_at_5": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "ndcg_at_10": {
+            "count": 3,
+            "sum": 0.8262346571285599,
+            "value": 0.275412
+          },
+          "ndcg_at_5": {
+            "count": 3,
+            "sum": 0.8262346571285599,
+            "value": 0.275412
+          },
+          "query_count": 3,
+          "recall_at_1": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "recall_at_3": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "recall_at_5": {
+            "count": 3,
+            "sum": 1.0,
+            "value": 0.333333
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 2,
+            "sum": 1.0,
+            "value": 0.5
+          },
+          "ask_evidence_found_rate": {
+            "count": 2,
+            "sum": 2.0,
+            "value": 1.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 2,
+            "sum": 1.0,
+            "value": 0.5
+          },
+          "label": "ranking_hard_negative",
+          "mrr_at_5": {
+            "count": 2,
+            "sum": 0.5,
+            "value": 0.25
+          },
+          "ndcg_at_10": {
+            "count": 2,
+            "sum": 0.6309297535714574,
+            "value": 0.315465
+          },
+          "ndcg_at_5": {
+            "count": 2,
+            "sum": 0.6309297535714574,
+            "value": 0.315465
+          },
+          "query_count": 2,
+          "recall_at_1": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_3": {
+            "count": 2,
+            "sum": 1.0,
+            "value": 0.5
+          },
+          "recall_at_5": {
+            "count": 2,
+            "sum": 1.0,
+            "value": 0.5
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 2,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 2,
+            "sum": 2.0,
+            "value": 1.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "unanswerable",
+          "mrr_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_10": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "query_count": 2,
+          "recall_at_1": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_3": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 2,
+            "sum": 1.0,
+            "value": 0.5
+          }
+        }
+      ],
+      "compiled_query_empty_metrics": [
+        {
+          "answerable_zero_hit_rate": {
+            "count": 22,
+            "sum": 6.0,
+            "value": 0.272727
+          },
+          "ask_evidence_found_rate": {
+            "count": 24,
+            "sum": 22.0,
+            "value": 0.916667
+          },
+          "ask_input_rejection_rate": {
+            "count": 24,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 24,
+            "sum": 2.0,
+            "value": 0.083333
+          },
+          "hard_negative_failure_rate": {
+            "count": 10,
+            "sum": 3.0,
+            "value": 0.3
+          },
+          "label": "false",
+          "mrr_at_5": {
+            "count": 22,
+            "sum": 14.0,
+            "value": 0.636364
+          },
+          "ndcg_at_10": {
+            "count": 22,
+            "sum": 14.154584572043483,
+            "value": 0.64339
+          },
+          "ndcg_at_5": {
+            "count": 22,
+            "sum": 13.839119695257754,
+            "value": 0.629051
+          },
+          "query_count": 24,
+          "recall_at_1": {
+            "count": 22,
+            "sum": 13.0,
+            "value": 0.590909
+          },
+          "recall_at_3": {
+            "count": 22,
+            "sum": 15.0,
+            "value": 0.681818
+          },
+          "recall_at_5": {
+            "count": 22,
+            "sum": 15.0,
+            "value": 0.681818
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 2,
+            "sum": 1.0,
+            "value": 0.5
+          }
+        },
+        {
+          "answerable_zero_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_evidence_found_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_input_rejection_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ask_insufficient_evidence_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "hard_negative_failure_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "label": "true",
+          "mrr_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_10": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "ndcg_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "query_count": 0,
+          "recall_at_1": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_3": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "recall_at_5": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          },
+          "unanswerable_no_hit_rate": {
+            "count": 0,
+            "sum": 0.0,
+            "value": 0.0
+          }
+        }
+      ],
+      "hard_negative_failure_rate": {
+        "count": 10,
+        "sum": 3.0,
+        "value": 0.3
+      },
+      "mrr_at_5": {
+        "count": 22,
+        "sum": 14.0,
+        "value": 0.636364
+      },
+      "ndcg_at_10": {
+        "count": 22,
+        "sum": 14.154584572043483,
+        "value": 0.64339
+      },
+      "ndcg_at_5": {
+        "count": 22,
+        "sum": 13.839119695257754,
+        "value": 0.629051
+      },
+      "recall_at_1": {
+        "count": 22,
+        "sum": 13.0,
+        "value": 0.590909
+      },
+      "recall_at_3": {
+        "count": 22,
+        "sum": 15.0,
+        "value": 0.681818
+      },
+      "recall_at_5": {
+        "count": 22,
+        "sum": 15.0,
+        "value": 0.681818
+      },
+      "unanswerable_no_hit_rate": {
+        "count": 2,
+        "sum": 1.0,
+        "value": 0.5
+      }
+    }
+  },
+  "protocol_sha256": "23142ba519a6e77c8f1d8c20174bbb8c039081e3f87247983c018a7ede6e5b3b",
+  "runtime_promotion_status": "not_evaluated",
+  "schema_version": "mke.hybrid_rrf_development_freeze.v1"
+}
