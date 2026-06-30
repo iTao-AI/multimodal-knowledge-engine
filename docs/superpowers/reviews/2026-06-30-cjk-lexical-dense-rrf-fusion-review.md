@@ -48,11 +48,11 @@ negative result.
   replay because the embedding optional dependency was not installed (`huggingface_hub` and
   `sentence_transformers` unavailable). No dependency installation, download, or dense rescoring was
   performed.
-- Scheme-window review findings have been addressed in this branch; targeted re-review is the next
-  publication step.
+- Scheme-window targeted re-review is `CLEAN / 0 findings`; no unresolved implementation findings
+  remain.
 
 ## Review Status
 
-The implementation self-review found no scope expansion. Scheme-window pre-PR review findings were
-addressed in this branch, and targeted re-review is the next step before any PR publication. No PR
-has been created.
+The implementation self-review found no scope expansion. pre-PR review status:
+scheme-window targeted re-review CLEAN / 0 findings, with no unresolved implementation findings. No
+PR has been created.

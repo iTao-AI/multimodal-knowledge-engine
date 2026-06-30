@@ -84,6 +84,7 @@ def test_hybrid_rrf_docs_are_discoverable_and_reviewed_without_promotion() -> No
     assert "holdout was not observed" in review
     assert "valid negative" in review
     assert "pre-PR review" in review
-    assert "targeted re-review" in review
+    assert "scheme-window targeted re-review CLEAN / 0 findings" in review
+    assert "no unresolved implementation findings" in review
     assert "pending" not in review
     assert "holdout_status=not_observed" in guide
