@@ -23,7 +23,15 @@ Hatch/uv, GitHub Actions.
 Status: PR 1 Tasks 0-6A, authoritative review, CI isolation fix, PR publication, squash merge, and
 post-merge cleanup are complete. [PR #41](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/41)
 was squash-merged to `main@75d69364872cd28ef47b9e179989d93e6a259e6f`; post-merge CI, CodeQL, and
-Dependency Graph passed. PR 2 has not started.
+Dependency Graph passed. PR 2 Tasks 7A-16, authoritative pre-PR review, targeted re-review,
+publication, squash merge, and post-merge checks are also complete.
+[PR #43](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/43) was squash-merged to
+`main@21a7de967e72d2a901019fa8d579ee06b928c6ae`; post-merge Python 3.12/3.13 core and embedding-extra
+CI jobs and CodeQL passed. The final targeted re-review was `CLEAN` with `0 findings`.
+
+E3-C remains comparison-only: `candidate_status=completed`, `e3d_status=eligible`, and
+`runtime_promotion_status=not_evaluated`. Eligibility records only that a separate E3-D experiment
+may be planned; PR 2 did not implement fusion or promote dense retrieval into runtime behavior.
 
 The targeted re-review covered the four fixes since
 `00a4c0f2c95851635b17c5f55096a7f8fc4eb9a8`, durable documentation, and the permitted
@@ -1694,7 +1702,8 @@ status, and `runtime_promotion_status=not_evaluated`.
 - [x] Documentation describes the local reference boundary and actual limitations.
 - [x] Documentation separates install-time network, model prepare network, cache-only operation,
   manual uninstall/cache cleanup, and valid-negative automation semantics.
-- [ ] The final branch is clean and passes authoritative pre-PR review.
+- [x] The final branch was clean and passed authoritative pre-PR review; the final targeted
+  re-review was `CLEAN` with `0 findings` before PR #43 merged.
 
 ## Decision Audit Trail
 
@@ -1728,7 +1737,11 @@ status, and `runtime_promotion_status=not_evaluated`.
 | DX Review | `/plan-devex-review` | Developer experience gaps | 1 | CLEAR | Install, CLI, error, documentation, and cleanup contract reviewed |
 
 - **VERDICT:** CEO, engineering, and DX reviews are clear. The 2026-06-29 amendment supersedes only
-  the prepare transport and PR 1 resource-measurement contracts. PR 1 has merged to `main`; PR 2
-  may start from latest `main` after separate authorization and must not stack on PR #41 history.
+  the prepare transport and PR 1 resource-measurement contracts. PR 1 and PR 2 are complete and
+  merged; [PR #43](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/43) was squash-merged
+  to `main@21a7de967e72d2a901019fa8d579ee06b928c6ae` after a final targeted re-review verdict of
+  `CLEAN` with `0 findings`. E3-C remains comparison-only with `candidate_status=completed`,
+  `e3d_status=eligible`, and `runtime_promotion_status=not_evaluated`. E3-D is a possible separate
+  future plan, not an unfinished task in this plan.
 
 NO UNRESOLVED DECISIONS
