@@ -45,12 +45,12 @@ Key diagnostics:
 
 | Artifact | SHA-256 |
 |---|---|
-| E3-E protocol lock | `de74fcfdd6283f2852cfea9add501df109f324871ee1f7ffdf30ce435dc9c663` |
-| E3-E development freeze | `5a0b8dc74eb799d8639aa458b6702c9edb92395b3fd4fe520f1b902c4edc75a8` |
-| E3-E holdout receipt | `00d80a2aa9f50e1c2e28b1d4cf457f3f232acc63ff0e4be7be269db11c91b8f3` |
-| E3-E comparison artifact | `97f055944859bc513af3998ea3eabf4fa02fff710db68d6dac4288580c79ef41` |
-| E3-C dense artifact input | `1b802acd3fdd1a99cedab811b3570d224f6c1b538a02a4d69781dc6b0bc5f22e` |
-| E3-D RRF artifact input | `84b4292b829ca8713bdbc72e46bdf8fe6db7a3fa9e297416f75e35c048abbf7a` |
+| E3-E protocol lock | `230f163b407634a787b822edf6779884b2ab73a36bd60766ea30e1e9bd97f322` |
+| E3-E development freeze | `5af40347cbdb605b7cb9b9249af9c42a5ca3b8b794c74f316d7ed2a92164bf33` |
+| E3-E holdout receipt | `3a5af63a3527142b54376885cf441d46799574e23cfa9a59a36e6dd0ef1cda98` |
+| E3-E comparison artifact | `e0d96f530f7e0d9addd84480cc7fd9ff264f10c9bfad0c022a8c12e3cc26a2e4` |
+| E3-C dense artifact input | `475b428eb8a465beced6a54b081775c9c7750a28e760164af2557dce903c6b12` |
+| E3-D RRF artifact input | `d11afc6c8ff24b7e1ac4d1a0c373b70cfc8e67328e78073ba6dc1b5a2bd64f15` |
 
 ## Validator Evidence
 
