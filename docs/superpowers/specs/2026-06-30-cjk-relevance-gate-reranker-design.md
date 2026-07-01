@@ -1,8 +1,11 @@
 # CJK Relevance Gate Reranker Candidate Design
 
-Status: proposed; implementation has not started.
+Status: implemented on local branch `codex/e3e-relevance-gate-reranker`; scheme-window pre-PR
+review comes next.
 
 Planning base: `main@0ed1ee1c7763d65b1cd493d002908361df410521`.
+
+Implementation base: `main@03a7583fd7161585bc039832b517cc3be97ddca9`.
 
 ## Context
 
@@ -19,7 +22,7 @@ MKE has completed the Chinese retrieval sequence through E3-D:
 The current E3-C dense artifact is:
 
 - `benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json`
-- SHA-256: `dd0093bfdf972507dc682dcc0a76b2c130f9f97e9017b1f5bdbdf40dc9f86f95`
+- SHA-256: `1b802acd3fdd1a99cedab811b3570d224f6c1b538a02a4d69781dc6b0bc5f22e`
 - model: `Qwen/Qwen3-Embedding-0.6B`
 - revision: `97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3`
 - selected threshold: `0.58`
@@ -27,7 +30,7 @@ The current E3-C dense artifact is:
 The current E3-D RRF artifact is:
 
 - `benchmarks/retrieval/cjk-active-scan-qwen3-rrf-v1-comparison.json`
-- SHA-256: `a06a54b3d58417321192c535041bf798cbebfa5fac83a48c71a218cef8c33699`
+- SHA-256: `84b4292b829ca8713bdbc72e46bdf8fe6db7a3fa9e297416f75e35c048abbf7a`
 - `development_status=valid_negative`
 - `holdout_status=not_observed`
 - `e3e_status=eligible`

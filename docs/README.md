@@ -45,6 +45,12 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [Evaluate The Hybrid RRF Retrieval Candidate](./how-to/evaluate-hybrid-rrf-retrieval.md) records
   the E3-D `cjk-active-scan-qwen3-rrf-v1` valid negative, its rank-only contract, and the
   `holdout_status=not_observed` boundary.
+- [Evaluate The Relevance Gate Reranker Candidate](./how-to/evaluate-relevance-gate-reranker.md)
+  records the E3-E `cjk-relevance-gate-reranker-v1` comparison-only deterministic relevance gate:
+  `selected_profile=strict-constraint`, `development_status=passed`,
+  `holdout_gate_status=failed`, and `runtime_promotion_status=not_evaluated`.
+  No API reranker, LLM judge, local cross-encoder, query rewrite, HyDE, or segmentation is
+  introduced.
 - [Use MKE As A Local MCP Server](./how-to/use-mke-mcp.md) explains the first Agent-facing stdio interface.
 - [Use Local Transcription](./how-to/use-local-transcription.md) covers prepare, doctor, ingest, real ASR proof, and recovery.
 - [Real Local Transcription Deployment Proof Design](./superpowers/specs/2026-06-18-real-local-transcription-deployment-proof-design.md) defines the redistribution-safe fixture, cache-only proof, and isolated wheel deployment evidence.
@@ -95,6 +101,7 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [CJK Relevance Gate Reranker Candidate Design](./superpowers/specs/2026-06-30-cjk-relevance-gate-reranker-design.md) defines the proposed comparison-only E3-E deterministic relevance gate and reranker protocol.
 - [CJK Relevance Gate Reranker Candidate Implementation Plan](./superpowers/plans/2026-06-30-cjk-relevance-gate-reranker-implementation.md) defines the E3-E TDD tasks, artifact protocol, validator requirements, gates, and stop conditions.
 - [CJK Relevance Gate Reranker Autoplan Review](./superpowers/reviews/2026-06-30-cjk-relevance-gate-reranker-autoplan-review.md) records the E3-E CEO, engineering, and DX review findings.
+- [CJK Relevance Gate Reranker Implementation Review](./superpowers/reviews/2026-06-30-cjk-relevance-gate-reranker-review.md) records the E3-E local branch result, validator evidence, runtime-neutral scope, and remaining risks.
 
 ## Development Verification
 

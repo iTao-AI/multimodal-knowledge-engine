@@ -48,9 +48,9 @@ Canonical identities:
 - Development freeze SHA-256:
   `b3396dbd0e79582fd374c0189a34a3581ffa7edfe82771c89c5ecd81fc82b477`
 - Comparison artifact SHA-256:
-  `a06a54b3d58417321192c535041bf798cbebfa5fac83a48c71a218cef8c33699`
+  `84b4292b829ca8713bdbc72e46bdf8fe6db7a3fa9e297416f75e35c048abbf7a`
 - Canonical E3-C dense artifact SHA-256:
-  `dd0093bfdf972507dc682dcc0a76b2c130f9f97e9017b1f5bdbdf40dc9f86f95`
+  `1b802acd3fdd1a99cedab811b3570d224f6c1b538a02a4d69781dc6b0bc5f22e`
 - Current runtime semantic digest:
   `sha256:b32dc4a1479cb3ea8e0ebedf2c27b04a10a6d91eee96e0cd0308bcf921e97959`
 
