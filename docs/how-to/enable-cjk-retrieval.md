@@ -104,4 +104,5 @@ uv run python scripts/cjk_active_scan_runtime_deployment_proof.py \
 
 The Task 0.5 active-scan run also records unanswerable no-hit rate `0.500000` and hard-negative
 failure rate `0.235294`. This small public, text-layer, page-level corpus does not establish broad
-CJK support. Japanese and Korean behavior is unvalidated. E3-C through E3-E remain unimplemented.
+CJK support. Japanese and Korean behavior is unvalidated. Later E3-C through E3-E comparisons are
+artifact-bound evaluations and do not change the runtime default documented here.

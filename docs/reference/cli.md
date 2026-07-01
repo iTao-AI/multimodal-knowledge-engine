@@ -341,7 +341,8 @@ python -m mke.evaluation.cjk_lexical_artifact validate \
 
 The validator rebuilds the evaluation-only projection and recomputes scorer output, metrics,
 gates, and verdict from frozen fixture text. E3-F separately implements the bounded active-scan
-runtime strategy; E3-C through E3-E remain unimplemented and evidence-gated.
+runtime strategy; later E3-C through E3-E commands are artifact-bound evaluation flows and do not
+change the runtime default.
 
 ## Real Transcription Proof
 

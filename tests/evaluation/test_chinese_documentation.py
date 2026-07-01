@@ -84,7 +84,8 @@ def test_public_docs_describe_e3f_without_overclaiming_cjk_support() -> None:
     assert "cjk-active-scan-overlap-v1" in text
     assert "compiled-empty" in text
     assert "owner-startup" in text
-    assert "E3-C through E3-E remain unimplemented" in text
+    assert "E3-C through E3-E comparisons are artifact-bound evaluations" in text
+    assert "do not change the runtime default" in text
     assert "does not establish broad CJK support" in " ".join(text.split())
 
 

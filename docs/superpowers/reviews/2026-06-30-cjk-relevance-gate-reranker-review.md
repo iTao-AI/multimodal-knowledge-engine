@@ -1,12 +1,18 @@
 # CJK Relevance Gate Reranker Implementation Review
 
-Review object: E3-E local branch `codex/e3e-relevance-gate-reranker`.
+Review object: E3-E implementation merged by PR #49.
 
 Base: `main@03a7583fd7161585bc039832b517cc3be97ddca9`.
 
-Mode: implementation evidence record for scheme-window pre-PR review. The branch is local branch
-only. It records no runtime promotion and no push, PR, merge, release, or deployment action.
-This is a local branch only evidence record.
+Merge status: PR #49 was squash merged to
+`main@d5e0f915c9723aef54f3ce8670d9b1f34e77eea6`. Post-merge CI and CodeQL passed. The feature
+branch and isolated worktree were cleaned up after merge.
+
+Mode: implementation evidence record, pre-PR review record, and post-merge closeout. It records
+no runtime promotion, release, or deployment action.
+
+The original pre-PR review evidence was local branch only. The current authoritative status is the
+merged PR #49 state recorded above.
 
 ## Result
 
@@ -135,3 +141,11 @@ After this fix, there are no unresolved implementation findings.
 Remaining risks are evidence-scope risks: the corpus is small, holdout is public after the protocol
 freeze, and holdout hard-negative failure means this artifact should inform future design rather
 than be promoted.
+
+## Post-Merge Closeout
+
+PR #49 is merged on `main@d5e0f915c9723aef54f3ce8670d9b1f34e77eea6`. Post-merge CI and CodeQL
+checks passed, and no open PR remained after branch cleanup.
+
+No runtime defaults changed. Search, Ask, MCP, owner startup, Publication, ingestion, and normal
+runtime strategy behavior remain unchanged.

@@ -109,7 +109,8 @@ runtime path.
 All frozen development and holdout gates pass in the canonical artifact. E3-B remains an
 evaluation-only artifact and does not itself establish broad CJK support. E3-F separately uses
 the same compiled-empty eligibility boundary for a no-projection active-scan runtime strategy.
-E3-C through E3-E remain unimplemented and evidence-gated.
+Later E3-C through E3-E comparisons are artifact-bound evaluations and do not change this E3-B
+artifact or the E3-F runtime default.
 
 ## E3-F Runtime Evidence
 
