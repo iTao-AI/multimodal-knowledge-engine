@@ -27,10 +27,10 @@ def test_loads_protocol_bound_e3c_e3d_artifacts_and_rebuilds_union() -> None:
 
     assert inputs.split == "development"
     assert inputs.dense_artifact_sha256 == (
-        "dd0093bfdf972507dc682dcc0a76b2c130f9f97e9017b1f5bdbdf40dc9f86f95"
+        "1b802acd3fdd1a99cedab811b3570d224f6c1b538a02a4d69781dc6b0bc5f22e"
     )
     assert inputs.rrf_artifact_sha256 == (
-        "a06a54b3d58417321192c535041bf798cbebfa5fac83a48c71a218cef8c33699"
+        "84b4292b829ca8713bdbc72e46bdf8fe6db7a3fa9e297416f75e35c048abbf7a"
     )
     assert len(inputs.queries) == 24
     first = inputs.queries[0]
@@ -45,7 +45,7 @@ def test_loads_protocol_bound_e3c_e3d_artifacts_and_rebuilds_union() -> None:
 
 
 def test_development_only_does_not_read_holdout(monkeypatch: pytest.MonkeyPatch) -> None:
-    original = workflow._load_rrf_partition
+    original = workflow._load_rrf_partition  # pyright: ignore[reportPrivateUsage]
 
     def fail_on_holdout(*args: object, **kwargs: object) -> object:
         if kwargs.get("split") == "holdout":

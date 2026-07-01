@@ -12,7 +12,6 @@ from mke.evaluation.relevance_gate_protocol import (
     build_relevance_gate_protocol_lock,
     load_relevance_gate_protocol_lock,
     render_relevance_gate_protocol_lock_json,
-    validate_relevance_gate_protocol_lock,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -43,12 +42,12 @@ def test_protocol_freezes_candidate_inputs_and_profile_catalog() -> None:
     assert inputs["dense_artifact"] == {
         "path": "benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json",
         "bytes": 403821,
-        "sha256": "dd0093bfdf972507dc682dcc0a76b2c130f9f97e9017b1f5bdbdf40dc9f86f95",
+        "sha256": "1b802acd3fdd1a99cedab811b3570d224f6c1b538a02a4d69781dc6b0bc5f22e",
     }
     assert inputs["rrf_artifact"] == {
         "path": "benchmarks/retrieval/cjk-active-scan-qwen3-rrf-v1-comparison.json",
         "bytes": 117521,
-        "sha256": "a06a54b3d58417321192c535041bf798cbebfa5fac83a48c71a218cef8c33699",
+        "sha256": "84b4292b829ca8713bdbc72e46bdf8fe6db7a3fa9e297416f75e35c048abbf7a",
     }
     assert inputs["chinese_protocol"]["sha256"] == (
         "00f72934018a52b5b5f5591fba119050882aee9b782e5dac199702b0cf995944"

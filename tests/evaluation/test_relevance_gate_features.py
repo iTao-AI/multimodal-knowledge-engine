@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import cast
 
 import pytest
 
@@ -100,7 +99,7 @@ def test_detects_missing_numeric_date_unit_and_mixed_constraints() -> None:
 
 
 def test_rejects_forbidden_scoring_inputs() -> None:
-    forbidden = {
+    forbidden: dict[str, object] = {
         "qrel_grade": 2,
         "category": "semantic_paraphrase",
         "split": "development",
@@ -146,7 +145,7 @@ def test_serialized_features_do_not_include_forbidden_inputs() -> None:
         )
     )
 
-    payload = cast(dict[str, object], features.to_json())
+    payload = features.to_json()
     assert "extra_fields" not in payload
     assert "category" not in payload
     assert "split" not in payload

@@ -37,9 +37,9 @@
       "sha256": "7e28e8e53044d0dc92c721e0c3b554b2c89bcb92efa52bf073a9f9f5185c1ba5"
     },
     "protocol_source": {
-      "bytes": 13223,
+      "bytes": 13364,
       "path": "src/mke/evaluation/relevance_gate_protocol.py",
-      "sha256": "cd20af2ed307b0ad161106b9d11e62a7f11da2665d36ec6e2b57130129382d31"
+      "sha256": "298b759bf1845bafaabbe362844f1210fa93fd2bdade00b7c79af66b9317e383"
     },
     "qrel_adjudication": {
       "bytes": 341947,

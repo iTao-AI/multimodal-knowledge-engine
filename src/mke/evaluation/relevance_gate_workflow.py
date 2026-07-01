@@ -623,11 +623,19 @@ def _build_holdout_rrf_partition(
     dense_artifact_path: Path,
     repository_root: Path,
 ) -> list[object]:
-    dense_artifact = hybrid_rrf_workflow._load_dense_artifact(dense_artifact_path)
-    state = hybrid_rrf_workflow._state(dense_artifact)
-    inventory = hybrid_rrf_workflow._locator_inventory(dense_artifact)
-    runtime_results = hybrid_rrf_workflow._runtime_results(dense_artifact)
-    dense_observations = hybrid_rrf_workflow._dense_observations(
+    dense_artifact = hybrid_rrf_workflow._load_dense_artifact(  # pyright: ignore[reportPrivateUsage]
+        dense_artifact_path
+    )
+    state = hybrid_rrf_workflow._state(  # pyright: ignore[reportPrivateUsage]
+        dense_artifact
+    )
+    inventory = hybrid_rrf_workflow._locator_inventory(  # pyright: ignore[reportPrivateUsage]
+        dense_artifact
+    )
+    runtime_results = hybrid_rrf_workflow._runtime_results(  # pyright: ignore[reportPrivateUsage]
+        dense_artifact
+    )
+    dense_observations = hybrid_rrf_workflow._dense_observations(  # pyright: ignore[reportPrivateUsage]
         dense_artifact,
         partition="holdout",
         threshold=state.selected_threshold,
@@ -648,8 +656,11 @@ def _build_holdout_rrf_partition(
         dense = dense_by_id.get(query.query_id)
         if runtime is None or dense is None:
             raise RelevanceGateWorkflowError("holdout query observation is missing")
-        lexical_rows = hybrid_rrf_workflow._lexical_rows(runtime, inventory)
-        dense_rows = hybrid_rrf_workflow._dense_rows(
+        lexical_rows = hybrid_rrf_workflow._lexical_rows(  # pyright: ignore[reportPrivateUsage]
+            runtime,
+            inventory,
+        )
+        dense_rows = hybrid_rrf_workflow._dense_rows(  # pyright: ignore[reportPrivateUsage]
             dense,
             threshold=state.selected_threshold,
         )

@@ -150,7 +150,11 @@ def validate_relevance_gate_protocol_lock(
 ) -> None:
     expected = build_relevance_gate_protocol_lock(repository_root=repository_root)
     if protocol.get("schema_version") != SCHEMA_VERSION:
-        raise _error("schema is invalid", "schema_version is not E3-E v1", "Use the checked-in E3-E protocol lock.")
+        raise _error(
+            "schema is invalid",
+            "schema_version is not E3-E v1",
+            "Use the checked-in E3-E protocol lock.",
+        )
     _validate_candidate(protocol.get("candidate"))
     _validate_scope(protocol.get("comparison_scope"))
     _validate_inputs(protocol.get("inputs"), repository_root=repository_root)
@@ -236,18 +240,23 @@ def _validate_source_inventory(value: object) -> None:
 
 def _validate_profiles(value: object) -> None:
     if not isinstance(value, list):
-        raise _error("profile catalog is invalid", "profiles must be a list", "Restore the frozen profile catalog.")
+        raise _error(
+            "profile catalog is invalid",
+            "profiles must be a list",
+            "Restore the frozen profile catalog.",
+        )
+    profiles = cast(list[object], value)
     expected = [
         {"profile_id": profile_id, "profile_revision": 1}
         for profile_id in _PROFILE_IDS
     ]
-    if value != expected:
+    if profiles != expected:
         raise _error(
             "profile catalog is invalid",
             "profile IDs and revisions must exactly match the frozen catalog",
             "Use lexical-floor, balanced-constraint, and strict-constraint revision 1.",
         )
-    for profile in value:
+    for profile in profiles:
         data = _object(profile, "profile")
         if type(data.get("profile_revision")) is not int:
             raise _error(

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
@@ -39,6 +40,10 @@ class RelevanceGateFeatureError(ValueError):
     """Raised when relevance-gate feature input is unsafe or invalid."""
 
 
+def _empty_extra_fields() -> Mapping[str, object]:
+    return {}
+
+
 @dataclass(frozen=True)
 class EvidenceCandidateInput:
     query_id: str
@@ -53,7 +58,7 @@ class EvidenceCandidateInput:
     lexical_rank: int | None
     dense_rank: int | None
     rrf_rank: int | None
-    extra_fields: dict[str, object] = field(default_factory=dict)
+    extra_fields: Mapping[str, object] = field(default_factory=_empty_extra_fields)
 
 
 @dataclass(frozen=True)
@@ -258,7 +263,7 @@ def _missing(required: tuple[str, ...], observed: tuple[str, ...]) -> tuple[str,
     return tuple(item for item in required if item not in observed_set)
 
 
-def _dedupe(values: object) -> tuple[str, ...]:
+def _dedupe(values: Iterable[object]) -> tuple[str, ...]:
     result: list[str] = []
     seen: set[str] = set()
     for raw in values:

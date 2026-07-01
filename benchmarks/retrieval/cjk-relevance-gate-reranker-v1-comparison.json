@@ -977,7 +977,7 @@
         "value": 0.5
       }
     },
-    "protocol_sha256": "0b731eb503b1d792a35f7c3eaebb964faedbcf215076f45202462cfa0a83e519",
+    "protocol_sha256": "de74fcfdd6283f2852cfea9add501df109f324871ee1f7ffdf30ce435dc9c663",
     "rrf_artifact_sha256": "84b4292b829ca8713bdbc72e46bdf8fe6db7a3fa9e297416f75e35c048abbf7a",
     "runtime_promotion_status": "not_evaluated",
     "schema_version": "mke.relevance_gate_development_freeze.v1",
@@ -11847,8 +11847,8 @@
   "selected_profile": "strict-constraint",
   "state": {
     "development_freeze_path": "benchmarks/retrieval/cjk-relevance-gate-reranker-v1-development-freeze.json",
-    "development_freeze_sha256": "53ccbabca05590783a33ec693ff79c3b902b859cbf70f26ec535160eda322eb2",
+    "development_freeze_sha256": "5a0b8dc74eb799d8639aa458b6702c9edb92395b3fd4fe520f1b902c4edc75a8",
     "holdout_receipt_path": "benchmarks/retrieval/cjk-relevance-gate-reranker-v1-holdout-receipt.json",
-    "holdout_receipt_sha256": "4ae49450420c5b31f8bacaa6f5cbefafb32f0f02a25b5a4fc46404ea90156c41"
+    "holdout_receipt_sha256": "00d80a2aa9f50e1c2e28b1d4cf457f3f232acc63ff0e4be7be269db11c91b8f3"
   }
 }

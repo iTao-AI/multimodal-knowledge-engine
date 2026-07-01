@@ -149,15 +149,17 @@ def _scan_feature_rows(artifact: dict[str, Any]) -> None:
 def _feature_rows(artifact: dict[str, Any]) -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     for section_name in ("development", "holdout"):
-        section = artifact.get(section_name)
-        if not isinstance(section, dict):
+        section_value = artifact.get(section_name)
+        if not isinstance(section_value, dict):
             continue
+        section = cast(dict[str, object], section_value)
         raw_results = section.get("results")
         if raw_results is None:
             continue
         for result in _list(raw_results, f"{section_name} results"):
+            result_data = _object(result, "result")
             for feature in _list(
-                _object(result, "result").get("feature_rows"),
+                result_data.get("feature_rows"),
                 "feature rows",
             ):
                 rows.append(_object(feature, "feature row"))
