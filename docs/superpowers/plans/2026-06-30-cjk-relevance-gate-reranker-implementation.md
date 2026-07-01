@@ -18,8 +18,8 @@ pytest, Ruff, Pyright, Hatch/uv, existing `mke eval` CLI patterns.
 
 ---
 
-Status: implementation in progress; Tasks 0-8 are complete on local branch
-`codex/e3e-relevance-gate-reranker`. This plan depends on the approved
+Status: complete on local branch `codex/e3e-relevance-gate-reranker`; scheme-window pre-PR review
+comes next. This plan depends on the approved
 [CJK Relevance Gate Reranker Candidate Design](../specs/2026-06-30-cjk-relevance-gate-reranker-design.md).
 
 Planning base: `main@0ed1ee1c7763d65b1cd493d002908361df410521`.
@@ -665,7 +665,7 @@ git commit -m "docs(eval): document relevance gate comparison"
 - Modify: `docs/superpowers/reviews/2026-06-30-cjk-relevance-gate-reranker-review.md`
 - Modify: `docs/superpowers/plans/2026-06-30-cjk-relevance-gate-reranker-implementation.md`
 
-- [ ] **Step 1: Run full verification**
+- [x] **Step 1: Run full verification**
 
 Run:
 
@@ -687,7 +687,7 @@ Expected: all pass. If optional dense replay is unavailable because embedding ex
 cache are missing, record it as optional corroboration not run; do not install packages or download
 models unless separately authorized.
 
-- [ ] **Step 2: Run public-boundary scan**
+- [x] **Step 2: Run public-boundary scan**
 
 Check the branch diff for:
 
@@ -700,7 +700,7 @@ Check the branch diff for:
 Expected: no real private or credential material. Synthetic test strings are allowed only when they
 are clearly fake.
 
-- [ ] **Step 3: Prepare implementation review**
+- [x] **Step 3: Prepare implementation review**
 
 Create:
 
@@ -719,7 +719,7 @@ Record:
 - explicit non-scope;
 - remaining risks.
 
-- [ ] **Step 4: Commit final verification docs**
+- [x] **Step 4: Commit final verification docs**
 
 ```bash
 git add \
@@ -728,7 +728,7 @@ git add \
 git commit -m "docs(eval): finalize relevance gate verification"
 ```
 
-- [ ] **Step 5: Stop for scheme-window review**
+- [x] **Step 5: Stop for scheme-window review**
 
 Do not push or create PR yet. Hand off:
 

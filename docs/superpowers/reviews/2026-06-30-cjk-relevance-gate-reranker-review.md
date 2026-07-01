@@ -73,6 +73,30 @@ Historical identity refresh was accepted only after normalized E1/E2/E3-A/E3-B s
 matched their pre-change snapshots. E3-C, E3-D, and E3-E refresh changed identity hashes only:
 metrics, gates, selected profile, and verdicts stayed unchanged.
 
+## Final Verification
+
+Full verification on local HEAD passed:
+
+| Command | Result |
+|---|---|
+| `uv run pytest -q` | `1242 passed, 5 skipped`; existing SWIG deprecation warnings only |
+| `uv run ruff check .` | passed |
+| `uv run pyright` | `0 errors, 0 warnings, 0 informations` |
+| `uv build` | source distribution and wheel built |
+| `uv run mke proof run` | `proof=product status=passed cases=8 passed=8 failed=0` |
+| `uv run mke demo --verify` | `result=passed` |
+| `uv run python -m mke.evaluation.relevance_gate_artifact validate ...` | `relevance gate artifact valid` |
+| `git diff --check origin/main...HEAD` | passed |
+
+Optional dense replay was attempted cache-only with `HF_HUB_OFFLINE=1`,
+`TRANSFORMERS_OFFLINE=1`, and `UV_OFFLINE=1`. It returned
+`{"mode":"cache-ready","status":"failed"}` and is recorded as optional corroboration unmet; no
+package installation or model download was performed.
+
+Public-boundary scan found no branch-introduced private paths, credentials, tokens, cookies, raw
+GStack artifacts, restore points, transcripts, or private source material. Existing test fixtures
+that contain synthetic redaction strings remain test-only.
+
 ## Scope
 
 No runtime defaults changed. Search, Ask, MCP, owner startup, Publication, ingestion, and runtime
