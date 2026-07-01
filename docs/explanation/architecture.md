@@ -189,6 +189,17 @@ the fused unanswerable no-hit gate regressed, so holdout was not observed. This 
 change Search, Ask, MCP, owner startup, SQLite domain truth, Publication, ingestion, or runtime
 default behavior.
 
+E3-E adds a comparison-only deterministic relevance gate and reranker artifact over the E3-D
+lexical+dense union. It selects `strict-constraint` on development, records
+`development_status=passed`, then observes holdout once after the exclusive development freeze.
+Holdout records `holdout_gate_status=failed` and `runtime_promotion_status=not_evaluated` because
+hard-negative failure remains above the current runtime comparator. E3-E is not a runtime strategy:
+it does not read qrels, grades, query category labels, split labels, or expected locators as
+candidate scoring input, and it does not change Search, Ask, MCP, owner startup, SQLite domain
+truth, Publication, ingestion, runtime defaults, API reranker, LLM judge, local cross-encoder,
+query rewrite, HyDE, segmentation, HTTP, or UI. No API reranker, LLM judge, local cross-encoder,
+query rewrite, HyDE, or segmentation is approved by this artifact.
+
 CLI and MCP errors share one project-owned `PublicError` serializer. Only allowlisted stable causes
 can reach public output; unknown exception text is replaced with
 `operation failed; details were redacted`. Public payloads contain `problem`, `cause`,

@@ -238,6 +238,61 @@ are successful comparison outcomes and should be handled by checking `e3d_status
 
 See [Evaluate The Dense Retrieval Candidate](../how-to/evaluate-dense-retrieval.md).
 
+## Hybrid RRF Retrieval Comparison
+
+```bash
+mke eval retrieval-hybrid-rrf \
+  --protocol tests/fixtures/retrieval-hybrid-rrf-v1/protocol-lock.json \
+  --candidate cjk-active-scan-qwen3-rrf-v1 \
+  --dense-artifact benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json \
+  --development-only \
+  --record-development-freeze benchmarks/retrieval/cjk-active-scan-qwen3-rrf-v1-development-freeze.json \
+  [--json]
+```
+
+The canonical E3-D result is a comparison-only valid negative:
+
+```text
+development_status=valid_negative
+holdout_status=not_observed
+runtime_promotion_status=not_evaluated
+```
+
+The command uses rank-only RRF over current lexical runtime observations and the E3-C dense
+artifact. It does not change Search, Ask, MCP, owner startup, Publication, ingestion, runtime
+defaults, API adapters, rerankers, query rewrite, segmentation, HTTP, or UI.
+
+See [Evaluate The Hybrid RRF Retrieval Candidate](../how-to/evaluate-hybrid-rrf-retrieval.md).
+
+## Relevance Gate Reranker Comparison
+
+```bash
+mke eval retrieval-relevance-gate \
+  --protocol tests/fixtures/retrieval-relevance-gate-v1/protocol-lock.json \
+  --candidate cjk-relevance-gate-reranker-v1 \
+  --development-only \
+  --record-development-freeze benchmarks/retrieval/cjk-relevance-gate-reranker-v1-development-freeze.json \
+  [--json]
+```
+
+The holdout phase omits `--development-only` and requires `--development-freeze`, `--record`, and
+`--record-holdout-receipt`. The canonical E3-E result records:
+
+```text
+development_status=passed
+holdout_status=observed
+holdout_gate_status=failed
+selected_profile=strict-constraint
+runtime_promotion_status=not_evaluated
+```
+
+This command is comparison-only and protocol-owned. It is not a runtime strategy and does not
+change Search, Ask, MCP, owner startup, Publication, ingestion, or runtime defaults. No API
+reranker, LLM judge, local cross-encoder, query rewrite, HyDE, or segmentation is implemented by
+this command.
+
+See [Evaluate The Relevance Gate Reranker Candidate](../how-to/evaluate-relevance-gate-reranker.md).
+
 ## CJK Lexical Candidate Comparison
 
 ```bash

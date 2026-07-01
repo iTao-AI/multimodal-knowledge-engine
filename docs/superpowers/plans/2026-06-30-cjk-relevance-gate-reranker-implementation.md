@@ -18,10 +18,13 @@ pytest, Ruff, Pyright, Hatch/uv, existing `mke eval` CLI patterns.
 
 ---
 
-Status: planned; implementation has not started. This plan depends on the approved
+Status: complete on local branch `codex/e3e-relevance-gate-reranker`; scheme-window pre-PR review
+comes next. This plan depends on the approved
 [CJK Relevance Gate Reranker Candidate Design](../specs/2026-06-30-cjk-relevance-gate-reranker-design.md).
 
 Planning base: `main@0ed1ee1c7763d65b1cd493d002908361df410521`.
+
+Implementation base: `main@03a7583fd7161585bc039832b517cc3be97ddca9`.
 
 Recommended implementation branch:
 
@@ -96,7 +99,7 @@ Create or modify these files:
 - Read: `benchmarks/retrieval/cjk-active-scan-qwen3-rrf-v1-comparison.json`
 - Read: `tests/fixtures/retrieval-chinese-v1/protocol.json`
 
-- [ ] **Step 1: Confirm implementation starts from latest main**
+- [x] **Step 1: Confirm implementation starts from latest main**
 
 Run:
 
@@ -110,7 +113,7 @@ gh pr list --state open --json number,title,headRefName,mergeStateStatus,isDraft
 Expected: branch is clean and based on latest `origin/main`; no open prerequisite PR blocks E3-E.
 If not, stop and recreate the worktree.
 
-- [ ] **Step 2: Run current validators before editing**
+- [x] **Step 2: Run current validators before editing**
 
 Run:
 
@@ -160,7 +163,7 @@ uv run python -m mke.evaluation.hybrid_rrf_artifact validate \
 Expected: every validator passes. If source identity fails because E3-E files are not yet included,
 do not refresh yet; identity refresh belongs after semantic equality checks.
 
-- [ ] **Step 3: Save normalized pre-change semantic snapshots**
+- [x] **Step 3: Save normalized pre-change semantic snapshots**
 
 Create local-only snapshots:
 
@@ -197,7 +200,7 @@ Expected: four normalized files exist under `/tmp`. Do not commit them.
 - Create: `tests/evaluation/test_relevance_gate_protocol.py`
 - Create: `tests/fixtures/retrieval-relevance-gate-v1/protocol-lock.json`
 
-- [ ] **Step 1: Write RED tests for protocol identity**
+- [x] **Step 1: Write RED tests for protocol identity**
 
 Cover these cases:
 
@@ -217,7 +220,7 @@ uv run pytest tests/evaluation/test_relevance_gate_protocol.py -q
 
 Expected: tests fail because the module and protocol file do not exist.
 
-- [ ] **Step 2: Implement protocol builder and validator**
+- [x] **Step 2: Implement protocol builder and validator**
 
 Implementation requirements:
 
@@ -226,7 +229,7 @@ Implementation requirements:
 - Validate source inventory without reading qrel grades in candidate code.
 - Return stable `RelevanceGateProtocolError` with `problem`, `cause`, and `next_step`.
 
-- [ ] **Step 3: Record canonical protocol lock**
+- [x] **Step 3: Record canonical protocol lock**
 
 Run the protocol builder, write:
 
@@ -242,7 +245,7 @@ uv run pytest tests/evaluation/test_relevance_gate_protocol.py -q
 
 Expected: all protocol tests pass.
 
-- [ ] **Step 4: Commit Task 1**
+- [x] **Step 4: Commit Task 1**
 
 Stage only the protocol module, tests, and protocol lock:
 
@@ -261,7 +264,7 @@ git commit -m "feat(eval): freeze relevance gate protocol"
 - Create: `src/mke/evaluation/relevance_gate_features.py`
 - Create: `tests/evaluation/test_relevance_gate_features.py`
 
-- [ ] **Step 1: Write RED tests for allowed features**
+- [x] **Step 1: Write RED tests for allowed features**
 
 Cover:
 
@@ -279,7 +282,7 @@ uv run pytest tests/evaluation/test_relevance_gate_features.py -q
 
 Expected: fail because feature extraction does not exist.
 
-- [ ] **Step 2: Implement feature extraction**
+- [x] **Step 2: Implement feature extraction**
 
 Implementation requirements:
 
@@ -289,12 +292,12 @@ Implementation requirements:
   helper exists, implement a small local normalizer with tests.
 - Return immutable dataclasses or typed dictionaries that serialize deterministically.
 
-- [ ] **Step 3: Add forbidden-input regression**
+- [x] **Step 3: Add forbidden-input regression**
 
 Add a test that passes fake qrel/category/split fields into feature construction and proves they
 are ignored or rejected, not used in serialized features.
 
-- [ ] **Step 4: Commit Task 2**
+- [x] **Step 4: Commit Task 2**
 
 ```bash
 git add \
@@ -310,7 +313,7 @@ git commit -m "feat(eval): derive relevance gate features"
 - Create: `src/mke/evaluation/relevance_gate_candidate.py`
 - Create: `tests/evaluation/test_relevance_gate_candidate.py`
 
-- [ ] **Step 1: Write RED tests for gate decisions**
+- [x] **Step 1: Write RED tests for gate decisions**
 
 Cover:
 
@@ -331,7 +334,7 @@ uv run pytest tests/evaluation/test_relevance_gate_candidate.py -q
 
 Expected: fail because candidate scoring does not exist.
 
-- [ ] **Step 2: Implement gate profiles**
+- [x] **Step 2: Implement gate profiles**
 
 Implementation requirements:
 
@@ -341,7 +344,7 @@ Implementation requirements:
 - Tie-breaks are deterministic and portable across Python 3.12/3.13.
 - Rejection reason enum is stable and documented in tests.
 
-- [ ] **Step 3: Commit Task 3**
+- [x] **Step 3: Commit Task 3**
 
 ```bash
 git add \
@@ -357,7 +360,7 @@ git commit -m "feat(eval): add relevance gate reranker"
 - Create: `src/mke/evaluation/relevance_gate_workflow.py`
 - Create: `tests/evaluation/test_relevance_gate_workflow.py`
 
-- [ ] **Step 1: Write RED workflow tests**
+- [x] **Step 1: Write RED workflow tests**
 
 Cover:
 
@@ -377,7 +380,7 @@ uv run pytest tests/evaluation/test_relevance_gate_workflow.py -q
 
 Expected: fail because workflow does not exist.
 
-- [ ] **Step 2: Implement development scoring**
+- [x] **Step 2: Implement development scoring**
 
 Implementation requirements:
 
@@ -387,7 +390,7 @@ Implementation requirements:
 - Record selected profile and rejected profiles with reasons.
 - Do not write holdout fields during development-only mode.
 
-- [ ] **Step 3: Run development once**
+- [x] **Step 3: Run development once**
 
 Run with exclusive output path:
 
@@ -408,7 +411,7 @@ Expected:
   `holdout_status=not_observed`;
 - if development fails for an unfrozen reason, stop for planning review.
 
-- [ ] **Step 4: Commit Task 4**
+- [x] **Step 4: Commit Task 4**
 
 ```bash
 git add \
@@ -427,7 +430,7 @@ git commit -m "feat(eval): score relevance gate development"
 - Create or update: `benchmarks/retrieval/cjk-relevance-gate-reranker-v1-comparison.json`
 - Conditional: `benchmarks/retrieval/cjk-relevance-gate-reranker-v1-holdout-receipt.json`
 
-- [ ] **Step 1: Write RED validator tests**
+- [x] **Step 1: Write RED validator tests**
 
 Cover:
 
@@ -448,7 +451,7 @@ uv run pytest tests/evaluation/test_relevance_gate_artifact.py -q
 
 Expected: fail because artifact validator does not exist.
 
-- [ ] **Step 2: Implement validator and CLI entrypoint**
+- [x] **Step 2: Implement validator and CLI entrypoint**
 
 Required command:
 
@@ -467,7 +470,7 @@ relevance gate artifact valid
 
 Failure output must avoid stack traces and absolute paths.
 
-- [ ] **Step 3: Conditional holdout observation**
+- [x] **Step 3: Conditional holdout observation**
 
 If `/tmp/mke-e3e-development.json` records `development_status=passed`, run exactly once:
 
@@ -495,7 +498,7 @@ uv run mke eval retrieval-relevance-gate \
   --json > /tmp/mke-e3e-comparison.json
 ```
 
-- [ ] **Step 4: Validate artifact**
+- [x] **Step 4: Validate artifact**
 
 Run:
 
@@ -508,7 +511,7 @@ uv run python -m mke.evaluation.relevance_gate_artifact validate \
 
 Expected: `relevance gate artifact valid`.
 
-- [ ] **Step 5: Commit Task 5**
+- [x] **Step 5: Commit Task 5**
 
 ```bash
 git add \
@@ -526,7 +529,7 @@ git commit -m "test(eval): record relevance gate comparison artifact"
 - Modify: `src/mke/cli.py`
 - Modify: existing CLI evaluation tests or create `tests/interfaces/test_cli_relevance_gate.py`
 
-- [ ] **Step 1: Write RED CLI tests**
+- [x] **Step 1: Write RED CLI tests**
 
 Cover:
 
@@ -539,7 +542,7 @@ Cover:
 
 Run the targeted CLI tests. Expected: fail before implementation.
 
-- [ ] **Step 2: Implement CLI wrapper**
+- [x] **Step 2: Implement CLI wrapper**
 
 Implementation requirements:
 
@@ -548,7 +551,7 @@ Implementation requirements:
 - Return stable JSON for success and stable public errors for failure.
 - Do not add owner-startup or MCP request-time selectors.
 
-- [ ] **Step 3: Commit Task 6**
+- [x] **Step 3: Commit Task 6**
 
 ```bash
 git add src/mke/cli.py tests/interfaces/test_cli_relevance_gate.py
@@ -562,7 +565,7 @@ git commit -m "feat(cli): expose relevance gate evaluation"
 - Potentially update E1/E2/E3-A/E3-B/E3-C/E3-D artifacts only if source/scope identity changes.
 - Test: existing artifact refresh tests.
 
-- [ ] **Step 1: Rerun observed evaluations**
+- [x] **Step 1: Rerun observed evaluations**
 
 Run:
 
@@ -581,7 +584,7 @@ uv run mke eval retrieval-cjk-lexical \
   --json > /tmp/mke-e3b-after.json
 ```
 
-- [ ] **Step 2: Compare normalized semantics**
+- [x] **Step 2: Compare normalized semantics**
 
 Use the existing repository helper if present; otherwise compare JSON after removing duration and
 environment fields. Expected:
@@ -595,12 +598,12 @@ e3b semantic_equal
 
 If any qrel, fixture, observation, metric, gate, or verdict changes, stop for planning review.
 
-- [ ] **Step 3: Refresh identity-only artifacts if required**
+- [x] **Step 3: Refresh identity-only artifacts if required**
 
 Refresh only source/scope identities that changed because E3-E added source files. Do not change
 metrics or verdicts.
 
-- [ ] **Step 4: Commit Task 7**
+- [x] **Step 4: Commit Task 7**
 
 ```bash
 git add <only-refreshed-artifacts-and-tests>
@@ -616,7 +619,7 @@ git commit -m "test(eval): refresh relevance gate artifact identities"
 - Modify: `docs/README.md`
 - Modify: `docs/superpowers/plans/2026-06-30-cjk-relevance-gate-reranker-implementation.md`
 
-- [ ] **Step 1: Write reproduction guide**
+- [x] **Step 1: Write reproduction guide**
 
 The how-to must include:
 
@@ -628,12 +631,12 @@ The how-to must include:
 - explicit statement that Search, Ask, MCP, owner startup, Publication, ingestion, and runtime
   default are unchanged.
 
-- [ ] **Step 2: Update architecture and docs index**
+- [x] **Step 2: Update architecture and docs index**
 
 Architecture must place E3-E after E3-D and before any future runtime promotion, reranker model,
 query rewrite, or segmentation plan.
 
-- [ ] **Step 3: Add documentation status tests**
+- [x] **Step 3: Add documentation status tests**
 
 Extend documentation tests to assert:
 
@@ -643,7 +646,7 @@ Extend documentation tests to assert:
 - docs do not mention private source paths, non-public planning artifacts, or external private
   materials.
 
-- [ ] **Step 4: Commit Task 8**
+- [x] **Step 4: Commit Task 8**
 
 ```bash
 git add \
@@ -662,7 +665,7 @@ git commit -m "docs(eval): document relevance gate comparison"
 - Modify: `docs/superpowers/reviews/2026-06-30-cjk-relevance-gate-reranker-review.md`
 - Modify: `docs/superpowers/plans/2026-06-30-cjk-relevance-gate-reranker-implementation.md`
 
-- [ ] **Step 1: Run full verification**
+- [x] **Step 1: Run full verification**
 
 Run:
 
@@ -684,7 +687,7 @@ Expected: all pass. If optional dense replay is unavailable because embedding ex
 cache are missing, record it as optional corroboration not run; do not install packages or download
 models unless separately authorized.
 
-- [ ] **Step 2: Run public-boundary scan**
+- [x] **Step 2: Run public-boundary scan**
 
 Check the branch diff for:
 
@@ -697,7 +700,7 @@ Check the branch diff for:
 Expected: no real private or credential material. Synthetic test strings are allowed only when they
 are clearly fake.
 
-- [ ] **Step 3: Prepare implementation review**
+- [x] **Step 3: Prepare implementation review**
 
 Create:
 
@@ -716,7 +719,7 @@ Record:
 - explicit non-scope;
 - remaining risks.
 
-- [ ] **Step 4: Commit final verification docs**
+- [x] **Step 4: Commit final verification docs**
 
 ```bash
 git add \
@@ -725,7 +728,7 @@ git add \
 git commit -m "docs(eval): finalize relevance gate verification"
 ```
 
-- [ ] **Step 5: Stop for scheme-window review**
+- [x] **Step 5: Stop for scheme-window review**
 
 Do not push or create PR yet. Hand off:
 
@@ -751,3 +754,19 @@ review was skipped because E3-E has no UI scope.
 Current planning review: `CLEAN / 0 unresolved findings` after incorporating the review amendments
 recorded in
 [CJK Relevance Gate Reranker Autoplan Review](../reviews/2026-06-30-cjk-relevance-gate-reranker-autoplan-review.md).
+
+## Targeted Review Follow-Up
+
+- [x] **P1 artifact validator status binding**
+
+  Targeted review found that the E3-E artifact validator accepted top-level decision status drift
+  after the canonical comparison artifact was tampered with. The regression now covers
+  `holdout_status`, `reranker_model_status`, `query_rewrite_status`, `segmentation_status`, and
+  `e3f_runtime_status` drift.
+
+  Resolution: `validate_relevance_gate_artifact()` now derives expected top-level statuses from the
+  independently recomputed development freeze, holdout report, and comparison state. The validator
+  no longer trusts the artifact's own `holdout_status` to decide whether holdout must be recomputed.
+
+  Scope unchanged: no E3-E metrics, qrels, fixtures, candidate scoring, Search, Ask, MCP, or runtime
+  default behavior changed.

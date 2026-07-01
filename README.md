@@ -73,6 +73,15 @@ E3-C PR 2 records the comparison-only dense evidence for the same candidate. Dev
 `zh-hold-semantic-04`) on the small public Chinese corpus. This is not a production-quality or
 statistical-significance claim and does not change Search, Ask, MCP, or runtime defaults.
 
+E3-D records a comparison-only rank-only RRF valid negative over current lexical runtime
+observations and the E3-C dense artifact. E3-E records
+`cjk-relevance-gate-reranker-v1`, a comparison-only deterministic relevance gate and reranker over
+that lexical+dense union. E3-E selected `strict-constraint`, passed development, observed holdout
+once, and recorded `holdout_gate_status=failed` with
+`runtime_promotion_status=not_evaluated`. It is not a runtime strategy and does not change Search,
+Ask, MCP, owner startup, Publication, ingestion, or runtime defaults. No API reranker, LLM judge,
+local cross-encoder, query rewrite, HyDE, or segmentation is approved by this artifact.
+
 PDF intake uses PyMuPDF behind the `src/mke/adapters/pdf/` boundary and exposes a
 `PdfIntakeReport` through `mke ingest`, `mke run get`, MCP `ingest_file`, and MCP `get_run`.
 PyMuPDF licensing and the future sidecar escape route are documented in
@@ -123,6 +132,8 @@ To prepare and verify the comparison-only local embedding prerequisite, see
 [Prepare Local Embeddings](./docs/how-to/prepare-local-embeddings.md).
 To reproduce the comparison-only dense candidate result, see
 [Evaluate The Dense Retrieval Candidate](./docs/how-to/evaluate-dense-retrieval.md).
+To reproduce the comparison-only relevance gate result, see
+[Evaluate The Relevance Gate Reranker Candidate](./docs/how-to/evaluate-relevance-gate-reranker.md).
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for the development workflow and [SECURITY.md](./SECURITY.md) for responsible vulnerability reporting.
 
