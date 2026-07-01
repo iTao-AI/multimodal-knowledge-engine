@@ -18,8 +18,9 @@ pytest, Ruff, Pyright, Hatch/uv, existing `mke eval` CLI patterns.
 
 ---
 
-Status: complete on local branch `codex/e3e-relevance-gate-reranker`; scheme-window pre-PR review
-comes next. This plan depends on the approved
+Status: complete and merged by PR #49. The branch `codex/e3e-relevance-gate-reranker` was squash
+merged to `main@d5e0f915c9723aef54f3ce8670d9b1f34e77eea6`; post-merge CI and CodeQL checks passed.
+This plan depends on the approved
 [CJK Relevance Gate Reranker Candidate Design](../specs/2026-06-30-cjk-relevance-gate-reranker-design.md).
 
 Planning base: `main@0ed1ee1c7763d65b1cd493d002908361df410521`.
@@ -770,3 +771,12 @@ recorded in
 
   Scope unchanged: no E3-E metrics, qrels, fixtures, candidate scoring, Search, Ask, MCP, or runtime
   default behavior changed.
+
+## Post-Merge Closeout
+
+PR #49 was squash merged to `main@d5e0f915c9723aef54f3ce8670d9b1f34e77eea6`. Post-merge CI and
+CodeQL checks passed, open PR count returned to zero, and the implementation feature branch and
+isolated worktree were cleaned up after merge.
+
+The merged result remains comparison-only. Runtime defaults, Search, Ask, MCP, owner startup,
+Publication, ingestion, and normal runtime strategy behavior remain unchanged.

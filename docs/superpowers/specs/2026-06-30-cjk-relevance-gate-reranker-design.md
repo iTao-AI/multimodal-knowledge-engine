@@ -1,7 +1,11 @@
 # CJK Relevance Gate Reranker Candidate Design
 
-Status: implemented on local branch `codex/e3e-relevance-gate-reranker`; scheme-window pre-PR
-review comes next.
+Status: implemented and merged by PR #49. E3-E recorded a comparison-only deterministic relevance
+gate and reranker candidate; holdout was observed after the development freeze, failed the
+hard-negative gate, and no runtime promotion was made.
+
+Post-merge closeout: PR #49 was squash merged to
+`main@d5e0f915c9723aef54f3ce8670d9b1f34e77eea6`; post-merge CI and CodeQL checks passed.
 
 Planning base: `main@0ed1ee1c7763d65b1cd493d002908361df410521`.
 

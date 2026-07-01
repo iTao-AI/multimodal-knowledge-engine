@@ -98,10 +98,10 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [CJK Lexical Dense RRF Fusion Candidate Implementation Plan](./superpowers/plans/2026-06-30-cjk-lexical-dense-rrf-fusion-implementation.md) defines the E3-D TDD tasks, artifact protocol, validators, diagnostics, and stop conditions.
 - [CJK Lexical Dense RRF Fusion Candidate Autoplan Review](./superpowers/reviews/2026-06-30-cjk-lexical-dense-rrf-fusion-autoplan-review.md) records the approved E3-D plan review and evidence-boundary amendments.
 - [CJK Lexical Dense RRF Fusion Implementation Review](./superpowers/reviews/2026-06-30-cjk-lexical-dense-rrf-fusion-review.md) records the valid-negative result, validator evidence, rejected scope drift, targeted re-review, and post-merge status.
-- [CJK Relevance Gate Reranker Candidate Design](./superpowers/specs/2026-06-30-cjk-relevance-gate-reranker-design.md) defines the proposed comparison-only E3-E deterministic relevance gate and reranker protocol.
-- [CJK Relevance Gate Reranker Candidate Implementation Plan](./superpowers/plans/2026-06-30-cjk-relevance-gate-reranker-implementation.md) defines the E3-E TDD tasks, artifact protocol, validator requirements, gates, and stop conditions.
+- [CJK Relevance Gate Reranker Candidate Design](./superpowers/specs/2026-06-30-cjk-relevance-gate-reranker-design.md) records the merged comparison-only E3-E deterministic relevance gate and reranker protocol.
+- [CJK Relevance Gate Reranker Candidate Implementation Plan](./superpowers/plans/2026-06-30-cjk-relevance-gate-reranker-implementation.md) records the completed E3-E TDD tasks, artifact protocol, validator requirements, gates, and post-merge closeout.
 - [CJK Relevance Gate Reranker Autoplan Review](./superpowers/reviews/2026-06-30-cjk-relevance-gate-reranker-autoplan-review.md) records the E3-E CEO, engineering, and DX review findings.
-- [CJK Relevance Gate Reranker Implementation Review](./superpowers/reviews/2026-06-30-cjk-relevance-gate-reranker-review.md) records the E3-E local branch result, validator evidence, runtime-neutral scope, and remaining risks.
+- [CJK Relevance Gate Reranker Implementation Review](./superpowers/reviews/2026-06-30-cjk-relevance-gate-reranker-review.md) records the E3-E merged result, validator evidence, runtime-neutral scope, post-merge status, and remaining risks.
 
 ## Development Verification
 
