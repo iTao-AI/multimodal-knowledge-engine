@@ -110,6 +110,34 @@ def test_validator_rejects_holdout_when_development_did_not_pass(tmp_path: Path)
         )
 
 
+@pytest.mark.parametrize(
+    ("field", "tampered_value"),
+    [
+        ("holdout_status", "not_observed"),
+        ("reranker_model_status", "not_evaluated"),
+        ("query_rewrite_status", "eligible"),
+        ("segmentation_status", "not_evaluated"),
+        ("e3f_runtime_status", "eligible"),
+    ],
+)
+def test_validator_rejects_top_level_decision_status_drift(
+    tmp_path: Path,
+    field: str,
+    tampered_value: str,
+) -> None:
+    payload = _artifact_copy()
+    payload[field] = tampered_value
+    path = tmp_path / f"{field}-drift.json"
+    path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    with pytest.raises(RelevanceGateArtifactError, match="status"):
+        validate_relevance_gate_artifact(
+            artifact_path=path,
+            protocol_path=PROTOCOL,
+            repository_root=ROOT,
+        )
+
+
 def test_validator_rejects_bool_int_confusion(tmp_path: Path) -> None:
     payload = _artifact_copy()
     feature = _first_feature(payload)

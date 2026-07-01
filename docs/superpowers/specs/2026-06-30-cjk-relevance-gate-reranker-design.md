@@ -22,7 +22,7 @@ MKE has completed the Chinese retrieval sequence through E3-D:
 The current E3-C dense artifact is:
 
 - `benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json`
-- SHA-256: `475b428eb8a465beced6a54b081775c9c7750a28e760164af2557dce903c6b12`
+- SHA-256: `a1f3e1af3f009ceea57e06b17ff2096ba48129be92c49cc5f52e1d1456328e4c`
 - model: `Qwen/Qwen3-Embedding-0.6B`
 - revision: `97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3`
 - selected threshold: `0.58`
@@ -30,7 +30,7 @@ The current E3-C dense artifact is:
 The current E3-D RRF artifact is:
 
 - `benchmarks/retrieval/cjk-active-scan-qwen3-rrf-v1-comparison.json`
-- SHA-256: `d11afc6c8ff24b7e1ac4d1a0c373b70cfc8e67328e78073ba6dc1b5a2bd64f15`
+- SHA-256: `b593cae9716b54786fee6858d24935f7c4eba3f652d46872ac4d639b4444a42c`
 - `development_status=valid_negative`
 - `holdout_status=not_observed`
 - `e3e_status=eligible`

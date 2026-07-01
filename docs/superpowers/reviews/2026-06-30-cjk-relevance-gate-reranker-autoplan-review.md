@@ -167,3 +167,17 @@ CLEAN / 0 unresolved findings.
 The E3-E plan is ready to hand to an implementation window after user authorization. It must remain
 comparison-only and must not change Search, Ask, MCP, owner startup, Publication, ingestion, or the
 runtime default.
+
+## Targeted Implementation Review Follow-Up
+
+After implementation, targeted review found a P1 validator gap: the E3-E artifact validator
+accepted canonical comparison artifact drift when top-level decision statuses were changed while the
+nested development and holdout payloads stayed intact.
+
+Resolution is recorded in the implementation plan follow-up: validator regression tests now reject
+drift in `holdout_status`, `reranker_model_status`, `query_rewrite_status`, `segmentation_status`,
+and `e3f_runtime_status`; `validate_relevance_gate_artifact()` derives those statuses from
+independently recomputed development, holdout, and state data.
+
+This follow-up does not change the planning verdict scope. E3-E remains comparison-only with no
+Search, Ask, MCP, owner startup, Publication, ingestion, or runtime default changes.

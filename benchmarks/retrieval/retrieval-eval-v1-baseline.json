@@ -32,7 +32,7 @@
     "main_merge_base": "721784eabcb9fbb737166578010c9e1a46a25fef",
     "implementation_start": "3992b0e9371d1a8c9e019d3bbe2b32aac9665914",
     "evaluation_commit": "79bafb07ac592b684e6ceab15dc389dc33702978",
-    "evaluation_content_sha256": "69649ea84e2368232cd2c4f34a1d2136edc81991015caa1c73006e8bd1371018",
+    "evaluation_content_sha256": "a1d8a77840d48d0736916bbcb0e6d27f051a027103642786a2470c9883b507a0",
     "evaluation_content_files": [
       {
         "path": "src/mke/__init__.py",
@@ -301,8 +301,8 @@
       },
       {
         "path": "src/mke/evaluation/relevance_gate_artifact.py",
-        "bytes": 8066,
-        "sha256": "9e669865811fbf7272a7ee5d68d3f3f7ec62fb9deb25c250d0f232c30ca27950"
+        "bytes": 10331,
+        "sha256": "8c6fe6b4f9cb0df7aac2a99e520481b8322ecc5dccacb9ed5879b7fb13c28385"
       },
       {
         "path": "src/mke/evaluation/relevance_gate_candidate.py",

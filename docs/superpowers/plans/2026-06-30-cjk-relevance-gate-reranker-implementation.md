@@ -754,3 +754,19 @@ review was skipped because E3-E has no UI scope.
 Current planning review: `CLEAN / 0 unresolved findings` after incorporating the review amendments
 recorded in
 [CJK Relevance Gate Reranker Autoplan Review](../reviews/2026-06-30-cjk-relevance-gate-reranker-autoplan-review.md).
+
+## Targeted Review Follow-Up
+
+- [x] **P1 artifact validator status binding**
+
+  Targeted review found that the E3-E artifact validator accepted top-level decision status drift
+  after the canonical comparison artifact was tampered with. The regression now covers
+  `holdout_status`, `reranker_model_status`, `query_rewrite_status`, `segmentation_status`, and
+  `e3f_runtime_status` drift.
+
+  Resolution: `validate_relevance_gate_artifact()` now derives expected top-level statuses from the
+  independently recomputed development freeze, holdout report, and comparison state. The validator
+  no longer trusts the artifact's own `holdout_status` to decide whether holdout must be recomputed.
+
+  Scope unchanged: no E3-E metrics, qrels, fixtures, candidate scoring, Search, Ask, MCP, or runtime
+  default behavior changed.

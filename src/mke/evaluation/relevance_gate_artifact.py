@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from mke.evaluation.relevance_gate_workflow import (
+    build_relevance_gate_comparison_artifact,
     build_relevance_gate_development_freeze,
     build_relevance_gate_holdout_report,
     run_relevance_gate_development,
@@ -44,7 +45,6 @@ def validate_relevance_gate_artifact(
 ) -> None:
     root = repository_root.resolve()
     artifact = _load_json(artifact_path, "artifact")
-    _validate_state(artifact, repository_root=root)
     _scan_feature_rows(artifact)
     if artifact.get("development_status") != "passed":
         if artifact.get("holdout_status") == "observed":
@@ -59,17 +59,73 @@ def validate_relevance_gate_artifact(
     )
     if artifact.get("development") != expected_freeze:
         raise RelevanceGateArtifactError("development freeze recompute mismatch")
-    if artifact.get("holdout_status") == "observed":
+    freeze_path, receipt_path = _validate_state(
+        artifact,
+        expected_development_status=_string(
+            expected_freeze.get("development_status"),
+            "development status",
+        ),
+        repository_root=root,
+    )
+    _validate_top_level_statuses(
+        artifact,
+        {
+            "candidate_status": "completed",
+            "development_status": expected_freeze["development_status"],
+            "holdout_status": (
+                "observed"
+                if expected_freeze.get("development_status") == "passed"
+                else "not_observed"
+            ),
+            "runtime_promotion_status": "not_evaluated",
+            "e3f_runtime_status": "not_evaluated",
+            "reranker_model_status": (
+                "eligible"
+                if expected_freeze.get("development_status") == "passed"
+                else "not_evaluated"
+            ),
+            "query_rewrite_status": "not_evaluated",
+        },
+    )
+    if expected_freeze.get("development_status") == "passed":
+        if receipt_path is None:
+            raise RelevanceGateArtifactError("holdout receipt is missing")
         selected = _string(artifact.get("selected_profile"), "selected profile")
         expected_holdout = build_relevance_gate_holdout_report(
             protocol_path=protocol_path,
             selected_profile=selected,
             repository_root=root,
         )
+        expected_artifact = build_relevance_gate_comparison_artifact(
+            freeze=expected_freeze,
+            holdout=expected_holdout,
+            development_freeze_path=freeze_path,
+            holdout_receipt_path=receipt_path,
+            repository_root=root,
+        )
+        _validate_top_level_statuses(
+            artifact,
+            {
+                "segmentation_status": expected_artifact["segmentation_status"],
+                "selected_profile": expected_artifact["selected_profile"],
+            },
+        )
         if artifact.get("holdout") != expected_holdout:
             if _feature_rows(artifact) != _feature_rows({"holdout": expected_holdout}):
                 raise RelevanceGateArtifactError("feature row recompute mismatch")
             raise RelevanceGateArtifactError("artifact recompute mismatch")
+        if artifact.get("state") != expected_artifact["state"]:
+            raise RelevanceGateArtifactError("artifact state recompute mismatch")
+    else:
+        _validate_top_level_statuses(
+            artifact,
+            {
+                "segmentation_status": "not_evaluated",
+                "selected_profile": expected_freeze["selected_profile"],
+            },
+        )
+        if "holdout" in artifact:
+            raise RelevanceGateArtifactError("holdout observed before passed development")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -106,13 +162,14 @@ def main(argv: list[str] | None = None) -> int:
     return 1
 
 
-def _validate_state(artifact: dict[str, Any], *, repository_root: Path) -> None:
+def _validate_state(
+    artifact: dict[str, Any],
+    *,
+    expected_development_status: str,
+    repository_root: Path,
+) -> tuple[Path, Path | None]:
     if artifact.get("schema_version") != "mke.relevance_gate_comparison_artifact.v1":
         raise RelevanceGateArtifactError("artifact schema is invalid")
-    if artifact.get("candidate_status") != "completed":
-        raise RelevanceGateArtifactError("candidate status is invalid")
-    if artifact.get("runtime_promotion_status") != "not_evaluated":
-        raise RelevanceGateArtifactError("runtime promotion status is invalid")
     state = _object(artifact.get("state"), "state")
     freeze_path = _repository_path(
         repository_root,
@@ -122,7 +179,8 @@ def _validate_state(artifact: dict[str, Any], *, repository_root: Path) -> None:
         raise RelevanceGateArtifactError("development freeze is missing")
     if state.get("development_freeze_sha256") != _file_sha256(freeze_path):
         raise RelevanceGateArtifactError("development freeze identity mismatch")
-    if artifact.get("holdout_status") == "observed":
+    receipt_path: Path | None = None
+    if expected_development_status == "passed":
         receipt_path = _repository_path(
             repository_root,
             _string(state.get("holdout_receipt_path"), "holdout receipt path"),
@@ -131,6 +189,16 @@ def _validate_state(artifact: dict[str, Any], *, repository_root: Path) -> None:
             raise RelevanceGateArtifactError("holdout receipt is missing")
         if state.get("holdout_receipt_sha256") != _file_sha256(receipt_path):
             raise RelevanceGateArtifactError("holdout receipt identity mismatch")
+    return freeze_path, receipt_path
+
+
+def _validate_top_level_statuses(
+    artifact: dict[str, Any],
+    expected: dict[str, object],
+) -> None:
+    for key, value in expected.items():
+        if artifact.get(key) != value:
+            raise RelevanceGateArtifactError(f"{key} status mismatch")
 
 
 def _scan_feature_rows(artifact: dict[str, Any]) -> None:

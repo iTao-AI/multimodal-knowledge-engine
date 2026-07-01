@@ -45,12 +45,12 @@ Key diagnostics:
 
 | Artifact | SHA-256 |
 |---|---|
-| E3-E protocol lock | `230f163b407634a787b822edf6779884b2ab73a36bd60766ea30e1e9bd97f322` |
-| E3-E development freeze | `5af40347cbdb605b7cb9b9249af9c42a5ca3b8b794c74f316d7ed2a92164bf33` |
-| E3-E holdout receipt | `3a5af63a3527142b54376885cf441d46799574e23cfa9a59a36e6dd0ef1cda98` |
-| E3-E comparison artifact | `e0d96f530f7e0d9addd84480cc7fd9ff264f10c9bfad0c022a8c12e3cc26a2e4` |
-| E3-C dense artifact input | `475b428eb8a465beced6a54b081775c9c7750a28e760164af2557dce903c6b12` |
-| E3-D RRF artifact input | `d11afc6c8ff24b7e1ac4d1a0c373b70cfc8e67328e78073ba6dc1b5a2bd64f15` |
+| E3-E protocol lock | `929476fe076e6c9b6d3797d5620516a15a44f6a3e3d78c3860f0eaec5b2e344a` |
+| E3-E development freeze | `0377bcfd1350540ea75610cc2ef44fd4b4f86234551f9816adad48598ac1e44e` |
+| E3-E holdout receipt | `4731fe5afb7d164a4411efab0ecf880a69838b802d930ac3192eb49930d81351` |
+| E3-E comparison artifact | `84dcfa3b4375458f5a4b0e5f91d4c15dfeb35a39ba7fb1bcbefec279d75d7c4e` |
+| E3-C dense artifact input | `a1f3e1af3f009ceea57e06b17ff2096ba48129be92c49cc5f52e1d1456328e4c` |
+| E3-D RRF artifact input | `b593cae9716b54786fee6858d24935f7c4eba3f652d46872ac4d639b4444a42c` |
 
 ## Validator Evidence
 
@@ -111,6 +111,27 @@ Milvus, Redis, pgvector, LangChain, LlamaIndex, or LangGraph runtime contract wa
 
 ## Review Notes
 
-Self-review found no unresolved implementation findings. Remaining risks are evidence-scope risks:
-the corpus is small, holdout is public after the protocol freeze, and holdout hard-negative failure
-means this artifact should inform future design rather than be promoted.
+Targeted review found one P1 implementation finding after the initial local closeout: the artifact
+validator did not bind top-level decision statuses to independently recomputed development, holdout,
+and state data. The fix adds regression coverage for `holdout_status`, `reranker_model_status`,
+`query_rewrite_status`, `segmentation_status`, and `e3f_runtime_status` drift, then makes
+`validate_relevance_gate_artifact()` derive expected statuses from recomputed reports instead of
+trusting the artifact's own branch fields.
+
+Targeted follow-up verification passed:
+
+| Command | Result |
+|---|---|
+| `uv run pytest tests/evaluation/test_relevance_gate_artifact.py tests/evaluation/test_relevance_gate_workflow.py tests/interfaces/test_cli_relevance_gate.py tests/evaluation/test_relevance_gate_documentation.py -q` | `30 passed`; existing SWIG deprecation warnings only |
+| `uv run python -m mke.evaluation.relevance_gate_artifact validate ...` | `relevance gate artifact valid` |
+| E1/E2/E3-A/E3-B validators with fresh observed payloads | passed after identity-only refresh; metrics, gates, and verdicts unchanged |
+| E3-C/E3-D validators | passed after downstream identity-only refresh |
+| `uv run ruff check .` | passed |
+| `uv run pyright` | `0 errors, 0 warnings, 0 informations` |
+| `git diff --check origin/main...HEAD` | passed |
+
+After this fix, there are no unresolved implementation findings.
+
+Remaining risks are evidence-scope risks: the corpus is small, holdout is public after the protocol
+freeze, and holdout hard-negative failure means this artifact should inform future design rather
+than be promoted.
