@@ -103,6 +103,32 @@ def test_audit_rejects_stale_release_status_phrases(tmp_path: Path) -> None:
     assert "stale_release_status" in _rules(tmp_path)
 
 
+@pytest.mark.parametrize(
+    "placeholder",
+    [
+        "Tag: to be created after smoke testing",
+        "Release commit: to be filled from the tag",
+        "TBD after release",
+        "TODO fill release metadata",
+        "placeholder for final release metadata",
+    ],
+)
+def test_audit_rejects_unresolved_release_placeholders(
+    tmp_path: Path,
+    placeholder: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    (tmp_path / "docs/releases/v0.1.0.md").write_text(
+        "# v0.1.0\n\n"
+        "Proof, demo, CLI, MCP, and retrieval evaluation docs are linked.\n"
+        "E3-C dense, E3-D RRF, and E3-E reranker remain comparison-only evidence.\n"
+        f"{placeholder}\n",
+        encoding="utf-8",
+    )
+
+    assert "stale_release_status" in _rules(tmp_path)
+
+
 def test_audit_rejects_private_paths_gstack_artifacts_credentials_and_tracebacks(
     tmp_path: Path,
 ) -> None:

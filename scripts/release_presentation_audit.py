@@ -213,14 +213,21 @@ def _audit_stale_status(root: Path, files: Iterable[str]) -> list[Violation]:
         "not merged",
         "pending implementation",
         "placeholder-marker",
+        "placeholder for",
+        "tbd",
+        "todo fill",
+        "to be created",
+        "to be filled",
+        "to be determined",
         "runtime_promotion_status=not_evaluated",
         "0.0.0",
     )
     violations: list[Violation] = []
     for file_name in files:
         text = _read_text(root, file_name)
+        lowered = text.lower()
         for pattern in stale_patterns:
-            if pattern in text:
+            if pattern in lowered:
                 violations.append(
                     Violation(
                         file=file_name,
