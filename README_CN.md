@@ -23,16 +23,72 @@ MCP server 共享的一套 application service contract。它不是托管 RAG �
 | proof/demo/installed-wheel consumer smoke | `mke proof run`、`mke demo --verify` 和 installed-wheel consumer smoke 都是 release gates。 |
 
 ```mermaid
-flowchart LR
-    client["Agent / CLI / MCP Client"] --> app["MKE Application Service"]
-    app --> contract["Application Service Contract"]
-    contract --> run["Ingest Run Lifecycle"]
-    run --> evidence["Evidence"]
-    evidence --> publication["Active Publication"]
-    publication --> search["Search / Ask"]
-    app --> store["SQLite Domain Store"]
-    app --> projection["Rebuildable Retrieval Projections"]
-    projection --> evaluation["Evaluation Artifacts"]
+flowchart TB
+    subgraph Interfaces["Interfaces"]
+        Agent["Agent / Tool Client"]
+        CLI["CLI"]
+        MCP["stdio MCP Server"]
+    end
+
+    subgraph Application["Application Boundary"]
+        App["MKE Application Service"]
+        Contract["Shared CLI / MCP Contract"]
+        Strategy["Owner-startup Retrieval Strategy"]
+    end
+
+    subgraph Lifecycle["Ingestion And Publication Lifecycle"]
+        Source["Source"]
+        Run["Observable Ingest Run"]
+        Evidence["Evidence"]
+        Publication["Active Publication"]
+    end
+
+    subgraph Authority["Domain Authority"]
+        Store[("SQLite Domain Store")]
+        Assets[("Immutable Assets")]
+        Artifacts[("Immutable Artifacts")]
+    end
+
+    subgraph Runtime["Retrieval Runtime"]
+        Projection["Rebuildable Retrieval Projections"]
+        FTS["Active Evidence FTS"]
+        CJK["cjk-active-scan-overlap-v1"]
+        Search["Search"]
+        Ask["Evidence-only Ask"]
+    end
+
+    subgraph Evaluation["Evaluation And Release Evidence"]
+        Baselines["E1 / E3 baselines"]
+        Dense["Dense candidate artifact"]
+        RRF["RRF valid negative"]
+        Reranker["Relevance gate / reranker artifact"]
+        Proof["proof / demo / consumer smoke"]
+        Comparison["Comparison-only Evidence"]
+    end
+
+    Agent --> Contract
+    CLI --> Contract
+    MCP --> Contract
+    Contract --> App
+    App --> Strategy
+    App --> Source
+    Source --> Run
+    Run --> Evidence
+    Evidence --> Publication
+    Publication --> Projection
+    Projection --> FTS
+    Projection --> CJK
+    FTS --> Search
+    CJK --> Search
+    Search --> Ask
+    Store --> App
+    Assets --> Run
+    Artifacts --> Evidence
+    Baselines -. recorded evidence .-> Comparison
+    Dense -. comparison-only .-> Comparison
+    RRF -. comparison-only .-> Comparison
+    Reranker -. comparison-only .-> Comparison
+    Proof -. release gate .-> App
 ```
 
 SQLite 是 first Pilot 的 domain truth。Retrieval indexes 是可重建 projections，Assets 和
