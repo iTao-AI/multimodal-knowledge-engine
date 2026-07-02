@@ -1,7 +1,7 @@
 # v0.1.0 Release Readiness Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this
-> plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Prepare MKE for a trustworthy `v0.1.0` release without adding new runtime capabilities.
 
@@ -67,7 +67,7 @@ git switch -c codex/v0-1-0-release-readiness
 - Read: `docs/superpowers/reviews/2026-06-30-cjk-lexical-dense-rrf-fusion-review.md`
 - Read: `docs/superpowers/reviews/2026-06-30-cjk-relevance-gate-reranker-review.md`
 
-- [ ] **Step 1: Confirm clean latest base**
+- [x] **Step 1: Confirm clean latest base**
 
 Run:
 
@@ -80,7 +80,7 @@ gh pr list --state open --json number,title,headRefName,mergeStateStatus,isDraft
 Expected: branch is clean, based on latest `origin/main`, and no open prerequisite PR blocks release
 readiness.
 
-- [ ] **Step 2: Record current version and release surface**
+- [x] **Step 2: Record current version and release surface**
 
 Run:
 
@@ -103,7 +103,7 @@ organization.
 - Create: `scripts/release_presentation_audit.py`
 - Create: `tests/scripts/test_release_presentation_audit.py`
 
-- [ ] **Step 1: Write RED tests for release drift**
+- [x] **Step 1: Write RED tests for release drift**
 
 Create tests that assert the audit rejects:
 
@@ -123,7 +123,7 @@ uv run pytest tests/scripts/test_release_presentation_audit.py -q
 Expected before implementation: tests fail because `scripts/release_presentation_audit.py` does not
 exist.
 
-- [ ] **Step 2: Implement the audit**
+- [x] **Step 2: Implement the audit**
 
 Implement a small Python script with this interface:
 
@@ -146,7 +146,7 @@ Failure output:
 The script should inspect only tracked repository files and should not read external model caches,
 private directories, or raw GStack artifacts.
 
-- [ ] **Step 3: Verify audit tests pass**
+- [x] **Step 3: Verify audit tests pass**
 
 Run:
 
@@ -156,7 +156,7 @@ uv run pytest tests/scripts/test_release_presentation_audit.py -q
 
 Expected: all tests pass.
 
-- [ ] **Step 4: Commit audit**
+- [x] **Step 4: Commit audit**
 
 ```bash
 git add scripts/release_presentation_audit.py tests/scripts/test_release_presentation_audit.py
@@ -171,7 +171,7 @@ git commit -m "test(release): add v0.1.0 presentation audit"
 - Modify: `src/mke/__init__.py`
 - Create or modify: `tests/test_version_identity.py`
 
-- [ ] **Step 1: Add version consistency test**
+- [x] **Step 1: Add version consistency test**
 
 Test that the project version in `pyproject.toml` equals `mke.__version__` and equals `0.1.0`.
 
@@ -183,14 +183,14 @@ uv run pytest tests/test_version_identity.py -q
 
 Expected before version update: fails because current version is `0.0.0`.
 
-- [ ] **Step 2: Update version strings**
+- [x] **Step 2: Update version strings**
 
 Change:
 
 - `pyproject.toml`: `version = "0.1.0"`
 - `src/mke/__init__.py`: `__version__ = "0.1.0"`
 
-- [ ] **Step 3: Verify version identity**
+- [x] **Step 3: Verify version identity**
 
 Run:
 
@@ -201,7 +201,7 @@ uv build
 
 Expected: test passes and wheel metadata reports `0.1.0`.
 
-- [ ] **Step 4: Commit version identity**
+- [x] **Step 4: Commit version identity**
 
 ```bash
 git add pyproject.toml src/mke/__init__.py tests/test_version_identity.py
@@ -215,7 +215,7 @@ git commit -m "chore(release): set v0.1.0 package identity"
 - Create: `CHANGELOG.md`
 - Create: `docs/releases/v0.1.0.md`
 
-- [ ] **Step 1: Create release notes**
+- [x] **Step 1: Create release notes**
 
 `docs/releases/v0.1.0.md` must include:
 
@@ -228,7 +228,7 @@ git commit -m "chore(release): set v0.1.0 package identity"
 - optional extras boundaries;
 - upgrade path for `0.1.x` and `0.2.0`.
 
-- [ ] **Step 2: Create CHANGELOG**
+- [x] **Step 2: Create CHANGELOG**
 
 `CHANGELOG.md` must include:
 
@@ -249,7 +249,7 @@ git commit -m "chore(release): set v0.1.0 package identity"
 
 Do not overclaim runtime dense, RRF, or reranker support.
 
-- [ ] **Step 3: Verify release docs are linked and clean**
+- [x] **Step 3: Verify release docs are linked and clean**
 
 Run:
 
@@ -261,7 +261,7 @@ git diff --check
 Expected: no stale version or placeholder hits. Hits for non-goals are acceptable only if the text
 clearly says they are not included.
 
-- [ ] **Step 4: Commit release notes**
+- [x] **Step 4: Commit release notes**
 
 ```bash
 git add CHANGELOG.md docs/releases/v0.1.0.md
@@ -276,7 +276,7 @@ git commit -m "docs(release): add v0.1.0 release notes"
 - Modify: `README_CN.md`
 - Modify: `docs/README.md`
 
-- [ ] **Step 1: Rewrite README.md**
+- [x] **Step 1: Rewrite README.md**
 
 README must lead with:
 
@@ -291,7 +291,7 @@ README must lead with:
 Keep detailed historical E3 paragraphs out of the top section. Link to release notes and how-to
 guides instead.
 
-- [ ] **Step 2: Rewrite README_CN.md**
+- [x] **Step 2: Rewrite README_CN.md**
 
 Match the English README claims. Do not let README_CN lag on:
 
@@ -300,12 +300,12 @@ Match the English README claims. Do not let README_CN lag on:
 - `0.1.0` release identity;
 - core proof commands.
 
-- [ ] **Step 3: Update docs/README.md navigation**
+- [x] **Step 3: Update docs/README.md navigation**
 
 Add release notes and release verification docs to the navigation. Keep superpowers docs as
 history, not primary first-run material.
 
-- [ ] **Step 4: Run entry-point checks**
+- [x] **Step 4: Run entry-point checks**
 
 Run:
 
@@ -323,7 +323,7 @@ PY
 
 Expected: audit passes and all entry points mention the release identity and runtime default.
 
-- [ ] **Step 5: Commit entry points**
+- [x] **Step 5: Commit entry points**
 
 ```bash
 git add README.md README_CN.md docs/README.md
@@ -337,14 +337,14 @@ git commit -m "docs(release): refresh public entry points for v0.1.0"
 - May modify: release-facing docs only if the audit finds factual drift.
 - May modify: `docs/how-to/verify-release.md` if generated as a required missing how-to.
 
-- [ ] **Step 1: Run `gstack-document-release` from the feature branch**
+- [x] **Step 1: Run `gstack-document-release` from the feature branch**
 
 Run the skill as a documentation audit. It should review README, docs index, release notes,
 contract docs, and how-to coverage.
 
 Expected output: coverage map and specific file findings.
 
-- [ ] **Step 2: Apply factual doc fixes only**
+- [x] **Step 2: Apply factual doc fixes only**
 
 Allowed automatic fixes:
 
@@ -362,7 +362,7 @@ Stop for planning review if the audit proposes:
 - a version bump beyond `0.1.0`;
 - new generated docs beyond `docs/how-to/verify-release.md`.
 
-- [ ] **Step 3: Commit audit fixes**
+- [x] **Step 3: Commit audit fixes**
 
 ```bash
 git add <exact modified docs>
@@ -375,7 +375,7 @@ git commit -m "docs(release): apply documentation release audit"
 
 - No new files unless validation exposes a defect in release docs or audit tests.
 
-- [ ] **Step 1: Run full verification**
+- [x] **Step 1: Run full verification**
 
 Run:
 
@@ -392,7 +392,7 @@ git diff --check origin/main...HEAD
 
 Expected: all commands pass.
 
-- [ ] **Step 2: Record completion evidence**
+- [x] **Step 2: Record completion evidence**
 
 Update this plan with:
 
@@ -402,7 +402,7 @@ Update this plan with:
 - release audit result;
 - unresolved risks.
 
-- [ ] **Step 3: Commit completion record**
+- [x] **Step 3: Commit completion record**
 
 ```bash
 git add docs/superpowers/plans/2026-07-02-v0-1-0-release-readiness-implementation.md
@@ -411,7 +411,7 @@ git commit -m "docs(release): record v0.1.0 readiness verification"
 
 ### Task 7: Pre-PR review gate
 
-- [ ] **Step 1: Stop for planning-window review**
+- [x] **Step 1: Stop for planning-window review**
 
 Do not push or create a PR yet. Hand off:
 
@@ -425,6 +425,35 @@ Do not push or create a PR yet. Hand off:
 - known non-goals.
 
 The planning window should run authoritative pre-PR review before push.
+
+### Stage 1 Completion Evidence
+
+- Branch: `codex/v0-1-0-release-readiness`
+- Isolated worktree:
+  `.worktrees/v0-1-0-release-readiness`
+- Stage 1 implementation HEAD before this completion-record commit:
+  `ac8e5af test(release): refresh v0.1.0 artifact identities`
+- Base: `origin/main@24691fb0805e4a46bcad41f1699cbef52e65589a`
+- Documentation release audit result:
+  - Added `docs/how-to/verify-release.md`.
+  - Updated release-facing reference/how-to wheel examples from `0.0.0` to `0.1.0`.
+  - Kept historical `docs/superpowers/` artifacts unchanged except for this active plan.
+- Release presentation audit result:
+  `uv run python scripts/release_presentation_audit.py --root .` returned
+  `{"status": "ok", "violations": []}`.
+- Verification results:
+  - `uv run pytest -q`: 1256 passed, 5 skipped, 5 warnings.
+  - `uv run ruff check .`: passed.
+  - `uv run pyright`: 0 errors, 0 warnings, 0 informations.
+  - `uv build`: built `multimodal_knowledge_engine-0.1.0` sdist and wheel.
+  - `uv run mke proof run`: passed 8/8 product proof cases.
+  - `uv run mke demo --verify`: `result=passed`.
+- Notes:
+  - The `0.1.0` version bump changed hash-bound benchmark and protocol-lock inputs; canonical
+    artifact identities were refreshed with the existing artifact refresh and validation tooling.
+  - Stage 2 consumer smoke was intentionally not implemented.
+  - No tag, GitHub Release, push, PR, retrieval feature, Search/Ask/MCP/runtime default change, or
+    model download was performed.
 
 ## Stage 2: Release Consumer Smoke PR
 
