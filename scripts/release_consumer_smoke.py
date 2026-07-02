@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import cast
 
 EXPECTED_VERSION = "0.1.0"
+_DISTRIBUTION_NAME = "multimodal-knowledge-engine"
 _COMMAND_TIMEOUT_SECONDS = 600.0
 _MAX_STDOUT_BYTES = 2 * 1024 * 1024
 _MAX_STDERR_BYTES = 512 * 1024
@@ -146,15 +147,21 @@ def run_consumer_smoke(config: ConsumerSmokeConfig) -> dict[str, object]:
                 str(installed_python),
                 "-c",
                 (
-                    "import json, mke, sys; "
+                    "import importlib.metadata as metadata, json, mke, sys; "
                     "print(json.dumps({'mke_file': mke.__file__, "
+                    "'mke_version': mke.__version__, "
+                    f"'metadata_version': metadata.version(\"{_DISTRIBUTION_NAME}\"), "
                     "'sys_executable': sys.executable}))"
                 ),
             ],
             cwd=runtime_root,
             env=runtime_environment,
         )
-        validate_installed_identity(identity, environment=environment, repository=root)
+        installed_version = validate_installed_identity(
+            identity,
+            environment=environment,
+            repository=root,
+        )
 
         proof = _run_step(
             "proof_failed",
@@ -187,7 +194,7 @@ def run_consumer_smoke(config: ConsumerSmokeConfig) -> dict[str, object]:
 
     return {
         "status": "passed",
-        "version": EXPECTED_VERSION,
+        "version": installed_version,
         "identity": {
             "installed_site_packages": True,
             "venv_executable": True,
@@ -208,10 +215,19 @@ def validate_installed_identity(
     *,
     environment: Path,
     repository: Path,
-) -> None:
+) -> str:
     module_value = identity.get("mke_file")
+    module_version_value = identity.get("mke_version")
+    metadata_version_value = identity.get("metadata_version")
     executable_value = identity.get("sys_executable")
-    if not isinstance(module_value, str) or not isinstance(executable_value, str):
+    if (
+        not isinstance(module_value, str)
+        or not isinstance(module_version_value, str)
+        or not isinstance(metadata_version_value, str)
+        or not isinstance(executable_value, str)
+    ):
+        raise ConsumerSmokeError("installed_identity_failed")
+    if module_version_value != EXPECTED_VERSION or metadata_version_value != EXPECTED_VERSION:
         raise ConsumerSmokeError("installed_identity_failed")
     module_path = Path(module_value)
     executable_path = Path(executable_value)
@@ -229,6 +245,7 @@ def validate_installed_identity(
         or "site-packages" not in resolved_module.parts
     ):
         raise ConsumerSmokeError("installed_identity_failed")
+    return module_version_value
 
 
 def run_command(

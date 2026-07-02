@@ -71,6 +71,8 @@ def test_consumer_smoke_orchestrates_core_wheel_flow_outside_source_tree(
                 _json(
                     {
                         "mke_file": str(module),
+                        "mke_version": "0.1.0",
+                        "metadata_version": "0.1.0",
                         "sys_executable": str(installed_python),
                     }
                 ),
@@ -145,6 +147,13 @@ def test_consumer_smoke_orchestrates_core_wheel_flow_outside_source_tree(
     rendered_install = " ".join(install_command)
     assert "[embedding]" not in rendered_install
     assert "[transcription]" not in rendered_install
+    identity_command = next(
+        command
+        for command in commands
+        if len(command) >= 3 and command[1] == "-c" and "mke.__file__" in command[2]
+    )
+    assert "mke.__version__" in identity_command[2]
+    assert 'metadata.version("multimodal-knowledge-engine")' in identity_command[2]
     installed_indexes = [
         index
         for index, command in enumerate(commands)
@@ -185,11 +194,67 @@ def test_source_checkout_import_identity_is_rejected(
                 _json(
                     {
                         "mke_file": str(repo / "src" / "mke" / "__init__.py"),
+                        "mke_version": "0.1.0",
+                        "metadata_version": "0.1.0",
                         "sys_executable": str(installed_python),
                     }
                 ),
                 b"",
             )
+        return smoke.CommandResult(0, b"", b"")
+
+    monkeypatch.setattr(smoke, "run_command", fake_run)
+
+    with pytest.raises(smoke.ConsumerSmokeError) as raised:
+        smoke.run_consumer_smoke(smoke.ConsumerSmokeConfig(wheel=wheel))
+
+    assert raised.value.code == "installed_identity_failed"
+
+
+@pytest.mark.parametrize(
+    "identity_override",
+    [
+        {"mke_version": "0.1.1"},
+        {"metadata_version": "0.1.1"},
+    ],
+    ids=["module-version-drift", "metadata-version-drift"],
+)
+def test_installed_version_identity_drift_is_rejected(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    identity_override: dict[str, object],
+) -> None:
+    from scripts import release_consumer_smoke as smoke
+
+    repo, wheel, runtime_root = _repo_wheel_runtime(tmp_path)
+    monkeypatch.setattr(smoke, "repository_root", lambda: repo)
+    monkeypatch.setattr(smoke.tempfile, "TemporaryDirectory", _tempdir(runtime_root))
+
+    def fake_run(command: list[str], **kwargs: object) -> smoke.CommandResult:
+        installed_python = runtime_root / "venv" / "bin" / "python"
+        module = (
+            runtime_root
+            / "venv"
+            / "lib"
+            / "python3.12"
+            / "site-packages"
+            / "mke"
+            / "__init__.py"
+        )
+        if command[:2] == ["uv", "venv"]:
+            installed_python.parent.mkdir(parents=True, exist_ok=True)
+            installed_python.write_text("")
+        if len(command) >= 3 and command[1] == "-c" and "mke.__file__" in command[2]:
+            module.parent.mkdir(parents=True, exist_ok=True)
+            module.write_text("")
+            identity: dict[str, object] = {
+                "mke_file": str(module),
+                "mke_version": "0.1.0",
+                "metadata_version": "0.1.0",
+                "sys_executable": str(installed_python),
+            }
+            identity.update(identity_override)
+            return smoke.CommandResult(0, _json(identity), b"")
         return smoke.CommandResult(0, b"", b"")
 
     monkeypatch.setattr(smoke, "run_command", fake_run)
@@ -357,6 +422,8 @@ def _fake_run_with_failure(
                 _json(
                     {
                         "mke_file": str(module),
+                        "mke_version": "0.1.0",
+                        "metadata_version": "0.1.0",
                         "sys_executable": str(installed_python),
                     }
                 ),
