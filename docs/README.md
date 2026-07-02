@@ -14,7 +14,7 @@ history. Start with the release and proof guides unless you are auditing impleme
 `v0.1.0` ships `cjk-active-scan-overlap-v1` as the current owner-startup CJK runtime strategy.
 E3-C dense, E3-D RRF, and E3-E relevance-gate/reranker records are comparison-only evidence.
 
-## Current Product Contracts
+## Proof And Product Contracts
 
 - [Architecture](./explanation/architecture.md)
 - [Public Contracts](./reference/contracts.md)
@@ -22,7 +22,7 @@ E3-C dense, E3-D RRF, and E3-E relevance-gate/reranker records are comparison-on
 - [Enable Bounded CJK Retrieval](./how-to/enable-cjk-retrieval.md)
 - [Use Local Transcription](./how-to/use-local-transcription.md)
 
-## Retrieval Evaluation
+## Architecture And Evaluation
 
 - [Run Retrieval Evaluation](./how-to/run-retrieval-evaluation.md)
 - [Evaluate The Numeric Retrieval Candidate](./how-to/evaluate-numeric-retrieval.md)

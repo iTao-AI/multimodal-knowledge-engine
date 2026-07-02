@@ -1,23 +1,36 @@
 # Multimodal Knowledge Engine
 
-[中文说明](./README_CN.md)
+[English](./README.md) | [中文](./README_CN.md)
 
 Multimodal Knowledge Engine is a local-first, Agent-callable Evidence engine for ingesting,
 searching, and asking questions over documents and media.
 
-`v0.1.0` is the first public small version. It is intentionally narrow: MKE proves a trustworthy
-local Evidence lifecycle with CLI and stdio MCP contracts, deterministic proof commands, and
-bounded retrieval evaluation artifacts. It is not a hosted RAG platform.
+`v0.1.0` is the first public small version. It proves a narrow but complete local Evidence loop:
+observable ingest Runs, active Publication Search, evidence-only Ask, and one application contract
+shared by the CLI and stdio MCP server. It is not a hosted RAG platform.
 
-## What v0.1.0 Can Do
+## Verified in v0.1.0
 
-- Ingest text-layer PDFs and the documented short local video fixture through observable Runs.
-- Publish only successful output; failed or partial processing never becomes searchable.
-- Search active Publications and return stable page or timestamp Evidence.
-- Answer with cited Evidence or `insufficient_evidence`; MKE does not call an LLM in this slice.
-- Expose CLI and stdio MCP tools over the same application contract.
-- Run deterministic proof with `mke proof run` and `mke demo --verify`.
-- Use `cjk-active-scan-overlap-v1` as the default owner-startup CJK retrieval strategy.
+| Capability | Evidence |
+|---|---|
+| Evidence lifecycle | Successful Runs can publish Evidence; failed or partial processing never becomes searchable. |
+| text-layer PDF + short video fixture ingest | The proof/demo fixtures cover text-layer PDF ingest and the documented short local video fixture. |
+| active-Publication Search | Search reads active Publications and returns stable page or timestamp Evidence. |
+| evidence-only Ask / insufficient_evidence | Ask returns cited Evidence or `insufficient_evidence`; no LLM answer generation is used in this slice. |
+| CLI + stdio MCP same application contract | CLI commands and MCP tools use the same application service layer. |
+| cjk-active-scan-overlap-v1 default owner-startup strategy | `cjk-active-scan-overlap-v1` is the shipped owner-startup CJK retrieval default. |
+| proof/demo/installed-wheel consumer smoke | `mke proof run`, `mke demo --verify`, and installed-wheel consumer smoke are release gates. |
+
+```mermaid
+flowchart LR
+    client["Agent / CLI / MCP Client"] --> app["MKE Application Service"]
+    app --> run["Ingest Run"]
+    run --> evidence["Evidence"]
+    evidence --> publication["Active Publication"]
+    publication --> search["Search / Ask"]
+    app --> store["SQLite Domain Store"]
+    app --> projection["Rebuildable Retrieval Projections"]
+```
 
 SQLite is the domain truth for the first Pilot. Retrieval indexes are rebuildable projections,
 Assets and Artifacts are immutable, and Search/Ask read only active Publications.
@@ -30,7 +43,7 @@ uv run mke proof run
 uv run mke demo --verify
 ```
 
-For the full Stage 1 release verification set:
+For the full release verification set:
 
 ```bash
 uv run pytest -q
@@ -40,6 +53,7 @@ uv build
 uv run mke proof run
 uv run mke demo --verify
 uv run python scripts/release_presentation_audit.py --root .
+uv run python scripts/release_consumer_smoke.py --wheel dist/*.whl --json
 ```
 
 ## CLI And MCP
@@ -72,8 +86,8 @@ numeric policy:
 - eligible compiled-empty CJK queries use a bounded scan over active Publication Evidence;
 - ineligible compiled-empty queries return stable validation results.
 
-The active scan creates no persistent CJK projection and requires no migration. The primary
-rollback strategy is `numeric-grouping-v1`; `current` remains the lower-level rollback.
+The active scan creates no persistent CJK projection and requires no migration. The primary rollback
+strategy is `numeric-grouping-v1`; `current` remains the lower-level rollback.
 
 ```bash
 uv run mke --db .tmp/mke.sqlite \
@@ -92,22 +106,24 @@ uv run mke --db .tmp/mke.sqlite \
 | E3-D RRF fusion | Valid negative; recall improved but refusal collapsed. | None |
 | E3-E relevance gate/reranker | Development passed, holdout observed, holdout gate failed. | None |
 
-E3-C dense, E3-D RRF, and E3-E relevance-gate/reranker work are comparison-only evidence. They do
-not change Search, Ask, MCP, owner startup, Publication, ingestion, or runtime defaults.
+E3-C dense, E3-D RRF, and E3-E relevance-gate/reranker work are comparison-only evidence in
+`v0.1.0`, not runtime behavior. They do not change Search, Ask, MCP, owner startup, Publication,
+ingestion, or runtime defaults.
 
-## Not Included
+## Boundaries
 
-`v0.1.0` does not include dense retrieval execution, hybrid/RRF execution, reranker execution,
-query rewrite, HyDE, segmentation rewrite, scanned-PDF OCR, arbitrary video processing, HTTP, UI, public
+`v0.1.0` does not include dense retrieval execution, hybrid/RRF execution, reranker execution, query
+rewrite, HyDE, segmentation rewrite, scanned-PDF OCR, arbitrary video processing, HTTP, UI, public
 API adapters, LangChain, LlamaIndex, LangGraph, Milvus, Redis, pgvector, bundled model weights, or
 hosted multi-tenant coordination.
 
 Optional local transcription and embedding paths remain explicit operator actions. They are not
-required for the core proof, demo, CLI ingest, or MCP execution.
+required for the core proof, demo, CLI ingest, MCP execution, or consumer smoke.
 
 ## Documentation
 
 - [Release notes](./docs/releases/v0.1.0.md)
+- [Verify The Release](./docs/how-to/verify-release.md)
 - [Documentation index](./docs/README.md)
 - [Run The Local Product Proof](./docs/how-to/run-local-product-proof.md)
 - [Use MKE As A Local MCP Server](./docs/how-to/use-mke-mcp.md)

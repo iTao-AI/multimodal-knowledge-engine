@@ -519,6 +519,70 @@ git diff --check origin/main...HEAD && git diff --check
 
 Expected: all core smoke and repository checks pass.
 
+### Stage 2 Completion Evidence
+
+- Branch: `codex/v0-1-0-consumer-smoke`
+- Stage 2 implementation HEAD before merge:
+  `284a106ac285d7690d70dadd5e4c5ebafcf65bcc`
+- Merge SHA:
+  `d1707f7d84604e7c7f123c498d48b0264bde3a93`
+- Verification results:
+  - `uv run pytest tests/scripts/test_release_consumer_smoke.py -q`: 10 passed.
+  - `uv build`: built `multimodal_knowledge_engine-0.1.0` sdist and wheel.
+  - `uv run python scripts/release_consumer_smoke.py --wheel dist/*.whl --json`: `status=passed`.
+  - `uv run pytest -q`: 1271 passed, 5 skipped, 5 warnings.
+  - `uv run ruff check .`: passed.
+  - `uv run pyright`: 0 errors.
+  - `uv run mke proof run`: passed 8/8 product proof cases.
+  - `uv run mke demo --verify`: `result=passed`.
+  - `uv run python scripts/release_presentation_audit.py --root .`: ok.
+  - `git diff --check origin/main...HEAD && git diff --check`: passed.
+- Notes:
+  - The smoke proves the built `0.1.0` wheel works outside the source checkout.
+  - The smoke verifies installed site-packages identity, installed `mke.__version__`, and package
+    metadata version.
+  - No tag, GitHub Release, PyPI publish, runtime behavior change, Search/Ask/MCP default change,
+    optional extra install, model download, or external fixture was performed.
+
+## Final Presentation Polish
+
+Branch: `codex/v0-1-0-final-presentation`.
+
+Scope:
+
+- [x] Strengthened README and README_CN first-screen release posture with the shared language
+  switch, `Verified in v0.1.0` table, and lightweight Mermaid architecture diagram.
+- [x] Kept dense/RRF/reranker wording comparison-only and explicitly outside runtime behavior.
+- [x] Lightly adjusted docs navigation so release notes, verification, proof, MCP, architecture, and
+  evaluation are easier to find.
+- [x] Updated release notes and release verification wording for the merged consumer-smoke gate
+  without predeclaring tag or GitHub Release metadata.
+- [x] Extended `scripts/release_presentation_audit.py` and tests to reject missing README language
+  switch, missing Mermaid architecture diagram, missing `Verified in v0.1.0`, runtime overclaims,
+  unresolved placeholders, private paths, raw GStack artifacts, secrets, and tracebacks.
+
+Verification results:
+
+- `uv run pytest tests/scripts/test_release_presentation_audit.py tests/test_version_identity.py -q`:
+  21 passed.
+- `uv run python scripts/release_presentation_audit.py --root .`:
+  `{"status": "ok", "violations": []}`.
+- `uv build`: built `multimodal_knowledge_engine-0.1.0` sdist and wheel.
+- `uv run python scripts/release_consumer_smoke.py --wheel dist/*.whl --json`: `status=passed`,
+  with identity, install, proof, demo, CLI, and MCP steps passed.
+- `uv run pytest -q`: 1278 passed, 5 skipped, 5 warnings.
+- `uv run ruff check .`: passed.
+- `uv run pyright`: 0 errors, 0 warnings, 0 informations.
+- `uv run mke proof run`: passed 8/8 product proof cases.
+- `uv run mke demo --verify`: `result=passed`.
+- `git diff --check origin/main...HEAD && git diff --check`: passed.
+
+Notes:
+
+- This polish changes release presentation and audit coverage only.
+- No runtime behavior, Search/Ask/MCP/runtime default, package version, tag, GitHub Release, PyPI
+  publish, website material, or Career material was changed.
+
 Stop for planning review before push.
 
 ### Stage 2 Completion Evidence

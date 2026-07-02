@@ -26,6 +26,10 @@ ENTRY_POINT_FILES = (
     "README_CN.md",
     "docs/README.md",
 )
+README_FILES = (
+    "README.md",
+    "README_CN.md",
+)
 RELEASE_NOTE_FILES = (
     "CHANGELOG.md",
     "docs/releases/v0.1.0.md",
@@ -132,6 +136,66 @@ def _audit_runtime_default(root: Path) -> list[Violation]:
                     file=file_name,
                     rule="current_runtime_default",
                     message=f"entry point must mention {RUNTIME_STRATEGY}",
+                )
+            )
+    return violations
+
+
+def _audit_readme_presentation(root: Path) -> list[Violation]:
+    violations: list[Violation] = []
+    language_switch = "[English](./README.md) | [中文](./README_CN.md)"
+    diagram_terms = (
+        "Agent / CLI / MCP Client",
+        "MKE Application Service",
+        "Ingest Run",
+        "Evidence",
+        "Active Publication",
+        "Search / Ask",
+        "SQLite Domain Store",
+        "Rebuildable Retrieval Projections",
+    )
+    verified_terms = (
+        "Evidence lifecycle",
+        "text-layer PDF",
+        "short video fixture",
+        "active-Publication Search",
+        "evidence-only Ask",
+        "insufficient_evidence",
+        "CLI + stdio MCP",
+        RUNTIME_STRATEGY,
+        "consumer smoke",
+    )
+    for file_name in README_FILES:
+        text = _read_text(root, file_name)
+        if not text:
+            continue
+        top_lines = "\n".join(text.splitlines()[:8])
+        if language_switch not in top_lines:
+            violations.append(
+                Violation(
+                    file=file_name,
+                    rule="readme_language_switch",
+                    message="README must start with the shared English/Chinese language switch",
+                )
+            )
+        if "```mermaid" not in text or not all(term in text for term in diagram_terms):
+            violations.append(
+                Violation(
+                    file=file_name,
+                    rule="readme_architecture_diagram",
+                    message="README must include the v0.1.0 Mermaid architecture diagram",
+                )
+            )
+        if (
+            "Verified in v0.1.0" not in text
+            or "| Capability |" not in text
+            or not all(term in text for term in verified_terms)
+        ):
+            violations.append(
+                Violation(
+                    file=file_name,
+                    rule="verified_v010_table",
+                    message="README must include the Verified in v0.1.0 capability table",
                 )
             )
     return violations
@@ -267,6 +331,7 @@ def audit_release_presentation(root: Path) -> list[Violation]:
     violations: list[Violation] = []
     violations.extend(_audit_version_identity(root))
     violations.extend(_audit_runtime_default(root))
+    violations.extend(_audit_readme_presentation(root))
     violations.extend(_audit_comparison_boundary(root, release_files))
     violations.extend(_audit_release_notes_links(root))
     violations.extend(_audit_stale_status(root, release_files))
