@@ -32,12 +32,12 @@
     "main_merge_base": "721784eabcb9fbb737166578010c9e1a46a25fef",
     "implementation_start": "3992b0e9371d1a8c9e019d3bbe2b32aac9665914",
     "evaluation_commit": "79bafb07ac592b684e6ceab15dc389dc33702978",
-    "evaluation_content_sha256": "a1d8a77840d48d0736916bbcb0e6d27f051a027103642786a2470c9883b507a0",
+    "evaluation_content_sha256": "fb8d82ca8f5e883abc42ac9bf25e2a12728fadc51d07cfaf37bad0705435b06f",
     "evaluation_content_files": [
       {
         "path": "src/mke/__init__.py",
         "bytes": 58,
-        "sha256": "410f505cd66963e75f3fec80e8b1a4a5e0f89ccc6a8430ebf422d311a4bbea77"
+        "sha256": "838064437329f9acecd70165ac591ca5869033befed854546a117efb4f9ae161"
       },
       {
         "path": "src/mke/adapters/embedding/__init__.py",

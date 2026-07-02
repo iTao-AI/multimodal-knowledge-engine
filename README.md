@@ -113,6 +113,8 @@ required for the core proof, demo, CLI ingest, or MCP execution.
 - [Use MKE As A Local MCP Server](./docs/how-to/use-mke-mcp.md)
 - [Enable Bounded CJK Retrieval](./docs/how-to/enable-cjk-retrieval.md)
 - [Run Retrieval Evaluation](./docs/how-to/run-retrieval-evaluation.md)
+- [Run The Chinese Retrieval Evaluation](./docs/how-to/run-chinese-retrieval-evaluation.md)
+- [Prepare Local Embeddings](./docs/how-to/prepare-local-embeddings.md)
 - [Evaluate The Dense Retrieval Candidate](./docs/how-to/evaluate-dense-retrieval.md)
 - [Evaluate The Hybrid RRF Retrieval Candidate](./docs/how-to/evaluate-hybrid-rrf-retrieval.md)
 - [Evaluate The Relevance Gate Reranker Candidate](./docs/how-to/evaluate-relevance-gate-reranker.md)

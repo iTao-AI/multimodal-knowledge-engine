@@ -27,11 +27,13 @@ not runtime strategies.
     (root / "README_CN.md").write_text(readme_text, encoding="utf-8")
     (root / "docs/README.md").write_text(
         readme_text
-        + "\nSee [v0.1.0](./releases/v0.1.0.md) and [Verify Release](./how-to/verify-release.md).\n",
+        + "\nSee [v0.1.0](./releases/v0.1.0.md) and "
+        "[Verify Release](./how-to/verify-release.md).\n",
         encoding="utf-8",
     )
     (root / "CHANGELOG.md").write_text(
-        "# Changelog\n\n## [0.1.0] - 2026-07-02\n\nComparison-only dense/RRF/reranker evidence is not shipped runtime.\n",
+        "# Changelog\n\n## [0.1.0] - 2026-07-02\n\n"
+        "Comparison-only dense/RRF/reranker evidence is not shipped runtime.\n",
         encoding="utf-8",
     )
     (root / "docs/releases/v0.1.0.md").write_text(

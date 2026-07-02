@@ -27,13 +27,17 @@ E3-C dense, E3-D RRF, and E3-E relevance-gate/reranker records are comparison-on
 - [Run Retrieval Evaluation](./how-to/run-retrieval-evaluation.md)
 - [Evaluate The Numeric Retrieval Candidate](./how-to/evaluate-numeric-retrieval.md)
 - [Run The Chinese Retrieval Evaluation](./how-to/run-chinese-retrieval-evaluation.md)
+- [Prepare Local Embeddings](./how-to/prepare-local-embeddings.md)
 - [Evaluate The Dense Retrieval Candidate](./how-to/evaluate-dense-retrieval.md)
 - [Evaluate The Hybrid RRF Retrieval Candidate](./how-to/evaluate-hybrid-rrf-retrieval.md)
+  records comparison-only `cjk-active-scan-qwen3-rrf-v1` rank-only RRF evidence; it
+  does not combine raw lexical and dense scores.
 - [Evaluate The Relevance Gate Reranker Candidate](./how-to/evaluate-relevance-gate-reranker.md)
 
 The runtime boundary is fixed for `v0.1.0`: only E3-F changes the default retrieval strategy.
 Dense, RRF, and relevance-gate/reranker artifacts remain comparison-only and do not change Search,
 Ask, MCP, owner startup, Publication, ingestion, or runtime defaults.
+Dense preparation is comparison-only evidence and does not change normal Search, Ask, MCP, or the runtime default.
 
 ## Documentation Areas
 

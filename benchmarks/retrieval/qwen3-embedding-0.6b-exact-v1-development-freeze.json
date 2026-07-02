@@ -3909,7 +3909,7 @@
   "protocol": {
     "bytes": 5127,
     "path": "protocol-lock.json",
-    "sha256": "0115d5ab5bc40e72687d9141aac8f8c47945e94bccb8de339223bfebffe8e84e"
+    "sha256": "f5eef2816bea1b0dcb66258dee5126f675579222c2898b2f0ba27cf086d7bf3f"
   },
   "schema_version": "mke.dense_development_freeze.v1",
   "source": {
@@ -3917,12 +3917,12 @@
       {
         "bytes": 1142,
         "path": "pyproject.toml",
-        "sha256": "0ff3719c96f0444fe8e3fb152b183f9a0ba7d66020b46846e7b337892aef23cb"
+        "sha256": "41eb37a2ac3be13ffb1634910b88b1868f65192ff1c8b777911fa363d6adc76a"
       },
       {
         "bytes": 204902,
         "path": "uv.lock",
-        "sha256": "97bfa7d3554026be3cabdc676c982c88164ad769ad561b3e80a0bdaf96c1c326"
+        "sha256": "3b9e815b5f4ab086ddfb75bae2400e150d16a525da88de87a983af9c55c180e1"
       },
       {
         "bytes": 10868,
@@ -3930,14 +3930,14 @@
         "sha256": "762bcf63e695eb08dcf181c2ef5888254295c3b07340f11b56d2ac0c9787ffc9"
       },
       {
-        "bytes": 54452,
+        "bytes": 72001,
         "path": "src/mke/cli.py",
-        "sha256": "923ae7898108fc7e0d95472e957731455badc34fed7385e7b9cfb29829ea7449"
+        "sha256": "59013a0a3853e41fe3f4aefa8fd48c01b5426d69948d71659644abc7c44271fa"
       },
       {
-        "bytes": 29038,
+        "bytes": 28723,
         "path": "src/mke/evaluation/dense_artifact.py",
-        "sha256": "8efbb056b16e076c5a61dedbcd984de1df0d430695ff987950cbc489ab883871"
+        "sha256": "f7f7be42427c782b3f2636d6af8814b02c7feafff82134ba06451b533750a7c6"
       },
       {
         "bytes": 5872,
@@ -3955,9 +3955,9 @@
         "sha256": "7eb893f309f5793d2313843866d5dbd23d79d09c6b933d1883fd7db719d7c538"
       },
       {
-        "bytes": 4391,
+        "bytes": 7376,
         "path": "src/mke/evaluation/dense_replay.py",
-        "sha256": "a1e6ba5e77eaccda2343c2c000d9c056f7a3d350c2f674d891979fa343197780"
+        "sha256": "4d8809efe02186d394acb4cf5293700efbde51f1de1322dd5471b78401380adf"
       },
       {
         "bytes": 17592,
@@ -3980,7 +3980,7 @@
         "sha256": "1c838b1464be9426c67887bfe5e0ff082d5a81d0addaf6addb4e7b7317c3627b"
       }
     ],
-    "sha256": "sha256:e5d89d5872ccbd448780c2805d6bcde7d54399c3270754fbb4b09e634f685be1"
+    "sha256": "sha256:59ae5f473de467cd31ebc790e55bf5913dbf7ef17d62934f5e151f816545a3fc"
   },
   "threshold_report": {
     "candidate_status": "not_evaluated",

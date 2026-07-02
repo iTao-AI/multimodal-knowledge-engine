@@ -117,11 +117,15 @@ def test_relevance_gate_docs_are_discoverable_reviewed_and_runtime_neutral() -> 
     assert "runtime_promotion_status=not_evaluated" in public_docs
     assert "does not change Search, Ask, MCP, owner startup" in public_docs
     assert "not a runtime strategy" in public_docs
-    no_reranker_scope = (
-        "No API reranker, LLM judge, local cross-encoder, query rewrite, "
-        "HyDE, or segmentation"
-    )
-    assert no_reranker_scope in public_docs
+    for phrase in (
+        "No API reranker",
+        "LLM judge",
+        "local cross-encoder",
+        "query rewrite",
+        "HyDE",
+        "segmentation",
+    ):
+        assert phrase in public_docs
 
     assert "development_status=passed" in guide
     assert "holdout_gate_status=failed" in guide

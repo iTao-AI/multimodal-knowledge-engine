@@ -6,10 +6,9 @@ import re
 import subprocess
 import sys
 import tomllib
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Iterable
-
 
 EXPECTED_VERSION = "0.1.0"
 RUNTIME_STRATEGY = "cjk-active-scan-overlap-v1"

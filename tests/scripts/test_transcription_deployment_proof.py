@@ -38,7 +38,7 @@ def test_deployment_orchestrator_runs_isolated_locked_cli_and_mcp_flow(
     model_cache.mkdir()
     repo = tmp_path / "repo"
     repo.mkdir()
-    wheel = repo / "dist" / "multimodal_knowledge_engine-0.0.0-py3-none-any.whl"
+    wheel = repo / "dist" / "multimodal_knowledge_engine-0.1.0-py3-none-any.whl"
     wheel.parent.mkdir()
     wheel.write_bytes(b"wheel")
     runtime_root: list[Path] = []
