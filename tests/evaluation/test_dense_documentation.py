@@ -52,7 +52,7 @@ def test_dense_how_to_documents_install_prepare_doctor_and_offline_proof() -> No
     for snippet in (
         "uv sync --locked --extra embedding",
         "uv build",
-        "\"dist/multimodal_knowledge_engine-0.0.0-py3-none-any.whl[embedding]\"",
+        "\"dist/multimodal_knowledge_engine-0.1.0-py3-none-any.whl[embedding]\"",
         "uv pip install --offline",
         "mke embedding prepare --allow-model-download",
         "--model qwen3-embedding-0.6b",

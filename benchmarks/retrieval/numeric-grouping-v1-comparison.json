@@ -3,7 +3,7 @@
   "protocol": {
     "id": "retrieval-numeric-v1",
     "path": "tests/fixtures/retrieval-numeric-v1/protocol-lock.json",
-    "sha256": "6c826ec1e04761b67fb06ee2c43e68c8c8a5ae6075e5f86dfa7bd1c9e3df3172"
+    "sha256": "ea71d88675e951ab9744e68432ad43d7b70d03669e13510a21f4b48a55f48ca7"
   },
   "manifests": {
     "development": {
@@ -41,12 +41,12 @@
     "revision": 1
   },
   "source": {
-    "sha256": "a1d8a77840d48d0736916bbcb0e6d27f051a027103642786a2470c9883b507a0",
+    "sha256": "fb8d82ca8f5e883abc42ac9bf25e2a12728fadc51d07cfaf37bad0705435b06f",
     "files": [
       {
         "path": "src/mke/__init__.py",
         "bytes": 58,
-        "sha256": "410f505cd66963e75f3fec80e8b1a4a5e0f89ccc6a8430ebf422d311a4bbea77"
+        "sha256": "838064437329f9acecd70165ac591ca5869033befed854546a117efb4f9ae161"
       },
       {
         "path": "src/mke/adapters/embedding/__init__.py",

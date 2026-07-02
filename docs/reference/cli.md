@@ -479,7 +479,7 @@ uv sync --locked --extra embedding
 uv build
 uv venv /tmp/mke-embedding-wheel --python 3.13
 uv pip install --python /tmp/mke-embedding-wheel/bin/python \
-  "dist/multimodal_knowledge_engine-0.0.0-py3-none-any.whl[embedding]"
+  "dist/multimodal_knowledge_engine-0.1.0-py3-none-any.whl[embedding]"
 ```
 
 ```bash
@@ -543,7 +543,7 @@ exist; it remains offline and cache-only:
 ```bash
 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 UV_OFFLINE=1 \
 python scripts/dense_retrieval_deployment_proof.py \
-  --wheel dist/multimodal_knowledge_engine-0.0.0-py3-none-any.whl \
+  --wheel dist/multimodal_knowledge_engine-0.1.0-py3-none-any.whl \
   --corpus-lock tests/fixtures/retrieval-dense-v1/corpus-lock.json \
   --model-cache "$HOME/Library/Caches/mke/embedding" \
   --python 3.13 \

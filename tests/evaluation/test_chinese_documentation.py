@@ -9,12 +9,18 @@ uv run mke eval retrieval-chinese \\
 
 def test_first_run_block_is_synchronized() -> None:
     for relative in (
-        "README.md",
-        "README_CN.md",
         "docs/tutorials/getting-started.md",
         "docs/how-to/run-chinese-retrieval-evaluation.md",
     ):
         assert FIRST_RUN in (ROOT / relative).read_text()
+
+    for relative in ("README.md", "README_CN.md", "docs/README.md"):
+        assert (
+            "docs/how-to/run-chinese-retrieval-evaluation.md"
+            in (ROOT / relative).read_text()
+            or "./how-to/run-chinese-retrieval-evaluation.md"
+            in (ROOT / relative).read_text()
+        )
 
 
 def test_documented_metrics_match_canonical_artifact() -> None:
