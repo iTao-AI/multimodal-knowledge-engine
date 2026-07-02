@@ -314,11 +314,23 @@ def _audit_stale_status(root: Path, files: Iterable[str]) -> list[Violation]:
         "runtime_promotion_status=not_evaluated",
         "0.0.0",
     )
+    post_release_stale_patterns = (
+        "github release metadata records the final tag and target commit when stage 3 creates "
+        "the release",
+        "describes release scope and verification before publication",
+        "does not predeclare a future tag target",
+        "tag and github release publication remain a separate authorized stage 3 action",
+        "tag creation, github release publication, and pypi publication remain separate stage 3 "
+        "authorization actions",
+    )
     violations: list[Violation] = []
     for file_name in files:
         text = _read_text(root, file_name)
         lowered = text.lower()
-        for pattern in stale_patterns:
+        patterns = stale_patterns
+        if file_name in RELEASE_NOTE_FILES:
+            patterns = stale_patterns + post_release_stale_patterns
+        for pattern in patterns:
             if pattern in lowered:
                 violations.append(
                     Violation(

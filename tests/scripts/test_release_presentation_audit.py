@@ -247,6 +247,63 @@ def test_audit_rejects_stale_stage2_changelog_gate(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
+    ("path", "stale_text"),
+    [
+        (
+            "docs/releases/v0.1.0.md",
+            "GitHub Release metadata records the final tag and target commit when Stage 3 "
+            "creates the release from the verified commit.",
+        ),
+        (
+            "docs/releases/v0.1.0.md",
+            "This document describes release scope and verification before publication.",
+        ),
+        (
+            "docs/releases/v0.1.0.md",
+            "This document does not predeclare a future tag target.",
+        ),
+        (
+            "docs/releases/v0.1.0.md",
+            "Tag and GitHub Release publication remain a separate authorized Stage 3 action.",
+        ),
+        (
+            "CHANGELOG.md",
+            "Tag creation, GitHub Release publication, and PyPI publication remain separate "
+            "Stage 3 authorization actions.",
+        ),
+    ],
+)
+def test_audit_rejects_post_release_stale_publication_status(
+    tmp_path: Path,
+    path: str,
+    stale_text: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    (tmp_path / path).write_text(
+        "# v0.1.0\n\n"
+        "Proof, demo, CLI, MCP, and retrieval evaluation docs are linked.\n"
+        "E3-C dense, E3-D RRF, and E3-E reranker remain comparison-only evidence.\n"
+        f"{stale_text}\n",
+        encoding="utf-8",
+    )
+
+    assert "stale_release_status" in _rules(tmp_path)
+
+
+def test_audit_allows_verify_release_generic_stage3_instructions(tmp_path: Path) -> None:
+    _write_release_tree(tmp_path)
+    (tmp_path / "docs/how-to/verify-release.md").write_text(
+        "# Verify Release\n\n"
+        "After Stage 1 and Stage 2 merge, create the annotated tag and GitHub Release only "
+        "with explicit authorization. Then verify the public archive from a clean temporary "
+        "directory.\n",
+        encoding="utf-8",
+    )
+
+    assert audit_release_presentation(tmp_path) == []
+
+
+@pytest.mark.parametrize(
     "placeholder",
     [
         "Tag: to be created after smoke testing",
