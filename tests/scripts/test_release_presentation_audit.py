@@ -28,12 +28,15 @@ not runtime strategies.
 ```mermaid
 flowchart LR
     agent[Agent / CLI / MCP Client] --> app[MKE Application Service]
+    app --> contract[Application Service Contract]
+    contract --> lifecycle[Ingest Run Lifecycle]
     app --> run[Ingest Run]
     run --> evidence[Evidence]
     evidence --> publication[Active Publication]
     publication --> search[Search / Ask]
     app --> store[SQLite Domain Store]
     app --> projection[Rebuildable Retrieval Projections]
+    projection --> evaluation[Evaluation Artifacts]
 ```
 
 ## Verified in v0.1.0
@@ -47,6 +50,20 @@ flowchart LR
 | CLI + stdio MCP same application contract | Verified |
 | cjk-active-scan-overlap-v1 default owner-startup strategy | Verified |
 | proof/demo/installed-wheel consumer smoke | Verified |
+
+## What this release proves
+
+MKE v0.1.0 exercises the Evidence lifecycle, active Publication, CLI/MCP application
+service contract, and retrieval evaluation artifacts.
+
+| Retrieval evidence | v0.1.0 status | Boundary |
+|---|---|---|
+| Shipped runtime | lexical search and cjk-active-scan-overlap-v1 active scan | Active Evidence |
+| Comparison-only evidence | dense, RRF, relevance gate / reranker | Runtime neutral |
+| Not included | query rewrite, HyDE, OCR, HTTP/UI, API adapters | not v0.1.0 runtime behavior |
+
+Search/Ask/MCP read active Publication Evidence.
+This does not change normal Search, Ask, MCP, or the runtime default.
 """
     readme_cn_text = """
 # Multimodal Knowledge Engine
@@ -60,12 +77,15 @@ not runtime strategies.
 ```mermaid
 flowchart LR
     agent[Agent / CLI / MCP Client] --> app[MKE Application Service]
+    app --> contract[Application Service Contract]
+    contract --> lifecycle[Ingest Run Lifecycle]
     app --> run[Ingest Run]
     run --> evidence[Evidence]
     evidence --> publication[Active Publication]
     publication --> search[Search / Ask]
     app --> store[SQLite Domain Store]
     app --> projection[Rebuildable Retrieval Projections]
+    projection --> evaluation[Evaluation Artifacts]
 ```
 
 ## v0.1.0 已验证能力
@@ -79,6 +99,20 @@ flowchart LR
 | CLI + stdio MCP same application contract | Verified |
 | cjk-active-scan-overlap-v1 default owner-startup strategy | Verified |
 | proof/demo/installed-wheel consumer smoke | Verified |
+
+## v0.1.0 工程深度
+
+MKE v0.1.0 验证 Evidence 生命周期、active Publication、CLI/MCP application
+service contract，以及 retrieval evaluation artifacts。
+
+| Retrieval evidence | v0.1.0 状态 | 边界 |
+|---|---|---|
+| 已发布 runtime | lexical search 和 cjk-active-scan-overlap-v1 active scan | Active Evidence |
+| Comparison-only evidence | dense、RRF、relevance gate / reranker | Runtime neutral |
+| 不包含 | query rewrite、HyDE、OCR、HTTP/UI、API adapters | 不是 v0.1.0 runtime behavior |
+
+Search/Ask/MCP 读取 active Publication Evidence。
+不改变 normal Search、Ask、MCP 或 runtime default。
 """
     (root / "README.md").write_text(readme_en_text, encoding="utf-8")
     (root / "README_CN.md").write_text(readme_cn_text, encoding="utf-8")
@@ -157,6 +191,31 @@ def test_audit_rejects_missing_verified_v010_table(tmp_path: Path, path: str) ->
     (tmp_path / path).write_text(text, encoding="utf-8")
 
     assert "verified_v010_table" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize("path", ["README.md", "README_CN.md"])
+def test_audit_rejects_shallow_readme_engineering_depth(tmp_path: Path, path: str) -> None:
+    _write_release_tree(tmp_path)
+    marker = "## What this release proves" if path == "README.md" else "## v0.1.0 工程深度"
+    text = (tmp_path / path).read_text(encoding="utf-8").replace(
+        marker,
+        "## Notes",
+    )
+    (tmp_path / path).write_text(text, encoding="utf-8")
+
+    assert "readme_engineering_depth" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize("path", ["README.md", "README_CN.md"])
+def test_audit_rejects_missing_retrieval_evidence_table(tmp_path: Path, path: str) -> None:
+    _write_release_tree(tmp_path)
+    text = (tmp_path / path).read_text(encoding="utf-8").replace(
+        "Comparison-only evidence",
+        "Candidate observations",
+    )
+    (tmp_path / path).write_text(text, encoding="utf-8")
+
+    assert "readme_engineering_depth" in _rules(tmp_path)
 
 
 def test_audit_rejects_english_verified_labels_in_chinese_readme(tmp_path: Path) -> None:
@@ -327,6 +386,24 @@ def test_audit_rejects_unresolved_release_placeholders(
     )
 
     assert "stale_release_status" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "positioning_word",
+    ["Career", "portfolio", "resume", "interview", "showcase"],
+)
+def test_audit_rejects_non_neutral_public_positioning(
+    tmp_path: Path,
+    positioning_word: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    (tmp_path / "README.md").write_text(
+        (tmp_path / "README.md").read_text(encoding="utf-8")
+        + f"\nThis release is a {positioning_word} artifact.\n",
+        encoding="utf-8",
+    )
+
+    assert "public_boundary" in _rules(tmp_path)
 
 
 def test_audit_rejects_private_paths_gstack_artifacts_credentials_and_tracebacks(

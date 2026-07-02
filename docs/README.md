@@ -1,7 +1,8 @@
 # Documentation
 
 This repository uses Diataxis plus architecture decision records and approved implementation
-history. Start with the release and proof guides unless you are auditing implementation history.
+history. Start with the release, proof, MCP, architecture, and evaluation guides unless you are
+auditing implementation history.
 
 ## Release And First Run
 
@@ -12,7 +13,8 @@ history. Start with the release and proof guides unless you are auditing impleme
 - [Use MKE As A Local MCP Server](./how-to/use-mke-mcp.md)
 
 `v0.1.0` ships `cjk-active-scan-overlap-v1` as the current owner-startup CJK runtime strategy.
-E3-C dense, E3-D RRF, and E3-E relevance-gate/reranker records are comparison-only evidence.
+E3-C dense, E3-D RRF, and E3-E relevance-gate/reranker records are comparison-only evidence and
+do not change Search, Ask, MCP, owner startup, Publication, ingestion, or runtime defaults.
 
 ## Proof And Product Contracts
 
@@ -21,6 +23,10 @@ E3-C dense, E3-D RRF, and E3-E relevance-gate/reranker records are comparison-on
 - [CLI Reference](./reference/cli.md)
 - [Enable Bounded CJK Retrieval](./how-to/enable-cjk-retrieval.md)
 - [Use Local Transcription](./how-to/use-local-transcription.md)
+
+The architecture guide is the shortest path to the Evidence lifecycle, active Publication
+semantics, SQLite domain truth, rebuildable retrieval projections, and the shared CLI/MCP
+application contract.
 
 ## Architecture And Evaluation
 
@@ -36,8 +42,8 @@ E3-C dense, E3-D RRF, and E3-E relevance-gate/reranker records are comparison-on
 
 The runtime boundary is fixed for `v0.1.0`: only E3-F changes the default retrieval strategy.
 Comparison-only dense preparation does not change normal Search, Ask, MCP, or the runtime default.
-Dense, RRF, and relevance-gate/reranker artifacts remain comparison-only and do not change Search,
-Ask, MCP, owner startup, Publication, ingestion, or runtime defaults.
+Dense, RRF, and relevance-gate/reranker artifacts remain evaluation artifacts, not runtime
+features.
 
 ## Documentation Areas
 
