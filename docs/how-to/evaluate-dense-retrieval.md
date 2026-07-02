@@ -72,7 +72,7 @@ network:
 ```bash
 uv build
 uv pip install --offline \
-  "dist/multimodal_knowledge_engine-0.0.0-py3-none-any.whl[embedding]"
+  "dist/multimodal_knowledge_engine-0.1.0-py3-none-any.whl[embedding]"
 ```
 
 MKE never deletes model caches. Failed-candidate cleanup uses the package manager's normal
