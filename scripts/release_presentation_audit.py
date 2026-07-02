@@ -71,6 +71,11 @@ def _version_from_init(text: str) -> str | None:
     return match.group(1) if match else None
 
 
+def _contains_all_terms(text: str, terms: Iterable[str]) -> bool:
+    normalized_text = " ".join(text.split())
+    return all(" ".join(term.split()) in normalized_text for term in terms)
+
+
 def _audit_version_identity(root: Path) -> list[Violation]:
     violations: list[Violation] = []
     pyproject_path = root / "pyproject.toml"
@@ -159,13 +164,62 @@ def _audit_readme_presentation(root: Path) -> list[Violation]:
     diagram_terms = (
         "Agent / CLI / MCP Client",
         "MKE Application Service",
+        "Application Service Contract",
+        "Ingest Run Lifecycle",
         "Ingest Run",
         "Evidence",
         "Active Publication",
         "Search / Ask",
         "SQLite Domain Store",
         "Rebuildable Retrieval Projections",
+        "Evaluation Artifacts",
     )
+    engineering_depth_terms_by_file = {
+        "README.md": (
+            "## What this release proves",
+            "Evidence lifecycle",
+            "active Publication",
+            "CLI/MCP application service contract",
+            "retrieval evaluation artifacts",
+            "Retrieval evidence",
+            "Shipped runtime",
+            "Comparison-only evidence",
+            "Not included",
+            "lexical search",
+            "dense",
+            "RRF",
+            "relevance gate",
+            "reranker",
+            "does not change normal Search, Ask, MCP, or the runtime default",
+            "query rewrite",
+            "HyDE",
+            "OCR",
+            "HTTP/UI",
+            "API adapters",
+        ),
+        "README_CN.md": (
+            "## v0.1.0 工程深度",
+            "Evidence 生命周期",
+            "active Publication",
+            "CLI/MCP application service contract",
+            "retrieval evaluation artifacts",
+            "Retrieval evidence",
+            "已发布 runtime",
+            "Comparison-only evidence",
+            "不包含",
+            "lexical search",
+            "dense",
+            "RRF",
+            "relevance gate",
+            "reranker",
+            "不改变 normal Search、Ask、MCP 或 runtime default",
+            "query rewrite",
+            "HyDE",
+            "OCR",
+            "HTTP/UI",
+            "API adapters",
+        ),
+    }
     verified_terms_by_file = {
         "README.md": (
             "Evidence lifecycle",
@@ -203,7 +257,7 @@ def _audit_readme_presentation(root: Path) -> list[Violation]:
                     message="README must start with the shared English/Chinese language switch",
                 )
             )
-        if "```mermaid" not in text or not all(term in text for term in diagram_terms):
+        if "```mermaid" not in text or not _contains_all_terms(text, diagram_terms):
             violations.append(
                 Violation(
                     file=file_name,
@@ -215,13 +269,24 @@ def _audit_readme_presentation(root: Path) -> list[Violation]:
         if (
             labels["heading"] not in text
             or labels["header"] not in text
-            or not all(term in text for term in verified_terms_by_file[file_name])
+            or not _contains_all_terms(text, verified_terms_by_file[file_name])
         ):
             violations.append(
                 Violation(
                     file=file_name,
                     rule="verified_v010_table",
                     message=labels["message"],
+                )
+            )
+        if not _contains_all_terms(text, engineering_depth_terms_by_file[file_name]):
+            violations.append(
+                Violation(
+                    file=file_name,
+                    rule="readme_engineering_depth",
+                    message=(
+                        "README must explain v0.1.0 engineering depth and retrieval "
+                        "evidence boundaries"
+                    ),
                 )
             )
     return violations
@@ -349,6 +414,10 @@ def _audit_public_boundary(root: Path, files: Iterable[str]) -> list[Violation]:
         "model cache path": re.compile(r"(Library/Caches|\.cache/huggingface|model-cache)"),
         "credential": re.compile(r"(token|secret|password|cookie|api[_-]?key)\s*=", re.IGNORECASE),
         "stack trace": re.compile(r"Traceback \(most recent call last\):"),
+        "non-neutral public positioning": re.compile(
+            r"\b(Career|portfolio|resume|interview|showcase)\b",
+            re.IGNORECASE,
+        ),
     }
     violations: list[Violation] = []
     for file_name in files:

@@ -2,11 +2,13 @@
 
 [English](./README.md) | [中文](./README_CN.md)
 
-Multimodal Knowledge Engine 是一个本地优先、可被 Agent 调用的 Evidence 引擎，用于导入、检索和问答文档与媒体资料。
+Multimodal Knowledge Engine 是一个本地优先、可被 Agent 调用的 Evidence 引擎，用于导入、检索和问答文档与媒体资料。它把
+source processing、Publication activation、retrieval 和 Agent-facing interfaces 收在同一个可验证的本地
+application boundary 内。
 
 `v0.1.0` 是第一个公开小版本。它证明的是一条刻意收窄但完整的本地 Evidence 闭环：可观察 ingest
-Runs、active Publication Search、evidence-only Ask，以及 CLI 和 stdio MCP server 共享的一套
-application contract。它不是托管 RAG 平台。
+Runs、active Publication Search、evidence-only Ask、retrieval evaluation artifacts，以及 CLI 和 stdio
+MCP server 共享的一套 application service contract。它不是托管 RAG 平台。
 
 ## v0.1.0 已验证能力
 
@@ -23,16 +25,30 @@ application contract。它不是托管 RAG 平台。
 ```mermaid
 flowchart LR
     client["Agent / CLI / MCP Client"] --> app["MKE Application Service"]
-    app --> run["Ingest Run"]
+    app --> contract["Application Service Contract"]
+    contract --> run["Ingest Run Lifecycle"]
     run --> evidence["Evidence"]
     evidence --> publication["Active Publication"]
     publication --> search["Search / Ask"]
     app --> store["SQLite Domain Store"]
     app --> projection["Rebuildable Retrieval Projections"]
+    projection --> evaluation["Evaluation Artifacts"]
 ```
 
 SQLite 是 first Pilot 的 domain truth。Retrieval indexes 是可重建 projections，Assets 和
 Artifacts 不可变，Search/Ask 只读取 active Publications。
+
+## v0.1.0 工程深度
+
+`v0.1.0` 的产品面很小，但它验证了系统可审计性的关键部分：Evidence 生命周期、active Publication
+切换、CLI/MCP application service contract、source checkout 外 installed-wheel consumption，以及记录
+已接受和已拒绝 retrieval candidates 的 retrieval evaluation artifacts。
+
+| Retrieval evidence | v0.1.0 状态 | 边界 |
+|---|---|---|
+| 已发布 runtime | lexical search 加 `cjk-active-scan-overlap-v1` owner-startup CJK active scan。 | Search/Ask/MCP 通过同一 application service 读取 active Publication Evidence。 |
+| Comparison-only evidence | dense exact-cosine、RRF fusion、relevance gate / reranker artifacts 已记录。 | 它们不改变 normal Search、Ask、MCP 或 runtime default。 |
+| 不包含 | query rewrite、HyDE、OCR、HTTP/UI 和 API adapters。 | 它们不是 `v0.1.0` runtime behavior 或 release claims。 |
 
 ## 快速验证
 

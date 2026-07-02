@@ -3,11 +3,13 @@
 [English](./README.md) | [中文](./README_CN.md)
 
 Multimodal Knowledge Engine is a local-first, Agent-callable Evidence engine for ingesting,
-searching, and asking questions over documents and media.
+searching, and asking questions over documents and media. It keeps source processing, Publication
+activation, retrieval, and Agent-facing interfaces inside one verifiable local application boundary.
 
 `v0.1.0` is the first public small version. It proves a narrow but complete local Evidence loop:
-observable ingest Runs, active Publication Search, evidence-only Ask, and one application contract
-shared by the CLI and stdio MCP server. It is not a hosted RAG platform.
+observable ingest Runs, active Publication Search, evidence-only Ask, retrieval evaluation
+artifacts, and one application service contract shared by the CLI and stdio MCP server. It is not a
+hosted RAG platform.
 
 ## Verified in v0.1.0
 
@@ -24,16 +26,31 @@ shared by the CLI and stdio MCP server. It is not a hosted RAG platform.
 ```mermaid
 flowchart LR
     client["Agent / CLI / MCP Client"] --> app["MKE Application Service"]
-    app --> run["Ingest Run"]
+    app --> contract["Application Service Contract"]
+    contract --> run["Ingest Run Lifecycle"]
     run --> evidence["Evidence"]
     evidence --> publication["Active Publication"]
     publication --> search["Search / Ask"]
     app --> store["SQLite Domain Store"]
     app --> projection["Rebuildable Retrieval Projections"]
+    projection --> evaluation["Evaluation Artifacts"]
 ```
 
 SQLite is the domain truth for the first Pilot. Retrieval indexes are rebuildable projections,
 Assets and Artifacts are immutable, and Search/Ask read only active Publications.
+
+## What this release proves
+
+`v0.1.0` is small by product surface, but it exercises the parts that make the system auditable:
+the Evidence lifecycle, active Publication switching, a CLI/MCP application service contract,
+installed-wheel consumption outside the source checkout, and retrieval evaluation artifacts that
+record accepted and rejected retrieval candidates.
+
+| Retrieval evidence | v0.1.0 status | Boundary |
+|---|---|---|
+| Shipped runtime | lexical search plus `cjk-active-scan-overlap-v1` for owner-startup CJK active scan. | Search/Ask/MCP read active Publication Evidence through the same application service. |
+| Comparison-only evidence | dense exact-cosine, RRF fusion, and relevance gate / reranker artifacts are recorded. | This does not change normal Search, Ask, MCP, or the runtime default. |
+| Not included | query rewrite, HyDE, OCR, HTTP/UI, and API adapters are not included. | They are not `v0.1.0` runtime behavior or release claims. |
 
 ## Quick Verify
 
