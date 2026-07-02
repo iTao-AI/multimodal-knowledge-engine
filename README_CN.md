@@ -8,11 +8,11 @@ Multimodal Knowledge Engine 是一个本地优先、可被 Agent 调用的 Evide
 Runs、active Publication Search、evidence-only Ask，以及 CLI 和 stdio MCP server 共享的一套
 application contract。它不是托管 RAG 平台。
 
-## Verified in v0.1.0
+## v0.1.0 已验证能力
 
-| Capability | Evidence |
+| 能力 | 验证证据 |
 |---|---|
-| Evidence lifecycle | 成功 Run 可以发布 Evidence；失败或部分处理不会进入可检索状态。 |
+| Evidence 生命周期 | 成功 Run 可以发布 Evidence；失败或部分处理不会进入可检索状态。 |
 | text-layer PDF + short video fixture ingest | proof/demo fixtures 覆盖 text-layer PDF ingest 和文档化的短本地视频 fixture。 |
 | active-Publication Search | Search 读取 active Publications，并返回稳定页码或时间戳 Evidence。 |
 | evidence-only Ask / insufficient_evidence | Ask 返回带引用的 Evidence 或 `insufficient_evidence`；当前 slice 不做 LLM answer generation。 |

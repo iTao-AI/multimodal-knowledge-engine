@@ -144,6 +144,18 @@ def _audit_runtime_default(root: Path) -> list[Violation]:
 def _audit_readme_presentation(root: Path) -> list[Violation]:
     violations: list[Violation] = []
     language_switch = "[English](./README.md) | [中文](./README_CN.md)"
+    verified_table_labels = {
+        "README.md": {
+            "heading": "## Verified in v0.1.0",
+            "header": "| Capability | Evidence |",
+            "message": "English README must include the Verified in v0.1.0 capability table",
+        },
+        "README_CN.md": {
+            "heading": "## v0.1.0 已验证能力",
+            "header": "| 能力 | 验证证据 |",
+            "message": "Chinese README must include localized v0.1.0 verified capability labels",
+        },
+    }
     diagram_terms = (
         "Agent / CLI / MCP Client",
         "MKE Application Service",
@@ -154,17 +166,30 @@ def _audit_readme_presentation(root: Path) -> list[Violation]:
         "SQLite Domain Store",
         "Rebuildable Retrieval Projections",
     )
-    verified_terms = (
-        "Evidence lifecycle",
-        "text-layer PDF",
-        "short video fixture",
-        "active-Publication Search",
-        "evidence-only Ask",
-        "insufficient_evidence",
-        "CLI + stdio MCP",
-        RUNTIME_STRATEGY,
-        "consumer smoke",
-    )
+    verified_terms_by_file = {
+        "README.md": (
+            "Evidence lifecycle",
+            "text-layer PDF",
+            "short video fixture",
+            "active-Publication Search",
+            "evidence-only Ask",
+            "insufficient_evidence",
+            "CLI + stdio MCP",
+            RUNTIME_STRATEGY,
+            "consumer smoke",
+        ),
+        "README_CN.md": (
+            "Evidence 生命周期",
+            "text-layer PDF",
+            "short video fixture",
+            "active-Publication Search",
+            "evidence-only Ask",
+            "insufficient_evidence",
+            "CLI + stdio MCP",
+            RUNTIME_STRATEGY,
+            "consumer smoke",
+        ),
+    }
     for file_name in README_FILES:
         text = _read_text(root, file_name)
         if not text:
@@ -186,16 +211,17 @@ def _audit_readme_presentation(root: Path) -> list[Violation]:
                     message="README must include the v0.1.0 Mermaid architecture diagram",
                 )
             )
+        labels = verified_table_labels[file_name]
         if (
-            "Verified in v0.1.0" not in text
-            or "| Capability |" not in text
-            or not all(term in text for term in verified_terms)
+            labels["heading"] not in text
+            or labels["header"] not in text
+            or not all(term in text for term in verified_terms_by_file[file_name])
         ):
             violations.append(
                 Violation(
                     file=file_name,
                     rule="verified_v010_table",
-                    message="README must include the Verified in v0.1.0 capability table",
+                    message=labels["message"],
                 )
             )
     return violations
