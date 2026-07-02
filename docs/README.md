@@ -102,6 +102,9 @@ Documentation changes ship in the same PR as affected behavior. Raw GStack artif
 - [CJK Relevance Gate Reranker Candidate Implementation Plan](./superpowers/plans/2026-06-30-cjk-relevance-gate-reranker-implementation.md) records the completed E3-E TDD tasks, artifact protocol, validator requirements, gates, and post-merge closeout.
 - [CJK Relevance Gate Reranker Autoplan Review](./superpowers/reviews/2026-06-30-cjk-relevance-gate-reranker-autoplan-review.md) records the E3-E CEO, engineering, and DX review findings.
 - [CJK Relevance Gate Reranker Implementation Review](./superpowers/reviews/2026-06-30-cjk-relevance-gate-reranker-review.md) records the E3-E merged result, validator evidence, runtime-neutral scope, post-merge status, and remaining risks.
+- [v0.1.0 Release Readiness Design](./superpowers/specs/2026-07-02-v0-1-0-release-readiness-design.md) defines the first release boundary, release scope, E3 decision table, and non-goals.
+- [v0.1.0 Release Readiness Implementation Plan](./superpowers/plans/2026-07-02-v0-1-0-release-readiness-implementation.md) splits release readiness into presentation cleanup, consumer smoke, and tag/release stages.
+- [v0.1.0 Release Readiness Plan Review](./superpowers/reviews/2026-07-02-v0-1-0-release-readiness-review.md) records the targeted CEO, engineering, DX, and documentation review.
 
 ## Development Verification
 
