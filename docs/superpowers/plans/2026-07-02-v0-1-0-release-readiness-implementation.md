@@ -476,11 +476,11 @@ git switch -c codex/v0-1-0-consumer-smoke
 - Create: `tests/scripts/test_release_consumer_smoke.py`
 - Create or modify: `docs/how-to/verify-release.md`
 
-- [ ] **Step 1: Add tests for source-tree isolation**
+- [x] **Step 1: Add tests for source-tree isolation**
 
 The script must fail if `mke.__file__` resolves inside the repository during installed smoke.
 
-- [ ] **Step 2: Implement smoke script**
+- [x] **Step 2: Implement smoke script**
 
 The script should:
 
@@ -495,7 +495,7 @@ The script should:
 - run an MCP contract or owner-startup smoke that does not require a long-lived external service;
 - print JSON with `status=passed` or stable failure codes.
 
-- [ ] **Step 3: Keep optional extras separate**
+- [x] **Step 3: Keep optional extras separate**
 
 The core smoke must not install `[embedding]` or `[transcription]`. Optional extra smoke may be
 documented but must not block the core release.
@@ -513,12 +513,27 @@ uv run ruff check .
 uv run pyright
 uv run mke proof run
 uv run mke demo --verify
-git diff --check origin/main...HEAD
+uv run python scripts/release_presentation_audit.py --root .
+git diff --check origin/main...HEAD && git diff --check
 ```
 
 Expected: all core smoke and repository checks pass.
 
 Stop for planning review before push.
+
+### Stage 2 Completion Evidence
+
+Completed on branch `codex/v0-1-0-consumer-smoke` from `origin/main` after Stage 1 merged.
+
+- Added `scripts/release_consumer_smoke.py` to install a built wheel into a fresh temporary venv
+  outside the repository, strip `PYTHONPATH`, `PYTHONHOME`, and `VIRTUAL_ENV`, verify installed
+  package identity, and run proof/demo/CLI/MCP smoke from an external cwd.
+- Added `tests/scripts/test_release_consumer_smoke.py` covering source-checkout import rejection,
+  hostile `PYTHONPATH`, missing/invalid wheel failure, substep stable JSON failure codes, and
+  redaction of private paths, `Traceback`, and secret-like text.
+- Updated `docs/how-to/verify-release.md` with the concrete Stage 2 command.
+- Core smoke does not install `[embedding]` or `[transcription]`, does not download models or
+  external fixtures, and does not change runtime defaults.
 
 ## Stage 3: Tag And GitHub Release
 

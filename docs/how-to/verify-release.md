@@ -31,6 +31,13 @@ comparison-only retrieval wording agree on `v0.1.0`.
 Stage 2 must run from a separate branch after Stage 1 merges. It proves the built package works
 outside the source checkout before the release tag is created.
 
+Run:
+
+```bash
+uv build
+uv run python scripts/release_consumer_smoke.py --wheel dist/*.whl --json
+```
+
 The consumer smoke should:
 
 - build the wheel;
@@ -41,6 +48,10 @@ The consumer smoke should:
 - run `mke demo --verify`;
 - run a lightweight CLI Search/Ask path;
 - run a minimal MCP contract or owner-startup smoke.
+
+The script copies only the public proof/demo fixtures into the external temporary workspace and
+prints stable JSON, for example `{"status": "passed", ...}` on success or
+`{"status": "failed", "code": "..."}` on failure.
 
 Core consumer smoke must not require `[embedding]`, `[transcription]`, package index access beyond
 normal wheel installation, or model downloads. Optional extras can have separate reported checks.
