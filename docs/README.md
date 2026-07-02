@@ -35,6 +35,7 @@ E3-C dense, E3-D RRF, and E3-E relevance-gate/reranker records are comparison-on
 - [Evaluate The Relevance Gate Reranker Candidate](./how-to/evaluate-relevance-gate-reranker.md)
 
 The runtime boundary is fixed for `v0.1.0`: only E3-F changes the default retrieval strategy.
+Comparison-only dense preparation does not change normal Search, Ask, MCP, or the runtime default.
 Dense, RRF, and relevance-gate/reranker artifacts remain comparison-only and do not change Search,
 Ask, MCP, owner startup, Publication, ingestion, or runtime defaults.
 

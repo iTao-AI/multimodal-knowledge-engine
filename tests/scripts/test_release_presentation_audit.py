@@ -234,6 +234,18 @@ def test_audit_rejects_stale_release_status_phrases(tmp_path: Path) -> None:
     assert "stale_release_status" in _rules(tmp_path)
 
 
+def test_audit_rejects_stale_stage2_changelog_gate(tmp_path: Path) -> None:
+    _write_release_tree(tmp_path)
+    (tmp_path / "CHANGELOG.md").write_text(
+        "# Changelog\n\n## [0.1.0] - 2026-07-02\n\n"
+        "Stage 2 installed-package consumer smoke, tag creation, and GitHub Release "
+        "publication are separate gates after this presentation-readiness work merges.\n",
+        encoding="utf-8",
+    )
+
+    assert "stale_release_status" in _rules(tmp_path)
+
+
 @pytest.mark.parametrize(
     "placeholder",
     [

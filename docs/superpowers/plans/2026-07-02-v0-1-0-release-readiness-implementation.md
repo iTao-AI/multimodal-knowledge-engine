@@ -563,8 +563,8 @@ Scope:
 
 Verification results:
 
-- `uv run pytest tests/scripts/test_release_presentation_audit.py tests/test_version_identity.py -q`:
-  21 passed.
+- `uv run pytest tests/scripts/test_release_presentation_audit.py tests/test_version_identity.py tests/evaluation/test_dense_documentation.py -q`:
+  30 passed.
 - `uv run python scripts/release_presentation_audit.py --root .`:
   `{"status": "ok", "violations": []}`.
 - `uv build`: built `multimodal_knowledge_engine-0.1.0` sdist and wheel.
@@ -579,25 +579,14 @@ Verification results:
 
 Notes:
 
+- Current release-ready status: Stage 1 presentation readiness and Stage 2 consumer smoke are
+  complete; Stage 3 tag, GitHub Release, and PyPI publication have not been executed and still
+  require explicit authorization.
 - This polish changes release presentation and audit coverage only.
 - No runtime behavior, Search/Ask/MCP/runtime default, package version, tag, GitHub Release, PyPI
   publish, website material, or Career material was changed.
 
 Stop for planning review before push.
-
-### Stage 2 Completion Evidence
-
-Completed on branch `codex/v0-1-0-consumer-smoke` from `origin/main` after Stage 1 merged.
-
-- Added `scripts/release_consumer_smoke.py` to install a built wheel into a fresh temporary venv
-  outside the repository, strip `PYTHONPATH`, `PYTHONHOME`, and `VIRTUAL_ENV`, verify installed
-  package identity, and run proof/demo/CLI/MCP smoke from an external cwd.
-- Added `tests/scripts/test_release_consumer_smoke.py` covering source-checkout import rejection,
-  hostile `PYTHONPATH`, missing/invalid wheel failure, substep stable JSON failure codes, and
-  redaction of private paths, `Traceback`, and secret-like text.
-- Updated `docs/how-to/verify-release.md` with the concrete Stage 2 command.
-- Core smoke does not install `[embedding]` or `[transcription]`, does not download models or
-  external fixtures, and does not change runtime defaults.
 
 ## Stage 3: Tag And GitHub Release
 

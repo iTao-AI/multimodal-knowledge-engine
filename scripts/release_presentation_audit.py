@@ -309,6 +309,8 @@ def _audit_stale_status(root: Path, files: Iterable[str]) -> list[Violation]:
         "to be created",
         "to be filled",
         "to be determined",
+        "stage 2 installed-package consumer smoke, tag creation, and github release publication "
+        "are separate gates after this presentation-readiness work merges",
         "runtime_promotion_status=not_evaluated",
         "0.0.0",
     )
