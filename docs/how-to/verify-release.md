@@ -6,7 +6,22 @@ This guide separates three checks:
 2. Stage 2 installed-package consumer smoke before any tag is created.
 3. Post-tag archive smoke after a GitHub Release exists.
 
-Do not tag or publish `v0.1.0` until Stage 1 and Stage 2 have both merged.
+`v0.1.0` has completed all three checks. For future release candidates, do not tag or publish until
+the repository-readiness and installed-package consumer-smoke gates have both merged.
+
+## Completed v0.1.0 Release Record
+
+- Tag: `v0.1.0`
+- Tag object SHA: `1f6f77bfa9d06b8f4348c864b9704bc338799c70`
+- Tag target commit: `7f46fe6b775139d396e3849c9484f454880cb7e8`
+- GitHub Release: <https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.0>
+- Published: `2026-07-02T12:47:19Z`
+- Release archive: `multimodal-knowledge-engine-0.1.0.tar.gz`
+- Release archive SHA-256:
+  `0ea6fefa1d5c51f7f221841999ce8009756f47f5ce7b88468ae1ef38be45f129`
+- Post-release archive smoke: `uv sync --locked`, `uv run mke proof run`, and
+  `uv run mke demo --verify` passed from the GitHub Release archive.
+- PyPI: not published; the PyPI JSON endpoint returned `404`.
 
 ## Stage 1 Repository Readiness
 
@@ -66,7 +81,7 @@ authorization. Then verify the public archive from a clean temporary directory:
 archive_dir="$(mktemp -d)"
 cd "$archive_dir"
 gh release download v0.1.0 --repo iTao-AI/multimodal-knowledge-engine --archive=tar.gz
-tar -xzf multimodal-knowledge-engine-v0.1.0.tar.gz
+tar -xzf multimodal-knowledge-engine-0.1.0.tar.gz
 cd multimodal-knowledge-engine-0.1.0
 uv sync --locked
 uv run mke proof run

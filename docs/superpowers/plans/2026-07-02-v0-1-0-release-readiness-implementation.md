@@ -7,8 +7,8 @@
 
 **Architecture:** Split the release into a presentation-readiness PR, a consumer-smoke PR, and a
 final tag/release action. Stage 1 updates release identity, public docs, and audit coverage. Stage 2
-proves the built package works outside the source checkout. Stage 3 only tags and publishes after
-the first two stages merge.
+proves the built package works outside the source checkout. Stage 3 tagged and published
+`v0.1.0` after the first two stages merged and explicit release authorization was given.
 
 **Tech Stack:** Python 3.12/3.13, uv, Hatch, pytest, Ruff, Pyright, existing MKE CLI/MCP contracts,
 existing evaluation artifact validators, `gstack-document-release` as the pre-PR documentation
@@ -579,18 +579,17 @@ Verification results:
 
 Notes:
 
-- Current release-ready status: Stage 1 presentation readiness and Stage 2 consumer smoke are
-  complete; Stage 3 tag, GitHub Release, and PyPI publication have not been executed and still
-  require explicit authorization.
+- Current release status: Stage 1 presentation readiness, Stage 2 consumer smoke, and Stage 3
+  GitHub Release publication are complete. PyPI publication has not been executed.
 - This polish changes release presentation and audit coverage only.
-- No runtime behavior, Search/Ask/MCP/runtime default, package version, tag, GitHub Release, PyPI
-  publish, website material, or Career material was changed.
+- No runtime behavior, Search/Ask/MCP/runtime default, package version, PyPI publish, website
+  material, or Career material was changed by the final presentation polish.
 
 Stop for planning review before push.
 
 ## Stage 3: Tag And GitHub Release
 
-Start only after Stage 1 and Stage 2 are merged and `main` is clean.
+Started only after Stage 1 and Stage 2 were merged and `main` was clean.
 
 ### Task 10: Release gate
 
@@ -611,11 +610,11 @@ uv run python scripts/release_presentation_audit.py --root .
 uv run python scripts/release_consumer_smoke.py --wheel dist/*.whl --json
 ```
 
-Expected: all pass.
+Result: all passed.
 
 ### Task 11: Create release
 
-Only after explicit user authorization:
+Executed after explicit user authorization:
 
 ```bash
 git tag -a v0.1.0 -m "v0.1.0"
@@ -623,8 +622,21 @@ git push origin v0.1.0
 gh release create v0.1.0 --notes-file docs/releases/v0.1.0.md
 ```
 
-Then run release archive smoke from a fresh temp directory. Record exact tag, commit, archive hash,
-and smoke result.
+Release closeout evidence:
+
+- Tag: `v0.1.0`
+- Tag object SHA: `1f6f77bfa9d06b8f4348c864b9704bc338799c70`
+- Tag target commit: `7f46fe6b775139d396e3849c9484f454880cb7e8`
+- GitHub Release: <https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.0>
+- Published: `2026-07-02T12:47:19Z`
+- Release archive: `multimodal-knowledge-engine-0.1.0.tar.gz`
+- Release archive SHA-256:
+  `0ea6fefa1d5c51f7f221841999ce8009756f47f5ce7b88468ae1ef38be45f129`
+- Release archive smoke from a fresh temp directory passed:
+  - `uv sync --locked`
+  - `uv run mke proof run`
+  - `uv run mke demo --verify`
+- PyPI was not published; the PyPI JSON endpoint returned `404`.
 
 ## Deferred Work
 

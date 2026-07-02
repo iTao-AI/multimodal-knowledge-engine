@@ -20,6 +20,8 @@
   `uv run python scripts/release_presentation_audit.py --root .`.
 - Installed-wheel consumer smoke is verified with
   `uv run python scripts/release_consumer_smoke.py --wheel dist/*.whl --json`.
+- GitHub Release archive smoke is verified with `uv sync --locked`, `uv run mke proof run`, and
+  `uv run mke demo --verify` from the `v0.1.0` release archive.
 - E3-F `cjk-active-scan-overlap-v1` is the shipped runtime default and keeps Search/Ask/MCP on active Publication Evidence.
 - E3-C dense, E3-D RRF, and E3-E relevance-gate/reranker artifacts are comparison-only evidence.
 
@@ -27,5 +29,4 @@
 
 - Dense, hybrid, RRF, reranker, query rewrite, segmentation, OCR, HTTP, UI, API adapter, LangChain,
   LlamaIndex, LangGraph, Milvus, Redis, and pgvector runtime contracts are not part of this release.
-- Tag creation, GitHub Release publication, and PyPI publication remain separate Stage 3
-  authorization actions.
+- PyPI and package registry publication are not part of this release.
