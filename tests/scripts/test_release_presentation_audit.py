@@ -26,17 +26,72 @@ E3-C dense, E3-D RRF, and E3-E reranker work are comparison-only evidence and ar
 not runtime strategies.
 
 ```mermaid
-flowchart LR
-    agent[Agent / CLI / MCP Client] --> app[MKE Application Service]
-    app --> contract[Application Service Contract]
-    contract --> lifecycle[Ingest Run Lifecycle]
-    app --> run[Ingest Run]
-    run --> evidence[Evidence]
-    evidence --> publication[Active Publication]
-    publication --> search[Search / Ask]
-    app --> store[SQLite Domain Store]
-    app --> projection[Rebuildable Retrieval Projections]
-    projection --> evaluation[Evaluation Artifacts]
+flowchart TB
+    subgraph Interfaces["Interfaces"]
+        Agent["Agent / Tool Client"]
+        CLI["CLI"]
+        MCP["stdio MCP Server"]
+    end
+
+    subgraph Application["Application Boundary"]
+        App["MKE Application Service"]
+        Contract["Shared CLI / MCP Contract"]
+        Strategy["Owner-startup Retrieval Strategy"]
+    end
+
+    subgraph Lifecycle["Ingestion And Publication Lifecycle"]
+        Source["Source"]
+        Run["Observable Ingest Run"]
+        Evidence["Evidence"]
+        Publication["Active Publication"]
+    end
+
+    subgraph Authority["Domain Authority"]
+        Store[("SQLite Domain Store")]
+        Assets[("Immutable Assets")]
+        Artifacts[("Immutable Artifacts")]
+    end
+
+    subgraph Runtime["Retrieval Runtime"]
+        Projection["Rebuildable Retrieval Projections"]
+        FTS["Active Evidence FTS"]
+        CJK["cjk-active-scan-overlap-v1"]
+        Search["Search"]
+        Ask["Evidence-only Ask"]
+    end
+
+    subgraph Evaluation["Evaluation And Release Evidence"]
+        Baselines["E1 / E3 baselines"]
+        Dense["Dense candidate artifact"]
+        RRF["RRF valid negative"]
+        Reranker["Relevance gate / reranker artifact"]
+        Proof["proof / demo / consumer smoke"]
+        Comparison["Comparison-only Evidence"]
+    end
+
+    Agent --> Contract
+    CLI --> Contract
+    MCP --> Contract
+    Contract --> App
+    App --> Strategy
+    App --> Source
+    Source --> Run
+    Run --> Evidence
+    Evidence --> Publication
+    Publication --> Projection
+    Projection --> FTS
+    Projection --> CJK
+    FTS --> Search
+    CJK --> Search
+    Search --> Ask
+    Store --> App
+    Assets --> Run
+    Artifacts --> Evidence
+    Baselines -. recorded evidence .-> Comparison
+    Dense -. comparison-only .-> Comparison
+    RRF -. comparison-only .-> Comparison
+    Reranker -. comparison-only .-> Comparison
+    Proof -. release gate .-> App
 ```
 
 ## Verified in v0.1.0
@@ -75,17 +130,72 @@ E3-C dense, E3-D RRF, and E3-E reranker work are comparison-only evidence and ar
 not runtime strategies.
 
 ```mermaid
-flowchart LR
-    agent[Agent / CLI / MCP Client] --> app[MKE Application Service]
-    app --> contract[Application Service Contract]
-    contract --> lifecycle[Ingest Run Lifecycle]
-    app --> run[Ingest Run]
-    run --> evidence[Evidence]
-    evidence --> publication[Active Publication]
-    publication --> search[Search / Ask]
-    app --> store[SQLite Domain Store]
-    app --> projection[Rebuildable Retrieval Projections]
-    projection --> evaluation[Evaluation Artifacts]
+flowchart TB
+    subgraph Interfaces["Interfaces"]
+        Agent["Agent / Tool Client"]
+        CLI["CLI"]
+        MCP["stdio MCP Server"]
+    end
+
+    subgraph Application["Application Boundary"]
+        App["MKE Application Service"]
+        Contract["Shared CLI / MCP Contract"]
+        Strategy["Owner-startup Retrieval Strategy"]
+    end
+
+    subgraph Lifecycle["Ingestion And Publication Lifecycle"]
+        Source["Source"]
+        Run["Observable Ingest Run"]
+        Evidence["Evidence"]
+        Publication["Active Publication"]
+    end
+
+    subgraph Authority["Domain Authority"]
+        Store[("SQLite Domain Store")]
+        Assets[("Immutable Assets")]
+        Artifacts[("Immutable Artifacts")]
+    end
+
+    subgraph Runtime["Retrieval Runtime"]
+        Projection["Rebuildable Retrieval Projections"]
+        FTS["Active Evidence FTS"]
+        CJK["cjk-active-scan-overlap-v1"]
+        Search["Search"]
+        Ask["Evidence-only Ask"]
+    end
+
+    subgraph Evaluation["Evaluation And Release Evidence"]
+        Baselines["E1 / E3 baselines"]
+        Dense["Dense candidate artifact"]
+        RRF["RRF valid negative"]
+        Reranker["Relevance gate / reranker artifact"]
+        Proof["proof / demo / consumer smoke"]
+        Comparison["Comparison-only Evidence"]
+    end
+
+    Agent --> Contract
+    CLI --> Contract
+    MCP --> Contract
+    Contract --> App
+    App --> Strategy
+    App --> Source
+    Source --> Run
+    Run --> Evidence
+    Evidence --> Publication
+    Publication --> Projection
+    Projection --> FTS
+    Projection --> CJK
+    FTS --> Search
+    CJK --> Search
+    Search --> Ask
+    Store --> App
+    Assets --> Run
+    Artifacts --> Evidence
+    Baselines -. recorded evidence .-> Comparison
+    Dense -. comparison-only .-> Comparison
+    RRF -. comparison-only .-> Comparison
+    Reranker -. comparison-only .-> Comparison
+    Proof -. release gate .-> App
 ```
 
 ## v0.1.0 已验证能力
@@ -175,6 +285,33 @@ def test_audit_rejects_missing_readme_mermaid_architecture_diagram(
     _write_release_tree(tmp_path)
     text = (tmp_path / path).read_text(encoding="utf-8")
     text = text.replace("```mermaid", "```text")
+    (tmp_path / path).write_text(text, encoding="utf-8")
+
+    assert "readme_architecture_diagram" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize("path", ["README.md", "README_CN.md"])
+def test_audit_rejects_linear_readme_architecture_diagram(
+    tmp_path: Path,
+    path: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    text = (tmp_path / path).read_text(encoding="utf-8")
+    text = text.replace("subgraph Interfaces", "section Interfaces")
+    (tmp_path / path).write_text(text, encoding="utf-8")
+
+    assert "readme_architecture_diagram" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize("path", ["README.md", "README_CN.md"])
+def test_audit_rejects_diagram_without_comparison_only_evidence_boundary(
+    tmp_path: Path,
+    path: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    text = (tmp_path / path).read_text(encoding="utf-8")
+    text = text.replace("Comparison-only Evidence", "Runtime Evidence")
+    text = text.replace("comparison-only", "runtime")
     (tmp_path / path).write_text(text, encoding="utf-8")
 
     assert "readme_architecture_diagram" in _rules(tmp_path)
