@@ -65,4 +65,3 @@ material is used.
 
 This proof does not change Search, Ask, MCP, Publication, ingestion, owner-startup strategy, or the
 runtime default.
-

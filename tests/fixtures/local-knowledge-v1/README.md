@@ -33,4 +33,3 @@ is owned by the generator source and is not repeated in proof output or document
 `manifest.json` records the same identities and the three fixed proof queries. Tests regenerate the
 pack in an isolated directory and require byte-for-byte equality with the committed PDFs and
 manifest.
-
