@@ -10,6 +10,7 @@ auditing implementation history.
 - [Verify The Release](./how-to/verify-release.md)
 - [Getting Started](./tutorials/getting-started.md)
 - [Run The Local Product Proof](./how-to/run-local-product-proof.md)
+- [Run The Local Knowledge Proof](./how-to/run-local-knowledge-proof.md)
 - [Use MKE As A Local MCP Server](./how-to/use-mke-mcp.md)
 
 `v0.1.0` ships `cjk-active-scan-overlap-v1` as the current owner-startup CJK runtime strategy.
