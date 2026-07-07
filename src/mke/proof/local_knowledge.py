@@ -62,60 +62,63 @@ async def _run_mcp_proof(
     published_evidence = 0
     timeout = timedelta(seconds=_TIMEOUT_SECONDS)
 
-    async with stdio_client(server) as (read, write):
-        async with ClientSession(read, write, read_timeout_seconds=timeout) as session:
-            await session.initialize()
-            listed = await session.list_tools()
-            assert_public_tool_schemas(listed.tools)
+    with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as errlog:
+        async with stdio_client(server, errlog=errlog) as (read, write):
+            async with ClientSession(read, write, read_timeout_seconds=timeout) as session:
+                await session.initialize()
+                listed = await session.list_tools()
+                assert_public_tool_schemas(listed.tools)
 
-            for item in files:
-                name = _required_string(item, "name")
-                ingest = tool_payload(await session.call_tool("ingest_file", {"path": name}))
-                if ingest.get("ok") is not True or ingest.get("run_state") != "published":
-                    raise ValueError("MCP ingest did not publish")
-                evidence_count = ingest.get("evidence_count")
-                if type(evidence_count) is not int or evidence_count <= 0:
-                    raise ValueError("MCP ingest Evidence count is invalid")
-                run_id = _required_string(ingest, "run_id")
-                inspected = tool_payload(
-                    await session.call_tool("get_run", {"run_id": run_id})
-                )
-                _validate_run(inspected, run_id)
-                published_runs += 1
-                published_evidence += evidence_count
+                for item in files:
+                    name = _required_string(item, "name")
+                    ingest = tool_payload(
+                        await session.call_tool("ingest_file", {"path": name})
+                    )
+                    if ingest.get("ok") is not True or ingest.get("run_state") != "published":
+                        raise ValueError("MCP ingest did not publish")
+                    evidence_count = ingest.get("evidence_count")
+                    if type(evidence_count) is not int or evidence_count <= 0:
+                        raise ValueError("MCP ingest Evidence count is invalid")
+                    run_id = _required_string(ingest, "run_id")
+                    inspected = tool_payload(
+                        await session.call_tool("get_run", {"run_id": run_id})
+                    )
+                    _validate_run(inspected, run_id)
+                    published_runs += 1
+                    published_evidence += evidence_count
 
-            searched = tool_payload(
-                await session.call_tool(
-                    "search_library",
-                    {"query": queries["search"], "limit": 5},
+                searched = tool_payload(
+                    await session.call_tool(
+                        "search_library",
+                        {"query": queries["search"], "limit": 5},
+                    )
                 )
-            )
-            search_results = _page_evidence(searched, field="results")
-            if len(search_results) != 1:
-                raise ValueError("MCP Search result count mismatch")
+                search_results = _page_evidence(searched, field="results")
+                if len(search_results) != 1:
+                    raise ValueError("MCP Search result count mismatch")
 
-            asked = tool_payload(
-                await session.call_tool(
-                    "ask_library",
-                    {"question": queries["answer"], "limit": 5},
+                asked = tool_payload(
+                    await session.call_tool(
+                        "ask_library",
+                        {"question": queries["answer"], "limit": 5},
+                    )
                 )
-            )
-            answer_evidence = _answer_evidence(asked, expected_status="evidence_found")
-            if len(answer_evidence) != 1:
-                raise ValueError("MCP Ask citation count mismatch")
+                answer_evidence = _answer_evidence(asked, expected_status="evidence_found")
+                if len(answer_evidence) != 1:
+                    raise ValueError("MCP Ask citation count mismatch")
 
-            refused = tool_payload(
-                await session.call_tool(
-                    "ask_library",
-                    {"question": queries["refusal"], "limit": 5},
+                refused = tool_payload(
+                    await session.call_tool(
+                        "ask_library",
+                        {"question": queries["refusal"], "limit": 5},
+                    )
                 )
-            )
-            refusal_evidence = _answer_evidence(
-                refused,
-                expected_status="insufficient_evidence",
-            )
-            if refusal_evidence:
-                raise ValueError("MCP refusal returned Evidence")
+                refusal_evidence = _answer_evidence(
+                    refused,
+                    expected_status="insufficient_evidence",
+                )
+                if refusal_evidence:
+                    raise ValueError("MCP refusal returned Evidence")
 
     return {
         "proof": "local_knowledge",
