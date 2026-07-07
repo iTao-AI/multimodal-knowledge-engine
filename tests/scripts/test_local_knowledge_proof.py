@@ -109,3 +109,9 @@ def test_local_knowledge_proof_is_documented_without_sensitive_details() -> None
         "telemetry turns amber",
     )
     assert all(term not in combined for term in forbidden)
+
+
+def test_architecture_module_shape_lists_local_knowledge_proof() -> None:
+    architecture = Path("docs/explanation/architecture.md").read_text(encoding="utf-8")
+
+    assert "proof/\n    local_knowledge.py" in architecture
