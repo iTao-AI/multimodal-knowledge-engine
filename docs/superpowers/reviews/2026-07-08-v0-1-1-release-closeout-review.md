@@ -3,11 +3,11 @@
 ## Status
 
 - Review date: 2026-07-08.
-- Reviewed commit: `b69ec1a0c1a7d1e40947c8a68fe3bead03d6b55e`.
+- Reviewed implementation commit: `b4de34b12e070db3e7b81bd182ab6cc278192e0a`.
 - Scope: `v0.1.1` release-process documentation and presentation-audit enforcement.
 - Result: both authoritative P1 findings were reproduced and remediated with regression tests.
 - First targeted re-review: one P1 finding, remediated below.
-- Follow-up targeted re-review: pending.
+- Follow-up targeted re-review: `CLEAN / 0 findings`.
 - Full review: not repeated after this focused remediation.
 
 The implementation history is recorded in the

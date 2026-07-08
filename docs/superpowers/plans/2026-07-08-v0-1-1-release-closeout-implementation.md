@@ -149,5 +149,6 @@ unchanged.
   consumer-smoke command. A real multiline command reproduced the gap (`1 failed`); the audit now
   rejects `dist/*.whl` directly in the same four current command documents (`1 passed`, full audit
   tests `51 passed`) without extending to `CHANGELOG.md` or the `v0.1.0` history.
-- Follow-up targeted re-review: pending.
+- Reviewed implementation commit: `b4de34b12e070db3e7b81bd182ab6cc278192e0a`.
+- Follow-up targeted re-review: `CLEAN / 0 findings`.
 - Durable review: [v0.1.1 Release Closeout Review](../reviews/2026-07-08-v0-1-1-release-closeout-review.md).
