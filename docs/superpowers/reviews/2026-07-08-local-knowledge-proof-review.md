@@ -61,3 +61,15 @@ identity before targeted re-review.
 - This proof demonstrates a deterministic two-document local knowledge case. It is not a general
   retrieval-quality benchmark and does not promote comparison-only dense, RRF, or reranker
   evidence into the shipped runtime.
+
+## CI Identity Refresh
+
+PR CI exposed stale canonical artifact identities after the proof source files entered the complete
+`src/mke/**/*.py` inventory. The recoverable artifact refresh updated only E2 `source` and E3-A
+`source_identity`. The existing dependency graph then required provenance-only rebinding through
+E3-C, E3-D, and E3-E, including their protocol locks and derived freeze/receipt digests.
+
+Normalized before/after comparisons confirmed unchanged observations, metrics, thresholds, gates,
+diagnostics, and verdict/status fields. E1 and E3-B remained byte-identical. No model execution,
+new qrel input, holdout observation, Search/Ask/runtime change, or retrieval promotion occurred.
+All E1 through E3-E canonical validators passed, and the related artifact suite passed `147` tests.

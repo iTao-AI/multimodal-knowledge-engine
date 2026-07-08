@@ -406,3 +406,14 @@ recorded in the
 - Diff check: clean.
 - Targeted re-review: `CLEAN / 0 findings` at implementation commit `0cdb4f9`.
 - Network, model download, push, PR, merge, tag, release, and PyPI actions: not performed.
+
+### PR CI Identity Closure
+
+PR CI found stale E2 and E3-A source identities after the proof source inventory changed. The
+project's recoverable refresh updated only E2 `source` and E3-A `source_identity`; dependency-only
+provenance was then rebound through E3-C, E3-D, and E3-E. E1 and E3-B remained byte-identical.
+
+Normalized semantic comparison proved that observations, metrics, thresholds, gates, diagnostics,
+and verdict/status fields did not change. No model execution, new qrel input, or holdout observation
+was performed. All E1 through E3-E canonical validators passed, the related artifact tests passed
+`147` tests, and `git diff --check` was clean before the CI-fix commit.
