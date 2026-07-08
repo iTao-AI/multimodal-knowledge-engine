@@ -18,6 +18,12 @@ from mke.proof.mcp_deployment_client import assert_public_tool_schemas, tool_pay
 
 _FIXTURE_PACK = Path("tests/fixtures/local-knowledge-v1")
 _TIMEOUT_SECONDS = 60.0
+_SEARCH_EVIDENCE_TEXT_SHA256 = (
+    "dcf4be62deb7e9dc8be9059396f2913c39c9c2ac543a0610d8ffa85e355ac16d"
+)
+_ANSWER_EVIDENCE_TEXT_SHA256 = (
+    "eefdb9d117d038a633d03e29f0c1bd25ab2bcce6e1c9d5b01703f3ce48f885f6"
+)
 
 
 def render_local_knowledge_report(report: Mapping[str, object]) -> str:
@@ -97,6 +103,7 @@ async def _run_mcp_proof(
                     searched,
                     field="results",
                     expected_query=queries["search"],
+                    expected_text_sha256=_SEARCH_EVIDENCE_TEXT_SHA256,
                 )
                 if len(search_results) != 1:
                     raise ValueError("MCP Search result count mismatch")
@@ -111,6 +118,7 @@ async def _run_mcp_proof(
                     asked,
                     expected_status="evidence_found",
                     expected_query=queries["answer"],
+                    expected_text_sha256=_ANSWER_EVIDENCE_TEXT_SHA256,
                 )
                 if len(answer_evidence) != 1:
                     raise ValueError("MCP Ask citation count mismatch")
@@ -125,6 +133,7 @@ async def _run_mcp_proof(
                     refused,
                     expected_status="insufficient_evidence",
                     expected_query=queries["refusal"],
+                    expected_text_sha256=None,
                 )
                 if refusal_evidence:
                     raise ValueError("MCP refusal returned Evidence")
@@ -231,12 +240,20 @@ def _page_evidence(
     *,
     field: str,
     expected_query: str,
+    expected_text_sha256: str | None,
 ) -> list[dict[str, object]]:
     raw_evidence = payload.get(field)
     if payload.get("ok") is not True or not isinstance(raw_evidence, list):
         raise ValueError("MCP Evidence payload is invalid")
     evidence = cast(list[object], raw_evidence)
-    if not all(_is_page_evidence(item, expected_query=expected_query) for item in evidence):
+    if not all(
+        _is_page_evidence(
+            item,
+            expected_query=expected_query,
+            expected_text_sha256=expected_text_sha256,
+        )
+        for item in evidence
+    ):
         raise ValueError("MCP page Evidence is invalid")
     return cast(list[dict[str, object]], evidence)
 
@@ -246,6 +263,7 @@ def _answer_evidence(
     *,
     expected_status: str,
     expected_query: str,
+    expected_text_sha256: str | None,
 ) -> list[dict[str, object]]:
     if payload.get("answer_status") != expected_status:
         raise ValueError("MCP Ask status mismatch")
@@ -253,10 +271,16 @@ def _answer_evidence(
         payload,
         field="evidence",
         expected_query=expected_query,
+        expected_text_sha256=expected_text_sha256,
     )
 
 
-def _is_page_evidence(value: object, *, expected_query: str) -> bool:
+def _is_page_evidence(
+    value: object,
+    *,
+    expected_query: str,
+    expected_text_sha256: str | None,
+) -> bool:
     if not isinstance(value, dict):
         return False
     evidence = cast(Mapping[str, object], value)
@@ -274,6 +298,8 @@ def _is_page_evidence(value: object, *, expected_query: str) -> bool:
             for field in ("evidence_id", "publication_id", "source_id", "text")
         )
         and all(term in text.casefold() for term in query_terms)
+        and expected_text_sha256 is not None
+        and hashlib.sha256(text.encode()).hexdigest() == expected_text_sha256
         and locator.get("kind") == "page"
         and type(start) is int
         and type(end) is int

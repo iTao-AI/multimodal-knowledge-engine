@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sys
@@ -15,10 +16,15 @@ from mcp import StdioServerParameters
 from mke.proof import local_knowledge as proof_module
 from mke.proof.local_knowledge import run_local_knowledge_proof
 
+_EXPECTED_SEARCH_TEXT = (
+    "Cedar Relay maintenance window begins Tuesday at 14:00 UTC. Operators complete\n"
+    "checklist KITE-17 before restart."
+)
+
 
 def _page_evidence(
     *,
-    text: str = "Cedar Relay maintenance window begins Tuesday.",
+    text: str = _EXPECTED_SEARCH_TEXT,
     start: int = 1,
     end: int = 1,
 ) -> dict[str, object]:
@@ -100,6 +106,10 @@ def test_local_knowledge_proof_uses_private_server_stderr_sink(
     ("evidence", "query"),
     [
         (_page_evidence(text="Unrelated material from another source."), "Cedar Relay"),
+        (
+            _page_evidence(text="Cedar Relay maintenance window is fabricated."),
+            "Cedar Relay maintenance window",
+        ),
         (_page_evidence(start=-1, end=1), "Cedar Relay maintenance window"),
         (_page_evidence(start=2, end=1), "Cedar Relay maintenance window"),
     ],
@@ -115,6 +125,9 @@ def test_local_knowledge_proof_rejects_unbound_or_invalid_page_evidence(
             payload,
             field="results",
             expected_query=query,
+            expected_text_sha256=hashlib.sha256(
+                _EXPECTED_SEARCH_TEXT.encode()
+            ).hexdigest(),
         )
 
 
