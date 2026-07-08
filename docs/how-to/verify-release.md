@@ -6,8 +6,8 @@ This guide separates three checks:
 2. Stage 2 installed-package consumer smoke before any tag is created.
 3. Post-tag archive smoke after a GitHub Release exists.
 
-`v0.1.0` has completed all three checks. For future release candidates, do not tag or publish until
-the repository-readiness and installed-package consumer-smoke gates have both merged.
+`v0.1.0` has completed all three checks. The `v0.1.1` repository closeout runs Stage 1 and Stage 2
+locally; do not tag or publish until those gates merge and explicit release authorization is given.
 
 ## Completed v0.1.0 Release Record
 
@@ -34,12 +34,13 @@ uv run pyright
 uv build
 uv run mke proof run
 uv run mke demo --verify
+UV_OFFLINE=1 uv run python scripts/local_knowledge_proof.py
 uv run python scripts/release_presentation_audit.py --root .
 git diff --check origin/main...HEAD
 ```
 
 The presentation audit checks that package version identity, README posture, release notes, and
-comparison-only retrieval wording agree on `v0.1.0`.
+comparison-only retrieval wording agree on `v0.1.1`.
 
 ## Stage 2 Consumer Smoke
 
@@ -59,7 +60,7 @@ The consumer smoke should:
 - install the wheel into a fresh temporary environment outside the repository;
 - clear source-tree import state such as `PYTHONPATH`, `PYTHONHOME`, and `VIRTUAL_ENV`;
 - verify `mke.__file__` resolves inside installed site-packages, not `src/mke`;
-- verify installed `mke.__version__` and package metadata both equal `0.1.0`;
+- verify installed `mke.__version__` and package metadata both equal `0.1.1`;
 - run `mke proof run`;
 - run `mke demo --verify`;
 - run a lightweight CLI Search/Ask path;
@@ -80,12 +81,13 @@ authorization. Then verify the public archive from a clean temporary directory:
 ```bash
 archive_dir="$(mktemp -d)"
 cd "$archive_dir"
-gh release download v0.1.0 --repo iTao-AI/multimodal-knowledge-engine --archive=tar.gz
-tar -xzf multimodal-knowledge-engine-0.1.0.tar.gz
-cd multimodal-knowledge-engine-0.1.0
+gh release download v0.1.1 --repo iTao-AI/multimodal-knowledge-engine --archive=tar.gz
+tar -xzf multimodal-knowledge-engine-0.1.1.tar.gz
+cd multimodal-knowledge-engine-0.1.1
 uv sync --locked
 uv run mke proof run
 uv run mke demo --verify
+UV_OFFLINE=1 uv run python scripts/local_knowledge_proof.py
 ```
 
 Record the tag, commit, archive checksum, and smoke result in the release closeout.

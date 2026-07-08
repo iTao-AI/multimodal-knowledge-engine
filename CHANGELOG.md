@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.1.1] - 2026-07-08
+
+### Added
+
+- Public-safe synthetic local knowledge proof over the real stdio MCP transport.
+- End-to-end proof coverage for local PDF ingest Runs, published page Evidence, active Publication
+  Search, cited evidence-only Ask, and zero-citation `insufficient_evidence` refusal.
+
+### Verified
+
+- The local knowledge proof uses repository-authored synthetic fixtures and emits only aggregate,
+  public-safe results without temporary paths, transient identifiers, source text, or tracebacks.
+- PR #58 merged as `4e52542610b803df7bfe6dcb7648d464484e8f81`; post-merge CI and CodeQL passed.
+- Existing CLI, MCP, Search, Ask, Publication, and retrieval runtime contracts remain unchanged.
+- E3-C dense, E3-D RRF, and E3-E relevance-gate/reranker remain comparison-only evidence.
+
+### Not included
+
+- Comparison-only dense/RRF/reranker evidence is not promoted into runtime; HTTP, UI, OCR, and API
+  adapters are also not part of this patch release.
+- PyPI publication is not part of this release closeout.
+
 ## [0.1.0] - 2026-07-02
 
 ### Added

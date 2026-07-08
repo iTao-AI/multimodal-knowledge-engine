@@ -6,6 +6,7 @@ auditing implementation history.
 
 ## Release And First Run
 
+- [v0.1.1 Release Notes](./releases/v0.1.1.md)
 - [v0.1.0 Release Notes](./releases/v0.1.0.md)
 - [Verify The Release](./how-to/verify-release.md)
 - [Getting Started](./tutorials/getting-started.md)
@@ -13,7 +14,8 @@ auditing implementation history.
 - [Run The Local Knowledge Proof](./how-to/run-local-knowledge-proof.md)
 - [Use MKE As A Local MCP Server](./how-to/use-mke-mcp.md)
 
-`v0.1.0` ships `cjk-active-scan-overlap-v1` as the current owner-startup CJK runtime strategy.
+`v0.1.1` adds the real stdio MCP local knowledge proof while retaining
+`cjk-active-scan-overlap-v1` as the current owner-startup CJK runtime strategy.
 E3-C dense, E3-D RRF, and E3-E relevance-gate/reranker records are comparison-only evidence and
 do not change Search, Ask, MCP, owner startup, Publication, ingestion, or runtime defaults.
 
@@ -41,7 +43,7 @@ application contract.
   does not combine raw lexical and dense scores.
 - [Evaluate The Relevance Gate Reranker Candidate](./how-to/evaluate-relevance-gate-reranker.md)
 
-The runtime boundary is fixed for `v0.1.0`: only E3-F changes the default retrieval strategy.
+The runtime boundary remains fixed for `v0.1.1`: only E3-F changes the default retrieval strategy.
 Comparison-only dense preparation does not change normal Search, Ask, MCP, or the runtime default.
 Dense, RRF, and relevance-gate/reranker artifacts remain evaluation artifacts, not runtime
 features.

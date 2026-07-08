@@ -51,7 +51,7 @@ Key diagnostics:
 
 | Artifact | SHA-256 |
 |---|---|
-| E3-E protocol lock | `25339e0edae5a873977adced15bb9aef98b1abe2cf12d9bd508a2f6e493737fa` |
+| E3-E protocol lock | `d9f29327c02d3448e0f4e7931e8382e9427d59174e6b196151be06bf6e5f3442` |
 | E3-E development freeze | `0377bcfd1350540ea75610cc2ef44fd4b4f86234551f9816adad48598ac1e44e` |
 | E3-E holdout receipt | `4731fe5afb7d164a4411efab0ecf880a69838b802d930ac3192eb49930d81351` |
 | E3-E comparison artifact | `84dcfa3b4375458f5a4b0e5f91d4c15dfeb35a39ba7fb1bcbefec279d75d7c4e` |
