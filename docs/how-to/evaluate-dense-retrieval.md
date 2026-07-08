@@ -39,7 +39,7 @@ Artifact identities:
 
 - Comparison artifact:
   `benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json`
-- Artifact SHA-256: `be0c6843be3214ebd799d3e2fd4d2c2581765e5bc9cae53d1a8186140b3c22a4`
+- Artifact SHA-256: `c9b0e9eabaecd358fc706ffa665742665e44ffda5d560cb065572c42644e96ea`
 - Development freeze SHA-256: `64f43d63ec38f7248608545254c982508fce9e8b990922f13aacc6d0a07a3f80`
 - Holdout receipt SHA-256: `78f505b399c69a2cd014720350e390ea085047400083b76f78b12717d6a292e8`
 - Current runtime semantic digest: `sha256:b32dc4a1479cb3ea8e0ebedf2c27b04a10a6d91eee96e0cd0308bcf921e97959`
@@ -72,7 +72,7 @@ network:
 ```bash
 uv build
 uv pip install --offline \
-  "dist/multimodal_knowledge_engine-0.1.0-py3-none-any.whl[embedding]"
+  "dist/multimodal_knowledge_engine-0.1.1-py3-none-any.whl[embedding]"
 ```
 
 MKE never deletes model caches. Failed-candidate cleanup uses the package manager's normal

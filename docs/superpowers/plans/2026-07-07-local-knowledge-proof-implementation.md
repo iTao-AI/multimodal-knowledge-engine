@@ -239,8 +239,8 @@ git commit -m "feat(proof): add stdio MCP local knowledge proof"
 Add a focused test in `tests/scripts/test_local_knowledge_proof.py` that requires all four public
 entry points to mention the proof command or link, requires the how-to to state real stdio MCP,
 offline/no-model behavior, active Publication Search, cited evidence-only Ask, and
-`insufficient_evidence`, and rejects `/Users/`, temporary directory examples, ID patterns, fixture
-page text, and `Traceback`.
+`insufficient_evidence`, and rejects absolute home-directory prefixes, temporary directory
+examples, ID patterns, fixture page text, and traceback output.
 
 Run:
 
@@ -407,8 +407,13 @@ recorded in the
 - Diff check: clean.
 - Targeted re-review: `CLEAN / 0 findings` at implementation commit `0cdb4f9`.
 - The branch was pushed and [PR #58](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/58)
-  was created. Network access, model download, merge, tag, GitHub Release, and PyPI publication were
-  not performed.
+  was created, reviewed, and squash-merged as
+  `4e52542610b803df7bfe6dcb7648d464484e8f81` on 2026-07-08.
+- Post-merge CI passed on Python 3.12 and 3.13, including both embedding-extra jobs; post-merge
+  CodeQL passed for Python and Actions.
+- The remote branch, local branch, and isolated implementation worktree were removed after those
+  checks passed. Model download, tag creation, GitHub Release publication, and PyPI publication
+  were not performed.
 
 ### PR CI Identity Closure
 

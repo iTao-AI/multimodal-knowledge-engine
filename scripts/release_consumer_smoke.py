@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the v0.1.0 installed-wheel consumer smoke outside the source checkout."""
+"""Run the v0.1.1 installed-wheel consumer smoke outside the source checkout."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-EXPECTED_VERSION = "0.1.0"
+EXPECTED_VERSION = "0.1.1"
 _DISTRIBUTION_NAME = "multimodal-knowledge-engine"
 _COMMAND_TIMEOUT_SECONDS = 600.0
 _MAX_STDOUT_BYTES = 2 * 1024 * 1024

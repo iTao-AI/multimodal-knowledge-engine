@@ -73,3 +73,14 @@ Normalized before/after comparisons confirmed unchanged observations, metrics, t
 diagnostics, and verdict/status fields. E1 and E3-B remained byte-identical. No model execution,
 new qrel input, holdout observation, Search/Ask/runtime change, or retrieval promotion occurred.
 All E1 through E3-E canonical validators passed, and the related artifact suite passed `147` tests.
+
+## Merge Closeout
+
+[PR #58](https://github.com/iTao-AI/multimodal-knowledge-engine/pull/58) was squash-merged as
+`4e52542610b803df7bfe6dcb7648d464484e8f81` on 2026-07-08. The resulting `main` push passed the
+Python 3.12 and 3.13 CI jobs, both embedding-extra jobs, and CodeQL analysis for Python and Actions.
+The feature branches and isolated implementation worktree were removed only after those checks
+completed successfully.
+
+This merge did not create a version tag, GitHub Release, or PyPI publication. Those remain separate
+release actions.

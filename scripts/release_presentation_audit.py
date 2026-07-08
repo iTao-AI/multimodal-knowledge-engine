@@ -10,7 +10,7 @@ from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-EXPECTED_VERSION = "0.1.0"
+EXPECTED_VERSION = "0.1.1"
 RUNTIME_STRATEGY = "cjk-active-scan-overlap-v1"
 
 RELEASE_FACING_FILES = (
@@ -18,7 +18,7 @@ RELEASE_FACING_FILES = (
     "README_CN.md",
     "docs/README.md",
     "CHANGELOG.md",
-    "docs/releases/v0.1.0.md",
+    "docs/releases/v0.1.1.md",
     "docs/how-to/verify-release.md",
 )
 ENTRY_POINT_FILES = (
@@ -32,7 +32,13 @@ README_FILES = (
 )
 RELEASE_NOTE_FILES = (
     "CHANGELOG.md",
-    "docs/releases/v0.1.0.md",
+    "docs/releases/v0.1.1.md",
+)
+CONSUMER_SMOKE_COMMAND_FILES = (
+    "README.md",
+    "README_CN.md",
+    "docs/releases/v0.1.1.md",
+    "docs/how-to/verify-release.md",
 )
 
 
@@ -151,14 +157,14 @@ def _audit_readme_presentation(root: Path) -> list[Violation]:
     language_switch = "[English](./README.md) | [中文](./README_CN.md)"
     verified_table_labels = {
         "README.md": {
-            "heading": "## Verified in v0.1.0",
+            "heading": "## Verified in v0.1.1",
             "header": "| Capability | Evidence |",
-            "message": "English README must include the Verified in v0.1.0 capability table",
+            "message": "English README must include the Verified in v0.1.1 capability table",
         },
         "README_CN.md": {
-            "heading": "## v0.1.0 已验证能力",
+            "heading": "## v0.1.1 已验证能力",
             "header": "| 能力 | 验证证据 |",
-            "message": "Chinese README must include localized v0.1.0 verified capability labels",
+            "message": "Chinese README must include localized v0.1.1 verified capability labels",
         },
     }
     diagram_terms = (
@@ -225,7 +231,7 @@ def _audit_readme_presentation(root: Path) -> list[Violation]:
             "API adapters",
         ),
         "README_CN.md": (
-            "## v0.1.0 工程深度",
+            "## v0.1.1 工程深度",
             "Evidence 生命周期",
             "active Publication",
             "CLI/MCP application service contract",
@@ -256,6 +262,7 @@ def _audit_readme_presentation(root: Path) -> list[Violation]:
             "evidence-only Ask",
             "insufficient_evidence",
             "CLI + stdio MCP",
+            "Real stdio MCP local knowledge proof",
             RUNTIME_STRATEGY,
             "consumer smoke",
         ),
@@ -267,6 +274,7 @@ def _audit_readme_presentation(root: Path) -> list[Violation]:
             "evidence-only Ask",
             "insufficient_evidence",
             "CLI + stdio MCP",
+            "Real stdio MCP local knowledge proof",
             RUNTIME_STRATEGY,
             "consumer smoke",
         ),
@@ -289,7 +297,7 @@ def _audit_readme_presentation(root: Path) -> list[Violation]:
                 Violation(
                     file=file_name,
                     rule="readme_architecture_diagram",
-                    message="README must include the v0.1.0 Mermaid architecture diagram",
+                    message="README must include the v0.1.1 Mermaid architecture diagram",
                 )
             )
         labels = verified_table_labels[file_name]
@@ -301,7 +309,7 @@ def _audit_readme_presentation(root: Path) -> list[Violation]:
             violations.append(
                 Violation(
                     file=file_name,
-                    rule="verified_v010_table",
+                    rule="verified_v011_table",
                     message=labels["message"],
                 )
             )
@@ -311,7 +319,7 @@ def _audit_readme_presentation(root: Path) -> list[Violation]:
                     file=file_name,
                     rule="readme_engineering_depth",
                     message=(
-                        "README must explain v0.1.0 engineering depth and retrieval "
+                        "README must explain v0.1.1 engineering depth and retrieval "
                         "evidence boundaries"
                     ),
                 )
@@ -374,15 +382,22 @@ def _audit_comparison_boundary(root: Path, files: Iterable[str]) -> list[Violati
 
 
 def _audit_release_notes_links(root: Path) -> list[Violation]:
-    required_terms = ("proof", "demo", "CLI", "MCP", "retrieval evaluation")
+    required_terms = (
+        "proof",
+        "demo",
+        "CLI",
+        "MCP",
+        "retrieval evaluation",
+        "local knowledge proof",
+    )
     violations: list[Violation] = []
-    release_notes = _read_text(root, "docs/releases/v0.1.0.md")
+    release_notes = _read_text(root, "docs/releases/v0.1.1.md")
     if release_notes:
         for term in required_terms:
             if term.lower() not in release_notes.lower():
                 violations.append(
                     Violation(
-                        file="docs/releases/v0.1.0.md",
+                        file="docs/releases/v0.1.1.md",
                         rule="release_notes_links",
                         message=f"release notes must link or name {term}",
                     )
@@ -403,6 +418,7 @@ def _audit_stale_status(root: Path, files: Iterable[str]) -> list[Violation]:
         "to be determined",
         "stage 2 installed-package consumer smoke, tag creation, and github release publication "
         "are separate gates after this presentation-readiness work merges",
+        "stage 2 must run from a separate branch after stage 1 merges",
         "runtime_promotion_status=not_evaluated",
         "0.0.0",
     )
@@ -431,6 +447,23 @@ def _audit_stale_status(root: Path, files: Iterable[str]) -> list[Violation]:
                         message=f"release-facing file contains stale phrase {pattern!r}",
                     )
                 )
+    return violations
+
+
+def _audit_consumer_smoke_wheel_selection(
+    root: Path,
+    files: Iterable[str],
+) -> list[Violation]:
+    violations: list[Violation] = []
+    for file_name in files:
+        if "dist/*.whl" in _read_text(root, file_name):
+            violations.append(
+                Violation(
+                    file=file_name,
+                    rule="consumer_smoke_wheel_selection",
+                    message="consumer smoke must name the single current release wheel",
+                )
+            )
     return violations
 
 
@@ -471,12 +504,15 @@ def audit_release_presentation(root: Path) -> list[Violation]:
     violations.extend(_audit_comparison_boundary(root, release_files))
     violations.extend(_audit_release_notes_links(root))
     violations.extend(_audit_stale_status(root, release_files))
+    violations.extend(
+        _audit_consumer_smoke_wheel_selection(root, CONSUMER_SMOKE_COMMAND_FILES)
+    )
     violations.extend(_audit_public_boundary(root, release_files))
     return violations
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Audit v0.1.0 release presentation docs.")
+    parser = argparse.ArgumentParser(description="Audit v0.1.1 release presentation docs.")
     parser.add_argument("--root", type=Path, default=Path("."))
     args = parser.parse_args(argv)
 

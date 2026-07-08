@@ -48,12 +48,12 @@
     "integrity_claim": "adjudication_record_integrity"
   },
   "source_identity": {
-    "sha256": "674bb504fe6759deb69921d6c7aaa841fa9574285fabe6e4af7fbb91053aa452",
+    "sha256": "6029042fecd68f825f78e2781df1faaffbb59f820dcee93ca47ae27971c8f6b9",
     "files": [
       {
         "path": "src/mke/__init__.py",
         "bytes": 58,
-        "sha256": "838064437329f9acecd70165ac591ca5869033befed854546a117efb4f9ae161"
+        "sha256": "fdf7daeb72e2cf2eb5d379415247995af74cd24fd345dd1a1eb561ba59a78d15"
       },
       {
         "path": "src/mke/adapters/embedding/__init__.py",

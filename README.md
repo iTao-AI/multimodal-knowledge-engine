@@ -6,12 +6,12 @@ Multimodal Knowledge Engine is a local-first, Agent-callable Evidence engine for
 searching, and asking questions over documents and media. It keeps source processing, Publication
 activation, retrieval, and Agent-facing interfaces inside one verifiable local application boundary.
 
-`v0.1.0` is the first public small version. It proves a narrow but complete local Evidence loop:
-observable ingest Runs, active Publication Search, evidence-only Ask, retrieval evaluation
-artifacts, and one application service contract shared by the CLI and stdio MCP server. It is not a
-hosted RAG platform.
+`v0.1.1` builds on the first public `v0.1.0` release with a public-safe synthetic proof of MKE as an
+Agent-callable local knowledge tool. The release keeps the same narrow runtime boundary: observable
+ingest Runs, active Publication Search, evidence-only Ask, retrieval evaluation artifacts, and one
+application service contract shared by the CLI and stdio MCP server. It is not a hosted RAG platform.
 
-## Verified in v0.1.0
+## Verified in v0.1.1
 
 | Capability | Evidence |
 |---|---|
@@ -20,6 +20,7 @@ hosted RAG platform.
 | active-Publication Search | Search reads active Publications and returns stable page or timestamp Evidence. |
 | evidence-only Ask / insufficient_evidence | Ask returns cited Evidence or `insufficient_evidence`; no LLM answer generation is used in this slice. |
 | CLI + stdio MCP same application contract | CLI commands and MCP tools use the same application service layer. |
+| Real stdio MCP local knowledge proof | Two synthetic PDFs flow through MCP ingest, published Runs, active Publication Search, cited Ask, and `insufficient_evidence`. |
 | cjk-active-scan-overlap-v1 default owner-startup strategy | `cjk-active-scan-overlap-v1` is the shipped owner-startup CJK retrieval default. |
 | proof/demo/installed-wheel consumer smoke | `mke proof run`, `mke demo --verify`, and installed-wheel consumer smoke are release gates. |
 
@@ -104,16 +105,16 @@ Assets and Artifacts are immutable, and Search/Ask read only active Publications
 
 ## What this release proves
 
-`v0.1.0` is small by product surface, but it exercises the parts that make the system auditable:
-the Evidence lifecycle, active Publication switching, a CLI/MCP application service contract,
-installed-wheel consumption outside the source checkout, and retrieval evaluation artifacts that
-record accepted and rejected retrieval candidates.
+`v0.1.1` is small by product surface, but it exercises the parts that make the system auditable:
+the Evidence lifecycle, active Publication switching, a CLI/MCP application service contract, the
+real stdio MCP local knowledge proof, installed-wheel consumption outside the source checkout, and
+retrieval evaluation artifacts that record accepted and rejected retrieval candidates.
 
-| Retrieval evidence | v0.1.0 status | Boundary |
+| Retrieval evidence | v0.1.1 status | Boundary |
 |---|---|---|
 | Shipped runtime | lexical search plus `cjk-active-scan-overlap-v1` for owner-startup CJK active scan. | Search/Ask/MCP read active Publication Evidence through the same application service. |
 | Comparison-only evidence | dense exact-cosine, RRF fusion, and relevance gate / reranker artifacts are recorded. | This does not change normal Search, Ask, MCP, or the runtime default. |
-| Not included | query rewrite, HyDE, OCR, HTTP/UI, and API adapters are not included. | They are not `v0.1.0` runtime behavior or release claims. |
+| Not included | query rewrite, HyDE, OCR, HTTP/UI, and API adapters are not included. | They are not `v0.1.1` runtime behavior or release claims. |
 
 ## Quick Verify
 
@@ -133,7 +134,8 @@ uv build
 uv run mke proof run
 uv run mke demo --verify
 uv run python scripts/release_presentation_audit.py --root .
-uv run python scripts/release_consumer_smoke.py --wheel dist/*.whl --json
+uv run python scripts/release_consumer_smoke.py \
+  --wheel dist/multimodal_knowledge_engine-0.1.1-py3-none-any.whl --json
 ```
 
 ## Local Knowledge Proof
@@ -201,12 +203,12 @@ uv run mke --db .tmp/mke.sqlite \
 | E3-E relevance gate/reranker | Development passed, holdout observed, holdout gate failed. | None |
 
 E3-C dense, E3-D RRF, and E3-E relevance-gate/reranker work are comparison-only evidence in
-`v0.1.0`, not runtime behavior. They do not change Search, Ask, MCP, owner startup, Publication,
+`v0.1.1`, not runtime behavior. They do not change Search, Ask, MCP, owner startup, Publication,
 ingestion, or runtime defaults.
 
 ## Boundaries
 
-`v0.1.0` does not include dense retrieval execution, hybrid/RRF execution, reranker execution, query
+`v0.1.1` does not include dense retrieval execution, hybrid/RRF execution, reranker execution, query
 rewrite, HyDE, segmentation rewrite, scanned-PDF OCR, arbitrary video processing, HTTP, UI, public
 API adapters, LangChain, LlamaIndex, LangGraph, Milvus, Redis, pgvector, bundled model weights, or
 hosted multi-tenant coordination.
@@ -216,7 +218,7 @@ required for the core proof, demo, CLI ingest, MCP execution, or consumer smoke.
 
 ## Documentation
 
-- [Release notes](./docs/releases/v0.1.0.md)
+- [Release notes](./docs/releases/v0.1.1.md)
 - [Verify The Release](./docs/how-to/verify-release.md)
 - [Documentation index](./docs/README.md)
 - [Run The Local Product Proof](./docs/how-to/run-local-product-proof.md)
