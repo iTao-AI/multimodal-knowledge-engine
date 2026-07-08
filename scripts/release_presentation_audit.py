@@ -454,12 +454,9 @@ def _audit_consumer_smoke_wheel_selection(
     root: Path,
     files: Iterable[str],
 ) -> list[Violation]:
-    wildcard = re.compile(
-        r"release_consumer_smoke\.py[^\n]*--wheel\s+dist/\*\.whl(?:\s|$)"
-    )
     violations: list[Violation] = []
     for file_name in files:
-        if wildcard.search(_read_text(root, file_name)):
+        if "dist/*.whl" in _read_text(root, file_name):
             violations.append(
                 Violation(
                     file=file_name,

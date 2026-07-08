@@ -488,6 +488,21 @@ def test_audit_rejects_consumer_smoke_wheel_wildcard(
     assert "consumer_smoke_wheel_selection" in _rules(tmp_path)
 
 
+def test_audit_rejects_multiline_consumer_smoke_wheel_wildcard(
+    tmp_path: Path,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "docs/how-to/verify-release.md"
+    target.write_text(
+        target.read_text(encoding="utf-8")
+        + "\nuv run python scripts/release_consumer_smoke.py \\\n"
+        "  --wheel dist/*.whl --json\n",
+        encoding="utf-8",
+    )
+
+    assert "consumer_smoke_wheel_selection" in _rules(tmp_path)
+
+
 def test_audit_does_not_apply_current_wheel_rule_to_v0_1_0_history(
     tmp_path: Path,
 ) -> None:

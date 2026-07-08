@@ -139,10 +139,15 @@ unchanged.
 - Audit scope guard: a follow-up RED case reproduced an over-broad `CHANGELOG.md` match; the
   rule was limited to the four current command documents, then all audit tests passed (`50 passed`).
 - Targeted release/version/consumer-smoke suite: `80 passed`.
-- Full suite: `1327 passed, 5 skipped`; Ruff and Pyright passed; sdist and wheel builds passed.
+- Full suite after follow-up remediation: `1328 passed, 5 skipped`; Ruff and Pyright passed; sdist
+  and wheel builds passed in the release-closeout gate.
 - Installed-wheel consumer smoke: `status=passed`, `version=0.1.1`. Product proof: `8/8`; demo
   and local knowledge proof passed.
 - E1 through E3-E canonical validators, release presentation audit, relative-link check,
   public-boundary and stale-wording scans, and `git diff --check`: passed.
-- Targeted re-review: pending.
+- First targeted re-review: one P1 remained because the wildcard regex only matched a single-line
+  consumer-smoke command. A real multiline command reproduced the gap (`1 failed`); the audit now
+  rejects `dist/*.whl` directly in the same four current command documents (`1 passed`, full audit
+  tests `51 passed`) without extending to `CHANGELOG.md` or the `v0.1.0` history.
+- Follow-up targeted re-review: pending.
 - Durable review: [v0.1.1 Release Closeout Review](../reviews/2026-07-08-v0-1-1-release-closeout-review.md).
