@@ -50,3 +50,17 @@ publication is part of this remediation.
 - Relative links, public-boundary and stale-wording scans, and `git diff --check` passed.
 - First targeted re-review multiline RED/GREEN: `1 failed` before the fix, then `1 passed`; audit
   tests: `51 passed`.
+
+## Release Publication Closeout
+
+PR #59 merged as `91abbaeff7aac0a1879e409c38b24c1d4e143d91`. The complete final release gate
+passed on that `main` commit before publication.
+
+- Annotated tag `v0.1.1` has tag object SHA
+  `8e84b9a8638691b4dcb1eff6b8c7d56d8cb8c073` and targets the merged commit exactly.
+- The formal GitHub Release is published at
+  <https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.1>.
+- The downloaded release archive SHA-256 is
+  `caa4f695e87eb4e8569a1c0b5caaed339dccfb53c8b6e074d4020c8743bc8f87`.
+- Locked sync, product proof `8/8`, demo, and local knowledge proof passed from the archive.
+- PyPI was not published.
