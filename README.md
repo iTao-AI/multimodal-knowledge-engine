@@ -25,6 +25,10 @@ hosted RAG platform.
 
 ```mermaid
 flowchart TB
+    subgraph Inputs["Local Knowledge Inputs"]
+        LocalFiles["Local Files"]
+    end
+
     subgraph Interfaces["Interfaces"]
         Agent["Agent / Tool Client"]
         CLI["CLI"]
@@ -67,18 +71,21 @@ flowchart TB
         Comparison["Comparison-only Evidence"]
     end
 
-    Agent --> Contract
+    LocalFiles --> Source
+    Agent --> MCP
     CLI --> Contract
     MCP --> Contract
     Contract --> App
     App --> Strategy
-    App --> Source
+    App --> Run
     Source --> Run
     Run --> Evidence
     Evidence --> Publication
     Publication --> Projection
     Projection --> FTS
     Projection --> CJK
+    Strategy --> FTS
+    Strategy --> CJK
     FTS --> Search
     CJK --> Search
     Search --> Ask
@@ -89,7 +96,7 @@ flowchart TB
     Dense -. comparison-only .-> Comparison
     RRF -. comparison-only .-> Comparison
     Reranker -. comparison-only .-> Comparison
-    Proof -. release gate .-> App
+    Proof -. release gate .-> Contract
 ```
 
 SQLite is the domain truth for the first Pilot. Retrieval indexes are rebuildable projections,
@@ -128,6 +135,20 @@ uv run mke demo --verify
 uv run python scripts/release_presentation_audit.py --root .
 uv run python scripts/release_consumer_smoke.py --wheel dist/*.whl --json
 ```
+
+## Local Knowledge Proof
+
+The repository includes a public-safe synthetic proof of the Agent-callable local knowledge flow.
+It starts the real stdio MCP server, ingests two local PDFs through MCP tools, inspects their Runs,
+then verifies active Publication Search, cited evidence-only Ask, and `insufficient_evidence`.
+
+```bash
+UV_OFFLINE=1 uv run python scripts/local_knowledge_proof.py
+```
+
+The proof is offline and model-free. Its report contains only aggregate outcomes, not local paths,
+transient identifiers, or Evidence text. See
+[Run The Local Knowledge Proof](./docs/how-to/run-local-knowledge-proof.md).
 
 ## CLI And MCP
 
@@ -199,6 +220,7 @@ required for the core proof, demo, CLI ingest, MCP execution, or consumer smoke.
 - [Verify The Release](./docs/how-to/verify-release.md)
 - [Documentation index](./docs/README.md)
 - [Run The Local Product Proof](./docs/how-to/run-local-product-proof.md)
+- [Run The Local Knowledge Proof](./docs/how-to/run-local-knowledge-proof.md)
 - [Use MKE As A Local MCP Server](./docs/how-to/use-mke-mcp.md)
 - [Enable Bounded CJK Retrieval](./docs/how-to/enable-cjk-retrieval.md)
 - [Run Retrieval Evaluation](./docs/how-to/run-retrieval-evaluation.md)

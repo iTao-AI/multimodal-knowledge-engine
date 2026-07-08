@@ -230,6 +230,7 @@ src/mke/
     readiness.py
   interfaces/
   proof/
+    local_knowledge.py
     transcription.py
     mcp_deployment_client.py
   evaluation/

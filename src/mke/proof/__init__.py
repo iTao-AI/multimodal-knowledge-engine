@@ -1,5 +1,9 @@
 """Deterministic product proof harness."""
 
+from mke.proof.local_knowledge import (
+    render_local_knowledge_report,
+    run_local_knowledge_proof,
+)
 from mke.proof.manifest import PRODUCT_PROOF_MANIFEST, ProofFixtures, ProofManifest
 from mke.proof.report import (
     ObservedField,
@@ -29,8 +33,10 @@ __all__ = [
     "TranscriptionProofReport",
     "render_human_report",
     "render_json_report",
+    "render_local_knowledge_report",
     "render_transcription_proof_human",
     "render_transcription_proof_json",
+    "run_local_knowledge_proof",
     "run_product_proof",
     "run_transcription_proof",
     "validate_transcription_proof",
