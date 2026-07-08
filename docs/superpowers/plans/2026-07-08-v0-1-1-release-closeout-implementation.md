@@ -152,3 +152,17 @@ unchanged.
 - Reviewed implementation commit: `b4de34b12e070db3e7b81bd182ab6cc278192e0a`.
 - Follow-up targeted re-review: `CLEAN / 0 findings`.
 - Durable review: [v0.1.1 Release Closeout Review](../reviews/2026-07-08-v0-1-1-release-closeout-review.md).
+
+## Release Publication Closeout
+
+Publication completed on 2026-07-08 after PR #59 merged and the full final release gate passed on
+`main@91abbaeff7aac0a1879e409c38b24c1d4e143d91`.
+
+- Annotated tag: `v0.1.1`.
+- Tag object SHA: `8e84b9a8638691b4dcb1eff6b8c7d56d8cb8c073`.
+- GitHub Release: <https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.1>.
+- Release archive SHA-256:
+  `caa4f695e87eb4e8569a1c0b5caaed339dccfb53c8b6e074d4020c8743bc8f87`.
+- Post-release archive smoke: locked sync, product proof `8/8`, demo, and local knowledge proof
+  passed from the downloaded public archive.
+- PyPI remained unpublished.

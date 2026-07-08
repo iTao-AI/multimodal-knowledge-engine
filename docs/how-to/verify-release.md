@@ -6,9 +6,24 @@ This guide separates three checks:
 2. Stage 2 installed-package consumer smoke before any tag is created.
 3. Post-tag archive smoke after a GitHub Release exists.
 
-`v0.1.0` has completed all three checks. The `v0.1.1` final release-candidate branch may complete
-Stage 1 and Stage 2 together. After that branch merges, rerun the final release gate on `main`
-before requesting separate authorization for the tag and GitHub Release.
+`v0.1.0` and `v0.1.1` have completed all three checks. The records below preserve their release
+identity and archive-smoke evidence. For the same workflow, Stage 1 and Stage 2 may run together
+on a final release-candidate branch, followed by a complete final gate on `main` before separately
+authorized tag and GitHub Release creation.
+
+## Completed v0.1.1 Release Record
+
+- Tag: `v0.1.1`
+- Tag object SHA: `8e84b9a8638691b4dcb1eff6b8c7d56d8cb8c073`
+- Tag target commit: `91abbaeff7aac0a1879e409c38b24c1d4e143d91`
+- GitHub Release: <https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.1>
+- Published: `2026-07-08T09:09:41Z`
+- Release archive: `multimodal-knowledge-engine-0.1.1.tar.gz`
+- Release archive SHA-256:
+  `caa4f695e87eb4e8569a1c0b5caaed339dccfb53c8b6e074d4020c8743bc8f87`
+- Post-release archive smoke: `UV_OFFLINE=1 uv sync --locked`, product proof `8/8`, demo
+  `result=passed`, and local knowledge proof `status=passed`.
+- PyPI: not published.
 
 ## Completed v0.1.0 Release Record
 
