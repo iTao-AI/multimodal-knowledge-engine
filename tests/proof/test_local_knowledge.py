@@ -16,6 +16,21 @@ from mke.proof import local_knowledge as proof_module
 from mke.proof.local_knowledge import run_local_knowledge_proof
 
 
+def _page_evidence(
+    *,
+    text: str = "Cedar Relay maintenance window begins Tuesday.",
+    start: int = 1,
+    end: int = 1,
+) -> dict[str, object]:
+    return {
+        "evidence_id": "ev_test",
+        "publication_id": "pub_test",
+        "source_id": "src_test",
+        "text": text,
+        "locator": {"kind": "page", "start": start, "end": end},
+    }
+
+
 def test_local_knowledge_proof_runs_real_stdio_mcp_flow() -> None:
     repo_root = Path.cwd()
 
@@ -79,3 +94,65 @@ def test_local_knowledge_proof_uses_private_server_stderr_sink(
 
     assert len(observed_errlogs) == 1
     assert observed_errlogs[0] is not sys.stderr
+
+
+@pytest.mark.parametrize(
+    ("evidence", "query"),
+    [
+        (_page_evidence(text="Unrelated material from another source."), "Cedar Relay"),
+        (_page_evidence(start=-1, end=1), "Cedar Relay maintenance window"),
+        (_page_evidence(start=2, end=1), "Cedar Relay maintenance window"),
+    ],
+)
+def test_local_knowledge_proof_rejects_unbound_or_invalid_page_evidence(
+    evidence: dict[str, object],
+    query: str,
+) -> None:
+    payload: dict[str, object] = {"ok": True, "results": [evidence]}
+
+    with pytest.raises(ValueError, match="MCP page Evidence is invalid"):
+        proof_module._page_evidence(  # pyright: ignore[reportPrivateUsage]
+            payload,
+            field="results",
+            expected_query=query,
+        )
+
+
+@pytest.mark.parametrize(
+    "events",
+    [
+        [{"unexpected": "shape"}],
+        [
+            {"event_index": 1, "event": "run_created"},
+            {"event_index": 3, "event": "run_started"},
+            {"event_index": 4, "event": "candidate_validated"},
+            {"event_index": 5, "event": "publication_activated"},
+        ],
+        [
+            {"event_index": 1, "event": "run_created"},
+            {"event_index": 2, "event": "run_started"},
+            {"event_index": 3, "event": "publication_activated"},
+        ],
+        [
+            {"event_index": 1, "event": "run_created"},
+            {"event_index": 2, "event": "run_started"},
+            {"event_index": 3, "event": "candidate_validated"},
+            {"event_index": 4, "event": "publication_activated"},
+            {"event_index": 5, "event": "run_started"},
+        ],
+    ],
+)
+def test_local_knowledge_proof_rejects_invalid_published_run_events(
+    events: list[dict[str, object]],
+) -> None:
+    payload: dict[str, object] = {
+        "ok": True,
+        "run": {"run_id": "run_test", "state": "published"},
+        "events": events,
+    }
+
+    with pytest.raises(ValueError, match="MCP Run events are invalid"):
+        proof_module._validate_run(  # pyright: ignore[reportPrivateUsage]
+            payload,
+            "run_test",
+        )

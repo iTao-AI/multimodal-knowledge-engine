@@ -32,7 +32,7 @@
     "main_merge_base": "721784eabcb9fbb737166578010c9e1a46a25fef",
     "implementation_start": "3992b0e9371d1a8c9e019d3bbe2b32aac9665914",
     "evaluation_commit": "79bafb07ac592b684e6ceab15dc389dc33702978",
-    "evaluation_content_sha256": "a5ec3ffa3e9108851666c96f870aeeb9e4cbe31d9e117d1774d624e12ff20ed2",
+    "evaluation_content_sha256": "79b2f06829b632cf65d35e4fe7b2be4fbe5a12076516be88e372cfc148903d19",
     "evaluation_content_files": [
       {
         "path": "src/mke/__init__.py",
@@ -366,8 +366,8 @@
       },
       {
         "path": "src/mke/proof/local_knowledge.py",
-        "bytes": 9429,
-        "sha256": "f06e19fd30148ef1091883175f887921a9375e36cf7d3dde1bbc9965d704d62c"
+        "bytes": 11353,
+        "sha256": "ff0f5bcc423cce1c48b18655f196371366217d890a0b8e4e6812a61b5b42e848"
       },
       {
         "path": "src/mke/proof/manifest.py",

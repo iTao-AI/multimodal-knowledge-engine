@@ -93,7 +93,11 @@ async def _run_mcp_proof(
                         {"query": queries["search"], "limit": 5},
                     )
                 )
-                search_results = _page_evidence(searched, field="results")
+                search_results = _page_evidence(
+                    searched,
+                    field="results",
+                    expected_query=queries["search"],
+                )
                 if len(search_results) != 1:
                     raise ValueError("MCP Search result count mismatch")
 
@@ -103,7 +107,11 @@ async def _run_mcp_proof(
                         {"question": queries["answer"], "limit": 5},
                     )
                 )
-                answer_evidence = _answer_evidence(asked, expected_status="evidence_found")
+                answer_evidence = _answer_evidence(
+                    asked,
+                    expected_status="evidence_found",
+                    expected_query=queries["answer"],
+                )
                 if len(answer_evidence) != 1:
                     raise ValueError("MCP Ask citation count mismatch")
 
@@ -116,6 +124,7 @@ async def _run_mcp_proof(
                 refusal_evidence = _answer_evidence(
                     refused,
                     expected_status="insufficient_evidence",
+                    expected_query=queries["refusal"],
                 )
                 if refusal_evidence:
                     raise ValueError("MCP refusal returned Evidence")
@@ -193,18 +202,41 @@ def _validate_run(payload: Mapping[str, object], expected_run_id: str) -> None:
         raise ValueError("MCP Run state mismatch")
     if not isinstance(raw_events, list) or not raw_events:
         raise ValueError("MCP Run events are missing")
+    events = cast(list[object], raw_events)
+    if not all(isinstance(item, dict) for item in events):
+        raise ValueError("MCP Run events are invalid")
+    typed_events = cast(list[dict[str, object]], events)
+    if any(set(item) != {"event_index", "event"} for item in typed_events):
+        raise ValueError("MCP Run events are invalid")
+    indices = [item["event_index"] for item in typed_events]
+    event_names = [item["event"] for item in typed_events]
+    required_events = [
+        "run_created",
+        "run_started",
+        "candidate_validated",
+        "publication_activated",
+    ]
+    if (
+        any(type(index) is not int for index in indices)
+        or indices != list(range(1, len(indices) + 1))
+        or any(not isinstance(name, str) or not name for name in event_names)
+        or not _contains_in_order(event_names, required_events)
+        or event_names[-1] != "publication_activated"
+    ):
+        raise ValueError("MCP Run events are invalid")
 
 
 def _page_evidence(
     payload: Mapping[str, object],
     *,
     field: str,
+    expected_query: str,
 ) -> list[dict[str, object]]:
     raw_evidence = payload.get(field)
     if payload.get("ok") is not True or not isinstance(raw_evidence, list):
         raise ValueError("MCP Evidence payload is invalid")
     evidence = cast(list[object], raw_evidence)
-    if not all(_is_page_evidence(item) for item in evidence):
+    if not all(_is_page_evidence(item, expected_query=expected_query) for item in evidence):
         raise ValueError("MCP page Evidence is invalid")
     return cast(list[dict[str, object]], evidence)
 
@@ -213,13 +245,18 @@ def _answer_evidence(
     payload: Mapping[str, object],
     *,
     expected_status: str,
+    expected_query: str,
 ) -> list[dict[str, object]]:
     if payload.get("answer_status") != expected_status:
         raise ValueError("MCP Ask status mismatch")
-    return _page_evidence(payload, field="evidence")
+    return _page_evidence(
+        payload,
+        field="evidence",
+        expected_query=expected_query,
+    )
 
 
-def _is_page_evidence(value: object) -> bool:
+def _is_page_evidence(value: object, *, expected_query: str) -> bool:
     if not isinstance(value, dict):
         return False
     evidence = cast(Mapping[str, object], value)
@@ -227,15 +264,30 @@ def _is_page_evidence(value: object) -> bool:
     if not isinstance(raw_locator, dict):
         return False
     locator = cast(Mapping[str, object], raw_locator)
+    text = cast(str, evidence.get("text"))
+    start = locator.get("start")
+    end = locator.get("end")
+    query_terms = expected_query.casefold().split()
     return (
         all(
             isinstance(evidence.get(field), str) and evidence.get(field)
             for field in ("evidence_id", "publication_id", "source_id", "text")
         )
+        and all(term in text.casefold() for term in query_terms)
         and locator.get("kind") == "page"
-        and type(locator.get("start")) is int
-        and type(locator.get("end")) is int
+        and type(start) is int
+        and type(end) is int
+        and start >= 1
+        and end >= start
     )
+
+
+def _contains_in_order(values: list[object], required: list[str]) -> bool:
+    position = 0
+    for value in values:
+        if position < len(required) and value == required[position]:
+            position += 1
+    return position == len(required)
 
 
 def _required_string(payload: Mapping[str, object], key: str) -> str:
