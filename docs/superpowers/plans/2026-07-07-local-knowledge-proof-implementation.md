@@ -364,3 +364,45 @@ Completed on 2026-07-07 from local `main@6663df059af1a5947abf9ac23214f504967feba
 - Canonical E1 baseline: source-content identity refreshed through the restricted `refresh-source`
   command only; historical metadata and evaluation observations were unchanged.
 - Network, model download, push, PR, tag, release, and PyPI actions: not performed.
+
+## Post-Review Remediation And Closeout
+
+Completed on 2026-07-08 after the authoritative implementation review. Durable review evidence is
+recorded in the
+[Local Knowledge Proof Implementation Review](../reviews/2026-07-08-local-knowledge-proof-review.md).
+
+### Authoritative P1 Findings
+
+1. Search and Ask Evidence validation checked only shape and count. Unrelated content, plausible
+   same-keyword fabricated content, negative page starts, and reversed page ranges could pass the
+   proof.
+2. Published Run inspection required only a non-empty events list. Malformed event entries,
+   discontinuous indices, missing lifecycle stages, and post-activation events could pass.
+
+### Remediation
+
+- Evidence validation now binds Search and Ask results to the fixed synthetic fixture content by
+  SHA-256, retains query-term validation, and requires page locators with `start >= 1` and
+  `end >= start`.
+- Run validation now requires the public event shape, contiguous indices beginning at one, the
+  required lifecycle in order, and final `publication_activated`.
+- Adversarial RED tests were added before each minimal implementation change. No MCP contract,
+  runtime, fixture text, or proof output structure changed.
+- The canonical E1 source-content identity was refreshed through the restricted `refresh-source`
+  command; historical observations were unchanged.
+
+### Final Verification Evidence
+
+- Targeted local knowledge proof suite: `19 passed`.
+- Full suite: `1319 passed, 5 skipped`; five existing PyMuPDF/SWIG deprecation warnings remained.
+- Ruff: clean.
+- Pyright: `0 errors, 0 warnings, 0 informations`.
+- Build: sdist and wheel completed successfully for package version `0.1.0`.
+- Existing product proof: `8 passed, 0 failed`.
+- Existing demo: `result=passed`.
+- Local knowledge proof: `status=passed` with the existing public aggregate output structure.
+- Release presentation audit: `status=ok`, zero violations.
+- Canonical E1 baseline validator: passed.
+- Diff check: clean.
+- Targeted re-review: `CLEAN / 0 findings` at implementation commit `0cdb4f9`.
+- Network, model download, push, PR, merge, tag, release, and PyPI actions: not performed.
