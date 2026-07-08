@@ -117,3 +117,32 @@ Completed locally on 2026-07-08 from `main@4e52542610b803df7bfe6dcb7648d464484e8
   and successful post-merge CI/CodeQL.
 - No MCP/runtime/Search/Ask behavior changed. No push, PR, tag, GitHub Release, or PyPI publication
   was performed from this closeout branch.
+
+## Pre-PR Review Remediation
+
+The authoritative pre-PR review found two P1 release-process integrity issues:
+
+1. `docs/how-to/verify-release.md` said Stage 1 and Stage 2 run together for `v0.1.1`, but its
+   Stage 2 section still required a separate branch after Stage 1 merged.
+2. Four current release-facing command blocks used `--wheel dist/*.whl`, although the consumer
+   smoke accepts exactly one wheel and a shell wildcard can expand to multiple old build outputs.
+
+Both findings were reproduced with audit RED tests before implementation changes. The release
+guide now allows Stage 1 and Stage 2 on one final release-candidate branch, requires the complete
+gate to run again on the resulting `main` commit before tagging, and keeps tag/GitHub Release
+creation behind separate authorization. Current release-facing commands now name
+`dist/multimodal_knowledge_engine-0.1.1-py3-none-any.whl` exactly; the published `v0.1.0` record is
+unchanged.
+
+- RED evidence: `5 failed, 1 passed` across the new focused cases.
+- GREEN evidence: `6 passed` across the same cases.
+- Audit scope guard: a follow-up RED case reproduced an over-broad `CHANGELOG.md` match; the
+  rule was limited to the four current command documents, then all audit tests passed (`50 passed`).
+- Targeted release/version/consumer-smoke suite: `80 passed`.
+- Full suite: `1327 passed, 5 skipped`; Ruff and Pyright passed; sdist and wheel builds passed.
+- Installed-wheel consumer smoke: `status=passed`, `version=0.1.1`. Product proof: `8/8`; demo
+  and local knowledge proof passed.
+- E1 through E3-E canonical validators, release presentation audit, relative-link check,
+  public-boundary and stale-wording scans, and `git diff --check`: passed.
+- Targeted re-review: pending.
+- Durable review: [v0.1.1 Release Closeout Review](../reviews/2026-07-08-v0-1-1-release-closeout-review.md).

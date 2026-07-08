@@ -134,7 +134,8 @@ uv build
 uv run mke proof run
 uv run mke demo --verify
 uv run python scripts/release_presentation_audit.py --root .
-uv run python scripts/release_consumer_smoke.py --wheel dist/*.whl --json
+uv run python scripts/release_consumer_smoke.py \
+  --wheel dist/multimodal_knowledge_engine-0.1.1-py3-none-any.whl --json
 ```
 
 ## Local Knowledge Proof

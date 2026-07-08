@@ -453,6 +453,67 @@ def test_audit_rejects_stale_stage2_changelog_gate(tmp_path: Path) -> None:
     assert "stale_release_status" in _rules(tmp_path)
 
 
+def test_audit_rejects_separate_branch_stage2_wording(tmp_path: Path) -> None:
+    _write_release_tree(tmp_path)
+    (tmp_path / "docs/how-to/verify-release.md").write_text(
+        "# Verify Release\n\n"
+        "Stage 2 must run from a separate branch after Stage 1 merges.\n",
+        encoding="utf-8",
+    )
+
+    assert "stale_release_status" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "README.md",
+        "README_CN.md",
+        "docs/releases/v0.1.1.md",
+        "docs/how-to/verify-release.md",
+    ],
+)
+def test_audit_rejects_consumer_smoke_wheel_wildcard(
+    tmp_path: Path,
+    path: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / path
+    target.write_text(
+        target.read_text(encoding="utf-8")
+        + "\nuv run python scripts/release_consumer_smoke.py --wheel dist/*.whl --json\n",
+        encoding="utf-8",
+    )
+
+    assert "consumer_smoke_wheel_selection" in _rules(tmp_path)
+
+
+def test_audit_does_not_apply_current_wheel_rule_to_v0_1_0_history(
+    tmp_path: Path,
+) -> None:
+    _write_release_tree(tmp_path)
+    historical = tmp_path / "docs/releases/v0.1.0.md"
+    historical.write_text(
+        "# v0.1.0\n\n"
+        "uv run python scripts/release_consumer_smoke.py --wheel dist/*.whl --json\n",
+        encoding="utf-8",
+    )
+
+    assert audit_release_presentation(tmp_path) == []
+
+
+def test_audit_limits_current_wheel_rule_to_command_docs(tmp_path: Path) -> None:
+    _write_release_tree(tmp_path)
+    changelog = tmp_path / "CHANGELOG.md"
+    changelog.write_text(
+        changelog.read_text(encoding="utf-8")
+        + "\nuv run python scripts/release_consumer_smoke.py --wheel dist/*.whl --json\n",
+        encoding="utf-8",
+    )
+
+    assert audit_release_presentation(tmp_path) == []
+
+
 @pytest.mark.parametrize(
     ("path", "stale_text"),
     [

@@ -6,8 +6,9 @@ This guide separates three checks:
 2. Stage 2 installed-package consumer smoke before any tag is created.
 3. Post-tag archive smoke after a GitHub Release exists.
 
-`v0.1.0` has completed all three checks. The `v0.1.1` repository closeout runs Stage 1 and Stage 2
-locally; do not tag or publish until those gates merge and explicit release authorization is given.
+`v0.1.0` has completed all three checks. The `v0.1.1` final release-candidate branch may complete
+Stage 1 and Stage 2 together. After that branch merges, rerun the final release gate on `main`
+before requesting separate authorization for the tag and GitHub Release.
 
 ## Completed v0.1.0 Release Record
 
@@ -44,14 +45,15 @@ comparison-only retrieval wording agree on `v0.1.1`.
 
 ## Stage 2 Consumer Smoke
 
-Stage 2 must run from a separate branch after Stage 1 merges. It proves the built package works
-outside the source checkout before the release tag is created.
+Stage 2 may run on the same final release-candidate branch as Stage 1. It proves the built package
+works outside the source checkout before the release tag is created.
 
 Run:
 
 ```bash
 uv build
-uv run python scripts/release_consumer_smoke.py --wheel dist/*.whl --json
+uv run python scripts/release_consumer_smoke.py \
+  --wheel dist/multimodal_knowledge_engine-0.1.1-py3-none-any.whl --json
 ```
 
 The consumer smoke should:
@@ -73,9 +75,15 @@ prints stable JSON, for example `{"status": "passed", ...}` on success or
 Core consumer smoke must not require `[embedding]`, `[transcription]`, package index access beyond
 normal wheel installation, or model downloads. Optional extras can have separate reported checks.
 
+## Final Pre-Tag Gate On main
+
+After the final release-candidate PR merges, check out the resulting `main` commit and rerun every
+Stage 1 and Stage 2 command above. Create no tag or GitHub Release unless this final `main` gate
+passes and separate release authorization is given.
+
 ## Post-Tag Archive Smoke
 
-After Stage 1 and Stage 2 merge, create the annotated tag and GitHub Release only with explicit
+After the final `main` gate passes, create the annotated tag and GitHub Release only with explicit
 authorization. Then verify the public archive from a clean temporary directory:
 
 ```bash

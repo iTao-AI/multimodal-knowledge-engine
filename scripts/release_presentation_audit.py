@@ -34,6 +34,12 @@ RELEASE_NOTE_FILES = (
     "CHANGELOG.md",
     "docs/releases/v0.1.1.md",
 )
+CONSUMER_SMOKE_COMMAND_FILES = (
+    "README.md",
+    "README_CN.md",
+    "docs/releases/v0.1.1.md",
+    "docs/how-to/verify-release.md",
+)
 
 
 @dataclass(frozen=True)
@@ -412,6 +418,7 @@ def _audit_stale_status(root: Path, files: Iterable[str]) -> list[Violation]:
         "to be determined",
         "stage 2 installed-package consumer smoke, tag creation, and github release publication "
         "are separate gates after this presentation-readiness work merges",
+        "stage 2 must run from a separate branch after stage 1 merges",
         "runtime_promotion_status=not_evaluated",
         "0.0.0",
     )
@@ -440,6 +447,26 @@ def _audit_stale_status(root: Path, files: Iterable[str]) -> list[Violation]:
                         message=f"release-facing file contains stale phrase {pattern!r}",
                     )
                 )
+    return violations
+
+
+def _audit_consumer_smoke_wheel_selection(
+    root: Path,
+    files: Iterable[str],
+) -> list[Violation]:
+    wildcard = re.compile(
+        r"release_consumer_smoke\.py[^\n]*--wheel\s+dist/\*\.whl(?:\s|$)"
+    )
+    violations: list[Violation] = []
+    for file_name in files:
+        if wildcard.search(_read_text(root, file_name)):
+            violations.append(
+                Violation(
+                    file=file_name,
+                    rule="consumer_smoke_wheel_selection",
+                    message="consumer smoke must name the single current release wheel",
+                )
+            )
     return violations
 
 
@@ -480,6 +507,9 @@ def audit_release_presentation(root: Path) -> list[Violation]:
     violations.extend(_audit_comparison_boundary(root, release_files))
     violations.extend(_audit_release_notes_links(root))
     violations.extend(_audit_stale_status(root, release_files))
+    violations.extend(
+        _audit_consumer_smoke_wheel_selection(root, CONSUMER_SMOKE_COMMAND_FILES)
+    )
     violations.extend(_audit_public_boundary(root, release_files))
     return violations
 
