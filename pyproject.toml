@@ -13,19 +13,19 @@ authors = [{ name = "iTao-AI" }]
 dependencies = [
   "mcp>=1.28.1,<2",
   "pydantic>=2.13.4,<3",
-  "pymupdf>=1.24.0,<2",
+  "pymupdf>=1.28.0,<2",
 ]
 
 [project.optional-dependencies]
 embedding = [
   "sentence-transformers==5.6.0",
   "sqlite-vec==0.1.9",
-  "huggingface-hub>=1.21.0,<2",
+  "huggingface-hub>=1.23.0,<2",
 ]
 transcription = [
   "faster-whisper>=1.2.1,<2",
-  "av>=11,<18",
-  "huggingface-hub>=1.21.0,<2",
+  "av>=18.0.0,<19",
+  "huggingface-hub>=1.23.0,<2",
 ]
 
 [project.scripts]
@@ -36,7 +36,7 @@ mke-transcribe-faster-whisper = "mke.adapters.video.faster_whisper_cli:console_m
 dev = [
   "pyright>=1.1.411",
   "pytest>=9.1.1",
-  "ruff>=0.15.20",
+  "ruff>=0.15.21",
 ]
 
 [tool.hatch.build.targets.wheel]
