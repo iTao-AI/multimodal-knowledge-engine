@@ -108,7 +108,7 @@ class SearchLibrarySuccessV1(_StrictModel):
     ok: Literal[True] = True
     query: PublicText
     observation: ActivePublicationObservationV1
-    results: tuple[EvidenceRefV1, ...]
+    results: list[EvidenceRefV1]
 
 
 class SearchLibraryErrorV1(_PublicErrorV1):
@@ -122,8 +122,8 @@ class AskLibrarySuccessV1(_StrictModel):
     answer_status: Literal["evidence_found", "insufficient_evidence"]
     summary: PublicText
     observation: ActivePublicationObservationV1
-    evidence: tuple[EvidenceRefV1, ...]
-    limitations: tuple[PublicText, ...]
+    evidence: list[EvidenceRefV1]
+    limitations: list[PublicText]
 
 
 class AskLibraryErrorV1(_PublicErrorV1):

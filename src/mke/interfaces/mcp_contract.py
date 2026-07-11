@@ -305,7 +305,7 @@ def search_library_v1(
             root=SearchLibrarySuccessV1(
                 query=normalized_query,
                 observation=_observation_v1(snapshot.observation),
-                results=tuple(_evidence_ref_v1(item) for item in snapshot.results),
+                results=[_evidence_ref_v1(item) for item in snapshot.results],
             )
         )
     except (AskValidationError, CjkActiveScanError) as error:
@@ -345,8 +345,8 @@ def ask_library_v1(
                 ),
                 summary=snapshot.result.summary,
                 observation=_observation_v1(snapshot.observation),
-                evidence=tuple(_evidence_ref_v1(item) for item in snapshot.evidence),
-                limitations=snapshot.result.limitations,
+                evidence=[_evidence_ref_v1(item) for item in snapshot.evidence],
+                limitations=list(snapshot.result.limitations),
             )
         )
     except (AskValidationError, CjkActiveScanError) as error:
