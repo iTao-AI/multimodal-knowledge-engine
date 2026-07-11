@@ -10,7 +10,7 @@
     "arms": [
       {
         "arm_id": "e3a-historical-fts5-baseline",
-        "semantic_digest": "c2847226890dcaaeb1a7d273537399a4aa5a0bc33084d5633012fdc679544d44"
+        "semantic_digest": "f7f42c5f4027eabb968152a275bd1bbaa60c673937f774233e1f8e551ecce8f1"
       },
       {
         "arm_id": "cjk-trigram-overlap-v1",
@@ -4341,7 +4341,7 @@
     "e3a": {
       "bytes": 115758,
       "path": "benchmarks/retrieval/retrieval-chinese-v1-baseline.json",
-      "sha256": "c2847226890dcaaeb1a7d273537399a4aa5a0bc33084d5633012fdc679544d44"
+      "sha256": "f7f42c5f4027eabb968152a275bd1bbaa60c673937f774233e1f8e551ecce8f1"
     },
     "e3b": {
       "bytes": 196145,

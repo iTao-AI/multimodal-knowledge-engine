@@ -32,7 +32,7 @@
     "main_merge_base": "721784eabcb9fbb737166578010c9e1a46a25fef",
     "implementation_start": "3992b0e9371d1a8c9e019d3bbe2b32aac9665914",
     "evaluation_commit": "79bafb07ac592b684e6ceab15dc389dc33702978",
-    "evaluation_content_sha256": "5d3c8f85bef5a7f547bd4e78ba82fa99da7484268d3cb457e311fb6efd63b5d8",
+    "evaluation_content_sha256": "9ea6f48d09c1fa4d74f829ad21c816edc8cc21a3d6c3da55d3a6cb0e731fa3d6",
     "evaluation_content_files": [
       {
         "path": "src/mke/__init__.py",
@@ -136,8 +136,8 @@
       },
       {
         "path": "src/mke/domain/__init__.py",
-        "bytes": 13390,
-        "sha256": "a66a4fac9029027a06719e88f8427cd856c3ab42e548cddb2d4d93e1a927a59e"
+        "bytes": 15040,
+        "sha256": "dc84e3c723cb46c123ec38b15f468683f078b4be773f05ed68a264d339f790b9"
       },
       {
         "path": "src/mke/embeddings/__init__.py",
@@ -351,8 +351,8 @@
       },
       {
         "path": "src/mke/interfaces/mcp_schemas.py",
-        "bytes": 5090,
-        "sha256": "a0a8c3ece60213649526b90ba2c44168a759e5f395c2d192c354cfb09e34a2a8"
+        "bytes": 6612,
+        "sha256": "f2b6df501297d1a21129c0249043868f061d91388da51217f02842e627b69cbb"
       },
       {
         "path": "src/mke/interfaces/mcp_server.py",
@@ -361,8 +361,8 @@
       },
       {
         "path": "src/mke/interfaces/public_errors.py",
-        "bytes": 6130,
-        "sha256": "c5d8e189d869a4d96c5c2b33866e0d4bf37c31e03d11003263fe664cd6cdbefe"
+        "bytes": 6330,
+        "sha256": "d2f5aeaaee0fb2fefd72d77992898f7af498d15f55ab0db38f40bda47af4096f"
       },
       {
         "path": "src/mke/proof/__init__.py",
@@ -371,8 +371,8 @@
       },
       {
         "path": "src/mke/proof/evidence_provenance.py",
-        "bytes": 13262,
-        "sha256": "f04dde21ddeef3559200449fa37ea1edc09b9d2009331cd295324305a87df403"
+        "bytes": 14697,
+        "sha256": "b8104d0ab8c009d4416dfa3eda1012b40cb6fcad25dd84275e25f33eded9376e"
       },
       {
         "path": "src/mke/proof/local_knowledge.py",
