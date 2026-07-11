@@ -15,6 +15,7 @@ def test_evidence_provenance_proof_runs_real_stdio() -> None:
     assert report["unexpected_exception_redacted"] is True
     assert report["transport_failure_bounded"] is True
     assert report["timeout_bounded"] is True
+    assert report["timeout_child_terminated"] is True
     assert report["temporary_store_cleanup"] is True
     rendered = json.dumps(report, sort_keys=True)
     assert re.search(r"(?:run|src|pub|ask|ev)_[0-9a-f]{32}", rendered) is None

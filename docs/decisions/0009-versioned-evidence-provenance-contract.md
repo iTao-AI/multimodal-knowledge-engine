@@ -20,4 +20,3 @@ Evidence graph must validate or the response fails closed.
 - No migration, second persistence model, N+1 query, retrieval/ranking change, or nested `BEGIN` is
   introduced.
 - Versioning legacy write and Run-inspection responses remains a separate decision.
-

@@ -6,9 +6,12 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel, StringConstraints, model_validator
 
+from mke.interfaces.public_errors import is_public_error_cause
+
 StrictId = Annotated[str, StringConstraints(pattern=r"^[a-z]+_[0-9a-f]{32}$")]
 Fingerprint = Annotated[str, StringConstraints(pattern=r"^sha256:[0-9a-f]{64}$")]
 PublicText = Annotated[str, StringConstraints(min_length=1, max_length=1_000_000)]
+MachineToken = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]{0,127}$")]
 
 
 class _StrictModel(BaseModel):
@@ -79,6 +82,8 @@ class ActivePublicationObservationV1(_StrictModel):
             and counts[1:] == (0, 0)
             or self.state == "active"
             and all(value > 0 for value in counts)
+            and self.active_publication_count <= self.source_count
+            and self.active_publication_count <= self.active_evidence_count
         )
         if not valid:
             raise ValueError("observation state does not match counts")
@@ -87,10 +92,16 @@ class ActivePublicationObservationV1(_StrictModel):
 
 class _PublicErrorV1(_StrictModel):
     ok: Literal[False]
-    problem: Annotated[str, StringConstraints(min_length=1, max_length=128)]
+    problem: MachineToken
     cause: Annotated[str, StringConstraints(min_length=1, max_length=512)]
     active_publication_impact: Literal["unchanged"] = "unchanged"
-    next_step: Annotated[str, StringConstraints(min_length=1, max_length=128)]
+    next_step: MachineToken
+
+    @model_validator(mode="after")
+    def validate_public_cause(self) -> _PublicErrorV1:
+        if not is_public_error_cause(self.cause):
+            raise ValueError("error cause is not approved for the public boundary")
+        return self
 
 
 class ListLibrariesSuccessV1(_StrictModel):
@@ -108,7 +119,15 @@ class SearchLibrarySuccessV1(_StrictModel):
     ok: Literal[True] = True
     query: PublicText
     observation: ActivePublicationObservationV1
-    results: list[EvidenceRefV1]
+    results: list[EvidenceRefV1] = Field(max_length=20)
+
+    @model_validator(mode="after")
+    def validate_observation_results(self) -> SearchLibrarySuccessV1:
+        if self.observation.state != "active" and self.results:
+            raise ValueError("Search results require an active Publication observation")
+        if len(self.results) > self.observation.active_evidence_count:
+            raise ValueError("Search results exceed observed active Evidence")
+        return self
 
 
 class SearchLibraryErrorV1(_PublicErrorV1):
@@ -122,8 +141,19 @@ class AskLibrarySuccessV1(_StrictModel):
     answer_status: Literal["evidence_found", "insufficient_evidence"]
     summary: PublicText
     observation: ActivePublicationObservationV1
-    evidence: list[EvidenceRefV1]
+    evidence: list[EvidenceRefV1] = Field(max_length=20)
     limitations: list[PublicText]
+
+    @model_validator(mode="after")
+    def validate_observation_evidence(self) -> AskLibrarySuccessV1:
+        has_evidence = bool(self.evidence)
+        if (self.answer_status == "evidence_found") != has_evidence:
+            raise ValueError("Ask answer status does not match Evidence")
+        if self.observation.state != "active" and has_evidence:
+            raise ValueError("Ask Evidence requires an active Publication observation")
+        if len(self.evidence) > self.observation.active_evidence_count:
+            raise ValueError("Ask Evidence exceeds observed active Evidence")
+        return self
 
 
 class AskLibraryErrorV1(_PublicErrorV1):

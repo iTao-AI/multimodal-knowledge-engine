@@ -72,3 +72,43 @@ def test_snapshots_are_immutable_compositions() -> None:
         observation, AskResult("ask_1", "q", "evidence_found", "s", (_result(),), ()), (item,)
     )
     assert search.results == ask.evidence
+
+
+@pytest.mark.parametrize(
+    ("sources", "publications", "evidence"),
+    [(1, 2, 2), (2, 1, 0)],
+)
+def test_observation_rejects_impossible_active_graph_counts(
+    sources: int, publications: int, evidence: int
+) -> None:
+    with pytest.raises(ValueError):
+        ActivePublicationObservation("local", "active", sources, publications, evidence)
+
+
+def test_search_snapshot_rejects_results_outside_active_observation() -> None:
+    observation = ActivePublicationObservation("local", "empty", 0, 0, 0)
+    item = SearchResultProvenance(_result(), "sha256:" + "a" * 64, 1, "run_1")
+    with pytest.raises(ValueError):
+        SearchSnapshot(observation, (item,))
+
+
+def test_search_snapshot_rejects_more_than_public_limit() -> None:
+    observation = ActivePublicationObservation("local", "active", 1, 1, 21)
+    item = SearchResultProvenance(_result(), "sha256:" + "a" * 64, 1, "run_1")
+    with pytest.raises(ValueError):
+        SearchSnapshot(observation, (item,) * 21)
+
+
+@pytest.mark.parametrize(
+    ("status", "has_evidence"),
+    [("evidence_found", False), ("insufficient_evidence", True)],
+)
+def test_ask_snapshot_rejects_answer_status_evidence_mismatch(
+    status: str, has_evidence: bool
+) -> None:
+    observation = ActivePublicationObservation("local", "active", 1, 1, 1)
+    result = _result()
+    evidence = (SearchResultProvenance(result, "sha256:" + "a" * 64, 1, "run_1"),)
+    ask = AskResult("ask_1", "q", status, "s", (result,) if has_evidence else (), ())
+    with pytest.raises(ValueError):
+        AskSnapshot(observation, ask, evidence if has_evidence else ())

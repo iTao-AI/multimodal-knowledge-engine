@@ -36,4 +36,3 @@ revision, count, published state, and fingerprint equality before returning trus
 The v1 Search/Ask snapshot calls unchanged retrieval first, then perform one bulk enrichment in
 the same SQLite PEP 249 transaction. They do not change `SearchResult`, ranking, CLI, evaluation,
 or legacy MCP behavior and do not issue a nested `BEGIN` or per-result provenance query.
-

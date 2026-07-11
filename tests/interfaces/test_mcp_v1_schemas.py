@@ -12,7 +12,7 @@ from mke.interfaces.mcp_contract import (
     list_libraries_v1,
     search_library_v1,
 )
-from mke.interfaces.mcp_schemas import SearchLibraryResponseV1
+from mke.interfaces.mcp_schemas import AskLibraryResponseV1, SearchLibraryResponseV1
 from mke.interfaces.mcp_server import build_mcp_server
 from mke.runtime import RuntimeConfig
 from tests.conftest import PDF_FIXTURES
@@ -58,6 +58,81 @@ def test_search_response_rejects_malformed_payload(mutation: str) -> None:
         payload["observation"]["source_count"] = True  # type: ignore[index]
     else:
         payload["results"][0]["locator"] = {"kind": "page", "start": 1, "end": 2}  # type: ignore[index]
+    with pytest.raises(ValidationError):
+        TypeAdapter(SearchLibraryResponseV1).validate_python(payload)
+
+
+@pytest.mark.parametrize("mutation", ["counts", "state", "limit"])
+def test_search_response_rejects_cross_field_mismatch(mutation: str) -> None:
+    payload = _valid_search()
+    if mutation == "counts":
+        payload["observation"]["active_publication_count"] = 2  # type: ignore[index]
+    elif mutation == "state":
+        payload["observation"] = {
+            "schema_version": "mke.active_publication_observation.v1",
+            "library_id": "local",
+            "state": "empty",
+            "source_count": 0,
+            "active_publication_count": 0,
+            "active_evidence_count": 0,
+        }
+    else:
+        payload["observation"]["active_evidence_count"] = 21  # type: ignore[index]
+        payload["results"] = payload["results"] * 21  # type: ignore[operator]
+    with pytest.raises(ValidationError):
+        TypeAdapter(SearchLibraryResponseV1).validate_python(payload)
+
+
+def test_ask_response_rejects_insufficient_status_with_evidence() -> None:
+    search = _valid_search()
+    payload: dict[str, object] = {
+        "schema_version": "mke.ask_library_response.v1",
+        "ok": True,
+        "question": "q",
+        "answer_status": "insufficient_evidence",
+        "summary": "s",
+        "observation": search["observation"],
+        "evidence": search["results"],
+        "limitations": [],
+    }
+    with pytest.raises(ValidationError):
+        TypeAdapter(AskLibraryResponseV1).validate_python(payload)
+
+
+@pytest.mark.parametrize(
+    "cause",
+    [
+        "Traceback /Users/alice/.env token=secret",
+        "/private/tmp/store.sqlite",
+        "API_KEY=secret",
+        "stderr: provider exploded",
+        "Traceback (most recent call last)",
+    ],
+)
+def test_error_response_rejects_sensitive_cause(cause: str) -> None:
+    payload = {
+        "schema_version": "mke.search_library_response.v1",
+        "ok": False,
+        "problem": "search_failed",
+        "cause": cause,
+        "active_publication_impact": "unchanged",
+        "next_step": "retry_search",
+    }
+    with pytest.raises(ValidationError):
+        TypeAdapter(SearchLibraryResponseV1).validate_python(payload)
+
+
+@pytest.mark.parametrize("field", ["problem", "next_step"])
+def test_error_response_requires_stable_machine_tokens(field: str) -> None:
+    payload = {
+        "schema_version": "mke.search_library_response.v1",
+        "ok": False,
+        "problem": "search_failed",
+        "cause": "query must not be empty",
+        "active_publication_impact": "unchanged",
+        "next_step": "retry_search",
+    }
+    payload[field] = "Retry search at /tmp/store"
     with pytest.raises(ValidationError):
         TypeAdapter(SearchLibraryResponseV1).validate_python(payload)
 

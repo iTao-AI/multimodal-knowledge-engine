@@ -6,6 +6,7 @@ import asyncio
 import copy
 import json
 import logging
+import os
 import sqlite3
 import sys
 import tempfile
@@ -179,12 +180,21 @@ async def _run(
     transport_failure_bounded = await _verify_bounded_stdio_failure(
         StdioServerParameters(command=sys.executable, args=["-c", "raise SystemExit(1)"])
     )
+    timeout_pid_path = first_database.parent / "timeout-child.pid"
     timeout_bounded = await _verify_bounded_stdio_failure(
         StdioServerParameters(
             command=sys.executable,
-            args=["-c", "import time; time.sleep(10)"],
+            args=[
+                "-c",
+                (
+                    "import os,sys,time; from pathlib import Path; "
+                    "Path(sys.argv[1]).write_text(str(os.getpid())); time.sleep(10)"
+                ),
+                str(timeout_pid_path),
+            ],
         ),
         timeout_seconds=0.1,
+        child_pid_path=timeout_pid_path,
     )
     return {
         "proof": "evidence_provenance",
@@ -207,6 +217,7 @@ async def _run(
         "unexpected_exception_redacted": True,
         "transport_failure_bounded": transport_failure_bounded,
         "timeout_bounded": timeout_bounded,
+        "timeout_child_terminated": timeout_bounded,
     }
 
 
@@ -234,6 +245,7 @@ async def _verify_bounded_stdio_failure(
     server: StdioServerParameters,
     *,
     timeout_seconds: float = 1.0,
+    child_pid_path: Path | None = None,
 ) -> bool:
     process_logger = logging.getLogger("mcp.os.posix.utilities")
     previous_disabled = process_logger.disabled
@@ -248,10 +260,38 @@ async def _verify_bounded_stdio_failure(
                 ) as session:
                     await asyncio.wait_for(session.initialize(), timeout=timeout_seconds)
         except Exception:
+            if child_pid_path is not None:
+                child_pid = await _read_child_pid(child_pid_path)
+                await _require_process_terminated(child_pid)
             return True
         finally:
             process_logger.disabled = previous_disabled
     raise ValueError("stdio failure did not fail closed")
+
+
+async def _read_child_pid(path: Path) -> int:
+    deadline = asyncio.get_running_loop().time() + 1.0
+    while asyncio.get_running_loop().time() < deadline:
+        try:
+            value = int(path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, ValueError):
+            await asyncio.sleep(0.01)
+            continue
+        if value > 0:
+            return value
+        break
+    raise ValueError("timeout child did not publish a valid PID")
+
+
+async def _require_process_terminated(pid: int) -> None:
+    deadline = asyncio.get_running_loop().time() + 2.0
+    while asyncio.get_running_loop().time() < deadline:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return
+        await asyncio.sleep(0.01)
+    raise ValueError("timeout child process remained alive")
 
 
 async def _fresh_fingerprint(server: StdioServerParameters) -> str:

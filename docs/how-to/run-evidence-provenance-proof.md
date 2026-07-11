@@ -15,4 +15,3 @@ The report contains schema names, state names, counts, and booleans only. It doe
 paths, credentials, environment values, stderr, tracebacks, transient IDs, internal metadata, or
 Evidence text. Child processes and temporary stores are closed by bounded context managers on
 success, transport failure, cancellation, or timeout.
-
