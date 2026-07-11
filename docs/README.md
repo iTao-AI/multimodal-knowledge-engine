@@ -13,6 +13,8 @@ auditing implementation history.
 - [Run The Local Product Proof](./how-to/run-local-product-proof.md)
 - [Run The Local Knowledge Proof](./how-to/run-local-knowledge-proof.md)
 - [Use MKE As A Local MCP Server](./how-to/use-mke-mcp.md)
+- [MCP Contract Reference](./reference/mcp-contract.md)
+- [Run The Evidence Provenance Proof](./how-to/run-evidence-provenance-proof.md)
 
 `v0.1.1` adds the real stdio MCP local knowledge proof while retaining
 `cjk-active-scan-overlap-v1` as the current owner-startup CJK runtime strategy.
@@ -74,6 +76,7 @@ private planning notes do not belong in this repository.
 - [ADR-0006](./decisions/0006-first-party-local-transcription-runtime.md) defines the cache-only faster-whisper runtime.
 - [ADR-0007](./decisions/0007-numeric-grouping-query-policy.md) promotes the bounded numeric grouping query policy and defines rollback.
 - [ADR-0008](./decisions/0008-cjk-active-scan-retrieval-strategy.md) defines `cjk-active-scan-overlap-v1`.
+- [ADR-0009](./decisions/0009-versioned-evidence-provenance-contract.md) defines the additive strict Evidence provenance read contract.
 
 ## Implementation History
 

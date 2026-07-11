@@ -23,7 +23,9 @@ from mke.domain import (
     REQUIRED_VIDEO_STAGES,
     ActivationResult,
     ActiveEvidenceRef,
+    ActivePublicationObservation,
     AskResult,
+    AskSnapshot,
     CandidateEvidence,
     FailurePoint,
     IngestResult,
@@ -35,6 +37,7 @@ from mke.domain import (
     RunRecord,
     RunState,
     SearchResult,
+    SearchSnapshot,
     SourceRecord,
     TranscriptExtractionResult,
     TranscriptIntakeReport,
@@ -175,6 +178,14 @@ class KnowledgeEngine:
     def search(self, query: str, limit: int | None = None) -> list[SearchResult]:
         return self._store.search(query, limit=limit)
 
+    def observe_active_publications(self) -> ActivePublicationObservation:
+        return self._store.observe_active_publications()
+
+    def search_provenance_snapshot(
+        self, query: str, limit: int | None = None
+    ) -> SearchSnapshot:
+        return self._store.search_provenance_snapshot(query, limit=limit)
+
     def ask(self, question: str, limit: int = DEFAULT_ASK_LIMIT) -> AskResult:
         normalized_question = _normalize_ask_question(
             question,
@@ -187,26 +198,26 @@ class KnowledgeEngine:
                 "choose_limit_between_1_and_20",
             )
         evidence = self.search(normalized_question, limit=limit)
-        if evidence:
-            return AskResult(
-                ask_id=f"ask_{uuid4().hex}",
-                question=normalized_question,
-                answer_status="evidence_found",
-                summary=_matched_summary(len(evidence)),
-                evidence=tuple(evidence),
-                limitations=(_MODEL_FREE_LIMITATION, _COUNT_ONLY_LIMITATION),
-            )
-        return AskResult(
-            ask_id=f"ask_{uuid4().hex}",
-            question=normalized_question,
-            answer_status="insufficient_evidence",
-            summary="No active Evidence matched the search terms.",
-            evidence=(),
-            limitations=(
-                "No answer is produced because no active Evidence matched the search terms.",
-                _MODEL_FREE_LIMITATION,
-            ),
+        return _ask_result(normalized_question, evidence)
+
+    def ask_provenance_snapshot(
+        self, question: str, limit: int = DEFAULT_ASK_LIMIT
+    ) -> AskSnapshot:
+        normalized_question = _normalize_ask_question(
+            question,
+            retrieval_strategy=self._retrieval_strategy,
         )
+        if type(limit) is not int or limit < MIN_ASK_LIMIT or limit > MAX_ASK_LIMIT:
+            raise AskValidationError(
+                "invalid_query",
+                f"limit must be between {MIN_ASK_LIMIT} and {MAX_ASK_LIMIT}",
+                "choose_limit_between_1_and_20",
+            )
+        snapshot = self.search_provenance_snapshot(normalized_question, limit=limit)
+        result = _ask_result(
+            normalized_question, [item.result for item in snapshot.results]
+        )
+        return AskSnapshot(snapshot.observation, result, snapshot.results)
 
     def ingest_pdf(self, path: Path) -> IngestResult:
         return self._process_pdf(path, retry_of_run_id=None, failure_point=None)
@@ -403,6 +414,29 @@ class KnowledgeEngine:
                 problem=getattr(error, "problem", "video_ingest_failed"),
                 next_step=getattr(error, "next_step", "fix_input_or_retry"),
             ) from error
+
+
+def _ask_result(normalized_question: str, evidence: list[SearchResult]) -> AskResult:
+    if evidence:
+        return AskResult(
+            ask_id=f"ask_{uuid4().hex}",
+            question=normalized_question,
+            answer_status="evidence_found",
+            summary=_matched_summary(len(evidence)),
+            evidence=tuple(evidence),
+            limitations=(_MODEL_FREE_LIMITATION, _COUNT_ONLY_LIMITATION),
+        )
+    return AskResult(
+        ask_id=f"ask_{uuid4().hex}",
+        question=normalized_question,
+        answer_status="insufficient_evidence",
+        summary="No active Evidence matched the search terms.",
+        evidence=(),
+        limitations=(
+            "No answer is produced because no active Evidence matched the search terms.",
+            _MODEL_FREE_LIMITATION,
+        ),
+    )
 
 
 def _validate_video_input(path: Path, limits: VideoTranscriptionLimits) -> None:

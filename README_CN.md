@@ -153,6 +153,15 @@ UV_OFFLINE=1 uv run python scripts/local_knowledge_proof.py
 
 ## CLI 与 MCP
 
+通用 Agent consumer 可以显式选择 `list_libraries_v1`、`search_library_v1` 和
+`ask_library_v1` strict read-only provenance contract。Search 与 Ask 共享
+`mke.evidence_ref.v1`，把 Evidence 连接到 Source、source-byte `content_fingerprint`、active
+Publication revision、producing Run、locator 和 text，同时保持五个 legacy tools 不变。
+
+```bash
+UV_OFFLINE=1 uv run python scripts/evidence_provenance_proof.py
+```
+
 核心 CLI 路径使用本地 SQLite database：
 
 ```bash
@@ -222,6 +231,8 @@ CLI ingest、MCP execution 或 consumer smoke 的要求。
 - [Run The Local Product Proof](./docs/how-to/run-local-product-proof.md)
 - [Run The Local Knowledge Proof](./docs/how-to/run-local-knowledge-proof.md)
 - [Use MKE As A Local MCP Server](./docs/how-to/use-mke-mcp.md)
+- [MCP Contract Reference](./docs/reference/mcp-contract.md)
+- [Run The Evidence Provenance Proof](./docs/how-to/run-evidence-provenance-proof.md)
 - [Enable Bounded CJK Retrieval](./docs/how-to/enable-cjk-retrieval.md)
 - [Run Retrieval Evaluation](./docs/how-to/run-retrieval-evaluation.md)
 - [Run The Chinese Retrieval Evaluation](./docs/how-to/run-chinese-retrieval-evaluation.md)

@@ -299,6 +299,120 @@ class AskResult:
     limitations: tuple[str, ...]
 
 
+_CONTENT_FINGERPRINT_RE = re.compile(r"sha256:[0-9a-f]{64}\Z")
+
+
+@dataclass(frozen=True)
+class SearchResultProvenance:
+    result: SearchResult
+    content_fingerprint: str
+    publication_revision: int
+    run_id: str
+
+    def __post_init__(self) -> None:
+        if _CONTENT_FINGERPRINT_RE.fullmatch(self.content_fingerprint) is None:
+            raise ValueError("content fingerprint must be a lowercase sha256 digest")
+        if type(self.publication_revision) is not int or self.publication_revision <= 0:
+            raise ValueError("Publication revision must be a positive integer")
+        if type(self.run_id) is not str or not self.run_id:
+            raise ValueError("Run identity must not be blank")
+        result = self.result
+        if result.locator_kind == "page":
+            valid_locator = (
+                type(result.locator_start) is int
+                and result.locator_start > 0
+                and result.locator_end == result.locator_start
+            )
+        elif result.locator_kind == "timestamp_ms":
+            valid_locator = (
+                type(result.locator_start) is int
+                and type(result.locator_end) is int
+                and result.locator_start >= 0
+                and result.locator_end > result.locator_start
+            )
+        else:
+            valid_locator = False
+        if not valid_locator:
+            raise ValueError("Evidence locator is invalid")
+
+
+@dataclass(frozen=True)
+class ActivePublicationObservation:
+    library_id: str
+    state: str
+    source_count: int
+    active_publication_count: int
+    active_evidence_count: int
+
+    def __post_init__(self) -> None:
+        counts = (
+            self.source_count,
+            self.active_publication_count,
+            self.active_evidence_count,
+        )
+        if self.library_id != "local" or any(
+            type(value) is not int or value < 0 for value in counts
+        ):
+            raise ValueError("active Publication observation is invalid")
+        valid = (
+            self.state == "empty"
+            and counts == (0, 0, 0)
+            or self.state == "no_active_publication"
+            and self.source_count > 0
+            and self.active_publication_count == 0
+            and self.active_evidence_count == 0
+            or self.state == "active"
+            and self.source_count > 0
+            and self.active_publication_count > 0
+            and self.active_evidence_count > 0
+            and self.active_publication_count <= self.source_count
+            and self.active_publication_count <= self.active_evidence_count
+        )
+        if not valid:
+            raise ValueError("active Publication state does not match its counts")
+
+
+@dataclass(frozen=True)
+class SearchSnapshot:
+    observation: ActivePublicationObservation
+    results: tuple[SearchResultProvenance, ...]
+
+    def __post_init__(self) -> None:
+        if len(self.results) > 20:
+            raise ValueError("Search snapshot exceeds the public result limit")
+        if self.observation.state != "active" and self.results:
+            raise ValueError("Search results require an active Publication observation")
+        if len(self.results) > self.observation.active_evidence_count:
+            raise ValueError("Search results exceed observed active Evidence")
+
+
+@dataclass(frozen=True)
+class AskSnapshot:
+    observation: ActivePublicationObservation
+    result: AskResult
+    evidence: tuple[SearchResultProvenance, ...]
+
+    def __post_init__(self) -> None:
+        if len(self.evidence) > 20:
+            raise ValueError("Ask snapshot exceeds the public Evidence limit")
+        projected = tuple(item.result for item in self.evidence)
+        if projected != self.result.evidence:
+            raise ValueError("Ask Evidence provenance projection is inconsistent")
+        has_evidence = bool(self.evidence)
+        if self.result.answer_status == "evidence_found":
+            valid_status = has_evidence
+        elif self.result.answer_status == "insufficient_evidence":
+            valid_status = not has_evidence
+        else:
+            valid_status = False
+        if not valid_status:
+            raise ValueError("Ask answer status does not match Evidence")
+        if self.observation.state != "active" and has_evidence:
+            raise ValueError("Ask Evidence requires an active Publication observation")
+        if len(self.evidence) > self.observation.active_evidence_count:
+            raise ValueError("Ask Evidence exceeds observed active Evidence")
+
+
 REQUIRED_PDF_STAGES = frozenset({"pdf_text_extraction", "candidate_evidence"})
 PDF_EXTRACTOR_FINGERPRINT = "builtin-pdf-text-v1"
 PYMUPDF_TEXT_FINGERPRINT = "pymupdf-text-v1"
@@ -309,10 +423,14 @@ _FASTER_WHISPER_FINGERPRINT_RE = re.compile(r"faster-whisper-v1:[0-9a-f]{64}\Z")
 
 
 def is_recognized_video_fingerprint(value: str) -> bool:
-    return value in {
-        VIDEO_TRANSCRIPT_FINGERPRINT,
-        LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT,
-    } or _FASTER_WHISPER_FINGERPRINT_RE.fullmatch(value) is not None
+    return (
+        value
+        in {
+            VIDEO_TRANSCRIPT_FINGERPRINT,
+            LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT,
+        }
+        or _FASTER_WHISPER_FINGERPRINT_RE.fullmatch(value) is not None
+    )
 
 
 def validate_manifest(manifest: RunManifest, evidence: list[CandidateEvidence]) -> None:

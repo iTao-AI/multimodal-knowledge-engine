@@ -99,6 +99,11 @@ _ALLOWLISTED_CAUSES = frozenset(
 )
 
 
+def is_public_error_cause(cause: str) -> bool:
+    """Return whether a cause is safe and stable at a public response boundary."""
+    return cause == _REDACTED_CAUSE or cause in _ALLOWLISTED_CAUSES
+
+
 @dataclass(frozen=True)
 class PublicError:
     problem: str

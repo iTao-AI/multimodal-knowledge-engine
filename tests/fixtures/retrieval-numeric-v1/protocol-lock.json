@@ -84,11 +84,11 @@
     "files": [
       {
         "path": "pyproject.toml",
-        "sha256": "bb08cba5b941b4de75a7d6a064e13322e11d8131e3accec895a492c0eb1d5c1a"
+        "sha256": "d4200f549e9a612b469df6c3e696743cdd7b117b0e1f874d4b43cf8efc2d60ff"
       },
       {
         "path": "uv.lock",
-        "sha256": "6c7763dceba7d8f81a46f5ddfb66ecb4386fc2cd0d137d76fac475e63973290c"
+        "sha256": "bb31c77b8a8f975246c620a0e114417c6a4865d9c26c3f4c12c780b9e6952cce"
       },
       {
         "path": "src/mke/adapters/pdf/__init__.py",
@@ -96,7 +96,7 @@
       },
       {
         "path": "src/mke/adapters/sqlite/__init__.py",
-        "sha256": "4e15734eb18d7dc5c7addcdaa937ec805efb5c4f23f3bca5af8c07cdcd671c38"
+        "sha256": "560febe88ccaaa5d103f3463ef9abedb42ac8e1c2a96fa96db0a3735bbd332b6"
       },
       {
         "path": "src/mke/adapters/video/__init__.py",
@@ -104,7 +104,7 @@
       },
       {
         "path": "src/mke/application/__init__.py",
-        "sha256": "5a6159844e0d1f3c3343406ecd85b0c1d6b193c05b0324f01560862a73cdd824"
+        "sha256": "478dd55e065405ef5c5d4b787c11ba4a952209c8f4a7547c58b0e2ac01d976fa"
       },
       {
         "path": "src/mke/evaluation/runner.py",

@@ -83,6 +83,14 @@ Example client configuration shape:
 - `get_run`: returns Run state, append-only Run events, and PDF `intake_report` when present.
 - `search_library`: searches active Publication Evidence.
 - `ask_library`: returns deterministic cited Evidence or an insufficient-Evidence state.
+- `list_libraries_v1`: returns a strict active-Publication observation.
+- `search_library_v1`: returns active Evidence with strict source-byte, Publication, and Run provenance.
+- `ask_library_v1`: returns the same strict Evidence projection as v1 Search.
+
+The additive v1 responses use `mke.evidence_ref.v1` and distinguish `empty`,
+`no_active_publication`, and `active`. Existing tool names and schemas remain unchanged. See the
+[MCP contract reference](../reference/mcp-contract.md) and run the real consumer proof with
+`UV_OFFLINE=1 uv run python scripts/evidence_provenance_proof.py`.
 
 CLI names stay human-oriented (`ingest`, `search`, `run get`). MCP tool names are explicit for
 Agents (`ingest_file`, `search_library`, `ask_library`, `get_run`).

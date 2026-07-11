@@ -154,6 +154,15 @@ transient identifiers, or Evidence text. See
 
 ## CLI And MCP
 
+Generic Agent consumers can opt into strict read-only provenance through `list_libraries_v1`,
+`search_library_v1`, and `ask_library_v1`. Search and Ask share `mke.evidence_ref.v1`, linking
+Evidence to its Source, source-byte `content_fingerprint`, active Publication revision, producing
+Run, locator, and text without changing the five legacy tools.
+
+```bash
+UV_OFFLINE=1 uv run python scripts/evidence_provenance_proof.py
+```
+
 The core CLI path uses a local SQLite database:
 
 ```bash
@@ -224,6 +233,8 @@ required for the core proof, demo, CLI ingest, MCP execution, or consumer smoke.
 - [Run The Local Product Proof](./docs/how-to/run-local-product-proof.md)
 - [Run The Local Knowledge Proof](./docs/how-to/run-local-knowledge-proof.md)
 - [Use MKE As A Local MCP Server](./docs/how-to/use-mke-mcp.md)
+- [MCP Contract Reference](./docs/reference/mcp-contract.md)
+- [Run The Evidence Provenance Proof](./docs/how-to/run-evidence-provenance-proof.md)
 - [Enable Bounded CJK Retrieval](./docs/how-to/enable-cjk-retrieval.md)
 - [Run Retrieval Evaluation](./docs/how-to/run-retrieval-evaluation.md)
 - [Run The Chinese Retrieval Evaluation](./docs/how-to/run-chinese-retrieval-evaluation.md)

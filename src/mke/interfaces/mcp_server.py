@@ -18,6 +18,14 @@ from mke.interfaces.mcp_contract import (
     DEFAULT_ASK_LIMIT,
     McpRuntimeConfig,
 )
+from mke.interfaces.mcp_schemas import (
+    AskLibraryErrorV1,
+    AskLibraryResponseV1,
+    ListLibrariesErrorV1,
+    ListLibrariesResponseV1,
+    SearchLibraryErrorV1,
+    SearchLibraryResponseV1,
+)
 from mke.interfaces.public_errors import public_error_from_exception
 from mke.runtime import FasterWhisperTranscriptionConfig
 
@@ -72,6 +80,58 @@ def build_mcp_server(config: McpRuntimeConfig) -> FastMCP:
     ) -> dict[str, Any]:
         """Return deterministic cited Evidence or insufficient-Evidence state."""
         return mcp_contract.ask_library(config, question, limit)
+
+    @mcp.tool()
+    def list_libraries_v1() -> ListLibrariesResponseV1:  # pyright: ignore[reportUnusedFunction]
+        """Observe the implicit local Library through the strict v1 contract."""
+        try:
+            return mcp_contract.list_libraries_v1(config)
+        except Exception:
+            logger.exception("mcp_v1_tool_failed")
+            return ListLibrariesResponseV1(
+                root=ListLibrariesErrorV1(
+                    ok=False,
+                    problem="internal_error",
+                    cause="operation failed; details were redacted",
+                    next_step="check_server_logs",
+                )
+            )
+
+    @mcp.tool()
+    def search_library_v1(  # pyright: ignore[reportUnusedFunction]
+        query: str, limit: int = DEFAULT_ASK_LIMIT
+    ) -> SearchLibraryResponseV1:
+        """Search active Evidence with strict v1 provenance."""
+        try:
+            return mcp_contract.search_library_v1(config, query, limit)
+        except Exception:
+            logger.exception("mcp_v1_tool_failed")
+            return SearchLibraryResponseV1(
+                root=SearchLibraryErrorV1(
+                    ok=False,
+                    problem="internal_error",
+                    cause="operation failed; details were redacted",
+                    next_step="check_server_logs",
+                )
+            )
+
+    @mcp.tool()
+    def ask_library_v1(  # pyright: ignore[reportUnusedFunction]
+        question: str, limit: int = DEFAULT_ASK_LIMIT
+    ) -> AskLibraryResponseV1:
+        """Return deterministic cited Evidence with strict v1 provenance."""
+        try:
+            return mcp_contract.ask_library_v1(config, question, limit)
+        except Exception:
+            logger.exception("mcp_v1_tool_failed")
+            return AskLibraryResponseV1(
+                root=AskLibraryErrorV1(
+                    ok=False,
+                    problem="internal_error",
+                    cause="operation failed; details were redacted",
+                    next_step="check_server_logs",
+                )
+            )
 
     return mcp
 

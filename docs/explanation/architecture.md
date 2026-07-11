@@ -206,6 +206,15 @@ can reach public output; unknown exception text is replaced with
 `active_publication_impact`, `next_step`, and an optional `run_id`, never local paths, argv, stderr,
 cache locations, endpoints, secrets, or tracebacks.
 
+## Versioned Evidence Provenance Snapshot
+
+The additive v1 MCP read tools observe active Publications and return strict Evidence provenance.
+They call unchanged retrieval, then bulk-enrich returned Evidence IDs from SQLite before the same
+PEP 249 transaction closes. The graph gate compares Source active pointers and revisions,
+Publication and published Run ownership, RunManifest counts and asset SHA-256, and active Evidence
+ownership. Any missing or mismatched edge fails closed. `SearchResult`, CLI presentation, ranking,
+evaluation, and the five legacy MCP contracts remain unchanged.
+
 ## Current Module Shape
 
 ```text

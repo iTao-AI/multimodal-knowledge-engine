@@ -57,22 +57,22 @@
     "max_results": 10
   },
   "source": {
-    "sha256": "2e476019080154c2edb46f5502b83ca3a8fd9ce127f98a65ba802e0d71b8b0a6",
+    "sha256": "942b3cbc662585d3f56b5c34a6a3b2c9a217b66b85c557b1d5c812be53abc1d7",
     "files": [
       {
         "path": "pyproject.toml",
-        "bytes": 1142,
-        "sha256": "bb08cba5b941b4de75a7d6a064e13322e11d8131e3accec895a492c0eb1d5c1a"
+        "bytes": 1167,
+        "sha256": "d4200f549e9a612b469df6c3e696743cdd7b117b0e1f874d4b43cf8efc2d60ff"
       },
       {
         "path": "uv.lock",
-        "bytes": 204902,
-        "sha256": "6c7763dceba7d8f81a46f5ddfb66ecb4386fc2cd0d137d76fac475e63973290c"
+        "bytes": 204983,
+        "sha256": "bb31c77b8a8f975246c620a0e114417c6a4865d9c26c3f4c12c780b9e6952cce"
       },
       {
         "path": "src/mke/adapters/sqlite/__init__.py",
-        "bytes": 41988,
-        "sha256": "4e15734eb18d7dc5c7addcdaa937ec805efb5c4f23f3bca5af8c07cdcd671c38"
+        "bytes": 48600,
+        "sha256": "560febe88ccaaa5d103f3463ef9abedb42ac8e1c2a96fa96db0a3735bbd332b6"
       },
       {
         "path": "src/mke/evaluation/chinese_protocol.py",

@@ -1,0 +1,51 @@
+{
+  "baseline_commit": "793788f2d74a1ec072fe205e89acd13ab595bad7",
+  "tools": {
+    "ask_library": {
+      "inputSchema": {
+        "properties": {
+          "limit": {"default": 5, "title": "Limit", "type": "integer"},
+          "question": {"title": "Question", "type": "string"}
+        },
+        "required": ["question"],
+        "title": "ask_libraryArguments",
+        "type": "object"
+      },
+      "outputSchema": {"additionalProperties": true, "title": "ask_libraryDictOutput", "type": "object"}
+    },
+    "get_run": {
+      "inputSchema": {
+        "properties": {"run_id": {"title": "Run Id", "type": "string"}},
+        "required": ["run_id"],
+        "title": "get_runArguments",
+        "type": "object"
+      },
+      "outputSchema": {"additionalProperties": true, "title": "get_runDictOutput", "type": "object"}
+    },
+    "ingest_file": {
+      "inputSchema": {
+        "properties": {"path": {"title": "Path", "type": "string"}},
+        "required": ["path"],
+        "title": "ingest_fileArguments",
+        "type": "object"
+      },
+      "outputSchema": {"additionalProperties": true, "title": "ingest_fileDictOutput", "type": "object"}
+    },
+    "list_libraries": {
+      "inputSchema": {"properties": {}, "title": "list_librariesArguments", "type": "object"},
+      "outputSchema": {"additionalProperties": true, "title": "list_librariesDictOutput", "type": "object"}
+    },
+    "search_library": {
+      "inputSchema": {
+        "properties": {
+          "limit": {"default": 5, "title": "Limit", "type": "integer"},
+          "query": {"title": "Query", "type": "string"}
+        },
+        "required": ["query"],
+        "title": "search_libraryArguments",
+        "type": "object"
+      },
+      "outputSchema": {"additionalProperties": true, "title": "search_libraryDictOutput", "type": "object"}
+    }
+  }
+}
