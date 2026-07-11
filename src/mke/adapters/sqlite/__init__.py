@@ -13,6 +13,7 @@ from uuid import uuid4
 from mke.domain import (
     ActivationResult,
     ActiveEvidenceRef,
+    ActivePublicationObservation,
     CandidateEvidence,
     FailurePoint,
     ManifestValidationError,
@@ -23,6 +24,8 @@ from mke.domain import (
     RunRecord,
     RunState,
     SearchResult,
+    SearchResultProvenance,
+    SearchSnapshot,
     SourceRecord,
     TranscriptIntakeReport,
     is_recognized_video_fingerprint,
@@ -882,6 +885,145 @@ class SQLiteStore:
         if self._retrieval_strategy == "cjk-active-scan-overlap-v1":
             return self.search_cjk_active_scan(query, limit=limit)
         return []
+
+    def observe_active_publications(self) -> ActivePublicationObservation:
+        try:
+            observation = self._observe_active_publications()
+            self._connection.commit()
+            return observation
+        except Exception:
+            self._connection.rollback()
+            raise
+
+    def _observe_active_publications(self) -> ActivePublicationObservation:
+        libraries = self._connection.execute(
+            "SELECT library_id, name FROM libraries ORDER BY library_id"
+        ).fetchall()
+        if not libraries:
+            return ActivePublicationObservation("local", "empty", 0, 0, 0)
+        if len(libraries) != 1 or libraries[0]["name"] != "default":
+            raise ManifestValidationError("implicit local Library ownership is invalid")
+        library_id = str(libraries[0]["library_id"])
+        source_count = int(
+            self._connection.execute(
+                "SELECT COUNT(*) FROM sources WHERE library_id = ?", (library_id,)
+            ).fetchone()[0]
+        )
+        rows = self._connection.execute(
+            """
+            SELECT sources.source_id, sources.library_id, sources.active_publication_id,
+                   sources.active_revision, assets.sha256 AS source_sha256,
+                   publications.publication_id, publications.source_id AS publication_source_id,
+                   publications.run_id, publications.revision,
+                   runs.source_id AS run_source_id, runs.state,
+                   run_manifests.asset_sha256 AS manifest_sha256,
+                   run_manifests.evidence_count AS manifest_evidence_count,
+                   COUNT(evidence.evidence_id) AS evidence_count,
+                   SUM(CASE WHEN evidence.source_id = sources.source_id
+                                  AND evidence.run_id = publications.run_id THEN 0 ELSE 1 END)
+                       AS evidence_mismatch_count
+            FROM sources
+            JOIN assets ON assets.asset_id = sources.asset_id
+            LEFT JOIN publications
+              ON publications.publication_id = sources.active_publication_id
+            LEFT JOIN runs ON runs.run_id = publications.run_id
+            LEFT JOIN run_manifests ON run_manifests.run_id = runs.run_id
+            LEFT JOIN evidence ON evidence.run_id = publications.run_id
+            WHERE sources.library_id = ? AND sources.active_publication_id IS NOT NULL
+            GROUP BY sources.source_id
+            ORDER BY sources.source_id
+            """
+            ,
+            (library_id,),
+        ).fetchall()
+        active_evidence_count = 0
+        for row in rows:
+            evidence_count = int(row["evidence_count"])
+            valid = (
+                row["library_id"] == library_id
+                and row["active_publication_id"] == row["publication_id"]
+                and row["source_id"] == row["publication_source_id"]
+                and row["source_id"] == row["run_source_id"]
+                and row["state"] == RunState.PUBLISHED.value
+                and row["active_revision"] == row["revision"]
+                and row["manifest_evidence_count"] == evidence_count
+                and row["manifest_sha256"] == row["source_sha256"]
+                and int(row["evidence_mismatch_count"] or 0) == 0
+                and evidence_count > 0
+            )
+            if not valid:
+                raise ManifestValidationError("active Publication provenance graph is invalid")
+            active_evidence_count += evidence_count
+        active_publication_count = len(rows)
+        if source_count == 0:
+            state = "empty"
+        elif active_publication_count == 0:
+            state = "no_active_publication"
+        else:
+            state = "active"
+        return ActivePublicationObservation(
+            "local", state, source_count, active_publication_count, active_evidence_count
+        )
+
+    def search_provenance_snapshot(
+        self, query: str, limit: int | None = None
+    ) -> SearchSnapshot:
+        try:
+            observation = self._observe_active_publications()
+            results = self.search(query, limit=limit)
+            enriched = self._bulk_enrich_provenance(results)
+            self._connection.commit()
+            return SearchSnapshot(observation, enriched)
+        except Exception:
+            self._connection.rollback()
+            raise
+
+    def _bulk_enrich_provenance(
+        self, results: list[SearchResult]
+    ) -> tuple[SearchResultProvenance, ...]:
+        if not results:
+            return ()
+        placeholders = ",".join("?" for _ in results)
+        rows = self._connection.execute(
+            f"""
+            SELECT evidence.evidence_id, evidence.source_id, evidence.run_id,
+                   publications.publication_id, publications.revision,
+                   run_manifests.asset_sha256, runs.state,
+                   sources.active_publication_id, sources.active_revision,
+                   sources.library_id, assets.sha256 AS source_sha256
+            FROM evidence
+            JOIN publications ON publications.run_id = evidence.run_id
+            JOIN runs ON runs.run_id = publications.run_id
+            JOIN run_manifests ON run_manifests.run_id = runs.run_id
+            JOIN sources ON sources.source_id = evidence.source_id
+            JOIN assets ON assets.asset_id = sources.asset_id
+            WHERE evidence.evidence_id IN ({placeholders})
+            """,
+            [item.evidence_id for item in results],
+        ).fetchall()
+        by_id = {str(row["evidence_id"]): row for row in rows}
+        enriched: list[SearchResultProvenance] = []
+        for result in results:
+            row = by_id.get(result.evidence_id)
+            if row is None or not (
+                row["source_id"] == result.source_id
+                and row["publication_id"] == result.publication_id
+                and row["active_publication_id"] == result.publication_id
+                and row["active_revision"] == row["revision"]
+                and row["state"] == RunState.PUBLISHED.value
+                and row["library_id"]
+                and row["asset_sha256"] == row["source_sha256"]
+            ):
+                raise ManifestValidationError("Evidence provenance enrichment is invalid")
+            enriched.append(
+                SearchResultProvenance(
+                    result,
+                    f"sha256:{row['asset_sha256']}",
+                    int(row["revision"]),
+                    str(row["run_id"]),
+                )
+            )
+        return tuple(enriched)
 
     def _search_fts(
         self, match_query: str, limit: int | None = None
