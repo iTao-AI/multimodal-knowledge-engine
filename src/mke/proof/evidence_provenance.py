@@ -27,23 +27,29 @@ from mke.proof.mcp_deployment_client import assert_public_tool_schemas, tool_pay
 _TIMEOUT_SECONDS = 60.0
 
 
-def run_evidence_provenance_proof(repo_root: Path, mke_executable: Path) -> dict[str, object]:
+def run_evidence_provenance_proof(
+    repo_root: Path,
+    mke_executable: Path,
+    *,
+    server_cwd: Path | None = None,
+) -> dict[str, object]:
     root = repo_root.resolve()
     executable = mke_executable.resolve()
     if not executable.is_file():
         raise ValueError("MKE executable is unavailable")
     with tempfile.TemporaryDirectory(prefix="mke-evidence-provenance-") as directory:
         temporary = Path(directory)
-        first = _server(executable, root, temporary / "first.sqlite")
-        second = _server(executable, root, temporary / "second.sqlite")
+        cwd = (server_cwd or root).resolve()
+        first = _server(executable, root, cwd, temporary / "first.sqlite")
+        second = _server(executable, root, cwd, temporary / "second.sqlite")
         return asyncio.run(_run(first, second, root))
 
 
-def _server(executable: Path, root: Path, database: Path) -> StdioServerParameters:
+def _server(executable: Path, root: Path, cwd: Path, database: Path) -> StdioServerParameters:
     return StdioServerParameters(
         command=str(executable),
         args=["--db", str(database), "mcp", "--allowed-root", str(root / "tests/fixtures")],
-        cwd=root,
+        cwd=cwd,
     )
 
 

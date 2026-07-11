@@ -350,10 +350,13 @@ class ActivePublicationObservation:
             self.active_publication_count,
             self.active_evidence_count,
         )
-        if self.library_id != "local" or any(type(value) is not int or value < 0 for value in counts):
+        if self.library_id != "local" or any(
+            type(value) is not int or value < 0 for value in counts
+        ):
             raise ValueError("active Publication observation is invalid")
         valid = (
-            self.state == "empty" and counts == (0, 0, 0)
+            self.state == "empty"
+            and counts == (0, 0, 0)
             or self.state == "no_active_publication"
             and self.source_count > 0
             and self.active_publication_count == 0
@@ -390,10 +393,14 @@ _FASTER_WHISPER_FINGERPRINT_RE = re.compile(r"faster-whisper-v1:[0-9a-f]{64}\Z")
 
 
 def is_recognized_video_fingerprint(value: str) -> bool:
-    return value in {
-        VIDEO_TRANSCRIPT_FINGERPRINT,
-        LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT,
-    } or _FASTER_WHISPER_FINGERPRINT_RE.fullmatch(value) is not None
+    return (
+        value
+        in {
+            VIDEO_TRANSCRIPT_FINGERPRINT,
+            LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT,
+        }
+        or _FASTER_WHISPER_FINGERPRINT_RE.fullmatch(value) is not None
+    )
 
 
 def validate_manifest(manifest: RunManifest, evidence: list[CandidateEvidence]) -> None:

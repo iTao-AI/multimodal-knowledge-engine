@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from mke.application import KnowledgeEngine
@@ -5,7 +7,7 @@ from mke.domain import ManifestValidationError
 from tests.conftest import PDF_FIXTURES, VIDEO_FIXTURES
 
 
-def test_snapshot_enriches_pdf_and_video_provenance(tmp_path) -> None:
+def test_snapshot_enriches_pdf_and_video_provenance(tmp_path: Path) -> None:
     engine = KnowledgeEngine(tmp_path / "mke.sqlite")
     try:
         engine.ingest_pdf(PDF_FIXTURES / "text-layer.pdf")
@@ -20,7 +22,7 @@ def test_snapshot_enriches_pdf_and_video_provenance(tmp_path) -> None:
         engine.close()
 
 
-def test_observation_distinguishes_empty_and_no_active(tmp_path) -> None:
+def test_observation_distinguishes_empty_and_no_active(tmp_path: Path) -> None:
     engine = KnowledgeEngine(tmp_path / "mke.sqlite")
     try:
         assert engine._store.observe_active_publications().state == "empty"  # pyright: ignore[reportPrivateUsage]
@@ -30,11 +32,13 @@ def test_observation_distinguishes_empty_and_no_active(tmp_path) -> None:
         engine.close()
 
 
-def test_corrupt_manifest_count_fails_closed(tmp_path) -> None:
+def test_corrupt_manifest_count_fails_closed(tmp_path: Path) -> None:
     engine = KnowledgeEngine(tmp_path / "mke.sqlite")
     try:
         result = engine.ingest_pdf(PDF_FIXTURES / "text-layer.pdf")
-        engine._store._connection.execute("UPDATE run_manifests SET evidence_count = 99 WHERE run_id = ?", (result.run_id,))  # pyright: ignore[reportPrivateUsage]
+        engine._store._connection.execute(  # pyright: ignore[reportPrivateUsage]
+            "UPDATE run_manifests SET evidence_count = 99 WHERE run_id = ?", (result.run_id,)
+        )  # pyright: ignore[reportPrivateUsage]
         engine._store._connection.commit()  # pyright: ignore[reportPrivateUsage]
         with pytest.raises(ManifestValidationError):
             engine._store.observe_active_publications()  # pyright: ignore[reportPrivateUsage]
