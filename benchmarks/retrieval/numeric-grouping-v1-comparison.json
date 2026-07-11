@@ -41,7 +41,7 @@
     "revision": 1
   },
   "source": {
-    "sha256": "f53a3ff9dcb523fae574f743c4bae4d273b0d476231158b1bded3fecd4c6a258",
+    "sha256": "8fa5686f60ccc83a2fad395ead5a165e2b85a799b882a701913eb0ea9d93dbeb",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -380,8 +380,8 @@
       },
       {
         "path": "src/mke/proof/evidence_provenance.py",
-        "bytes": 9414,
-        "sha256": "9c9b2213b347f425e06b3a75a61dd8041f4aaba4df5647639dc74217696e795b"
+        "bytes": 9533,
+        "sha256": "4a56e0a2502ec973a3117feb41e36cc235ac8e49c01c4ceb07b1154e097b3397"
       },
       {
         "path": "src/mke/proof/local_knowledge.py",
