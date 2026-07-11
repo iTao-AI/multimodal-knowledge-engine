@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
+import logging
+import sqlite3
+import sys
 import tempfile
 from collections.abc import Mapping
 from datetime import timedelta
@@ -11,7 +15,7 @@ from pathlib import Path
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 
 from mke.interfaces.mcp_schemas import (
     AskLibraryResponseV1,
@@ -19,6 +23,7 @@ from mke.interfaces.mcp_schemas import (
     EvidenceRefV1,
     ListLibrariesResponseV1,
     ListLibrariesSuccessV1,
+    SearchLibraryErrorV1,
     SearchLibraryResponseV1,
     SearchLibrarySuccessV1,
 )
@@ -40,9 +45,14 @@ def run_evidence_provenance_proof(
     with tempfile.TemporaryDirectory(prefix="mke-evidence-provenance-") as directory:
         temporary = Path(directory)
         cwd = (server_cwd or root).resolve()
-        first = _server(executable, root, cwd, temporary / "first.sqlite")
+        first_database = temporary / "first.sqlite"
+        first = _server(executable, root, cwd, first_database)
         second = _server(executable, root, cwd, temporary / "second.sqlite")
-        return asyncio.run(_run(first, second, root))
+        report = asyncio.run(_run(first, second, root, first_database))
+    if temporary.exists():
+        raise ValueError("temporary store cleanup failed")
+    report["temporary_store_cleanup"] = True
+    return report
 
 
 def _server(executable: Path, root: Path, cwd: Path, database: Path) -> StdioServerParameters:
@@ -61,7 +71,10 @@ async def _call(
 
 
 async def _run(
-    first: StdioServerParameters, second: StdioServerParameters, root: Path
+    first: StdioServerParameters,
+    second: StdioServerParameters,
+    root: Path,
+    first_database: Path,
 ) -> dict[str, object]:
     legacy_fixture = json.loads(
         (root / "tests/fixtures/mcp/legacy-tool-schemas.json").read_text(encoding="utf-8")
@@ -136,9 +149,43 @@ async def _run(
                 )
                 _matching_projection(video_search, video_ask, "timestamp_ms")
 
+                _verify_malformed_payload_rejection(page_search)
+                with sqlite3.connect(first_database) as connection:
+                    connection.execute("UPDATE run_manifests SET evidence_count = 999")
+                failed_search = (
+                    TypeAdapter(SearchLibraryResponseV1)
+                    .validate_python(
+                        await _call(
+                            session,
+                            "search_library_v1",
+                            {"query": "publication active", "limit": 5},
+                        )
+                    )
+                    .root
+                )
+                if not isinstance(failed_search, SearchLibraryErrorV1) or failed_search != (
+                    SearchLibraryErrorV1(
+                        ok=False,
+                        problem="internal_error",
+                        cause="operation failed; details were redacted",
+                        next_step="check_server_logs",
+                    )
+                ):
+                    raise ValueError("unexpected exception was not redacted")
+
     fresh = await _fresh_fingerprint(second)
     if fresh != page.content_fingerprint:
         raise ValueError("fresh-store fingerprint identity mismatch")
+    transport_failure_bounded = await _verify_bounded_stdio_failure(
+        StdioServerParameters(command=sys.executable, args=["-c", "raise SystemExit(1)"])
+    )
+    timeout_bounded = await _verify_bounded_stdio_failure(
+        StdioServerParameters(
+            command=sys.executable,
+            args=["-c", "import time; time.sleep(10)"],
+        ),
+        timeout_seconds=0.1,
+    )
     return {
         "proof": "evidence_provenance",
         "status": "passed",
@@ -156,7 +203,55 @@ async def _run(
         "search_ask_projection_equal": True,
         "same_store_identity": True,
         "fresh_store_fingerprint_identity": True,
+        "malformed_payloads_rejected": True,
+        "unexpected_exception_redacted": True,
+        "transport_failure_bounded": transport_failure_bounded,
+        "timeout_bounded": timeout_bounded,
     }
+
+
+def _verify_malformed_payload_rejection(value: SearchLibrarySuccessV1) -> None:
+    payload = value.model_dump(mode="json")
+    malformed: list[dict[str, object]] = []
+    extra = copy.deepcopy(payload)
+    extra["path"] = "/not-public"
+    malformed.append(extra)
+    version = copy.deepcopy(payload)
+    version["schema_version"] = "mke.search_library_response.v2"
+    malformed.append(version)
+    locator = copy.deepcopy(payload)
+    locator["results"][0]["locator"] = {"kind": "page", "start": 1, "end": 2}
+    malformed.append(locator)
+    for candidate in malformed:
+        try:
+            TypeAdapter(SearchLibraryResponseV1).validate_python(candidate)
+        except ValidationError:
+            continue
+        raise ValueError("malformed v1 payload was accepted")
+
+
+async def _verify_bounded_stdio_failure(
+    server: StdioServerParameters,
+    *,
+    timeout_seconds: float = 1.0,
+) -> bool:
+    process_logger = logging.getLogger("mcp.os.posix.utilities")
+    previous_disabled = process_logger.disabled
+    process_logger.disabled = True
+    with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as errlog:
+        try:
+            async with stdio_client(server, errlog=errlog) as (read, write):
+                async with ClientSession(
+                    read,
+                    write,
+                    read_timeout_seconds=timedelta(seconds=timeout_seconds),
+                ) as session:
+                    await asyncio.wait_for(session.initialize(), timeout=timeout_seconds)
+        except Exception:
+            return True
+        finally:
+            process_logger.disabled = previous_disabled
+    raise ValueError("stdio failure did not fail closed")
 
 
 async def _fresh_fingerprint(server: StdioServerParameters) -> str:
