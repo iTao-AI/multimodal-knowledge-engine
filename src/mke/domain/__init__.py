@@ -299,6 +299,87 @@ class AskResult:
     limitations: tuple[str, ...]
 
 
+_CONTENT_FINGERPRINT_RE = re.compile(r"sha256:[0-9a-f]{64}\Z")
+
+
+@dataclass(frozen=True)
+class SearchResultProvenance:
+    result: SearchResult
+    content_fingerprint: str
+    publication_revision: int
+    run_id: str
+
+    def __post_init__(self) -> None:
+        if _CONTENT_FINGERPRINT_RE.fullmatch(self.content_fingerprint) is None:
+            raise ValueError("content fingerprint must be a lowercase sha256 digest")
+        if type(self.publication_revision) is not int or self.publication_revision <= 0:
+            raise ValueError("Publication revision must be a positive integer")
+        if type(self.run_id) is not str or not self.run_id:
+            raise ValueError("Run identity must not be blank")
+        result = self.result
+        if result.locator_kind == "page":
+            valid_locator = (
+                type(result.locator_start) is int
+                and result.locator_start > 0
+                and result.locator_end == result.locator_start
+            )
+        elif result.locator_kind == "timestamp_ms":
+            valid_locator = (
+                type(result.locator_start) is int
+                and type(result.locator_end) is int
+                and result.locator_start >= 0
+                and result.locator_end > result.locator_start
+            )
+        else:
+            valid_locator = False
+        if not valid_locator:
+            raise ValueError("Evidence locator is invalid")
+
+
+@dataclass(frozen=True)
+class ActivePublicationObservation:
+    library_id: str
+    state: str
+    source_count: int
+    active_publication_count: int
+    active_evidence_count: int
+
+    def __post_init__(self) -> None:
+        counts = (
+            self.source_count,
+            self.active_publication_count,
+            self.active_evidence_count,
+        )
+        if self.library_id != "local" or any(type(value) is not int or value < 0 for value in counts):
+            raise ValueError("active Publication observation is invalid")
+        valid = (
+            self.state == "empty" and counts == (0, 0, 0)
+            or self.state == "no_active_publication"
+            and self.source_count > 0
+            and self.active_publication_count == 0
+            and self.active_evidence_count == 0
+            or self.state == "active"
+            and self.source_count > 0
+            and self.active_publication_count > 0
+            and self.active_evidence_count > 0
+        )
+        if not valid:
+            raise ValueError("active Publication state does not match its counts")
+
+
+@dataclass(frozen=True)
+class SearchSnapshot:
+    observation: ActivePublicationObservation
+    results: tuple[SearchResultProvenance, ...]
+
+
+@dataclass(frozen=True)
+class AskSnapshot:
+    observation: ActivePublicationObservation
+    result: AskResult
+    evidence: tuple[SearchResultProvenance, ...]
+
+
 REQUIRED_PDF_STAGES = frozenset({"pdf_text_extraction", "candidate_evidence"})
 PDF_EXTRACTOR_FINGERPRINT = "builtin-pdf-text-v1"
 PYMUPDF_TEXT_FINGERPRINT = "pymupdf-text-v1"
