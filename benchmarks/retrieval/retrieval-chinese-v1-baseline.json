@@ -48,7 +48,7 @@
     "integrity_claim": "adjudication_record_integrity"
   },
   "source_identity": {
-    "sha256": "8fa5686f60ccc83a2fad395ead5a165e2b85a799b882a701913eb0ea9d93dbeb",
+    "sha256": "5d3c8f85bef5a7f547bd4e78ba82fa99da7484268d3cb457e311fb6efd63b5d8",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -152,8 +152,8 @@
       },
       {
         "path": "src/mke/domain/__init__.py",
-        "bytes": 13312,
-        "sha256": "5860706654c6f04764ddc2c312660ced43be2623d63d178997e29a0c8b27d384"
+        "bytes": 13390,
+        "sha256": "a66a4fac9029027a06719e88f8427cd856c3ab42e548cddb2d4d93e1a927a59e"
       },
       {
         "path": "src/mke/embeddings/__init__.py",
@@ -387,8 +387,8 @@
       },
       {
         "path": "src/mke/proof/evidence_provenance.py",
-        "bytes": 9533,
-        "sha256": "4a56e0a2502ec973a3117feb41e36cc235ac8e49c01c4ceb07b1154e097b3397"
+        "bytes": 13262,
+        "sha256": "f04dde21ddeef3559200449fa37ea1edc09b9d2009331cd295324305a87df403"
       },
       {
         "path": "src/mke/proof/local_knowledge.py",
