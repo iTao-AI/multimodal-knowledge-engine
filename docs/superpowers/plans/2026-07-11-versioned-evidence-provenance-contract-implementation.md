@@ -24,6 +24,27 @@ Planning gate: the planning window must commit the design, plan, and CLEAN plan 
 before dispatch. The execution window must refuse to start if any of those documents is untracked,
 missing from its base commit, or names a different planning base.
 
+Implementation status: completed locally on `codex/evidence-provenance-contract`; authoritative
+planning-window diff review remains pending.
+
+Completion evidence:
+
+- exact planning commit/parent and `main == origin/main == 793788f2...` verified before worktree
+  creation;
+- legacy five-tool schemas frozen and committed before MCP production changes;
+- targeted contract gate: `460 passed, 5 skipped`;
+- full suite: `1356 passed, 5 skipped`;
+- Ruff passed; Pyright reported `0 errors, 0 warnings, 0 informations`; sdist and wheel built;
+- `mke proof run`: 8/8; `mke demo --verify`: passed;
+- local-knowledge and Evidence-provenance real stdio proofs: passed;
+- Python 3.12.13 and 3.13.12 external installed-wheel proofs passed with lock-derived constraints,
+  hostile `PYTHONPATH`, external cwd, installed-module identity checks, and `UV_OFFLINE=1`;
+- E1/E2/E3-A/E3-B normalized reports matched Task 0 byte-for-byte; E1 through E3-E canonical
+  validators passed after identity-only dependency closure;
+- document-release audit found reference/how-to/explanation/ADR coverage with no diagram drift;
+- release presentation audit returned `status=ok` with zero violations; public-boundary scan and
+  `git diff --check` passed.
+
 Plan review: [Versioned Evidence Provenance Contract Plan Review](../reviews/2026-07-11-versioned-evidence-provenance-contract-plan-review.md).
 
 ## Global Constraints
@@ -71,13 +92,13 @@ Public schema constants:
 - Create: `tests/fixtures/mcp/legacy-tool-schemas.json`
 - Create: `tests/interfaces/test_mcp_legacy_schema_snapshot.py`
 
-- [ ] **Step 1: Verify the exact base and create an isolated worktree**
+- [x] **Step 1: Verify the exact base and create an isolated worktree**
 
 Require `main == origin/main == 793788f2d74a1ec072fe205e89acd13ab595bad7` before branching from
 the planning commit. Create a new worktree named for the Evidence provenance contract. Do not reuse
 an older feature worktree.
 
-- [ ] **Step 2: Run baseline MCP/application tests**
+- [x] **Step 2: Run baseline MCP/application tests**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -94,7 +115,7 @@ in `tests/fixtures/mcp/legacy-tool-schemas.json`, including
 subset of `build_mcp_server(...).list_tools()` to this fixture while ignoring additive tools. Commit
 the fixture and test before changing MCP code so CI and future worktrees share the same baseline.
 
-- [ ] **Step 3: Verify and commit the legacy schema fixture**
+- [x] **Step 3: Verify and commit the legacy schema fixture**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/interfaces/test_mcp_legacy_schema_snapshot.py
@@ -104,7 +125,7 @@ git add tests/fixtures/mcp/legacy-tool-schemas.json \
 git commit -m "test(mcp): freeze legacy tool schemas"
 ```
 
-- [ ] **Step 4: Record and validate historical evaluation reports**
+- [x] **Step 4: Record and validate historical evaluation reports**
 
 Run the canonical E1 through E3-E evaluation commands and validators already documented by the
 repository. Normalize volatile duration fields and retain the reports outside the repository for
@@ -125,7 +146,7 @@ the final semantic-equality comparison. Stop if any current artifact is invalid 
   `AskSnapshot` values.
 - Preserve the existing Search and Ask result semantics.
 
-- [ ] **Step 1: Write RED domain validation tests**
+- [x] **Step 1: Write RED domain validation tests**
 
 Cover:
 
@@ -142,13 +163,13 @@ Run:
 UV_OFFLINE=1 uv run pytest -q tests/domain
 ```
 
-- [ ] **Step 2: Implement the minimal immutable domain values**
+- [x] **Step 2: Implement the minimal immutable domain values**
 
 Do not introduce product metadata or modify `SearchResult`. `SearchResultProvenance` wraps one
 unchanged Search result with `content_fingerprint`, `publication_revision`, and `run_id`; the MCP
 model in Task 4 is the versioned transport projection.
 
-- [ ] **Step 3: Verify GREEN and commit**
+- [x] **Step 3: Verify GREEN and commit**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/domain
@@ -174,13 +195,13 @@ git commit -m "feat(domain): define Evidence provenance snapshots"
 - After unchanged FTS/CJK retrieval, bulk-load `publications.revision`, `publications.run_id`, and
   `run_manifests.asset_sha256` for the returned Evidence IDs in one query.
 
-- [ ] **Step 1: Write RED SQLite provenance tests**
+- [x] **Step 1: Write RED SQLite provenance tests**
 
 Cover PDF and video Evidence, page/timestamp locators, Publication revision, Run identity, and
 `sha256:` source-content fingerprint. Require only active Publication Evidence after reprocessing.
 Require the original FTS and CJK SQL/result shapes and `SearchResult` fields to remain unchanged.
 
-- [ ] **Step 2: Write RED observation-state tests**
+- [x] **Step 2: Write RED observation-state tests**
 
 Cover:
 
@@ -198,14 +219,14 @@ Cover:
 - Run-manifest Evidence count that differs from active Evidence rows -> fail closed;
 - any joined row outside the implicit `local` Library -> fail closed.
 
-- [ ] **Step 3: Write RED consistency and query-shape regressions**
+- [x] **Step 3: Write RED consistency and query-shape regressions**
 
 Inject Publication activation from a second connection between hypothetical separate reads and
 require `search_provenance_snapshot` to return one consistent SQLite snapshot. Use SQL trace evidence to
 require a fixed number of observation/integrity queries, the unchanged bounded retrieval queries,
 and one bulk provenance query, with no per-result lookup.
 
-- [ ] **Step 4: Implement joined retrieval and snapshot reads**
+- [x] **Step 4: Implement joined retrieval and snapshot reads**
 
 Use the transaction already maintained by `sqlite3` with `autocommit=False`; do not issue a nested
 `BEGIN`. Execute observation, unchanged retrieval, and bulk enrichment before closing the read
@@ -214,7 +235,7 @@ Search result IDs to the fully joined provenance graph so a missing/mismatched r
 instead of becoming a false no-match. Do not mutate or rebuild `active_evidence_fts`, and do not
 change ranking, ordering, limits, CJK eligibility, or scan budgets.
 
-- [ ] **Step 5: Verify both retrieval paths and commit**
+- [x] **Step 5: Verify both retrieval paths and commit**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/adapters tests/retrieval tests/application/test_cjk_active_scan_runtime.py
@@ -240,13 +261,13 @@ git commit -m "feat(sqlite): snapshot active Evidence provenance"
   Evidence and returns the same observation.
 - Keep `search()` and `ask()` behavior and signatures unchanged.
 
-- [ ] **Step 1: Write RED Search/Ask projection-consistency tests**
+- [x] **Step 1: Write RED Search/Ask projection-consistency tests**
 
 For one matching query, require v1 Search and Ask snapshots to return equal
 `SearchResultProvenance` values for each shared Evidence. Cover evidence-found and
 insufficient-evidence branches.
 
-- [ ] **Step 2: Write RED empty/no-active/no-match tests**
+- [x] **Step 2: Write RED empty/no-active/no-match tests**
 
 Require:
 
@@ -254,12 +275,12 @@ Require:
 - active no-match returns `active` plus no Evidence;
 - Ask still returns `insufficient_evidence` and its existing limitations in all no-Evidence cases.
 
-- [ ] **Step 3: Implement snapshot application methods without changing normal runtime paths**
+- [x] **Step 3: Implement snapshot application methods without changing normal runtime paths**
 
 Extract only the minimal private helper needed to avoid duplicating Ask result construction. Do not
 route CLI/evaluation calls through the new MCP-specific snapshot methods.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/application \
@@ -291,19 +312,19 @@ git commit -m "feat(application): expose active Evidence snapshots"
 - FastMCP exposes top-level `oneOf` output schemas discriminated by `ok`.
 - All five existing tool contracts remain unchanged.
 
-- [ ] **Step 1: Declare the existing direct Pydantic dependency**
+- [x] **Step 1: Declare the existing direct Pydantic dependency**
 
 Add `pydantic>=2.13.4,<3`, matching the currently locked MCP runtime dependency. Regenerate
 `uv.lock` without upgrading unrelated packages, and assert the package set/version remains
 otherwise stable.
 
-- [ ] **Step 2: Write RED model tests**
+- [x] **Step 2: Write RED model tests**
 
 Reject unknown schema version, missing field, extra field, bool-as-int, invalid ID, invalid
 fingerprint, invalid revision, invalid locator, invalid observation state/count, and mixed success/
 error branch fields. Require `model_dump(mode="json")` to produce only public fields.
 
-- [ ] **Step 3: Write RED FastMCP output-schema tests**
+- [x] **Step 3: Write RED FastMCP output-schema tests**
 
 For all three additive v1 read tools require:
 
@@ -320,7 +341,7 @@ Keep input-schema owner-control terms separate from output-schema disclosure ter
 validation must allow public `publication_revision` while still rejecting provider/model/cache/
 credential/path/environment/stderr/traceback metadata.
 
-- [ ] **Step 4: Implement typed contract mapping and response-specific safe errors**
+- [x] **Step 4: Implement typed contract mapping and response-specific safe errors**
 
 Map domain values once through a shared `EvidenceRefV1.from_provenance_result()` path. Add a typed
 v1 safe-tool decorator/error factory rather than reusing the legacy dict-returning `_safe_tool`.
@@ -328,13 +349,13 @@ Adapt unexpected
 exceptions to response-specific strict error models while preserving redacted `problem/cause/
 next_step` and `active_publication_impact="unchanged"`.
 
-- [ ] **Step 5: Write RED/green MCP behavior tests**
+- [x] **Step 5: Write RED/green MCP behavior tests**
 
 Cover v1 list observation, Search results, Ask citations, empty/no-active/active-no-match, invalid
 query/limit, storage failure, CJK budget failure, unknown exception redaction, and response
 serialization through FastMCP.
 
-- [ ] **Step 6: Verify interfaces and commit**
+- [x] **Step 6: Verify interfaces and commit**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/interfaces tests/application/test_evidence_provenance.py
@@ -366,24 +387,24 @@ git commit -m "feat(mcp): version Evidence provenance responses"
 - New proof prints one redacted aggregate JSON object and leaves the five legacy tool contracts and
   existing proof output contracts unchanged.
 
-- [ ] **Step 1: Write RED stale-consumer regressions**
+- [x] **Step 1: Write RED stale-consumer regressions**
 
 The new v1 consumer helper must reject legacy/open shapes when parsing a v1 result, unknown versions,
 extra fields, mixed success/error payloads, invalid observation counts, invalid provenance, and v1
 Search/Ask projection drift. Legacy consumers continue to accept only their unchanged legacy tools.
 
-- [ ] **Step 2: Preserve legacy consumers and add v1 schema discovery**
+- [x] **Step 2: Preserve legacy consumers and add v1 schema discovery**
 
 Keep legacy flow assertions unchanged. Extend tool discovery to require the additive v1 tools and
 their strict output schemas without routing legacy proofs through the new payloads.
 
-- [ ] **Step 3: Write RED real stdio lifecycle proof tests**
+- [x] **Step 3: Write RED real stdio lifecycle proof tests**
 
 Use repository-owned `tests/fixtures/local-knowledge-v1`, `tests/fixtures/pdf/invalid.pdf`, and
 `tests/fixtures/video/short-audio.mp4` plus its sidecar. Verify the eleven proof cases from the design,
 including same-store reingest and fresh-store fingerprint stability.
 
-- [ ] **Step 4: Implement the proof and fail-closed script**
+- [x] **Step 4: Implement the proof and fail-closed script**
 
 Create independent temporary stores and real stdio MCP sessions. Retain IDs/text only in memory.
 The rendered report may include schema names, state names, counts, and booleans; it must not include
@@ -391,7 +412,7 @@ any source text, identifier, path, command, environment, stderr, or exception de
 startup, session initialization, and every tool call with explicit timeouts; on timeout,
 cancellation, or failure terminate the child and remove temporary stores in `finally` cleanup.
 
-- [ ] **Step 5: Verify proof outputs and commit**
+- [x] **Step 5: Verify proof outputs and commit**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -422,26 +443,26 @@ git commit -m "test(proof): prove Evidence provenance contract"
 - Modify: documentation tests matching current conventions
 - Create: `docs/superpowers/reviews/2026-07-11-versioned-evidence-provenance-contract-implementation-review.md`
 
-- [ ] **Step 1: Write RED documentation assertions**
+- [x] **Step 1: Write RED documentation assertions**
 
 Require public docs to contain exact schema names, evidence fields, observation states, compatibility
 boundary, proof command, active-only semantics, and explicit non-goals. Reject stale open-schema
 examples, private paths, credentials, stderr/traceback examples, and claims that dense/RRF/reranker
 are runtime behavior.
 
-- [ ] **Step 2: Write ADR-0009 and update Diataxis surfaces**
+- [x] **Step 2: Write ADR-0009 and update Diataxis surfaces**
 
 Explain why the contract adds parallel v1 read tools, why observation/results share a SQLite
 snapshot, why fingerprints identify source bytes, why opaque IDs are not cross-store stable, and
 why legacy/write-tool versioning is deferred.
 
-- [ ] **Step 3: Add the durable implementation review skeleton**
+- [x] **Step 3: Add the durable implementation review skeleton**
 
 Record scope, verification commands, artifact closure, remaining risks, and authoritative
 implementation-review status as pending. Do not modify or downgrade the separate CLEAN plan review,
 and do not claim implementation review CLEAN before the planning/review window completes it.
 
-- [ ] **Step 4: Run document-release audit and commit**
+- [x] **Step 4: Run document-release audit and commit**
 
 Use `gstack-document-release` as a pre-merge documentation audit. Apply only findings relevant to
 this contract. Then run focused documentation tests and relative-link checks.
@@ -462,26 +483,26 @@ git commit -m "docs(mcp): document Evidence provenance contract"
   by the existing repository refresh workflow
 - Modify identity-reference tests/docs only when a validator proves they are stale
 
-- [ ] **Step 1: Run every validator before writing**
+- [x] **Step 1: Run every validator before writing**
 
 Record the exact invalid chain. Do not assume that only E1 or E2 needs refresh. Do not redesign the
 historical identity boundary in this feature: that would alter evaluation provenance policy and is
 outside the approved MCP contract scope.
 
-- [ ] **Step 2: Perform repository-supported identity-only refresh**
+- [x] **Step 2: Perform repository-supported identity-only refresh**
 
 Use the atomic refresh tooling where supported, then rebind downstream E3-C/E3-D/E3-E historical
 arm identities in dependency order. Before each write, compare normalized semantic payloads to Task
 0 and abort on any change outside approved source/scope/provenance identities.
 
-- [ ] **Step 3: Run all artifact tests and validators**
+- [x] **Step 3: Run all artifact tests and validators**
 
 Require E1 through E3-E canonical validators and artifact regression suites to pass. Require qrels,
 corpus fixture bytes, query definitions, observations, metrics, gates, selected candidates/profiles,
 and verdicts to be byte- or semantic-equivalent as appropriate. Allow only validator-proven
 source/scope/dependency identity fields in canonical artifacts and protocol-lock JSON to change.
 
-- [ ] **Step 4: Commit identity closure separately**
+- [x] **Step 4: Commit identity closure separately**
 
 ```bash
 git diff --check
@@ -501,7 +522,7 @@ Do not stage any qrel or fixture byte change.
 - Review: all branch changes against the planning base
 - Modify: only files required by verified review or verification findings
 
-- [ ] **Step 1: Run targeted contract gates**
+- [x] **Step 1: Run targeted contract gates**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -518,7 +539,7 @@ UV_OFFLINE=1 uv run python scripts/local_knowledge_proof.py
 UV_OFFLINE=1 uv run python scripts/evidence_provenance_proof.py
 ```
 
-- [ ] **Step 2: Run complete repository gates**
+- [x] **Step 2: Run complete repository gates**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q
@@ -535,7 +556,7 @@ git diff --check
 
 Also run every E1 through E3-E evaluator/validator and compare normalized reports to Task 0.
 
-- [ ] **Step 3: Run installed-wheel consumer proof on Python 3.12 and 3.13**
+- [x] **Step 3: Run installed-wheel consumer proof on Python 3.12 and 3.13**
 
 Build one wheel, install it into fresh external temporary environments with the existing lock/cache,
 run MCP schema and provenance consumer smoke from an external working directory under hostile
@@ -543,13 +564,13 @@ run MCP schema and provenance consumer smoke from an external working directory 
 model or fixture. Run strictly offline; if the package cache is incomplete, stop and report the
 missing locked wheel instead of authorizing network access or weakening the proof.
 
-- [ ] **Step 4: Run final self-review and public-boundary scan**
+- [x] **Step 4: Run final self-review and public-boundary scan**
 
 Review the actual diff for active-only leakage, inconsistent Search/Ask projection, schema drift,
 extra-field acceptance, transaction consistency, N+1 queries, path/credential/stderr disclosure,
 private planning terms, artifact semantic drift, and unrelated dependency/version changes.
 
-- [ ] **Step 5: Update durable review evidence and commit**
+- [x] **Step 5: Update durable review evidence and commit**
 
 Record actual commands/results and remaining risks. Keep authoritative scheme-window review pending.
 

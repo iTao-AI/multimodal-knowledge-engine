@@ -2,7 +2,8 @@
 
 Date: 2026-07-11
 
-Status: implementation complete locally; authoritative planning-window diff review pending.
+Status: implementation complete and locally verified; authoritative planning-window diff review
+pending.
 
 Base: `c8717dbaea9fa4ab0273a778151d64d7360e83f3`.
 
@@ -14,16 +15,28 @@ runtime promotion, version, CHANGELOG, release, or deployment work.
 
 ## Verification Evidence
 
-Pending final Task 8 recording. The implementation window will record exact focused/full commands,
-Python 3.12/3.13 installed-wheel results, consumer proof, public-boundary scan, and E1–E3-E
-artifact semantic closure here after fresh execution.
+- Targeted domain/adapter/application/interface/proof suite: `460 passed, 5 skipped`.
+- Full pytest: `1356 passed, 5 skipped`; only the five existing PyMuPDF/SWIG deprecation warnings.
+- Ruff: passed. Pyright: `0 errors, 0 warnings, 0 informations`.
+- Build: sdist and wheel created successfully.
+- Product proof: 8/8. Demo: passed. Local-knowledge proof: passed.
+- Evidence-provenance proof: passed over real stdio MCP and official SDK.
+- Installed wheel: Python 3.12.13 and 3.13.12 passed from external cwd with hostile
+  `PYTHONPATH`, installed-module identity verification, lock-derived constraints, and strict
+  offline mode.
+- Release presentation audit: `status=ok`, zero violations. `git diff --check`: passed.
 
 ## Artifact Closure
 
-Pending identity-only refresh and normalized comparison. Corpus fixture bytes, qrels, query
-definitions, observations, metrics, gates, profiles, candidates, and verdicts must not drift.
+The repository-supported atomic refresh updated E1 through E3-B identity metadata. Downstream
+E3-C, E3-D, and E3-E protocol/artifact identities were rebuilt in dependency order with existing
+repository builders. E1/E2/E3-A/E3-B evaluator reports, normalized only by removing `duration_ms`,
+matched Task 0 byte-for-byte. All E1 through E3-E canonical validators passed. Corpus fixture
+bytes, qrels, query definitions, observations, metrics, gates, profiles, candidates, and verdicts
+did not drift.
 
 ## Remaining Risks
 
 Authoritative review remains intentionally pending until the planning/review window inspects the
-actual local diff.
+actual local diff. The installed-wheel proof validates local platform/cache availability, not other
+operating systems or architectures. No network/model/fixture download was used.
