@@ -24,16 +24,18 @@ Planning gate: the planning window must commit the design, plan, and CLEAN plan 
 before dispatch. The execution window must refuse to start if any of those documents is untracked,
 missing from its base commit, or names a different planning base.
 
-Implementation status: completed locally on `codex/evidence-provenance-contract`; authoritative
-planning-window diff review remains pending.
+Implementation status: completed locally on `codex/evidence-provenance-contract`; the first
+authoritative diff review requested changes, all five findings are addressed, and targeted
+authoritative re-review remains pending.
 
 Completion evidence:
 
 - exact planning commit/parent and `main == origin/main == 793788f2...` verified before worktree
   creation;
 - legacy five-tool schemas frozen and committed before MCP production changes;
-- targeted contract gate: `460 passed, 5 skipped`;
-- full suite: `1356 passed, 5 skipped`;
+- review regression gate: `54 passed` across domain, strict MCP schemas, legacy schema snapshot,
+  SQLite provenance integrity, and real stdio proof;
+- full suite: `1386 passed, 5 skipped`;
 - Ruff passed; Pyright reported `0 errors, 0 warnings, 0 informations`; sdist and wheel built;
 - `mke proof run`: 8/8; `mke demo --verify`: passed;
 - local-knowledge and Evidence-provenance real stdio proofs: passed;
@@ -44,6 +46,9 @@ Completion evidence:
 - document-release audit found reference/how-to/explanation/ADR coverage with no diagram drift;
 - release presentation audit returned `status=ok` with zero violations; public-boundary scan and
   `git diff --check` passed.
+- Python 3.12.13 and 3.13.12 installed-wheel re-verification after review fixes proved strict
+  offline install, external cwd, hostile-environment clearing, installed-module identity,
+  timeout child termination, and temporary store cleanup.
 
 Plan review: [Versioned Evidence Provenance Contract Plan Review](../reviews/2026-07-11-versioned-evidence-provenance-contract-plan-review.md).
 
