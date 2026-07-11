@@ -9511,7 +9511,7 @@
       {
         "bytes": 10868,
         "path": ".github/workflows/ci.yml",
-        "sha256": "762bcf63e695eb08dcf181c2ef5888254295c3b07340f11b56d2ac0c9787ffc9"
+        "sha256": "7371e0219dd654705dd7df0bf4211eee48eff8779e1c04810ea1bb4a704d6b3b"
       },
       {
         "bytes": 72001,
@@ -9564,11 +9564,11 @@
         "sha256": "1c838b1464be9426c67887bfe5e0ff082d5a81d0addaf6addb4e7b7317c3627b"
       }
     ],
-    "sha256": "sha256:b99f9380767309fc7ac45211a03027731c86870095bdf704a89f4126f4ec7613"
+    "sha256": "sha256:6a889fd713978affc608f4f151625c986e520b199ef32b1b25d80f8c72eb7380"
   },
   "state": {
-    "development_freeze_sha256": "17d185ccb01f1a496ab023cd6b137b8b3bea6e46382c2da4d00387aae2305f57",
-    "holdout_receipt_sha256": "0682fe81ae3cd8fa9d7b3a2095adc6f0c6935afadec7753003ec2686871bd948"
+    "development_freeze_sha256": "229ce6c39e986c37b3b16f2010b96fca1190587411a5b40b6005301fef0e33a3",
+    "holdout_receipt_sha256": "62404412d0c307072073cee251116f3c8a322d2937f79f72679cb72ff9a61645"
   },
   "threshold_report": {
     "candidate_status": "not_evaluated",
