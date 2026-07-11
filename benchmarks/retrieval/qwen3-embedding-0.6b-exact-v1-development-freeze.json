@@ -3909,20 +3909,20 @@
   "protocol": {
     "bytes": 5127,
     "path": "protocol-lock.json",
-    "sha256": "f5eef2816bea1b0dcb66258dee5126f675579222c2898b2f0ba27cf086d7bf3f"
+    "sha256": "e3f8fda3cf8083c7ca9e6d0b1ef66df7550ee980b0d7e8bfced991a16d8490a8"
   },
   "schema_version": "mke.dense_development_freeze.v1",
   "source": {
     "files": [
       {
-        "bytes": 1142,
+        "bytes": 1167,
         "path": "pyproject.toml",
-        "sha256": "41eb37a2ac3be13ffb1634910b88b1868f65192ff1c8b777911fa363d6adc76a"
+        "sha256": "d4200f549e9a612b469df6c3e696743cdd7b117b0e1f874d4b43cf8efc2d60ff"
       },
       {
-        "bytes": 204902,
+        "bytes": 204983,
         "path": "uv.lock",
-        "sha256": "3b9e815b5f4ab086ddfb75bae2400e150d16a525da88de87a983af9c55c180e1"
+        "sha256": "bb31c77b8a8f975246c620a0e114417c6a4865d9c26c3f4c12c780b9e6952cce"
       },
       {
         "bytes": 10868,
@@ -3980,7 +3980,7 @@
         "sha256": "1c838b1464be9426c67887bfe5e0ff082d5a81d0addaf6addb4e7b7317c3627b"
       }
     ],
-    "sha256": "sha256:59ae5f473de467cd31ebc790e55bf5913dbf7ef17d62934f5e151f816545a3fc"
+    "sha256": "sha256:b99f9380767309fc7ac45211a03027731c86870095bdf704a89f4126f4ec7613"
   },
   "threshold_report": {
     "candidate_status": "not_evaluated",
