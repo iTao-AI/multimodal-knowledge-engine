@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast
 
 from mke.application import (
     DEFAULT_ASK_LIMIT,
@@ -16,7 +16,27 @@ from mke.application import (
     PdfIngestError,
     VideoIngestError,
 )
-from mke.domain import PdfIntakeReport, SearchResult, TranscriptIntakeReport
+from mke.domain import (
+    ActivePublicationObservation,
+    PdfIntakeReport,
+    SearchResult,
+    SearchResultProvenance,
+    TranscriptIntakeReport,
+)
+from mke.interfaces.mcp_schemas import (
+    ActivePublicationObservationV1,
+    AskLibraryErrorV1,
+    AskLibraryResponseV1,
+    AskLibrarySuccessV1,
+    EvidenceRefV1,
+    ListLibrariesResponseV1,
+    ListLibrariesSuccessV1,
+    PageLocatorV1,
+    SearchLibraryErrorV1,
+    SearchLibraryResponseV1,
+    SearchLibrarySuccessV1,
+    TimestampLocatorV1,
+)
 from mke.interfaces.public_errors import public_error_from_cause
 from mke.retrieval.cjk_active_scan import CjkActiveScanError
 from mke.runtime import RuntimeConfig, build_engine
@@ -239,6 +259,135 @@ def ask_library(
     finally:
         if engine is not None:
             engine.close()
+
+
+def list_libraries_v1(config: McpRuntimeConfig) -> ListLibrariesResponseV1:
+    engine: KnowledgeEngine | None = None
+    try:
+        engine = build_engine(config.runtime)
+        return ListLibrariesResponseV1(
+            root=ListLibrariesSuccessV1(
+                observation=_observation_v1(engine.observe_active_publications())
+            )
+        )
+    finally:
+        if engine is not None:
+            engine.close()
+
+
+def search_library_v1(
+    config: McpRuntimeConfig, query: str, limit: int = DEFAULT_ASK_LIMIT
+) -> SearchLibraryResponseV1:
+    normalized_query = query.strip()
+    if not normalized_query:
+        return SearchLibraryResponseV1(
+            root=SearchLibraryErrorV1(
+                ok=False,
+                problem="invalid_query",
+                cause="query must not be empty",
+                next_step="provide_non_empty_query",
+            )
+        )
+    if type(limit) is not int or not MIN_ASK_LIMIT <= limit <= MAX_ASK_LIMIT:
+        return SearchLibraryResponseV1(
+            root=SearchLibraryErrorV1(
+                ok=False,
+                problem="invalid_query",
+                cause=f"limit must be between {MIN_ASK_LIMIT} and {MAX_ASK_LIMIT}",
+                next_step="choose_limit_between_1_and_20",
+            )
+        )
+    engine: KnowledgeEngine | None = None
+    try:
+        engine = build_engine(config.runtime)
+        snapshot = engine.search_provenance_snapshot(normalized_query, limit=limit)
+        return SearchLibraryResponseV1(
+            root=SearchLibrarySuccessV1(
+                query=normalized_query,
+                observation=_observation_v1(snapshot.observation),
+                results=tuple(_evidence_ref_v1(item) for item in snapshot.results),
+            )
+        )
+    except (AskValidationError, CjkActiveScanError) as error:
+        return SearchLibraryResponseV1(
+            root=SearchLibraryErrorV1(
+                ok=False, problem=error.problem, cause=error.cause, next_step=error.next_step
+            )
+        )
+    finally:
+        if engine is not None:
+            engine.close()
+
+
+def ask_library_v1(
+    config: McpRuntimeConfig, question: str, limit: int = DEFAULT_ASK_LIMIT
+) -> AskLibraryResponseV1:
+    normalized_question = question.strip()
+    if not normalized_question:
+        return AskLibraryResponseV1(
+            root=AskLibraryErrorV1(
+                ok=False,
+                problem="invalid_question",
+                cause="question must not be empty",
+                next_step="provide_non_empty_question",
+            )
+        )
+    engine: KnowledgeEngine | None = None
+    try:
+        engine = build_engine(config.runtime)
+        snapshot = engine.ask_provenance_snapshot(normalized_question, limit=limit)
+        return AskLibraryResponseV1(
+            root=AskLibrarySuccessV1(
+                question=snapshot.result.question,
+                answer_status=cast(
+                    Literal["evidence_found", "insufficient_evidence"],
+                    snapshot.result.answer_status,
+                ),
+                summary=snapshot.result.summary,
+                observation=_observation_v1(snapshot.observation),
+                evidence=tuple(_evidence_ref_v1(item) for item in snapshot.evidence),
+                limitations=snapshot.result.limitations,
+            )
+        )
+    except (AskValidationError, CjkActiveScanError) as error:
+        return AskLibraryResponseV1(
+            root=AskLibraryErrorV1(
+                ok=False, problem=error.problem, cause=error.cause, next_step=error.next_step
+            )
+        )
+    finally:
+        if engine is not None:
+            engine.close()
+
+
+def _observation_v1(value: ActivePublicationObservation) -> ActivePublicationObservationV1:
+    return ActivePublicationObservationV1(
+        state=cast(Literal["empty", "no_active_publication", "active"], value.state),
+        source_count=value.source_count,
+        active_publication_count=value.active_publication_count,
+        active_evidence_count=value.active_evidence_count,
+    )
+
+
+def _evidence_ref_v1(value: SearchResultProvenance) -> EvidenceRefV1:
+    result = value.result
+    locator = (
+        PageLocatorV1(kind="page", start=result.locator_start, end=result.locator_end)
+        if result.locator_kind == "page"
+        else TimestampLocatorV1(
+            kind="timestamp_ms", start=result.locator_start, end=result.locator_end
+        )
+    )
+    return EvidenceRefV1(
+        evidence_id=result.evidence_id,
+        source_id=result.source_id,
+        content_fingerprint=value.content_fingerprint,
+        publication_id=result.publication_id,
+        publication_revision=value.publication_revision,
+        run_id=value.run_id,
+        locator=locator,
+        text=result.text,
+    )
 
 
 def _evidence_from_search_result(match: SearchResult) -> dict[str, Any]:

@@ -7,7 +7,6 @@ from mke.interfaces.mcp_contract import McpRuntimeConfig
 from mke.interfaces.mcp_server import build_mcp_server
 from mke.runtime import RuntimeConfig
 
-
 LEGACY_TOOLS = {
     "list_libraries",
     "ingest_file",

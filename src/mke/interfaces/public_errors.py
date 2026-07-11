@@ -157,6 +157,4 @@ def public_error_from_exception(
 
 
 def render_public_error_line(error: PublicError) -> str:
-    return " ".join(
-        f"{key}={value}" for key, value in error.payload().items() if key != "ok"
-    )
+    return " ".join(f"{key}={value}" for key, value in error.payload().items() if key != "ok")
