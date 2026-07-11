@@ -2,8 +2,8 @@
 
 Date: 2026-07-11
 
-Status: authoritative review changes addressed and locally verified; targeted authoritative
-re-review pending.
+Status: `CLEAN / 0 findings` after targeted authoritative re-review of
+`53b840b8b88082a204719ea5da98765c4d55dcc5`.
 
 Base: `c8717dbaea9fa4ab0273a778151d64d7360e83f3`.
 
@@ -29,8 +29,9 @@ runtime promotion, version, CHANGELOG, release, or deployment work.
 
 ## Authoritative Review Remediation
 
-The 2026-07-12 authoritative review returned `CHANGES REQUESTED`. This implementation review is
-not an authoritative replacement; it records the evidence prepared for targeted re-review.
+The 2026-07-12 authoritative review returned `CHANGES REQUESTED`. All five remediation items were
+implemented and committed at `53b840b8b88082a204719ea5da98765c4d55dcc5`. Targeted authoritative
+re-review then returned `CLEAN / 0 findings`.
 
 - Domain and Pydantic response validators now close observation/result/status relationships,
   reject impossible Publication counts, and enforce the public maximum of 20 Search/Ask items.
@@ -57,7 +58,6 @@ did not drift.
 
 ## Remaining Risks
 
-Targeted authoritative re-review remains intentionally pending until the planning/review window
-inspects the remediation diff. The installed-wheel proof validates local platform/cache
-availability, not other operating systems or architectures. No network/model/fixture download was
-used.
+The authoritative implementation review is closed as `CLEAN / 0 findings`. The installed-wheel
+proof validates local platform/cache availability, not other operating systems or architectures.
+No network/model/fixture download was used.

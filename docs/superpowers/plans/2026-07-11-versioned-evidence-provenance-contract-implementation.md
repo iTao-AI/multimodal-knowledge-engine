@@ -25,8 +25,9 @@ before dispatch. The execution window must refuse to start if any of those docum
 missing from its base commit, or names a different planning base.
 
 Implementation status: completed locally on `codex/evidence-provenance-contract`; the first
-authoritative diff review requested changes, all five findings are addressed, and targeted
-authoritative re-review remains pending.
+authoritative diff review requested changes, all five findings were addressed at
+`53b840b8b88082a204719ea5da98765c4d55dcc5`, and targeted authoritative re-review returned
+`CLEAN / 0 findings`.
 
 Completion evidence:
 
@@ -49,6 +50,8 @@ Completion evidence:
 - Python 3.12.13 and 3.13.12 installed-wheel re-verification after review fixes proved strict
   offline install, external cwd, hostile-environment clearing, installed-module identity,
   timeout child termination, and temporary store cleanup.
+- targeted authoritative re-review of the five remediation items at
+  `53b840b8b88082a204719ea5da98765c4d55dcc5`: `CLEAN / 0 findings`.
 
 Plan review: [Versioned Evidence Provenance Contract Plan Review](../reviews/2026-07-11-versioned-evidence-provenance-contract-plan-review.md).
 
