@@ -478,9 +478,9 @@ def load_schema_expectations(path: Path) -> dict[str, object]:
     try:
         payload_object: object = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise ProofError("tool_schema_expectations_invalid") from exc
+        raise ProofError("consumer_schema_invalid") from exc
     if not isinstance(payload_object, dict):
-        raise ProofError("tool_schema_expectations_invalid")
+        raise ProofError("consumer_schema_invalid")
     payload = cast(dict[str, object], payload_object)
     if (
         set(payload) != {"schema_version", "public_error_contract", "tools"}
@@ -488,7 +488,7 @@ def load_schema_expectations(path: Path) -> dict[str, object]:
         or not isinstance(payload.get("public_error_contract"), dict)
         or not isinstance(payload.get("tools"), dict)
     ):
-        raise ProofError("tool_schema_expectations_invalid")
+        raise ProofError("consumer_schema_invalid")
     contract = cast(dict[str, object], payload["public_error_contract"])
     causes_value = contract.get("safe_causes")
     if (
@@ -497,19 +497,23 @@ def load_schema_expectations(path: Path) -> dict[str, object]:
         or contract.get("active_publication_impact") != "unchanged"
         or not isinstance(causes_value, list)
     ):
-        raise ProofError("tool_schema_expectations_invalid")
+        raise ProofError("consumer_schema_invalid")
     causes = cast(list[object], causes_value)
     if (
         any(not isinstance(item, str) for item in causes)
         or frozenset(cast(list[str], causes)) != _SAFE_CAUSES
         or len(causes) != len(_SAFE_CAUSES)
     ):
-        raise ProofError("tool_schema_expectations_invalid")
+        raise ProofError("consumer_schema_invalid")
     return payload
 
 
 def _contract_error() -> ProofError:
-    return ProofError("consumer_mcp_contract_invalid")
+    return ProofError("consumer_payload_invalid")
+
+
+def _schema_error() -> ProofError:
+    return ProofError("consumer_schema_invalid")
 
 
 def _runtime_value(value: object) -> object:
@@ -524,13 +528,13 @@ def normalize_discovered_tools(tools: Sequence[DiscoveredTool]) -> dict[str, obj
             input_value = _runtime_value(tool.inputSchema)
             output_value = _runtime_value(tool.outputSchema)
             if not isinstance(name, str) or not name or not isinstance(input_value, Mapping):
-                raise _contract_error()
+                raise _schema_error()
             if output_value is not None and not isinstance(output_value, Mapping):
-                raise _contract_error()
+                raise _schema_error()
             input_schema = cast(Mapping[str, object], input_value)
             output_schema = cast(Mapping[str, object] | None, output_value)
             if name in normalized:
-                raise _contract_error()
+                raise _schema_error()
             normalized[name] = json.loads(
                 json.dumps(
                     {
@@ -542,7 +546,7 @@ def normalize_discovered_tools(tools: Sequence[DiscoveredTool]) -> dict[str, obj
     except ProofError:
         raise
     except (AttributeError, TypeError, ValueError, json.JSONDecodeError) as exc:
-        raise _contract_error() from exc
+        raise _schema_error() from exc
     return normalized
 
 
@@ -550,7 +554,7 @@ def validate_tool_schemas(tools: Sequence[DiscoveredTool], expected: Mapping[str
     actual = normalize_discovered_tools(tools)
     expected_tools = expected.get("tools")
     if not isinstance(expected_tools, dict) or actual != cast(dict[str, object], expected_tools):
-        raise _contract_error()
+        raise _schema_error()
 
 
 def _object(value: object, keys: set[str]) -> dict[str, object]:
@@ -601,7 +605,7 @@ def _observation(value: object) -> None:
         or (state == "active" and source > 0 and publications > 0 and evidence > 0)
     )
     if not valid:
-        raise _contract_error()
+        raise ProofError("observation_state_mismatch")
 
 
 def _evidence(value: object) -> tuple[object, ...]:
@@ -805,6 +809,9 @@ def build_receipt(
         raise ProofError("manifest_locator_mismatch")
     return {
         "schema_version": "mke.consumer_source_pack_receipt.v1",
+        "manifest_schema": pack.schema_version,
+        "pack_id": pack.pack_id,
+        "evidence_schema": cast(str, evidence["schema_version"]),
         "match_status": "matched",
         "query_role": query.role,
         "source_key": source.source_key,
@@ -969,6 +976,7 @@ async def run_store_session(config: ConsumerConfig, database: Path) -> StoreResu
         env=dict(config.child_environment),
     )
     capture = BoundedStderrCapture(config.max_transport_bytes)
+    initialized = False
     async with capture:
         try:
             async with stdio_client(server, errlog=capture.write_end) as (read, write):
@@ -983,6 +991,7 @@ async def run_store_session(config: ConsumerConfig, database: Path) -> StoreResu
                         "mcp_startup_timeout",
                         capture,
                     )
+                    initialized = True
                     listed = await _deadline(
                         session.list_tools(),
                         config.tool_timeout_seconds,
@@ -1008,7 +1017,7 @@ async def run_store_session(config: ConsumerConfig, database: Path) -> StoreResu
                         "active_publication_count": 0,
                         "active_evidence_count": 0,
                     }:
-                        raise _contract_error()
+                        raise ProofError("observation_state_mismatch")
                     published = 0
                     for source in pack.sources:
                         ingested = await _call(
@@ -1057,7 +1066,7 @@ async def run_store_session(config: ConsumerConfig, database: Path) -> StoreResu
                             "active_evidence_count",
                         )
                     ) != ("active", 2, 2, 2):
-                        raise _contract_error()
+                        raise ProofError("observation_state_mismatch")
                     receipts: list[dict[str, object]] = []
                     projections_equal = True
                     for query in (
@@ -1081,6 +1090,8 @@ async def run_store_session(config: ConsumerConfig, database: Path) -> StoreResu
                                 capture,
                             )
                         )
+                        if searched["query"] != query.query or asked["question"] != query.query:
+                            raise _contract_error()
                         projections_equal &= evidence_projection(searched) == evidence_projection(
                             asked
                         )
@@ -1110,11 +1121,15 @@ async def run_store_session(config: ConsumerConfig, database: Path) -> StoreResu
                         )
                     )
                     if (
-                        cast(dict[str, object], searched["observation"])["state"] != "active"
+                        searched["query"] != unsupported.query
+                        or asked["question"] != unsupported.query
+                        or cast(dict[str, object], searched["observation"])["state"] != "active"
                         or searched["results"] != []
                         or asked["answer_status"] != unsupported.expected_ask_status
                         or asked["evidence"] != []
                     ):
+                        if cast(dict[str, object], searched["observation"])["state"] != "active":
+                            raise ProofError("observation_state_mismatch")
                         raise _contract_error()
                     return StoreResult(
                         2,
@@ -1134,7 +1149,8 @@ async def run_store_session(config: ConsumerConfig, database: Path) -> StoreResu
         except Exception as exc:
             if capture.overflow.is_set():
                 raise ProofError("command_output_exceeded") from exc
-            raise ProofError("consumer_transport_failed") from exc
+            code = "mcp_transport_failed" if initialized else "server_exit_nonzero"
+            raise ProofError(code) from exc
         finally:
             if capture.overflow.is_set() and capture.terminal_code in {
                 None,
@@ -1158,7 +1174,7 @@ async def run_consumer(config: ConsumerConfig) -> ConsumerResult:
 
     fresh = tuple(map(identity, first.receipts)) == tuple(map(identity, second.receipts))
     if not fresh:
-        raise ProofError("fresh_store_mapping_mismatch")
+        raise ProofError("proof_failed")
     return ConsumerResult(
         _MANIFEST_SCHEMA,
         "mke.evidence_ref.v1",
@@ -1214,7 +1230,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ProofError as exc:
         print(
             json.dumps(
-                {"status": "failed", "reason": exc.code}, sort_keys=True, separators=(",", ":")
+                {"status": "failed", "code": exc.code}, sort_keys=True, separators=(",", ":")
+            )
+        )
+        return 1
+    except Exception:
+        print(
+            json.dumps(
+                {"status": "failed", "code": "proof_failed"},
+                sort_keys=True,
+                separators=(",", ":"),
             )
         )
         return 1

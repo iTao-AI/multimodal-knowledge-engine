@@ -361,7 +361,7 @@ def test_load_schema_expectations_rejects_error_contract_drift_atomically(
     with pytest.raises(fresh_client.ProofError) as exc_info:
         fresh_client.load_schema_expectations(_write_schema_expectations(tmp_path, payload))
 
-    assert exc_info.value.code == "tool_schema_expectations_invalid"
+    assert exc_info.value.code == "consumer_schema_invalid"
     assert fresh_client.validate_search_response(valid_error) == valid_error
 
 
@@ -434,12 +434,14 @@ def test_tool_schema_validation_requires_all_v1_tools_and_legacy_exactness() -> 
     expected = client.load_schema_expectations(SCHEMAS)
     tools = _fixture_tools()
     tools[:] = [tool for tool in tools if tool.name != "ask_library_v1"]
-    with pytest.raises(client.ProofError):
+    with pytest.raises(client.ProofError) as exc_info:
         client.validate_tool_schemas(tools, expected)
+    assert exc_info.value.code == "consumer_schema_invalid"
     tools = _fixture_tools()
     cast(dict[str, object], tools[0].inputSchema)["extra"] = True
-    with pytest.raises(client.ProofError):
+    with pytest.raises(client.ProofError) as exc_info:
         client.validate_tool_schemas(tools, expected)
+    assert exc_info.value.code == "consumer_schema_invalid"
 
 
 def test_search_and_ask_evidence_schema_definitions_are_identical() -> None:
@@ -617,7 +619,17 @@ def test_payload_error_contract_rejects_non_string_cause_as_proof_error(cause: o
     with pytest.raises(client.ProofError) as exc_info:
         client.validate_search_response(payload)
 
-    assert exc_info.value.code == "consumer_mcp_contract_invalid"
+    assert exc_info.value.code == "consumer_payload_invalid"
+
+
+def test_observation_count_state_contradiction_has_narrow_code() -> None:
+    payload = _list()
+    cast(dict[str, object], payload["observation"])["active_publication_count"] = 0
+
+    with pytest.raises(client.ProofError) as exc_info:
+        client.validate_list_response(payload)
+
+    assert exc_info.value.code == "observation_state_mismatch"
 
 
 def test_list_and_ask_cross_field_invariants_and_projection() -> None:
@@ -646,6 +658,9 @@ def test_build_receipt_maps_only_manifest_fingerprint_and_closes_projection() ->
 
     assert receipt == {
         "schema_version": "mke.consumer_source_pack_receipt.v1",
+        "manifest_schema": "mke.consumer_source_pack_manifest.v1",
+        "pack_id": "local-knowledge-v1",
+        "evidence_schema": "mke.evidence_ref.v1",
         "match_status": "matched",
         "query_role": "operations_guide",
         "source_key": "operations_guide",
@@ -739,6 +754,8 @@ def _flow_evidence(source: object, opaque_suffix: str) -> dict[str, object]:
 def _install_flow_sdk_fake(
     monkeypatch: pytest.MonkeyPatch,
     events: list[tuple[object, ...]],
+    *,
+    echo_mutation: tuple[str, str] | None = None,
 ) -> None:
     pack = client.load_source_pack(MANIFEST)
     store_number = 0
@@ -836,6 +853,8 @@ def _install_flow_sdk_fake(
                         "observation": _active_observation(),
                         "results": evidence,
                     }
+                    if echo_mutation == ("search", query.role):
+                        payload["query"] = "mutated query"
                 else:
                     payload = {
                         "schema_version": "mke.ask_library_response.v1",
@@ -849,12 +868,155 @@ def _install_flow_sdk_fake(
                         "evidence": evidence,
                         "limitations": [] if evidence else ["insufficient_evidence"],
                     }
+                    if echo_mutation == ("ask", query.role):
+                        payload["question"] = "mutated question"
             else:
                 raise AssertionError(f"unexpected tool: {name}")
             return SimpleNamespace(isError=False, structuredContent=payload, content=[])
 
     monkeypatch.setattr(client, "stdio_client", fake_stdio)
     monkeypatch.setattr(client, "ClientSession", FakeSession)
+
+
+@pytest.mark.parametrize(
+    "echo_mutation",
+    [
+        ("search", "operations_guide"),
+        ("ask", "operations_guide"),
+        ("search", "unsupported"),
+        ("ask", "unsupported"),
+    ],
+)
+def test_run_store_session_rejects_search_and_ask_query_echo_drift(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    echo_mutation: tuple[str, str],
+) -> None:
+    events: list[tuple[object, ...]] = []
+    _install_flow_sdk_fake(monkeypatch, events, echo_mutation=echo_mutation)
+    config = client.ConsumerConfig(
+        MANIFEST, SCHEMAS, LOCAL_FIXTURE_ROOT, tmp_path / "mke", tmp_path, {}, 1.0, 1.0, 1024
+    )
+
+    with pytest.raises(client.ProofError) as exc_info:
+        asyncio.run(client.run_store_session(config, tmp_path / "fresh.sqlite"))
+
+    assert exc_info.value.code == "consumer_payload_invalid"
+
+
+@pytest.mark.parametrize(
+    ("failure_phase", "code"),
+    [("startup", "server_exit_nonzero"), ("established", "mcp_transport_failed")],
+)
+def test_run_store_session_classifies_transport_failure_by_phase(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    failure_phase: str,
+    code: str,
+) -> None:
+    @asynccontextmanager
+    async def fake_stdio(server: object, *, errlog: object):
+        if failure_phase == "startup":
+            raise RuntimeError("sensitive startup detail")
+        yield object(), object()
+
+    class FakeSession:
+        async def __aenter__(self) -> FakeSession:
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            return None
+
+        async def initialize(self) -> object:
+            return object()
+
+        async def list_tools(self) -> object:
+            raise RuntimeError("sensitive transport detail")
+
+    def fake_session(*args: object, **kwargs: object) -> FakeSession:
+        return FakeSession()
+
+    monkeypatch.setattr(client, "stdio_client", fake_stdio)
+    monkeypatch.setattr(client, "ClientSession", fake_session)
+    config = client.ConsumerConfig(
+        MANIFEST, SCHEMAS, LOCAL_FIXTURE_ROOT, tmp_path / "mke", tmp_path, {}, 1.0, 1.0, 1024
+    )
+
+    with pytest.raises(client.ProofError) as exc_info:
+        asyncio.run(client.run_store_session(config, tmp_path / "fresh.sqlite"))
+
+    assert exc_info.value.code == code
+
+
+def test_run_consumer_maps_fresh_store_receipt_mismatch_to_approved_fallback(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    pack = client.load_source_pack(MANIFEST)
+    receipts = tuple(
+        client.build_receipt(
+            {
+                **_evidence(),
+                "content_fingerprint": "sha256:" + pack.sources[index].sha256,
+            },
+            pack,
+            pack.queries[index],
+        )
+        for index in range(2)
+    )
+    calls = 0
+
+    async def fake_store(config: object, database: object) -> object:
+        nonlocal calls
+        calls += 1
+        current = receipts if calls == 1 else receipts[:1]
+        return client.StoreResult(
+            2, 2, 2, 2, ("empty", "active"), current, True, True, True, True, True
+        )
+
+    monkeypatch.setattr(client, "run_store_session", fake_store)
+    config = client.ConsumerConfig(
+        MANIFEST, SCHEMAS, LOCAL_FIXTURE_ROOT, tmp_path / "mke", tmp_path, {}, 1.0, 1.0, 1024
+    )
+
+    with pytest.raises(client.ProofError) as exc_info:
+        asyncio.run(client.run_consumer(config))
+
+    assert exc_info.value.code == "proof_failed"
+
+
+@pytest.mark.parametrize(
+    ("failure", "code"),
+    [
+        (client.ProofError("consumer_payload_invalid"), "consumer_payload_invalid"),
+        (RuntimeError("sensitive exception detail"), "proof_failed"),
+    ],
+)
+def test_main_failure_output_is_exact_and_redacted(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    failure: Exception,
+    code: str,
+) -> None:
+    async def fail(config: object) -> object:
+        raise failure
+
+    monkeypatch.setattr(client, "run_consumer", fail)
+    result = client.main(
+        [
+            "--manifest", str(MANIFEST),
+            "--schemas", str(SCHEMAS),
+            "--source-root", str(LOCAL_FIXTURE_ROOT),
+            "--mke", str(tmp_path / "mke"),
+            "--workspace", str(tmp_path),
+        ]
+    )
+
+    assert result == 1
+    output = capsys.readouterr().out.strip()
+    assert json.loads(output) == {"status": "failed", "code": code}
+    assert set(json.loads(output)) == {"status", "code"}
+    assert "sensitive" not in output and "reason" not in output and str(tmp_path) not in output
 
 
 def test_run_store_session_uses_exact_mcp_success_flow_and_closes_boundaries(
