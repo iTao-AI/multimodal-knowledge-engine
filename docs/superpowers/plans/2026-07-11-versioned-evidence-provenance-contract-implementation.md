@@ -24,10 +24,14 @@ Planning gate: the planning window must commit the design, plan, and CLEAN plan 
 before dispatch. The execution window must refuse to start if any of those documents is untracked,
 missing from its base commit, or names a different planning base.
 
-Implementation status: completed locally on `codex/evidence-provenance-contract`; the first
-authoritative diff review requested changes, all five findings were addressed at
-`53b840b8b88082a204719ea5da98765c4d55dcc5`, and targeted authoritative re-review returned
-`CLEAN / 0 findings`.
+Implementation status: completed, reviewed, merged, and cleaned up. PR #63 squash-merged the
+contract to `main` at `0ccc82874e2a4a01e01badcf959ba5a5e0dcbc13` on
+2026-07-11 17:16:30 UTC. The first authoritative diff review requested changes, all five findings
+were addressed at `53b840b8b88082a204719ea5da98765c4d55dcc5`, and the authoritative targeted
+re-review returned `CLEAN / 0 findings`. Post-merge checks: passed.
+
+The task sequence below is retained as the historical implementation procedure and completion
+record. Checked steps describe work already performed; they are not pending instructions.
 
 Completion evidence:
 
@@ -52,6 +56,11 @@ Completion evidence:
   timeout child termination, and temporary store cleanup.
 - targeted authoritative re-review of the five remediation items at
   `53b840b8b88082a204719ea5da98765c4d55dcc5`: `CLEAN / 0 findings`.
+- PR #63 squash merge: `0ccc82874e2a4a01e01badcf959ba5a5e0dcbc13`; post-merge CI, CodeQL,
+  Dependency Graph, and Dependabot Updates completed successfully.
+- Feature branch and isolated worktree cleanup completed after merge. The later PR #61 setup-uv
+  identity closure changed validator-proven dependency identity only and did not change this
+  provenance contract's semantics.
 
 Plan review: [Versioned Evidence Provenance Contract Plan Review](../reviews/2026-07-11-versioned-evidence-provenance-contract-plan-review.md).
 
@@ -680,6 +689,7 @@ contracts; parallel worktrees would create avoidable merge conflicts and contrac
 **CODEX:** Final targeted re-review returned exactly `CLEAN` after compatibility, transaction,
 integrity, schema-baseline, review-file, and artifact-closure amendments.
 
-**VERDICT:** ENG + OUTSIDE VOICE CLEARED — ready for isolated local implementation.
+**VERDICT:** IMPLEMENTED, AUTHORITATIVELY REVIEWED, MERGED, AND POST-MERGE VERIFIED — PR #63;
+historical implementation procedure complete.
 
 NO UNRESOLVED DECISIONS
