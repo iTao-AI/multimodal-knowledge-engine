@@ -1,0 +1,993 @@
+{
+  "public_error_contract": {
+    "active_publication_impact": "unchanged",
+    "machine_token_pattern": "^[a-z][a-z0-9_]{0,127}$",
+    "safe_causes": [
+      "CJK active Evidence scan would exceed configured local budget",
+      "CJK candidate pool exceeded the configured cap",
+      "PDF cannot be opened",
+      "PDF has no extractable text",
+      "PDF input exceeds 100 MB limit",
+      "Query does not contain enough eligible CJK terms",
+      "Requested retrieval strategy is not supported by this runtime",
+      "argv must contain exactly one {input} placeholder",
+      "configured embedding model is not cached",
+      "configured embedding model revision is unavailable",
+      "configured embedding model snapshot exceeds size limit",
+      "configured embedding model snapshot is incomplete",
+      "configured language is not supported by the model",
+      "configured transcription model is not cached",
+      "configured transcription model revision is unavailable",
+      "demo fixture is missing",
+      "demo video fixture is missing",
+      "embedding adapter failed",
+      "embedding cancelled",
+      "embedding input would be truncated",
+      "embedding model cache is not readable",
+      "embedding model download failed",
+      "embedding optional dependency is not installed",
+      "embedding output contains non-finite values",
+      "embedding output count is invalid",
+      "embedding output dimension is invalid",
+      "embedding output dtype must be float32",
+      "embedding output is not normalized",
+      "embedding tokenizer output is invalid",
+      "encrypted PDF is not supported",
+      "file path cannot be resolved",
+      "input file does not exist",
+      "input path must be a file",
+      "input path must be under allowed root",
+      "input path must not be empty",
+      "input video could not be read",
+      "input video is empty",
+      "input video is missing",
+      "input video must be an MP4 file",
+      "limit must be between 1 and 20",
+      "operation failed; details were redacted",
+      "query must not be empty",
+      "question must be 1000 characters or fewer",
+      "question must contain at least one searchable ASCII token",
+      "question must not be empty",
+      "stable timestamp locator generation requires increasing ranges",
+      "stable timestamp locator generation requires sorted ranges",
+      "supported suffixes are .pdf and .mp4",
+      "timestamp locators must be integer milliseconds",
+      "transcript command executable is missing",
+      "transcript command failed",
+      "transcript command is required",
+      "transcript command produced too much stderr",
+      "transcript command produced too much stdout",
+      "transcript command stdout is not valid UTF-8",
+      "transcript command timed out",
+      "transcript schema validation failed",
+      "transcription device or compute profile is unsupported",
+      "transcription failed",
+      "transcription model cache is not readable",
+      "transcription model download failed",
+      "transcription model resolution failed",
+      "transcription optional dependency is not installed",
+      "unknown run",
+      "unsupported codec for local video proof",
+      "vector extension is unavailable or incompatible",
+      "vector projection distance is invalid",
+      "vector projection identity mismatch",
+      "vector projection inventory is incomplete",
+      "vector projection replace failed",
+      "vector projection search inventory is incomplete",
+      "video ingest initialization failed",
+      "video input exceeds 100 MiB limit",
+      "video media exceeds duration limit",
+      "video must contain an audio track",
+      "video transcript exceeds segment limit",
+      "video transcript format is unsupported",
+      "video transcript is not valid JSON",
+      "video transcript missing media",
+      "video transcript must be a JSON object",
+      "video transcript must contain at least one segment",
+      "video transcript segment exceeds media duration",
+      "video transcript segment must be an object",
+      "video transcript sidecar format is unsupported",
+      "video transcript sidecar is missing",
+      "video transcript sidecar is not valid JSON",
+      "video transcript sidecar missing media",
+      "video transcript sidecar must be a JSON object",
+      "video transcript text must not be empty"
+    ]
+  },
+  "schema_version": "mke.consumer_mcp_tool_expectations.v1",
+  "tools": {
+    "ask_library": {
+      "inputSchema": {
+        "properties": {
+          "limit": {
+            "default": 5,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "ask_libraryArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "title": "ask_libraryDictOutput",
+        "type": "object"
+      }
+    },
+    "ask_library_v1": {
+      "inputSchema": {
+        "properties": {
+          "limit": {
+            "default": 5,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "ask_library_v1Arguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "$defs": {
+          "ActivePublicationObservationV1": {
+            "additionalProperties": false,
+            "properties": {
+              "active_evidence_count": {
+                "minimum": 0,
+                "title": "Active Evidence Count",
+                "type": "integer"
+              },
+              "active_publication_count": {
+                "minimum": 0,
+                "title": "Active Publication Count",
+                "type": "integer"
+              },
+              "library_id": {
+                "const": "local",
+                "default": "local",
+                "title": "Library Id",
+                "type": "string"
+              },
+              "schema_version": {
+                "const": "mke.active_publication_observation.v1",
+                "default": "mke.active_publication_observation.v1",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "source_count": {
+                "minimum": 0,
+                "title": "Source Count",
+                "type": "integer"
+              },
+              "state": {
+                "enum": [
+                  "empty",
+                  "no_active_publication",
+                  "active"
+                ],
+                "title": "State",
+                "type": "string"
+              }
+            },
+            "required": [
+              "state",
+              "source_count",
+              "active_publication_count",
+              "active_evidence_count"
+            ],
+            "title": "ActivePublicationObservationV1",
+            "type": "object"
+          },
+          "AskLibraryErrorV1": {
+            "additionalProperties": false,
+            "properties": {
+              "active_publication_impact": {
+                "const": "unchanged",
+                "default": "unchanged",
+                "title": "Active Publication Impact",
+                "type": "string"
+              },
+              "cause": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Cause",
+                "type": "string"
+              },
+              "next_step": {
+                "pattern": "^[a-z][a-z0-9_]{0,127}$",
+                "title": "Next Step",
+                "type": "string"
+              },
+              "ok": {
+                "const": false,
+                "title": "Ok",
+                "type": "boolean"
+              },
+              "problem": {
+                "pattern": "^[a-z][a-z0-9_]{0,127}$",
+                "title": "Problem",
+                "type": "string"
+              },
+              "schema_version": {
+                "const": "mke.ask_library_response.v1",
+                "default": "mke.ask_library_response.v1",
+                "title": "Schema Version",
+                "type": "string"
+              }
+            },
+            "required": [
+              "ok",
+              "problem",
+              "cause",
+              "next_step"
+            ],
+            "title": "AskLibraryErrorV1",
+            "type": "object"
+          },
+          "AskLibrarySuccessV1": {
+            "additionalProperties": false,
+            "properties": {
+              "answer_status": {
+                "enum": [
+                  "evidence_found",
+                  "insufficient_evidence"
+                ],
+                "title": "Answer Status",
+                "type": "string"
+              },
+              "evidence": {
+                "items": {
+                  "$ref": "#/$defs/EvidenceRefV1"
+                },
+                "maxItems": 20,
+                "title": "Evidence",
+                "type": "array"
+              },
+              "limitations": {
+                "items": {
+                  "maxLength": 1000000,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "title": "Limitations",
+                "type": "array"
+              },
+              "observation": {
+                "$ref": "#/$defs/ActivePublicationObservationV1"
+              },
+              "ok": {
+                "const": true,
+                "default": true,
+                "title": "Ok",
+                "type": "boolean"
+              },
+              "question": {
+                "maxLength": 1000000,
+                "minLength": 1,
+                "title": "Question",
+                "type": "string"
+              },
+              "schema_version": {
+                "const": "mke.ask_library_response.v1",
+                "default": "mke.ask_library_response.v1",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "summary": {
+                "maxLength": 1000000,
+                "minLength": 1,
+                "title": "Summary",
+                "type": "string"
+              }
+            },
+            "required": [
+              "question",
+              "answer_status",
+              "summary",
+              "observation",
+              "evidence",
+              "limitations"
+            ],
+            "title": "AskLibrarySuccessV1",
+            "type": "object"
+          },
+          "EvidenceRefV1": {
+            "additionalProperties": false,
+            "properties": {
+              "content_fingerprint": {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "title": "Content Fingerprint",
+                "type": "string"
+              },
+              "evidence_id": {
+                "pattern": "^ev_[0-9a-f]{32}$",
+                "title": "Evidence Id",
+                "type": "string"
+              },
+              "locator": {
+                "$ref": "#/$defs/LocatorV1"
+              },
+              "publication_id": {
+                "pattern": "^pub_[0-9a-f]{32}$",
+                "title": "Publication Id",
+                "type": "string"
+              },
+              "publication_revision": {
+                "exclusiveMinimum": 0,
+                "title": "Publication Revision",
+                "type": "integer"
+              },
+              "run_id": {
+                "pattern": "^run_[0-9a-f]{32}$",
+                "title": "Run Id",
+                "type": "string"
+              },
+              "schema_version": {
+                "const": "mke.evidence_ref.v1",
+                "default": "mke.evidence_ref.v1",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "source_id": {
+                "pattern": "^src_[0-9a-f]{32}$",
+                "title": "Source Id",
+                "type": "string"
+              },
+              "text": {
+                "maxLength": 1000000,
+                "minLength": 1,
+                "title": "Text",
+                "type": "string"
+              }
+            },
+            "required": [
+              "evidence_id",
+              "source_id",
+              "content_fingerprint",
+              "publication_id",
+              "publication_revision",
+              "run_id",
+              "locator",
+              "text"
+            ],
+            "title": "EvidenceRefV1",
+            "type": "object"
+          },
+          "LocatorV1": {
+            "discriminator": {
+              "mapping": {
+                "page": "#/$defs/PageLocatorV1",
+                "timestamp_ms": "#/$defs/TimestampLocatorV1"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/PageLocatorV1"
+              },
+              {
+                "$ref": "#/$defs/TimestampLocatorV1"
+              }
+            ]
+          },
+          "PageLocatorV1": {
+            "additionalProperties": false,
+            "properties": {
+              "end": {
+                "exclusiveMinimum": 0,
+                "title": "End",
+                "type": "integer"
+              },
+              "kind": {
+                "const": "page",
+                "title": "Kind",
+                "type": "string"
+              },
+              "start": {
+                "exclusiveMinimum": 0,
+                "title": "Start",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "kind",
+              "start",
+              "end"
+            ],
+            "title": "PageLocatorV1",
+            "type": "object"
+          },
+          "TimestampLocatorV1": {
+            "additionalProperties": false,
+            "properties": {
+              "end": {
+                "exclusiveMinimum": 0,
+                "title": "End",
+                "type": "integer"
+              },
+              "kind": {
+                "const": "timestamp_ms",
+                "title": "Kind",
+                "type": "string"
+              },
+              "start": {
+                "minimum": 0,
+                "title": "Start",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "kind",
+              "start",
+              "end"
+            ],
+            "title": "TimestampLocatorV1",
+            "type": "object"
+          }
+        },
+        "discriminator": {
+          "mapping": {
+            "False": "#/$defs/AskLibraryErrorV1",
+            "True": "#/$defs/AskLibrarySuccessV1"
+          },
+          "propertyName": "ok"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/AskLibrarySuccessV1"
+          },
+          {
+            "$ref": "#/$defs/AskLibraryErrorV1"
+          }
+        ],
+        "title": "AskLibraryResponseV1"
+      }
+    },
+    "get_run": {
+      "inputSchema": {
+        "properties": {
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "title": "get_runArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "title": "get_runDictOutput",
+        "type": "object"
+      }
+    },
+    "ingest_file": {
+      "inputSchema": {
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "ingest_fileArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "title": "ingest_fileDictOutput",
+        "type": "object"
+      }
+    },
+    "list_libraries": {
+      "inputSchema": {
+        "properties": {},
+        "title": "list_librariesArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "title": "list_librariesDictOutput",
+        "type": "object"
+      }
+    },
+    "list_libraries_v1": {
+      "inputSchema": {
+        "properties": {},
+        "title": "list_libraries_v1Arguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "$defs": {
+          "ActivePublicationObservationV1": {
+            "additionalProperties": false,
+            "properties": {
+              "active_evidence_count": {
+                "minimum": 0,
+                "title": "Active Evidence Count",
+                "type": "integer"
+              },
+              "active_publication_count": {
+                "minimum": 0,
+                "title": "Active Publication Count",
+                "type": "integer"
+              },
+              "library_id": {
+                "const": "local",
+                "default": "local",
+                "title": "Library Id",
+                "type": "string"
+              },
+              "schema_version": {
+                "const": "mke.active_publication_observation.v1",
+                "default": "mke.active_publication_observation.v1",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "source_count": {
+                "minimum": 0,
+                "title": "Source Count",
+                "type": "integer"
+              },
+              "state": {
+                "enum": [
+                  "empty",
+                  "no_active_publication",
+                  "active"
+                ],
+                "title": "State",
+                "type": "string"
+              }
+            },
+            "required": [
+              "state",
+              "source_count",
+              "active_publication_count",
+              "active_evidence_count"
+            ],
+            "title": "ActivePublicationObservationV1",
+            "type": "object"
+          },
+          "ListLibrariesErrorV1": {
+            "additionalProperties": false,
+            "properties": {
+              "active_publication_impact": {
+                "const": "unchanged",
+                "default": "unchanged",
+                "title": "Active Publication Impact",
+                "type": "string"
+              },
+              "cause": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Cause",
+                "type": "string"
+              },
+              "next_step": {
+                "pattern": "^[a-z][a-z0-9_]{0,127}$",
+                "title": "Next Step",
+                "type": "string"
+              },
+              "ok": {
+                "const": false,
+                "title": "Ok",
+                "type": "boolean"
+              },
+              "problem": {
+                "pattern": "^[a-z][a-z0-9_]{0,127}$",
+                "title": "Problem",
+                "type": "string"
+              },
+              "schema_version": {
+                "const": "mke.list_libraries_response.v1",
+                "default": "mke.list_libraries_response.v1",
+                "title": "Schema Version",
+                "type": "string"
+              }
+            },
+            "required": [
+              "ok",
+              "problem",
+              "cause",
+              "next_step"
+            ],
+            "title": "ListLibrariesErrorV1",
+            "type": "object"
+          },
+          "ListLibrariesSuccessV1": {
+            "additionalProperties": false,
+            "properties": {
+              "observation": {
+                "$ref": "#/$defs/ActivePublicationObservationV1"
+              },
+              "ok": {
+                "const": true,
+                "default": true,
+                "title": "Ok",
+                "type": "boolean"
+              },
+              "schema_version": {
+                "const": "mke.list_libraries_response.v1",
+                "default": "mke.list_libraries_response.v1",
+                "title": "Schema Version",
+                "type": "string"
+              }
+            },
+            "required": [
+              "observation"
+            ],
+            "title": "ListLibrariesSuccessV1",
+            "type": "object"
+          }
+        },
+        "discriminator": {
+          "mapping": {
+            "False": "#/$defs/ListLibrariesErrorV1",
+            "True": "#/$defs/ListLibrariesSuccessV1"
+          },
+          "propertyName": "ok"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/ListLibrariesSuccessV1"
+          },
+          {
+            "$ref": "#/$defs/ListLibrariesErrorV1"
+          }
+        ],
+        "title": "ListLibrariesResponseV1"
+      }
+    },
+    "search_library": {
+      "inputSchema": {
+        "properties": {
+          "limit": {
+            "default": 5,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_libraryArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "title": "search_libraryDictOutput",
+        "type": "object"
+      }
+    },
+    "search_library_v1": {
+      "inputSchema": {
+        "properties": {
+          "limit": {
+            "default": 5,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_library_v1Arguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "$defs": {
+          "ActivePublicationObservationV1": {
+            "additionalProperties": false,
+            "properties": {
+              "active_evidence_count": {
+                "minimum": 0,
+                "title": "Active Evidence Count",
+                "type": "integer"
+              },
+              "active_publication_count": {
+                "minimum": 0,
+                "title": "Active Publication Count",
+                "type": "integer"
+              },
+              "library_id": {
+                "const": "local",
+                "default": "local",
+                "title": "Library Id",
+                "type": "string"
+              },
+              "schema_version": {
+                "const": "mke.active_publication_observation.v1",
+                "default": "mke.active_publication_observation.v1",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "source_count": {
+                "minimum": 0,
+                "title": "Source Count",
+                "type": "integer"
+              },
+              "state": {
+                "enum": [
+                  "empty",
+                  "no_active_publication",
+                  "active"
+                ],
+                "title": "State",
+                "type": "string"
+              }
+            },
+            "required": [
+              "state",
+              "source_count",
+              "active_publication_count",
+              "active_evidence_count"
+            ],
+            "title": "ActivePublicationObservationV1",
+            "type": "object"
+          },
+          "EvidenceRefV1": {
+            "additionalProperties": false,
+            "properties": {
+              "content_fingerprint": {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "title": "Content Fingerprint",
+                "type": "string"
+              },
+              "evidence_id": {
+                "pattern": "^ev_[0-9a-f]{32}$",
+                "title": "Evidence Id",
+                "type": "string"
+              },
+              "locator": {
+                "$ref": "#/$defs/LocatorV1"
+              },
+              "publication_id": {
+                "pattern": "^pub_[0-9a-f]{32}$",
+                "title": "Publication Id",
+                "type": "string"
+              },
+              "publication_revision": {
+                "exclusiveMinimum": 0,
+                "title": "Publication Revision",
+                "type": "integer"
+              },
+              "run_id": {
+                "pattern": "^run_[0-9a-f]{32}$",
+                "title": "Run Id",
+                "type": "string"
+              },
+              "schema_version": {
+                "const": "mke.evidence_ref.v1",
+                "default": "mke.evidence_ref.v1",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "source_id": {
+                "pattern": "^src_[0-9a-f]{32}$",
+                "title": "Source Id",
+                "type": "string"
+              },
+              "text": {
+                "maxLength": 1000000,
+                "minLength": 1,
+                "title": "Text",
+                "type": "string"
+              }
+            },
+            "required": [
+              "evidence_id",
+              "source_id",
+              "content_fingerprint",
+              "publication_id",
+              "publication_revision",
+              "run_id",
+              "locator",
+              "text"
+            ],
+            "title": "EvidenceRefV1",
+            "type": "object"
+          },
+          "LocatorV1": {
+            "discriminator": {
+              "mapping": {
+                "page": "#/$defs/PageLocatorV1",
+                "timestamp_ms": "#/$defs/TimestampLocatorV1"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/PageLocatorV1"
+              },
+              {
+                "$ref": "#/$defs/TimestampLocatorV1"
+              }
+            ]
+          },
+          "PageLocatorV1": {
+            "additionalProperties": false,
+            "properties": {
+              "end": {
+                "exclusiveMinimum": 0,
+                "title": "End",
+                "type": "integer"
+              },
+              "kind": {
+                "const": "page",
+                "title": "Kind",
+                "type": "string"
+              },
+              "start": {
+                "exclusiveMinimum": 0,
+                "title": "Start",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "kind",
+              "start",
+              "end"
+            ],
+            "title": "PageLocatorV1",
+            "type": "object"
+          },
+          "SearchLibraryErrorV1": {
+            "additionalProperties": false,
+            "properties": {
+              "active_publication_impact": {
+                "const": "unchanged",
+                "default": "unchanged",
+                "title": "Active Publication Impact",
+                "type": "string"
+              },
+              "cause": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Cause",
+                "type": "string"
+              },
+              "next_step": {
+                "pattern": "^[a-z][a-z0-9_]{0,127}$",
+                "title": "Next Step",
+                "type": "string"
+              },
+              "ok": {
+                "const": false,
+                "title": "Ok",
+                "type": "boolean"
+              },
+              "problem": {
+                "pattern": "^[a-z][a-z0-9_]{0,127}$",
+                "title": "Problem",
+                "type": "string"
+              },
+              "schema_version": {
+                "const": "mke.search_library_response.v1",
+                "default": "mke.search_library_response.v1",
+                "title": "Schema Version",
+                "type": "string"
+              }
+            },
+            "required": [
+              "ok",
+              "problem",
+              "cause",
+              "next_step"
+            ],
+            "title": "SearchLibraryErrorV1",
+            "type": "object"
+          },
+          "SearchLibrarySuccessV1": {
+            "additionalProperties": false,
+            "properties": {
+              "observation": {
+                "$ref": "#/$defs/ActivePublicationObservationV1"
+              },
+              "ok": {
+                "const": true,
+                "default": true,
+                "title": "Ok",
+                "type": "boolean"
+              },
+              "query": {
+                "maxLength": 1000000,
+                "minLength": 1,
+                "title": "Query",
+                "type": "string"
+              },
+              "results": {
+                "items": {
+                  "$ref": "#/$defs/EvidenceRefV1"
+                },
+                "maxItems": 20,
+                "title": "Results",
+                "type": "array"
+              },
+              "schema_version": {
+                "const": "mke.search_library_response.v1",
+                "default": "mke.search_library_response.v1",
+                "title": "Schema Version",
+                "type": "string"
+              }
+            },
+            "required": [
+              "query",
+              "observation",
+              "results"
+            ],
+            "title": "SearchLibrarySuccessV1",
+            "type": "object"
+          },
+          "TimestampLocatorV1": {
+            "additionalProperties": false,
+            "properties": {
+              "end": {
+                "exclusiveMinimum": 0,
+                "title": "End",
+                "type": "integer"
+              },
+              "kind": {
+                "const": "timestamp_ms",
+                "title": "Kind",
+                "type": "string"
+              },
+              "start": {
+                "minimum": 0,
+                "title": "Start",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "kind",
+              "start",
+              "end"
+            ],
+            "title": "TimestampLocatorV1",
+            "type": "object"
+          }
+        },
+        "discriminator": {
+          "mapping": {
+            "False": "#/$defs/SearchLibraryErrorV1",
+            "True": "#/$defs/SearchLibrarySuccessV1"
+          },
+          "propertyName": "ok"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/SearchLibrarySuccessV1"
+          },
+          {
+            "$ref": "#/$defs/SearchLibraryErrorV1"
+          }
+        ],
+        "title": "SearchLibraryResponseV1"
+      }
+    }
+  }
+}
