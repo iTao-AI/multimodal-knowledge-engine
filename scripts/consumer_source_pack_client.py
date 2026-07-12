@@ -976,7 +976,6 @@ async def run_store_session(config: ConsumerConfig, database: Path) -> StoreResu
         env=dict(config.child_environment),
     )
     capture = BoundedStderrCapture(config.max_transport_bytes)
-    initialized = False
     async with capture:
         try:
             async with stdio_client(server, errlog=capture.write_end) as (read, write):
@@ -991,7 +990,6 @@ async def run_store_session(config: ConsumerConfig, database: Path) -> StoreResu
                         "mcp_startup_timeout",
                         capture,
                     )
-                    initialized = True
                     listed = await _deadline(
                         session.list_tools(),
                         config.tool_timeout_seconds,
@@ -1149,8 +1147,7 @@ async def run_store_session(config: ConsumerConfig, database: Path) -> StoreResu
         except Exception as exc:
             if capture.overflow.is_set():
                 raise ProofError("command_output_exceeded") from exc
-            code = "mcp_transport_failed" if initialized else "server_exit_nonzero"
-            raise ProofError(code) from exc
+            raise ProofError("mcp_transport_failed") from exc
         finally:
             if capture.overflow.is_set() and capture.terminal_code in {
                 None,

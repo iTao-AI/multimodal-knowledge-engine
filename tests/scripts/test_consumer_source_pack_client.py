@@ -906,9 +906,9 @@ def test_run_store_session_rejects_search_and_ask_query_echo_drift(
 
 @pytest.mark.parametrize(
     ("failure_phase", "code"),
-    [("startup", "server_exit_nonzero"), ("established", "mcp_transport_failed")],
+    [("startup", "mcp_transport_failed"), ("established", "mcp_transport_failed")],
 )
-def test_run_store_session_classifies_transport_failure_by_phase(
+def test_run_store_session_maps_unobservable_sdk_failures_to_transport(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     failure_phase: str,
@@ -946,6 +946,41 @@ def test_run_store_session_classifies_transport_failure_by_phase(
         asyncio.run(client.run_store_session(config, tmp_path / "fresh.sqlite"))
 
     assert exc_info.value.code == code
+
+
+def test_real_nonzero_child_is_transport_when_exit_code_is_controller_owned(
+    tmp_path: Path,
+) -> None:
+    server = tmp_path / "nonzero-mcp"
+    server.write_text(
+        "#!/usr/bin/env python3\n"
+        "import os, pathlib, sys\n"
+        "pathlib.Path('nonzero.pid').write_text(str(os.getpid()))\n"
+        "sys.exit(7)\n",
+        encoding="utf-8",
+    )
+    server.chmod(0o755)
+    config = client.ConsumerConfig(
+        MANIFEST,
+        SCHEMAS,
+        LOCAL_FIXTURE_ROOT,
+        server,
+        tmp_path,
+        {"PATH": os.environ["PATH"]},
+        10.0,
+        10.0,
+        1024,
+    )
+
+    started = time.monotonic()
+    with pytest.raises(client.ProofError) as exc_info:
+        asyncio.run(client.run_store_session(config, tmp_path / "store.sqlite"))
+
+    assert exc_info.value.code == "mcp_transport_failed"
+    assert time.monotonic() - started < 5.0
+    pid = int((tmp_path / "nonzero.pid").read_text(encoding="utf-8"))
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)
 
 
 def test_run_consumer_maps_fresh_store_receipt_mismatch_to_approved_fallback(
