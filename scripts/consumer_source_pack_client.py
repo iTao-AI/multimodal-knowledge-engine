@@ -81,6 +81,57 @@ class SourcePack:
     queries: tuple[QueryExpectation, ...]
 
 
+_APPROVED_SOURCES = (
+    SourceEntry(
+        source_key="operations_guide",
+        relative_filename="operations-guide.pdf",
+        media_type="application/pdf",
+        bytes=1000,
+        sha256="0ac3e96efc89ee91e48bb3efc8611de88b2698e5aa26c1f8e0e8f78ad2d60ddd",
+        redistribution_class="repository_authored_synthetic",
+        generator="scripts/generate_local_knowledge_fixtures.py",
+    ),
+    SourceEntry(
+        source_key="incident_guide",
+        relative_filename="incident-guide.pdf",
+        media_type="application/pdf",
+        bytes=990,
+        sha256="ed55cfbe9bdbf4404eb9ff55ab7e51fac14006ae0584a14d50704f68a02ff699",
+        redistribution_class="repository_authored_synthetic",
+        generator="scripts/generate_local_knowledge_fixtures.py",
+    ),
+)
+_APPROVED_QUERIES = (
+    QueryExpectation(
+        role="operations_guide",
+        query="Cedar Relay maintenance window",
+        expected_source_key="operations_guide",
+        locator_kind="page",
+        allowed_locator_range=(1, 1),
+        expected_search_status=None,
+        expected_ask_status=None,
+    ),
+    QueryExpectation(
+        role="incident_guide",
+        query="Cedar Relay telemetry amber",
+        expected_source_key="incident_guide",
+        locator_kind="page",
+        allowed_locator_range=(1, 1),
+        expected_search_status=None,
+        expected_ask_status=None,
+    ),
+    QueryExpectation(
+        role="unsupported",
+        query="lunar payroll retention policy",
+        expected_source_key=None,
+        locator_kind=None,
+        allowed_locator_range=None,
+        expected_search_status="no_match",
+        expected_ask_status="insufficient_evidence",
+    ),
+)
+
+
 def _manifest_error() -> ProofError:
     return ProofError("source_pack_manifest_invalid")
 
@@ -214,6 +265,8 @@ def load_source_pack(manifest_path: Path) -> SourcePack:
         )
         roles = [query.role for query in queries]
         if len(set(roles)) != len(roles):
+            raise _manifest_error()
+        if sources != _APPROVED_SOURCES or queries != _APPROVED_QUERIES:
             raise _manifest_error()
     except ProofError:
         raise

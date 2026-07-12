@@ -118,6 +118,68 @@ def _unsupported_query_shape_mismatch(payload: dict[str, object]) -> None:
     payload["queries"][2]["locator_kind"] = "page"  # type: ignore[index]
 
 
+def _drift_source_key(payload: dict[str, object]) -> None:
+    payload["sources"][0]["source_key"] = "operations_manual"  # type: ignore[index]
+    payload["queries"][0]["expected_source_key"] = "operations_manual"  # type: ignore[index]
+
+
+def _drift_source_filename(payload: dict[str, object]) -> None:
+    payload["sources"][0]["relative_filename"] = "operations-manual.pdf"  # type: ignore[index]
+
+
+def _drift_source_media_type(payload: dict[str, object]) -> None:
+    payload["sources"][0]["media_type"] = "application/x-pdf"  # type: ignore[index]
+
+
+def _drift_source_bytes(payload: dict[str, object]) -> None:
+    payload["sources"][0]["bytes"] = 1001  # type: ignore[index]
+
+
+def _drift_source_sha256(payload: dict[str, object]) -> None:
+    payload["sources"][0]["sha256"] = "1" * 64  # type: ignore[index]
+
+
+def _drift_source_redistribution_class(payload: dict[str, object]) -> None:
+    payload["sources"][0]["redistribution_class"] = "redistributable"  # type: ignore[index]
+
+
+def _drift_source_generator_identity(payload: dict[str, object]) -> None:
+    payload["sources"][0]["generator"] = "scripts/other_generator.py"  # type: ignore[index]
+
+
+def _drift_query_role(payload: dict[str, object]) -> None:
+    payload["queries"][0]["role"] = "operations_manual"  # type: ignore[index]
+
+
+def _drift_query_text(payload: dict[str, object]) -> None:
+    payload["queries"][0]["query"] = "Cedar Relay service window"  # type: ignore[index]
+
+
+def _drift_query_expected_source_key(payload: dict[str, object]) -> None:
+    payload["queries"][0]["expected_source_key"] = "incident_guide"  # type: ignore[index]
+
+
+def _drift_query_locator_kind(payload: dict[str, object]) -> None:
+    payload["queries"][0]["locator_kind"] = "timestamp"  # type: ignore[index]
+
+
+def _drift_query_locator_range(payload: dict[str, object]) -> None:
+    payload["queries"][0]["allowed_locator_range"] = [2, 2]  # type: ignore[index]
+
+
+def _drift_unsupported_query(payload: dict[str, object]) -> None:
+    payload["queries"][2]["role"] = "out_of_scope"  # type: ignore[index]
+    payload["queries"][2]["query"] = "lunar payroll archive policy"  # type: ignore[index]
+
+
+def _drift_unsupported_search_state(payload: dict[str, object]) -> None:
+    payload["queries"][2]["expected_search_status"] = "match"  # type: ignore[index]
+
+
+def _drift_unsupported_ask_state(payload: dict[str, object]) -> None:
+    payload["queries"][2]["expected_ask_status"] = "answered"  # type: ignore[index]
+
+
 MANIFEST_MUTATIONS: tuple[tuple[str, Callable[[dict[str, object]], None]], ...] = (
     ("missing top-level field", _delete_top_level),
     ("extra top-level field", _add_top_level),
@@ -136,6 +198,27 @@ MANIFEST_MUTATIONS: tuple[tuple[str, Callable[[dict[str, object]], None]], ...] 
     ("invalid locator range", _invalid_locator_range),
     ("positive query shape mismatch", _positive_query_shape_mismatch),
     ("unsupported query shape mismatch", _unsupported_query_shape_mismatch),
+)
+
+
+IDENTITY_DRIFT_MUTATIONS: tuple[
+    tuple[str, Callable[[dict[str, object]], None]], ...
+] = (
+    ("source key", _drift_source_key),
+    ("source relative filename", _drift_source_filename),
+    ("source media type", _drift_source_media_type),
+    ("source bytes", _drift_source_bytes),
+    ("source sha256", _drift_source_sha256),
+    ("source redistribution class", _drift_source_redistribution_class),
+    ("source generator identity", _drift_source_generator_identity),
+    ("query role", _drift_query_role),
+    ("query text", _drift_query_text),
+    ("query expected source key", _drift_query_expected_source_key),
+    ("query locator kind", _drift_query_locator_kind),
+    ("query locator range", _drift_query_locator_range),
+    ("unsupported query role and text", _drift_unsupported_query),
+    ("unsupported search state", _drift_unsupported_search_state),
+    ("unsupported ask state", _drift_unsupported_ask_state),
 )
 
 
@@ -159,6 +242,23 @@ def test_load_source_pack_manifest() -> None:
 
 @pytest.mark.parametrize(("case", "mutate"), MANIFEST_MUTATIONS, ids=lambda value: str(value))
 def test_load_source_pack_rejects_invalid_manifest(
+    tmp_path: Path,
+    case: str,
+    mutate: Callable[[dict[str, object]], None],
+) -> None:
+    payload = copy.deepcopy(_manifest_payload())
+    mutate(payload)
+
+    with pytest.raises(client.ProofError) as exc_info:
+        client.load_source_pack(_write_manifest(tmp_path, payload))
+
+    assert exc_info.value.code == "source_pack_manifest_invalid", case
+
+
+@pytest.mark.parametrize(
+    ("case", "mutate"), IDENTITY_DRIFT_MUTATIONS, ids=lambda value: str(value)
+)
+def test_load_source_pack_rejects_approved_identity_drift(
     tmp_path: Path,
     case: str,
     mutate: Callable[[dict[str, object]], None],
