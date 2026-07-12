@@ -6,6 +6,9 @@ Multimodal Knowledge Engine is a local-first, Agent-callable Evidence engine for
 searching, and asking questions over documents and media. It keeps source processing, Publication
 activation, retrieval, and Agent-facing interfaces inside one verifiable local application boundary.
 
+The [Run The Consumer Source-Pack Proof](./docs/how-to/run-consumer-source-pack-proof.md) guide
+documents a source-built proof for the current source checkout without changing release claims.
+
 `v0.1.1` builds on the first public `v0.1.0` release with a public-safe synthetic proof of MKE as an
 Agent-callable local knowledge tool. The release keeps the same narrow runtime boundary: observable
 ingest Runs, active Publication Search, evidence-only Ask, retrieval evaluation artifacts, and one
