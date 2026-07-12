@@ -139,6 +139,33 @@ def documentation_violations(how_to: str, readme: str, docs_index: str) -> list[
     return violations
 
 
+def _add_success_field(text: str) -> str:
+    return text.replace("and\n  `cleanup`.", "`cleanup`, and `unexpected_field`.")
+
+
+def _add_failure_code(text: str) -> str:
+    return text.replace(
+        "`cleanup_failed`, and `proof_failed`.",
+        "`cleanup_failed`, `proof_failed`, and `unexpected_code`.",
+    )
+
+
+def _add_v0_1_1_claim(text: str) -> str:
+    return text + "\nThis is a `v0.1.1` capability.\n"
+
+
+def _add_release_gate_claim(text: str) -> str:
+    return text + "\nThis proof is a release gate.\n"
+
+
+def _add_pypi_claim(text: str) -> str:
+    return text + "\nThis is a PyPI proof.\n"
+
+
+def _add_deployment_claim(text: str) -> str:
+    return text + "\nThis proof deploys MKE.\n"
+
+
 def test_consumer_source_pack_how_to_documents_exact_command_and_contract() -> None:
     text = HOW_TO.read_text(encoding="utf-8")
     prose = normalized(text)
@@ -245,15 +272,12 @@ def test_consumer_source_pack_docs_preserve_non_release_boundary() -> None:
 @pytest.mark.parametrize(
     "mutation",
     (
-        lambda text: text.replace("and\n  `cleanup`.", "`cleanup`, and `unexpected_field`."),
-        lambda text: text.replace(
-            "`cleanup_failed`, and `proof_failed`.",
-            "`cleanup_failed`, `proof_failed`, and `unexpected_code`.",
-        ),
-        lambda text: text + "\nThis is a `v0.1.1` capability.\n",
-        lambda text: text + "\nThis proof is a release gate.\n",
-        lambda text: text + "\nThis is a PyPI proof.\n",
-        lambda text: text + "\nThis proof deploys MKE.\n",
+        _add_success_field,
+        _add_failure_code,
+        _add_v0_1_1_claim,
+        _add_release_gate_claim,
+        _add_pypi_claim,
+        _add_deployment_claim,
     ),
     ids=(
         "extra-success-field",
