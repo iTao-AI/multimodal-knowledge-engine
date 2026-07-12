@@ -392,8 +392,12 @@ Focused tests cover:
 
 Real stdio integration uses the copied standalone consumer against the installed `mke` executable
 and covers every required success flow. Tests must also prove that the consumer file and cwd are
-external, hostile Python environment variables are cleared, no `mke` module is imported by the
-consumer, and the consumer cannot succeed by reading the source checkout or SQLite.
+external, hostile Python environment variables are cleared, only the explicit consumer assets and
+source pack are copied, and no repository path is supplied to the consumer. Focused tests and a
+static audit of the standalone consumer must reject `mke` or `sqlite3` imports and any direct
+repository or database read, proving that the successful consumer path neither reads nor depends on
+the source checkout or SQLite directly. These are verifiable dependency and behavior assertions
+under a shared OS principal, not a claim that an OS sandbox removes filesystem access.
 
 ### Installed-wheel matrix
 
@@ -469,8 +473,11 @@ change; this design does not do so.
       environments.
 - [ ] Module, distribution metadata, Python, `mke` executable, consumer file, and cwd identities
       prove installed/external isolation; hostile Python environment variables are cleared.
-- [ ] The standalone consumer imports no MKE code, reads no SQLite, derives no schema from the
-      source checkout, and communicates only through official MCP SDK stdio calls.
+- [ ] Only explicit consumer assets and source-pack files enter the external workspace; no
+      repository path is supplied to the standalone consumer. Focused tests and static audit reject
+      `mke`/`sqlite3` imports and direct repository/database reads, and the successful consumer path
+      derives no schema from the source checkout and obtains MKE data only through official MCP SDK
+      stdio calls, without claiming OS-level filesystem isolation.
 - [ ] Existing frozen synthetic PDF bytes and `local-knowledge-v1` assets remain unchanged; a
       separate strict manifest owns pack identity and consumer source keys.
 - [ ] Manifest bytes and hashes validate before server startup, and fingerprint mapping is exact,
