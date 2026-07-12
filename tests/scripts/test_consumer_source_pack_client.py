@@ -630,3 +630,49 @@ def test_list_and_ask_cross_field_invariants_and_projection() -> None:
     assert client.evidence_projection(search) == client.evidence_projection(valid_ask)
     cast(dict[str, object], cast(list[object], valid_ask["evidence"])[0])["text"] = "different"
     assert client.evidence_projection(search) != client.evidence_projection(valid_ask)
+
+
+def test_build_receipt_maps_only_manifest_fingerprint_and_closes_projection() -> None:
+    pack = client.load_source_pack(MANIFEST)
+    query = pack.queries[0]
+    evidence = _evidence()
+    evidence["content_fingerprint"] = "sha256:" + pack.sources[0].sha256
+
+    receipt = client.build_receipt(evidence, pack, query)
+
+    assert receipt == {
+        "schema_version": "mke.consumer_source_pack_receipt.v1",
+        "match_status": "matched",
+        "query_role": "operations_guide",
+        "source_key": "operations_guide",
+        "content_fingerprint": "sha256:" + pack.sources[0].sha256,
+        "locator": {"kind": "page", "start": 1, "end": 1},
+    }
+    assert not ({"evidence_id", "source_id", "publication_id", "run_id", "text"} & receipt.keys())
+
+
+@pytest.mark.parametrize(
+    ("mutation", "code"),
+    [
+        ("missing", "manifest_mapping_missing"),
+        ("ambiguous", "manifest_mapping_ambiguous"),
+        ("locator", "manifest_locator_mismatch"),
+    ],
+)
+def test_build_receipt_fails_closed(mutation: str, code: str) -> None:
+    pack = client.load_source_pack(MANIFEST)
+    query = pack.queries[0]
+    evidence = _evidence()
+    if mutation == "missing":
+        evidence["content_fingerprint"] = "sha256:" + "f" * 64
+    elif mutation == "ambiguous":
+        pack = client.SourcePack(
+            pack.schema_version, pack.pack_id, (pack.sources[0], pack.sources[0]), pack.queries
+        )
+        evidence["content_fingerprint"] = "sha256:" + pack.sources[0].sha256
+    else:
+        evidence["content_fingerprint"] = "sha256:" + pack.sources[0].sha256
+        evidence["locator"] = {"kind": "page", "start": 2, "end": 2}
+    with pytest.raises(client.ProofError) as exc_info:
+        client.build_receipt(evidence, pack, query)
+    assert exc_info.value.code == code

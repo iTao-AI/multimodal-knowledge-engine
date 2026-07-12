@@ -6,13 +6,21 @@ manifest parsing and preflight identity verification.
 
 from __future__ import annotations
 
+import argparse
+import asyncio
 import hashlib
 import json
+import os
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import timedelta
+from io import TextIOWrapper
 from pathlib import Path, PurePosixPath
-from typing import Protocol, cast
+from typing import Any, Protocol, TextIO, cast
+
+from mcp import ClientSession, StdioServerParameters, types
+from mcp.client.stdio import stdio_client
 
 _MANIFEST_SCHEMA = "mke.consumer_source_pack_manifest.v1"
 _PACK_ID = "local-knowledge-v1"
@@ -193,6 +201,53 @@ class SourcePack:
     pack_id: str
     sources: tuple[SourceEntry, ...]
     queries: tuple[QueryExpectation, ...]
+
+
+@dataclass(frozen=True)
+class ConsumerConfig:
+    manifest: Path
+    schemas: Path
+    source_root: Path
+    mke_executable: Path
+    workspace: Path
+    child_environment: dict[str, str]
+    startup_timeout_seconds: float
+    tool_timeout_seconds: float
+    max_transport_bytes: int
+
+
+@dataclass(frozen=True)
+class StoreResult:
+    source_count: int
+    published_run_count: int
+    active_publication_count: int
+    active_evidence_count: int
+    observed_states: tuple[str, ...]
+    receipts: tuple[dict[str, object], ...]
+    strict_schema_validation: bool
+    search_ask_projection_equal: bool
+    exact_manifest_mapping: bool
+    redaction: bool
+    server_cleanup: bool
+
+
+@dataclass(frozen=True)
+class ConsumerResult:
+    manifest_schema: str
+    evidence_schema: str
+    pack_id: str
+    source_count: int
+    published_run_count: int
+    active_publication_count: int
+    active_evidence_count: int
+    observed_states: tuple[str, ...]
+    receipts: tuple[dict[str, object], ...]
+    strict_schema_validation: bool
+    search_ask_projection_equal: bool
+    exact_manifest_mapping: bool
+    fresh_store_mapping: bool
+    redaction: bool
+    server_cleanup: bool
 
 
 _APPROVED_SOURCES = (
@@ -723,3 +778,387 @@ def evidence_projection(payload: Mapping[str, object]) -> tuple[object, ...]:
     if len(values) > 20:
         raise _contract_error()
     return tuple(_evidence(value) for value in values)
+
+
+def build_receipt(
+    evidence: Mapping[str, object], pack: SourcePack, query: QueryExpectation
+) -> dict[str, object]:
+    fingerprint = evidence.get("content_fingerprint")
+    matches = [source for source in pack.sources if fingerprint == "sha256:" + source.sha256]
+    if not matches:
+        raise ProofError("manifest_mapping_missing")
+    if len(matches) != 1:
+        raise ProofError("manifest_mapping_ambiguous")
+    source = matches[0]
+    if source.source_key != query.expected_source_key or source.source_key != query.role:
+        raise ProofError("manifest_mapping_missing")
+    locator = evidence.get("locator")
+    if not isinstance(locator, dict) or query.allowed_locator_range is None:
+        raise ProofError("manifest_locator_mismatch")
+    loc = cast(dict[str, object], locator)
+    if (
+        set(loc) != {"kind", "start", "end"}
+        or loc["kind"] != query.locator_kind
+        or (loc["start"], loc["end"]) != query.allowed_locator_range
+    ):
+        raise ProofError("manifest_locator_mismatch")
+    return {
+        "schema_version": "mke.consumer_source_pack_receipt.v1",
+        "match_status": "matched",
+        "query_role": query.role,
+        "source_key": source.source_key,
+        "content_fingerprint": fingerprint,
+        "locator": {"kind": loc["kind"], "start": loc["start"], "end": loc["end"]},
+    }
+
+
+class BoundedStderrCapture:
+    """An incrementally drained OS pipe with a hard byte cap."""
+
+    def __init__(self, max_bytes: int) -> None:
+        if max_bytes < 1:
+            raise ValueError("max_bytes must be positive")
+        self.max_bytes = max_bytes
+        self.overflow = asyncio.Event()
+        self.bytes_seen = 0
+        self.errlog: TextIO | None = None
+        self._read_fd: int | None = None
+        self._task: asyncio.Task[None] | None = None
+
+    @property
+    def write_end(self) -> TextIO:
+        if self.errlog is None:
+            raise RuntimeError("capture is not entered")
+        return self.errlog
+
+    async def __aenter__(self) -> BoundedStderrCapture:
+        read_fd, write_fd = os.pipe()
+        self._read_fd = read_fd
+        self.errlog = TextIOWrapper(os.fdopen(write_fd, "wb", closefd=True), write_through=True)
+        self._task = asyncio.create_task(self._drain())
+        return self
+
+    async def _drain(self) -> None:
+        assert self._read_fd is not None
+        try:
+            while True:
+                chunk = await asyncio.to_thread(os.read, self._read_fd, 4096)
+                if not chunk:
+                    return
+                self.bytes_seen += len(chunk)
+                if self.bytes_seen > self.max_bytes:
+                    self.overflow.set()
+                    if self.errlog is not None:
+                        self.errlog.close()
+                    os.close(self._read_fd)
+                    self._read_fd = None
+                    return
+        except (OSError, asyncio.CancelledError):
+            return
+
+    async def __aexit__(self, *args: object) -> None:
+        if self.errlog is not None and not self.errlog.closed:
+            self.errlog.close()
+        if self._read_fd is not None:
+            os.close(self._read_fd)
+            self._read_fd = None
+        if self._task is not None:
+            self._task.cancel()
+            await asyncio.gather(self._task, return_exceptions=True)
+
+
+def _tool_payload(result: object) -> dict[str, object]:
+    if getattr(result, "isError", False):
+        raise _contract_error()
+    structured = getattr(result, "structuredContent", None)
+    if isinstance(structured, dict):
+        return cast(dict[str, object], structured)
+    for item in cast(list[object], getattr(result, "content", [])):
+        if isinstance(item, types.TextContent):
+            try:
+                value = json.loads(item.text)
+            except json.JSONDecodeError as exc:
+                raise _contract_error() from exc
+            if isinstance(value, dict):
+                return cast(dict[str, object], value)
+    raise _contract_error()
+
+
+async def _deadline(awaitable: Any, seconds: float, code: str) -> Any:
+    try:
+        return await asyncio.wait_for(awaitable, timeout=seconds)
+    except TimeoutError as exc:
+        raise ProofError(code) from exc
+
+
+def _validate_run(payload: Mapping[str, object], run_id: str) -> None:
+    run = payload.get("run")
+    events = payload.get("events")
+    if payload.get("ok") is not True or not isinstance(run, dict) or not isinstance(events, list):
+        raise _contract_error()
+    typed_run = cast(dict[str, object], run)
+    if typed_run.get("run_id") != run_id or typed_run.get("state") != "published":
+        raise _contract_error()
+    event_values = cast(list[object], events)
+    if not all(isinstance(item, dict) for item in event_values):
+        raise _contract_error()
+    typed = cast(list[dict[str, object]], event_values)
+    indices = [item.get("event_index") for item in typed]
+    names = [item.get("event") for item in typed]
+    required = ["run_created", "run_started", "candidate_validated", "publication_activated"]
+    positions = [names.index(name) if name in names else -1 for name in required]
+    if (
+        indices != list(range(1, len(typed) + 1))
+        or positions != sorted(positions)
+        or -1 in positions
+        or names[-1] != "publication_activated"
+    ):
+        raise _contract_error()
+
+
+async def _call(
+    session: ClientSession, name: str, arguments: dict[str, object], timeout: float
+) -> dict[str, object]:
+    result = await _deadline(session.call_tool(name, arguments), timeout, "consumer_tool_timeout")
+    return _tool_payload(result)
+
+
+async def run_store_session(config: ConsumerConfig, database: Path) -> StoreResult:
+    pack = load_source_pack(config.manifest)
+    verify_source_files(pack, config.source_root)
+    schemas = load_schema_expectations(config.schemas)
+    server = StdioServerParameters(
+        command=str(config.mke_executable),
+        args=["--db", str(database), "mcp", "--allowed-root", str(config.source_root)],
+        cwd=str(config.workspace),
+        env=dict(config.child_environment),
+    )
+    capture = BoundedStderrCapture(config.max_transport_bytes)
+    async with capture:
+        try:
+            async with stdio_client(server, errlog=capture.write_end) as (read, write):
+                async with ClientSession(
+                    read,
+                    write,
+                    read_timeout_seconds=timedelta(seconds=config.tool_timeout_seconds),
+                ) as session:
+                    await _deadline(
+                        session.initialize(),
+                        config.startup_timeout_seconds,
+                        "consumer_startup_timeout",
+                    )
+                    listed = await _deadline(
+                        session.list_tools(), config.tool_timeout_seconds, "consumer_tool_timeout"
+                    )
+                    validate_tool_schemas(listed.tools, schemas)
+                    initial = validate_list_response(
+                        await _call(session, "list_libraries_v1", {}, config.tool_timeout_seconds)
+                    )
+                    initial_obs = cast(dict[str, object], initial["observation"])
+                    if initial_obs != {
+                        "schema_version": "mke.active_publication_observation.v1",
+                        "library_id": "local",
+                        "state": "empty",
+                        "source_count": 0,
+                        "active_publication_count": 0,
+                        "active_evidence_count": 0,
+                    }:
+                        raise _contract_error()
+                    published = 0
+                    for source in pack.sources:
+                        ingested = await _call(
+                            session,
+                            "ingest_file",
+                            {"path": source.relative_filename},
+                            config.tool_timeout_seconds,
+                        )
+                        run_id = ingested.get("run_id")
+                        evidence_count = ingested.get("evidence_count")
+                        if (
+                            not isinstance(run_id, str)
+                            or isinstance(evidence_count, bool)
+                            or not isinstance(evidence_count, int)
+                            or evidence_count < 1
+                        ):
+                            raise _contract_error()
+                        _validate_run(
+                            await _call(
+                                session,
+                                "get_run",
+                                {"run_id": run_id},
+                                config.tool_timeout_seconds,
+                            ),
+                            run_id,
+                        )
+                        published += 1
+                    active = validate_list_response(
+                        await _call(session, "list_libraries_v1", {}, config.tool_timeout_seconds)
+                    )
+                    observation = cast(dict[str, object], active["observation"])
+                    if tuple(
+                        observation.get(k)
+                        for k in (
+                            "state",
+                            "source_count",
+                            "active_publication_count",
+                            "active_evidence_count",
+                        )
+                    ) != ("active", 2, 2, 2):
+                        raise _contract_error()
+                    receipts: list[dict[str, object]] = []
+                    projections_equal = True
+                    for query in (
+                        item for item in pack.queries if item.expected_source_key is not None
+                    ):
+                        searched = validate_search_response(
+                            await _call(
+                                session,
+                                "search_library_v1",
+                                {"query": query.query, "limit": 5},
+                                config.tool_timeout_seconds,
+                            )
+                        )
+                        asked = validate_ask_response(
+                            await _call(
+                                session,
+                                "ask_library_v1",
+                                {"question": query.query, "limit": 5},
+                                config.tool_timeout_seconds,
+                            )
+                        )
+                        projections_equal &= evidence_projection(searched) == evidence_projection(
+                            asked
+                        )
+                        results = cast(list[dict[str, object]], searched["results"])
+                        if len(results) != 1 or not projections_equal:
+                            raise _contract_error()
+                        receipts.append(build_receipt(results[0], pack, query))
+                    unsupported = next(
+                        item for item in pack.queries if item.expected_source_key is None
+                    )
+                    searched = validate_search_response(
+                        await _call(
+                            session,
+                            "search_library_v1",
+                            {"query": unsupported.query, "limit": 5},
+                            config.tool_timeout_seconds,
+                        )
+                    )
+                    asked = validate_ask_response(
+                        await _call(
+                            session,
+                            "ask_library_v1",
+                            {"question": unsupported.query, "limit": 5},
+                            config.tool_timeout_seconds,
+                        )
+                    )
+                    if (
+                        cast(dict[str, object], searched["observation"])["state"] != "active"
+                        or searched["results"] != []
+                        or asked["answer_status"] != unsupported.expected_ask_status
+                        or asked["evidence"] != []
+                    ):
+                        raise _contract_error()
+                    return StoreResult(
+                        2,
+                        published,
+                        2,
+                        2,
+                        ("empty", "active"),
+                        tuple(receipts),
+                        True,
+                        projections_equal,
+                        True,
+                        True,
+                        True,
+                    )
+        except ProofError:
+            raise
+        except Exception as exc:
+            if capture.overflow.is_set():
+                raise ProofError("command_output_exceeded") from exc
+            raise ProofError("consumer_transport_failed") from exc
+        finally:
+            if capture.overflow.is_set():
+                raise ProofError("command_output_exceeded")
+
+
+async def run_consumer(config: ConsumerConfig) -> ConsumerResult:
+    first = await run_store_session(config, config.workspace / "store-1.sqlite")
+    second = await run_store_session(config, config.workspace / "store-2.sqlite")
+
+    def identity(item: dict[str, object]) -> tuple[object, ...]:
+        locator = cast(dict[str, object], item["locator"])
+        return (
+            item["query_role"],
+            item["source_key"],
+            item["content_fingerprint"],
+            (locator["kind"], locator["start"], locator["end"]),
+        )
+
+    fresh = tuple(map(identity, first.receipts)) == tuple(map(identity, second.receipts))
+    if not fresh:
+        raise ProofError("fresh_store_mapping_mismatch")
+    return ConsumerResult(
+        _MANIFEST_SCHEMA,
+        "mke.evidence_ref.v1",
+        pack_id=_PACK_ID,
+        source_count=first.source_count,
+        published_run_count=first.published_run_count,
+        active_publication_count=first.active_publication_count,
+        active_evidence_count=first.active_evidence_count,
+        observed_states=first.observed_states,
+        receipts=first.receipts,
+        strict_schema_validation=True,
+        search_ask_projection_equal=True,
+        exact_manifest_mapping=True,
+        fresh_store_mapping=True,
+        redaction=True,
+        server_cleanup=True,
+    )
+
+
+def render_controller_result(result: ConsumerResult) -> str:
+    payload = {
+        "status": "passed",
+        **{field: getattr(result, field) for field in result.__dataclass_fields__},
+    }
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--schemas", type=Path, required=True)
+    parser.add_argument("--source-root", type=Path, required=True)
+    parser.add_argument("--mke", type=Path, required=True)
+    parser.add_argument("--workspace", type=Path, required=True)
+    parser.add_argument("--startup-timeout", type=float, default=60.0)
+    parser.add_argument("--tool-timeout", type=float, default=60.0)
+    parser.add_argument("--max-transport-bytes", type=int, default=65536)
+    args = parser.parse_args(argv)
+    config = ConsumerConfig(
+        args.manifest,
+        args.schemas,
+        args.source_root,
+        args.mke,
+        args.workspace,
+        dict(os.environ),
+        args.startup_timeout,
+        args.tool_timeout,
+        args.max_transport_bytes,
+    )
+    try:
+        print(render_controller_result(asyncio.run(run_consumer(config))))
+        return 0
+    except ProofError as exc:
+        print(
+            json.dumps(
+                {"status": "failed", "reason": exc.code}, sort_keys=True, separators=(",", ":")
+            )
+        )
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
