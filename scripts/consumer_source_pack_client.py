@@ -9,9 +9,10 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import cast
+from typing import Protocol, cast
 
 _MANIFEST_SCHEMA = "mke.consumer_source_pack_manifest.v1"
 _PACK_ID = "local-knowledge-v1"
@@ -40,6 +41,21 @@ _UNSUPPORTED_QUERY_KEYS = {
     "expected_search_status",
     "expected_ask_status",
 }
+_MACHINE_TOKEN_RE = re.compile(r"[a-z][a-z0-9_]{0,127}\Z")
+_ID_RES = {
+    prefix: re.compile(prefix + r"[0-9a-f]{32}\Z") for prefix in ("src_", "run_", "pub_", "ev_")
+}
+_FINGERPRINT_RE = re.compile(r"sha256:[0-9a-f]{64}\Z")
+_SAFE_CAUSES = {"query must not be empty", "operation failed; details were redacted"}
+
+
+class DiscoveredTool(Protocol):
+    @property
+    def name(self) -> str: ...
+    @property
+    def inputSchema(self) -> Mapping[str, object]: ...
+    @property
+    def outputSchema(self) -> Mapping[str, object] | None: ...
 
 
 @dataclass(frozen=True)
@@ -319,4 +335,278 @@ def load_schema_expectations(path: Path) -> dict[str, object]:
         or not isinstance(payload.get("tools"), dict)
     ):
         raise ProofError("tool_schema_expectations_invalid")
+    contract = cast(dict[str, object], payload["public_error_contract"])
+    causes = contract.get("safe_causes")
+    cause_values = cast(list[object], causes) if isinstance(causes, list) else []
+    if cause_values and all(isinstance(item, str) for item in cause_values):
+        _SAFE_CAUSES.clear()
+        _SAFE_CAUSES.update(cast(list[str], cause_values))
     return payload
+
+
+def _contract_error() -> ProofError:
+    return ProofError("consumer_mcp_contract_invalid")
+
+
+def _runtime_value(value: object) -> object:
+    return value
+
+
+def normalize_discovered_tools(tools: Sequence[DiscoveredTool]) -> dict[str, object]:
+    normalized: dict[str, object] = {}
+    try:
+        for tool in tools:
+            name = tool.name
+            input_value = _runtime_value(tool.inputSchema)
+            output_value = _runtime_value(tool.outputSchema)
+            if not name or not isinstance(input_value, Mapping):
+                raise _contract_error()
+            if output_value is not None and not isinstance(output_value, Mapping):
+                raise _contract_error()
+            input_schema = cast(Mapping[str, object], input_value)
+            output_schema = cast(Mapping[str, object] | None, output_value)
+            if name in normalized:
+                raise _contract_error()
+            normalized[name] = json.loads(
+                json.dumps(
+                    {
+                        "inputSchema": dict(input_schema),
+                        "outputSchema": None if output_schema is None else dict(output_schema),
+                    }
+                )
+            )
+    except ProofError:
+        raise
+    except (AttributeError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise _contract_error() from exc
+    return normalized
+
+
+def validate_tool_schemas(tools: Sequence[DiscoveredTool], expected: Mapping[str, object]) -> None:
+    actual = normalize_discovered_tools(tools)
+    expected_tools = expected.get("tools")
+    if not isinstance(expected_tools, dict) or actual != cast(dict[str, object], expected_tools):
+        raise _contract_error()
+
+
+def _object(value: object, keys: set[str]) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise _contract_error()
+    mapping = cast(dict[object, object], value)
+    if set(mapping) != keys:
+        raise _contract_error()
+    return cast(dict[str, object], value)
+
+
+def _integer(value: object, minimum: int = 0) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+        raise _contract_error()
+    return value
+
+
+def _text(value: object) -> str:
+    if not isinstance(value, str) or not value or len(value) > 1_000_000:
+        raise _contract_error()
+    return value
+
+
+def _observation(value: object) -> None:
+    item = _object(
+        value,
+        {
+            "schema_version",
+            "library_id",
+            "state",
+            "source_count",
+            "active_publication_count",
+            "active_evidence_count",
+        },
+    )
+    if (
+        item["schema_version"] != "mke.active_publication_observation.v1"
+        or item["library_id"] != "local"
+    ):
+        raise _contract_error()
+    source = _integer(item["source_count"])
+    publications = _integer(item["active_publication_count"])
+    evidence = _integer(item["active_evidence_count"])
+    state = item["state"]
+    valid = (
+        (state == "empty" and source == publications == evidence == 0)
+        or (state == "no_active_publication" and source > 0 and publications == evidence == 0)
+        or (state == "active" and source > 0 and publications > 0 and evidence > 0)
+    )
+    if not valid:
+        raise _contract_error()
+
+
+def _evidence(value: object) -> tuple[object, ...]:
+    item = _object(
+        value,
+        {
+            "schema_version",
+            "evidence_id",
+            "source_id",
+            "content_fingerprint",
+            "publication_id",
+            "publication_revision",
+            "run_id",
+            "locator",
+            "text",
+        },
+    )
+    if item["schema_version"] != "mke.evidence_ref.v1":
+        raise _contract_error()
+    for field, prefix in (
+        ("evidence_id", "ev_"),
+        ("source_id", "src_"),
+        ("publication_id", "pub_"),
+        ("run_id", "run_"),
+    ):
+        if (
+            not isinstance(item[field], str)
+            or _ID_RES[prefix].fullmatch(cast(str, item[field])) is None
+        ):
+            raise _contract_error()
+    if (
+        not isinstance(item["content_fingerprint"], str)
+        or _FINGERPRINT_RE.fullmatch(item["content_fingerprint"]) is None
+    ):
+        raise _contract_error()
+    _integer(item["publication_revision"], 1)
+    _text(item["text"])
+    locator = item["locator"]
+    if not isinstance(locator, dict):
+        raise _contract_error()
+    loc = cast(dict[str, object], locator)
+    if set(loc) != {"kind", "start", "end"}:
+        raise _contract_error()
+    start = _integer(loc["start"], 0)
+    end = _integer(loc["end"], 0)
+    if loc["kind"] == "page":
+        if start < 1 or end != start:
+            raise _contract_error()
+    elif loc["kind"] == "timestamp_ms":
+        if end <= start:
+            raise _contract_error()
+    else:
+        raise _contract_error()
+    return tuple(
+        item[key] if key != "locator" else (loc["kind"], start, end) for key in sorted(item)
+    )
+
+
+def _error(payload: dict[str, object], version: str) -> None:
+    if (
+        set(payload)
+        != {"schema_version", "ok", "problem", "cause", "active_publication_impact", "next_step"}
+        or payload["schema_version"] != version
+        or payload["ok"] is not False
+    ):
+        raise _contract_error()
+    for field in ("problem", "next_step"):
+        if (
+            not isinstance(payload[field], str)
+            or _MACHINE_TOKEN_RE.fullmatch(cast(str, payload[field])) is None
+        ):
+            raise _contract_error()
+    if payload["cause"] not in _SAFE_CAUSES or payload["active_publication_impact"] != "unchanged":
+        raise _contract_error()
+
+
+def _payload(payload: object, version: str, success_keys: set[str]) -> dict[str, object]:
+    if not isinstance(payload, dict):
+        raise _contract_error()
+    result = cast(dict[str, object], payload)
+    if result.get("ok") is False:
+        _error(result, version)
+        return dict(result)
+    if (
+        result.get("ok") is not True
+        or set(result) != success_keys
+        or result.get("schema_version") != version
+    ):
+        raise _contract_error()
+    return result
+
+
+def validate_list_response(payload: object) -> dict[str, object]:
+    result = _payload(
+        payload, "mke.list_libraries_response.v1", {"schema_version", "ok", "observation"}
+    )
+    if result["ok"] is True:
+        _observation(result["observation"])
+    return dict(result)
+
+
+def validate_search_response(payload: object) -> dict[str, object]:
+    result = _payload(
+        payload,
+        "mke.search_library_response.v1",
+        {"schema_version", "ok", "query", "observation", "results"},
+    )
+    if result["ok"] is True:
+        _text(result["query"])
+        _observation(result["observation"])
+        values_object = result["results"]
+        if not isinstance(values_object, list):
+            raise _contract_error()
+        values = cast(list[object], values_object)
+        if len(values) > 20:
+            raise _contract_error()
+        for value in values:
+            _evidence(value)
+        observation = cast(dict[str, object], result["observation"])
+        if len(values) > cast(int, observation["active_evidence_count"]):
+            raise _contract_error()
+    return dict(result)
+
+
+def validate_ask_response(payload: object) -> dict[str, object]:
+    result = _payload(
+        payload,
+        "mke.ask_library_response.v1",
+        {
+            "schema_version",
+            "ok",
+            "question",
+            "answer_status",
+            "summary",
+            "observation",
+            "evidence",
+            "limitations",
+        },
+    )
+    if result["ok"] is True:
+        _text(result["question"])
+        _text(result["summary"])
+        _observation(result["observation"])
+        evidence_object = result["evidence"]
+        limitations_object = result["limitations"]
+        if not isinstance(evidence_object, list) or not isinstance(limitations_object, list):
+            raise _contract_error()
+        evidence = cast(list[object], evidence_object)
+        limitations = cast(list[object], limitations_object)
+        if len(evidence) > 20 or len(limitations) > 20:
+            raise _contract_error()
+        for value in evidence:
+            _evidence(value)
+        for value in limitations:
+            _text(value)
+        if (
+            (result["answer_status"] == "evidence_found" and not evidence)
+            or (result["answer_status"] == "insufficient_evidence" and evidence)
+            or result["answer_status"] not in {"evidence_found", "insufficient_evidence"}
+        ):
+            raise _contract_error()
+    return dict(result)
+
+
+def evidence_projection(payload: Mapping[str, object]) -> tuple[object, ...]:
+    values_object = payload.get("results", payload.get("evidence"))
+    if not isinstance(values_object, list):
+        raise _contract_error()
+    values = cast(list[object], values_object)
+    if len(values) > 20:
+        raise _contract_error()
+    return tuple(_evidence(value) for value in values)

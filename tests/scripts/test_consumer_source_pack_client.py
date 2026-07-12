@@ -4,12 +4,14 @@ import copy
 import importlib.util
 import json
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from types import ModuleType
 from typing import Any, cast
 
 import pytest
+
+from scripts.consumer_source_pack_client import DiscoveredTool
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "tests/fixtures/consumer-source-pack-v1/manifest.json"
@@ -201,9 +203,7 @@ MANIFEST_MUTATIONS: tuple[tuple[str, Callable[[dict[str, object]], None]], ...] 
 )
 
 
-IDENTITY_DRIFT_MUTATIONS: tuple[
-    tuple[str, Callable[[dict[str, object]], None]], ...
-] = (
+IDENTITY_DRIFT_MUTATIONS: tuple[tuple[str, Callable[[dict[str, object]], None]], ...] = (
     ("source key", _drift_source_key),
     ("source relative filename", _drift_source_filename),
     ("source media type", _drift_source_media_type),
@@ -255,9 +255,7 @@ def test_load_source_pack_rejects_invalid_manifest(
     assert exc_info.value.code == "source_pack_manifest_invalid", case
 
 
-@pytest.mark.parametrize(
-    ("case", "mutate"), IDENTITY_DRIFT_MUTATIONS, ids=lambda value: str(value)
-)
+@pytest.mark.parametrize(("case", "mutate"), IDENTITY_DRIFT_MUTATIONS, ids=lambda value: str(value))
 def test_load_source_pack_rejects_approved_identity_drift(
     tmp_path: Path,
     case: str,
@@ -322,3 +320,235 @@ def test_load_schema_expectations_returns_closed_fixture() -> None:
         "search_library",
         "search_library_v1",
     }
+
+
+class FakeTool:
+    def __init__(self, name: str, input_schema: Any, output_schema: Any) -> None:
+        self.name = name
+        self.inputSchema = input_schema
+        self.outputSchema = output_schema
+
+
+def _fixture_tools() -> list[FakeTool]:
+    tools = cast(dict[str, dict[str, object]], client.load_schema_expectations(SCHEMAS)["tools"])
+    return [
+        FakeTool(name, schema["inputSchema"], schema["outputSchema"])
+        for name, schema in tools.items()
+    ]
+
+
+def test_tool_schema_protocol_and_exact_fixture_validation() -> None:
+    tools = _fixture_tools()
+    typed: Sequence[DiscoveredTool] = tools
+    expected = client.load_schema_expectations(SCHEMAS)
+
+    assert client.normalize_discovered_tools(typed) == expected["tools"]
+    client.validate_tool_schemas(typed, expected)
+
+
+@pytest.mark.parametrize("mutation", ["missing", "non_mapping", "duplicate", "unknown"])
+def test_normalize_discovered_tools_rejects_invalid_discovery(mutation: str) -> None:
+    tools = _fixture_tools()
+    if mutation == "missing":
+        del tools[0].inputSchema
+    elif mutation == "non_mapping":
+        tools[0].inputSchema = []
+    elif mutation == "duplicate":
+        tools.append(tools[0])
+    else:
+        tools[0].name = "replacement_tool"
+
+    with pytest.raises(client.ProofError):
+        if mutation == "unknown":
+            client.validate_tool_schemas(tools, client.load_schema_expectations(SCHEMAS))
+        else:
+            client.normalize_discovered_tools(tools)
+
+
+def test_tool_schema_validation_requires_all_v1_tools_and_legacy_exactness() -> None:
+    expected = client.load_schema_expectations(SCHEMAS)
+    tools = _fixture_tools()
+    tools[:] = [tool for tool in tools if tool.name != "ask_library_v1"]
+    with pytest.raises(client.ProofError):
+        client.validate_tool_schemas(tools, expected)
+    tools = _fixture_tools()
+    cast(dict[str, object], tools[0].inputSchema)["extra"] = True
+    with pytest.raises(client.ProofError):
+        client.validate_tool_schemas(tools, expected)
+
+
+def test_search_and_ask_evidence_schema_definitions_are_identical() -> None:
+    tools = cast(dict[str, dict[str, object]], client.load_schema_expectations(SCHEMAS)["tools"])
+    search = cast(dict[str, object], tools["search_library_v1"]["outputSchema"])
+    ask = cast(dict[str, object], tools["ask_library_v1"]["outputSchema"])
+    assert (
+        cast(dict[str, object], search["$defs"])["EvidenceRefV1"]
+        == cast(dict[str, object], ask["$defs"])["EvidenceRefV1"]
+    )
+
+
+def _observation() -> dict[str, object]:
+    return {
+        "schema_version": "mke.active_publication_observation.v1",
+        "library_id": "local",
+        "state": "active",
+        "source_count": 1,
+        "active_publication_count": 1,
+        "active_evidence_count": 1,
+    }
+
+
+def _evidence() -> dict[str, object]:
+    return {
+        "schema_version": "mke.evidence_ref.v1",
+        "evidence_id": "ev_" + "a" * 32,
+        "source_id": "src_" + "b" * 32,
+        "content_fingerprint": "sha256:" + "c" * 64,
+        "publication_id": "pub_" + "d" * 32,
+        "publication_revision": 1,
+        "run_id": "run_" + "e" * 32,
+        "locator": {"kind": "page", "start": 1, "end": 1},
+        "text": "evidence",
+    }
+
+
+def _search() -> dict[str, object]:
+    return {
+        "schema_version": "mke.search_library_response.v1",
+        "ok": True,
+        "query": "q",
+        "observation": _observation(),
+        "results": [_evidence()],
+    }
+
+
+def _ask() -> dict[str, object]:
+    return {
+        "schema_version": "mke.ask_library_response.v1",
+        "ok": True,
+        "question": "q",
+        "answer_status": "evidence_found",
+        "summary": "s",
+        "observation": _observation(),
+        "evidence": [_evidence()],
+        "limitations": [],
+    }
+
+
+def _list() -> dict[str, object]:
+    return {
+        "schema_version": "mke.list_libraries_response.v1",
+        "ok": True,
+        "observation": _observation(),
+    }
+
+
+@pytest.mark.parametrize("kind", ["list", "search", "ask"])
+def test_payload_validators_accept_success_and_machine_token_errors(kind: str) -> None:
+    validator = getattr(client, f"validate_{kind}_response")
+    payload = {"list": _list, "search": _search, "ask": _ask}[kind]()
+    assert validator(payload) == payload
+    error = {
+        "schema_version": f"mke.{kind}_libraries_response.v1"
+        if kind == "list"
+        else f"mke.{kind}_library_response.v1",
+        "ok": False,
+        "problem": "provider_failure_2",
+        "cause": "query must not be empty",
+        "active_publication_impact": "unchanged",
+        "next_step": "retry_with_query_2",
+    }
+    if kind == "list":
+        error["schema_version"] = "mke.list_libraries_response.v1"
+    assert validator(error) == error
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "missing",
+        "extra",
+        "version",
+        "bool_count",
+        "bad_id",
+        "bad_fingerprint",
+        "revision",
+        "locator",
+        "state",
+        "limit",
+        "mixed",
+    ],
+)
+def test_search_payload_mutations_are_rejected(mutation: str) -> None:
+    payload = _search()
+    if mutation == "missing":
+        del payload["query"]
+    elif mutation == "extra":
+        payload["private_path"] = "/tmp/x"
+    elif mutation == "version":
+        payload["schema_version"] = "mke.search_library_response.v2"
+    elif mutation == "bool_count":
+        cast(dict[str, object], payload["observation"])["source_count"] = True
+    elif mutation == "bad_id":
+        cast(dict[str, object], cast(list[object], payload["results"])[0])["source_id"] = "src_no"
+    elif mutation == "bad_fingerprint":
+        cast(dict[str, object], cast(list[object], payload["results"])[0])[
+            "content_fingerprint"
+        ] = "sha256:" + "A" * 64
+    elif mutation == "revision":
+        cast(dict[str, object], cast(list[object], payload["results"])[0])[
+            "publication_revision"
+        ] = 0
+    elif mutation == "locator":
+        cast(dict[str, object], cast(list[object], payload["results"])[0])["locator"] = {
+            "kind": "timestamp_ms",
+            "start": -1,
+            "end": 2,
+        }
+    elif mutation == "state":
+        cast(dict[str, object], payload["observation"])["state"] = "empty"
+    elif mutation == "limit":
+        payload["results"] = [_evidence()] * 21
+    else:
+        payload["problem"] = "also_error"
+    with pytest.raises(client.ProofError):
+        client.validate_search_response(payload)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("problem", "Bad token"),
+        ("next_step", "_bad"),
+        ("active_publication_impact", "changed"),
+        ("cause", "secret provider error"),
+    ],
+)
+def test_payload_error_contract_is_exact(field: str, value: str) -> None:
+    payload = {
+        "schema_version": "mke.search_library_response.v1",
+        "ok": False,
+        "problem": "search_failed",
+        "cause": "query must not be empty",
+        "active_publication_impact": "unchanged",
+        "next_step": "retry_search",
+    }
+    payload[field] = value
+    with pytest.raises(client.ProofError):
+        client.validate_search_response(payload)
+
+
+def test_list_and_ask_cross_field_invariants_and_projection() -> None:
+    listing = _list()
+    cast(dict[str, object], listing["observation"])["active_publication_count"] = 0
+    with pytest.raises(client.ProofError):
+        client.validate_list_response(listing)
+    ask = _ask()
+    ask["answer_status"] = "insufficient_evidence"
+    with pytest.raises(client.ProofError):
+        client.validate_ask_response(ask)
+    search = _search()
+    valid_ask = _ask()
+    assert client.evidence_projection(search) == client.evidence_projection(valid_ask)
+    cast(dict[str, object], cast(list[object], valid_ask["evidence"])[0])["text"] = "different"
+    assert client.evidence_projection(search) != client.evidence_projection(valid_ask)
