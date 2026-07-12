@@ -48,6 +48,34 @@ _CLIENT_KEYS = frozenset(
         "server_cleanup",
     }
 )
+_EXPECTED_RECEIPTS = (
+    {
+        "schema_version": "mke.consumer_source_pack_receipt.v1",
+        "manifest_schema": "mke.consumer_source_pack_manifest.v1",
+        "pack_id": "local-knowledge-v1",
+        "evidence_schema": "mke.evidence_ref.v1",
+        "match_status": "matched",
+        "query_role": "operations_guide",
+        "source_key": "operations_guide",
+        "content_fingerprint": (
+            "sha256:0ac3e96efc89ee91e48bb3efc8611de88b2698e5aa26c1f8e0e8f78ad2d60ddd"
+        ),
+        "locator": {"kind": "page", "start": 1, "end": 1},
+    },
+    {
+        "schema_version": "mke.consumer_source_pack_receipt.v1",
+        "manifest_schema": "mke.consumer_source_pack_manifest.v1",
+        "pack_id": "local-knowledge-v1",
+        "evidence_schema": "mke.evidence_ref.v1",
+        "match_status": "matched",
+        "query_role": "incident_guide",
+        "source_key": "incident_guide",
+        "content_fingerprint": (
+            "sha256:ed55cfbe9bdbf4404eb9ff55ab7e51fac14006ae0584a14d50704f68a02ff699"
+        ),
+        "locator": {"kind": "page", "start": 1, "end": 1},
+    },
+)
 
 
 class ControllerError(RuntimeError):
@@ -76,26 +104,42 @@ def isolated_environment(base: Mapping[str, str]) -> dict[str, str]:
     return {key: value for key, value in base.items() if key not in _DIRTY_ENV}
 
 
-def _terminate(process: subprocess.Popen[bytes]) -> None:
-    if process.poll() is not None:
-        return
+def _group_exists(pgid: int) -> bool:
+    if os.name != "posix":
+        return False
     try:
-        if os.name == "posix":
-            os.killpg(process.pid, signal.SIGTERM)
-        else:
+        os.killpg(pgid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def _terminate(process: subprocess.Popen[bytes], pgid: int | None) -> None:
+    try:
+        if pgid is not None:
+            os.killpg(pgid, signal.SIGTERM)
+        elif process.poll() is None:
             process.terminate()
     except ProcessLookupError:
         pass
+    deadline = time.monotonic() + _TERMINATION_GRACE_SECONDS
+    while time.monotonic() < deadline:
+        parent_done = process.poll() is not None
+        group_done = pgid is None or not _group_exists(pgid)
+        if parent_done and group_done:
+            break
+        time.sleep(0.01)
+    if pgid is not None and _group_exists(pgid):
+        try:
+            os.killpg(pgid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    elif process.poll() is None:
+        process.kill()
     try:
         process.wait(timeout=_TERMINATION_GRACE_SECONDS)
     except subprocess.TimeoutExpired:
-        try:
-            if os.name == "posix":
-                os.killpg(process.pid, signal.SIGKILL)
-            else:
-                process.kill()
-        except ProcessLookupError:
-            pass
+        process.kill()
         process.wait(timeout=_TERMINATION_GRACE_SECONDS)
 
 
@@ -123,6 +167,7 @@ def run_bounded(
     except OSError as exc:
         raise ControllerError("command_could_not_start") from exc
     assert process.stdout is not None and process.stderr is not None
+    pgid: int | None = process.pid if os.name == "posix" else None
     buffers = {"stdout": bytearray(), "stderr": bytearray()}
     limits = {"stdout": max_stdout_bytes, "stderr": max_stderr_bytes}
     terminal: list[tuple[str, float]] = []
@@ -160,15 +205,23 @@ def run_bounded(
                 break
             condition.wait(timeout=min(remaining, 0.02))
     if event is not None:
-        _terminate(process)
+        _terminate(process, pgid)
     else:
         process.wait()
     for reader in readers:
         reader.join(timeout=1)
+    group_alive = _group_exists(process.pid) if os.name == "posix" else False
+    if any(reader.is_alive() for reader in readers) or group_alive:
+        _terminate(process, pgid)
+        for reader in readers:
+            reader.join(timeout=1)
     process.stdout.close()
     process.stderr.close()
     if process.poll() is None:
-        _terminate(process)
+        _terminate(process, pgid)
+        raise ControllerError("proof_failed")
+    group_alive = _group_exists(process.pid) if os.name == "posix" else False
+    if any(reader.is_alive() for reader in readers) or group_alive:
         raise ControllerError("proof_failed")
     if terminal and terminal[0][0] == "overflow":
         raise ControllerError("command_output_exceeded")
@@ -243,17 +296,36 @@ def _validate_identity(payload: object, environment: Path, repository: Path) -> 
     if not isinstance(payload, dict):
         raise ControllerError("installed_identity_failed")
     normalized = cast(dict[object, object], payload)
-    expected_keys = ("mke_file", "metadata_path", "sys_executable", "mke_executable")
+    expected_keys = (
+        "mke_file",
+        "metadata_path",
+        "metadata_version",
+        "module_version",
+        "sys_executable",
+        "mke_executable",
+    )
     if set(normalized) != set(expected_keys) or not all(
         isinstance(value, str) for value in normalized.values()
     ):
         raise ControllerError("installed_identity_failed")
-    paths = [Path(cast(str, normalized[key])) for key in expected_keys]
+    path_keys = ("mke_file", "metadata_path", "sys_executable", "mke_executable")
+    paths = [Path(cast(str, normalized[key])) for key in path_keys]
     if any(not path.is_absolute() for path in paths):
         raise ControllerError("installed_identity_failed")
     if any(not _within(path, environment) or _within(path, repository) for path in paths):
         raise ControllerError("installed_identity_failed")
     if "site-packages" not in paths[0].parts or ".dist-info" not in paths[1].name:
+        raise ControllerError("installed_identity_failed")
+    expected_python = environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    expected_mke = environment / ("Scripts/mke.exe" if os.name == "nt" else "bin/mke")
+    if (
+        paths[2].resolve() != expected_python.resolve()
+        or paths[3].resolve() != expected_mke.resolve()
+    ):
+        raise ControllerError("installed_identity_failed")
+    metadata_version = cast(str, normalized["metadata_version"])
+    module_version = cast(str, normalized["module_version"])
+    if not metadata_version or metadata_version != module_version:
         raise ControllerError("installed_identity_failed")
 
 
@@ -286,7 +358,8 @@ def _validate_client(payload: object) -> dict[str, object]:
     }
     if any(client.get(key) != value for key, value in expected.items()):
         raise ControllerError("proof_failed")
-    if not isinstance(client.get("receipts"), list):
+    receipts = client.get("receipts")
+    if not isinstance(receipts, list) or receipts != list(_EXPECTED_RECEIPTS):
         raise ControllerError("proof_failed")
     return client
 
@@ -378,10 +451,12 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
                 config=config,
             )
             probe = (
-                "import importlib.metadata as m,json,mke,shutil,sys;"
+                "import importlib.metadata as m,json,mke,sys;"
                 f"d=m.distribution('{_DISTRIBUTION}');"
                 "print(json.dumps({'mke_file':mke.__file__,'metadata_path':str(d._path),"
-                "'sys_executable':sys.executable,'mke_executable':shutil.which('mke')}))"
+                "'metadata_version':d.version,'module_version':mke.__version__,"
+                "'sys_executable':sys.executable,"
+                "'mke_executable':str(__import__('pathlib').Path(sys.executable).with_name('mke'))}))"
             )
             identity_result = _command(
                 "installed_identity_failed",
