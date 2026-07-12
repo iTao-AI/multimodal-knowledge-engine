@@ -21,6 +21,30 @@ _DIRTY_ENV = frozenset({"PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"})
 _DISTRIBUTION = "multimodal-knowledge-engine"
 _READ_SIZE = 4096
 _TERMINATION_GRACE_SECONDS = 0.5
+_STABLE_FAILURE_CODES = frozenset(
+    {
+        "source_pack_manifest_invalid",
+        "source_pack_identity_mismatch",
+        "wheel_build_failed",
+        "environment_create_failed",
+        "install_failed",
+        "installed_identity_failed",
+        "external_isolation_failed",
+        "consumer_schema_invalid",
+        "consumer_payload_invalid",
+        "manifest_mapping_missing",
+        "manifest_mapping_ambiguous",
+        "manifest_locator_mismatch",
+        "observation_state_mismatch",
+        "mcp_startup_timeout",
+        "mcp_tool_timeout",
+        "mcp_transport_failed",
+        "server_exit_nonzero",
+        "command_output_exceeded",
+        "cleanup_failed",
+        "proof_failed",
+    }
+)
 _CLIENT_FILES = (
     Path("scripts/consumer_source_pack_client.py"),
     Path("tests/fixtures/consumer-source-pack-v1/manifest.json"),
@@ -109,7 +133,7 @@ def _group_exists(pgid: int) -> bool:
         return False
     try:
         os.killpg(pgid, 0)
-    except ProcessLookupError:
+    except (ProcessLookupError, PermissionError):
         return False
     return True
 
@@ -122,6 +146,9 @@ def _terminate(process: subprocess.Popen[bytes], pgid: int | None) -> None:
             process.terminate()
     except ProcessLookupError:
         pass
+    except PermissionError:
+        if process.poll() is None:
+            process.terminate()
     deadline = time.monotonic() + _TERMINATION_GRACE_SECONDS
     while time.monotonic() < deadline:
         parent_done = process.poll() is not None
@@ -132,7 +159,7 @@ def _terminate(process: subprocess.Popen[bytes], pgid: int | None) -> None:
     if pgid is not None and _group_exists(pgid):
         try:
             os.killpg(pgid, signal.SIGKILL)
-        except ProcessLookupError:
+        except (ProcessLookupError, PermissionError):
             pass
     elif process.poll() is None:
         process.kill()
@@ -312,12 +339,17 @@ def _validate_identity(payload: object, environment: Path, repository: Path) -> 
     paths = [Path(cast(str, normalized[key])) for key in path_keys]
     if any(not path.is_absolute() for path in paths):
         raise ControllerError("installed_identity_failed")
-    if any(not _within(path, environment) or _within(path, repository) for path in paths):
+    expected_python = environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    expected_mke = environment / ("Scripts/mke.exe" if os.name == "nt" else "bin/mke")
+    if paths[2] != expected_python or paths[3] != expected_mke:
+        raise ControllerError("installed_identity_failed")
+    installed_paths = (paths[0], paths[1], paths[3])
+    if any(
+        not _within(path, environment) or _within(path, repository) for path in installed_paths
+    ):
         raise ControllerError("installed_identity_failed")
     if "site-packages" not in paths[0].parts or ".dist-info" not in paths[1].name:
         raise ControllerError("installed_identity_failed")
-    expected_python = environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
-    expected_mke = environment / ("Scripts/mke.exe" if os.name == "nt" else "bin/mke")
     if (
         paths[2].resolve() != expected_python.resolve()
         or paths[3].resolve() != expected_mke.resolve()
@@ -587,9 +619,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(result, sort_keys=True, separators=(",", ":")))
         return 0
     except ControllerError as exc:
+        code = exc.code if exc.code in _STABLE_FAILURE_CODES else "proof_failed"
         print(
             json.dumps(
-                {"status": "failed", "code": exc.code}, sort_keys=True, separators=(",", ":")
+                {"status": "failed", "code": code}, sort_keys=True, separators=(",", ":")
             )
         )
         return 1

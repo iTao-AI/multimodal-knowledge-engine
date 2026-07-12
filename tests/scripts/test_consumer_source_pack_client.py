@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import asyncio
 import copy
 import importlib.util
@@ -1023,6 +1024,7 @@ def test_run_consumer_maps_fresh_store_receipt_mismatch_to_approved_fallback(
     ("failure", "code"),
     [
         (client.ProofError("consumer_payload_invalid"), "consumer_payload_invalid"),
+        (client.ProofError("injected-secret:/private/source/repository"), "proof_failed"),
         (RuntimeError("sensitive exception detail"), "proof_failed"),
     ],
 )
@@ -1132,6 +1134,97 @@ def test_run_consumer_uses_two_fresh_databases_and_only_receipt_identity(
     rendered = client.render_controller_result(result)
     opaque_fields = ("evidence_id", "source_id", "publication_id", "run_id")
     assert not any(token in rendered for token in opaque_fields)
+
+
+def test_standalone_client_has_only_consumer_and_official_sdk_dependencies() -> None:
+    tree = ast.parse(CLIENT_PATH.read_text(encoding="utf-8"))
+    imported_roots = {
+        alias.name.split(".", 1)[0]
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    } | {
+        (node.module or "").split(".", 1)[0]
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+    }
+    assert imported_roots <= sys.stdlib_module_names | {"__future__", "mcp"}
+    assert "mcp" in imported_roots
+    assert not ({"mke", "pydantic", "sqlite3"} & imported_roots)
+    forbidden_calls = {
+        "connect",
+        "execute",
+        "executemany",
+        "executescript",
+    }
+    assert not {
+        node.func.attr
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+    } & forbidden_calls
+    assert "/Users/" not in CLIENT_PATH.read_text(encoding="utf-8")
+    assert "tests.fixtures" not in CLIENT_PATH.read_text(encoding="utf-8")
+
+
+def test_success_reads_only_copied_inputs_and_observes_mke_through_mcp(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    copied = tmp_path / "copied"
+    copied.mkdir()
+    manifest = copied / "manifest.json"
+    schemas = copied / "mcp-tool-schemas.json"
+    source_root = copied / "source-pack"
+    source_root.mkdir()
+    manifest.write_bytes(MANIFEST.read_bytes())
+    schemas.write_bytes(SCHEMAS.read_bytes())
+    for source in ("operations-guide.pdf", "incident-guide.pdf"):
+        (source_root / source).write_bytes((LOCAL_FIXTURE_ROOT / source).read_bytes())
+
+    events: list[tuple[object, ...]] = []
+    _install_flow_sdk_fake(monkeypatch, events)
+    discovered_tools = _fixture_tools()
+    monkeypatch.setattr(sys.modules[__name__], "_fixture_tools", lambda: discovered_tools)
+    opened: list[Path] = []
+    original_read_text = Path.read_text
+    original_read_bytes = Path.read_bytes
+
+    def recording_read_text(
+        path: Path, encoding: str | None = None, errors: str | None = None
+    ) -> str:
+        opened.append(path.resolve())
+        return original_read_text(path, encoding=encoding, errors=errors)
+
+    def recording_read_bytes(path: Path) -> bytes:
+        opened.append(path.resolve())
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_text", recording_read_text)
+    monkeypatch.setattr(Path, "read_bytes", recording_read_bytes)
+    config = client.ConsumerConfig(
+        manifest,
+        schemas,
+        source_root,
+        copied / "mke",
+        copied,
+        {},
+        1.0,
+        1.0,
+        1024,
+    )
+
+    result = asyncio.run(client.run_consumer(config))
+
+    allowed = {
+        manifest.resolve(),
+        schemas.resolve(),
+        (source_root / "operations-guide.pdf").resolve(),
+        (source_root / "incident-guide.pdf").resolve(),
+    }
+    assert opened and set(opened) == allowed
+    assert result.fresh_store_mapping is True
+    assert len([event for event in events if event[0] == "server_enter"]) == 2
+    assert len([event for event in events if event[0] == "list_tools"]) == 2
+    assert len([event for event in events if event[0] == "call"]) == 24
 
 
 def test_run_store_session_terminates_live_noisy_mcp_child_at_stderr_cap(

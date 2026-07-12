@@ -15,6 +15,34 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/consumer_source_pack_proof.py"
 
+STABLE_FAILURE_CODES = (
+    "source_pack_manifest_invalid",
+    "source_pack_identity_mismatch",
+    "wheel_build_failed",
+    "environment_create_failed",
+    "install_failed",
+    "installed_identity_failed",
+    "external_isolation_failed",
+    "consumer_schema_invalid",
+    "consumer_payload_invalid",
+    "manifest_mapping_missing",
+    "manifest_mapping_ambiguous",
+    "manifest_locator_mismatch",
+    "observation_state_mismatch",
+    "mcp_startup_timeout",
+    "mcp_tool_timeout",
+    "mcp_transport_failed",
+    "server_exit_nonzero",
+    "command_output_exceeded",
+    "cleanup_failed",
+    "proof_failed",
+)
+
+
+def test_public_failure_allowlist_is_exact() -> None:
+    proof = _load()
+    assert proof._STABLE_FAILURE_CODES == frozenset(STABLE_FAILURE_CODES)
+
 
 def _load():
     spec = importlib.util.spec_from_file_location("consumer_source_pack_proof", SCRIPT)
@@ -78,6 +106,18 @@ def test_run_bounded_timeout_wins_before_late_output(tmp_path: Path) -> None:
             max_stderr_bytes=10,
         )
     assert exc.value.code == "command_timed_out"
+
+
+def test_group_probe_treats_unowned_or_reused_group_as_gone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    proof = _load()
+
+    def denied(_pgid: int, _signal: int) -> None:
+        raise PermissionError
+
+    monkeypatch.setattr(proof.os, "killpg", denied)
+    assert proof._group_exists(12345) is False
 
 
 def test_run_bounded_returns_bytes_and_nonzero(tmp_path: Path) -> None:
@@ -151,6 +191,26 @@ def test_validate_identity_rejects_contamination_and_wrong_metadata(tmp_path: Pa
     wrong_metadata = dict(base, metadata_path=str(environment / "lib/python/site-packages/mke"))
     with pytest.raises(proof.ControllerError, match="installed_identity_failed"):
         proof._validate_identity(wrong_metadata, environment, repository)
+
+
+def test_validate_identity_accepts_exact_venv_python_symlink(
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    environment = tmp_path / "venv"
+    repository = tmp_path / "repository"
+    python = environment / "bin/python"
+    python.parent.mkdir(parents=True)
+    python.symlink_to(Path(sys.executable))
+    payload = {
+        "mke_file": str(environment / "lib/python/site-packages/mke/__init__.py"),
+        "metadata_path": str(environment / "lib/python/site-packages/mke.dist-info"),
+        "sys_executable": str(python),
+        "mke_executable": str(environment / "bin/mke"),
+        "metadata_version": "0.1.1",
+        "module_version": "0.1.1",
+    }
+    proof._validate_identity(payload, environment, repository)
 
 
 @pytest.mark.parametrize(
@@ -544,3 +604,52 @@ def test_main_redacts_failure(
     monkeypatch.setattr(proof, "run_proof", fail)
     assert proof.main(["--python", sys.executable, "--python", sys.executable, "--json"]) == 1
     assert json.loads(capsys.readouterr().out) == {"status": "failed", "code": "install_failed"}
+
+
+@pytest.mark.parametrize("code", STABLE_FAILURE_CODES)
+def test_main_failure_matrix_is_exact_closed_and_redacted(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    code: str,
+) -> None:
+    proof = _load()
+
+    def fail(_config: object) -> dict[str, object]:
+        raise proof.ControllerError(code)
+
+    monkeypatch.setattr(proof, "run_proof", fail)
+    exit_code = proof.main(
+        ["--python", sys.executable, "--python", sys.executable, "--json"]
+    )
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert exit_code == 1
+    assert payload == {"status": "failed", "code": code}
+    assert set(payload) == {"status", "code"}
+    assert captured.err == ""
+    forbidden = (
+        "Traceback",
+        "injected-secret",
+        "/private/source/repository",
+        "opaque_123456789",
+        "operations-guide.pdf",
+        "uv pip install",
+        "PYTHONPATH",
+        "server stderr",
+        "Evidence private text",
+        "exception detail",
+    )
+    assert not any(value in captured.out for value in forbidden)
+
+
+def test_main_maps_unapproved_error_code_to_proof_failed(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    proof = _load()
+
+    def fail(_config: object) -> dict[str, object]:
+        raise proof.ControllerError("injected-secret:/private/source/repository")
+
+    monkeypatch.setattr(proof, "run_proof", fail)
+    assert proof.main(["--python", sys.executable, "--python", sys.executable, "--json"]) == 1
+    assert json.loads(capsys.readouterr().out) == {"status": "failed", "code": "proof_failed"}

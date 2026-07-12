@@ -148,6 +148,24 @@ _SAFE_CAUSES = frozenset(
         "video ingest initialization failed",
     }
 )
+_STABLE_FAILURE_CODES = frozenset(
+    {
+        "source_pack_manifest_invalid",
+        "source_pack_identity_mismatch",
+        "consumer_schema_invalid",
+        "consumer_payload_invalid",
+        "manifest_mapping_missing",
+        "manifest_mapping_ambiguous",
+        "manifest_locator_mismatch",
+        "observation_state_mismatch",
+        "mcp_startup_timeout",
+        "mcp_tool_timeout",
+        "mcp_transport_failed",
+        "command_output_exceeded",
+        "cleanup_failed",
+        "proof_failed",
+    }
+)
 _PUBLIC_ERROR_CONTRACT_KEYS = {
     "machine_token_pattern",
     "active_publication_impact",
@@ -1225,9 +1243,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(render_controller_result(asyncio.run(run_consumer(config))))
         return 0
     except ProofError as exc:
+        code = exc.code if exc.code in _STABLE_FAILURE_CODES else "proof_failed"
         print(
             json.dumps(
-                {"status": "failed", "code": exc.code}, sort_keys=True, separators=(",", ":")
+                {"status": "failed", "code": code}, sort_keys=True, separators=(",", ":")
             )
         )
         return 1
