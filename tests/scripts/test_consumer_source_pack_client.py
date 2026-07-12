@@ -8,8 +8,9 @@ import os
 import sys
 import time
 from collections.abc import Callable, Sequence
+from contextlib import asynccontextmanager
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from typing import Any, cast
 
 import pytest
@@ -711,6 +712,229 @@ def test_deadline_prefers_timeout_observed_before_later_output_overflow() -> Non
         assert capture.terminal_code == "mcp_tool_timeout"
 
     asyncio.run(exercise())
+
+
+def _active_observation() -> dict[str, object]:
+    observation = _observation()
+    observation.update(
+        source_count=2,
+        active_publication_count=2,
+        active_evidence_count=2,
+    )
+    return observation
+
+
+def _flow_evidence(source: object, opaque_suffix: str) -> dict[str, object]:
+    value = _evidence()
+    value.update(
+        evidence_id="ev_" + opaque_suffix * 32,
+        source_id="src_" + opaque_suffix * 32,
+        publication_id="pub_" + opaque_suffix * 32,
+        run_id="run_" + opaque_suffix * 32,
+        content_fingerprint="sha256:" + cast(Any, source).sha256,
+    )
+    return value
+
+
+def _install_flow_sdk_fake(
+    monkeypatch: pytest.MonkeyPatch,
+    events: list[tuple[object, ...]],
+) -> None:
+    pack = client.load_source_pack(MANIFEST)
+    store_number = 0
+
+    @asynccontextmanager
+    async def fake_stdio(server: object, *, errlog: object):
+        nonlocal store_number
+        store_number += 1
+        events.append(("server_enter", store_number, tuple(cast(Any, server).args)))
+        try:
+            yield object(), object()
+        finally:
+            events.append(("server_close", store_number))
+
+    class FakeSession:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            self.store_number = store_number
+
+        async def __aenter__(self) -> FakeSession:
+            events.append(("session_enter", self.store_number))
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            events.append(("session_close", self.store_number))
+
+        async def initialize(self) -> object:
+            events.append(("initialize", self.store_number))
+            return object()
+
+        async def list_tools(self) -> object:
+            tools = _fixture_tools()
+            events.append(("list_tools", self.store_number, tuple(tool.name for tool in tools)))
+            return SimpleNamespace(tools=tools)
+
+        async def call_tool(self, name: str, arguments: dict[str, object]) -> object:
+            events.append(("call", self.store_number, name, copy.deepcopy(arguments)))
+            calls = [item for item in events if item[:3] == ("call", self.store_number, name)]
+            if name == "list_libraries_v1":
+                if len(calls) == 1:
+                    observation = {
+                        "schema_version": "mke.active_publication_observation.v1",
+                        "library_id": "local",
+                        "state": "empty",
+                        "source_count": 0,
+                        "active_publication_count": 0,
+                        "active_evidence_count": 0,
+                    }
+                else:
+                    observation = _active_observation()
+                payload = {
+                    "schema_version": "mke.list_libraries_response.v1",
+                    "ok": True,
+                    "observation": observation,
+                }
+            elif name == "ingest_file":
+                index = len(calls) - 1
+                payload = {
+                    "run_id": f"run_{self.store_number}{index}".ljust(36, "a"),
+                    "evidence_count": 1,
+                }
+            elif name == "get_run":
+                run_id = cast(str, arguments["run_id"])
+                payload = {
+                    "ok": True,
+                    "run": {"run_id": run_id, "state": "published"},
+                    "events": [
+                        {"event_index": 1, "event": "run_created"},
+                        {"event_index": 2, "event": "run_started"},
+                        {"event_index": 3, "event": "candidate_validated"},
+                        {"event_index": 4, "event": "publication_activated"},
+                    ],
+                }
+            elif name in {"search_library_v1", "ask_library_v1"}:
+                query_text = cast(str, arguments.get("query", arguments.get("question")))
+                query = next(item for item in pack.queries if item.query == query_text)
+                evidence = (
+                    []
+                    if query.expected_source_key is None
+                    else [
+                        _flow_evidence(
+                            next(
+                                source
+                                for source in pack.sources
+                                if source.source_key == query.expected_source_key
+                            ),
+                            str(self.store_number + pack.queries.index(query) + 1),
+                        )
+                    ]
+                )
+                if name == "search_library_v1":
+                    payload = {
+                        "schema_version": "mke.search_library_response.v1",
+                        "ok": True,
+                        "query": query_text,
+                        "observation": _active_observation(),
+                        "results": evidence,
+                    }
+                else:
+                    payload = {
+                        "schema_version": "mke.ask_library_response.v1",
+                        "ok": True,
+                        "question": query_text,
+                        "answer_status": "evidence_found"
+                        if evidence
+                        else "insufficient_evidence",
+                        "summary": "bounded summary" if evidence else "insufficient evidence",
+                        "observation": _active_observation(),
+                        "evidence": evidence,
+                        "limitations": [] if evidence else ["insufficient_evidence"],
+                    }
+            else:
+                raise AssertionError(f"unexpected tool: {name}")
+            return SimpleNamespace(isError=False, structuredContent=payload, content=[])
+
+    monkeypatch.setattr(client, "stdio_client", fake_stdio)
+    monkeypatch.setattr(client, "ClientSession", FakeSession)
+
+
+def test_run_store_session_uses_exact_mcp_success_flow_and_closes_boundaries(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    events: list[tuple[object, ...]] = []
+    _install_flow_sdk_fake(monkeypatch, events)
+    config = client.ConsumerConfig(
+        MANIFEST,
+        SCHEMAS,
+        LOCAL_FIXTURE_ROOT,
+        tmp_path / "mke",
+        tmp_path,
+        {},
+        1.0,
+        1.0,
+        1024,
+    )
+
+    result = asyncio.run(client.run_store_session(config, tmp_path / "fresh.sqlite"))
+
+    pack = client.load_source_pack(MANIFEST)
+    calls = [event for event in events if event[0] == "call"]
+    assert [(event[0], event[1]) for event in events[:4]] == [
+        ("server_enter", 1),
+        ("session_enter", 1),
+        ("initialize", 1),
+        ("list_tools", 1),
+    ]
+    assert events[3][2] == tuple(tool.name for tool in _fixture_tools())
+    assert len(cast(tuple[str, ...], events[3][2])) == 8
+    assert [(call[2], call[3]) for call in calls] == [
+        ("list_libraries_v1", {}),
+        ("ingest_file", {"path": pack.sources[0].relative_filename}),
+        ("get_run", {"run_id": "run_10".ljust(36, "a")}),
+        ("ingest_file", {"path": pack.sources[1].relative_filename}),
+        ("get_run", {"run_id": "run_11".ljust(36, "a")}),
+        ("list_libraries_v1", {}),
+        ("search_library_v1", {"query": pack.queries[0].query, "limit": 5}),
+        ("ask_library_v1", {"question": pack.queries[0].query, "limit": 5}),
+        ("search_library_v1", {"query": pack.queries[1].query, "limit": 5}),
+        ("ask_library_v1", {"question": pack.queries[1].query, "limit": 5}),
+        ("search_library_v1", {"query": pack.queries[2].query, "limit": 5}),
+        ("ask_library_v1", {"question": pack.queries[2].query, "limit": 5}),
+    ]
+    assert events[-2:] == [("session_close", 1), ("server_close", 1)]
+    assert (result.source_count, result.published_run_count) == (2, 2)
+    assert (result.active_publication_count, result.active_evidence_count) == (2, 2)
+    assert result.observed_states == ("empty", "active")
+    assert result.search_ask_projection_equal is True
+
+
+def test_run_consumer_uses_two_fresh_databases_and_only_receipt_identity(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    events: list[tuple[object, ...]] = []
+    _install_flow_sdk_fake(monkeypatch, events)
+    config = client.ConsumerConfig(
+        MANIFEST,
+        SCHEMAS,
+        LOCAL_FIXTURE_ROOT,
+        tmp_path / "mke",
+        tmp_path,
+        {},
+        1.0,
+        1.0,
+        1024,
+    )
+
+    result = asyncio.run(client.run_consumer(config))
+
+    server_args = [
+        cast(tuple[str, ...], event[2]) for event in events if event[0] == "server_enter"
+    ]
+    assert server_args[0][1] == str(tmp_path / "store-1.sqlite")
+    assert server_args[1][1] == str(tmp_path / "store-2.sqlite")
+    assert result.fresh_store_mapping is True
+    rendered = client.render_controller_result(result)
+    opaque_fields = ("evidence_id", "source_id", "publication_id", "run_id")
+    assert not any(token in rendered for token in opaque_fields)
 
 
 def test_run_store_session_terminates_live_noisy_mcp_child_at_stderr_cap(
