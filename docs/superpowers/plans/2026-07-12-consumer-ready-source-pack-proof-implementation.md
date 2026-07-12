@@ -30,6 +30,10 @@ Ruff, Pyright, GitHub Actions.
   never supply a repository path to the standalone client.
 - Build exactly one current-source wheel. Run that same wheel in fresh Python 3.12 and 3.13
   environments; an unavailable interpreter fails explicitly and is never silently substituted.
+- CI separates online cache provisioning from the proof. The provisioning step prepares the
+  controller environment, build backend, and core locked dependencies for both explicit
+  interpreter paths; the later controller invocation runs with `UV_OFFLINE=1` and must never
+  enable network access or recover silently from a cache miss.
 - Clear `PYTHONPATH`, `PYTHONHOME`, and `VIRTUAL_ENV` from every child environment. Every
   subprocess uses an argv sequence, `shell=False`, an explicit external `cwd`, a fixed timeout,
   bounded stdout/stderr, and deterministic child termination.
@@ -68,6 +72,9 @@ Ruff, Pyright, GitHub Actions.
   expectations for all five frozen legacy tools and three current strict v1 read tools.
 - `tests/scripts/test_consumer_source_pack_client.py`: standalone parser, schema, payload, mapping,
   report, deadline, transport, termination, and static-independence tests.
+- `tests/interfaces/test_consumer_source_pack_contract_fixture.py`: producer-side development
+  regression proving current MCP discovery and current public safe causes structurally equal the
+  consumer-owned expectation fixture.
 - `tests/scripts/test_consumer_source_pack_proof.py`: controller command-plan, wheel reuse,
   constraints, interpreter, identity, bounds, redaction, cleanup, and real external proof tests.
 - `tests/evaluation/test_consumer_source_pack_documentation.py`: dedicated documentation and
@@ -149,7 +156,7 @@ UV_OFFLINE=1 uv run pytest -q \
 Expected: FAIL during collection because `scripts/consumer_source_pack_client.py` and the new
 consumer fixtures do not exist.
 
-- [ ] **Step 2: Commit the exact closed fixtures**
+- [ ] **Step 2: Freeze the exact closed fixtures from current producer discovery**
 
 Write `manifest.json` with required-fields-only objects. Each source includes `source_key`,
 `relative_filename`, `media_type`, `bytes`, lowercase `sha256`, redistribution class
@@ -159,9 +166,63 @@ expected source key, locator kind `page`, and allowed range `[1, 1]`; the unsupp
 no source or locator and requires active Search no-match plus Ask `insufficient_evidence`.
 
 Write `mcp-tool-schemas.json` as a closed object with its own consumer expectation schema version,
-the exact five legacy `inputSchema`/`outputSchema` objects from the frozen legacy fixture, and the
-exact discovered current input/output schemas for `list_libraries_v1`, `search_library_v1`, and
-`ask_library_v1`. Do not reference a producer fixture path at runtime.
+the exact five legacy `inputSchema`/`outputSchema` objects from the frozen legacy fixture, the exact
+discovered current input/output schemas for `list_libraries_v1`, `search_library_v1`, and
+`ask_library_v1`, and consumer-owned `public_error_contract` metadata containing the literal
+MachineToken pattern `^[a-z][a-z0-9_]{0,127}$`, literal impact `unchanged`, and the sorted exact safe
+cause list including `operation failed; details were redacted`. Do not reference a producer fixture
+path at runtime.
+
+Use this development-time freeze procedure from the repository environment; it is not copied into
+or invoked by the runtime consumer:
+
+```bash
+UV_OFFLINE=1 uv run python - <<'PY'
+import asyncio
+import json
+import tempfile
+from pathlib import Path
+
+from mke.interfaces.mcp_contract import McpRuntimeConfig
+from mke.interfaces.mcp_server import build_mcp_server
+from mke.interfaces.public_errors import _ALLOWLISTED_CAUSES, _REDACTED_CAUSE
+from mke.runtime import RuntimeConfig
+
+async def discover(root: Path) -> dict[str, object]:
+    server = build_mcp_server(
+        McpRuntimeConfig(RuntimeConfig(root / "mke.sqlite"), root)
+    )
+    tools = await server.list_tools()
+    names = {
+        "list_libraries", "ingest_file", "get_run", "search_library", "ask_library",
+        "list_libraries_v1", "search_library_v1", "ask_library_v1",
+    }
+    selected = {
+        tool.name: {"inputSchema": tool.inputSchema, "outputSchema": tool.outputSchema}
+        for tool in tools if tool.name in names
+    }
+    assert set(selected) == names
+    return selected
+
+with tempfile.TemporaryDirectory(prefix="mke-consumer-schema-freeze-") as directory:
+    tools = asyncio.run(discover(Path(directory)))
+payload = {
+    "schema_version": "mke.consumer_mcp_tool_expectations.v1",
+    "public_error_contract": {
+        "machine_token_pattern": "^[a-z][a-z0-9_]{0,127}$",
+        "active_publication_impact": "unchanged",
+        "safe_causes": sorted({_REDACTED_CAUSE, *_ALLOWLISTED_CAUSES}),
+    },
+    "tools": dict(sorted(tools.items())),
+}
+Path("tests/fixtures/consumer-source-pack-v1/mcp-tool-schemas.json").write_text(
+    json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+)
+PY
+```
+
+The implementation review must inspect the generated diff. Runtime code reads only the copied
+consumer fixture and never imports these producer modules.
 
 - [ ] **Step 3: Implement the strict manifest preflight**
 
@@ -208,12 +269,18 @@ git commit -m "test(proof): freeze consumer source-pack contract"
 
 - Modify: `scripts/consumer_source_pack_client.py`
 - Modify: `tests/scripts/test_consumer_source_pack_client.py`
+- Create: `tests/interfaces/test_consumer_source_pack_contract_fixture.py`
 - Read only: `tests/fixtures/consumer-source-pack-v1/mcp-tool-schemas.json`
 
 **Interfaces:**
 
 - Consumes `load_schema_expectations(path) -> dict[str, object]` from Task 1.
-- Produces `validate_tool_schemas(tools: Sequence[object], expected: Mapping[str, object]) -> None`.
+- Produces consumer-owned `DiscoveredTool(Protocol)` with read-only `name: str`,
+  `inputSchema: Mapping[str, object]`, and `outputSchema: Mapping[str, object] | None` attributes,
+  plus `normalize_discovered_tools(tools: Sequence[DiscoveredTool]) -> dict[str, object]`.
+- Produces `validate_tool_schemas(tools: Sequence[DiscoveredTool],
+  expected: Mapping[str, object]) -> None`; validation begins by normalizing Protocol values into
+  plain closed mappings and performs no later attribute access.
 - Produces `validate_list_response(payload: object) -> dict[str, object]`,
   `validate_search_response(payload: object) -> dict[str, object]`, and
   `validate_ask_response(payload: object) -> dict[str, object]`.
@@ -225,11 +292,20 @@ git commit -m "test(proof): freeze consumer source-pack contract"
 Use small fake tool objects and the committed expectation fixture. Require exact structural JSON
 equality for all five legacy tools, presence of all three v1 tools, no duplicate/unknown required
 tool substitution, top-level `ok` success/error discrimination, closed object shapes, literal
-schema versions, and exact equality of the Search/Ask `mke.evidence_ref.v1` definitions.
+schema versions, and exact equality of the Search/Ask `mke.evidence_ref.v1` definitions. Type-check
+fake tools against the consumer-owned Protocol and test normalization rejection for missing,
+non-mapping, and duplicate attributes.
+
+Add `tests/interfaces/test_consumer_source_pack_contract_fixture.py` as a producer-side regression:
+it may import `build_mcp_server`, `McpRuntimeConfig`, `RuntimeConfig`, `_ALLOWLISTED_CAUSES`, and
+`_REDACTED_CAUSE` to reproduce the Step 2 freeze payload, then require exact structural equality
+with `mcp-tool-schemas.json`. This test protects development-time fixture freshness; the copied
+standalone client remains producer-independent.
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
-  tests/scripts/test_consumer_source_pack_client.py -k 'tool_schema'
+  tests/scripts/test_consumer_source_pack_client.py -k 'tool_schema or normalize_discovered' \
+  tests/interfaces/test_consumer_source_pack_contract_fixture.py
 ```
 
 Expected: FAIL because `validate_tool_schemas` is absent.
@@ -240,8 +316,11 @@ Build valid local payload factories for list/search/ask and parameterize mutatio
 required case: missing/extra fields; unknown schema versions; bool-as-int; malformed IDs and
 fingerprints; zero/negative Publication revisions; invalid page and timestamp locators; impossible
 state/count relationships; result count beyond the requested limit; mixed success/error fields;
-unallowlisted `problem`, `cause`, impact, or `next_step`; Ask status/evidence mismatch; and unequal
-Search/Ask Evidence projections.
+`problem` / `next_step` values outside `^[a-z][a-z0-9_]{0,127}$`; impact other than literal
+`unchanged`; `cause` values absent from the consumer-owned exact safe-cause list; Ask
+status/evidence mismatch; and unequal Search/Ask Evidence projections. Include acceptance cases for
+multiple valid machine tokens so the independent validator does not invent narrower problem or
+next-step enums.
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -253,15 +332,19 @@ Expected: FAIL because the three response validators and projection helper are a
 - [ ] **Step 3: Implement bounded standard-library validators**
 
 Implement exact-key helpers and regexes for `src_`, `run_`, `pub_`, `ev_`, lowercase
-`sha256:<64 hex>`, literal schema versions, closed public error allowlists, positive revisions, and
-locator unions. Validate nested collections before indexing them and reject payloads above explicit
-item/text/depth bounds. `validate_*_response` returns a shallow typed-as-mapping copy only after all
-cross-field invariants pass; it never returns a producer DTO.
+`sha256:<64 hex>`, literal schema versions, and positive revisions. Validate `problem` and
+`next_step` only with the consumer fixture's exact MachineToken regex, require
+`active_publication_impact == "unchanged"`, and require `cause` membership in the fixture's exact
+safe-cause set; do not define problem/next-step enums. Validate locator unions and nested
+collections before indexing them and reject payloads above explicit item/text/depth bounds.
+`validate_*_response` returns a shallow typed-as-mapping copy only after all cross-field invariants
+pass; it never returns a producer DTO.
 
 - [ ] **Step 4: Verify GREEN, static independence, and commit**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/scripts/test_consumer_source_pack_client.py
+UV_OFFLINE=1 uv run pytest -q tests/interfaces/test_consumer_source_pack_contract_fixture.py
 UV_OFFLINE=1 uv run ruff check scripts/consumer_source_pack_client.py \
   tests/scripts/test_consumer_source_pack_client.py
 UV_OFFLINE=1 uv run pyright scripts/consumer_source_pack_client.py \
@@ -278,7 +361,8 @@ assert "mke" not in roots and "pydantic" not in roots and "sqlite3" not in roots
 PY
 git diff --check
 git add scripts/consumer_source_pack_client.py \
-  tests/scripts/test_consumer_source_pack_client.py
+  tests/scripts/test_consumer_source_pack_client.py \
+  tests/interfaces/test_consumer_source_pack_contract_fixture.py
 git commit -m "feat(proof): validate consumer MCP contract independently"
 ```
 
@@ -304,6 +388,9 @@ Expected: tests, Ruff, Pyright, and the AST import audit pass.
   validation.
 - Produces `async run_store_session(config: ConsumerConfig, database: Path) -> StoreResult` and
   `async run_consumer(config: ConsumerConfig) -> ConsumerResult`.
+- Produces `BoundedStderrCapture(max_bytes: int)` as an async context manager exposing the pipe
+  write end accepted by `stdio_client(errlog=...)`, an incrementally drained read end, and an
+  overflow event that cancels the MCP context at the hard cap.
 - Produces `render_controller_result(result: ConsumerResult) -> str` and `main(argv) -> int`; this
   bounded redacted JSON is private controller input, while Task 4 owns the final public report.
 
@@ -338,14 +425,26 @@ Run the full sequence on a second fresh database and compare only
 `(query_role, source_key, content_fingerprint, locator)` tuples across stores. Explicitly assert
 that opaque IDs are not used as cross-store identity.
 
+Add a live noisy-server test whose child continuously writes beyond the configured stderr cap and
+remains alive. Require the pipe reader to observe the cap incrementally, close/cancel the MCP
+context, terminate the child, verify the PID is gone, and return `command_output_exceeded` without
+waiting for normal child exit. Add timeout/output race tests: the first observed terminal event
+wins; output overflow wins when the cap event is recorded before the monotonic deadline, otherwise
+the applicable startup/tool timeout code wins.
+
 - [ ] **Step 3: Implement the MCP SDK flow with independent deadlines**
 
 Import `ClientSession`, `StdioServerParameters`, and `stdio_client` only from the official MCP SDK.
 Set server argv to `mke --db <external-db> mcp --allowed-root <copied-source-root>`, external cwd,
 and the already-cleared environment. Wrap server startup/initialize, discovery, and every tool call
-in explicit `asyncio.wait_for`; direct server stderr to a bounded temporary sink that is never
-rendered. Convert startup, tool, transport, and nonzero-exit conditions to their approved stable
-codes and ensure cancellation exits the MCP context before returning.
+in explicit monotonic deadlines. For server stderr, create an OS pipe, pass only its write end to
+`stdio_client(errlog=...)`, and asynchronously drain the read end in fixed-size chunks while
+tracking bytes. Once the configured cap is crossed, set the overflow event, close the read/write
+ends, cancel/exit the MCP context, and verify the SDK-owned server child terminates before mapping
+to `command_output_exceeded`. Do not use `TemporaryFile` or `SpooledTemporaryFile` as the bound.
+Convert startup, tool, transport, and nonzero-exit conditions to their approved stable codes. Keep
+server cleanup owned by the client MCP context and outer client-process/workspace cleanup owned by
+the controller.
 
 - [ ] **Step 4: Implement the closed client-to-controller boundary**
 
@@ -448,13 +547,26 @@ successful flow. Require the approved codes `wheel_build_failed`, `environment_c
 `install_failed`, `installed_identity_failed`, `external_isolation_failed`,
 `command_output_exceeded`, `server_exit_nonzero`, `cleanup_failed`, or `proof_failed` as applicable.
 
+Use live children for the hard-bound cases: one continuously writes stdout and sleeps, one
+continuously writes stderr and sleeps, and neither exits voluntarily. Assert termination happens
+when the configured stream counter crosses its cap, the child PID/process group is gone, captured
+bytes never grow without bound, and the test does not wait for the child's natural lifetime. Add a
+race test that records monotonic event order and requires overflow when its cap event is first, or
+timeout when the deadline event is first.
+
 - [ ] **Step 3: Implement bounded subprocess ownership**
 
-Use `subprocess.Popen` with `shell=False`, `start_new_session=True` on POSIX, byte pipes, and
-`communicate(timeout=...)`. On timeout or overflow, terminate the owned process group, wait for a
-short grace interval, kill if still alive, and verify termination before raising. Keep diagnostic
-stderr only in bounded in-memory/private temporary data. Never include command or exception text in
-the public error object.
+Use `subprocess.Popen` with `shell=False`, `start_new_session=True` on POSIX, and byte pipes. Drain
+stdout and stderr concurrently in fixed-size chunks with one reader thread per stream (or one
+selector loop where supported), increment per-stream byte counters under synchronized state, and
+record the first terminal event against `time.monotonic()`. An overflow reader signals the owner
+immediately; the owner terminates the process group, waits for a fixed grace interval, kills if
+still alive, joins readers, closes pipes, calls `wait()`, and verifies the PID/process group is
+gone. A deadline follows the same terminate-to-kill sequence. Output overflow maps to
+`command_output_exceeded` only when its cap event was observed first; otherwise timeout maps to the
+calling step's stable timeout/failure code. Never call `communicate()` for bounded commands. Keep at
+most the configured bytes from either stream for private diagnosis and never include command or
+exception text in the public error object.
 
 - [ ] **Step 4: Implement build/export/copy/install/identity orchestration**
 
@@ -557,6 +669,7 @@ UV_OFFLINE=1 uv run pytest -q \
   tests/scripts/test_consumer_source_pack_client.py \
   tests/scripts/test_consumer_source_pack_proof.py \
   tests/scripts/test_local_knowledge_fixtures.py \
+  tests/interfaces/test_consumer_source_pack_contract_fixture.py \
   tests/interfaces/test_mcp_legacy_schema_snapshot.py \
   tests/interfaces/test_mcp_v1_schemas.py
 UV_OFFLINE=1 uv run ruff check scripts/consumer_source_pack_client.py \
@@ -612,7 +725,11 @@ What This Does Not Prove
 
 Require the dedicated how-to to state that the proof uses the official MCP SDK, the same wheel in
 two fresh environments, lock-derived offline-capable constraints, external cwd/consumer assets,
-stable redacted failures, exact source fingerprint mapping, and no OS-sandbox claim. Assert that
+stable redacted failures, exact source fingerprint mapping, and no OS-sandbox claim. Require a
+prerequisite section explaining that dependencies and build tooling must already be available in
+the uv cache; CI performs a distinct online provisioning/prewarm step before the offline proof.
+Explicitly reject any claim that an empty machine can install air-gapped without a prepared cache.
+Assert that
 the new text does not call this a `v0.1.1` capability, Release artifact, release gate, PyPI proof,
 deployment, production-readiness proof, or release verification step.
 
@@ -637,7 +754,8 @@ UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
 Explain that the controller builds the current checkout once; the result is not the tagged
 `v0.1.1` Release wheel. Describe only the approved success/failure output fields. In README and
 `docs/README.md`, add one sentence and one link; do not revise the “Verified in v0.1.1” table or
-release verification surfaces.
+release verification surfaces. State that `UV_OFFLINE=1` proves reuse of provisioned locked cache
+content, not installation from an empty or never-provisioned machine.
 
 - [ ] **Step 3: Verify docs GREEN and commit**
 
@@ -679,7 +797,12 @@ Parse `.github/workflows/ci.yml` as text and require exactly one new job with:
 - controller arguments `${{ steps.python312.outputs.python-path }}` and
   `${{ steps.python313.outputs.python-path }}`;
 - one controller invocation and no matrix for this job;
-- `UV_OFFLINE: "1"`; and
+- a named online provisioning step that runs `uv sync --locked`, exports core locked requirements,
+  creates separate 3.12 and 3.13 prewarm environments from the two setup-python outputs, and
+  installs the exported requirements into both;
+- a later, separately named proof step with `UV_OFFLINE: "1"` and no network-enabling flags;
+- workflow-shape assertions that the provisioning step precedes the proof, both explicit
+  interpreter caches are populated, and `UV_OFFLINE` is scoped only to the proof step; and
 - no duplicate `uv build` or per-interpreter wheel build command in YAML.
 
 ```bash
@@ -709,17 +832,37 @@ consumer-source-pack-proof:
       uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
       with:
         python-version: "3.13"
-    - env:
-        UV_OFFLINE: "1"
+    - name: Provision locked cache for controller and both interpreters
       run: |
         uv sync --locked
+        uv export --locked --no-dev --no-emit-project \
+          --output-file "$RUNNER_TEMP/mke-core-requirements.txt"
+        uv venv "$RUNNER_TEMP/mke-prewarm-312" \
+          --python "${{ steps.python312.outputs.python-path }}" \
+          --no-python-downloads
+        uv pip install \
+          --python "$RUNNER_TEMP/mke-prewarm-312/bin/python" \
+          --requirement "$RUNNER_TEMP/mke-core-requirements.txt"
+        uv venv "$RUNNER_TEMP/mke-prewarm-313" \
+          --python "${{ steps.python313.outputs.python-path }}" \
+          --no-python-downloads
+        uv pip install \
+          --python "$RUNNER_TEMP/mke-prewarm-313/bin/python" \
+          --requirement "$RUNNER_TEMP/mke-core-requirements.txt"
+    - name: Run offline same-wheel consumer proof
+      env:
+        UV_OFFLINE: "1"
+      run: |
         uv run python scripts/consumer_source_pack_proof.py \
           --python "${{ steps.python312.outputs.python-path }}" \
           --python "${{ steps.python313.outputs.python-path }}" \
           --json
 ```
 
-The controller, not YAML, owns the single wheel build and same-wheel assertion.
+The online step provisions caches only; it does not run the proof or build the proof wheel. The
+controller, not YAML, owns the single wheel build and same-wheel assertion. Once invoked under
+`UV_OFFLINE=1`, the controller must propagate offline mode and fail on any cache miss without
+retrying online.
 
 - [ ] **Step 3: Run focused and full repository gates**
 
@@ -731,6 +874,7 @@ UV_OFFLINE=1 uv run pytest -q \
   tests/scripts/test_consumer_source_pack_proof.py \
   tests/evaluation/test_consumer_source_pack_documentation.py \
   tests/scripts/test_local_knowledge_fixtures.py \
+  tests/interfaces/test_consumer_source_pack_contract_fixture.py \
   tests/interfaces/test_mcp_legacy_schema_snapshot.py \
   tests/interfaces/test_mcp_v1_schemas.py
 ```
@@ -750,11 +894,57 @@ uv run python scripts/release_presentation_audit.py --root .
 git diff --check
 ```
 
-Expected: every command exits `0`; the real consumer proof passes with both supported Python minors
-using the same wheel; existing product, local-knowledge, and Evidence-provenance proofs remain
-unchanged.
+Expected: every listed focused/repository command exits `0`; existing product, local-knowledge, and
+Evidence-provenance proofs remain unchanged. The dual-interpreter consumer claim is gated
+separately by Step 4 and must not be inferred from these commands.
 
-- [ ] **Step 4: Audit immutable and forbidden surfaces**
+- [ ] **Step 4: Re-run the final real dual-interpreter proof and assert exact JSON**
+
+Run this only after every code, documentation, and CI edit is complete:
+
+```bash
+python312=$(command -v python3.12)
+python313=$(command -v python3.13)
+test -n "$python312" && test -n "$python313"
+UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
+  --python "$python312" \
+  --python "$python313" \
+  --json > /tmp/mke-consumer-source-pack-final.json
+python - <<'PY'
+import json
+from pathlib import Path
+
+observed = json.loads(
+    Path("/tmp/mke-consumer-source-pack-final.json").read_text(encoding="utf-8")
+)
+expected = {
+    "proof": "consumer_source_pack",
+    "status": "passed",
+    "manifest_schema": "mke.consumer_source_pack_manifest.v1",
+    "evidence_schema": "mke.evidence_ref.v1",
+    "pack_id": "local-knowledge-v1",
+    "source_count": 2,
+    "published_run_count": 2,
+    "active_publication_count": 2,
+    "active_evidence_count": 2,
+    "observed_states": ["empty", "active"],
+    "installed_identity": True,
+    "external_isolation": True,
+    "strict_schema_validation": True,
+    "search_ask_projection_equal": True,
+    "exact_manifest_mapping": True,
+    "fresh_store_mapping": True,
+    "redaction": True,
+    "cleanup": True,
+}
+assert observed == expected, observed
+PY
+```
+
+Expected: both explicit interpreters run the same controller-built wheel offline and the aggregate
+JSON is structurally equal to the approved public report.
+
+- [ ] **Step 5: Audit immutable and forbidden surfaces**
 
 ```bash
 git diff --exit-code 73d5f01885b60fbffeba8820e8f2f2151f8b9c39 -- \
@@ -767,10 +957,12 @@ Expected: the first command has no output; the second lists only the focused cli
 consumer fixtures/tests, CI, how-to, README, docs index, approved spec/plan/review history, and no
 forbidden surface.
 
-- [ ] **Step 5: Perform the required plan/spec self-review against the final diff**
+- [ ] **Step 6: Perform the required plan/spec self-review against the final diff**
 
 Check every approved design section and acceptance criterion against a concrete test or command in
-Tasks 1-7. Scan all changed files for incomplete-marker language and workflow-specific terms.
+Tasks 1-7. Scan every changed text file, including JSON fixtures, CI, README/docs index, approved
+spec/plan/review history, scripts, and tests, for incomplete-marker language and
+workflow-specific/private terms.
 Verify that every signature, dataclass field, stable code, report field, schema literal, fixture
 identity, and interpreter argument is consistent across client, controller, tests, docs, and CI.
 Confirm the diff forms one independently reviewable proof/docs/tests PR and contains no release,
@@ -778,17 +970,44 @@ runtime, evaluation-semantic, or unrelated change.
 
 ```bash
 python - <<'PY'
+import subprocess
 from pathlib import Path
-markers = ("T" + "BD", "T" + "ODO", "place" + "holder", "similar " + "to above")
-paths = (
-    Path("scripts/consumer_source_pack_client.py"),
-    Path("scripts/consumer_source_pack_proof.py"),
-    Path("tests/scripts/test_consumer_source_pack_client.py"),
-    Path("tests/scripts/test_consumer_source_pack_proof.py"),
-    Path("tests/evaluation/test_consumer_source_pack_documentation.py"),
-    Path("docs/how-to/run-consumer-source-pack-proof.md"),
+
+markers = (
+    "T" + "BD",
+    "T" + "ODO",
+    "place" + "holder",
+    "similar " + "to above",
+    "Car" + "eer",
+    "Night " + "Voyager",
+    "job" + "-search",
+    "/Us" + "ers/",
 )
-hits = [(path, marker) for path in paths for marker in markers if marker in path.read_text()]
+commands = (
+    [
+        "git", "diff", "--name-only", "--diff-filter=ACMR",
+        "73d5f01885b60fbffeba8820e8f2f2151f8b9c39...HEAD",
+    ],
+    ["git", "diff", "--name-only", "--diff-filter=ACMR"],
+    ["git", "ls-files", "--others", "--exclude-standard"],
+)
+changed = sorted(
+    {
+        name
+        for command in commands
+        for name in subprocess.run(
+            command, check=True, capture_output=True, text=True
+        ).stdout.splitlines()
+    }
+)
+hits: list[tuple[Path, str]] = []
+for name in changed:
+    path = Path(name)
+    data = path.read_bytes()
+    if b"\0" in data:
+        continue
+    text = data.decode("utf-8")
+    hits.extend((path, marker) for marker in markers if marker in text)
 assert not hits, hits
 PY
 git diff --check
@@ -798,7 +1017,7 @@ git status --short
 Expected: the incomplete-marker scan has no matches, `git diff --check` passes, and status contains only
 the intended Task 7 changes before commit.
 
-- [ ] **Step 6: Commit CI and final verification closure**
+- [ ] **Step 7: Commit CI and final verification closure**
 
 ```bash
 git add .github/workflows/ci.yml \
@@ -819,17 +1038,24 @@ review before any push or PR action.
 - Failure matrix: Tasks 1-5 cover strict manifest/schema/payload rejection, missing/ambiguous
   mapping, locator/state mismatch, startup/tool timeout, transport/nonzero exit, identity
   contamination, output bounds, termination, cleanup, and the complete stable-code allowlist.
+- Independent contract: Tasks 1-2 freeze all eight discovered schemas plus the exact MachineToken,
+  literal impact, and safe-cause contract; a producer-side structural regression protects fixture
+  freshness while the copied client remains independent.
 - Isolation/build: Task 4 builds one wheel, exports core `uv.lock` constraints, clears hostile
-  variables, uses external workspaces/venvs and bounded `shell=False` subprocesses, and verifies
-  module/distribution/Python/CLI/client/cwd identities.
+  variables, uses external workspaces/venvs and incrementally bounded `shell=False` subprocesses,
+  and verifies module/distribution/Python/CLI/client/cwd identities. Tasks 3-4 use live noisy-child
+  tests to prove output-cap termination and deterministic timeout/overflow precedence.
 - Supported minors: Tasks 4, 5, and 7 require explicit Python 3.12/3.13 paths and the same wheel;
-  the dedicated CI job is intentionally non-matrix.
+  the dedicated CI job is intentionally non-matrix, provisions both locked interpreter caches
+  online, then runs the distinct proof step offline.
 - Frozen inputs and compatibility: Tasks 1, 5, and 7 reuse but never modify the two PDFs, own
   independent manifest/schema fixtures, and re-run legacy/v1 schema regressions.
 - Documentation: Task 6 labels the proof source-built/current-checkout, explains exact boundaries,
-  and prevents any `v0.1.1` Release or release-gate claim.
+  requires prior cache provisioning, rejects empty-machine air-gap claims, and prevents any
+  `v0.1.1` Release or release-gate claim.
 - Forbidden surfaces and verification: Global Constraints and Task 7 turn every prohibited area
-  into an explicit stop condition and run every approved focused/full gate.
+  into an explicit stop condition, run every approved focused/full gate, re-run the final real
+  dual-interpreter proof, and compare its complete aggregate JSON exactly.
 - Completeness/type/coherence review: Task 7 requires incomplete-marker scan, cross-file signature/type
   consistency, public-neutral scan, and one-PR diff audit before completion.
 
