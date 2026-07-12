@@ -1,6 +1,8 @@
 # Versioned Evidence Provenance Contract Design
 
-Status: approved for local implementation; engineering plan review CLEAN.
+Status: implemented and merged by PR #63 at
+`0ccc82874e2a4a01e01badcf959ba5a5e0dcbc13`; post-merge checks passed and the
+authoritative targeted re-review closed as `CLEAN / 0 findings`.
 
 Planning base: `main@793788f2d74a1ec072fe205e89acd13ab595bad7`.
 

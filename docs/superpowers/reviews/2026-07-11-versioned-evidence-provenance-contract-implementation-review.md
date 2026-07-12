@@ -56,6 +56,19 @@ matched Task 0 byte-for-byte. All E1 through E3-E canonical validators passed. C
 bytes, qrels, query definitions, observations, metrics, gates, profiles, candidates, and verdicts
 did not drift.
 
+## Post-Merge Closeout
+
+PR #63 squash-merged the reviewed implementation to `main` at
+`0ccc82874e2a4a01e01badcf959ba5a5e0dcbc13` on 2026-07-11 17:16:30 UTC.
+Post-merge checks: passed. CI, CodeQL, Dependency Graph, and the repository-triggered Dependabot
+Updates workflows all completed successfully for that merge state. The authoritative targeted
+re-review remained `CLEAN / 0 findings`, and feature-branch/worktree cleanup completed.
+Final authoritative targeted re-review: `CLEAN / 0 findings`.
+
+The current `main` also includes the later PR #61 setup-uv update and its validator-proven
+identity-only dependency closure. That closure did not change the Evidence provenance contract,
+its public schemas, retrieval behavior, observations, metrics, gates, candidates, or verdicts.
+
 ## Remaining Risks
 
 The authoritative implementation review is closed as `CLEAN / 0 findings`. The installed-wheel

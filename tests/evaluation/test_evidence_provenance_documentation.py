@@ -27,3 +27,26 @@ def test_public_docs_cover_versioned_evidence_provenance_contract() -> None:
         "scripts/evidence_provenance_proof.py",
     ):
         assert required in text
+
+
+def test_durable_provenance_docs_record_post_merge_closeout() -> None:
+    spec = Path(
+        "docs/superpowers/specs/2026-07-11-versioned-evidence-provenance-contract-design.md"
+    ).read_text(encoding="utf-8")
+    plan = Path(
+        "docs/superpowers/plans/2026-07-11-versioned-evidence-provenance-contract-implementation.md"
+    ).read_text(encoding="utf-8")
+    review = Path(
+        "docs/superpowers/reviews/2026-07-11-versioned-evidence-provenance-contract-implementation-review.md"
+    ).read_text(encoding="utf-8")
+    durable_docs = "\n".join((spec, plan, review))
+
+    assert "PR #63" in durable_docs
+    assert "0ccc82874e2a4a01e01badcf959ba5a5e0dcbc13" in durable_docs
+    assert "Post-merge checks: passed" in durable_docs
+    assert "authoritative targeted re-review: `CLEAN / 0 findings`" in durable_docs
+    assert "approved for local implementation" not in spec
+    assert (
+        "**VERDICT:** ENG + OUTSIDE VOICE CLEARED — ready for isolated local implementation."
+        not in plan
+    )
