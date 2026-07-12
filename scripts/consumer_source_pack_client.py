@@ -46,7 +46,105 @@ _ID_RES = {
     prefix: re.compile(prefix + r"[0-9a-f]{32}\Z") for prefix in ("src_", "run_", "pub_", "ev_")
 }
 _FINGERPRINT_RE = re.compile(r"sha256:[0-9a-f]{64}\Z")
-_SAFE_CAUSES = {"query must not be empty", "operation failed; details were redacted"}
+_SAFE_CAUSES = frozenset(
+    {
+        "embedding output dtype must be float32",
+        "video transcript format is unsupported",
+        "configured embedding model revision is unavailable",
+        "transcript command timed out",
+        "unsupported codec for local video proof",
+        "CJK candidate pool exceeded the configured cap",
+        "PDF has no extractable text",
+        "transcript command failed",
+        "configured embedding model snapshot is incomplete",
+        "video transcript segment exceeds media duration",
+        "transcript command produced too much stderr",
+        "video transcript sidecar is not valid JSON",
+        "video transcript sidecar must be a JSON object",
+        "question must not be empty",
+        "PDF cannot be opened",
+        "limit must be between 1 and 20",
+        "timestamp locators must be integer milliseconds",
+        "video transcript exceeds segment limit",
+        "demo fixture is missing",
+        "vector projection replace failed",
+        "video transcript sidecar missing media",
+        "vector projection distance is invalid",
+        "embedding tokenizer output is invalid",
+        "transcript command is required",
+        "PDF input exceeds 100 MB limit",
+        "embedding model download failed",
+        "vector extension is unavailable or incompatible",
+        "vector projection inventory is incomplete",
+        "transcription optional dependency is not installed",
+        "embedding optional dependency is not installed",
+        "file path cannot be resolved",
+        "configured embedding model is not cached",
+        "input path must be a file",
+        "question must contain at least one searchable ASCII token",
+        "input file does not exist",
+        "video transcript missing media",
+        "embedding output contains non-finite values",
+        "embedding cancelled",
+        "embedding model cache is not readable",
+        "unknown run",
+        "stable timestamp locator generation requires sorted ranges",
+        "vector projection identity mismatch",
+        "transcription device or compute profile is unsupported",
+        "CJK active Evidence scan would exceed configured local budget",
+        "input video must be an MP4 file",
+        "supported suffixes are .pdf and .mp4",
+        "video transcript segment must be an object",
+        "embedding adapter failed",
+        "video must contain an audio track",
+        "video input exceeds 100 MiB limit",
+        "transcription failed",
+        "transcript command executable is missing",
+        "video transcript sidecar format is unsupported",
+        "transcript command stdout is not valid UTF-8",
+        "configured embedding model snapshot exceeds size limit",
+        "configured language is not supported by the model",
+        "transcript schema validation failed",
+        "transcription model download failed",
+        "video transcript must be a JSON object",
+        "configured transcription model revision is unavailable",
+        "vector projection search inventory is incomplete",
+        "stable timestamp locator generation requires increasing ranges",
+        "operation failed; details were redacted",
+        "demo video fixture is missing",
+        "video transcript is not valid JSON",
+        "input path must not be empty",
+        "input video is missing",
+        "configured transcription model is not cached",
+        "Requested retrieval strategy is not supported by this runtime",
+        "transcription model cache is not readable",
+        "video transcript text must not be empty",
+        "video media exceeds duration limit",
+        "input video could not be read",
+        "argv must contain exactly one {input} placeholder",
+        "embedding output is not normalized",
+        "input video is empty",
+        "embedding output count is invalid",
+        "embedding output dimension is invalid",
+        "input path must be under allowed root",
+        "embedding input would be truncated",
+        "encrypted PDF is not supported",
+        "query must not be empty",
+        "transcription model resolution failed",
+        "video transcript sidecar is missing",
+        "transcript command produced too much stdout",
+        "question must be 1000 characters or fewer",
+        "video transcript must contain at least one segment",
+        "Query does not contain enough eligible CJK terms",
+        "video ingest initialization failed",
+    }
+)
+_PUBLIC_ERROR_CONTRACT_KEYS = {
+    "machine_token_pattern",
+    "active_publication_impact",
+    "safe_causes",
+}
+_MACHINE_TOKEN_PATTERN = "^[a-z][a-z0-9_]{0,127}$"
 
 
 class DiscoveredTool(Protocol):
@@ -336,11 +434,21 @@ def load_schema_expectations(path: Path) -> dict[str, object]:
     ):
         raise ProofError("tool_schema_expectations_invalid")
     contract = cast(dict[str, object], payload["public_error_contract"])
-    causes = contract.get("safe_causes")
-    cause_values = cast(list[object], causes) if isinstance(causes, list) else []
-    if cause_values and all(isinstance(item, str) for item in cause_values):
-        _SAFE_CAUSES.clear()
-        _SAFE_CAUSES.update(cast(list[str], cause_values))
+    causes_value = contract.get("safe_causes")
+    if (
+        set(contract) != _PUBLIC_ERROR_CONTRACT_KEYS
+        or contract.get("machine_token_pattern") != _MACHINE_TOKEN_PATTERN
+        or contract.get("active_publication_impact") != "unchanged"
+        or not isinstance(causes_value, list)
+    ):
+        raise ProofError("tool_schema_expectations_invalid")
+    causes = cast(list[object], causes_value)
+    if (
+        any(not isinstance(item, str) for item in causes)
+        or frozenset(cast(list[str], causes)) != _SAFE_CAUSES
+        or len(causes) != len(_SAFE_CAUSES)
+    ):
+        raise ProofError("tool_schema_expectations_invalid")
     return payload
 
 
@@ -356,10 +464,10 @@ def normalize_discovered_tools(tools: Sequence[DiscoveredTool]) -> dict[str, obj
     normalized: dict[str, object] = {}
     try:
         for tool in tools:
-            name = tool.name
+            name = _runtime_value(tool.name)
             input_value = _runtime_value(tool.inputSchema)
             output_value = _runtime_value(tool.outputSchema)
-            if not name or not isinstance(input_value, Mapping):
+            if not isinstance(name, str) or not name or not isinstance(input_value, Mapping):
                 raise _contract_error()
             if output_value is not None and not isinstance(output_value, Mapping):
                 raise _contract_error()
@@ -510,7 +618,12 @@ def _error(payload: dict[str, object], version: str) -> None:
             or _MACHINE_TOKEN_RE.fullmatch(cast(str, payload[field])) is None
         ):
             raise _contract_error()
-    if payload["cause"] not in _SAFE_CAUSES or payload["active_publication_impact"] != "unchanged":
+    cause = payload["cause"]
+    if (
+        not isinstance(cause, str)
+        or cause not in _SAFE_CAUSES
+        or payload["active_publication_impact"] != "unchanged"
+    ):
         raise _contract_error()
 
 

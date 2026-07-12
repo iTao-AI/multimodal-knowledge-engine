@@ -43,6 +43,12 @@ def _write_manifest(tmp_path: Path, payload: dict[str, object]) -> Path:
     return path
 
 
+def _write_schema_expectations(tmp_path: Path, payload: dict[str, object]) -> Path:
+    path = tmp_path / "mcp-tool-schemas.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
 def _is_frozen_dataclass(value: object) -> bool:
     value_type = cast(Any, type(value))
     return bool(value_type.__dataclass_params__.frozen)
@@ -322,6 +328,57 @@ def test_load_schema_expectations_returns_closed_fixture() -> None:
     }
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("safe_causes", ["private provider detail"]),
+        ("safe_causes", []),
+        ("safe_causes", {}),
+        ("machine_token_pattern", "^.*$"),
+        ("active_publication_impact", "changed"),
+    ],
+)
+def test_load_schema_expectations_rejects_error_contract_drift_atomically(
+    tmp_path: Path, field: str, value: object
+) -> None:
+    fresh_client = _load_client()
+    valid_error = {
+        "schema_version": "mke.search_library_response.v1",
+        "ok": False,
+        "problem": "search_failed",
+        "cause": "unknown run",
+        "active_publication_impact": "unchanged",
+        "next_step": "retry_search",
+    }
+    assert fresh_client.validate_search_response(valid_error) == valid_error
+    payload = json.loads(SCHEMAS.read_text(encoding="utf-8"))
+    payload["public_error_contract"][field] = value
+
+    with pytest.raises(fresh_client.ProofError) as exc_info:
+        fresh_client.load_schema_expectations(_write_schema_expectations(tmp_path, payload))
+
+    assert exc_info.value.code == "tool_schema_expectations_invalid"
+    assert fresh_client.validate_search_response(valid_error) == valid_error
+
+
+def test_payload_safe_cause_validation_is_independent_of_expectations_load_order() -> None:
+    fresh_client = _load_client()
+    payload = {
+        "schema_version": "mke.search_library_response.v1",
+        "ok": False,
+        "problem": "search_failed",
+        "cause": "unknown run",
+        "active_publication_impact": "unchanged",
+        "next_step": "retry_search",
+    }
+
+    before = fresh_client.validate_search_response(payload)
+    fresh_client.load_schema_expectations(SCHEMAS)
+    after = fresh_client.validate_search_response(payload)
+
+    assert before == after == payload
+
+
 class FakeTool:
     def __init__(self, name: str, input_schema: Any, output_schema: Any) -> None:
         self.name = name
@@ -346,7 +403,9 @@ def test_tool_schema_protocol_and_exact_fixture_validation() -> None:
     client.validate_tool_schemas(typed, expected)
 
 
-@pytest.mark.parametrize("mutation", ["missing", "non_mapping", "duplicate", "unknown"])
+@pytest.mark.parametrize(
+    "mutation", ["missing", "non_mapping", "duplicate", "unknown", "non_string_name"]
+)
 def test_normalize_discovered_tools_rejects_invalid_discovery(mutation: str) -> None:
     tools = _fixture_tools()
     if mutation == "missing":
@@ -355,6 +414,8 @@ def test_normalize_discovered_tools_rejects_invalid_discovery(mutation: str) -> 
         tools[0].inputSchema = []
     elif mutation == "duplicate":
         tools.append(tools[0])
+    elif mutation == "non_string_name":
+        tools[0].name = cast(Any, 42)
     else:
         tools[0].name = "replacement_tool"
 
@@ -536,6 +597,23 @@ def test_payload_error_contract_is_exact(field: str, value: str) -> None:
     payload[field] = value
     with pytest.raises(client.ProofError):
         client.validate_search_response(payload)
+
+
+@pytest.mark.parametrize("cause", [[], {}, None, 7, True])
+def test_payload_error_contract_rejects_non_string_cause_as_proof_error(cause: object) -> None:
+    payload = {
+        "schema_version": "mke.search_library_response.v1",
+        "ok": False,
+        "problem": "search_failed",
+        "cause": cause,
+        "active_publication_impact": "unchanged",
+        "next_step": "retry_search",
+    }
+
+    with pytest.raises(client.ProofError) as exc_info:
+        client.validate_search_response(payload)
+
+    assert exc_info.value.code == "consumer_mcp_contract_invalid"
 
 
 def test_list_and_ask_cross_field_invariants_and_projection() -> None:

@@ -4,7 +4,10 @@ from pathlib import Path
 
 from mke.interfaces.mcp_contract import McpRuntimeConfig
 from mke.interfaces.mcp_server import build_mcp_server
-from mke.interfaces.public_errors import _ALLOWLISTED_CAUSES, _REDACTED_CAUSE
+from mke.interfaces.public_errors import (
+    _ALLOWLISTED_CAUSES,  # pyright: ignore[reportPrivateUsage]
+    _REDACTED_CAUSE,  # pyright: ignore[reportPrivateUsage]
+)
 from mke.runtime import RuntimeConfig
 
 FIXTURE = Path("tests/fixtures/consumer-source-pack-v1/mcp-tool-schemas.json")
