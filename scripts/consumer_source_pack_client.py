@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 import re
+import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import timedelta
@@ -820,6 +821,8 @@ class BoundedStderrCapture:
             raise ValueError("max_bytes must be positive")
         self.max_bytes = max_bytes
         self.overflow = asyncio.Event()
+        self.overflow_observed_at: float | None = None
+        self.terminal_code: str | None = None
         self.bytes_seen = 0
         self.errlog: TextIO | None = None
         self._read_fd: int | None = None
@@ -847,6 +850,7 @@ class BoundedStderrCapture:
                     return
                 self.bytes_seen += len(chunk)
                 if self.bytes_seen > self.max_bytes:
+                    self.overflow_observed_at = time.monotonic()
                     self.overflow.set()
                     if self.errlog is not None:
                         self.errlog.close()
@@ -884,11 +888,36 @@ def _tool_payload(result: object) -> dict[str, object]:
     raise _contract_error()
 
 
-async def _deadline(awaitable: Any, seconds: float, code: str) -> Any:
+async def _deadline(
+    awaitable: Any,
+    seconds: float,
+    code: str,
+    capture: BoundedStderrCapture,
+) -> Any:
+    deadline_at = time.monotonic() + seconds
+    operation = asyncio.ensure_future(awaitable)
+    overflow = asyncio.create_task(capture.overflow.wait())
     try:
-        return await asyncio.wait_for(awaitable, timeout=seconds)
-    except TimeoutError as exc:
-        raise ProofError(code) from exc
+        done, _ = await asyncio.wait(
+            {operation, overflow}, timeout=seconds, return_when=asyncio.FIRST_COMPLETED
+        )
+        overflow_at = capture.overflow_observed_at
+        if overflow_at is not None and overflow_at <= deadline_at:
+            if capture.terminal_code is None:
+                capture.terminal_code = "command_output_exceeded"
+            operation.cancel()
+            await asyncio.gather(operation, return_exceptions=True)
+            raise ProofError("command_output_exceeded")
+        if operation in done:
+            return await operation
+        operation.cancel()
+        await asyncio.gather(operation, return_exceptions=True)
+        if capture.terminal_code is None:
+            capture.terminal_code = code
+        raise ProofError(code)
+    finally:
+        overflow.cancel()
+        await asyncio.gather(overflow, return_exceptions=True)
 
 
 def _validate_run(payload: Mapping[str, object], run_id: str) -> None:
@@ -917,9 +946,15 @@ def _validate_run(payload: Mapping[str, object], run_id: str) -> None:
 
 
 async def _call(
-    session: ClientSession, name: str, arguments: dict[str, object], timeout: float
+    session: ClientSession,
+    name: str,
+    arguments: dict[str, object],
+    timeout: float,
+    capture: BoundedStderrCapture,
 ) -> dict[str, object]:
-    result = await _deadline(session.call_tool(name, arguments), timeout, "consumer_tool_timeout")
+    result = await _deadline(
+        session.call_tool(name, arguments), timeout, "mcp_tool_timeout", capture
+    )
     return _tool_payload(result)
 
 
@@ -945,14 +980,24 @@ async def run_store_session(config: ConsumerConfig, database: Path) -> StoreResu
                     await _deadline(
                         session.initialize(),
                         config.startup_timeout_seconds,
-                        "consumer_startup_timeout",
+                        "mcp_startup_timeout",
+                        capture,
                     )
                     listed = await _deadline(
-                        session.list_tools(), config.tool_timeout_seconds, "consumer_tool_timeout"
+                        session.list_tools(),
+                        config.tool_timeout_seconds,
+                        "mcp_tool_timeout",
+                        capture,
                     )
                     validate_tool_schemas(listed.tools, schemas)
                     initial = validate_list_response(
-                        await _call(session, "list_libraries_v1", {}, config.tool_timeout_seconds)
+                        await _call(
+                            session,
+                            "list_libraries_v1",
+                            {},
+                            config.tool_timeout_seconds,
+                            capture,
+                        )
                     )
                     initial_obs = cast(dict[str, object], initial["observation"])
                     if initial_obs != {
@@ -971,6 +1016,7 @@ async def run_store_session(config: ConsumerConfig, database: Path) -> StoreResu
                             "ingest_file",
                             {"path": source.relative_filename},
                             config.tool_timeout_seconds,
+                            capture,
                         )
                         run_id = ingested.get("run_id")
                         evidence_count = ingested.get("evidence_count")
@@ -987,12 +1033,19 @@ async def run_store_session(config: ConsumerConfig, database: Path) -> StoreResu
                                 "get_run",
                                 {"run_id": run_id},
                                 config.tool_timeout_seconds,
+                                capture,
                             ),
                             run_id,
                         )
                         published += 1
                     active = validate_list_response(
-                        await _call(session, "list_libraries_v1", {}, config.tool_timeout_seconds)
+                        await _call(
+                            session,
+                            "list_libraries_v1",
+                            {},
+                            config.tool_timeout_seconds,
+                            capture,
+                        )
                     )
                     observation = cast(dict[str, object], active["observation"])
                     if tuple(
@@ -1016,6 +1069,7 @@ async def run_store_session(config: ConsumerConfig, database: Path) -> StoreResu
                                 "search_library_v1",
                                 {"query": query.query, "limit": 5},
                                 config.tool_timeout_seconds,
+                                capture,
                             )
                         )
                         asked = validate_ask_response(
@@ -1024,6 +1078,7 @@ async def run_store_session(config: ConsumerConfig, database: Path) -> StoreResu
                                 "ask_library_v1",
                                 {"question": query.query, "limit": 5},
                                 config.tool_timeout_seconds,
+                                capture,
                             )
                         )
                         projections_equal &= evidence_projection(searched) == evidence_projection(
@@ -1042,6 +1097,7 @@ async def run_store_session(config: ConsumerConfig, database: Path) -> StoreResu
                             "search_library_v1",
                             {"query": unsupported.query, "limit": 5},
                             config.tool_timeout_seconds,
+                            capture,
                         )
                     )
                     asked = validate_ask_response(
@@ -1050,6 +1106,7 @@ async def run_store_session(config: ConsumerConfig, database: Path) -> StoreResu
                             "ask_library_v1",
                             {"question": unsupported.query, "limit": 5},
                             config.tool_timeout_seconds,
+                            capture,
                         )
                     )
                     if (
@@ -1079,7 +1136,10 @@ async def run_store_session(config: ConsumerConfig, database: Path) -> StoreResu
                 raise ProofError("command_output_exceeded") from exc
             raise ProofError("consumer_transport_failed") from exc
         finally:
-            if capture.overflow.is_set():
+            if capture.overflow.is_set() and capture.terminal_code in {
+                None,
+                "command_output_exceeded",
+            }:
                 raise ProofError("command_output_exceeded")
 
 

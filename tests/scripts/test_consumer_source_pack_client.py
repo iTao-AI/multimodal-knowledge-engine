@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 import copy
 import importlib.util
 import json
+import os
 import sys
+import time
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from types import ModuleType
@@ -676,3 +679,78 @@ def test_build_receipt_fails_closed(mutation: str, code: str) -> None:
     with pytest.raises(client.ProofError) as exc_info:
         client.build_receipt(evidence, pack, query)
     assert exc_info.value.code == code
+
+
+def test_deadline_prefers_output_overflow_observed_before_deadline() -> None:
+    async def exercise() -> None:
+        capture = client.BoundedStderrCapture(1)
+        capture.overflow_observed_at = time.monotonic()
+        capture.overflow.set()
+        with pytest.raises(client.ProofError) as exc_info:
+            await client._deadline(asyncio.Event().wait(), 1.0, "mcp_startup_timeout", capture)
+        assert exc_info.value.code == "command_output_exceeded"
+        assert capture.terminal_code == "command_output_exceeded"
+
+    asyncio.run(exercise())
+
+
+def test_deadline_prefers_timeout_observed_before_later_output_overflow() -> None:
+    async def exercise() -> None:
+        capture = client.BoundedStderrCapture(1)
+
+        async def overflow_later() -> None:
+            await asyncio.sleep(0.05)
+            capture.overflow_observed_at = time.monotonic()
+            capture.overflow.set()
+
+        overflow_task = asyncio.create_task(overflow_later())
+        with pytest.raises(client.ProofError) as exc_info:
+            await client._deadline(asyncio.Event().wait(), 0.005, "mcp_tool_timeout", capture)
+        assert exc_info.value.code == "mcp_tool_timeout"
+        await overflow_task
+        assert capture.terminal_code == "mcp_tool_timeout"
+
+    asyncio.run(exercise())
+
+
+def test_run_store_session_terminates_live_noisy_mcp_child_at_stderr_cap(
+    tmp_path: Path,
+) -> None:
+    server = tmp_path / "noisy-mcp"
+    server.write_text(
+        "#!/usr/bin/env python3\n"
+        "import os, pathlib, sys, time\n"
+        "pathlib.Path('noisy.pid').write_text(str(os.getpid()))\n"
+        "while True:\n"
+        "    try:\n"
+        "        sys.stderr.write('x' * 4096)\n"
+        "        sys.stderr.flush()\n"
+        "    except BrokenPipeError:\n"
+        "        while True:\n"
+        "            time.sleep(1)\n"
+        "    time.sleep(0.001)\n",
+        encoding="utf-8",
+    )
+    server.chmod(0o755)
+    config = client.ConsumerConfig(
+        MANIFEST,
+        SCHEMAS,
+        LOCAL_FIXTURE_ROOT,
+        server,
+        tmp_path,
+        {"PATH": os.environ["PATH"]},
+        10.0,
+        10.0,
+        1024,
+    )
+
+    started = time.monotonic()
+    with pytest.raises(client.ProofError) as exc_info:
+        asyncio.run(client.run_store_session(config, tmp_path / "store.sqlite"))
+    elapsed = time.monotonic() - started
+
+    assert exc_info.value.code == "command_output_exceeded"
+    assert elapsed < 5.0
+    pid = int((tmp_path / "noisy.pid").read_text(encoding="utf-8"))
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)
