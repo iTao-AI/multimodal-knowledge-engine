@@ -36,6 +36,7 @@ from mke.domain import (
     RunManifest,
     RunRecord,
     RunState,
+    RunTransitionError,
     SearchResult,
     SearchSnapshot,
     SourceRecord,
@@ -170,6 +171,8 @@ class KnowledgeEngine:
     def persist_validated_candidate(
         self, run_id: str, evidence: list[CandidateEvidence], manifest: RunManifest
     ) -> None:
+        if self.get_run(run_id).state is RunState.QUEUED:
+            self._store.mark_run_running(run_id)
         self._store.persist_validated_candidate(run_id, evidence, manifest)
 
     def activate_publication(
@@ -329,6 +332,8 @@ class KnowledgeEngine:
                 retry_of_run_id=retry_of_run_id,
                 intake_report=extraction.report,
             )
+        except RunTransitionError as error:
+            raise PdfIngestError(str(error), run.run_id) from error
         except (PdfExtractionError, ManifestValidationError, InjectedStorageFailure) as error:
             if isinstance(error, PdfExtractionError) and error.report is not None:
                 self._store.persist_pdf_intake_report(run.run_id, error.report)
@@ -405,6 +410,14 @@ class KnowledgeEngine:
                     transcript.transcript_intake_report if activation.published else None
                 ),
             )
+        except RunTransitionError as error:
+            assert run is not None
+            raise VideoIngestError(
+                str(error),
+                run.run_id,
+                problem="video_ingest_failed",
+                next_step="retry_when_owner_ready",
+            ) from error
         except Exception as error:
             if run is None:
                 if isinstance(error, VideoIngestError):

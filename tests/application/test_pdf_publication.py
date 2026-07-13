@@ -11,6 +11,7 @@ from mke.domain import (
     PdfExtractionResult,
     PdfIntakeReport,
     PdfPageText,
+    RunEventType,
     RunManifest,
     RunState,
 )
@@ -55,6 +56,11 @@ def test_candidate_evidence_is_not_searchable_before_activation(tmp_path: Path) 
 
     assert engine.get_run(run.run_id).state == RunState.VALIDATED
     assert engine.search("candidate") == []
+    assert [event.event_type for event in engine.get_run_events(run.run_id)] == [
+        RunEventType.RUN_CREATED,
+        RunEventType.RUN_STARTED,
+        RunEventType.CANDIDATE_VALIDATED,
+    ]
 
 
 def test_stale_run_is_superseded_without_changing_active_search(tmp_path: Path) -> None:
@@ -207,6 +213,49 @@ def test_successful_extraction_report_is_not_persisted_when_activation_fails(
     assert run_id is not None
     assert engine.get_run(run_id).state == RunState.VALIDATED
     assert engine.get_pdf_intake_report(run_id) is None
+
+
+def test_interrupted_pdf_run_cannot_validate_or_change_active_results(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    engine.ingest_pdf(PDF_FIXTURES / "text-layer.pdf")
+    before_search = engine.search("trustworthy")
+    before_ask = engine.ask("Where is the trustworthy evidence?")
+    original_persist = engine._store.persist_validated_candidate  # pyright: ignore[reportPrivateUsage]
+
+    def interrupt_before_validation(*args: object, **kwargs: object) -> None:
+        engine._store.interrupt_unfinished_runs()  # pyright: ignore[reportPrivateUsage]
+        original_persist(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(
+        engine._store,  # pyright: ignore[reportPrivateUsage]
+        "persist_validated_candidate",
+        interrupt_before_validation,
+    )
+
+    with pytest.raises(PdfIngestError, match="Run state changed") as error:
+        engine.reprocess_pdf(PDF_FIXTURES / "text-layer-revised.pdf")
+
+    run_id = error.value.run_id
+    assert run_id is not None
+    assert engine.get_run(run_id).state is RunState.INTERRUPTED
+    event_types = [event.event_type for event in engine.get_run_events(run_id)]
+    assert RunEventType.CANDIDATE_VALIDATED not in event_types
+    assert RunEventType.PUBLICATION_ACTIVATED not in event_types
+    assert engine.search("trustworthy") == before_search
+    after_ask = engine.ask("Where is the trustworthy evidence?")
+    assert (
+        after_ask.answer_status,
+        after_ask.summary,
+        after_ask.evidence,
+        after_ask.limitations,
+    ) == (
+        before_ask.answer_status,
+        before_ask.summary,
+        before_ask.evidence,
+        before_ask.limitations,
+    )
 
 
 def test_knowledge_engine_accepts_custom_pdf_extractor(tmp_path: Path) -> None:

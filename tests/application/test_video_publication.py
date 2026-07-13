@@ -8,7 +8,9 @@ from mke.application import KnowledgeEngine, VideoIngestError
 from mke.domain import (
     ActivationResult,
     FailurePoint,
+    RunEventType,
     RunState,
+    RunTransitionError,
     TranscriptExtractionResult,
     TranscriptIntakeReport,
 )
@@ -241,7 +243,12 @@ def test_video_lifecycle_failure_marks_run_failed_and_preserves_active_search(
         engine.ingest_video(VIDEO_FIXTURES / "short-audio.mp4")
 
     assert exc_info.value.run_id is not None
-    assert engine.get_run(exc_info.value.run_id).state == RunState.FAILED
+    expected_state = (
+        RunState.VALIDATED
+        if failure_stage in {"activation", "report_insert"}
+        else RunState.FAILED
+    )
+    assert engine.get_run(exc_info.value.run_id).state == expected_state
     assert engine.get_transcript_intake_report(exc_info.value.run_id) is None
     assert [match.text for match in engine.search("timestamp proof")] == before
     assert engine.search("faster whisper") == []
@@ -282,3 +289,66 @@ def test_superseded_video_ingest_does_not_expose_successful_report(
     assert result.transcript_intake_report is None
     assert engine.get_transcript_intake_report(result.run_id) is None
     assert [match.text for match in engine.search("timestamp proof")] == before
+
+
+def test_video_final_activation_cas_failure_preserves_active_results(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    engine.ingest_video(VIDEO_FIXTURES / "short-audio.mp4")
+    before_search = engine.search("timestamp proof")
+    before_ask = engine.ask("What does the timestamp proof say?")
+    monkeypatch.setattr(engine, "_transcript_provider", FakeFasterWhisperProvider())
+    original_transition = engine._store._transition_run  # pyright: ignore[reportPrivateUsage]
+
+    def interrupt_before_final_cas(
+        run_id: str,
+        *,
+        expected: tuple[RunState, ...],
+        target: RunState,
+        event_type: str,
+    ) -> None:
+        if target is RunState.PUBLISHED:
+            raise RunTransitionError(
+                run_id,
+                expected=expected,
+                actual=RunState.INTERRUPTED,
+                target=target,
+            )
+        original_transition(
+            run_id,
+            expected=expected,
+            target=target,
+            event_type=event_type,
+        )
+
+    monkeypatch.setattr(
+        engine._store,  # pyright: ignore[reportPrivateUsage]
+        "_transition_run",
+        interrupt_before_final_cas,
+    )
+
+    with pytest.raises(VideoIngestError) as error:
+        engine.ingest_video(VIDEO_FIXTURES / "short-audio.mp4")
+
+    run_id = error.value.run_id
+    assert run_id is not None
+    assert error.value.problem == "video_ingest_failed"
+    assert error.value.next_step == "retry_when_owner_ready"
+    assert engine.get_run(run_id).state is RunState.VALIDATED
+    assert RunEventType.PUBLICATION_ACTIVATED not in [
+        event.event_type for event in engine.get_run_events(run_id)
+    ]
+    assert engine.search("timestamp proof") == before_search
+    after_ask = engine.ask("What does the timestamp proof say?")
+    assert (
+        after_ask.answer_status,
+        after_ask.summary,
+        after_ask.evidence,
+        after_ask.limitations,
+    ) == (
+        before_ask.answer_status,
+        before_ask.summary,
+        before_ask.evidence,
+        before_ask.limitations,
+    )
