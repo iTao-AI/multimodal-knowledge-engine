@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
@@ -20,6 +21,7 @@ from mke.runtime import (
     build_transcript_provider,
     first_party_adapter_argv,
 )
+from mke.runtime_owner import OwnerRuntimeState
 
 
 def test_runtime_defaults_to_sidecar_and_owns_one_process_controller(tmp_path: Path) -> None:
@@ -113,6 +115,14 @@ def test_runtime_rejects_non_typed_transcription_config(tmp_path: Path) -> None:
         )
 
 
+def test_runtime_rejects_non_owner_runtime_state(tmp_path: Path) -> None:
+    with pytest.raises(TypeError, match="owner state"):
+        RuntimeConfig(  # type: ignore[call-arg]
+            db_path=tmp_path / "mke.sqlite",
+            owner_state=cast(Any, object()),
+        )
+
+
 def test_runtime_rejects_unknown_retrieval_query_policy(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="retrieval query policy is unsupported"):
         RuntimeConfig(
@@ -163,6 +173,35 @@ def test_build_engine_uses_shared_provider_factory(
         )
     finally:
         engine.close()
+
+
+def test_build_engine_closes_engine_when_owner_recovery_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime = RuntimeConfig(tmp_path / "mke.sqlite", owner_state=OwnerRuntimeState())
+    closed: list[KnowledgeEngine] = []
+    original_close = KnowledgeEngine.close
+
+    def fail_recovery(
+        db_path: Path, recovery: Callable[[], None]
+    ) -> None:
+        raise RuntimeError("recovery failed")
+
+    def observe_close(engine: KnowledgeEngine) -> None:
+        closed.append(engine)
+        original_close(engine)
+
+    monkeypatch.setattr(
+        runtime.owner_state,
+        "recover_unfinished_runs_once",
+        fail_recovery,
+    )
+    monkeypatch.setattr(KnowledgeEngine, "close", observe_close)
+
+    with pytest.raises(RuntimeError, match="recovery failed"):
+        build_engine(runtime)
+
+    assert len(closed) == 1
 
 
 def test_build_engine_accepts_current_policy_for_rollback(tmp_path: Path) -> None:

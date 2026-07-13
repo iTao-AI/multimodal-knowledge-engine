@@ -100,7 +100,6 @@ class SQLiteStore:
         self._connection.row_factory = sqlite3.Row
         self._configure()
         self.migrate()
-        self.interrupt_unfinished_runs()
 
     def __enter__(self) -> Self:
         return self

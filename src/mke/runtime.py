@@ -30,6 +30,7 @@ from mke.retrieval.strategy import (
     get_retrieval_strategy_descriptor,
     require_retrieval_strategy,
 )
+from mke.runtime_owner import OwnerRuntimeState
 
 DEFAULT_MODEL_REVISION = "536b0662742c02347bc0e980a01041f333bce120"
 
@@ -135,6 +136,10 @@ class RuntimeConfig:
         default_factory=ActiveProcessController,
         compare=False,
     )
+    owner_state: OwnerRuntimeState = field(
+        default_factory=OwnerRuntimeState,
+        compare=False,
+    )
 
     def __post_init__(self) -> None:
         query_policy = (
@@ -158,6 +163,8 @@ class RuntimeConfig:
             raise TypeError("transcription config must be a typed configuration")
         if type(self.process_controller) is not ActiveProcessController:
             raise TypeError("process controller must be ActiveProcessController")
+        if type(self.owner_state) is not OwnerRuntimeState:
+            raise TypeError("owner state must be OwnerRuntimeState")
 
 
 def _validate_approved_limits(limits: VideoTranscriptionLimits) -> None:
@@ -221,9 +228,19 @@ def build_transcript_provider(config: RuntimeConfig) -> TranscriptProvider:
 
 
 def build_engine(config: RuntimeConfig) -> KnowledgeEngine:
-    return KnowledgeEngine(
+    engine = KnowledgeEngine(
         config.db_path,
         transcript_provider=build_transcript_provider(config),
         query_policy=config.retrieval_query_policy,
         retrieval_strategy=cast(RetrievalStrategy, config.retrieval_strategy),
+        recover_unfinished_runs=False,
     )
+    try:
+        config.owner_state.recover_unfinished_runs_once(
+            config.db_path,
+            engine.recover_unfinished_runs,
+        )
+    except Exception:
+        engine.close()
+        raise
+    return engine

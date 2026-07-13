@@ -121,6 +121,7 @@ class KnowledgeEngine:
         query_policy: RetrievalQueryPolicy | None = None,
         retrieval_strategy: RetrievalStrategy | None = None,
         search_observer: Callable[[int], None] | None = None,
+        recover_unfinished_runs: bool = True,
     ) -> None:
         selected_strategy = _normalize_retrieval_strategy(
             retrieval_strategy,
@@ -135,9 +136,14 @@ class KnowledgeEngine:
         self._retrieval_strategy: RetrievalStrategy = selected_strategy
         self._pdf_extractor = pdf_extractor or PyMuPDFPdfExtractor()
         self._transcript_provider = transcript_provider or SidecarTranscriptProvider()
+        if recover_unfinished_runs:
+            self.recover_unfinished_runs()
 
     def close(self) -> None:
         self._store.close()
+
+    def recover_unfinished_runs(self) -> None:
+        self._store.interrupt_unfinished_runs()
 
     def ensure_source(
         self, display_name: str, asset_sha256: str, media_type: str = "application/pdf"
