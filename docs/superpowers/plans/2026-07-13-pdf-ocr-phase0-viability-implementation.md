@@ -593,6 +593,9 @@ not provider quality, startup, artifact-schema, or model compatibility evidence.
 Targeted package-checkpoint review resolution: bounded commands now clean their captured process
 group after every parent exit, including successful exits, and required tests bind the committed
 receipt to its canonical frozen bytes plus its internal distribution totals and MKE wheel identity.
+Candidate wheelhouses are seeded with that same MKE wheel before online resolution, so an
+all-resolver-failed candidate can emit valid-negative evidence without inventing provider packages;
+prepared wheelhouses remain read-only and fail closed when the MKE identity is absent or drifted.
 The resolution remains pending targeted re-review. The 25,101,925,887-byte figure is the sum of 16
 temporary installed trees measured before per-cell cleanup, not retained disk usage. The retained
 operator-local package evidence is approximately 2.2 GB; its location is intentionally not part of

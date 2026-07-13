@@ -289,6 +289,93 @@ def test_receipt_validator_binds_mke_digest_to_candidate_inventories() -> None:
         compatibility.validate_receipt(receipt)
 
 
+def test_all_resolver_failed_candidate_emits_mke_only_valid_receipt(
+    tmp_path: Path,
+) -> None:
+    compatibility = _module()
+    wheel = tmp_path / "multimodal_knowledge_engine-0.1.1-py3-none-any.whl"
+    wheel.write_bytes(b"one built MKE wheel")
+    wheelhouse = tmp_path / "wheelhouse"
+    wheelhouse.mkdir()
+
+    compatibility._bind_candidate_mke_wheel(wheel, wheelhouse, seed=True)
+
+    distributions = compatibility._distribution_receipts(wheelhouse)
+    digest = hashlib.sha256(wheel.read_bytes()).hexdigest()
+    receipt = _receipt()
+    receipt["mke_wheel_sha256"] = digest
+    candidates = receipt["candidates"]
+    assert isinstance(candidates, list)
+    for candidate in candidates:
+        assert isinstance(candidate, dict)
+        inventory = candidate["distributions"]
+        assert isinstance(inventory, list)
+        mke = next(
+            item
+            for item in inventory
+            if item["filename"]
+            == "multimodal_knowledge_engine-0.1.1-py3-none-any.whl"
+        )
+        mke["sha256"] = digest
+    failed = candidates[0]
+    assert isinstance(failed, dict)
+    failed["distributions"] = distributions
+    failed["download_bytes"] = wheel.stat().st_size
+    cells = failed["cells"]
+    assert isinstance(cells, list)
+    for cell in cells:
+        assert isinstance(cell, dict)
+        cell["result"] = "resolver_failed"
+        cell["failure_code"] = "resolver_unavailable"
+        cell["package_versions"] = {}
+        cell["install_bytes"] = 0
+
+    encoded = compatibility.canonical_receipt_bytes(receipt)
+
+    assert distributions == [
+        {
+            "filename": "multimodal_knowledge_engine-0.1.1-py3-none-any.whl",
+            "sha256": digest,
+            "bytes": wheel.stat().st_size,
+        }
+    ]
+    assert len(cells) == 8
+    assert {cell["result"] for cell in cells} == {"resolver_failed"}
+    assert json.loads(encoded) == receipt
+
+
+def test_candidate_mke_seed_rejects_collision_without_overwrite(tmp_path: Path) -> None:
+    compatibility = _module()
+    wheel = tmp_path / "multimodal_knowledge_engine-0.1.1-py3-none-any.whl"
+    wheel.write_bytes(b"expected")
+    wheelhouse = tmp_path / "wheelhouse"
+    wheelhouse.mkdir()
+    collision = wheelhouse / wheel.name
+    collision.write_bytes(b"drifted")
+
+    with pytest.raises(compatibility.CompatibilityError) as error:
+        compatibility._bind_candidate_mke_wheel(wheel, wheelhouse, seed=True)
+
+    assert error.value.code == "distribution_identity_drift"
+    assert collision.read_bytes() == b"drifted"
+
+
+def test_prepared_wheelhouse_missing_mke_identity_fails_without_write(
+    tmp_path: Path,
+) -> None:
+    compatibility = _module()
+    wheel = tmp_path / "multimodal_knowledge_engine-0.1.1-py3-none-any.whl"
+    wheel.write_bytes(b"expected")
+    wheelhouse = tmp_path / "prepared"
+    wheelhouse.mkdir()
+
+    with pytest.raises(compatibility.CompatibilityError) as error:
+        compatibility._bind_candidate_mke_wheel(wheel, wheelhouse, seed=False)
+
+    assert error.value.code == "prepared_wheelhouses_invalid"
+    assert tuple(wheelhouse.iterdir()) == ()
+
+
 def test_bounded_subprocess_rejects_output_and_timeout(tmp_path: Path) -> None:
     compatibility = _module()
 

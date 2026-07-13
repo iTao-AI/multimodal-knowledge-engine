@@ -556,6 +556,11 @@ def run_package_matrix(config: CompatibilityConfig) -> dict[str, object]:
             wheelhouse.mkdir(mode=0o700)
         elif not wheelhouse.is_dir():
             raise CompatibilityError("prepared_wheelhouses_invalid")
+        _bind_candidate_mke_wheel(
+            wheel,
+            wheelhouse,
+            seed=prepared_wheelhouses is None,
+        )
         preparation_failures: dict[str, str] = {}
         if prepared_wheelhouses is None:
             for identity in sorted(identities, key=lambda item: item.minor):
@@ -863,6 +868,47 @@ def _failed_cell(
         "package_versions": {},
         "install_bytes": install_bytes,
     }
+
+
+def _bind_candidate_mke_wheel(wheel: Path, wheelhouse: Path, *, seed: bool) -> None:
+    try:
+        source_metadata = wheel.lstat()
+    except OSError as error:
+        raise CompatibilityError("input_invalid") from error
+    if (
+        wheel.name != _MKE_WHEEL_FILENAME
+        or wheel.is_symlink()
+        or not stat.S_ISREG(source_metadata.st_mode)
+    ):
+        raise CompatibilityError("input_invalid")
+    expected_digest = _sha256_file(wheel)
+    target = wheelhouse / _MKE_WHEEL_FILENAME
+    if not target.exists() and not target.is_symlink():
+        if not seed:
+            raise CompatibilityError("prepared_wheelhouses_invalid")
+        created = False
+        try:
+            with wheel.open("rb") as source, target.open("xb") as destination:
+                created = True
+                shutil.copyfileobj(source, destination, length=1024 * 1024)
+        except FileExistsError:
+            pass
+        except OSError as error:
+            if created:
+                target.unlink(missing_ok=True)
+            raise CompatibilityError("package_prepare_failed") from error
+    failure_code = "distribution_identity_drift" if seed else "prepared_wheelhouses_invalid"
+    try:
+        target_metadata = target.lstat()
+    except OSError as error:
+        raise CompatibilityError(failure_code) from error
+    if (
+        target.is_symlink()
+        or not stat.S_ISREG(target_metadata.st_mode)
+        or target_metadata.st_size != source_metadata.st_size
+        or _sha256_file(target) != expected_digest
+    ):
+        raise CompatibilityError(failure_code)
 
 
 def _merge_wheels(source: Path, destination: Path) -> None:
