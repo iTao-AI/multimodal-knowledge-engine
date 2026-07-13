@@ -30,7 +30,7 @@ from mke.retrieval.strategy import (
     get_retrieval_strategy_descriptor,
     require_retrieval_strategy,
 )
-from mke.runtime_owner import OwnerRuntimeState
+from mke.runtime_owner import BoundedAdmissionController, OwnerRuntimeState
 
 DEFAULT_MODEL_REVISION = "536b0662742c02347bc0e980a01041f333bce120"
 
@@ -140,6 +140,10 @@ class RuntimeConfig:
         default_factory=OwnerRuntimeState,
         compare=False,
     )
+    admission_controller: BoundedAdmissionController = field(
+        default_factory=lambda: BoundedAdmissionController(capacity=1, max_waiters=1),
+        compare=False,
+    )
     process_operation_id: ProcessOperationId | None = field(
         default=None,
         compare=False,
@@ -169,6 +173,8 @@ class RuntimeConfig:
             raise TypeError("process controller must be ActiveProcessController")
         if type(self.owner_state) is not OwnerRuntimeState:
             raise TypeError("owner state must be OwnerRuntimeState")
+        if type(self.admission_controller) is not BoundedAdmissionController:
+            raise TypeError("admission controller must be BoundedAdmissionController")
         if self.process_operation_id is not None:
             if not isinstance(self.process_operation_id, str):
                 raise TypeError("process operation ID must be a string")
