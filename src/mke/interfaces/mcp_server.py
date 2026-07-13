@@ -7,7 +7,7 @@ import functools
 import logging
 import sys
 from collections.abc import AsyncGenerator, Awaitable, Callable
-from contextlib import asynccontextmanager, suppress
+from contextlib import asynccontextmanager
 from dataclasses import replace
 from typing import Any
 
@@ -170,11 +170,22 @@ async def _ingest_with_cancellation(
             return await asyncio.shield(worker)
         except asyncio.CancelledError:
             controller.cancel_operation(operation_id)
-            with suppress(Exception):
-                await asyncio.shield(worker)
+            await _wait_for_worker_cleanup(worker)
             raise
     finally:
         controller.end_operation(operation_id)
+
+
+async def _wait_for_worker_cleanup(worker: asyncio.Task[dict[str, Any]]) -> None:
+    while True:
+        try:
+            await asyncio.shield(worker)
+            return
+        except asyncio.CancelledError:
+            if worker.done():
+                return
+        except Exception:
+            return
 
 
 def _safe_tool(fn: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any]]:

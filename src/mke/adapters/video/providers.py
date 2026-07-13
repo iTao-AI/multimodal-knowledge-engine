@@ -165,7 +165,12 @@ def _run_bounded_command(
         raise VideoExtractionError("transcript command failed") from error
 
     if process_controller is not None:
-        process_controller.register(process, operation_id=process_operation_id)
+        try:
+            process_controller.register(process, operation_id=process_operation_id)
+        except Exception as error:
+            _kill_process(process)
+            _close_process_streams(process)
+            raise VideoExtractionError("transcript command failed") from error
     stdout = bytearray()
     stderr = bytearray()
     try:
@@ -186,12 +191,7 @@ def _run_bounded_command(
     finally:
         if process_controller is not None:
             process_controller.unregister(process, operation_id=process_operation_id)
-        if process.stdout is not None:
-            with suppress(OSError):
-                process.stdout.close()
-        if process.stderr is not None:
-            with suppress(OSError):
-                process.stderr.close()
+        _close_process_streams(process)
 
 
 def _read_bounded_process_output(
@@ -263,6 +263,15 @@ def _kill_process(process: subprocess.Popen[bytes]) -> None:
         process.wait(timeout=1)
     except (OSError, subprocess.TimeoutExpired):
         pass
+
+
+def _close_process_streams(process: subprocess.Popen[bytes]) -> None:
+    if process.stdout is not None:
+        with suppress(OSError):
+            process.stdout.close()
+    if process.stderr is not None:
+        with suppress(OSError):
+            process.stderr.close()
 
 
 def _oversized_output_error(stream_name: str) -> VideoExtractionError:

@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from mke.adapters.pdf import PdfExtractionError
 from mke.application import KnowledgeEngine, PdfIngestError
 from mke.domain import (
     PDF_EXTRACTOR_FINGERPRINT,
@@ -258,6 +259,25 @@ def test_interrupted_pdf_run_cannot_validate_or_change_active_results(
     )
 
 
+def test_pdf_extraction_failure_does_not_resurrect_interrupted_run(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "interrupted.pdf"
+    path.write_bytes(b"stub pdf bytes")
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    engine._pdf_extractor = _InterruptingFailureExtractor(engine)  # pyright: ignore[reportPrivateUsage]
+
+    with pytest.raises(PdfIngestError, match="ordinary extraction failure") as error:
+        engine.ingest_pdf(path)
+
+    run_id = error.value.run_id
+    assert run_id is not None
+    assert engine.get_run(run_id).state is RunState.INTERRUPTED
+    event_types = [event.event_type for event in engine.get_run_events(run_id)]
+    assert RunEventType.RUN_INTERRUPTED in event_types
+    assert RunEventType.RUN_FAILED not in event_types
+
+
 def test_knowledge_engine_accepts_custom_pdf_extractor(tmp_path: Path) -> None:
     path = tmp_path / "stub.pdf"
     path.write_bytes(b"stub pdf bytes")
@@ -310,3 +330,12 @@ class _InvalidPageExtractor:
             report=_stub_report(),
             pages=(PdfPageText(page_number=0, text="stub evidence"),),
         )
+
+
+class _InterruptingFailureExtractor:
+    def __init__(self, engine: KnowledgeEngine) -> None:
+        self._engine = engine
+
+    def extract(self, path: Path) -> PdfExtractionResult:
+        self._engine._store.interrupt_unfinished_runs()  # pyright: ignore[reportPrivateUsage]
+        raise PdfExtractionError("ordinary extraction failure")

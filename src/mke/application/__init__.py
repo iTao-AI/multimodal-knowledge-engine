@@ -343,7 +343,10 @@ class KnowledgeEngine:
                 FailurePoint.AFTER_ACTIVE_POINTER_SWITCH,
             }:
                 raise PdfIngestError(str(error), run.run_id) from error
-            self._store.mark_run_failed(run.run_id)
+            try:
+                self._store.mark_run_failed(run.run_id)
+            except RunTransitionError:
+                raise PdfIngestError(str(error), run.run_id) from error
             raise PdfIngestError(str(error), run.run_id) from error
 
     def _select_source(
