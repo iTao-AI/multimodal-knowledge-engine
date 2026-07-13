@@ -2,6 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+Status: in progress. Tasks 1-3 and their review remediation are complete. Work is hard-stopped
+before Task 4 package/model acquisition; Tasks 4-6 have not started.
+
 **Goal:** Produce reproducible valid-positive or valid-negative evidence for local scanned/mixed-PDF OCR before adding a production runtime contract.
 
 **Architecture:** Evaluation-only modules generate and validate a public-safe corpus, classify every page with a pure four-state router, invoke isolated provider candidates through one strict child protocol, and persist disposable Evidence through current SQLite/Publication contracts. A wheel-installed external consumer then verifies Search, Ask, and exact page `mke.evidence_ref.v1`; the final scorecard selects no production provider unless all hard gates pass.
@@ -126,7 +129,7 @@ The provider child accepts fixed `--input`, `--output`, `--page-number`, and pro
 - Consumes: current PyMuPDF dependency and existing fixture identity patterns.
 - Produces: `PdfOcrEvaluationProtocol`, page route truth, OCR text truth, and exact Search/Ask expectations for Tasks 2-6.
 
-- [ ] **Step 1: Write failing closed-protocol tests**
+- [x] **Step 1: Write failing closed-protocol tests**
 
 Create tests that require:
 
@@ -157,7 +160,7 @@ def test_protocol_rejects_unknown_fields_and_checksum_drift(tmp_path: Path) -> N
     # Copy the fixture tree, mutate one PDF byte and one JSON field, and assert stable failures.
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/evaluation/test_pdf_ocr_protocol.py
@@ -165,13 +168,13 @@ UV_OFFLINE=1 uv run pytest -q tests/evaluation/test_pdf_ocr_protocol.py
 
 Expected: protocol, generator, and loader are absent.
 
-- [ ] **Step 3: Implement the closed protocol loader**
+- [x] **Step 3: Implement the closed protocol loader**
 
 Use dataclasses for `FixtureIdentity`, `ExpectedPage`, `ExpectedQuery`, `EvaluationDocument`, and `PdfOcrEvaluationProtocol`. Require exact object keys, `mke.pdf_ocr_eval_protocol.v1`, normalized relative POSIX paths, lowercase SHA-256, exact byte counts, contiguous page numbers, unique document/query IDs, one expected route per page, and query locators that reference an existing page.
 
 Reject absolute paths, traversal, links, directories in place of files, invalid UTF-8/JSON, unknown providers, missing fields, and private-path markers. Return stable `PdfOcrProtocolError(problem, cause, next_step, subject_id)` values without embedding the failing path.
 
-- [ ] **Step 4: Implement and run the fixture generator**
+- [x] **Step 4: Implement and run the fixture generator**
 
 Use PyMuPDF only. Create source text pages with fixed dimensions and metadata, render scan pages at 200 DPI, then embed those raster bytes into new image-only PDF pages. Use built-in Helvetica for English and the PyMuPDF reserved Simplified Chinese font name `china-s` for Chinese. Save with fixed metadata, `garbage=4`, `deflate=True`, and `no_new_id=True`.
 
@@ -187,7 +190,7 @@ Queries must include exact expected page EvidenceRefs for `amber seals`, `海燕
 
 Run the generator twice, compare SHA-256 inventories, then write the committed `protocol.json` using the observed stable identities.
 
-- [ ] **Step 5: Run GREEN and commit Task 1**
+- [x] **Step 5: Run GREEN and commit Task 1**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/evaluation/test_pdf_ocr_protocol.py
@@ -230,7 +233,7 @@ class EvaluationRoutingPolicy:
     max_total_rendered_bytes: int = 96 * 1024 * 1024
 ```
 
-- [ ] **Step 1: Write failing route and geometry tests**
+- [x] **Step 1: Write failing route and geometry tests**
 
 Require exact route/reason behavior for every protocol page:
 
@@ -262,7 +265,7 @@ Also cover empty text, replacement characters, whitespace normalization, sparse 
 images, vector drawings, non-finite rectangles, degenerate pages, encrypted files, malformed files,
 zero bytes, excessive pages, and source replacement between identity check and open.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/evaluation/test_pdf_ocr_router.py
@@ -270,7 +273,7 @@ UV_OFFLINE=1 uv run pytest -q tests/evaluation/test_pdf_ocr_router.py
 
 Expected: router and bounded renderer are absent.
 
-- [ ] **Step 3: Implement bounded inspection and rectangle union**
+- [x] **Step 3: Implement bounded inspection and rectangle union**
 
 Open only a previously identified regular-file snapshot. Use `Page.get_text("text", sort=True)`,
 `Page.get_image_info()`, `Page.get_drawings()`, and `Page.get_texttrace()` to collect bounded facts.
@@ -282,7 +285,7 @@ exact sweep-line union implementation; summing areas is forbidden because overla
 decorative images into full-page scans. Reject non-finite geometry before arithmetic. The
 inspection object contains counts and ratios only, never source bytes or provider data.
 
-- [ ] **Step 4: Implement the closed route decision table**
+- [x] **Step 4: Implement the closed route decision table**
 
 Apply these rules in order:
 
@@ -297,7 +300,7 @@ Apply these rules in order:
 
 Emit sorted, allowlisted reason tokens. There is no heuristic fallback from ambiguity to OCR.
 
-- [ ] **Step 5: Implement bounded rendering and run GREEN**
+- [x] **Step 5: Implement bounded rendering and run GREEN**
 
 Render only `ocr_required` pages from the already-open immutable snapshot at the policy DPI. Check
 page pixels before allocating the pixmap, then check encoded PNG and aggregate byte limits. Write
@@ -314,7 +317,7 @@ uv run ruff check src/mke/evaluation/pdf_ocr_protocol.py src/mke/evaluation/pdf_
 uv run pyright src/mke/evaluation/pdf_ocr_protocol.py src/mke/evaluation/pdf_ocr_router.py
 ```
 
-- [ ] **Step 6: Commit Task 2**
+- [x] **Step 6: Commit Task 2**
 
 ```bash
 git add src/mke/evaluation/pdf_ocr_router.py tests/evaluation/test_pdf_ocr_router.py
@@ -361,7 +364,7 @@ class PdfOcrProviderError(RuntimeError):
     ) -> None: ...
 ```
 
-- [ ] **Step 1: Write failing child-boundary tests**
+- [x] **Step 1: Write failing child-boundary tests**
 
 Cover:
 
@@ -388,7 +391,7 @@ def test_result_rejects_identity_mismatch(tmp_path: Path) -> None:
         run_provider(command)
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/evaluation/test_pdf_ocr_provider.py
@@ -396,7 +399,7 @@ UV_OFFLINE=1 uv run pytest -q tests/evaluation/test_pdf_ocr_provider.py
 
 Expected: child protocol, adapters, and bounded runner are absent.
 
-- [ ] **Step 3: Implement the project-owned child protocol**
+- [x] **Step 3: Implement the project-owned child protocol**
 
 Use the current `ActiveProcessController` after the owner-lifecycle plan lands. Assign one operation
 ID per provider call. Start a new process group, bound parent-side stdout/stderr while reading, use
@@ -424,7 +427,7 @@ Require exact keys and normalized `[x0, y0, x1, y1]` boxes within `[0, 1]`. `nor
 equal the normalized line join. Apple Vision may emit `confidence=null`; Paddle candidates must emit
 finite confidence. No raw provider object crosses the child boundary.
 
-- [ ] **Step 4: Implement provider-specific children without executing them**
+- [x] **Step 4: Implement provider-specific children without executing them**
 
 The PP-OCRv6 child lazily imports `PaddleOCR`, verifies the two model roots are regular directories,
 and constructs exactly:
@@ -468,7 +471,7 @@ recognition languages, language correction disabled, and `usesCPUOnly=true` wher
 accepts only the same fixed CLI fields and writes the same project-owned JSON. Darwin availability
 is a measured candidate constraint, not a portable product claim.
 
-- [ ] **Step 5: Run model-free GREEN and static validation**
+- [x] **Step 5: Run model-free GREEN and static validation**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -488,7 +491,7 @@ xcrun swiftc -typecheck scripts/pdf_ocr_apple_vision.swift
 If `xcrun` or the required Vision API is absent, record the Apple candidate as unavailable; do not
 install an SDK or weaken required tests.
 
-- [ ] **Step 6: Commit Task 3**
+- [x] **Step 6: Commit Task 3**
 
 ```bash
 git add \
@@ -508,6 +511,12 @@ not begin Task 4 by assuming design approval grants network authority.
 ---
 
 ### Task 4: Prove ordinary-pip compatibility and prepare immutable candidate receipts
+
+Compatibility must first capture the authorized PaddleOCR-VL 1.6 `save_to_json` and
+`save_to_markdown` regular-file inventory and schema, then compare it with the strict provisional
+prose-only adapter envelope from Task 3. Do not relax that envelope without fixture-backed
+compatibility evidence. This check has not run because package/model acquisition remains
+unauthorized.
 
 **Files:**
 - Create: `scripts/pdf_ocr_candidate_compatibility.py`

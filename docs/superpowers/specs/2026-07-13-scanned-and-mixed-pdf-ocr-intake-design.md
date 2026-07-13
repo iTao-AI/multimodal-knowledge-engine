@@ -1,6 +1,7 @@
 # Scanned and Mixed PDF OCR Intake Design
 
-Status: approved design; implementation has not started.
+Status: approved design; Phase 0 Tasks 1-3 are implemented with review remediation complete, and
+work is hard-stopped before package or model acquisition.
 
 Planning baseline: `337d9a42105a1a6769f3e0ae21bb28c59282da48`.
 
