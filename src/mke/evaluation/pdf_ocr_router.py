@@ -7,10 +7,10 @@ import math
 import os
 import re
 import unicodedata
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Any, NoReturn, cast
+from typing import Any, NoReturn, cast, overload
 
 import fitz  # pyright: ignore[reportMissingTypeStubs]
 
@@ -80,6 +80,28 @@ class PageDecision:
 
 
 @dataclass(frozen=True)
+class PdfInspectionResult:
+    decisions: tuple[PageDecision, ...]
+    source_sha256: str
+    source_bytes: int
+
+    def __len__(self) -> int:
+        return len(self.decisions)
+
+    def __iter__(self) -> Iterator[PageDecision]:
+        return iter(self.decisions)
+
+    @overload
+    def __getitem__(self, index: int) -> PageDecision: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> tuple[PageDecision, ...]: ...
+
+    def __getitem__(self, index: int | slice) -> PageDecision | tuple[PageDecision, ...]:
+        return self.decisions[index]
+
+
+@dataclass(frozen=True)
 class RenderedPage:
     page_number: int
     relative_path: PurePosixPath
@@ -106,8 +128,8 @@ class PdfOcrRoutingError(RuntimeError):
 def inspect_pdf(
     path: Path,
     policy: EvaluationRoutingPolicy = EVALUATION_POLICY,
-) -> tuple[PageDecision, ...]:
-    document = _open_identified_pdf(path)
+) -> PdfInspectionResult:
+    document, source_sha256, source_bytes = _open_identified_pdf(path)
     try:
         if document.needs_pass:
             _fail("pdf_ocr_pdf_invalid", "PDF is encrypted", "use_unencrypted_pdf")
@@ -120,9 +142,13 @@ def inspect_pdf(
                 "PDF page count exceeds the evaluation limit",
                 "reduce_pdf_ocr_input",
             )
-        return tuple(
-            route_page(_inspect_page(document.load_page(index), index + 1), policy)
-            for index in range(page_count)
+        return PdfInspectionResult(
+            decisions=tuple(
+                route_page(_inspect_page(document.load_page(index), index + 1), policy)
+                for index in range(page_count)
+            ),
+            source_sha256=source_sha256,
+            source_bytes=source_bytes,
         )
     finally:
         document.close()
@@ -241,10 +267,11 @@ def displayed_image_union_coverage(
 
 def render_ocr_pages(
     path: Path,
-    decisions: tuple[PageDecision, ...],
+    inspection: PdfInspectionResult,
     output_root: Path,
     policy: EvaluationRoutingPolicy = EVALUATION_POLICY,
 ) -> tuple[RenderedPage, ...]:
+    decisions = inspection.decisions
     expected_pages = tuple(range(1, len(decisions) + 1))
     if tuple(item.page_number for item in decisions) != expected_pages:
         _fail(
@@ -252,15 +279,26 @@ def render_ocr_pages(
             "page decision inventory is invalid",
             "inspect_pdf_page",
         )
+    document, source_sha256, source_bytes = _open_identified_pdf(path)
+    if (
+        source_sha256 != inspection.source_sha256
+        or source_bytes != inspection.source_bytes
+    ):
+        document.close()
+        _fail(
+            "pdf_ocr_input_invalid",
+            "PDF source changed after inspection",
+            "retry_with_stable_source",
+        )
     try:
         output_root.mkdir(mode=0o700, parents=True, exist_ok=False)
     except OSError as error:
+        document.close()
         raise PdfOcrRoutingError(
             problem="pdf_ocr_process_failed",
             cause="render output directory is unavailable",
             next_step="inspect_pdf_ocr_run",
         ) from error
-    document = _open_identified_pdf(path)
     rendered: list[RenderedPage] = []
     total_pixels = 0
     total_bytes = 0
@@ -395,14 +433,21 @@ def _inspect_page(page: Any, page_number: int) -> PageInspection:
     )
 
 
-def _open_identified_pdf(path: Path) -> Any:
+def _open_identified_pdf(path: Path) -> tuple[Any, str, int]:
     try:
         if path.is_symlink() or not path.is_file():
             _fail("pdf_ocr_input_invalid", "PDF input is not a regular file", "use_valid_pdf")
         before = path.stat()
         if before.st_size <= 0:
             _fail("pdf_ocr_input_invalid", "PDF input is empty", "use_valid_pdf")
-        document: Any = fitz.open(path)
+        source = path.read_bytes()
+        if len(source) != before.st_size:
+            _fail(
+                "pdf_ocr_input_invalid",
+                "PDF source changed during inspection",
+                "retry_with_stable_source",
+            )
+        document: Any = fitz.open(stream=source, filetype="pdf")
         after = path.stat()
     except PdfOcrRoutingError:
         raise
@@ -421,7 +466,7 @@ def _open_identified_pdf(path: Path) -> Any:
             "PDF source changed during inspection",
             "retry_with_stable_source",
         )
-    return document
+    return document, hashlib.sha256(source).hexdigest(), len(source)
 
 
 def _normalize_text(value: str) -> str:

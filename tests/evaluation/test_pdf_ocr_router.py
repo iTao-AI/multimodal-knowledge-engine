@@ -230,6 +230,25 @@ def test_render_writes_only_ocr_pages_with_private_deterministic_names(
     assert len(rendered[0].sha256) == 64
 
 
+def test_render_rejects_source_replaced_after_inspection_without_writing(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source.pdf"
+    original = Path("tests/fixtures/pdf-ocr-phase0-v1/documents/english-scan.pdf")
+    replacement = Path("tests/fixtures/pdf-ocr-phase0-v1/documents/chinese-scan.pdf")
+    shutil.copyfile(original, source)
+    decisions = inspect_pdf(source, EVALUATION_POLICY)
+    shutil.copyfile(replacement, source)
+    output_root = tmp_path / "rendered"
+
+    with pytest.raises(PdfOcrRoutingError) as error:
+        render_ocr_pages(source, decisions, output_root, EVALUATION_POLICY)
+
+    assert error.value.problem == "pdf_ocr_input_invalid"
+    assert error.value.cause == "PDF source changed after inspection"
+    assert not output_root.exists()
+
+
 def test_render_rejects_pixel_and_encoded_byte_limits(tmp_path: Path) -> None:
     protocol = load_pdf_ocr_evaluation_protocol(PROTOCOL_PATH)
     document = protocol.documents[0]
