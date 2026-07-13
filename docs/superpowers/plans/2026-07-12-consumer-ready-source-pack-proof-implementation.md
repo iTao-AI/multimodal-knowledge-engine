@@ -1,5 +1,10 @@
 # Consumer-Ready Source-Pack Proof Implementation Plan
 
+Status: implemented and verified at commit `44fa5b3571173b09400c76f3b326633c63d08f31`.
+
+Final neutral detached-worktree gate: `UV_OFFLINE=1 uv run pytest -q` completed with
+`1584 passed, 5 skipped, 5 warnings in 117.75s` and exit code `0`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development`
 > (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use
 > checkbox (`- [ ]`) syntax for tracking. Use `superpowers:test-driven-development` for every
@@ -891,7 +896,7 @@ retrying online. Keeping this job in a dedicated workflow is required because th
 artifact declares `.github/workflows/ci.yml` as source identity; modifying that primary workflow
 would invalidate the committed artifact even though evaluation behavior did not change.
 
-- [ ] **Step 3: Run focused and full repository gates**
+- [x] **Step 3: Run focused and full repository gates**
 
 Run focused gates first:
 
@@ -1073,7 +1078,7 @@ incomplete marker, actual private absolute path, or workflow-specific/private te
 primary CI file is byte-identical to `HEAD`, `git diff --check` passes, and status contains only the
 intended Task 7 changes before commit.
 
-- [ ] **Step 7: Hand off the uncommitted Task 7 closure for authoritative commit and detached verification**
+- [x] **Step 7: Hand off the uncommitted Task 7 closure for authoritative commit and detached verification**
 
 This execution window leaves the following expanded Task 7 and implementation-review fix set
 uncommitted and reports the complete verification evidence:
@@ -1162,5 +1167,8 @@ PR, merge, release, publication, and deployment remain unauthorized.
 - Completeness/type/coherence review: Task 7 requires incomplete-marker scan, cross-file signature/type
   consistency, public-neutral scan, and one-PR diff audit before completion.
 
-Plan complete. Do not begin implementation until the plan has received the configured authoritative
-review and the execution window has been explicitly authorized to proceed.
+Implementation and verification complete. The reviewed implementation was committed as
+`44fa5b3571173b09400c76f3b326633c63d08f31`; the final neutral detached-worktree gate ran
+`UV_OFFLINE=1 uv run pytest -q` with `1584 passed, 5 skipped, 5 warnings in 117.75s` and exit code
+`0`. This plan is retained as completed implementation history and must not be treated as active
+work.

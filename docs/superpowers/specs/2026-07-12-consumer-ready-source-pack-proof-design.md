@@ -1,8 +1,12 @@
 # Consumer-Ready Source-Pack Proof Design
 
-Status: approved design; implementation pending.
+Status: implemented and verified at commit `44fa5b3571173b09400c76f3b326633c63d08f31`.
 
 Planning base: `main@73d5f01885b60fbffeba8820e8f2f2151f8b9c39`.
+
+Repository verification: the final neutral detached-worktree command
+`UV_OFFLINE=1 uv run pytest -q` completed with
+`1584 passed, 5 skipped, 5 warnings in 117.75s` and exit code `0`.
 
 ## Goal
 

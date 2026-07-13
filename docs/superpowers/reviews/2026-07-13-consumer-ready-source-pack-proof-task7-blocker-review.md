@@ -2,7 +2,8 @@
 
 Review target: Task 7 CI placement and final verification closure.
 
-Review status: targeted blocker analysis completed; dedicated-workflow resolution authorized.
+Review status: targeted blocker analysis and dedicated-workflow resolution completed and verified
+at commit `44fa5b3571173b09400c76f3b326633c63d08f31`.
 
 ## Declared Dense Source Identity
 
@@ -42,11 +43,12 @@ its expected `proof_failed` stage. The exact parametrized case passes from the p
 checkout and fails from this named feature worktree without any change to its test or implementation
 surface.
 
-This is classified as an unchanged path-sensitive test condition, not a consumer proof defect.
-Task 7 must report the single residual precisely and must not mark the full pytest gate complete.
-Final completion requires the exact bare offline full suite from a neutral-named detached temporary
-worktree at the committed Task 7 head. The current-worktree run completed with 1 classified failure,
-1555 passing tests, and 5 skipped tests; no dense/hybrid failure remained.
+This was classified as an unchanged path-sensitive test condition, not a consumer proof defect.
+The named feature-worktree run retained the single classified residual and no dense/hybrid
+failure. After commit `44fa5b3571173b09400c76f3b326633c63d08f31`, the required neutral
+detached-worktree command `UV_OFFLINE=1 uv run pytest -q` completed with
+`1584 passed, 5 skipped, 5 warnings in 117.75s` and exit code `0`. The neutral pass closes the
+final gate without changing the historical diagnosis.
 
 ## Exact Marker Allowlist
 
