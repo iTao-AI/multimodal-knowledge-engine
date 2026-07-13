@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from mke.adapters.video.faster_whisper import ReadinessCheck, TranscriptionReadiness
+from mke.adapters.video.process import ProcessOperationId
 from mke.interfaces.mcp_contract import McpRuntimeConfig
 from mke.interfaces.mcp_server import ingest_with_cancellation_for_test, run_mcp_server
 from mke.runtime import FasterWhisperTranscriptionConfig, RuntimeConfig
@@ -69,12 +70,17 @@ def test_async_ingest_cancellation_waits_for_worker_cleanup(
         worker_finished.set()
         return {"ok": False}
 
-    def cancel_active() -> None:
+    def cancel_operation(operation_id: ProcessOperationId) -> None:
+        assert str(operation_id).startswith("op_")
         cancelled_process.set()
         release_worker.set()
 
     monkeypatch.setattr("mke.interfaces.mcp_server.mcp_contract.ingest_file", blocking_ingest)
-    monkeypatch.setattr(config.runtime.process_controller, "cancel_active", cancel_active)
+    monkeypatch.setattr(
+        config.runtime.process_controller,
+        "cancel_operation",
+        cancel_operation,
+    )
 
     async def exercise() -> None:
         task = asyncio.create_task(ingest_with_cancellation_for_test(config, "speech.mp4"))
@@ -108,24 +114,36 @@ def test_async_ingest_cancellation_kills_process_registered_after_cancel(
             return -9
 
     process = LateProcess()
-    original_cancel = config.runtime.process_controller.cancel_active
+    original_cancel = config.runtime.process_controller.cancel_operation
 
-    def observe_cancel() -> None:
-        original_cancel()
+    def observe_cancel(operation_id: ProcessOperationId) -> None:
+        original_cancel(operation_id)
         cancellation_seen.set()
 
     def register_after_cancel(config: McpRuntimeConfig, path: str) -> dict[str, object]:
         worker_started.set()
         assert cancellation_seen.wait(timeout=2)
-        config.runtime.process_controller.register(process)  # type: ignore[arg-type]
-        config.runtime.process_controller.unregister(process)  # type: ignore[arg-type]
+        operation_id = config.runtime.process_operation_id
+        assert operation_id is not None
+        config.runtime.process_controller.register(
+            process,  # pyright: ignore[reportArgumentType]
+            operation_id=operation_id,
+        )
+        config.runtime.process_controller.unregister(
+            process,  # pyright: ignore[reportArgumentType]
+            operation_id=operation_id,
+        )
         return {"ok": False}
 
     monkeypatch.setattr(
         "mke.interfaces.mcp_server.mcp_contract.ingest_file",
         register_after_cancel,
     )
-    monkeypatch.setattr(config.runtime.process_controller, "cancel_active", observe_cancel)
+    monkeypatch.setattr(
+        config.runtime.process_controller,
+        "cancel_operation",
+        observe_cancel,
+    )
 
     async def exercise() -> None:
         task = asyncio.create_task(ingest_with_cancellation_for_test(config, "speech.mp4"))
@@ -137,3 +155,85 @@ def test_async_ingest_cancellation_kills_process_registered_after_cancel(
     asyncio.run(exercise())
 
     assert process_killed.is_set()
+
+
+def test_cancelling_one_ingest_does_not_kill_sibling_operation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = _config(tmp_path)
+    first_started = threading.Event()
+    second_started = threading.Event()
+    first_release = threading.Event()
+    second_release = threading.Event()
+
+    class FakeProcess:
+        def __init__(self, release: threading.Event) -> None:
+            self.release = release
+            self.killed = False
+
+        def poll(self) -> int | None:
+            return -9 if self.killed else None
+
+        def kill(self) -> None:
+            self.killed = True
+            self.release.set()
+
+        def wait(self, timeout: float | None = None) -> int:
+            return -9
+
+    first_process = FakeProcess(first_release)
+    second_process = FakeProcess(second_release)
+    late_process = FakeProcess(threading.Event())
+
+    def blocking_ingest(runtime_config: McpRuntimeConfig, path: str) -> dict[str, object]:
+        operation_id = runtime_config.runtime.process_operation_id
+        assert operation_id is not None
+        process = first_process if path == "first.mp4" else second_process
+        started = first_started if path == "first.mp4" else second_started
+        release = first_release if path == "first.mp4" else second_release
+        controller = runtime_config.runtime.process_controller
+        controller.register(
+            process,  # pyright: ignore[reportArgumentType]
+            operation_id=operation_id,
+        )
+        started.set()
+        assert release.wait(timeout=2)
+        controller.unregister(
+            process,  # pyright: ignore[reportArgumentType]
+            operation_id=operation_id,
+        )
+        if path == "first.mp4":
+            controller.register(
+                late_process,  # pyright: ignore[reportArgumentType]
+                operation_id=operation_id,
+            )
+            controller.unregister(
+                late_process,  # pyright: ignore[reportArgumentType]
+                operation_id=operation_id,
+            )
+        return {"ok": True, "path": path}
+
+    monkeypatch.setattr("mke.interfaces.mcp_server.mcp_contract.ingest_file", blocking_ingest)
+
+    async def exercise() -> None:
+        first = asyncio.create_task(
+            ingest_with_cancellation_for_test(config, "first.mp4")
+        )
+        second = asyncio.create_task(
+            ingest_with_cancellation_for_test(config, "second.mp4")
+        )
+        await asyncio.to_thread(first_started.wait, 2)
+        await asyncio.to_thread(second_started.wait, 2)
+        first.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(first, timeout=2)
+        assert first_process.killed is True
+        assert late_process.killed is True
+        assert second_process.killed is False
+        second_release.set()
+        assert await asyncio.wait_for(second, timeout=2) == {
+            "ok": True,
+            "path": "second.mp4",
+        }
+
+    asyncio.run(exercise())

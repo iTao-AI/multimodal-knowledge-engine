@@ -23,6 +23,7 @@ from mke.domain import (
     RunManifest,
     RunRecord,
     RunState,
+    RunTransitionError,
     SearchResult,
     SearchResultProvenance,
     SearchSnapshot,
@@ -100,7 +101,6 @@ class SQLiteStore:
         self._connection.row_factory = sqlite3.Row
         self._configure()
         self.migrate()
-        self.interrupt_unfinished_runs()
 
     def __enter__(self) -> Self:
         return self
@@ -431,31 +431,36 @@ class SQLiteStore:
 
     def mark_run_failed(self, run_id: str) -> None:
         with self._connection:
-            self._connection.execute(
-                "UPDATE runs SET state = ? WHERE run_id = ?", (RunState.FAILED.value, run_id)
+            self._transition_run(
+                run_id,
+                expected=(RunState.QUEUED, RunState.RUNNING),
+                target=RunState.FAILED,
+                event_type=RunEventType.RUN_FAILED,
             )
-            self._append_event(run_id, RunEventType.RUN_FAILED)
 
     def mark_run_running(self, run_id: str) -> None:
         with self._connection:
-            self._connection.execute(
-                "UPDATE runs SET state = ? WHERE run_id = ?", (RunState.RUNNING.value, run_id)
+            self._transition_run(
+                run_id,
+                expected=(RunState.QUEUED,),
+                target=RunState.RUNNING,
+                event_type=RunEventType.RUN_STARTED,
             )
-            self._append_event(run_id, RunEventType.RUN_STARTED)
 
     def interrupt_unfinished_runs(self) -> None:
-        rows = self._connection.execute(
-            "SELECT run_id FROM runs WHERE state IN (?, ?)",
-            (RunState.QUEUED.value, RunState.RUNNING.value),
-        ).fetchall()
         with self._connection:
+            rows = self._connection.execute(
+                "SELECT run_id FROM runs WHERE state IN (?, ?)",
+                (RunState.QUEUED.value, RunState.RUNNING.value),
+            ).fetchall()
             for row in rows:
                 run_id = str(row["run_id"])
-                self._connection.execute(
-                    "UPDATE runs SET state = ? WHERE run_id = ?",
-                    (RunState.INTERRUPTED.value, run_id),
+                self._transition_run(
+                    run_id,
+                    expected=(RunState.QUEUED, RunState.RUNNING),
+                    target=RunState.INTERRUPTED,
+                    event_type=RunEventType.RUN_INTERRUPTED,
                 )
-                self._append_event(run_id, RunEventType.RUN_INTERRUPTED)
 
     def persist_validated_candidate(
         self,
@@ -501,10 +506,12 @@ class SQLiteStore:
                     manifest.asset_sha256,
                 ),
             )
-            self._connection.execute(
-                "UPDATE runs SET state = ? WHERE run_id = ?", (RunState.VALIDATED.value, run_id)
+            self._transition_run(
+                run_id,
+                expected=(RunState.RUNNING,),
+                target=RunState.VALIDATED,
+                event_type=RunEventType.CANDIDATE_VALIDATED,
             )
-            self._append_event(run_id, RunEventType.CANDIDATE_VALIDATED)
 
     def activate_publication(
         self,
@@ -532,11 +539,12 @@ class SQLiteStore:
                 run.source_generation != source.requested_generation
                 or run.based_on_active_revision != source.active_revision
             ):
-                self._connection.execute(
-                    "UPDATE runs SET state = ? WHERE run_id = ?",
-                    (RunState.SUPERSEDED.value, run_id),
+                self._transition_run(
+                    run_id,
+                    expected=(RunState.VALIDATED,),
+                    target=RunState.SUPERSEDED,
+                    event_type=RunEventType.RUN_SUPERSEDED,
                 )
-                self._append_event(run_id, RunEventType.RUN_SUPERSEDED)
                 return ActivationResult(run_id, RunState.SUPERSEDED, False, None)
 
             manifest_row = self._connection.execute(
@@ -613,10 +621,12 @@ class SQLiteStore:
                 raise InjectedStorageFailure(failure_point.value)
             if transcript_intake_report is not None:
                 self._insert_transcript_intake_report(run_id, transcript_intake_report)
-            self._connection.execute(
-                "UPDATE runs SET state = ? WHERE run_id = ?", (RunState.PUBLISHED.value, run_id)
+            self._transition_run(
+                run_id,
+                expected=(RunState.VALIDATED,),
+                target=RunState.PUBLISHED,
+                event_type=RunEventType.PUBLICATION_ACTIVATED,
             )
-            self._append_event(run_id, RunEventType.PUBLICATION_ACTIVATED)
         return ActivationResult(run_id, RunState.PUBLISHED, True, publication_id)
 
     def _insert_transcript_intake_report(
@@ -713,6 +723,33 @@ class SQLiteStore:
             """,
             (_new_id("evt"), run_id, event_index, event_type),
         )
+
+    def _transition_run(
+        self,
+        run_id: str,
+        *,
+        expected: tuple[RunState, ...],
+        target: RunState,
+        event_type: str,
+    ) -> None:
+        slots = ",".join("?" for _ in expected)
+        cursor = self._connection.execute(
+            f"UPDATE runs SET state = ? WHERE run_id = ? AND state IN ({slots})",
+            (target.value, run_id, *(state.value for state in expected)),
+        )
+        if cursor.rowcount != 1:
+            row = self._connection.execute(
+                "SELECT state FROM runs WHERE run_id = ?", (run_id,)
+            ).fetchone()
+            if row is None:
+                raise KeyError(f"unknown run: {run_id}")
+            raise RunTransitionError(
+                run_id,
+                expected=expected,
+                actual=RunState(str(row["state"])),
+                target=target,
+            )
+        self._append_event(run_id, event_type)
 
     def list_active_evidence(self) -> list[ActiveEvidenceRef]:
         rows = self._connection.execute(

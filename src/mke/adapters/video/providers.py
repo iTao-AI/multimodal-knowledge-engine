@@ -18,7 +18,7 @@ from mke.adapters.video.contracts import (
     faster_whisper_fingerprint,
 )
 from mke.adapters.video.errors import VideoExtractionError
-from mke.adapters.video.process import ActiveProcessController
+from mke.adapters.video.process import ActiveProcessController, ProcessOperationId
 from mke.adapters.video.schema import load_transcript_json
 from mke.domain import (
     LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT,
@@ -63,6 +63,7 @@ class LocalCommandTranscriptConfig:
         default_factory=_empty_exit_code_errors
     )
     process_controller: ActiveProcessController | None = None
+    process_operation_id: ProcessOperationId | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.argv, str) or not isinstance(self.argv, Sequence):  # pyright: ignore[reportUnnecessaryIsInstance] -- runtime guard for untyped callers
@@ -101,6 +102,7 @@ class LocalCommandTranscriptProvider:
             max_stdout_bytes=self.config.max_stdout_bytes,
             max_stderr_bytes=self.config.max_stderr_bytes,
             process_controller=self.config.process_controller,
+            process_operation_id=self.config.process_operation_id,
         )
         if completed.returncode != 0:
             failure = self.config.exit_code_errors.get(completed.returncode)
@@ -148,6 +150,7 @@ def _run_bounded_command(
     max_stdout_bytes: int,
     max_stderr_bytes: int,
     process_controller: ActiveProcessController | None = None,
+    process_operation_id: ProcessOperationId | None = None,
 ) -> _BoundedCommandResult:
     try:
         process = subprocess.Popen(
@@ -162,7 +165,12 @@ def _run_bounded_command(
         raise VideoExtractionError("transcript command failed") from error
 
     if process_controller is not None:
-        process_controller.register(process)
+        try:
+            process_controller.register(process, operation_id=process_operation_id)
+        except Exception as error:
+            _kill_process(process)
+            _close_process_streams(process)
+            raise VideoExtractionError("transcript command failed") from error
     stdout = bytearray()
     stderr = bytearray()
     try:
@@ -182,13 +190,8 @@ def _run_bounded_command(
         raise
     finally:
         if process_controller is not None:
-            process_controller.unregister(process)
-        if process.stdout is not None:
-            with suppress(OSError):
-                process.stdout.close()
-        if process.stderr is not None:
-            with suppress(OSError):
-                process.stderr.close()
+            process_controller.unregister(process, operation_id=process_operation_id)
+        _close_process_streams(process)
 
 
 def _read_bounded_process_output(
@@ -260,6 +263,15 @@ def _kill_process(process: subprocess.Popen[bytes]) -> None:
         process.wait(timeout=1)
     except (OSError, subprocess.TimeoutExpired):
         pass
+
+
+def _close_process_streams(process: subprocess.Popen[bytes]) -> None:
+    if process.stdout is not None:
+        with suppress(OSError):
+            process.stdout.close()
+    if process.stderr is not None:
+        with suppress(OSError):
+            process.stderr.close()
 
 
 def _oversized_output_error(stream_name: str) -> VideoExtractionError:

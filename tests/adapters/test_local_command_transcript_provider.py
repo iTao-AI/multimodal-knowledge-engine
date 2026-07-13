@@ -9,7 +9,7 @@ import pytest
 
 from mke.adapters.video import VideoExtractionError
 from mke.adapters.video.contracts import AdapterFailureSpec
-from mke.adapters.video.process import ActiveProcessController
+from mke.adapters.video.process import ActiveProcessController, ProcessOperationId
 from mke.adapters.video.providers import (
     LocalCommandTranscriptConfig,
     LocalCommandTranscriptProvider,
@@ -335,6 +335,7 @@ def test_run_bounded_command_cleans_up_on_base_exception(
 
     process = FakeProcess()
     controller = ActiveProcessController()
+    operation_id = controller.begin_operation()
 
     def fake_popen(*args: Any, **kwargs: Any) -> Any:
         return process
@@ -349,6 +350,7 @@ def test_run_bounded_command_cleans_up_on_base_exception(
         LocalCommandTranscriptConfig(
             argv=("owned", "{input}"),
             process_controller=controller,
+            process_operation_id=operation_id,
         )
     )
     video = Path("sample.mp4")
@@ -362,3 +364,56 @@ def test_run_bounded_command_cleans_up_on_base_exception(
 
     assert killed == [True]
     assert waited
+    controller.end_operation(operation_id)
+
+
+def test_run_bounded_command_cleans_up_when_child_registration_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class FakePipe:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def close(self) -> None:
+            self.closed = True
+
+    class FakeProcess:
+        def __init__(self) -> None:
+            self.stdout = FakePipe()
+            self.stderr = FakePipe()
+            self.killed = False
+            self.waited = False
+
+        def poll(self) -> None:
+            return None
+
+        def kill(self) -> None:
+            self.killed = True
+
+        def wait(self, timeout: float | None = None) -> int:
+            self.waited = True
+            return -9
+
+    process = FakeProcess()
+
+    def fake_popen(*args: Any, **kwargs: Any) -> FakeProcess:
+        return process
+
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+    video = tmp_path / "sample.mp4"
+    video.write_bytes(b"video")
+    provider = LocalCommandTranscriptProvider(
+        LocalCommandTranscriptConfig(
+            argv=("owned", "{input}"),
+            process_controller=ActiveProcessController(),
+            process_operation_id=ProcessOperationId("op_unknown"),
+        )
+    )
+
+    with pytest.raises(VideoExtractionError, match="transcript command failed"):
+        provider.extract(video)
+
+    assert process.killed is True
+    assert process.waited is True
+    assert process.stdout.closed is True
+    assert process.stderr.closed is True

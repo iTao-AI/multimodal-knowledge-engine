@@ -27,10 +27,10 @@ def test_loads_protocol_bound_e3c_e3d_artifacts_and_rebuilds_union() -> None:
 
     assert inputs.split == "development"
     assert inputs.dense_artifact_sha256 == (
-        "3e91e86b9ce573dd8f80723f9be2b9cbb038abb704bb1eb8e994e145b0682dc2"
+        "ba8787b763b4454de740fe09416de65966c3109d8f65588b5331bdae342e98e5"
     )
     assert inputs.rrf_artifact_sha256 == (
-        "d2d2a4465ee4af6e4cf9aba9fada9bbd06661e23c78cd373c5c96b07eb005ee8"
+        "2dc96e732cab4cd46f4a6d586572379e5631a164af80da6cdf1d1cbf8fd638bf"
     )
     assert len(inputs.queries) == 24
     first = inputs.queries[0]

@@ -13,7 +13,7 @@ from mke.adapters.video.contracts import (
     AdapterFailureSpec,
     VideoTranscriptionLimits,
 )
-from mke.adapters.video.process import ActiveProcessController
+from mke.adapters.video.process import ActiveProcessController, ProcessOperationId
 from mke.adapters.video.providers import (
     LocalCommandTranscriptConfig,
     LocalCommandTranscriptProvider,
@@ -30,6 +30,7 @@ from mke.retrieval.strategy import (
     get_retrieval_strategy_descriptor,
     require_retrieval_strategy,
 )
+from mke.runtime_owner import BoundedAdmissionController, OwnerRuntimeState
 
 DEFAULT_MODEL_REVISION = "536b0662742c02347bc0e980a01041f333bce120"
 
@@ -135,6 +136,18 @@ class RuntimeConfig:
         default_factory=ActiveProcessController,
         compare=False,
     )
+    owner_state: OwnerRuntimeState = field(
+        default_factory=OwnerRuntimeState,
+        compare=False,
+    )
+    admission_controller: BoundedAdmissionController = field(
+        default_factory=lambda: BoundedAdmissionController(capacity=1, max_waiters=1),
+        compare=False,
+    )
+    process_operation_id: ProcessOperationId | None = field(
+        default=None,
+        compare=False,
+    )
 
     def __post_init__(self) -> None:
         query_policy = (
@@ -158,6 +171,15 @@ class RuntimeConfig:
             raise TypeError("transcription config must be a typed configuration")
         if type(self.process_controller) is not ActiveProcessController:
             raise TypeError("process controller must be ActiveProcessController")
+        if type(self.owner_state) is not OwnerRuntimeState:
+            raise TypeError("owner state must be OwnerRuntimeState")
+        if type(self.admission_controller) is not BoundedAdmissionController:
+            raise TypeError("admission controller must be BoundedAdmissionController")
+        if self.process_operation_id is not None:
+            if not isinstance(self.process_operation_id, str):  # pyright: ignore[reportUnnecessaryIsInstance] -- runtime guard for untyped callers
+                raise TypeError("process operation ID must be a string")
+            if not self.process_operation_id.startswith("op_"):
+                raise ValueError("process operation ID must begin with op_")
 
 
 def _validate_approved_limits(limits: VideoTranscriptionLimits) -> None:
@@ -216,14 +238,25 @@ def build_transcript_provider(config: RuntimeConfig) -> TranscriptProvider:
             require_provenance=True,
             exit_code_errors=FIRST_PARTY_EXIT_ERRORS,
             process_controller=config.process_controller,
+            process_operation_id=config.process_operation_id,
         )
     )
 
 
 def build_engine(config: RuntimeConfig) -> KnowledgeEngine:
-    return KnowledgeEngine(
+    engine = KnowledgeEngine(
         config.db_path,
         transcript_provider=build_transcript_provider(config),
         query_policy=config.retrieval_query_policy,
         retrieval_strategy=cast(RetrievalStrategy, config.retrieval_strategy),
+        recover_unfinished_runs=False,
     )
+    try:
+        config.owner_state.recover_unfinished_runs_once(
+            config.db_path,
+            engine.recover_unfinished_runs,
+        )
+    except Exception:
+        engine.close()
+        raise
+    return engine

@@ -45,6 +45,22 @@ class ManifestValidationError(ValueError):
     """Raised when candidate output cannot safely become a Publication."""
 
 
+class RunTransitionError(RuntimeError):
+    def __init__(
+        self,
+        run_id: str,
+        *,
+        expected: tuple[RunState, ...],
+        actual: RunState,
+        target: RunState,
+    ) -> None:
+        super().__init__("Run state changed during processing")
+        self.run_id = run_id
+        self.expected = expected
+        self.actual = actual
+        self.target = target
+
+
 @dataclass(frozen=True)
 class SourceRecord:
     source_id: str

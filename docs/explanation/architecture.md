@@ -24,6 +24,11 @@ Source
 A failed, interrupted, superseded, or partial Run never changes the active Publication. Retry
 creates a new immutable Run.
 
+Run state changes use transaction-local compare-and-set updates. Each successful state update and
+its matching append-only Run event commit in the same SQLite transaction. Candidate Evidence,
+Manifests, active FTS replacement, Publication rows, Source pointers, intake reports, and events
+therefore roll back together when the final transition loses a race.
+
 The current PDF and short-video slices implement only the lifecycle concepts needed to prove
 trustworthy Search:
 `Library`, `Source`, `Asset`, `Run`, `Evidence`, `RunManifest`, and `Publication`. `Artifact`,
@@ -83,8 +88,26 @@ supply command argv or download policy. Deterministic proof remains sidecar-back
 CLI faster-whisper ingest performs readiness before engine construction, while successful
 provenance uses the runtime profile resolved by CTranslate2. Adapter failure metadata remains typed
 through the provider and application layers so interfaces can return the correct operator action.
-Cancellation remains latched for the active MCP worker, closing the interval between worker start
-and child-process registration.
+Cancellation remains latched for each cancelled MCP operation, closing the interval between worker
+start and child-process registration without cancelling sibling work.
+
+## Owner Lifecycle And Concurrency
+
+`SQLiteStore` connection construction performs no unfinished-Run recovery. Direct
+`KnowledgeEngine` construction is one owner boundary and performs recovery for that engine.
+Repeated request engines built from one shared `RuntimeConfig` use `owner_state` to recover each
+database once for that owner. Search, Ask, and Run inspection can therefore construct short-lived
+engines without interrupting Runs created after owner startup.
+
+Each cancellable request begins one opaque process operation ID. Adapter children register under
+that ID, request cancellation targets only that operation, and late registration observes the same
+cancel latch. Only owner `shutdown()` broadcasts termination across scoped and unscoped children.
+
+The owner also contains a condition-based bounded admission primitive with one active slot and one
+bounded waiter by default. It exposes only capacity, active count, waiting count, and
+`available`/`busy`/`overloaded` state. Current PDF and video ingest paths do not acquire an
+admission lease, so this primitive changes neither their throughput nor any public request or
+response contract.
 
 The real transcription proof builds a temporary SQLite workspace and invokes the same application
 composition without calling model preparation. The deployment proof builds the project wheel,

@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import math
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
 
 from mke.adapters.video.contracts import VideoTranscriptionLimits
+from mke.adapters.video.process import ActiveProcessController
 from mke.adapters.video.providers import LocalCommandTranscriptProvider, SidecarTranscriptProvider
 from mke.application import KnowledgeEngine
 from mke.runtime import (
@@ -20,6 +22,7 @@ from mke.runtime import (
     build_transcript_provider,
     first_party_adapter_argv,
 )
+from mke.runtime_owner import OwnerRuntimeState
 
 
 def test_runtime_defaults_to_sidecar_and_owns_one_process_controller(tmp_path: Path) -> None:
@@ -113,6 +116,25 @@ def test_runtime_rejects_non_typed_transcription_config(tmp_path: Path) -> None:
         )
 
 
+def test_runtime_rejects_non_owner_runtime_state(tmp_path: Path) -> None:
+    with pytest.raises(TypeError, match="owner state"):
+        RuntimeConfig(  # type: ignore[call-arg]
+            db_path=tmp_path / "mke.sqlite",
+            owner_state=cast(Any, object()),
+        )
+
+
+@pytest.mark.parametrize("operation_id", ["invalid", "", 7])
+def test_runtime_rejects_invalid_process_operation_id(
+    tmp_path: Path, operation_id: object
+) -> None:
+    with pytest.raises((TypeError, ValueError), match="operation ID"):
+        RuntimeConfig(
+            db_path=tmp_path / "mke.sqlite",
+            process_operation_id=cast(Any, operation_id),
+        )
+
+
 def test_runtime_rejects_unknown_retrieval_query_policy(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="retrieval query policy is unsupported"):
         RuntimeConfig(
@@ -132,15 +154,20 @@ def test_runtime_builds_sidecar_or_first_party_provider_with_shared_controller(
     tmp_path: Path,
 ) -> None:
     sidecar = build_transcript_provider(RuntimeConfig(tmp_path / "sidecar.sqlite"))
+    controller = ActiveProcessController()
+    operation_id = controller.begin_operation()
     runtime = RuntimeConfig(
         tmp_path / "asr.sqlite",
         transcription=FasterWhisperTranscriptionConfig(),
+        process_controller=controller,
+        process_operation_id=operation_id,
     )
     first_party = build_transcript_provider(runtime)
 
     assert isinstance(sidecar, SidecarTranscriptProvider)
     assert isinstance(first_party, LocalCommandTranscriptProvider)
     assert first_party.config.process_controller is runtime.process_controller
+    assert first_party.config.process_operation_id == operation_id
     assert first_party.config.require_provenance is True
 
 
@@ -163,6 +190,35 @@ def test_build_engine_uses_shared_provider_factory(
         )
     finally:
         engine.close()
+
+
+def test_build_engine_closes_engine_when_owner_recovery_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime = RuntimeConfig(tmp_path / "mke.sqlite", owner_state=OwnerRuntimeState())
+    closed: list[KnowledgeEngine] = []
+    original_close = KnowledgeEngine.close
+
+    def fail_recovery(
+        db_path: Path, recovery: Callable[[], None]
+    ) -> None:
+        raise RuntimeError("recovery failed")
+
+    def observe_close(engine: KnowledgeEngine) -> None:
+        closed.append(engine)
+        original_close(engine)
+
+    monkeypatch.setattr(
+        runtime.owner_state,
+        "recover_unfinished_runs_once",
+        fail_recovery,
+    )
+    monkeypatch.setattr(KnowledgeEngine, "close", observe_close)
+
+    with pytest.raises(RuntimeError, match="recovery failed"):
+        build_engine(runtime)
+
+    assert len(closed) == 1
 
 
 def test_build_engine_accepts_current_policy_for_rollback(tmp_path: Path) -> None:
