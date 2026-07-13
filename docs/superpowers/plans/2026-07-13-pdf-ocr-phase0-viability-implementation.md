@@ -590,6 +590,15 @@ model-free fake-child proof. The committed receipt records 1,517,730,869 aggrega
 bytes and 25,101,925,887 aggregate per-cell installed bytes. These are package compatibility facts,
 not provider quality, startup, artifact-schema, or model compatibility evidence.
 
+Targeted package-checkpoint review resolution: bounded commands now clean their captured process
+group after every parent exit, including successful exits, and required tests bind the committed
+receipt to its canonical frozen bytes plus its internal distribution totals and MKE wheel identity.
+The resolution remains pending targeted re-review. The 25,101,925,887-byte figure is the sum of 16
+temporary installed trees measured before per-cell cleanup, not retained disk usage. The retained
+operator-local package evidence is approximately 2.2 GB; its location is intentionally not part of
+the public receipt or repository contract. Task 4 model acquisition and real-provider startup
+remain unauthorized and incomplete.
+
 - [ ] **Step 4: Prepare model artifacts under explicit authority**
 
 Before downloading, print a bounded preflight naming every model, source host, declared license,

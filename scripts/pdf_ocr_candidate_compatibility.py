@@ -24,6 +24,7 @@ from typing import BinaryIO, NoReturn, cast
 _SCHEMA = "mke.pdf_ocr_candidate_environments.v1"
 _RECEIPT_PROFILE = "phase0-package-only-v1"
 _CANDIDATE_PROFILE = "phase0-200dpi-plain-text-v1"
+_MKE_WHEEL_FILENAME = "multimodal_knowledge_engine-0.1.1-py3-none-any.whl"
 _SURFACES = ("base", "embedding", "transcription", "embedding+transcription")
 _PYTHON_MINORS = ("3.12", "3.13")
 _RESULTS = frozenset({"passed", "resolver_failed", "offline_replay_failed", "validation_failed"})
@@ -275,8 +276,9 @@ def run_bounded(
         )
     except OSError as error:
         raise CompatibilityError("command_could_not_start") from error
+    pgid: int | None = process.pid if os.name == "posix" else None
     if process.stdout is None or process.stderr is None:
-        _terminate(process)
+        _terminate(process, pgid)
         raise CompatibilityError("command_capture_failed")
     stdout = _Capture(max_stdout_bytes, bytearray(), threading.Event())
     stderr = _Capture(max_stderr_bytes, bytearray(), threading.Event())
@@ -298,6 +300,7 @@ def run_bounded(
                 process.wait(timeout=min(_POLL_SECONDS, remaining))
             except subprocess.TimeoutExpired:
                 continue
+        _terminate(process, pgid)
         for reader in readers:
             reader.join(timeout=1)
         if any(reader.is_alive() for reader in readers):
@@ -306,7 +309,7 @@ def run_bounded(
             raise CompatibilityError("command_output_exceeded")
         return CommandResult(process.returncode, bytes(stdout.data), bytes(stderr.data))
     except BaseException:
-        _terminate(process)
+        _terminate(process, pgid)
         for reader in readers:
             reader.join(timeout=1)
         raise
@@ -323,7 +326,7 @@ def validate_receipt(value: object) -> None:
     _exact(receipt, {"schema", "profile", "platform", "mke_wheel_sha256", "candidates"})
     if receipt["schema"] != _SCHEMA or receipt["profile"] != _RECEIPT_PROFILE:
         _receipt_error()
-    _digest(receipt["mke_wheel_sha256"])
+    mke_wheel_sha256 = _digest(receipt["mke_wheel_sha256"])
     runtime = _mapping(receipt["platform"])
     _exact(runtime, {"os", "architecture"})
     _safe(runtime["os"])
@@ -350,8 +353,20 @@ def validate_receipt(value: object) -> None:
         pins = candidate["pins"]
         if not isinstance(pins, list) or pins != list(expected.requirements):
             _receipt_error()
-        _nonnegative_integer(candidate["download_bytes"])
-        _validate_distributions(candidate["distributions"])
+        download_bytes = _nonnegative_integer(candidate["download_bytes"])
+        distributions = _validate_distributions(candidate["distributions"])
+        if not distributions or download_bytes != sum(
+            _nonnegative_integer(item["bytes"]) for item in distributions
+        ):
+            _receipt_error()
+        mke_distributions = [
+            item for item in distributions if item["filename"] == _MKE_WHEEL_FILENAME
+        ]
+        if (
+            len(mke_distributions) != 1
+            or mke_distributions[0]["sha256"] != mke_wheel_sha256
+        ):
+            _receipt_error()
         cells = candidate["cells"]
         if not isinstance(cells, list):
             _receipt_error()
@@ -420,6 +435,24 @@ def validate_receipt(value: object) -> None:
 def canonical_receipt_bytes(receipt: object) -> bytes:
     validate_receipt(receipt)
     return (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+
+
+def validate_committed_receipt_bytes(
+    encoded: bytes,
+    *,
+    frozen_sha256: str,
+) -> dict[str, object]:
+    _digest(frozen_sha256)
+    if hashlib.sha256(encoded).hexdigest() != frozen_sha256:
+        _receipt_error()
+    try:
+        receipt = json.loads(encoded.decode("utf-8", errors="strict"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError("candidate compatibility receipt is invalid") from error
+    validate_receipt(receipt)
+    if canonical_receipt_bytes(receipt) != encoded:
+        _receipt_error()
+    return _mapping(receipt)
 
 
 def probe_interpreter(
@@ -902,19 +935,32 @@ def _drain(stream: BinaryIO, capture: _Capture) -> None:
         capture.exceeded.set()
 
 
-def _terminate(process: subprocess.Popen[bytes]) -> None:
-    if os.name == "posix":
+def _group_exists(pgid: int) -> bool:
+    if os.name != "posix":
+        return False
+    try:
+        os.killpg(pgid, 0)
+    except (ProcessLookupError, PermissionError):
+        return False
+    return True
+
+
+def _terminate(process: subprocess.Popen[bytes], pgid: int | None) -> None:
+    if pgid is not None:
         try:
-            os.killpg(process.pid, signal.SIGTERM)
+            os.killpg(pgid, signal.SIGTERM)
         except (ProcessLookupError, PermissionError):
             pass
         deadline = time.monotonic() + _TERMINATION_GRACE_SECONDS
-        while process.poll() is None and time.monotonic() < deadline:
+        while time.monotonic() < deadline:
+            if process.poll() is not None and not _group_exists(pgid):
+                break
             time.sleep(_POLL_SECONDS)
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except (ProcessLookupError, PermissionError):
-            pass
+        if _group_exists(pgid):
+            try:
+                os.killpg(pgid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
     elif process.poll() is None:
         try:
             process.kill()
@@ -997,9 +1043,10 @@ def _nonnegative_integer(value: object) -> int:
     return value
 
 
-def _validate_distributions(value: object) -> None:
+def _validate_distributions(value: object) -> list[dict[str, object]]:
     if not isinstance(value, list):
         _receipt_error()
+    distributions: list[dict[str, object]] = []
     seen: set[str] = set()
     for raw in cast(list[object], value):
         distribution = _mapping(raw)
@@ -1010,6 +1057,8 @@ def _validate_distributions(value: object) -> None:
         seen.add(filename)
         _digest(distribution["sha256"])
         _nonnegative_integer(distribution["bytes"])
+        distributions.append(distribution)
+    return distributions
 
 
 def _receipt_error() -> NoReturn:

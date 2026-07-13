@@ -3,8 +3,10 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -184,9 +186,18 @@ def _receipt() -> dict[str, object]:
                 "profile": "phase0-200dpi-plain-text-v1",
                 "pins": pins,
                 "distributions": [
-                    {"filename": "package-1.0-py3-none-any.whl", "sha256": "b" * 64, "bytes": 7}
+                    {
+                        "filename": "multimodal_knowledge_engine-0.1.1-py3-none-any.whl",
+                        "sha256": "a" * 64,
+                        "bytes": 11,
+                    },
+                    {
+                        "filename": "package-1.0-py3-none-any.whl",
+                        "sha256": "b" * 64,
+                        "bytes": 7,
+                    },
                 ],
-                "download_bytes": 7,
+                "download_bytes": 18,
                 "cells": cells,
             }
         )
@@ -246,6 +257,38 @@ def test_receipt_validator_rejects_drifted_pins_and_failed_cell_contract() -> No
         compatibility.validate_receipt(failed)
 
 
+def test_receipt_validator_rejects_download_byte_drift() -> None:
+    compatibility = _module()
+    receipt = _receipt()
+    candidates = receipt["candidates"]
+    assert isinstance(candidates, list) and isinstance(candidates[0], dict)
+    candidates[0]["download_bytes"] = 19
+
+    with pytest.raises(ValueError, match="receipt"):
+        compatibility.validate_receipt(receipt)
+
+
+def test_receipt_validator_rejects_empty_successful_inventory() -> None:
+    compatibility = _module()
+    receipt = _receipt()
+    candidates = receipt["candidates"]
+    assert isinstance(candidates, list) and isinstance(candidates[0], dict)
+    candidates[0]["distributions"] = []
+    candidates[0]["download_bytes"] = 0
+
+    with pytest.raises(ValueError, match="receipt"):
+        compatibility.validate_receipt(receipt)
+
+
+def test_receipt_validator_binds_mke_digest_to_candidate_inventories() -> None:
+    compatibility = _module()
+    receipt = _receipt()
+    receipt["mke_wheel_sha256"] = "f" * 64
+
+    with pytest.raises(ValueError, match="receipt"):
+        compatibility.validate_receipt(receipt)
+
+
 def test_bounded_subprocess_rejects_output_and_timeout(tmp_path: Path) -> None:
     compatibility = _module()
 
@@ -270,6 +313,38 @@ def test_bounded_subprocess_rejects_output_and_timeout(tmp_path: Path) -> None:
             max_stderr_bytes=32,
         )
     assert timeout.value.code == "command_timed_out"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="process-group regression is POSIX-only")
+def test_bounded_subprocess_cleans_descendant_after_successful_parent(
+    tmp_path: Path,
+) -> None:
+    compatibility = _module()
+    marker = tmp_path / "descendant-marker"
+    child = (
+        "import pathlib,sys,time;"
+        "time.sleep(0.35);"
+        "pathlib.Path(sys.argv[1]).write_text('survived',encoding='utf-8')"
+    )
+    parent = (
+        "import subprocess,sys;"
+        f"subprocess.Popen([sys.executable,'-c',{child!r},sys.argv[1]],"
+        "stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,"
+        "stderr=subprocess.DEVNULL,close_fds=True)"
+    )
+
+    result = compatibility.run_bounded(
+        (sys.executable, "-c", parent, str(marker)),
+        cwd=tmp_path,
+        env=os.environ,
+        timeout_seconds=2,
+        max_stdout_bytes=1024,
+        max_stderr_bytes=1024,
+    )
+    time.sleep(0.7)
+
+    assert result.returncode == 0
+    assert not marker.exists()
 
 
 def test_installed_identity_accepts_venv_interpreter_symlink(tmp_path: Path) -> None:
@@ -329,6 +404,35 @@ def test_receipt_json_is_canonical_and_round_trips() -> None:
     assert json.loads(encoded) == receipt
     assert b"/Users/" not in encoded
     compatibility.validate_receipt(json.loads(encoded))
+
+
+def test_committed_receipt_is_canonical_closed_and_frozen() -> None:
+    compatibility = _module()
+    root = Path(__file__).resolve().parents[2]
+    path = root / "benchmarks/ocr/candidate-environments.json"
+    encoded = path.read_bytes()
+
+    receipt = compatibility.validate_committed_receipt_bytes(
+        encoded,
+        frozen_sha256="df04fff10a7f170b7dbf51ccafba3e189d15f64719a4e172c165bb0a15ee360e",
+    )
+
+    candidates = receipt["candidates"]
+    assert isinstance(candidates, list)
+    assert {candidate["candidate"] for candidate in candidates} == {
+        "paddleocr-vl-1.6-cpu-spike-v1",
+        "ppocrv6-medium-cpu-spike-v1",
+    }
+    cells = [cell for candidate in candidates for cell in candidate["cells"]]
+    assert len(cells) == 16
+    assert {cell["result"] for cell in cells} == {"passed"}
+    assert {cell["python"] for cell in cells} == {"3.12.13", "3.13.12"}
+    assert {cell["surface"] for cell in cells} == {
+        "base",
+        "embedding",
+        "transcription",
+        "embedding+transcription",
+    }
 
 
 def test_script_source_has_no_model_acquisition_surface() -> None:
