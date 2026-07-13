@@ -64,7 +64,7 @@ class BoundedAdmissionController:
     def acquire(self, *, timeout_seconds: float = 0.0) -> AdmissionLease:
         if (
             isinstance(timeout_seconds, bool)
-            or not isinstance(timeout_seconds, (int, float))
+            or not isinstance(timeout_seconds, (int, float))  # pyright: ignore[reportUnnecessaryIsInstance] -- runtime guard for untyped callers
             or not math.isfinite(timeout_seconds)
             or timeout_seconds < 0
         ):

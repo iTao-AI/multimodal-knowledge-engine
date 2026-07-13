@@ -125,12 +125,12 @@ def test_async_ingest_cancellation_kills_process_registered_after_cancel(
         assert cancellation_seen.wait(timeout=2)
         operation_id = config.runtime.process_operation_id
         assert operation_id is not None
-        config.runtime.process_controller.register(  # type: ignore[arg-type]
-            process,
+        config.runtime.process_controller.register(
+            process,  # pyright: ignore[reportArgumentType]
             operation_id=operation_id,
         )
-        config.runtime.process_controller.unregister(  # type: ignore[arg-type]
-            process,
+        config.runtime.process_controller.unregister(
+            process,  # pyright: ignore[reportArgumentType]
             operation_id=operation_id,
         )
         return {"ok": False}
@@ -192,17 +192,23 @@ def test_cancelling_one_ingest_does_not_kill_sibling_operation(
         started = first_started if path == "first.mp4" else second_started
         release = first_release if path == "first.mp4" else second_release
         controller = runtime_config.runtime.process_controller
-        controller.register(process, operation_id=operation_id)  # type: ignore[arg-type]
+        controller.register(
+            process,  # pyright: ignore[reportArgumentType]
+            operation_id=operation_id,
+        )
         started.set()
         assert release.wait(timeout=2)
-        controller.unregister(process, operation_id=operation_id)  # type: ignore[arg-type]
+        controller.unregister(
+            process,  # pyright: ignore[reportArgumentType]
+            operation_id=operation_id,
+        )
         if path == "first.mp4":
-            controller.register(  # type: ignore[arg-type]
-                late_process,
+            controller.register(
+                late_process,  # pyright: ignore[reportArgumentType]
                 operation_id=operation_id,
             )
-            controller.unregister(  # type: ignore[arg-type]
-                late_process,
+            controller.unregister(
+                late_process,  # pyright: ignore[reportArgumentType]
                 operation_id=operation_id,
             )
         return {"ok": True, "path": path}

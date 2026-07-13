@@ -176,7 +176,7 @@ class RuntimeConfig:
         if type(self.admission_controller) is not BoundedAdmissionController:
             raise TypeError("admission controller must be BoundedAdmissionController")
         if self.process_operation_id is not None:
-            if not isinstance(self.process_operation_id, str):
+            if not isinstance(self.process_operation_id, str):  # pyright: ignore[reportUnnecessaryIsInstance] -- runtime guard for untyped callers
                 raise TypeError("process operation ID must be a string")
             if not self.process_operation_id.startswith("op_"):
                 raise ValueError("process operation ID must begin with op_")

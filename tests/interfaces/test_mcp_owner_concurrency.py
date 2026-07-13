@@ -31,7 +31,7 @@ def test_shared_owner_recovery_reads_cancellation_and_restart(
     runtime = RuntimeConfig(db_path)
     config = McpRuntimeConfig(runtime=runtime, allowed_root=tmp_path)
 
-    def first_use() -> RunState:
+    def first_use(_: int) -> RunState:
         engine = build_engine(runtime)
         try:
             return engine.get_run(old_run_id).state
@@ -39,7 +39,7 @@ def test_shared_owner_recovery_reads_cancellation_and_restart(
             engine.close()
 
     with ThreadPoolExecutor(max_workers=2) as executor:
-        states = list(executor.map(lambda _: first_use(), range(2)))
+        states = list(executor.map(first_use, range(2)))
 
     assert states == [RunState.INTERRUPTED, RunState.INTERRUPTED]
     old_run = mcp_contract.get_run(config, old_run_id)
@@ -84,14 +84,14 @@ def test_shared_owner_recovery_reads_cancellation_and_restart(
     def blocking_ingest(scoped: McpRuntimeConfig, path: str) -> dict[str, object]:
         operation_id = scoped.runtime.process_operation_id
         assert operation_id is not None
-        scoped.runtime.process_controller.register(  # type: ignore[arg-type]
-            process,
+        scoped.runtime.process_controller.register(
+            process,  # pyright: ignore[reportArgumentType]
             operation_id=operation_id,
         )
         worker_started.set()
         assert worker_release.wait(timeout=2)
-        scoped.runtime.process_controller.unregister(  # type: ignore[arg-type]
-            process,
+        scoped.runtime.process_controller.unregister(
+            process,  # pyright: ignore[reportArgumentType]
             operation_id=operation_id,
         )
         return {"ok": False}
