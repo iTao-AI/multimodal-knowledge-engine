@@ -1,0 +1,146 @@
+{
+  "documents": [
+    {
+      "document_id": "english-scan",
+      "fixture": {
+        "bytes": 25158,
+        "path": "documents/english-scan.pdf",
+        "sha256": "f7f5813a2d9bbb4012888d711982413f5117b92a6374a5819e80ddcc75b26ad8"
+      },
+      "pages": [
+        {
+          "expected_ocr_text": "Aurora station uses amber seals for verified cargo.",
+          "expected_route": "ocr_required",
+          "expected_text_layer_text": null,
+          "page_number": 1
+        }
+      ]
+    },
+    {
+      "document_id": "chinese-scan",
+      "fixture": {
+        "bytes": 25147,
+        "path": "documents/chinese-scan.pdf",
+        "sha256": "face9a62aac30ef2b6e62641dc21fd97dd4e9c554f89230aaa51c28475549414"
+      },
+      "pages": [
+        {
+          "expected_ocr_text": "巡检编号为海燕四十二号。",
+          "expected_route": "ocr_required",
+          "expected_text_layer_text": null,
+          "page_number": 1
+        }
+      ]
+    },
+    {
+      "document_id": "mixed-prose",
+      "fixture": {
+        "bytes": 26201,
+        "path": "documents/mixed-prose.pdf",
+        "sha256": "8f92e133810cf2c3603c23eb5e70e083f3e4a15c707b0cf6275aa3e7d263d090"
+      },
+      "pages": [
+        {
+          "expected_ocr_text": null,
+          "expected_route": "text_layer_accepted",
+          "expected_text_layer_text": "Text-layer evidence remains authoritative.",
+          "page_number": 1
+        },
+        {
+          "expected_ocr_text": "Scanned appendix code is ORBIT-731.",
+          "expected_route": "ocr_required",
+          "expected_text_layer_text": null,
+          "page_number": 2
+        }
+      ]
+    },
+    {
+      "document_id": "routing-adversarial",
+      "fixture": {
+        "bytes": 26320,
+        "path": "documents/routing-adversarial.pdf",
+        "sha256": "82a96551deb92e4bdbba0e556c532c6ab5a95536ba8a859a9555213f889acb3f"
+      },
+      "pages": [
+        {
+          "expected_ocr_text": null,
+          "expected_route": "blank_nontext",
+          "expected_text_layer_text": null,
+          "page_number": 1
+        },
+        {
+          "expected_ocr_text": null,
+          "expected_route": "ambiguous_unsupported",
+          "expected_text_layer_text": null,
+          "page_number": 2
+        },
+        {
+          "expected_ocr_text": null,
+          "expected_route": "ambiguous_unsupported",
+          "expected_text_layer_text": null,
+          "page_number": 3
+        },
+        {
+          "expected_ocr_text": null,
+          "expected_route": "ambiguous_unsupported",
+          "expected_text_layer_text": null,
+          "page_number": 4
+        },
+        {
+          "expected_ocr_text": "Full-page scan requires OCR routing.",
+          "expected_route": "ocr_required",
+          "expected_text_layer_text": null,
+          "page_number": 5
+        }
+      ]
+    }
+  ],
+  "protocol_id": "pdf-ocr-phase0-v1",
+  "providers": [
+    "apple-vision-local-v1",
+    "paddleocr-vl-1.6-cpu-spike-v1",
+    "ppocrv6-medium-cpu-spike-v1"
+  ],
+  "queries": [
+    {
+      "expected_document_id": "english-scan",
+      "expected_evidence_ref": {
+        "locator": {
+          "end": 1,
+          "kind": "page",
+          "start": 1
+        },
+        "schema_version": "mke.evidence_ref.v1"
+      },
+      "query_id": "amber-seals",
+      "text": "amber seals"
+    },
+    {
+      "expected_document_id": "chinese-scan",
+      "expected_evidence_ref": {
+        "locator": {
+          "end": 1,
+          "kind": "page",
+          "start": 1
+        },
+        "schema_version": "mke.evidence_ref.v1"
+      },
+      "query_id": "haiyan-42",
+      "text": "海燕四十二号"
+    },
+    {
+      "expected_document_id": "mixed-prose",
+      "expected_evidence_ref": {
+        "locator": {
+          "end": 2,
+          "kind": "page",
+          "start": 2
+        },
+        "schema_version": "mke.evidence_ref.v1"
+      },
+      "query_id": "orbit-731",
+      "text": "ORBIT-731"
+    }
+  ],
+  "schema": "mke.pdf_ocr_eval_protocol.v1"
+}
