@@ -3,7 +3,9 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import signal
+import subprocess
 import sys
 import time
 from collections.abc import Mapping, Sequence
@@ -14,6 +16,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/consumer_source_pack_proof.py"
+CI_WORKFLOW = ROOT / ".github/workflows/ci.yml"
+CONSUMER_WORKFLOW = ROOT / ".github/workflows/consumer-source-pack-proof.yml"
 
 STABLE_FAILURE_CODES = (
     "source_pack_manifest_invalid",
@@ -37,11 +41,132 @@ STABLE_FAILURE_CODES = (
     "cleanup_failed",
     "proof_failed",
 )
+CLIENT_FAILURE_CODES = (
+    "source_pack_manifest_invalid",
+    "source_pack_identity_mismatch",
+    "consumer_schema_invalid",
+    "consumer_payload_invalid",
+    "manifest_mapping_missing",
+    "manifest_mapping_ambiguous",
+    "manifest_locator_mismatch",
+    "observation_state_mismatch",
+    "mcp_startup_timeout",
+    "mcp_tool_timeout",
+    "mcp_transport_failed",
+    "command_output_exceeded",
+    "cleanup_failed",
+    "proof_failed",
+)
+
+
+def _consumer_proof_job(workflow: str | None = None) -> str:
+    if workflow is None:
+        workflow = CONSUMER_WORKFLOW.read_text(encoding="utf-8")
+    jobs = workflow.split("\njobs:\n", maxsplit=1)
+    assert len(jobs) == 2
+    job_names = re.findall(r"(?m)^  ([a-zA-Z0-9_-]+):\n", jobs[1])
+    assert job_names == ["consumer-source-pack-proof"]
+    matches = list(
+        re.finditer(
+            r"(?ms)^  consumer-source-pack-proof:\n(?P<body>.*?)(?=^  [a-zA-Z0-9_-]+:\n|\Z)",
+            jobs[1],
+        )
+    )
+    assert len(matches) == 1
+    return matches[0].group(0)
+
+
+def test_consumer_source_pack_workflow_has_bounded_repository_scope() -> None:
+    workflow = CONSUMER_WORKFLOW.read_text(encoding="utf-8")
+    assert "pull_request:" in workflow
+    assert "push:\n    branches: [main]" in workflow
+    assert "permissions:\n  contents: read" in workflow
+    assert "concurrency:" in workflow
+    assert "cancel-in-progress: true" in workflow
+
+
+def test_primary_ci_workflow_remains_byte_identical_to_head() -> None:
+    committed = subprocess.run(
+        ["git", "show", "HEAD:.github/workflows/ci.yml"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+    ).stdout
+    assert CI_WORKFLOW.read_bytes() == committed
+
+
+def test_consumer_source_pack_workflow_is_one_bounded_non_matrix_job() -> None:
+    job = _consumer_proof_job()
+    assert "runs-on: ubuntu-latest" in job
+    assert "timeout-minutes: 15" in job
+    assert "matrix:" not in job
+    assert job.count("scripts/consumer_source_pack_proof.py") == 1
+    assert "uv build" not in job
+    assert job.count("actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0") == 1
+    assert job.count("astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990") == 1
+
+
+def test_consumer_source_pack_workflow_rejects_a_sibling_job() -> None:
+    workflow = CONSUMER_WORKFLOW.read_text(encoding="utf-8")
+    mutated = workflow + "\n  unexpected-sibling:\n    runs-on: ubuntu-latest\n"
+    with pytest.raises(AssertionError):
+        _consumer_proof_job(mutated)
+
+
+def test_consumer_source_pack_workflow_uses_both_explicit_interpreters() -> None:
+    job = _consumer_proof_job()
+    setup_python = "actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1"
+    assert job.count(setup_python) == 2
+    assert re.search(
+        r'id: python312\n\s+uses: .*setup-python.*\n\s+with:\n\s+python-version: "3\.12"',
+        job,
+    )
+    assert re.search(
+        r'id: python313\n\s+uses: .*setup-python.*\n\s+with:\n\s+python-version: "3\.13"',
+        job,
+    )
+    assert job.count('${{ steps.python312.outputs.python-path }}') == 2
+    assert job.count('${{ steps.python313.outputs.python-path }}') == 2
+    proof_command = job[job.index("scripts/consumer_source_pack_proof.py") :]
+    assert '--python "${{ steps.python312.outputs.python-path }}"' in proof_command
+    assert '--python "${{ steps.python313.outputs.python-path }}"' in proof_command
+
+
+def test_consumer_source_pack_workflow_provisions_online_before_offline_proof() -> None:
+    job = _consumer_proof_job()
+    provision_name = "name: Provision locked cache for controller and both interpreters"
+    proof_name = "name: Run offline same-wheel consumer proof"
+    provision_start = job.index(provision_name)
+    proof_start = job.index(proof_name)
+    assert provision_start < proof_start
+    provision = job[provision_start:proof_start]
+    proof = job[proof_start:]
+
+    assert "UV_OFFLINE" not in provision
+    assert "uv sync --locked" in provision
+    assert "uv export --locked --no-dev --no-emit-project" in provision
+    assert '$RUNNER_TEMP/mke-core-requirements.txt' in provision
+    for minor, step_id in (("312", "python312"), ("313", "python313")):
+        environment = f'$RUNNER_TEMP/mke-prewarm-{minor}'
+        assert f'uv venv "{environment}"' in provision
+        assert f'--python "${{{{ steps.{step_id}.outputs.python-path }}}}"' in provision
+        assert f'--python "{environment}/bin/python"' in provision
+    assert provision.count("uv pip install") == 2
+    assert provision.count('--requirement "$RUNNER_TEMP/mke-core-requirements.txt"') == 2
+
+    assert 'UV_OFFLINE: "1"' in proof
+    assert "UV_OFFLINE" not in job[:proof_start]
+    assert "uv sync" not in proof
+    assert "uv export" not in proof
+    assert "uv pip install" not in proof
+    assert "--offline" not in proof
+    assert "--no-index" not in proof
 
 
 def test_public_failure_allowlist_is_exact() -> None:
     proof = _load()
     assert proof._STABLE_FAILURE_CODES == frozenset(STABLE_FAILURE_CODES)
+    assert proof._CLIENT_FAILURE_CODES == frozenset(CLIENT_FAILURE_CODES)
 
 
 def _load():
@@ -455,6 +580,8 @@ def test_run_proof_builds_once_and_uses_same_wheel(
     assert len(client_calls) == 2
     assert client_calls[0][1] != client_calls[1][1]
     for index, (command, cwd, env) in enumerate(client_calls):
+        assert "--max-server-stderr-bytes" in command
+        assert "--max-transport-bytes" not in command
         assert str(repository) not in "\0".join(command)
         assert str(repository) not in str(cwd)
         assert all(str(repository) not in value for value in env.values())
@@ -532,6 +659,66 @@ def test_run_proof_fails_closed_at_each_interpreter_stage(
         )
     assert exc_info.value.code == expected
     assert roots and all(not root.exists() for root in roots)
+
+
+@pytest.mark.parametrize("client_code", CLIENT_FAILURE_CODES)
+def test_run_proof_propagates_exact_allowlisted_client_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, client_code: str
+) -> None:
+    proof = _load()
+    repository = _repository_fixture(tmp_path)
+    successful = _successful_runner(proof)
+
+    def fake(command: Sequence[str], *, cwd: Path, **kwargs: object) -> Any:
+        if len(command) > 1 and str(command[1]).endswith("consumer_source_pack_client.py"):
+            payload = {"status": "failed", "code": client_code}
+            return proof.CommandResult(1, json.dumps(payload, separators=(",", ":")).encode(), b"")
+        return successful(command, cwd=cwd, **kwargs)
+
+    monkeypatch.setattr(proof, "run_bounded", fake)
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.run_proof(
+            proof.ProofConfig(repository, (Path("/py312"), Path("/py313")), 3, 10_000, 10_000)
+        )
+
+    assert exc_info.value.code == client_code
+
+
+@pytest.mark.parametrize(
+    "stdout",
+    [
+        b"not-json",
+        b'{"status":"failed","code":"consumer_schema_invalid"}trailing',
+        b'{"status":"failed","code":"consumer_schema_invalid","detail":"unsafe"}',
+        b'{"status":"failed"}',
+        b'{"code":"consumer_schema_invalid"}',
+        b'{"status":"passed","code":"consumer_schema_invalid"}',
+        b'{"status":"failed","code":"unknown_code"}',
+        b'{"status":"failed","code":"wheel_build_failed"}',
+        b'{"status":"failed","code":"server_exit_nonzero"}',
+    ],
+)
+def test_run_proof_maps_untrusted_nonzero_client_output_to_server_exit_nonzero(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, stdout: bytes
+) -> None:
+    proof = _load()
+    repository = _repository_fixture(tmp_path)
+    successful = _successful_runner(proof)
+
+    def fake(command: Sequence[str], *, cwd: Path, **kwargs: object) -> Any:
+        if len(command) > 1 and str(command[1]).endswith("consumer_source_pack_client.py"):
+            return proof.CommandResult(1, stdout, b"")
+        return successful(command, cwd=cwd, **kwargs)
+
+    monkeypatch.setattr(proof, "run_bounded", fake)
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.run_proof(
+            proof.ProofConfig(repository, (Path("/py312"), Path("/py313")), 3, 10_000, 10_000)
+        )
+
+    assert exc_info.value.code == "server_exit_nonzero"
 
 
 def _repository_fixture(tmp_path: Path) -> Path:

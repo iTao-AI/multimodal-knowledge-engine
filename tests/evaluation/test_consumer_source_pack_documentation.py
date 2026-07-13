@@ -7,6 +7,11 @@ import pytest
 HOW_TO = Path("docs/how-to/run-consumer-source-pack-proof.md")
 README = Path("README.md")
 DOCS_INDEX = Path("docs/README.md")
+SPEC = Path("docs/superpowers/specs/2026-07-12-consumer-ready-source-pack-proof-design.md")
+PLAN = Path("docs/superpowers/plans/2026-07-12-consumer-ready-source-pack-proof-implementation.md")
+PLAN_REVIEW = Path(
+    "docs/superpowers/reviews/2026-07-12-consumer-ready-source-pack-proof-plan-review.md"
+)
 HOW_TO_LINK = "docs/how-to/run-consumer-source-pack-proof.md"
 SUCCESS_FIELDS = frozenset(
     {
@@ -231,6 +236,20 @@ def test_consumer_source_pack_how_to_documents_closed_public_output() -> None:
 
     assert '{"status":"failed","code":"<stable_code>"}' in text
     assert "paths, identifiers, Evidence text, filenames, stderr, tracebacks" in text
+
+
+def test_consumer_source_pack_docs_state_exact_output_ownership_boundary() -> None:
+    how_to = normalized(HOW_TO.read_text(encoding="utf-8"))
+    assert "Controller subprocess stdout and stderr are hard bounded" in how_to
+    assert "MCP server stderr is hard bounded" in how_to
+    assert "Raw MCP stdout framing is owned by the official MCP SDK" in how_to
+    assert "is not claimed to be hard-capped before SDK parsing" in how_to
+    assert "Structured Search and Ask payloads are bounded after parsing" in how_to
+
+    for path in (SPEC, PLAN, PLAN_REVIEW, HOW_TO):
+        text = path.read_text(encoding="utf-8")
+        assert "max_transport_bytes" not in text
+        assert "--max-transport-bytes" not in text
 
 
 def test_consumer_source_pack_navigation_is_minimal_and_discoverable() -> None:

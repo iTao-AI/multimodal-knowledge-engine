@@ -60,10 +60,12 @@ Resolution: controller subprocesses incrementally drain stdout and stderr in fix
 track per-stream counters, record the first terminal event against a monotonic deadline, and run a
 process-group terminate/grace/kill/wait sequence on overflow or timeout. Live noisy-child tests
 require termination at the cap. The standalone client passes an OS-pipe write end to
-`stdio_client(errlog=...)`, drains the read end asynchronously, cancels the MCP context on overflow,
-and verifies server termination. Overflow wins only when its cap event was observed before the
-deadline; otherwise timeout wins. Client server cleanup and controller outer cleanup remain
-separate owners.
+`stdio_client(errlog=...)`, drains the read end asynchronously, cancels the MCP context on stderr
+overflow, and verifies server termination. Raw MCP stdout framing is owned by the official MCP SDK
+and is not claimed to be hard-capped before SDK parsing; structured Search/Ask payloads are bounded
+by the independent validator after parsing. Overflow wins only when its cap event was observed
+before the deadline; otherwise timeout wins. Client server cleanup and controller outer cleanup
+remain separate owners.
 
 ### Finding 3 — Exact Independent Error And Schema Contract
 
@@ -129,8 +131,9 @@ RED unit/mutation tests -> bounded live-child tests -> real stdio integration
   Search/Ask projection equality are mutation-tested independently.
 - Missing/ambiguous fingerprint joins and query/source/locator mismatches fail without receipts.
 - Fresh, active, and normal no-match observations are distinct and fail closed on state drift.
-- Startup/tool deadlines, transport close, nonzero exit, stdout/stderr overflow, cleanup, and
-  unexpected failures map to the closed stable-code set with redacted two-key output.
+- Startup/tool deadlines, transport close, nonzero exit, controller subprocess stdout/stderr
+  overflow, MCP server stderr overflow, cleanup, and unexpected failures map to the closed
+  stable-code set with redacted two-key output.
 - Live noisy children prove early cap enforcement and process-group termination; MCP stderr uses an
   incrementally drained pipe rather than post-exit inspection.
 - Installed identity, external cwd/assets, hostile environment clearing, same-wheel reuse, both
@@ -139,8 +142,9 @@ RED unit/mutation tests -> bounded live-child tests -> real stdio integration
 
 ## Performance And CI Conclusion
 
-The proof is bounded by explicit job, command, startup, and tool deadlines; fixed stdout/stderr
-caps; two one-page PDFs; two stores; and a fixed query set. One non-matrix job avoids building two
+The proof is bounded by explicit job, command, startup, and tool deadlines; fixed controller
+stdout/stderr and MCP server stderr caps; post-parse structured payload bounds; two one-page PDFs;
+two stores; and a fixed query set. One non-matrix job avoids building two
 different wheels and makes same-wheel reuse directly reviewable. Online provisioning may download
 locked artifacts once, while the proof phase is offline and fails rather than changing network
 policy. This adds a deliberate installed-consumer job without expanding the existing Python matrix

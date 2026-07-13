@@ -12,7 +12,7 @@ from collections.abc import Callable, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 import pytest
 
@@ -22,7 +22,21 @@ ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "tests/fixtures/consumer-source-pack-v1/manifest.json"
 SCHEMAS = ROOT / "tests/fixtures/consumer-source-pack-v1/mcp-tool-schemas.json"
 LOCAL_FIXTURE_ROOT = ROOT / "tests/fixtures/local-knowledge-v1"
+
+
+def _copied_source_root(tmp_path: Path) -> Path:
+    source_root = tmp_path / "source-pack"
+    source_root.mkdir(exist_ok=True)
+    for name in ("operations-guide.pdf", "incident-guide.pdf"):
+        (source_root / name).write_bytes((LOCAL_FIXTURE_ROOT / name).read_bytes())
+    return source_root
+
+
 CLIENT_PATH = ROOT / "scripts/consumer_source_pack_client.py"
+
+
+class _ServerStderrConfig(Protocol):
+    max_server_stderr_bytes: int
 
 
 def _load_client() -> ModuleType:
@@ -281,19 +295,25 @@ def test_load_source_pack_rejects_approved_identity_drift(
     assert exc_info.value.code == "source_pack_manifest_invalid", case
 
 
-def test_verify_source_files_matches_manifest() -> None:
+def test_verify_source_files_matches_manifest(tmp_path: Path) -> None:
     pack = client.load_source_pack(MANIFEST)
+    for source in pack.sources:
+        (tmp_path / source.relative_filename).write_bytes(
+            (LOCAL_FIXTURE_ROOT / source.relative_filename).read_bytes()
+        )
 
-    resolved = client.verify_source_files(pack, LOCAL_FIXTURE_ROOT)
+    resolved = client.verify_source_files(pack, tmp_path)
 
     assert resolved.keys() == {"operations_guide", "incident_guide"}
     assert resolved == {
-        "operations_guide": LOCAL_FIXTURE_ROOT / "operations-guide.pdf",
-        "incident_guide": LOCAL_FIXTURE_ROOT / "incident-guide.pdf",
+        "operations_guide": tmp_path / "operations-guide.pdf",
+        "incident_guide": tmp_path / "incident-guide.pdf",
     }
 
 
-@pytest.mark.parametrize("mismatch", ["missing", "extra", "bytes", "sha256"])
+@pytest.mark.parametrize(
+    "mismatch", ["missing", "extra", "extra_non_pdf", "nested", "bytes", "sha256"]
+)
 def test_verify_source_files_rejects_identity_mismatch(tmp_path: Path, mismatch: str) -> None:
     pack = client.load_source_pack(MANIFEST)
     for source in pack.sources:
@@ -303,6 +323,11 @@ def test_verify_source_files_rejects_identity_mismatch(tmp_path: Path, mismatch:
         (tmp_path / "incident-guide.pdf").unlink()
     elif mismatch == "extra":
         (tmp_path / "extra.pdf").write_bytes(b"extra")
+    elif mismatch == "extra_non_pdf":
+        (tmp_path / "unexpected.txt").write_text("unexpected", encoding="utf-8")
+    elif mismatch == "nested":
+        (tmp_path / "nested").mkdir()
+        (tmp_path / "nested/unexpected.bin").write_bytes(b"unexpected")
     elif mismatch == "bytes":
         (tmp_path / "operations-guide.pdf").write_bytes(b"wrong length")
     else:
@@ -896,7 +921,15 @@ def test_run_store_session_rejects_search_and_ask_query_echo_drift(
     events: list[tuple[object, ...]] = []
     _install_flow_sdk_fake(monkeypatch, events, echo_mutation=echo_mutation)
     config = client.ConsumerConfig(
-        MANIFEST, SCHEMAS, LOCAL_FIXTURE_ROOT, tmp_path / "mke", tmp_path, {}, 1.0, 1.0, 1024
+        MANIFEST,
+        SCHEMAS,
+        _copied_source_root(tmp_path),
+        tmp_path / "mke",
+        tmp_path,
+        {},
+        1.0,
+        1.0,
+        1024,
     )
 
     with pytest.raises(client.ProofError) as exc_info:
@@ -940,7 +973,15 @@ def test_run_store_session_maps_unobservable_sdk_failures_to_transport(
     monkeypatch.setattr(client, "stdio_client", fake_stdio)
     monkeypatch.setattr(client, "ClientSession", fake_session)
     config = client.ConsumerConfig(
-        MANIFEST, SCHEMAS, LOCAL_FIXTURE_ROOT, tmp_path / "mke", tmp_path, {}, 1.0, 1.0, 1024
+        MANIFEST,
+        SCHEMAS,
+        _copied_source_root(tmp_path),
+        tmp_path / "mke",
+        tmp_path,
+        {},
+        1.0,
+        1.0,
+        1024,
     )
 
     with pytest.raises(client.ProofError) as exc_info:
@@ -964,7 +1005,7 @@ def test_real_nonzero_child_is_transport_when_exit_code_is_controller_owned(
     config = client.ConsumerConfig(
         MANIFEST,
         SCHEMAS,
-        LOCAL_FIXTURE_ROOT,
+        _copied_source_root(tmp_path),
         server,
         tmp_path,
         {"PATH": os.environ["PATH"]},
@@ -1056,6 +1097,37 @@ def test_main_failure_output_is_exact_and_redacted(
     assert "sensitive" not in output and "reason" not in output and str(tmp_path) not in output
 
 
+def test_main_names_the_hard_bound_as_mcp_server_stderr(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    observed: list[_ServerStderrConfig] = []
+
+    async def capture(config: object) -> object:
+        observed.append(cast(_ServerStderrConfig, config))
+        raise client.ProofError("proof_failed")
+
+    monkeypatch.setattr(client, "run_consumer", capture)
+
+    result = client.main(
+        [
+            "--manifest", str(MANIFEST),
+            "--schemas", str(SCHEMAS),
+            "--source-root", str(LOCAL_FIXTURE_ROOT),
+            "--mke", str(tmp_path / "mke"),
+            "--workspace", str(tmp_path),
+            "--max-server-stderr-bytes", "777",
+        ]
+    )
+
+    assert result == 1
+    assert capsys.readouterr().out
+    assert len(observed) == 1
+    assert observed[0].max_server_stderr_bytes == 777
+    assert not hasattr(observed[0], "max_transport_bytes")
+
+
 def test_run_store_session_uses_exact_mcp_success_flow_and_closes_boundaries(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -1064,7 +1136,7 @@ def test_run_store_session_uses_exact_mcp_success_flow_and_closes_boundaries(
     config = client.ConsumerConfig(
         MANIFEST,
         SCHEMAS,
-        LOCAL_FIXTURE_ROOT,
+        _copied_source_root(tmp_path),
         tmp_path / "mke",
         tmp_path,
         {},
@@ -1114,7 +1186,7 @@ def test_run_consumer_uses_two_fresh_databases_and_only_receipt_identity(
     config = client.ConsumerConfig(
         MANIFEST,
         SCHEMAS,
-        LOCAL_FIXTURE_ROOT,
+        _copied_source_root(tmp_path),
         tmp_path / "mke",
         tmp_path,
         {},
@@ -1249,7 +1321,7 @@ def test_run_store_session_terminates_live_noisy_mcp_child_at_stderr_cap(
     config = client.ConsumerConfig(
         MANIFEST,
         SCHEMAS,
-        LOCAL_FIXTURE_ROOT,
+        _copied_source_root(tmp_path),
         server,
         tmp_path,
         {"PATH": os.environ["PATH"]},

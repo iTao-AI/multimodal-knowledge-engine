@@ -156,13 +156,15 @@ that the imported module, distribution metadata, Python executable, and installe
 belong to the fresh external environment and that none resolves within the repository.
 
 Before any child process starts, the launcher removes `PYTHONPATH`, `PYTHONHOME`, and `VIRTUAL_ENV`
-from the inherited environment. Every subprocess invocation uses an argv sequence with
-`shell=False`, a fixed timeout, bounded stdout/stderr capture, an explicit external `cwd`, and a
-minimal allowlisted success-code policy. Server startup, MCP initialization, tool discovery, and
-every tool call also have explicit deadlines.
+from the inherited environment. Every controller-owned subprocess invocation uses an argv sequence
+with `shell=False`, a fixed timeout, hard-bounded stdout/stderr capture, an explicit external `cwd`,
+and a minimal allowlisted success-code policy. Server startup, MCP initialization, tool discovery,
+and every tool call also have explicit deadlines.
 
-Child stderr may be retained only in a bounded temporary sink for local diagnosis. It must never be
-copied into the public result. Timeout, cancellation, nonzero exit, validation failure, or cleanup
+The MCP server stderr stream uses a consumer-owned hard-bounded pipe and is never copied into the
+public result. Raw MCP stdout framing is owned by the official MCP SDK and is not claimed to be
+hard-capped before SDK parsing. Structured Search and Ask payloads are bounded by the independent
+validator after parsing. Timeout, cancellation, nonzero exit, validation failure, or cleanup
 failure must terminate the relevant child and fail closed.
 
 ## Source-Pack Design
@@ -323,7 +325,8 @@ tests:
 | Server startup, MCP initialization, or tool call exceeds its deadline | Terminate the child and return a stable timeout code. |
 | Child exits nonzero or transport closes unexpectedly | Return a stable transport/server-exit code. |
 | Module, metadata, executable, or cwd resolves into the source tree | Fail closed as installed-identity contamination. |
-| stdout or stderr exceeds its configured bound | Terminate or reject and return a stable output-bound code. |
+| Controller subprocess stdout/stderr or MCP server stderr exceeds its configured hard bound | Terminate or reject and return a stable output-bound code. |
+| Parsed Search/Ask payload exceeds the independent validator's structural bounds | Reject with a stable payload-validation code. |
 | Process, store, or workspace cleanup cannot be verified | Return a stable cleanup code even if functional assertions passed. |
 
 All launcher and standalone-consumer exceptions are caught at the public script boundary. Public

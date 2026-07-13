@@ -45,6 +45,24 @@ _STABLE_FAILURE_CODES = frozenset(
         "proof_failed",
     }
 )
+_CLIENT_FAILURE_CODES = frozenset(
+    {
+        "source_pack_manifest_invalid",
+        "source_pack_identity_mismatch",
+        "consumer_schema_invalid",
+        "consumer_payload_invalid",
+        "manifest_mapping_missing",
+        "manifest_mapping_ambiguous",
+        "manifest_locator_mismatch",
+        "observation_state_mismatch",
+        "mcp_startup_timeout",
+        "mcp_tool_timeout",
+        "mcp_transport_failed",
+        "command_output_exceeded",
+        "cleanup_failed",
+        "proof_failed",
+    }
+)
 _CLIENT_FILES = (
     Path("scripts/consumer_source_pack_client.py"),
     Path("tests/fixtures/consumer-source-pack-v1/manifest.json"),
@@ -396,6 +414,24 @@ def _validate_client(payload: object) -> dict[str, object]:
     return client
 
 
+def _client_failure_code(stdout: bytes) -> str | None:
+    try:
+        payload_object: object = json.loads(stdout)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload_object, dict):
+        return None
+    payload = cast(dict[object, object], payload_object)
+    if set(payload) != {"status", "code"}:
+        return None
+    if payload.get("status") != "failed":
+        return None
+    code = payload.get("code")
+    if not isinstance(code, str) or code not in _CLIENT_FAILURE_CODES:
+        return None
+    return code
+
+
 def run_proof(config: ProofConfig) -> dict[str, object]:
     repository = config.repository.resolve()
     if len(config.python_interpreters) != 2:
@@ -527,7 +563,7 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
                         str(config.command_timeout_seconds),
                         "--tool-timeout",
                         str(config.command_timeout_seconds),
-                        "--max-transport-bytes",
+                        "--max-server-stderr-bytes",
                         str(config.max_stderr_bytes),
                     ],
                     cwd=workspace,
@@ -541,6 +577,9 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
                     raise
                 raise ControllerError("proof_failed") from exc
             if client_result.returncode != 0:
+                client_code = _client_failure_code(client_result.stdout)
+                if client_code is not None:
+                    raise ControllerError(client_code)
                 raise ControllerError("server_exit_nonzero")
             try:
                 client_payload = json.loads(client_result.stdout)

@@ -30,6 +30,11 @@ the consumer does not import MKE, read the repository, or read SQLite directly. 
 under a shared OS principal. They verify dependency and working-directory boundaries, but they do
 not claim that an OS sandbox prevents filesystem access.
 
+Controller subprocess stdout and stderr are hard bounded. MCP server stderr is hard bounded by a
+consumer-owned pipe. Raw MCP stdout framing is owned by the official MCP SDK and is not claimed to
+be hard-capped before SDK parsing. Structured Search and Ask payloads are bounded after parsing by
+the independent validator.
+
 ## Output Contract
 
 A successful command emits one JSON object with exactly these fields:
@@ -62,7 +67,9 @@ environment values, and exception messages are not included.
   environments using provisioned locked dependencies.
 - A standalone external client discovers and validates the exact MCP tool schemas, exercises the
   success flow over real stdio, and verifies source identity by exact fingerprint mapping.
-- Output, deadlines, process cleanup, and public failures remain bounded and redacted.
+- Controller subprocess output, MCP server stderr, structured Search/Ask payloads, deadlines,
+  process cleanup, and public failures remain bounded and redacted within the ownership boundaries
+  above.
 
 ## What This Does Not Prove
 

@@ -232,7 +232,7 @@ class ConsumerConfig:
     child_environment: dict[str, str]
     startup_timeout_seconds: float
     tool_timeout_seconds: float
-    max_transport_bytes: int
+    max_server_stderr_bytes: int
 
 
 @dataclass(frozen=True)
@@ -474,7 +474,7 @@ def verify_source_files(pack: SourcePack, source_root: Path) -> dict[str, Path]:
         actual_filenames = {
             path.relative_to(source_root).as_posix()
             for path in source_root.rglob("*")
-            if path.is_file() and path.suffix == ".pdf"
+            if path.is_file()
         }
         if actual_filenames != expected_filenames:
             raise ProofError("source_pack_identity_mismatch")
@@ -993,7 +993,7 @@ async def run_store_session(config: ConsumerConfig, database: Path) -> StoreResu
         cwd=str(config.workspace),
         env=dict(config.child_environment),
     )
-    capture = BoundedStderrCapture(config.max_transport_bytes)
+    capture = BoundedStderrCapture(config.max_server_stderr_bytes)
     async with capture:
         try:
             async with stdio_client(server, errlog=capture.write_end) as (read, write):
@@ -1226,7 +1226,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument("--startup-timeout", type=float, default=60.0)
     parser.add_argument("--tool-timeout", type=float, default=60.0)
-    parser.add_argument("--max-transport-bytes", type=int, default=65536)
+    parser.add_argument("--max-server-stderr-bytes", type=int, default=65536)
     args = parser.parse_args(argv)
     config = ConsumerConfig(
         args.manifest,
@@ -1237,7 +1237,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         dict(os.environ),
         args.startup_timeout,
         args.tool_timeout,
-        args.max_transport_bytes,
+        args.max_server_stderr_bytes,
     )
     try:
         print(render_controller_result(asyncio.run(run_consumer(config))))

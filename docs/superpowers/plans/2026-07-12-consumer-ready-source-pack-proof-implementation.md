@@ -36,7 +36,8 @@ Ruff, Pyright, GitHub Actions.
   enable network access or recover silently from a cache miss.
 - Clear `PYTHONPATH`, `PYTHONHOME`, and `VIRTUAL_ENV` from every child environment. Every
   subprocess uses an argv sequence, `shell=False`, an explicit external `cwd`, a fixed timeout,
-  bounded stdout/stderr, and deterministic child termination.
+  hard-bounded controller stdout/stderr, and deterministic child termination. The MCP server
+  stderr pipe is independently hard bounded.
 - Reuse `tests/fixtures/local-knowledge-v1/operations-guide.pdf` and
   `tests/fixtures/local-knowledge-v1/incident-guide.pdf` without changing their bytes, existing
   manifest, README, or generator. The new manifest/schema fixtures are independently
@@ -81,11 +82,16 @@ Ruff, Pyright, GitHub Actions.
   forbidden-release-claim regression tests.
 - `docs/how-to/run-consumer-source-pack-proof.md`: source-built command, isolation boundary,
   mapping, output contract, and explicit proves/does-not-prove sections.
+- `.github/workflows/consumer-source-pack-proof.yml`: dedicated non-matrix workflow that obtains
+  explicit 3.12/3.13 interpreter paths and passes both paths to one controller invocation.
+- `docs/superpowers/reviews/2026-07-13-consumer-ready-source-pack-proof-task7-blocker-review.md`:
+  public-neutral Task 7 identity-drift resolution and verification-boundary record.
+- `docs/superpowers/reviews/2026-07-13-consumer-ready-source-pack-proof-implementation-review.md`:
+  public-neutral implementation review resolution for client failure propagation, exact output
+  ownership, and recursive source-root membership.
 
 ### Modify
 
-- `.github/workflows/ci.yml`: add one non-matrix `consumer-source-pack-proof` job that obtains
-  explicit 3.12/3.13 interpreter paths and passes both paths to one controller invocation.
 - `README.md`: add one current-source proof sentence/link without changing release claims.
 - `docs/README.md`: add one navigation link and one current-source positioning sentence.
 
@@ -93,6 +99,8 @@ Ruff, Pyright, GitHub Actions.
 
 - `src/mke/**` and all canonical MCP schema snapshots except the new consumer-owned fixture.
 - `tests/fixtures/local-knowledge-v1/**`, especially both PDF bytes and its existing manifest.
+- `.github/workflows/ci.yml`, because dense evaluation source identity declares its exact bytes;
+  the dedicated consumer workflow must leave this file byte-identical to `HEAD`.
 - `benchmarks/**`, retrieval/evaluation protocol locks, qrels, reports, and artifacts.
 - `pyproject.toml`, `uv.lock`, `src/mke/__init__.py`, `CHANGELOG*`, tags, Release metadata,
   deployment files, and `docs/how-to/verify-release.md`.
@@ -122,7 +130,7 @@ Ruff, Pyright, GitHub Actions.
   `local-knowledge-v1`, source keys `operations_guide` / `incident_guide`, and the exact byte,
   SHA-256, query, and page-1 identities in the approved design.
 
-- [ ] **Step 1: Write RED fixture and parser tests**
+- [x] **Step 1: Write RED fixture and parser tests**
 
 Add tests that import the standalone script by file path and require:
 
@@ -156,7 +164,7 @@ UV_OFFLINE=1 uv run pytest -q \
 Expected: FAIL during collection because `scripts/consumer_source_pack_client.py` and the new
 consumer fixtures do not exist.
 
-- [ ] **Step 2: Freeze the exact closed fixtures from current producer discovery**
+- [x] **Step 2: Freeze the exact closed fixtures from current producer discovery**
 
 Write `manifest.json` with required-fields-only objects. Each source includes `source_key`,
 `relative_filename`, `media_type`, `bytes`, lowercase `sha256`, redistribution class
@@ -224,14 +232,14 @@ PY
 The implementation review must inspect the generated diff. Runtime code reads only the copied
 consumer fixture and never imports these producer modules.
 
-- [ ] **Step 3: Implement the strict manifest preflight**
+- [x] **Step 3: Implement the strict manifest preflight**
 
 Use standard-library dataclasses, `json`, `hashlib`, and `pathlib`. Enforce exact key sets before
 constructing typed values, reject `bool` where an integer is required, normalize with
 `PurePosixPath`, and compare the manifest filename set exactly with the copied source-root file set.
 The byte/hash loop must run before any `StdioServerParameters` is constructed.
 
-- [ ] **Step 4: Verify GREEN and freeze source bytes**
+- [x] **Step 4: Verify GREEN and freeze source bytes**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -253,7 +261,7 @@ git diff --check
 
 Expected: focused tests pass and both committed PDFs retain their exact approved identities.
 
-- [ ] **Step 5: Commit the consumer fixtures and parser**
+- [x] **Step 5: Commit the consumer fixtures and parser**
 
 ```bash
 git add scripts/consumer_source_pack_client.py \
@@ -287,7 +295,7 @@ git commit -m "test(proof): freeze consumer source-pack contract"
 - Produces `evidence_projection(payload: Mapping[str, object]) -> tuple[object, ...]` for structural
   Search/Ask equality without importing producer models.
 
-- [ ] **Step 1: Write RED schema-discovery tests**
+- [x] **Step 1: Write RED schema-discovery tests**
 
 Use small fake tool objects and the committed expectation fixture. Require exact structural JSON
 equality for all five legacy tools, presence of all three v1 tools, no duplicate/unknown required
@@ -310,7 +318,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: FAIL because `validate_tool_schemas` is absent.
 
-- [ ] **Step 2: Write RED payload mutation tests**
+- [x] **Step 2: Write RED payload mutation tests**
 
 Build valid local payload factories for list/search/ask and parameterize mutations covering every
 required case: missing/extra fields; unknown schema versions; bool-as-int; malformed IDs and
@@ -329,7 +337,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: FAIL because the three response validators and projection helper are absent.
 
-- [ ] **Step 3: Implement bounded standard-library validators**
+- [x] **Step 3: Implement bounded standard-library validators**
 
 Implement exact-key helpers and regexes for `src_`, `run_`, `pub_`, `ev_`, lowercase
 `sha256:<64 hex>`, literal schema versions, and positive revisions. Validate `problem` and
@@ -340,7 +348,7 @@ collections before indexing them and reject payloads above explicit item/text/de
 `validate_*_response` returns a shallow typed-as-mapping copy only after all cross-field invariants
 pass; it never returns a producer DTO.
 
-- [ ] **Step 4: Verify GREEN, static independence, and commit**
+- [x] **Step 4: Verify GREEN, static independence, and commit**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/scripts/test_consumer_source_pack_client.py
@@ -379,7 +387,8 @@ Expected: tests, Ruff, Pyright, and the AST import audit pass.
 
 - Produces frozen `ConsumerConfig(manifest: Path, schemas: Path, source_root: Path,
   mke_executable: Path, workspace: Path, child_environment: dict[str, str],
-  startup_timeout_seconds: float, tool_timeout_seconds: float, max_transport_bytes: int)`.
+  startup_timeout_seconds: float, tool_timeout_seconds: float,
+  max_server_stderr_bytes: int)`.
 - Produces `build_receipt(evidence: Mapping[str, object], pack: SourcePack,
   query: QueryExpectation) -> dict[str, object]` with schema
   `mke.consumer_source_pack_receipt.v1` and literal `match_status="matched"`.
@@ -391,10 +400,12 @@ Expected: tests, Ruff, Pyright, and the AST import audit pass.
 - Produces `BoundedStderrCapture(max_bytes: int)` as an async context manager exposing the pipe
   write end accepted by `stdio_client(errlog=...)`, an incrementally drained read end, and an
   overflow event that cancels the MCP context at the hard cap.
+- Raw MCP stdout framing remains owned by the official MCP SDK and is not claimed to be hard-capped
+  before SDK parsing. The independent validator bounds structured Search/Ask payloads after parsing.
 - Produces `render_controller_result(result: ConsumerResult) -> str` and `main(argv) -> int`; this
   bounded redacted JSON is private controller input, while Task 4 owns the final public report.
 
-- [ ] **Step 1: Write RED mapping and receipt tests**
+- [x] **Step 1: Write RED mapping and receipt tests**
 
 Require the only join to be
 `evidence["content_fingerprint"] == "sha256:" + source.sha256`. Assert exact-one mapping,
@@ -403,7 +414,7 @@ store-local IDs and Evidence text. Cover missing mapping, two source keys sharin
 locator contradiction with `manifest_mapping_missing`, `manifest_mapping_ambiguous`, and
 `manifest_locator_mismatch`; no failure case may return a receipt.
 
-- [ ] **Step 2: Write RED async MCP flow tests**
+- [x] **Step 2: Write RED async MCP flow tests**
 
 Use an injected/fake session boundary to require this exact order per fresh store:
 
@@ -432,7 +443,7 @@ waiting for normal child exit. Add timeout/output race tests: the first observed
 wins; output overflow wins when the cap event is recorded before the monotonic deadline, otherwise
 the applicable startup/tool timeout code wins.
 
-- [ ] **Step 3: Implement the MCP SDK flow with independent deadlines**
+- [x] **Step 3: Implement the MCP SDK flow with independent deadlines**
 
 Import `ClientSession`, `StdioServerParameters`, and `stdio_client` only from the official MCP SDK.
 Set server argv to `mke --db <external-db> mcp --allowed-root <copied-source-root>`, external cwd,
@@ -446,7 +457,7 @@ Convert startup, tool, transport, and nonzero-exit conditions to their approved 
 server cleanup owned by the client MCP context and outer client-process/workspace cleanup owned by
 the controller.
 
-- [ ] **Step 4: Implement the closed client-to-controller boundary**
+- [x] **Step 4: Implement the closed client-to-controller boundary**
 
 The client subprocess success object contains only `status="passed"`, schema names, pack ID,
 approved counts/states, receipt projections stripped to source key/fingerprint/locator/query role,
@@ -482,7 +493,7 @@ Both client and controller failure output is exactly the two-key closed object. 
 accepts identity or cleanup attestations from argv; the controller derives those claims from its
 own checks.
 
-- [ ] **Step 5: Verify focused GREEN and commit**
+- [x] **Step 5: Verify focused GREEN and commit**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/scripts/test_consumer_source_pack_client.py
@@ -518,7 +529,7 @@ Expected: all client unit/async tests pass with no repository or private value i
   timeout_seconds: float, max_stdout_bytes: int, max_stderr_bytes: int) -> CommandResult`.
 - Produces `run_proof(config: ProofConfig) -> dict[str, object]` and `main(argv) -> int`.
 
-- [ ] **Step 1: Write RED command-plan and same-wheel tests**
+- [x] **Step 1: Write RED command-plan and same-wheel tests**
 
 Mock `run_bounded` and temporary directories. Require this exact controller sequence:
 
@@ -537,7 +548,7 @@ Run both repository-input commands with an external controller cwd. Assert `uv b
 wheel path, each interpreter path is the explicit caller value, both environment/workspace paths
 are distinct and outside the repository, and no client argv/env value contains the repository.
 
-- [ ] **Step 2: Write RED environment, identity, bound, and termination tests**
+- [x] **Step 2: Write RED environment, identity, bound, and termination tests**
 
 Cover hostile environment removal; module/distribution/Python/`mke` executable inside the matching
 fresh environment and outside the repository; consumer file and cwd inside the external workspace;
@@ -554,7 +565,7 @@ bytes never grow without bound, and the test does not wait for the child's natur
 race test that records monotonic event order and requires overflow when its cap event is first, or
 timeout when the deadline event is first.
 
-- [ ] **Step 3: Implement bounded subprocess ownership**
+- [x] **Step 3: Implement bounded subprocess ownership**
 
 Use `subprocess.Popen` with `shell=False`, `start_new_session=True` on POSIX, and byte pipes. Drain
 stdout and stderr concurrently in fixed-size chunks with one reader thread per stream (or one
@@ -568,7 +579,7 @@ calling step's stable timeout/failure code. Never call `communicate()` for bound
 most the configured bytes from either stream for private diagnosis and never include command or
 exception text in the public error object.
 
-- [ ] **Step 4: Implement build/export/copy/install/identity orchestration**
+- [x] **Step 4: Implement build/export/copy/install/identity orchestration**
 
 Resolve the repository only in the controller. From an external controller cwd, pass the repository
 as the explicit `uv build` source, build into an external temporary directory, and require exactly
@@ -579,7 +590,7 @@ import top-level `mke` only to return module file, distribution metadata locatio
 `sys.executable`, and installed `mke` executable; validate every path against the fresh environment
 and repository before launching the client.
 
-- [ ] **Step 5: Aggregate two interpreter results and verify cleanup**
+- [x] **Step 5: Aggregate two interpreter results and verify cleanup**
 
 Require both closed client results to contain the same approved counts/states/schema names and both
 to use the same manifest/fingerprint mapping. Exit the owning temporary-directory contexts, then
@@ -587,7 +598,7 @@ verify each workspace/environment/store path no longer exists before building th
 success object and setting `installed_identity`, `external_isolation`, and `cleanup` true. A cleanup
 failure overrides functional success with `cleanup_failed`.
 
-- [ ] **Step 6: Verify GREEN and commit**
+- [x] **Step 6: Verify GREEN and commit**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/scripts/test_consumer_source_pack_proof.py
@@ -618,7 +629,7 @@ Expected: controller unit tests pass and public failures contain only `status` a
 - Produces one parametrized failure-code matrix and one real two-interpreter external integration
   test/command with a single aggregate success JSON object.
 
-- [ ] **Step 1: Add the complete stable-code matrix**
+- [x] **Step 1: Add the complete stable-code matrix**
 
 Create one table-driven test that triggers every closed allowlist code:
 
@@ -635,7 +646,7 @@ proof_failed
 For each case assert exact two-key JSON, exit code `1`, no traceback, and no injected secret, path,
 opaque ID, filename, command, environment value, stderr, Evidence text, or exception detail.
 
-- [ ] **Step 2: Add static and behavioral independence assertions**
+- [x] **Step 2: Add static and behavioral independence assertions**
 
 AST-audit the standalone client imports and calls. Reject `mke`, `pydantic`, `sqlite3`, repository
 fixture/model imports, database reads, and absolute repository literals. Instrument the success
@@ -643,7 +654,7 @@ path to prove the client opens only its own copied manifest, schema fixture, and
 obtains all MKE observations through official MCP SDK discovery/calls. Phrase the assertion as a
 shared-principal dependency/behavior check, not an OS filesystem sandbox claim.
 
-- [ ] **Step 3: Run focused tests and a real local two-interpreter proof**
+- [x] **Step 3: Run focused tests and a real local two-interpreter proof**
 
 Resolve exact local interpreters without fallback:
 
@@ -662,7 +673,7 @@ Expected: one success JSON object with `proof="consumer_source_pack"`, `status="
 interpreter or a locked cached dependency is unavailable, report the exact environmental blocker;
 do not substitute an interpreter or use the network.
 
-- [ ] **Step 4: Verify the complete focused suite and commit**
+- [x] **Step 4: Verify the complete focused suite and commit**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -706,7 +717,7 @@ Expected: all focused contract, failure, independence, and external-flow tests p
   explains offline/external boundaries and fingerprint mapping, and separates “proves” from “does
   not prove”.
 
-- [ ] **Step 1: Write RED documentation assertions**
+- [x] **Step 1: Write RED documentation assertions**
 
 Require the how-to and minimal navigation surfaces to contain:
 
@@ -740,7 +751,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: FAIL because the how-to and links do not exist.
 
-- [ ] **Step 2: Write the dedicated how-to and minimal links**
+- [x] **Step 2: Write the dedicated how-to and minimal links**
 
 Document this command shape with explicit interpreter paths:
 
@@ -757,7 +768,7 @@ Explain that the controller builds the current checkout once; the result is not 
 release verification surfaces. State that `UV_OFFLINE=1` proves reuse of provisioned locked cache
 content, not installation from an empty or never-provisioned machine.
 
-- [ ] **Step 3: Verify docs GREEN and commit**
+- [x] **Step 3: Verify docs GREEN and commit**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -772,13 +783,23 @@ git commit -m "docs(proof): explain source-built consumer verification"
 
 Expected: documentation tests and release presentation audit pass with release claims unchanged.
 
-### Task 7: Add one same-wheel CI job and run final verification
+### Task 7: Add one dedicated same-wheel workflow and run final verification
 
 **Files:**
 
-- Modify: `.github/workflows/ci.yml`
+- Create: `.github/workflows/consumer-source-pack-proof.yml`
+- Create: `docs/superpowers/reviews/2026-07-13-consumer-ready-source-pack-proof-task7-blocker-review.md`
+- Create: `docs/superpowers/reviews/2026-07-13-consumer-ready-source-pack-proof-implementation-review.md`
+- Modify: `scripts/consumer_source_pack_client.py`
+- Modify: `scripts/consumer_source_pack_proof.py`
+- Modify: `tests/scripts/test_consumer_source_pack_client.py`
 - Modify: `tests/scripts/test_consumer_source_pack_proof.py`
 - Modify: `tests/evaluation/test_consumer_source_pack_documentation.py`
+- Modify: `docs/how-to/run-consumer-source-pack-proof.md`
+- Modify: `docs/superpowers/specs/2026-07-12-consumer-ready-source-pack-proof-design.md`
+- Modify: `docs/superpowers/plans/2026-07-12-consumer-ready-source-pack-proof-implementation.md`
+- Modify: `docs/superpowers/reviews/2026-07-12-consumer-ready-source-pack-proof-plan-review.md`
+- Read only: `.github/workflows/ci.yml`
 - Read only: every forbidden path in the Exact File Map
 
 **Interfaces:**
@@ -787,9 +808,9 @@ Expected: documentation tests and release presentation audit pass with release c
 - Produces one `consumer-source-pack-proof` job, not a Python matrix, so both interpreters consume
   one wheel built by one controller invocation.
 
-- [ ] **Step 1: Write RED workflow-shape assertions**
+- [x] **Step 1: Write RED workflow-shape assertions**
 
-Parse `.github/workflows/ci.yml` as text and require exactly one new job with:
+Parse `.github/workflows/consumer-source-pack-proof.yml` as text and require exactly one job with:
 
 - `runs-on: ubuntu-latest` and a bounded job timeout;
 - checkout and `astral-sh/setup-uv` at the repository's existing pinned action SHAs;
@@ -803,7 +824,9 @@ Parse `.github/workflows/ci.yml` as text and require exactly one new job with:
 - a later, separately named proof step with `UV_OFFLINE: "1"` and no network-enabling flags;
 - workflow-shape assertions that the provisioning step precedes the proof, both explicit
   interpreter caches are populated, and `UV_OFFLINE` is scoped only to the proof step; and
-- no duplicate `uv build` or per-interpreter wheel build command in YAML.
+- no duplicate `uv build` or per-interpreter wheel build command in YAML; and
+- a regression assertion that `.github/workflows/ci.yml` remains byte-identical to `HEAD` so the
+  declared dense evaluation source identity cannot drift as a side effect of this proof.
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -812,9 +835,11 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: FAIL because the dedicated job is absent.
 
-- [ ] **Step 2: Add the dedicated single-job CI proof**
+- [x] **Step 2: Add the dedicated single-job CI proof**
 
-Use this structural shape, retaining the exact action SHAs already present in the file:
+Create the dedicated workflow with `pull_request` and `push` to `main` triggers, `contents: read`,
+bounded concurrency, and this single-job shape, retaining the exact action SHAs already present in
+the primary CI workflow:
 
 ```yaml
 consumer-source-pack-proof:
@@ -862,7 +887,9 @@ consumer-source-pack-proof:
 The online step provisions caches only; it does not run the proof or build the proof wheel. The
 controller, not YAML, owns the single wheel build and same-wheel assertion. Once invoked under
 `UV_OFFLINE=1`, the controller must propagate offline mode and fail on any cache miss without
-retrying online.
+retrying online. Keeping this job in a dedicated workflow is required because the dense evaluation
+artifact declares `.github/workflows/ci.yml` as source identity; modifying that primary workflow
+would invalidate the committed artifact even though evaluation behavior did not change.
 
 - [ ] **Step 3: Run focused and full repository gates**
 
@@ -894,11 +921,16 @@ uv run python scripts/release_presentation_audit.py --root .
 git diff --check
 ```
 
-Expected: every listed focused/repository command exits `0`; existing product, local-knowledge, and
-Evidence-provenance proofs remain unchanged. The dual-interpreter consumer claim is gated
-separately by Step 4 and must not be inferred from these commands.
+Expected: focused gates and every non-pytest repository command exit `0`; the representative
+dense/hybrid tests that previously reported source-identity drift pass after the primary CI file is
+restored. In the named feature worktree, the only acceptable full-pytest residual is the unchanged,
+path-sensitive release consumer-smoke `proof-proof_failed` case. Record it without marking the full
+pytest gate complete. Final completion requires the configured authority to run the bare full suite
+from a neutral-named detached temporary worktree at the committed Task 7 `HEAD`. The
+dual-interpreter consumer claim is gated separately by Step 4 and must not be inferred from these
+commands.
 
-- [ ] **Step 4: Re-run the final real dual-interpreter proof and assert exact JSON**
+- [x] **Step 4: Re-run the final real dual-interpreter proof and assert exact JSON**
 
 Run this only after every code, documentation, and CI edit is complete:
 
@@ -944,7 +976,7 @@ PY
 Expected: both explicit interpreters run the same controller-built wheel offline and the aggregate
 JSON is structurally equal to the approved public report.
 
-- [ ] **Step 5: Audit immutable and forbidden surfaces**
+- [x] **Step 5: Audit immutable and forbidden surfaces**
 
 ```bash
 git diff --exit-code 73d5f01885b60fbffeba8820e8f2f2151f8b9c39 -- \
@@ -957,7 +989,7 @@ Expected: the first command has no output; the second lists only the focused cli
 consumer fixtures/tests, CI, how-to, README, docs index, approved spec/plan/review history, and no
 forbidden surface.
 
-- [ ] **Step 6: Perform the required plan/spec self-review against the final diff**
+- [x] **Step 6: Perform the required plan/spec self-review against the final diff**
 
 Check every approved design section and acceptance criterion against a concrete test or command in
 Tasks 1-7. Scan every changed text file, including JSON fixtures, CI, README/docs index, approved
@@ -983,6 +1015,20 @@ markers = (
     "job" + "-search",
     "/Us" + "ers/",
 )
+allowed_lines = {
+    (
+        Path("scripts/consumer_source_pack_client.py"),
+        "place" + "holder",
+    ): {'"argv must contain exactly one {input} place' + 'holder",'},
+    (
+        Path("tests/fixtures/consumer-source-pack-v1/mcp-tool-schemas.json"),
+        "place" + "holder",
+    ): {'"argv must contain exactly one {input} place' + 'holder",'},
+    (
+        Path("tests/scripts/test_consumer_source_pack_client.py"),
+        "/Us" + "ers/",
+    ): {'assert "/Us' + 'ers/" not in CLIENT_PATH.read_text(encoding="utf-8")'},
+}
 commands = (
     [
         "git", "diff", "--name-only", "--diff-filter=ACMR",
@@ -1000,35 +1046,90 @@ changed = sorted(
         ).stdout.splitlines()
     }
 )
-hits: list[tuple[Path, str]] = []
+hits: list[tuple[Path, int, str]] = []
 for name in changed:
     path = Path(name)
     data = path.read_bytes()
     if b"\0" in data:
         continue
     text = data.decode("utf-8")
-    hits.extend((path, marker) for marker in markers if marker in text)
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        for marker in markers:
+            if marker not in line:
+                continue
+            if line.strip() in allowed_lines.get((path, marker), set()):
+                continue
+            hits.append((path, line_number, marker))
 assert not hits, hits
 PY
+git diff --exit-code HEAD -- .github/workflows/ci.yml
 git diff --check
 git status --short
 ```
 
-Expected: the incomplete-marker scan has no matches, `git diff --check` passes, and status contains only
-the intended Task 7 changes before commit.
+Expected: the scan permits only the exact public safe-cause line in the standalone client and its
+consumer schema fixture plus the exact negative local-path assertion in its test. Any other
+incomplete marker, actual private absolute path, or workflow-specific/private term fails. The
+primary CI file is byte-identical to `HEAD`, `git diff --check` passes, and status contains only the
+intended Task 7 changes before commit.
 
-- [ ] **Step 7: Commit CI and final verification closure**
+- [ ] **Step 7: Hand off the uncommitted Task 7 closure for authoritative commit and detached verification**
+
+This execution window leaves the following expanded Task 7 and implementation-review fix set
+uncommitted and reports the complete verification evidence:
 
 ```bash
-git add .github/workflows/ci.yml \
+git status --short
+git diff --check
+git diff -- scripts/consumer_source_pack_client.py \
+  scripts/consumer_source_pack_proof.py \
+  tests/scripts/test_consumer_source_pack_client.py \
   tests/scripts/test_consumer_source_pack_proof.py \
-  tests/evaluation/test_consumer_source_pack_documentation.py
+  tests/evaluation/test_consumer_source_pack_documentation.py \
+  docs/how-to/run-consumer-source-pack-proof.md \
+  docs/superpowers/specs/2026-07-12-consumer-ready-source-pack-proof-design.md \
+  docs/superpowers/plans/2026-07-12-consumer-ready-source-pack-proof-implementation.md \
+  docs/superpowers/reviews/2026-07-12-consumer-ready-source-pack-proof-plan-review.md
+git diff --no-index /dev/null .github/workflows/consumer-source-pack-proof.yml || test $? -eq 1
+git diff --no-index /dev/null \
+  docs/superpowers/reviews/2026-07-13-consumer-ready-source-pack-proof-task7-blocker-review.md \
+  || test $? -eq 1
+git diff --no-index /dev/null \
+  docs/superpowers/reviews/2026-07-13-consumer-ready-source-pack-proof-implementation-review.md \
+  || test $? -eq 1
+```
+
+After reviewing that handoff, the configured authority, not this execution window, stages and
+commits only the expanded reviewed set:
+
+```bash
+git add .github/workflows/consumer-source-pack-proof.yml \
+  scripts/consumer_source_pack_client.py \
+  scripts/consumer_source_pack_proof.py \
+  tests/scripts/test_consumer_source_pack_client.py \
+  tests/scripts/test_consumer_source_pack_proof.py \
+  tests/evaluation/test_consumer_source_pack_documentation.py \
+  docs/how-to/run-consumer-source-pack-proof.md \
+  docs/superpowers/specs/2026-07-12-consumer-ready-source-pack-proof-design.md \
+  docs/superpowers/plans/2026-07-12-consumer-ready-source-pack-proof-implementation.md \
+  docs/superpowers/reviews/2026-07-12-consumer-ready-source-pack-proof-plan-review.md \
+  docs/superpowers/reviews/2026-07-13-consumer-ready-source-pack-proof-task7-blocker-review.md \
+  docs/superpowers/reviews/2026-07-13-consumer-ready-source-pack-proof-implementation-review.md
 git commit -m "ci(proof): verify same wheel on supported Python minors"
 git status --short --branch
 ```
 
-Expected: the feature worktree is clean. Stop and request the configured independent final diff
-review before any push or PR action.
+The configured authority then creates a neutral-named detached temporary worktree at the committed
+Task 7 `HEAD` and runs the exact bare gate:
+
+```bash
+UV_OFFLINE=1 uv run pytest -q
+```
+
+Expected: this execution window stops with the named expanded set uncommitted and a complete
+handoff report. The configured authority reviews and commits that exact set, then the detached
+worktree full suite exits `0` before Task 7 or the implementation plan may be marked complete. Push,
+PR, merge, release, publication, and deployment remain unauthorized.
 
 ## Spec Coverage Self-Review
 
@@ -1037,7 +1138,9 @@ review before any push or PR action.
   no-match, second fresh store, and cleanup.
 - Failure matrix: Tasks 1-5 cover strict manifest/schema/payload rejection, missing/ambiguous
   mapping, locator/state mismatch, startup/tool timeout, transport/nonzero exit, identity
-  contamination, output bounds, termination, cleanup, and the complete stable-code allowlist.
+  contamination, controller subprocess stdout/stderr and MCP server stderr bounds, termination,
+  cleanup, and the complete stable-code allowlist. Raw MCP stdout framing is SDK-owned; structured
+  Search/Ask payloads are bounded after parsing.
 - Independent contract: Tasks 1-2 freeze all eight discovered schemas plus the exact MachineToken,
   literal impact, and safe-cause contract; a producer-side structural regression protects fixture
   freshness while the copied client remains independent.
@@ -1046,7 +1149,7 @@ review before any push or PR action.
   and verifies module/distribution/Python/CLI/client/cwd identities. Tasks 3-4 use live noisy-child
   tests to prove output-cap termination and deterministic timeout/overflow precedence.
 - Supported minors: Tasks 4, 5, and 7 require explicit Python 3.12/3.13 paths and the same wheel;
-  the dedicated CI job is intentionally non-matrix, provisions both locked interpreter caches
+  the dedicated CI workflow is intentionally non-matrix, provisions both locked interpreter caches
   online, then runs the distinct proof step offline.
 - Frozen inputs and compatibility: Tasks 1, 5, and 7 reuse but never modify the two PDFs, own
   independent manifest/schema fixtures, and re-run legacy/v1 schema regressions.
