@@ -3,8 +3,9 @@
 Review target: standalone client, controller boundary, source-pack membership, and boundedness
 claims after implementation.
 
-Review status: completed and accepted at commit
-`44fa5b3571173b09400c76f3b326633c63d08f31`.
+Review status: initial implementation review completed and accepted at commit
+`44fa5b3571173b09400c76f3b326633c63d08f31`; CI portability resolution completed and accepted by
+targeted re-review. Post-commit neutral detached full-suite verification remains pending.
 
 ## Finding 1 — Client Failure Propagation
 
@@ -42,6 +43,22 @@ normalized relative filenames with every regular file found recursively under th
 root. Only after exact set equality does it read each approved file and verify byte count and
 SHA-256. Tests reject unexpected non-PDF and nested regular files without changing the frozen
 manifest identity or source bytes.
+
+## Finding 4 — Linux Process-Group Reaping Semantics
+
+The controller correctly probes a process group after the direct parent exits so a surviving
+descendant still triggers terminate-then-kill cleanup. The previous final success condition also
+required that same group ID to become immediately unobservable. On Linux, a killed orphan
+descendant can remain briefly observable as a zombie until its external reaper runs, even though it
+is no longer live.
+
+The cleanup trigger and process-group signals remain unchanged. After cleanup, success now requires
+the direct parent to be reaped and both bounded-output reader threads to exit; it does not require
+an immediate `ESRCH` result for the group ID. A controlled regression freezes stale final-probe
+semantics, and Linux test helpers treat `/proc` state `Z` as terminated without making `/proc` a
+production dependency. Restricted or malformed `/proc` reads fall back to `os.kill(pid, 0)` rather
+than assuming termination. Live descendant, timeout, and stdout/stderr overflow regressions remain
+in place.
 
 ## Documentation And Verification Boundary
 

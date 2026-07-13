@@ -265,8 +265,7 @@ def run_bounded(
     if process.poll() is None:
         _terminate(process, pgid)
         raise ControllerError("proof_failed")
-    group_alive = _group_exists(process.pid) if os.name == "posix" else False
-    if any(reader.is_alive() for reader in readers) or group_alive:
+    if any(reader.is_alive() for reader in readers):
         raise ControllerError("proof_failed")
     if terminal and terminal[0][0] == "overflow":
         raise ControllerError("command_output_exceeded")

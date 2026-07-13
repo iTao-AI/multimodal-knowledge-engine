@@ -178,6 +178,45 @@ def _load():
     return module
 
 
+def _process_is_terminated(pid: int) -> bool:
+    if sys.platform.startswith("linux"):
+        stat = Path(f"/proc/{pid}/stat")
+        try:
+            state = stat.read_text(encoding="utf-8").split(") ", 1)[1][0]
+        except FileNotFoundError:
+            return True
+        except (OSError, IndexError):
+            pass
+        else:
+            if state == "Z":
+                return True
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return True
+    return False
+
+
+def test_process_termination_probe_falls_back_when_linux_proc_is_restricted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    kill_probes: list[tuple[int, int]] = []
+
+    def restricted_stat(_path: Path, *, encoding: str) -> str:
+        del encoding
+        raise PermissionError
+
+    def live_process(pid: int, signal_number: int) -> None:
+        kill_probes.append((pid, signal_number))
+
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(Path, "read_text", restricted_stat)
+    monkeypatch.setattr(os, "kill", live_process)
+
+    assert _process_is_terminated(12345) is False
+    assert kill_probes == [(12345, 0)]
+
+
 def test_isolated_environment_removes_python_contamination() -> None:
     proof = _load()
     result = proof.isolated_environment(
@@ -243,6 +282,40 @@ def test_group_probe_treats_unowned_or_reused_group_as_gone(
 
     monkeypatch.setattr(proof.os, "killpg", denied)
     assert proof._group_exists(12345) is False
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX process-group contract")
+def test_run_bounded_accepts_stale_group_probe_after_cleanup(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    group_observations = iter((True, False, False, True))
+    terminate_calls: list[int | None] = []
+    real_terminate = proof._terminate
+
+    def stale_group_probe(_pgid: int) -> bool:
+        return next(group_observations)
+
+    monkeypatch.setattr(proof, "_group_exists", stale_group_probe)
+
+    def tracked_terminate(process: object, pgid: int | None) -> None:
+        terminate_calls.append(pgid)
+        real_terminate(process, pgid)
+
+    monkeypatch.setattr(proof, "_terminate", tracked_terminate)
+
+    result = proof.run_bounded(
+        [sys.executable, "-c", "print('parent done')"],
+        cwd=tmp_path,
+        env=os.environ,
+        timeout_seconds=2,
+        max_stdout_bytes=1024,
+        max_stderr_bytes=1024,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == b"parent done\n"
+    assert terminate_calls
 
 
 def test_run_bounded_returns_bytes_and_nonzero(tmp_path: Path) -> None:
@@ -429,9 +502,7 @@ def test_run_bounded_kills_descendant_when_parent_exits_during_cleanup(tmp_path:
         pid = int(pid_file.read_text())
         deadline = time.monotonic() + 2
         while time.monotonic() < deadline:
-            try:
-                os.kill(pid, 0)
-            except ProcessLookupError:
+            if _process_is_terminated(pid):
                 break
             time.sleep(0.02)
         else:
@@ -463,8 +534,7 @@ def test_run_bounded_cleans_descendant_after_normal_parent_exit(tmp_path: Path) 
     )
     assert result.returncode == 0 and result.stdout == b"parent done\n"
     pid = int(child_file.read_text())
-    with pytest.raises(ProcessLookupError):
-        os.kill(pid, 0)
+    assert _process_is_terminated(pid)
 
 
 @pytest.mark.parametrize("wheel_count", [0, 2])
