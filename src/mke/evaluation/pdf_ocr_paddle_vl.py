@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+import os
 import re
 import shutil
 import stat
@@ -19,6 +20,7 @@ PROVIDER = "paddleocr-vl-1.6-cpu-spike-v1"
 PROFILE = "phase0-200dpi-plain-text-v1"
 _MAX_VENDOR_FILE_BYTES = 8 * 1024 * 1024
 _MAX_VENDOR_TOTAL_BYTES = 12 * 1024 * 1024
+_VENDOR_READ_CHUNK_BYTES = 8192
 _SUPPORTED_BLOCK_LABELS = frozenset({"paragraph", "text"})
 
 
@@ -116,27 +118,83 @@ def _read_vendor_artifacts(private_root: Path) -> tuple[bytes, bytes]:
         entries = tuple(private_root.iterdir())
         if len(entries) != 2:
             _fail("provider result inventory is invalid")
-        by_suffix: dict[str, Path] = {}
-        total_bytes = 0
+        by_suffix: dict[str, tuple[Path, os.stat_result]] = {}
         for entry in entries:
             metadata = entry.lstat()
             if entry.is_symlink() or not stat.S_ISREG(metadata.st_mode):
                 _fail("provider result inventory is invalid")
             if entry.suffix not in {".json", ".md"} or entry.suffix in by_suffix:
                 _fail("provider result inventory is invalid")
-            if metadata.st_size > _MAX_VENDOR_FILE_BYTES:
-                _fail("provider result bytes exceeded the evaluation limit")
-            total_bytes += metadata.st_size
-            if total_bytes > _MAX_VENDOR_TOTAL_BYTES:
-                _fail("provider result bytes exceeded the evaluation limit")
-            by_suffix[entry.suffix] = entry
+            by_suffix[entry.suffix] = (entry, metadata)
         if set(by_suffix) != {".json", ".md"}:
             _fail("provider result inventory is invalid")
-        return by_suffix[".json"].read_bytes(), by_suffix[".md"].read_bytes()
+        artifacts: dict[str, bytes] = {}
+        total_bytes = 0
+        for suffix in (".json", ".md"):
+            path, metadata = by_suffix[suffix]
+            artifact = _read_bounded_regular_artifact(
+                path,
+                inventory_metadata=metadata,
+                aggregate_remaining=_MAX_VENDOR_TOTAL_BYTES - total_bytes,
+            )
+            artifacts[suffix] = artifact
+            total_bytes += len(artifact)
+        return artifacts[".json"], artifacts[".md"]
     except PdfOcrChildError:
         raise
     except OSError as error:
         raise PdfOcrChildError("provider result inventory is invalid") from error
+
+
+def _read_bounded_regular_artifact(
+    path: Path,
+    *,
+    inventory_metadata: os.stat_result,
+    aggregate_remaining: int,
+) -> bytes:
+    before = path.lstat()
+    if not stat.S_ISREG(before.st_mode) or _identity(before) != _identity(inventory_metadata):
+        _fail("provider result inventory is invalid")
+    flags = os.O_RDONLY
+    flags |= getattr(os, "O_BINARY", 0)
+    flags |= getattr(os, "O_CLOEXEC", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(path, flags)
+    try:
+        opened = os.fstat(descriptor)
+        after = path.lstat()
+        expected_identity = _identity(inventory_metadata)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or not stat.S_ISREG(after.st_mode)
+            or _identity(before) != expected_identity
+            or _identity(opened) != expected_identity
+            or _identity(after) != expected_identity
+        ):
+            _fail("provider result inventory is invalid")
+        allowed_bytes = min(_MAX_VENDOR_FILE_BYTES, aggregate_remaining)
+        content = bytearray()
+        while True:
+            request_bytes = min(
+                _VENDOR_READ_CHUNK_BYTES,
+                max(1, allowed_bytes - len(content) + 1),
+            )
+            chunk = os.read(descriptor, request_bytes)
+            if not chunk:
+                break
+            content.extend(chunk)
+            if (
+                len(content) > _MAX_VENDOR_FILE_BYTES
+                or len(content) > aggregate_remaining
+            ):
+                _fail("provider result bytes exceeded the evaluation limit")
+        return bytes(content)
+    finally:
+        os.close(descriptor)
+
+
+def _identity(metadata: os.stat_result) -> tuple[int, int]:
+    return metadata.st_dev, metadata.st_ino
 
 
 def _structured_text(value: object) -> str:

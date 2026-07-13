@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
 from io import BytesIO
@@ -12,7 +13,7 @@ import pytest
 
 from mke.adapters.video.process import ActiveProcessController, ProcessOperationId
 from mke.evaluation.pdf_ocr_paddle_vl import PdfOcrChildError as PaddleVlChildError
-from mke.evaluation.pdf_ocr_paddle_vl import _plain_text
+from mke.evaluation.pdf_ocr_paddle_vl import _plain_text, _read_vendor_artifacts
 from mke.evaluation.pdf_ocr_paddle_vl import recognize as recognize_paddle_vl
 from mke.evaluation.pdf_ocr_ppocrv6 import PdfOcrChildError as PpOcrChildError
 from mke.evaluation.pdf_ocr_ppocrv6 import _text
@@ -543,6 +544,94 @@ def test_paddle_vl_rejects_aggregate_artifact_bytes_before_read(
 
     with pytest.raises(PaddleVlChildError, match="provider result bytes exceeded"):
         _run_fake_vl(tmp_path, monkeypatch, _valid_vl_writer)
+
+
+@pytest.mark.parametrize(
+    ("per_file_limit", "aggregate_limit", "grown_bytes"),
+    [(16, 4096, 1024), (16, 16, 12)],
+    ids=["per-file", "aggregate"],
+)
+def test_paddle_vl_bounds_actual_descriptor_reads_after_metadata_race(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    per_file_limit: int,
+    aggregate_limit: int,
+    grown_bytes: int,
+) -> None:
+    from mke.evaluation import pdf_ocr_paddle_vl
+
+    root = tmp_path / "vendor"
+    root.mkdir()
+    json_path = root / "result.json"
+    markdown_path = root / "result.md"
+    json_path.write_bytes(b"j")
+    markdown_path.write_bytes(b"m")
+    original_lstat = Path.lstat
+    artifact_lstat_calls = 0
+
+    def racing_lstat(path: Path) -> os.stat_result:
+        nonlocal artifact_lstat_calls
+        metadata = original_lstat(path)
+        if path.parent == root:
+            artifact_lstat_calls += 1
+            if artifact_lstat_calls == 4:
+                json_path.write_bytes(b"j" * grown_bytes)
+                markdown_path.write_bytes(b"m" * grown_bytes)
+        return metadata
+
+    monkeypatch.setattr(Path, "lstat", racing_lstat)
+    monkeypatch.setattr(
+        pdf_ocr_paddle_vl,
+        "_MAX_VENDOR_FILE_BYTES",
+        per_file_limit,
+    )
+    monkeypatch.setattr(
+        pdf_ocr_paddle_vl,
+        "_MAX_VENDOR_TOTAL_BYTES",
+        aggregate_limit,
+    )
+
+    with pytest.raises(PaddleVlChildError, match="provider result bytes exceeded"):
+        _read_vendor_artifacts(root)
+
+    assert artifact_lstat_calls >= 4
+    assert json_path.stat().st_size == grown_bytes
+    assert markdown_path.stat().st_size == grown_bytes
+
+
+def test_paddle_vl_rejects_artifact_replacement_after_inventory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "vendor"
+    root.mkdir()
+    json_path = root / "result.json"
+    markdown_path = root / "result.md"
+    json_path.write_bytes(b"j")
+    markdown_path.write_bytes(b"m")
+    original_identity = json_path.stat().st_ino
+    original_lstat = Path.lstat
+    artifact_lstat_calls = 0
+
+    def racing_lstat(path: Path) -> os.stat_result:
+        nonlocal artifact_lstat_calls
+        metadata = original_lstat(path)
+        if path.parent == root:
+            artifact_lstat_calls += 1
+            if artifact_lstat_calls == 4:
+                replacement = root / "replacement"
+                replacement.write_bytes(b"x" * 1024)
+                os.replace(replacement, json_path)
+        return metadata
+
+    monkeypatch.setattr(Path, "lstat", racing_lstat)
+
+    with pytest.raises(PaddleVlChildError, match="provider result inventory is invalid"):
+        _read_vendor_artifacts(root)
+
+    assert artifact_lstat_calls >= 4
+    assert json_path.stat().st_ino != original_identity
+    assert json_path.stat().st_size == 1024
 
 
 def test_paddle_vl_rejects_non_utf8_markdown(

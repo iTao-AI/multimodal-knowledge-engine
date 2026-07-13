@@ -23,8 +23,10 @@ dependencies, model artifacts, retrieval changes, or runtime promotion.
 - The provider runner captures the POSIX process-group identity at spawn and cleans remaining group
   members after every direct-parent exit, including exit zero, while retaining bounded pipe reads,
   parent wait, timeout handling, and controller registration rejection.
-- The PaddleOCR-VL adapter accepts exactly one regular JSON file and one regular Markdown file,
-  checks per-file and aggregate sizes before reads, validates a strict provisional prose-only
+- The PaddleOCR-VL adapter accepts exactly one regular JSON file and one regular Markdown file. It
+  opens each artifact once with no-follow where available, binds inventory and reads through
+  regular-file `lstat`/`fstat` identity checks, and applies per-file and aggregate limits to actual
+  descriptor bytes with bounded chunked reads. It validates a strict provisional prose-only
   envelope, rejects unsupported layout structures, and removes its private artifact directory on
   success and failure.
 - Parent validation and all three candidate serializers use one NFC, newline, horizontal-whitespace,
