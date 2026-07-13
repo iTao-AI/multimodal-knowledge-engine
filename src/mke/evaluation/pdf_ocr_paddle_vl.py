@@ -7,14 +7,19 @@ import importlib
 import json
 import re
 import shutil
+import stat
 import tempfile
 import time
-import unicodedata
 from pathlib import Path
-from typing import Any, NoReturn
+from typing import Any, NoReturn, cast
+
+from mke.evaluation.pdf_ocr_provider import normalize_ocr_text
 
 PROVIDER = "paddleocr-vl-1.6-cpu-spike-v1"
 PROFILE = "phase0-200dpi-plain-text-v1"
+_MAX_VENDOR_FILE_BYTES = 8 * 1024 * 1024
+_MAX_VENDOR_TOTAL_BYTES = 12 * 1024 * 1024
+_SUPPORTED_BLOCK_LABELS = frozenset({"paragraph", "text"})
 
 
 class PdfOcrChildError(RuntimeError):
@@ -54,17 +59,16 @@ def recognize(
     try:
         results[0].save_to_json(save_path=private_root)
         results[0].save_to_markdown(save_path=private_root)
-        json_files = tuple(private_root.glob("*.json"))
-        markdown_files = tuple(private_root.glob("*.md"))
-        if len(json_files) != 1 or len(markdown_files) != 1:
-            _fail("provider result inventory is invalid")
-        value: object = json.loads(json_files[0].read_text(encoding="utf-8"))
-        if not isinstance(value, dict):
-            _fail("provider result schema is invalid")
-        markdown = markdown_files[0].read_text(encoding="utf-8")
+        json_bytes, markdown_bytes = _read_vendor_artifacts(private_root)
+        try:
+            value: object = json.loads(json_bytes.decode("utf-8"))
+            markdown = markdown_bytes.decode("utf-8")
+        except (UnicodeError, json.JSONDecodeError) as error:
+            raise PdfOcrChildError("provider result schema is invalid") from error
+        structured_text = _structured_text(value)
         text = _plain_text(markdown)
-        if not text:
-            _fail("provider result is empty")
+        if not text or text != structured_text:
+            _fail("provider result schema is invalid")
         lines = [
             {"text": line, "confidence": 0.0, "box": [0.0, 0.0, 1.0, 1.0]}
             for line in text.split("\n")
@@ -90,16 +94,82 @@ def recognize(
 
 
 def _plain_text(markdown: str) -> str:
+    normalized = normalize_ocr_text(markdown)
+    for line in normalized.split("\n"):
+        if (
+            "|" in line
+            or "$" in line
+            or re.search(r"!\[[^]]*\]\([^)]*\)", line)
+            or re.search(r"\[[^]]+\]\([^)]*\)", line)
+            or re.match(r"^(?:#{1,6}|[>*+-]|\d+[.)])\s", line)
+            or "```" in line
+            or "`" in line
+            or "<" in line
+            or ">" in line
+        ):
+            _fail("provider result contains unsupported layout content")
+    return normalized
+
+
+def _read_vendor_artifacts(private_root: Path) -> tuple[bytes, bytes]:
+    try:
+        entries = tuple(private_root.iterdir())
+        if len(entries) != 2:
+            _fail("provider result inventory is invalid")
+        by_suffix: dict[str, Path] = {}
+        total_bytes = 0
+        for entry in entries:
+            metadata = entry.lstat()
+            if entry.is_symlink() or not stat.S_ISREG(metadata.st_mode):
+                _fail("provider result inventory is invalid")
+            if entry.suffix not in {".json", ".md"} or entry.suffix in by_suffix:
+                _fail("provider result inventory is invalid")
+            if metadata.st_size > _MAX_VENDOR_FILE_BYTES:
+                _fail("provider result bytes exceeded the evaluation limit")
+            total_bytes += metadata.st_size
+            if total_bytes > _MAX_VENDOR_TOTAL_BYTES:
+                _fail("provider result bytes exceeded the evaluation limit")
+            by_suffix[entry.suffix] = entry
+        if set(by_suffix) != {".json", ".md"}:
+            _fail("provider result inventory is invalid")
+        return by_suffix[".json"].read_bytes(), by_suffix[".md"].read_bytes()
+    except PdfOcrChildError:
+        raise
+    except OSError as error:
+        raise PdfOcrChildError("provider result inventory is invalid") from error
+
+
+def _structured_text(value: object) -> str:
+    if not isinstance(value, dict):
+        _fail("provider result schema is invalid")
+    root = cast(dict[str, object], value)
+    if set(root) != {"res"}:
+        _fail("provider result schema is invalid")
+    result = root["res"]
+    if not isinstance(result, dict):
+        _fail("provider result schema is invalid")
+    result_payload = cast(dict[str, object], result)
+    if set(result_payload) != {"parsing_res_list"}:
+        _fail("provider result schema is invalid")
+    blocks = result_payload["parsing_res_list"]
+    if not isinstance(blocks, list) or not blocks:
+        _fail("provider result schema is invalid")
     lines: list[str] = []
-    for raw in unicodedata.normalize("NFC", markdown).splitlines():
-        stripped = raw.strip()
-        if not stripped or stripped.startswith("!["):
-            continue
-        plain = re.sub(r"^[#>*+-]+\s*", "", stripped)
-        plain = re.sub(r"[`*_]", "", plain).strip()
-        if plain:
-            lines.append(plain)
-    return "\n".join(lines)
+    for raw_block in cast(list[object], blocks):
+        if not isinstance(raw_block, dict):
+            _fail("provider result schema is invalid")
+        block = cast(dict[str, object], raw_block)
+        if set(block) != {"block_label", "block_content"}:
+            _fail("provider result schema is invalid")
+        label = block["block_label"]
+        content = block["block_content"]
+        if label not in _SUPPORTED_BLOCK_LABELS or not isinstance(content, str):
+            _fail("provider result schema is invalid")
+        normalized = _plain_text(content)
+        if not normalized:
+            _fail("provider result schema is invalid")
+        lines.append(normalized)
+    return normalize_ocr_text("\n".join(lines))
 
 
 def _require_file(path: Path, cause: str) -> None:

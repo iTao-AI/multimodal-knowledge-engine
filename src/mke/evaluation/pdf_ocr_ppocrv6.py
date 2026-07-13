@@ -7,11 +7,12 @@ import importlib
 import json
 import math
 import time
-import unicodedata
 from pathlib import Path
 from typing import Any, NoReturn, cast
 
 import fitz  # pyright: ignore[reportMissingTypeStubs]
+
+from mke.evaluation.pdf_ocr_provider import normalize_ocr_text
 
 PROVIDER = "ppocrv6-medium-cpu-spike-v1"
 PROFILE = "phase0-200dpi-plain-text-v1"
@@ -78,7 +79,9 @@ def recognize(
         score = _score(score_value)
         box = _box(box_value, width=width, height=height)
         lines.append({"text": text, "confidence": score, "box": box})
-    normalized_text = "\n".join(cast(str, item["text"]) for item in lines)
+    normalized_text = normalize_ocr_text(
+        "\n".join(cast(str, item["text"]) for item in lines)
+    )
     _write_result(
         output_path,
         {
@@ -112,7 +115,10 @@ def _list(value: object) -> list[object]:
 def _text(value: object) -> str:
     if not isinstance(value, str) or not value.strip():
         _fail("provider result schema is invalid")
-    return unicodedata.normalize("NFC", value.strip())
+    normalized = normalize_ocr_text(value)
+    if not normalized:
+        _fail("provider result schema is invalid")
+    return normalized
 
 
 def _score(value: object) -> float:

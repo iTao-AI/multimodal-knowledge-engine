@@ -5,18 +5,22 @@ import sys
 import time
 from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
 
 from mke.adapters.video.process import ActiveProcessController, ProcessOperationId
 from mke.evaluation.pdf_ocr_paddle_vl import PdfOcrChildError as PaddleVlChildError
+from mke.evaluation.pdf_ocr_paddle_vl import _plain_text
 from mke.evaluation.pdf_ocr_paddle_vl import recognize as recognize_paddle_vl
 from mke.evaluation.pdf_ocr_ppocrv6 import PdfOcrChildError as PpOcrChildError
+from mke.evaluation.pdf_ocr_ppocrv6 import _text
 from mke.evaluation.pdf_ocr_ppocrv6 import recognize as recognize_ppocrv6
 from mke.evaluation.pdf_ocr_provider import (
     PdfOcrProviderError,
     ProviderCommand,
+    _normalize_line_join,
     run_provider,
 )
 
@@ -280,6 +284,102 @@ time.sleep(5)
     assert not marker.exists()
 
 
+def test_successful_parent_exit_kills_descendant_process_group(tmp_path: Path) -> None:
+    image = tmp_path / "page.png"
+    image.write_bytes(b"bounded image")
+    marker = tmp_path / "descendant-finished"
+    output_root = tmp_path / "output"
+    descendant = (
+        "import time,pathlib;time.sleep(.3);"
+        f"pathlib.Path({str(marker)!r}).write_text('bad')"
+    )
+    payload = json.dumps(_result())
+    script = f"""
+import argparse, pathlib, subprocess, sys
+p=argparse.ArgumentParser();p.add_argument('--input');p.add_argument('--output');p.add_argument('--page-number');a=p.parse_args()
+subprocess.Popen(
+    [sys.executable, '-c', {descendant!r}],
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.DEVNULL,
+)
+pathlib.Path(a.output).write_text({payload!r}, encoding='utf-8')
+"""
+    command = ProviderCommand(
+        argv=(
+            sys.executable,
+            "-c",
+            script,
+            "--input",
+            "{input}",
+            "--output",
+            "{output}",
+            "--page-number",
+            "{page_number}",
+        ),
+        provider=PROVIDER,
+        profile=PROFILE,
+    )
+
+    result = _run(command, image, output_root)
+    time.sleep(0.4)
+
+    assert result.normalized_text == "example"
+    assert not marker.exists()
+
+
+def test_child_environment_is_allowlisted_and_uses_private_roots(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    image = tmp_path / "page.png"
+    image.write_bytes(b"bounded image")
+    output_root = tmp_path / "output"
+    marker = tmp_path / "environment.json"
+    monkeypatch.setenv("MKE_PHASE0_ENV_CANARY", "secret-value")
+    monkeypatch.setenv("HTTPS_PROXY", "https://proxy-secret.invalid")
+    payload = json.dumps(_result())
+    script = f"""
+import argparse, json, os, pathlib
+p=argparse.ArgumentParser();p.add_argument('--input');p.add_argument('--output');p.add_argument('--page-number');a=p.parse_args()
+pathlib.Path({str(marker)!r}).write_text(json.dumps({{
+    'canary': os.environ.get('MKE_PHASE0_ENV_CANARY'),
+    'proxy': os.environ.get('HTTPS_PROXY'),
+    'home': os.environ.get('HOME'),
+    'tmpdir': os.environ.get('TMPDIR'),
+    'cache': os.environ.get('XDG_CACHE_HOME'),
+    'path': os.environ.get('PATH'),
+    'lang': os.environ.get('LANG'),
+}}), encoding='utf-8')
+pathlib.Path(a.output).write_text({payload!r}, encoding='utf-8')
+"""
+    command = ProviderCommand(
+        argv=(
+            sys.executable,
+            "-c",
+            script,
+            "--input",
+            "{input}",
+            "--output",
+            "{output}",
+            "--page-number",
+            "{page_number}",
+        ),
+        provider=PROVIDER,
+        profile=PROFILE,
+    )
+
+    _run(command, image, output_root)
+    observed = json.loads(marker.read_text(encoding="utf-8"))
+
+    assert observed["canary"] is None
+    assert observed["proxy"] is None
+    for key in ("home", "tmpdir", "cache"):
+        assert Path(observed[key]).is_relative_to(output_root)
+    assert observed["path"]
+    assert observed["lang"]
+    assert not (output_root / "child-runtime").exists()
+
+
 class _FakeProcess:
     def __init__(self) -> None:
         self.stdout = BytesIO()
@@ -306,7 +406,11 @@ def test_registration_rejection_kills_waits_and_closes_streams(
 
     command, image, output_root = _fake_command(tmp_path, payload=_result())
     process = _FakeProcess()
-    monkeypatch.setattr(pdf_ocr_provider, "_start_process", lambda argv: process)
+    monkeypatch.setattr(
+        pdf_ocr_provider,
+        "_start_process",
+        lambda argv, environment: process,
+    )
     controller = ActiveProcessController()
 
     with pytest.raises(PdfOcrProviderError, match="pdf_ocr_process_failed"):
@@ -322,6 +426,193 @@ def test_registration_rejection_kills_waits_and_closes_streams(
     assert process.waited is True
     assert process.stdout.closed is True
     assert process.stderr.closed is True
+
+
+def _prepare_vl_call(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
+    image = tmp_path / "page.png"
+    output = tmp_path / "result.json"
+    layout = tmp_path / "layout"
+    model = tmp_path / "vl"
+    image.write_bytes(b"image")
+    output.write_bytes(b"")
+    layout.mkdir()
+    model.mkdir()
+    return image, output, layout, model
+
+
+def _run_fake_vl(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    writer: Any,
+) -> tuple[Path, Path]:
+    from mke.evaluation import pdf_ocr_paddle_vl
+
+    image, output, layout, model = _prepare_vl_call(tmp_path)
+    private_roots: list[Path] = []
+
+    class FakeResult:
+        def save_to_json(self, *, save_path: Path) -> None:
+            private_roots.append(Path(save_path))
+            writer(Path(save_path), "json")
+
+        def save_to_markdown(self, *, save_path: Path) -> None:
+            writer(Path(save_path), "markdown")
+
+    class FakePipeline:
+        def predict(self, _input: str) -> list[FakeResult]:
+            return [FakeResult()]
+
+    module = SimpleNamespace(PaddleOCRVL=lambda **_kwargs: FakePipeline())
+    monkeypatch.setattr(pdf_ocr_paddle_vl.importlib, "import_module", lambda _name: module)
+    try:
+        recognize_paddle_vl(
+            input_image=image,
+            output_path=output,
+            page_number=1,
+            layout_model_dir=layout,
+            vl_model_dir=model,
+        )
+    finally:
+        assert private_roots
+        assert not private_roots[0].exists()
+    return output, private_roots[0]
+
+
+def _valid_vl_writer(root: Path, kind: str) -> None:
+    if kind == "json":
+        (root / "result.json").write_text(
+            json.dumps(
+                {
+                    "res": {
+                        "parsing_res_list": [
+                            {"block_label": "text", "block_content": "alpha beta"}
+                        ]
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+    else:
+        (root / "result.md").write_text("alpha beta", encoding="utf-8")
+
+
+@pytest.mark.parametrize("mutation", ["unexpected", "nested", "symlink"])
+def test_paddle_vl_rejects_non_exact_regular_file_inventory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: str,
+) -> None:
+    def writer(root: Path, kind: str) -> None:
+        _valid_vl_writer(root, kind)
+        if kind != "markdown":
+            return
+        if mutation == "unexpected":
+            (root / "unexpected.txt").write_text("bad", encoding="utf-8")
+        elif mutation == "nested":
+            (root / "nested").mkdir()
+            (root / "nested" / "bad.txt").write_text("bad", encoding="utf-8")
+        else:
+            (root / "result.md").unlink()
+            (root / "target.md").write_text("bad", encoding="utf-8")
+            (root / "result.md").symlink_to(root / "target.md")
+
+    with pytest.raises(PaddleVlChildError, match="provider result inventory is invalid"):
+        _run_fake_vl(tmp_path, monkeypatch, writer)
+
+
+def test_paddle_vl_rejects_oversized_artifacts_before_read(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mke.evaluation import pdf_ocr_paddle_vl
+
+    monkeypatch.setattr(pdf_ocr_paddle_vl, "_MAX_VENDOR_FILE_BYTES", 16)
+
+    with pytest.raises(PaddleVlChildError, match="provider result bytes exceeded"):
+        _run_fake_vl(tmp_path, monkeypatch, _valid_vl_writer)
+
+
+def test_paddle_vl_rejects_aggregate_artifact_bytes_before_read(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mke.evaluation import pdf_ocr_paddle_vl
+
+    monkeypatch.setattr(pdf_ocr_paddle_vl, "_MAX_VENDOR_FILE_BYTES", 1024)
+    monkeypatch.setattr(pdf_ocr_paddle_vl, "_MAX_VENDOR_TOTAL_BYTES", 32)
+
+    with pytest.raises(PaddleVlChildError, match="provider result bytes exceeded"):
+        _run_fake_vl(tmp_path, monkeypatch, _valid_vl_writer)
+
+
+def test_paddle_vl_rejects_non_utf8_markdown(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def writer(root: Path, kind: str) -> None:
+        _valid_vl_writer(root, kind)
+        if kind == "markdown":
+            (root / "result.md").write_bytes(b"\xff")
+
+    with pytest.raises(PaddleVlChildError, match="provider result schema is invalid"):
+        _run_fake_vl(tmp_path, monkeypatch, writer)
+
+
+@pytest.mark.parametrize(
+    "json_payload",
+    [
+        [],
+        {},
+        {"res": {"parsing_res_list": "not-a-list"}},
+        {"res": {"parsing_res_list": [{"block_label": "table", "block_content": "x"}]}},
+    ],
+)
+def test_paddle_vl_rejects_malformed_or_unsupported_json_shape(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    json_payload: object,
+) -> None:
+    def writer(root: Path, kind: str) -> None:
+        if kind == "json":
+            (root / "result.json").write_text(json.dumps(json_payload), encoding="utf-8")
+        else:
+            (root / "result.md").write_text("plain prose", encoding="utf-8")
+
+    with pytest.raises(PaddleVlChildError, match="provider result schema is invalid"):
+        _run_fake_vl(tmp_path, monkeypatch, writer)
+
+
+@pytest.mark.parametrize(
+    "markdown",
+    [
+        "| A | B |\n| --- | --- |\n| 1 | 2 |",
+        "$$ x + y $$",
+        "![diagram](image.png)",
+        "# layout heading",
+    ],
+)
+def test_paddle_vl_rejects_non_prose_markdown(markdown: str) -> None:
+    with pytest.raises(PaddleVlChildError, match="unsupported layout content"):
+        _plain_text(markdown)
+
+
+def test_provider_normalization_contract_is_shared_by_python_children() -> None:
+    raw = "  alpha\t beta  \r\ncafe\u0301  "
+    expected = "alpha beta\ncafé"
+
+    assert _normalize_line_join((raw,)) == expected
+    assert _text(raw) == expected
+    assert _plain_text(raw) == expected
+
+
+def test_swift_child_uses_the_shared_normalization_contract() -> None:
+    source = Path("scripts/pdf_ocr_apple_vision.swift").read_text(encoding="utf-8")
+
+    assert "func canonicalText" in source
+    assert 'replacingOccurrences(of: "\\r\\n", with: "\\n")' in source
+    assert 'replacingOccurrences(of: "\\r", with: "\\n")' in source
+    assert "precomposedStringWithCanonicalMapping" in source
+    assert "regularExpression" in source
 
 
 def test_missing_model_roots_fail_before_lazy_provider_import(tmp_path: Path) -> None:

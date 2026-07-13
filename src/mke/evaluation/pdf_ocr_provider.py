@@ -6,6 +6,7 @@ import json
 import math
 import os
 import re
+import shutil
 import signal
 import stat
 import subprocess
@@ -20,6 +21,7 @@ from mke.adapters.video.process import ActiveProcessController, ProcessOperation
 
 _READ_CHUNK_BYTES = 8192
 _POLL_SECONDS = 0.01
+_PROCESS_GROUP_GRACE_SECONDS = 0.1
 _FIXED_PLACEHOLDERS = ("{input}", "{output}", "{page_number}")
 _PROVIDERS = frozenset(
     {
@@ -96,14 +98,19 @@ class OcrEvalPageResult:
 
 
 class _ProcessGroupPopen(subprocess.Popen[bytes]):
+    process_group_id: int | None = None
+
     def kill(self) -> None:
-        if os.name == "posix" and self.poll() is None:
+        if os.name == "posix" and self.process_group_id is not None:
             try:
-                os.killpg(os.getpgid(self.pid), signal.SIGKILL)
+                os.killpg(self.process_group_id, signal.SIGKILL)
                 return
-            except (OSError, ProcessLookupError):
+            except ProcessLookupError:
+                return
+            except (OSError, PermissionError):
                 pass
-        super().kill()
+        if self.poll() is None:
+            super().kill()
 
 
 @dataclass
@@ -150,9 +157,12 @@ def run_provider(
         "{page_number}": str(page_number),
     }
     argv = tuple(substitutions.get(item, item) for item in command.argv)
+    runtime_root = output_root / "child-runtime"
     try:
-        process = _start_process(argv)
+        environment = _child_environment(runtime_root)
+        process = _start_process(argv, environment)
     except (OSError, ValueError) as error:
+        shutil.rmtree(runtime_root, ignore_errors=True)
         raise PdfOcrProviderError(
             problem="pdf_ocr_process_failed",
             cause="PDF OCR process failed",
@@ -205,27 +215,74 @@ def run_provider(
         if registered and process_controller is not None:
             process_controller.unregister(process, operation_id=operation_id)
         _close_streams(process)
+        shutil.rmtree(runtime_root, ignore_errors=True)
+        if runtime_root.exists():
+            _error(
+                command,
+                "pdf_ocr_process_failed",
+                "PDF OCR process cleanup failed",
+                "inspect_pdf_ocr_run",
+            )
 
 
-def _start_process(argv: tuple[str, ...]) -> subprocess.Popen[bytes]:
+def _child_environment(runtime_root: Path) -> dict[str, str]:
+    home = runtime_root / "home"
+    temporary = runtime_root / "tmp"
+    cache = runtime_root / "cache"
+    configuration = runtime_root / "config"
+    runtime_root.mkdir(mode=0o700, exist_ok=False)
+    for directory in (home, temporary, cache, configuration):
+        directory.mkdir(mode=0o700)
+    environment = {
+        "HOME": str(home),
+        "TMPDIR": str(temporary),
+        "TMP": str(temporary),
+        "TEMP": str(temporary),
+        "XDG_CACHE_HOME": str(cache),
+        "XDG_CONFIG_HOME": str(configuration),
+        "PADDLE_HOME": str(cache / "paddle"),
+        "PATH": os.defpath,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "PYTHONNOUSERSITE": "1",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONUNBUFFERED": "1",
+    }
+    if os.name == "nt":
+        for key in ("SYSTEMROOT", "WINDIR", "COMSPEC", "PATHEXT"):
+            value = os.environ.get(key)
+            if value is not None:
+                environment[key] = value
+    return environment
+
+
+def _start_process(
+    argv: tuple[str, ...],
+    environment: dict[str, str],
+) -> subprocess.Popen[bytes]:
     if os.name == "posix":
-        return _ProcessGroupPopen(
+        process = _ProcessGroupPopen(
             list(argv),
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             shell=False,
             start_new_session=True,
+            env=environment,
         )
-    creationflags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-    return _ProcessGroupPopen(
-        list(argv),
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        shell=False,
-        creationflags=creationflags,
-    )
+        process.process_group_id = process.pid
+        return process
+    else:
+        creationflags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        return _ProcessGroupPopen(
+            list(argv),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=False,
+            creationflags=creationflags,
+            env=environment,
+        )
 
 
 def _wait_bounded(
@@ -274,6 +331,7 @@ def _wait_bounded(
             returncode = process.wait(timeout=min(_POLL_SECONDS, remaining))
         except subprocess.TimeoutExpired:
             continue
+    _terminate_process_group(process)
     for thread in threads:
         thread.join(timeout=1)
     if any(thread.is_alive() for thread in threads):
@@ -303,13 +361,35 @@ def _read_pipe(stream: Any, capture: _PipeCapture) -> None:
 
 def _terminate(process: subprocess.Popen[bytes]) -> None:
     try:
-        if process.poll() is None:
-            process.kill()
+        process.kill()
     except OSError:
         pass
     try:
         process.wait(timeout=1)
     except (OSError, subprocess.TimeoutExpired):
+        pass
+
+
+def _terminate_process_group(process: subprocess.Popen[bytes]) -> None:
+    if os.name != "posix" or not isinstance(process, _ProcessGroupPopen):
+        return
+    pgid = process.process_group_id
+    if pgid is None:
+        return
+    try:
+        os.killpg(pgid, signal.SIGTERM)
+    except (ProcessLookupError, PermissionError):
+        return
+    deadline = time.monotonic() + _PROCESS_GROUP_GRACE_SECONDS
+    while time.monotonic() < deadline:
+        try:
+            os.killpg(pgid, 0)
+        except (ProcessLookupError, PermissionError):
+            return
+        time.sleep(_POLL_SECONDS)
+    try:
+        os.killpg(pgid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
         pass
 
 
@@ -410,7 +490,9 @@ def _line(command: ProviderCommand, value: object) -> OcrEvalLine:
     text = payload["text"]
     if not isinstance(text, str) or not text.strip() or len(text) > 100_000:
         _invalid(command)
-    normalized_text = unicodedata.normalize("NFC", text.strip())
+    normalized_text = normalize_ocr_text(text)
+    if not normalized_text:
+        _invalid(command)
     confidence = payload["confidence"]
     if confidence is None:
         if command.provider != "apple-vision-local-v1":
@@ -448,10 +530,18 @@ def _line(command: ProviderCommand, value: object) -> OcrEvalLine:
 
 
 def _normalize_line_join(lines: tuple[str, ...]) -> str:
-    return "\n".join(
-        re.sub(r"[^\S\n]+", " ", unicodedata.normalize("NFC", line)).strip()
-        for line in lines
+    return normalize_ocr_text("\n".join(lines))
+
+
+def normalize_ocr_text(value: str) -> str:
+    normalized = unicodedata.normalize(
+        "NFC", value.replace("\r\n", "\n").replace("\r", "\n")
     )
+    lines = (
+        re.sub(r"[^\S\n]+", " ", line).strip()
+        for line in normalized.split("\n")
+    )
+    return "\n".join(line for line in lines if line)
 
 
 def _exact_keys(

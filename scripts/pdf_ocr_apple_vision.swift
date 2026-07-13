@@ -18,6 +18,21 @@ struct Arguments {
     let pageNumber: Int
 }
 
+func canonicalText(_ value: String) -> String {
+    let newlines = value
+        .replacingOccurrences(of: "\r\n", with: "\n")
+        .replacingOccurrences(of: "\r", with: "\n")
+        .precomposedStringWithCanonicalMapping
+    return newlines.components(separatedBy: "\n").compactMap { line in
+        let collapsed = line.replacingOccurrences(
+            of: #"[^\S\r\n]+"#,
+            with: " ",
+            options: .regularExpression
+        ).trimmingCharacters(in: .whitespaces)
+        return collapsed.isEmpty ? nil : collapsed
+    }.joined(separator: "\n")
+}
+
 func parseArguments() throws -> Arguments {
     let raw = Array(CommandLine.arguments.dropFirst())
     guard raw.count == 6 else { throw ChildFailure.invalidArguments }
@@ -74,8 +89,10 @@ func recognize(_ image: CGImage) throws -> [[String: Any]] {
     return ordered.compactMap { observation in
         guard let candidate = observation.topCandidates(1).first else { return nil }
         let box = observation.boundingBox
+        let text = canonicalText(candidate.string)
+        guard !text.isEmpty else { return nil }
         return [
-            "text": candidate.string.precomposedStringWithCanonicalMapping,
+            "text": text,
             "confidence": Double(candidate.confidence),
             "box": [Double(box.minX), Double(box.minY), Double(box.maxX), Double(box.maxY)],
         ]
@@ -100,7 +117,9 @@ do {
     let image = try loadImage(arguments.input)
     let lines = try recognize(image)
     guard !lines.isEmpty else { throw ChildFailure.recognitionFailed }
-    let normalizedText = lines.compactMap { $0["text"] as? String }.joined(separator: "\n")
+    let normalizedText = canonicalText(
+        lines.compactMap { $0["text"] as? String }.joined(separator: "\n")
+    )
     let elapsed = DispatchTime.now().uptimeNanoseconds - started
     let payload: [String: Any] = [
         "schema": "mke.pdf_ocr_eval_result.v1",
