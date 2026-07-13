@@ -2,8 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-Status: in progress. Tasks 1-3 and their review remediation are complete. Work is hard-stopped
-before Task 4 package/model acquisition; Tasks 4-6 have not started.
+Status: in progress. Tasks 1-3 and their review remediation are complete. Task 4 Steps 1-3 and the
+authorized package-only compatibility checkpoint are complete. Work is hard-stopped before Task 4
+model acquisition and real-provider startup; Task 4 Steps 4-6 and Tasks 5-6 have not started.
 
 **Goal:** Produce reproducible valid-positive or valid-negative evidence for local scanned/mixed-PDF OCR before adding a production runtime contract.
 
@@ -512,11 +513,12 @@ not begin Task 4 by assuming design approval grants network authority.
 
 ### Task 4: Prove ordinary-pip compatibility and prepare immutable candidate receipts
 
-Compatibility must first capture the authorized PaddleOCR-VL 1.6 `save_to_json` and
-`save_to_markdown` regular-file inventory and schema, then compare it with the strict provisional
-prose-only adapter envelope from Task 3. Do not relax that envelope without fixture-backed
-compatibility evidence. This check has not run because package/model acquisition remains
-unauthorized.
+Before cache-only real-provider startup, compatibility must capture the authorized PaddleOCR-VL
+1.6 `save_to_json` and `save_to_markdown` regular-file inventory and schema, then compare it with
+the strict provisional prose-only adapter envelope from Task 3. Do not relax that envelope without
+fixture-backed compatibility evidence. The package-only checkpoint below did not construct a real
+provider or observe vendor output; this compatibility check remains blocked on separate model
+acquisition authority.
 
 **Files:**
 - Create: `scripts/pdf_ocr_candidate_compatibility.py`
@@ -537,7 +539,7 @@ If an exact distribution is unavailable for a required interpreter/platform, rec
 cell as `resolver_failed`. Do not substitute a newer release, edit the project dependency graph, or
 drop Python 3.13 without a new authority decision.
 
-- [ ] **Step 1: Write failing command/receipt tests**
+- [x] **Step 1: Write failing command/receipt tests**
 
 Tests must require one wheel identity across all cells and exact cells for Python 3.12/3.13 with:
 
@@ -559,7 +561,7 @@ def test_matrix_uses_one_wheel_and_both_interpreters() -> None:
     assert len(command_plan.cells) == 16
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/scripts/test_pdf_ocr_candidate_compatibility.py
@@ -567,7 +569,7 @@ UV_OFFLINE=1 uv run pytest -q tests/scripts/test_pdf_ocr_candidate_compatibility
 
 Expected: matrix builder and receipt schema are absent.
 
-- [ ] **Step 3: Implement the isolated ordinary-pip matrix**
+- [x] **Step 3: Implement the isolated ordinary-pip matrix**
 
 Build the MKE wheel once. Create every environment outside the repository. Download candidate
 wheels into per-candidate staging only during the explicitly authorized prepare step, then install
@@ -579,6 +581,14 @@ The public receipt contains only schema, candidate/profile, OS, architecture, Py
 versions, distribution digests, MKE wheel digest, cell result, stable failure code, and aggregate
 download/install bytes. It contains no absolute paths, usernames, cache values, URLs, commands, or
 upstream logs.
+
+Package-only checkpoint: one MKE wheel was built and frozen at SHA-256
+`c4faf00f39d95978b70787f3eb2b2c0253749f6f704106175af377c64ea4ddbe`. Exact Python
+`3.12.13` and `3.13.12` interpreters resolved both candidate wheel sets, and all 16 cells passed an
+independent offline rebuild, `pip check`, import doctor, installed-wheel identity check, and
+model-free fake-child proof. The committed receipt records 1,517,730,869 aggregate distribution
+bytes and 25,101,925,887 aggregate per-cell installed bytes. These are package compatibility facts,
+not provider quality, startup, artifact-schema, or model compatibility evidence.
 
 - [ ] **Step 4: Prepare model artifacts under explicit authority**
 
