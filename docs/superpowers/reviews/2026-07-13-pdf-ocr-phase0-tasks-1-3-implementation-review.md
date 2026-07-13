@@ -2,8 +2,9 @@
 
 Date: 2026-07-13
 
-Status: implementation review findings are remediated locally; targeted re-review is pending.
-Phase 0 remains hard-stopped before package or model acquisition.
+Status: targeted re-review completed and accepted. Tasks 1-3 are cleared at implementation HEAD
+`79660f0d45084aa4e75d599c9e256344e52f1eb1`. Phase 0 remains hard-stopped before Task 4 package or
+model acquisition.
 
 ## Scope
 
@@ -35,14 +36,22 @@ dependencies, model artifacts, retrieval changes, or runtime promotion.
 
 ## Verification Boundary
 
-Focused Tasks 1-3 protocol, router, and provider tests pass without provider packages or models.
-Ruff and Pyright pass for the affected evaluation modules and tests. Swift typechecking passes with
-the existing `usesCPUOnly` deprecation warning. No real-provider, ordinary-pip compatibility,
+Fresh accepted verification at implementation HEAD
+`79660f0d45084aa4e75d599c9e256344e52f1eb1` recorded:
+
+- Three targeted bounded-read regressions passed.
+- Tasks 1-3 protocol, router, and provider suites passed: `72 passed, 5 warnings`.
+- Ruff passed.
+- Pyright passed with `0 errors`.
+- Swift typechecking passed with the existing `usesCPUOnly` deprecation warning.
+- The base-range diff check passed.
+
+These checks used no provider packages or models. No real-provider, ordinary-pip compatibility,
 Publication/Search/Ask, scorecard, or full-repository result is claimed here.
 
 ## Remaining Task 4 Check
 
-The strict provisional PaddleOCR-VL JSON/Markdown envelope has not been compared with artifacts from
-the pinned package because package and model acquisition is outside the current authority. Task 4
-must record the exact regular-file inventory and schema before any compatibility adjustment. A
-schema mismatch fails closed; it is not evidence to weaken the prose-only boundary.
+The strict provisional PaddleOCR-VL JSON/Markdown envelope has not been compared with real artifacts
+from the pinned package because package and model acquisition remains unauthorized. Task 4 must
+record the exact regular-file inventory and schema before any compatibility adjustment. A schema
+mismatch fails closed; it is not evidence to weaken the prose-only boundary.
