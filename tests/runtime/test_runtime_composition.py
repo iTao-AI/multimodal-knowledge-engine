@@ -9,6 +9,7 @@ from typing import Any, cast
 import pytest
 
 from mke.adapters.video.contracts import VideoTranscriptionLimits
+from mke.adapters.video.process import ActiveProcessController
 from mke.adapters.video.providers import LocalCommandTranscriptProvider, SidecarTranscriptProvider
 from mke.application import KnowledgeEngine
 from mke.runtime import (
@@ -123,6 +124,17 @@ def test_runtime_rejects_non_owner_runtime_state(tmp_path: Path) -> None:
         )
 
 
+@pytest.mark.parametrize("operation_id", ["invalid", "", 7])
+def test_runtime_rejects_invalid_process_operation_id(
+    tmp_path: Path, operation_id: object
+) -> None:
+    with pytest.raises((TypeError, ValueError), match="operation ID"):
+        RuntimeConfig(
+            db_path=tmp_path / "mke.sqlite",
+            process_operation_id=cast(Any, operation_id),
+        )
+
+
 def test_runtime_rejects_unknown_retrieval_query_policy(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="retrieval query policy is unsupported"):
         RuntimeConfig(
@@ -142,15 +154,20 @@ def test_runtime_builds_sidecar_or_first_party_provider_with_shared_controller(
     tmp_path: Path,
 ) -> None:
     sidecar = build_transcript_provider(RuntimeConfig(tmp_path / "sidecar.sqlite"))
+    controller = ActiveProcessController()
+    operation_id = controller.begin_operation()
     runtime = RuntimeConfig(
         tmp_path / "asr.sqlite",
         transcription=FasterWhisperTranscriptionConfig(),
+        process_controller=controller,
+        process_operation_id=operation_id,
     )
     first_party = build_transcript_provider(runtime)
 
     assert isinstance(sidecar, SidecarTranscriptProvider)
     assert isinstance(first_party, LocalCommandTranscriptProvider)
     assert first_party.config.process_controller is runtime.process_controller
+    assert first_party.config.process_operation_id == operation_id
     assert first_party.config.require_provenance is True
 
 

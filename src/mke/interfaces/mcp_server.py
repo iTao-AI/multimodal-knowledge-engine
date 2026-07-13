@@ -8,6 +8,7 @@ import logging
 import sys
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager, suppress
+from dataclasses import replace
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
@@ -38,7 +39,7 @@ def build_mcp_server(config: McpRuntimeConfig) -> FastMCP:
         try:
             yield
         finally:
-            config.runtime.process_controller.cancel_active()
+            config.runtime.process_controller.shutdown()
 
     mcp = FastMCP(
         "Multimodal Knowledge Engine",
@@ -156,18 +157,24 @@ async def _ingest_with_cancellation(
     path: str,
 ) -> dict[str, Any]:
     controller = config.runtime.process_controller
-    controller.begin_operation()
+    operation_id = controller.begin_operation()
+    scoped = replace(
+        config,
+        runtime=replace(config.runtime, process_operation_id=operation_id),
+    )
     try:
-        worker = asyncio.create_task(asyncio.to_thread(mcp_contract.ingest_file, config, path))
+        worker = asyncio.create_task(
+            asyncio.to_thread(mcp_contract.ingest_file, scoped, path)
+        )
         try:
             return await asyncio.shield(worker)
         except asyncio.CancelledError:
-            controller.cancel_active()
+            controller.cancel_operation(operation_id)
             with suppress(Exception):
                 await asyncio.shield(worker)
             raise
     finally:
-        controller.end_operation()
+        controller.end_operation(operation_id)
 
 
 def _safe_tool(fn: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any]]:

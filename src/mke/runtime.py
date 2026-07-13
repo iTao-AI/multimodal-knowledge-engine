@@ -13,7 +13,7 @@ from mke.adapters.video.contracts import (
     AdapterFailureSpec,
     VideoTranscriptionLimits,
 )
-from mke.adapters.video.process import ActiveProcessController
+from mke.adapters.video.process import ActiveProcessController, ProcessOperationId
 from mke.adapters.video.providers import (
     LocalCommandTranscriptConfig,
     LocalCommandTranscriptProvider,
@@ -140,6 +140,10 @@ class RuntimeConfig:
         default_factory=OwnerRuntimeState,
         compare=False,
     )
+    process_operation_id: ProcessOperationId | None = field(
+        default=None,
+        compare=False,
+    )
 
     def __post_init__(self) -> None:
         query_policy = (
@@ -165,6 +169,11 @@ class RuntimeConfig:
             raise TypeError("process controller must be ActiveProcessController")
         if type(self.owner_state) is not OwnerRuntimeState:
             raise TypeError("owner state must be OwnerRuntimeState")
+        if self.process_operation_id is not None:
+            if not isinstance(self.process_operation_id, str):
+                raise TypeError("process operation ID must be a string")
+            if not self.process_operation_id.startswith("op_"):
+                raise ValueError("process operation ID must begin with op_")
 
 
 def _validate_approved_limits(limits: VideoTranscriptionLimits) -> None:
@@ -223,6 +232,7 @@ def build_transcript_provider(config: RuntimeConfig) -> TranscriptProvider:
             require_provenance=True,
             exit_code_errors=FIRST_PARTY_EXIT_ERRORS,
             process_controller=config.process_controller,
+            process_operation_id=config.process_operation_id,
         )
     )
 

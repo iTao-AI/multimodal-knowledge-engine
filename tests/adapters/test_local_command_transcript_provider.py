@@ -335,6 +335,7 @@ def test_run_bounded_command_cleans_up_on_base_exception(
 
     process = FakeProcess()
     controller = ActiveProcessController()
+    operation_id = controller.begin_operation()
 
     def fake_popen(*args: Any, **kwargs: Any) -> Any:
         return process
@@ -349,6 +350,7 @@ def test_run_bounded_command_cleans_up_on_base_exception(
         LocalCommandTranscriptConfig(
             argv=("owned", "{input}"),
             process_controller=controller,
+            process_operation_id=operation_id,
         )
     )
     video = Path("sample.mp4")
@@ -362,3 +364,4 @@ def test_run_bounded_command_cleans_up_on_base_exception(
 
     assert killed == [True]
     assert waited
+    controller.end_operation(operation_id)
