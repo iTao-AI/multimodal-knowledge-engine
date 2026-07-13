@@ -376,6 +376,148 @@ def test_prepared_wheelhouse_missing_mke_identity_fails_without_write(
     assert tuple(wheelhouse.iterdir()) == ()
 
 
+def _controller_inputs(tmp_path: Path):
+    compatibility = _module()
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    wheel = tmp_path / "multimodal_knowledge_engine-0.1.1-py3-none-any.whl"
+    wheel.write_bytes(b"one immutable MKE wheel")
+    python312 = tmp_path / "python312"
+    python313 = tmp_path / "python313"
+    python312.write_bytes(b"python")
+    python313.write_bytes(b"python")
+    return compatibility, repository, wheel, python312, python313
+
+
+def _fake_controller_command(compatibility, command, **_kwargs):
+    if "-I" in command:
+        minor = "3.12" if str(command[0]).endswith("python312") else "3.13"
+        version = minor + (".13" if minor == "3.12" else ".12")
+        payload = {
+            "executable": str(command[0]),
+            "version": version,
+            "minor": minor,
+        }
+        return compatibility.CommandResult(0, json.dumps(payload).encode(), b"")
+    if "download" in command:
+        return compatibility.CommandResult(
+            1,
+            b"",
+            b"No matching distribution found for authorized exact pins",
+        )
+    pytest.fail(f"unexpected controller command: {command!r}")
+
+
+def _tree_snapshot(root: Path) -> dict[str, bytes | None]:
+    return {
+        str(path.relative_to(root)): None if path.is_dir() else path.read_bytes()
+        for path in sorted(root.rglob("*"))
+    }
+
+
+def test_controller_emits_valid_negative_when_all_resolvers_fail(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    compatibility, repository, wheel, python312, python313 = _controller_inputs(
+        tmp_path
+    )
+    output = repository / "benchmarks/ocr/candidate-environments.json"
+    monkeypatch.setattr(
+        compatibility,
+        "run_bounded",
+        lambda command, **kwargs: _fake_controller_command(
+            compatibility, command, **kwargs
+        ),
+    )
+    monkeypatch.setattr(
+        compatibility,
+        "_run_offline_cell",
+        lambda *_args, **_kwargs: pytest.fail(
+            "resolver-failed cells must not run offline replay"
+        ),
+    )
+
+    receipt = compatibility.run_package_matrix(
+        compatibility.CompatibilityConfig(
+            repository=repository,
+            wheel=wheel,
+            interpreters=(python312, python313),
+            staging_root=tmp_path / "staging",
+            cache_root=tmp_path / "cache",
+            output=output,
+            allow_package_download=True,
+        )
+    )
+
+    digest = hashlib.sha256(wheel.read_bytes()).hexdigest()
+    assert receipt["mke_wheel_sha256"] == digest
+    candidates = receipt["candidates"]
+    assert isinstance(candidates, list) and len(candidates) == 2
+    for candidate in candidates:
+        assert candidate["distributions"] == [
+            {
+                "filename": wheel.name,
+                "sha256": digest,
+                "bytes": wheel.stat().st_size,
+            }
+        ]
+        assert candidate["download_bytes"] == wheel.stat().st_size
+        cells = candidate["cells"]
+        assert len(cells) == 8
+        assert {cell["result"] for cell in cells} == {"resolver_failed"}
+        assert {cell["failure_code"] for cell in cells} == {
+            "resolver_unavailable"
+        }
+    compatibility.validate_receipt(receipt)
+    assert output.read_bytes() == compatibility.canonical_receipt_bytes(receipt)
+
+
+@pytest.mark.parametrize("prepared_state", ["missing", "drifted"])
+def test_controller_rejects_prepared_mke_identity_without_mutating_evidence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    prepared_state: str,
+) -> None:
+    compatibility, repository, wheel, python312, python313 = _controller_inputs(
+        tmp_path
+    )
+    prepared = tmp_path / "prepared-wheelhouses"
+    for candidate in compatibility.CANDIDATES:
+        candidate_root = prepared / candidate
+        candidate_root.mkdir(parents=True)
+        (candidate_root / "inventory-sentinel.whl").write_bytes(b"preserve")
+    if prepared_state == "drifted":
+        first_candidate = next(iter(compatibility.CANDIDATES))
+        (prepared / first_candidate / wheel.name).write_bytes(b"drifted")
+    before = _tree_snapshot(prepared)
+    monkeypatch.setattr(
+        compatibility,
+        "run_bounded",
+        lambda command, **kwargs: _fake_controller_command(
+            compatibility, command, **kwargs
+        ),
+    )
+
+    with pytest.raises(compatibility.CompatibilityError) as error:
+        compatibility.run_package_matrix(
+            compatibility.CompatibilityConfig(
+                repository=repository,
+                wheel=wheel,
+                interpreters=(python312, python313),
+                staging_root=tmp_path / "staging",
+                cache_root=tmp_path / "cache",
+                output=repository / "benchmarks/ocr/candidate-environments.json",
+                allow_package_download=False,
+                prepared_wheelhouses=prepared,
+            )
+        )
+
+    assert error.value.code == "prepared_wheelhouses_invalid"
+    assert _tree_snapshot(prepared) == before
+    assert not (repository / "benchmarks/ocr/candidate-environments.json").exists()
+
+
 def test_bounded_subprocess_rejects_output_and_timeout(tmp_path: Path) -> None:
     compatibility = _module()
 
