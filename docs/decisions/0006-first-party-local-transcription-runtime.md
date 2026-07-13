@@ -21,9 +21,11 @@ CLI faster-whisper ingest completes the same read-only readiness check before op
 creating a Run. Successful provenance records the device and compute type resolved by CTranslate2,
 not unresolved owner values such as `auto` or `default`.
 
-Registered adapter children are terminated and waited during cancellation or shutdown. The owner
-process keeps cancellation latched until the active worker exits, so a child registered after the
-initial cancellation signal is terminated immediately.
+Each request operation receives an opaque process operation ID. Registered adapter children are
+tracked under that ID, and request cancellation terminates and waits only for children in the
+cancelled operation. The operation latch remains set until that worker exits, so a late child for
+the cancelled operation is terminated immediately without affecting sibling operations. Owner
+`shutdown()` is the only broadcast child-cancellation path and permanently prevents new operations.
 
 Required Python 3.12/3.13 CI installs the core wheel and `wheel[transcription]` without a model.
 Rollback selects the default sidecar provider.

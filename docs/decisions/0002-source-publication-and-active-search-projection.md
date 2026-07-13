@@ -25,6 +25,13 @@ Publication protocol for the first PDF slice.
 - A Run that fails this activation check becomes `superseded` and cannot publish.
 - Run states are `queued`, `running`, `validated`, `published`, `failed`, `superseded`, and
   `interrupted`. The active implementation design owns the state transition diagram.
+- Constructing a `SQLiteStore` opens and migrates a connection but performs no unfinished-Run
+  recovery. Direct `KnowledgeEngine` construction is an owner boundary and recovers once for that
+  engine. Request engines composed from one shared `RuntimeConfig.owner_state` recover once for
+  that owner across repeated engine construction.
+- Every Run state change is a compare-and-set from its allowed predecessor state. The state change
+  and matching Run event commit in the same SQLite transaction, so a stale or interrupted Run
+  cannot be resurrected by a later validation or activation write.
 - `validated` means candidate output is complete but not searchable. Only `published` output is
   searchable.
 - Candidate `Evidence` and the `RunManifest` are persisted in ordinary relational tables.
@@ -45,3 +52,5 @@ Publication protocol for the first PDF slice.
 - FTS5 is a Pilot projection, not a long-term ranking contract.
 - The activation transaction must be a single SQLite transaction. If it fails, the Run stays
   `validated` and can be retried. No partial Publication state is observable.
+- Recovery ownership is explicit: read-only request engine construction after owner startup cannot
+  interrupt work created by another request in the same owner.

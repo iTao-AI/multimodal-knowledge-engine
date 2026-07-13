@@ -1,5 +1,7 @@
 # Owner Lifecycle and Cancellation Hardening Implementation Plan
 
+**Status:** Completed on 2026-07-13; awaiting authoritative branch-diff review.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make Run recovery, state transitions, subprocess cancellation, and future long-running-work admission owner-scoped and concurrency-safe without adding OCR behavior.
@@ -113,7 +115,7 @@ class BoundedAdmissionController:
 - Consumes: `SQLiteStore.interrupt_unfinished_runs()` and `RuntimeConfig.db_path`.
 - Produces: `OwnerRuntimeState.recover_unfinished_runs_once()` and `KnowledgeEngine.recover_unfinished_runs()`.
 
-- [ ] **Step 1: Write failing recovery ownership tests**
+- [x] **Step 1: Write failing recovery ownership tests**
 
 Create `tests/runtime/test_owner_runtime.py`:
 
@@ -168,7 +170,7 @@ def test_shared_runtime_recovers_only_on_first_engine_build(tmp_path: Path) -> N
 
 Keep `test_startup_marks_unfinished_runs_interrupted` as the direct `KnowledgeEngine` regression.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -178,7 +180,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: the raw Store interrupts the Run and the second shared-runtime engine interrupts live work.
 
-- [ ] **Step 3: Implement explicit recovery ownership**
+- [x] **Step 3: Implement explicit recovery ownership**
 
 Create `src/mke/runtime_owner.py`:
 
@@ -217,7 +219,7 @@ Then make these exact composition changes:
 - add `owner_state: OwnerRuntimeState = field(default_factory=OwnerRuntimeState, compare=False)` to `RuntimeConfig` and validate the exact type;
 - make `build_engine()` construct `KnowledgeEngine(..., recover_unfinished_runs=False)`, invoke `owner_state.recover_unfinished_runs_once()`, close on recovery failure, then return the engine.
 
-- [ ] **Step 4: Run GREEN**
+- [x] **Step 4: Run GREEN**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -226,7 +228,7 @@ UV_OFFLINE=1 uv run pytest -q \
   tests/application/test_reliability_demo.py
 ```
 
-- [ ] **Step 5: Commit Task 1**
+- [x] **Step 5: Commit Task 1**
 
 ```bash
 git add \
@@ -257,7 +259,7 @@ git commit -m "fix(runtime): recover unfinished runs once per owner"
 - Consumes: Task 1 side-effect-free Store construction.
 - Produces: `RunTransitionError` and one transaction-local `_transition_run()` primitive.
 
-- [ ] **Step 1: Write failing stale-transition and rollback tests**
+- [x] **Step 1: Write failing stale-transition and rollback tests**
 
 Create `tests/adapters/test_sqlite_run_transitions.py`:
 
@@ -311,7 +313,7 @@ def test_second_running_transition_has_no_duplicate_event(tmp_path: Path) -> Non
 
 Keep this as a private adapter-test query; do not add a production read API only for the assertion.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/adapters/test_sqlite_run_transitions.py
@@ -319,7 +321,7 @@ UV_OFFLINE=1 uv run pytest -q tests/adapters/test_sqlite_run_transitions.py
 
 Expected: `RunTransitionError` is absent and unconditional writes resurrect the interrupted Run.
 
-- [ ] **Step 3: Add `RunTransitionError` and CAS helper**
+- [x] **Step 3: Add `RunTransitionError` and CAS helper**
 
 Add to `src/mke/domain/__init__.py`:
 
@@ -382,7 +384,7 @@ Use it in existing transactions for:
 
 The final activation CAS must roll back Publication, FTS, pointer, reports, and event if it fails.
 
-- [ ] **Step 4: Make application races fail closed**
+- [x] **Step 4: Make application races fail closed**
 
 Import `RunTransitionError` in the application layer. Add dedicated handlers before branches that call `mark_run_failed()`:
 
@@ -395,7 +397,7 @@ The video path returns `VideoIngestError` with `problem="video_ingest_failed"` a
 
 Add application tests that interrupt immediately before validation and immediately before the final activation CAS. Both preserve the old active Search/Ask result and append no validation/publication event.
 
-- [ ] **Step 5: Run transition and Publication suites**
+- [x] **Step 5: Run transition and Publication suites**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -406,7 +408,7 @@ UV_OFFLINE=1 uv run pytest -q \
   tests/application/test_reliability_demo.py
 ```
 
-- [ ] **Step 6: Commit Task 2**
+- [x] **Step 6: Commit Task 2**
 
 ```bash
 git add \
@@ -440,7 +442,7 @@ git commit -m "fix(storage): enforce atomic run transitions"
 - Consumes: Task 1 shared runtime and Task 2 no-resurrection transitions.
 - Produces: `ProcessOperationId`, targeted `cancel_operation()`, and owner-only `shutdown()`.
 
-- [ ] **Step 1: Write failing controller tests**
+- [x] **Step 1: Write failing controller tests**
 
 Create a bounded `FakeProcess` in `tests/adapters/test_process_controller.py` whose `poll()` returns `None` until `kill()`, and whose `wait()` records the call. Cover:
 
@@ -479,7 +481,7 @@ def test_shutdown_kills_scoped_and_unscoped_children() -> None:
     assert unscoped.killed is True
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -489,7 +491,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: the operation ID and targeted cancellation APIs do not exist.
 
-- [ ] **Step 3: Replace global cancellation with operation-scoped state**
+- [x] **Step 3: Replace global cancellation with operation-scoped state**
 
 Use this state shape in `src/mke/adapters/video/process.py`:
 
@@ -528,7 +530,7 @@ Complete the frozen methods as follows:
 
 Delete `cancel_active()` and the global `_cancel_requested`/`_active_operations` behavior.
 
-- [ ] **Step 4: Thread the operation ID through provider and runtime composition**
+- [x] **Step 4: Thread the operation ID through provider and runtime composition**
 
 Add to `LocalCommandTranscriptConfig` and `_run_bounded_command()`:
 
@@ -563,7 +565,7 @@ worker = asyncio.create_task(
 
 On cancellation, call `cancel_operation(operation_id)`, await shielded worker cleanup, then re-raise. In `finally`, call `end_operation(operation_id)`. MCP lifespan calls `shutdown()`.
 
-- [ ] **Step 5: Add a two-ingest MCP regression**
+- [x] **Step 5: Add a two-ingest MCP regression**
 
 Extend `tests/interfaces/test_mcp_transcription_runtime.py` with two worker events and two fake children. Cancel only the first async ingest and assert:
 
@@ -573,7 +575,7 @@ Extend `tests/interfaces/test_mcp_transcription_runtime.py` with two worker even
 - a late child using the first operation ID is killed;
 - `shutdown()` remains broadcast.
 
-- [ ] **Step 6: Run provider/runtime/MCP GREEN**
+- [x] **Step 6: Run provider/runtime/MCP GREEN**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -584,7 +586,7 @@ UV_OFFLINE=1 uv run pytest -q \
   tests/interfaces/test_mcp_server.py
 ```
 
-- [ ] **Step 7: Commit Task 3**
+- [x] **Step 7: Commit Task 3**
 
 ```bash
 git add \
@@ -615,7 +617,7 @@ git commit -m "fix(runtime): isolate subprocess cancellation"
 - Consumes: Tasks 1-3 owner state, CAS transitions, and operation IDs.
 - Produces: `BoundedAdmissionController`, `AdmissionLease`, and `AdmissionSnapshot` for a later approved OCR runtime.
 
-- [ ] **Step 1: Write failing admission tests**
+- [x] **Step 1: Write failing admission tests**
 
 Add tests for exact `capacity=1`, `max_waiters=1` behavior. Use a held first lease, one waiting thread, and eight additional callers. Assert one waiter is admitted after release, eight callers receive `AdmissionOverloadedError`, counters return to zero, a lease cannot be released twice, and non-finite/negative timeouts are rejected.
 
@@ -630,7 +632,7 @@ assert controller.snapshot() == AdmissionSnapshot(
 )
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/runtime/test_owner_runtime.py
@@ -638,7 +640,7 @@ UV_OFFLINE=1 uv run pytest -q tests/runtime/test_owner_runtime.py
 
 Expected: the admission types are absent.
 
-- [ ] **Step 3: Implement the condition-based admission contract**
+- [x] **Step 3: Implement the condition-based admission contract**
 
 Use one `threading.Condition`, private counters, and an `AdmissionLease` that calls one private release callback. The contract is exact:
 
@@ -669,7 +671,7 @@ admission_controller: BoundedAdmissionController = field(
 
 Validate the exact type. Current PDF/video ingest does not acquire a lease, so this task changes no current throughput.
 
-- [ ] **Step 4: Add owner concurrency and restart tests**
+- [x] **Step 4: Add owner concurrency and restart tests**
 
 Create `tests/interfaces/test_mcp_owner_concurrency.py` using one `McpRuntimeConfig` and real SQLite. Cover:
 
@@ -679,7 +681,7 @@ Create `tests/interfaces/test_mcp_owner_concurrency.py` using one `McpRuntimeCon
 - another request engine after cancellation does not recover again;
 - a fresh `RuntimeConfig` representing owner restart interrupts the remaining unfinished Run once.
 
-- [ ] **Step 5: Run the concurrency slice five times**
+- [x] **Step 5: Run the concurrency slice five times**
 
 ```bash
 for attempt in 1 2 3 4 5; do
@@ -690,7 +692,7 @@ for attempt in 1 2 3 4 5; do
 done
 ```
 
-- [ ] **Step 6: Commit Task 4**
+- [x] **Step 6: Commit Task 4**
 
 ```bash
 git add \
@@ -718,7 +720,7 @@ git commit -m "feat(runtime): add bounded owner admission"
 - Consumes: completed Tasks 1-4 and their command evidence.
 - Produces: durable public architecture documentation and a reviewable local branch.
 
-- [ ] **Step 1: Update durable documentation**
+- [x] **Step 1: Update durable documentation**
 
 Record these exact facts:
 
@@ -733,7 +735,7 @@ Record these exact facts:
 
 Do not mention OCR providers in the ADR updates.
 
-- [ ] **Step 2: Run focused quality checks**
+- [x] **Step 2: Run focused quality checks**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -748,7 +750,7 @@ UV_OFFLINE=1 uv run pyright
 git diff --check
 ```
 
-- [ ] **Step 3: Run the complete repository gate**
+- [x] **Step 3: Run the complete repository gate**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q
@@ -765,9 +767,21 @@ uv run python scripts/release_presentation_audit.py --root .
 
 If the full suite exposes an unchanged baseline failure, isolate it against the planning parent and report it. Do not modify retrieval, evaluation, release, or OCR surfaces outside this plan.
 
-- [ ] **Step 4: Mark status accurately and commit documentation**
+- [x] **Step 4: Mark status accurately and commit documentation**
 
 Only after Step 3 passes or an authority-approved baseline blocker is recorded, update completed checkboxes and append exact command evidence.
+
+Execution evidence from the final committed candidate:
+
+- focused lifecycle slice: `34 passed`; Ruff passed; Pyright reported `0 errors, 0 warnings, 0 informations`;
+- complete suite: `1616 passed, 5 skipped`; only SWIG deprecation warnings were emitted;
+- `uv build`: source distribution and wheel built successfully;
+- `mke proof run`: `proof=product status=passed cases=8 passed=8 failed=0`;
+- `mke demo --verify`: `result=passed`;
+- proof suites: `11 passed`, `1 passed`, and `81 passed`;
+- release presentation audit: `{"status": "ok", "violations": []}`;
+- E1 through E3-E canonical validators passed after an identity-only provenance refresh; normalized
+  protocol, observation, metric, gate, profile, candidate, status, and verdict payloads were equal.
 
 ```bash
 git add \
@@ -779,6 +793,6 @@ git diff --cached --check
 git commit -m "docs(runtime): record owner lifecycle hardening"
 ```
 
-- [ ] **Step 5: Stop for authoritative review**
+- [x] **Step 5: Stop for authoritative review**
 
 Do not push or open a PR. Report branch, commit series, exact diff, verification evidence, remaining risks, and any unchanged baseline blocker. The planning/review window reviews the actual branch diff before publication.
