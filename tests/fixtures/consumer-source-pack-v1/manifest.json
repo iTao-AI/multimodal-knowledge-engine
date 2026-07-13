@@ -1,0 +1,46 @@
+{
+  "schema_version": "mke.consumer_source_pack_manifest.v1",
+  "pack_id": "local-knowledge-v1",
+  "sources": [
+    {
+      "source_key": "operations_guide",
+      "relative_filename": "operations-guide.pdf",
+      "media_type": "application/pdf",
+      "bytes": 1000,
+      "sha256": "0ac3e96efc89ee91e48bb3efc8611de88b2698e5aa26c1f8e0e8f78ad2d60ddd",
+      "redistribution_class": "repository_authored_synthetic",
+      "generator": "scripts/generate_local_knowledge_fixtures.py"
+    },
+    {
+      "source_key": "incident_guide",
+      "relative_filename": "incident-guide.pdf",
+      "media_type": "application/pdf",
+      "bytes": 990,
+      "sha256": "ed55cfbe9bdbf4404eb9ff55ab7e51fac14006ae0584a14d50704f68a02ff699",
+      "redistribution_class": "repository_authored_synthetic",
+      "generator": "scripts/generate_local_knowledge_fixtures.py"
+    }
+  ],
+  "queries": [
+    {
+      "role": "operations_guide",
+      "query": "Cedar Relay maintenance window",
+      "expected_source_key": "operations_guide",
+      "locator_kind": "page",
+      "allowed_locator_range": [1, 1]
+    },
+    {
+      "role": "incident_guide",
+      "query": "Cedar Relay telemetry amber",
+      "expected_source_key": "incident_guide",
+      "locator_kind": "page",
+      "allowed_locator_range": [1, 1]
+    },
+    {
+      "role": "unsupported",
+      "query": "lunar payroll retention policy",
+      "expected_search_status": "no_match",
+      "expected_ask_status": "insufficient_evidence"
+    }
+  ]
+}

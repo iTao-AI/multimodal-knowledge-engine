@@ -15,6 +15,8 @@ auditing implementation history.
 - [Use MKE As A Local MCP Server](./how-to/use-mke-mcp.md)
 - [MCP Contract Reference](./reference/mcp-contract.md)
 - [Run The Evidence Provenance Proof](./how-to/run-evidence-provenance-proof.md)
+- [Run The Consumer Source-Pack Proof](./how-to/run-consumer-source-pack-proof.md) documents a
+  source-built proof for the current source checkout without changing release claims.
 
 `v0.1.1` adds the real stdio MCP local knowledge proof while retaining
 `cjk-active-scan-overlap-v1` as the current owner-startup CJK runtime strategy.

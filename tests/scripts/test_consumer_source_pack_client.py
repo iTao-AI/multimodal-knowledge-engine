@@ -1,0 +1,1342 @@
+from __future__ import annotations
+
+import ast
+import asyncio
+import copy
+import importlib.util
+import json
+import os
+import sys
+import time
+from collections.abc import Callable, Sequence
+from contextlib import asynccontextmanager
+from pathlib import Path
+from types import ModuleType, SimpleNamespace
+from typing import Any, Protocol, cast
+
+import pytest
+
+from scripts.consumer_source_pack_client import DiscoveredTool
+
+ROOT = Path(__file__).resolve().parents[2]
+MANIFEST = ROOT / "tests/fixtures/consumer-source-pack-v1/manifest.json"
+SCHEMAS = ROOT / "tests/fixtures/consumer-source-pack-v1/mcp-tool-schemas.json"
+LOCAL_FIXTURE_ROOT = ROOT / "tests/fixtures/local-knowledge-v1"
+
+
+def _copied_source_root(tmp_path: Path) -> Path:
+    source_root = tmp_path / "source-pack"
+    source_root.mkdir(exist_ok=True)
+    for name in ("operations-guide.pdf", "incident-guide.pdf"):
+        (source_root / name).write_bytes((LOCAL_FIXTURE_ROOT / name).read_bytes())
+    return source_root
+
+
+CLIENT_PATH = ROOT / "scripts/consumer_source_pack_client.py"
+
+
+class _ServerStderrConfig(Protocol):
+    max_server_stderr_bytes: int
+
+
+def _load_client() -> ModuleType:
+    spec = importlib.util.spec_from_file_location("consumer_source_pack_client", CLIENT_PATH)
+    if spec is None or spec.loader is None:
+        raise AssertionError(f"could not load standalone client: {CLIENT_PATH}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+client = _load_client()
+
+
+def _manifest_payload() -> dict[str, object]:
+    return json.loads(MANIFEST.read_text(encoding="utf-8"))
+
+
+def _write_manifest(tmp_path: Path, payload: dict[str, object]) -> Path:
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+def _write_schema_expectations(tmp_path: Path, payload: dict[str, object]) -> Path:
+    path = tmp_path / "mcp-tool-schemas.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+def _is_frozen_dataclass(value: object) -> bool:
+    value_type = cast(Any, type(value))
+    return bool(value_type.__dataclass_params__.frozen)
+
+
+def _delete_top_level(payload: dict[str, object]) -> None:
+    del payload["pack_id"]
+
+
+def _add_top_level(payload: dict[str, object]) -> None:
+    payload["unexpected"] = True
+
+
+def _unknown_schema(payload: dict[str, object]) -> None:
+    payload["schema_version"] = "mke.consumer_source_pack_manifest.v2"
+
+
+def _missing_source_field(payload: dict[str, object]) -> None:
+    del payload["sources"][0]["media_type"]  # type: ignore[index]
+
+
+def _extra_source_field(payload: dict[str, object]) -> None:
+    payload["sources"][0]["unexpected"] = True  # type: ignore[index]
+
+
+def _duplicate_source_key(payload: dict[str, object]) -> None:
+    payload["sources"][1]["source_key"] = payload["sources"][0]["source_key"]  # type: ignore[index]
+
+
+def _duplicate_filename(payload: dict[str, object]) -> None:
+    payload["sources"][1]["relative_filename"] = payload["sources"][0][  # type: ignore[index]
+        "relative_filename"
+    ]
+
+
+def _bool_bytes(payload: dict[str, object]) -> None:
+    payload["sources"][0]["bytes"] = True  # type: ignore[index]
+
+
+def _uppercase_digest(payload: dict[str, object]) -> None:
+    payload["sources"][0]["sha256"] = str(  # type: ignore[index]
+        payload["sources"][0]["sha256"]  # type: ignore[index]
+    ).upper()
+
+
+def _malformed_digest(payload: dict[str, object]) -> None:
+    payload["sources"][0]["sha256"] = "abc"  # type: ignore[index]
+
+
+def _absolute_path(payload: dict[str, object]) -> None:
+    payload["sources"][0]["relative_filename"] = "/operations-guide.pdf"  # type: ignore[index]
+
+
+def _parent_traversal(payload: dict[str, object]) -> None:
+    payload["sources"][0]["relative_filename"] = "../operations-guide.pdf"  # type: ignore[index]
+
+
+def _non_normalized_path(payload: dict[str, object]) -> None:
+    payload["sources"][0]["relative_filename"] = "guides/../operations-guide.pdf"  # type: ignore[index]
+
+
+def _duplicate_query_role(payload: dict[str, object]) -> None:
+    payload["queries"][1]["role"] = payload["queries"][0]["role"]  # type: ignore[index]
+
+
+def _invalid_locator_range(payload: dict[str, object]) -> None:
+    payload["queries"][0]["allowed_locator_range"] = [2, 1]  # type: ignore[index]
+
+
+def _positive_query_shape_mismatch(payload: dict[str, object]) -> None:
+    del payload["queries"][0]["expected_source_key"]  # type: ignore[index]
+
+
+def _unsupported_query_shape_mismatch(payload: dict[str, object]) -> None:
+    payload["queries"][2]["locator_kind"] = "page"  # type: ignore[index]
+
+
+def _drift_source_key(payload: dict[str, object]) -> None:
+    payload["sources"][0]["source_key"] = "operations_manual"  # type: ignore[index]
+    payload["queries"][0]["expected_source_key"] = "operations_manual"  # type: ignore[index]
+
+
+def _drift_source_filename(payload: dict[str, object]) -> None:
+    payload["sources"][0]["relative_filename"] = "operations-manual.pdf"  # type: ignore[index]
+
+
+def _drift_source_media_type(payload: dict[str, object]) -> None:
+    payload["sources"][0]["media_type"] = "application/x-pdf"  # type: ignore[index]
+
+
+def _drift_source_bytes(payload: dict[str, object]) -> None:
+    payload["sources"][0]["bytes"] = 1001  # type: ignore[index]
+
+
+def _drift_source_sha256(payload: dict[str, object]) -> None:
+    payload["sources"][0]["sha256"] = "1" * 64  # type: ignore[index]
+
+
+def _drift_source_redistribution_class(payload: dict[str, object]) -> None:
+    payload["sources"][0]["redistribution_class"] = "redistributable"  # type: ignore[index]
+
+
+def _drift_source_generator_identity(payload: dict[str, object]) -> None:
+    payload["sources"][0]["generator"] = "scripts/other_generator.py"  # type: ignore[index]
+
+
+def _drift_query_role(payload: dict[str, object]) -> None:
+    payload["queries"][0]["role"] = "operations_manual"  # type: ignore[index]
+
+
+def _drift_query_text(payload: dict[str, object]) -> None:
+    payload["queries"][0]["query"] = "Cedar Relay service window"  # type: ignore[index]
+
+
+def _drift_query_expected_source_key(payload: dict[str, object]) -> None:
+    payload["queries"][0]["expected_source_key"] = "incident_guide"  # type: ignore[index]
+
+
+def _drift_query_locator_kind(payload: dict[str, object]) -> None:
+    payload["queries"][0]["locator_kind"] = "timestamp"  # type: ignore[index]
+
+
+def _drift_query_locator_range(payload: dict[str, object]) -> None:
+    payload["queries"][0]["allowed_locator_range"] = [2, 2]  # type: ignore[index]
+
+
+def _drift_unsupported_query(payload: dict[str, object]) -> None:
+    payload["queries"][2]["role"] = "out_of_scope"  # type: ignore[index]
+    payload["queries"][2]["query"] = "lunar payroll archive policy"  # type: ignore[index]
+
+
+def _drift_unsupported_search_state(payload: dict[str, object]) -> None:
+    payload["queries"][2]["expected_search_status"] = "match"  # type: ignore[index]
+
+
+def _drift_unsupported_ask_state(payload: dict[str, object]) -> None:
+    payload["queries"][2]["expected_ask_status"] = "answered"  # type: ignore[index]
+
+
+MANIFEST_MUTATIONS: tuple[tuple[str, Callable[[dict[str, object]], None]], ...] = (
+    ("missing top-level field", _delete_top_level),
+    ("extra top-level field", _add_top_level),
+    ("unknown schema", _unknown_schema),
+    ("missing source field", _missing_source_field),
+    ("extra source field", _extra_source_field),
+    ("duplicate source key", _duplicate_source_key),
+    ("duplicate filename", _duplicate_filename),
+    ("bool byte count", _bool_bytes),
+    ("uppercase digest", _uppercase_digest),
+    ("malformed digest", _malformed_digest),
+    ("absolute path", _absolute_path),
+    ("parent traversal", _parent_traversal),
+    ("non-normalized relative path", _non_normalized_path),
+    ("duplicate query role", _duplicate_query_role),
+    ("invalid locator range", _invalid_locator_range),
+    ("positive query shape mismatch", _positive_query_shape_mismatch),
+    ("unsupported query shape mismatch", _unsupported_query_shape_mismatch),
+)
+
+
+IDENTITY_DRIFT_MUTATIONS: tuple[tuple[str, Callable[[dict[str, object]], None]], ...] = (
+    ("source key", _drift_source_key),
+    ("source relative filename", _drift_source_filename),
+    ("source media type", _drift_source_media_type),
+    ("source bytes", _drift_source_bytes),
+    ("source sha256", _drift_source_sha256),
+    ("source redistribution class", _drift_source_redistribution_class),
+    ("source generator identity", _drift_source_generator_identity),
+    ("query role", _drift_query_role),
+    ("query text", _drift_query_text),
+    ("query expected source key", _drift_query_expected_source_key),
+    ("query locator kind", _drift_query_locator_kind),
+    ("query locator range", _drift_query_locator_range),
+    ("unsupported query role and text", _drift_unsupported_query),
+    ("unsupported search state", _drift_unsupported_search_state),
+    ("unsupported ask state", _drift_unsupported_ask_state),
+)
+
+
+def test_load_source_pack_manifest() -> None:
+    pack = client.load_source_pack(MANIFEST)
+
+    assert pack.schema_version == "mke.consumer_source_pack_manifest.v1"
+    assert pack.pack_id == "local-knowledge-v1"
+    assert {source.source_key for source in pack.sources} == {
+        "operations_guide",
+        "incident_guide",
+    }
+    assert {query.query for query in pack.queries} == {
+        "Cedar Relay maintenance window",
+        "Cedar Relay telemetry amber",
+        "lunar payroll retention policy",
+    }
+    values = (client.ProofError("example"), pack, *pack.sources, *pack.queries)
+    assert all(_is_frozen_dataclass(item) for item in values)
+
+
+@pytest.mark.parametrize(("case", "mutate"), MANIFEST_MUTATIONS, ids=lambda value: str(value))
+def test_load_source_pack_rejects_invalid_manifest(
+    tmp_path: Path,
+    case: str,
+    mutate: Callable[[dict[str, object]], None],
+) -> None:
+    payload = copy.deepcopy(_manifest_payload())
+    mutate(payload)
+
+    with pytest.raises(client.ProofError) as exc_info:
+        client.load_source_pack(_write_manifest(tmp_path, payload))
+
+    assert exc_info.value.code == "source_pack_manifest_invalid", case
+
+
+@pytest.mark.parametrize(("case", "mutate"), IDENTITY_DRIFT_MUTATIONS, ids=lambda value: str(value))
+def test_load_source_pack_rejects_approved_identity_drift(
+    tmp_path: Path,
+    case: str,
+    mutate: Callable[[dict[str, object]], None],
+) -> None:
+    payload = copy.deepcopy(_manifest_payload())
+    mutate(payload)
+
+    with pytest.raises(client.ProofError) as exc_info:
+        client.load_source_pack(_write_manifest(tmp_path, payload))
+
+    assert exc_info.value.code == "source_pack_manifest_invalid", case
+
+
+def test_verify_source_files_matches_manifest(tmp_path: Path) -> None:
+    pack = client.load_source_pack(MANIFEST)
+    for source in pack.sources:
+        (tmp_path / source.relative_filename).write_bytes(
+            (LOCAL_FIXTURE_ROOT / source.relative_filename).read_bytes()
+        )
+
+    resolved = client.verify_source_files(pack, tmp_path)
+
+    assert resolved.keys() == {"operations_guide", "incident_guide"}
+    assert resolved == {
+        "operations_guide": tmp_path / "operations-guide.pdf",
+        "incident_guide": tmp_path / "incident-guide.pdf",
+    }
+
+
+@pytest.mark.parametrize(
+    "mismatch", ["missing", "extra", "extra_non_pdf", "nested", "bytes", "sha256"]
+)
+def test_verify_source_files_rejects_identity_mismatch(tmp_path: Path, mismatch: str) -> None:
+    pack = client.load_source_pack(MANIFEST)
+    for source in pack.sources:
+        source_path = LOCAL_FIXTURE_ROOT / source.relative_filename
+        (tmp_path / source.relative_filename).write_bytes(source_path.read_bytes())
+    if mismatch == "missing":
+        (tmp_path / "incident-guide.pdf").unlink()
+    elif mismatch == "extra":
+        (tmp_path / "extra.pdf").write_bytes(b"extra")
+    elif mismatch == "extra_non_pdf":
+        (tmp_path / "unexpected.txt").write_text("unexpected", encoding="utf-8")
+    elif mismatch == "nested":
+        (tmp_path / "nested").mkdir()
+        (tmp_path / "nested/unexpected.bin").write_bytes(b"unexpected")
+    elif mismatch == "bytes":
+        (tmp_path / "operations-guide.pdf").write_bytes(b"wrong length")
+    else:
+        data = bytearray((tmp_path / "operations-guide.pdf").read_bytes())
+        data[0] ^= 1
+        (tmp_path / "operations-guide.pdf").write_bytes(data)
+
+    with pytest.raises(client.ProofError) as exc_info:
+        client.verify_source_files(pack, tmp_path)
+
+    assert exc_info.value.code == "source_pack_identity_mismatch"
+
+
+def test_load_schema_expectations_returns_closed_fixture() -> None:
+    expected = client.load_schema_expectations(SCHEMAS)
+
+    assert set(expected) == {"schema_version", "public_error_contract", "tools"}
+    assert expected["schema_version"] == "mke.consumer_mcp_tool_expectations.v1"
+    assert set(expected["tools"]) == {
+        "ask_library",
+        "ask_library_v1",
+        "get_run",
+        "ingest_file",
+        "list_libraries",
+        "list_libraries_v1",
+        "search_library",
+        "search_library_v1",
+    }
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("safe_causes", ["private provider detail"]),
+        ("safe_causes", []),
+        ("safe_causes", {}),
+        ("machine_token_pattern", "^.*$"),
+        ("active_publication_impact", "changed"),
+    ],
+)
+def test_load_schema_expectations_rejects_error_contract_drift_atomically(
+    tmp_path: Path, field: str, value: object
+) -> None:
+    fresh_client = _load_client()
+    valid_error = {
+        "schema_version": "mke.search_library_response.v1",
+        "ok": False,
+        "problem": "search_failed",
+        "cause": "unknown run",
+        "active_publication_impact": "unchanged",
+        "next_step": "retry_search",
+    }
+    assert fresh_client.validate_search_response(valid_error) == valid_error
+    payload = json.loads(SCHEMAS.read_text(encoding="utf-8"))
+    payload["public_error_contract"][field] = value
+
+    with pytest.raises(fresh_client.ProofError) as exc_info:
+        fresh_client.load_schema_expectations(_write_schema_expectations(tmp_path, payload))
+
+    assert exc_info.value.code == "consumer_schema_invalid"
+    assert fresh_client.validate_search_response(valid_error) == valid_error
+
+
+def test_payload_safe_cause_validation_is_independent_of_expectations_load_order() -> None:
+    fresh_client = _load_client()
+    payload = {
+        "schema_version": "mke.search_library_response.v1",
+        "ok": False,
+        "problem": "search_failed",
+        "cause": "unknown run",
+        "active_publication_impact": "unchanged",
+        "next_step": "retry_search",
+    }
+
+    before = fresh_client.validate_search_response(payload)
+    fresh_client.load_schema_expectations(SCHEMAS)
+    after = fresh_client.validate_search_response(payload)
+
+    assert before == after == payload
+
+
+class FakeTool:
+    def __init__(self, name: str, input_schema: Any, output_schema: Any) -> None:
+        self.name = name
+        self.inputSchema = input_schema
+        self.outputSchema = output_schema
+
+
+def _fixture_tools() -> list[FakeTool]:
+    tools = cast(dict[str, dict[str, object]], client.load_schema_expectations(SCHEMAS)["tools"])
+    return [
+        FakeTool(name, schema["inputSchema"], schema["outputSchema"])
+        for name, schema in tools.items()
+    ]
+
+
+def test_tool_schema_protocol_and_exact_fixture_validation() -> None:
+    tools = _fixture_tools()
+    typed: Sequence[DiscoveredTool] = tools
+    expected = client.load_schema_expectations(SCHEMAS)
+
+    assert client.normalize_discovered_tools(typed) == expected["tools"]
+    client.validate_tool_schemas(typed, expected)
+
+
+@pytest.mark.parametrize(
+    "mutation", ["missing", "non_mapping", "duplicate", "unknown", "non_string_name"]
+)
+def test_normalize_discovered_tools_rejects_invalid_discovery(mutation: str) -> None:
+    tools = _fixture_tools()
+    if mutation == "missing":
+        del tools[0].inputSchema
+    elif mutation == "non_mapping":
+        tools[0].inputSchema = []
+    elif mutation == "duplicate":
+        tools.append(tools[0])
+    elif mutation == "non_string_name":
+        tools[0].name = cast(Any, 42)
+    else:
+        tools[0].name = "replacement_tool"
+
+    with pytest.raises(client.ProofError):
+        if mutation == "unknown":
+            client.validate_tool_schemas(tools, client.load_schema_expectations(SCHEMAS))
+        else:
+            client.normalize_discovered_tools(tools)
+
+
+def test_tool_schema_validation_requires_all_v1_tools_and_legacy_exactness() -> None:
+    expected = client.load_schema_expectations(SCHEMAS)
+    tools = _fixture_tools()
+    tools[:] = [tool for tool in tools if tool.name != "ask_library_v1"]
+    with pytest.raises(client.ProofError) as exc_info:
+        client.validate_tool_schemas(tools, expected)
+    assert exc_info.value.code == "consumer_schema_invalid"
+    tools = _fixture_tools()
+    cast(dict[str, object], tools[0].inputSchema)["extra"] = True
+    with pytest.raises(client.ProofError) as exc_info:
+        client.validate_tool_schemas(tools, expected)
+    assert exc_info.value.code == "consumer_schema_invalid"
+
+
+def test_search_and_ask_evidence_schema_definitions_are_identical() -> None:
+    tools = cast(dict[str, dict[str, object]], client.load_schema_expectations(SCHEMAS)["tools"])
+    search = cast(dict[str, object], tools["search_library_v1"]["outputSchema"])
+    ask = cast(dict[str, object], tools["ask_library_v1"]["outputSchema"])
+    assert (
+        cast(dict[str, object], search["$defs"])["EvidenceRefV1"]
+        == cast(dict[str, object], ask["$defs"])["EvidenceRefV1"]
+    )
+
+
+def _observation() -> dict[str, object]:
+    return {
+        "schema_version": "mke.active_publication_observation.v1",
+        "library_id": "local",
+        "state": "active",
+        "source_count": 1,
+        "active_publication_count": 1,
+        "active_evidence_count": 1,
+    }
+
+
+def _evidence() -> dict[str, object]:
+    return {
+        "schema_version": "mke.evidence_ref.v1",
+        "evidence_id": "ev_" + "a" * 32,
+        "source_id": "src_" + "b" * 32,
+        "content_fingerprint": "sha256:" + "c" * 64,
+        "publication_id": "pub_" + "d" * 32,
+        "publication_revision": 1,
+        "run_id": "run_" + "e" * 32,
+        "locator": {"kind": "page", "start": 1, "end": 1},
+        "text": "evidence",
+    }
+
+
+def _search() -> dict[str, object]:
+    return {
+        "schema_version": "mke.search_library_response.v1",
+        "ok": True,
+        "query": "q",
+        "observation": _observation(),
+        "results": [_evidence()],
+    }
+
+
+def _ask() -> dict[str, object]:
+    return {
+        "schema_version": "mke.ask_library_response.v1",
+        "ok": True,
+        "question": "q",
+        "answer_status": "evidence_found",
+        "summary": "s",
+        "observation": _observation(),
+        "evidence": [_evidence()],
+        "limitations": [],
+    }
+
+
+def _list() -> dict[str, object]:
+    return {
+        "schema_version": "mke.list_libraries_response.v1",
+        "ok": True,
+        "observation": _observation(),
+    }
+
+
+@pytest.mark.parametrize("kind", ["list", "search", "ask"])
+def test_payload_validators_accept_success_and_machine_token_errors(kind: str) -> None:
+    validator = getattr(client, f"validate_{kind}_response")
+    payload = {"list": _list, "search": _search, "ask": _ask}[kind]()
+    assert validator(payload) == payload
+    error = {
+        "schema_version": f"mke.{kind}_libraries_response.v1"
+        if kind == "list"
+        else f"mke.{kind}_library_response.v1",
+        "ok": False,
+        "problem": "provider_failure_2",
+        "cause": "query must not be empty",
+        "active_publication_impact": "unchanged",
+        "next_step": "retry_with_query_2",
+    }
+    if kind == "list":
+        error["schema_version"] = "mke.list_libraries_response.v1"
+    assert validator(error) == error
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "missing",
+        "extra",
+        "version",
+        "bool_count",
+        "bad_id",
+        "bad_fingerprint",
+        "revision",
+        "locator",
+        "state",
+        "limit",
+        "mixed",
+    ],
+)
+def test_search_payload_mutations_are_rejected(mutation: str) -> None:
+    payload = _search()
+    if mutation == "missing":
+        del payload["query"]
+    elif mutation == "extra":
+        payload["private_path"] = "/tmp/x"
+    elif mutation == "version":
+        payload["schema_version"] = "mke.search_library_response.v2"
+    elif mutation == "bool_count":
+        cast(dict[str, object], payload["observation"])["source_count"] = True
+    elif mutation == "bad_id":
+        cast(dict[str, object], cast(list[object], payload["results"])[0])["source_id"] = "src_no"
+    elif mutation == "bad_fingerprint":
+        cast(dict[str, object], cast(list[object], payload["results"])[0])[
+            "content_fingerprint"
+        ] = "sha256:" + "A" * 64
+    elif mutation == "revision":
+        cast(dict[str, object], cast(list[object], payload["results"])[0])[
+            "publication_revision"
+        ] = 0
+    elif mutation == "locator":
+        cast(dict[str, object], cast(list[object], payload["results"])[0])["locator"] = {
+            "kind": "timestamp_ms",
+            "start": -1,
+            "end": 2,
+        }
+    elif mutation == "state":
+        cast(dict[str, object], payload["observation"])["state"] = "empty"
+    elif mutation == "limit":
+        payload["results"] = [_evidence()] * 21
+    else:
+        payload["problem"] = "also_error"
+    with pytest.raises(client.ProofError):
+        client.validate_search_response(payload)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("problem", "Bad token"),
+        ("next_step", "_bad"),
+        ("active_publication_impact", "changed"),
+        ("cause", "secret provider error"),
+    ],
+)
+def test_payload_error_contract_is_exact(field: str, value: str) -> None:
+    payload = {
+        "schema_version": "mke.search_library_response.v1",
+        "ok": False,
+        "problem": "search_failed",
+        "cause": "query must not be empty",
+        "active_publication_impact": "unchanged",
+        "next_step": "retry_search",
+    }
+    payload[field] = value
+    with pytest.raises(client.ProofError):
+        client.validate_search_response(payload)
+
+
+@pytest.mark.parametrize("cause", [[], {}, None, 7, True])
+def test_payload_error_contract_rejects_non_string_cause_as_proof_error(cause: object) -> None:
+    payload = {
+        "schema_version": "mke.search_library_response.v1",
+        "ok": False,
+        "problem": "search_failed",
+        "cause": cause,
+        "active_publication_impact": "unchanged",
+        "next_step": "retry_search",
+    }
+
+    with pytest.raises(client.ProofError) as exc_info:
+        client.validate_search_response(payload)
+
+    assert exc_info.value.code == "consumer_payload_invalid"
+
+
+def test_observation_count_state_contradiction_has_narrow_code() -> None:
+    payload = _list()
+    cast(dict[str, object], payload["observation"])["active_publication_count"] = 0
+
+    with pytest.raises(client.ProofError) as exc_info:
+        client.validate_list_response(payload)
+
+    assert exc_info.value.code == "observation_state_mismatch"
+
+
+def test_list_and_ask_cross_field_invariants_and_projection() -> None:
+    listing = _list()
+    cast(dict[str, object], listing["observation"])["active_publication_count"] = 0
+    with pytest.raises(client.ProofError):
+        client.validate_list_response(listing)
+    ask = _ask()
+    ask["answer_status"] = "insufficient_evidence"
+    with pytest.raises(client.ProofError):
+        client.validate_ask_response(ask)
+    search = _search()
+    valid_ask = _ask()
+    assert client.evidence_projection(search) == client.evidence_projection(valid_ask)
+    cast(dict[str, object], cast(list[object], valid_ask["evidence"])[0])["text"] = "different"
+    assert client.evidence_projection(search) != client.evidence_projection(valid_ask)
+
+
+def test_build_receipt_maps_only_manifest_fingerprint_and_closes_projection() -> None:
+    pack = client.load_source_pack(MANIFEST)
+    query = pack.queries[0]
+    evidence = _evidence()
+    evidence["content_fingerprint"] = "sha256:" + pack.sources[0].sha256
+
+    receipt = client.build_receipt(evidence, pack, query)
+
+    assert receipt == {
+        "schema_version": "mke.consumer_source_pack_receipt.v1",
+        "manifest_schema": "mke.consumer_source_pack_manifest.v1",
+        "pack_id": "local-knowledge-v1",
+        "evidence_schema": "mke.evidence_ref.v1",
+        "match_status": "matched",
+        "query_role": "operations_guide",
+        "source_key": "operations_guide",
+        "content_fingerprint": "sha256:" + pack.sources[0].sha256,
+        "locator": {"kind": "page", "start": 1, "end": 1},
+    }
+    assert not ({"evidence_id", "source_id", "publication_id", "run_id", "text"} & receipt.keys())
+
+
+@pytest.mark.parametrize(
+    ("mutation", "code"),
+    [
+        ("missing", "manifest_mapping_missing"),
+        ("ambiguous", "manifest_mapping_ambiguous"),
+        ("locator", "manifest_locator_mismatch"),
+    ],
+)
+def test_build_receipt_fails_closed(mutation: str, code: str) -> None:
+    pack = client.load_source_pack(MANIFEST)
+    query = pack.queries[0]
+    evidence = _evidence()
+    if mutation == "missing":
+        evidence["content_fingerprint"] = "sha256:" + "f" * 64
+    elif mutation == "ambiguous":
+        pack = client.SourcePack(
+            pack.schema_version, pack.pack_id, (pack.sources[0], pack.sources[0]), pack.queries
+        )
+        evidence["content_fingerprint"] = "sha256:" + pack.sources[0].sha256
+    else:
+        evidence["content_fingerprint"] = "sha256:" + pack.sources[0].sha256
+        evidence["locator"] = {"kind": "page", "start": 2, "end": 2}
+    with pytest.raises(client.ProofError) as exc_info:
+        client.build_receipt(evidence, pack, query)
+    assert exc_info.value.code == code
+
+
+def test_deadline_prefers_output_overflow_observed_before_deadline() -> None:
+    async def exercise() -> None:
+        capture = client.BoundedStderrCapture(1)
+        capture.overflow_observed_at = time.monotonic()
+        capture.overflow.set()
+        with pytest.raises(client.ProofError) as exc_info:
+            await client._deadline(asyncio.Event().wait(), 1.0, "mcp_startup_timeout", capture)
+        assert exc_info.value.code == "command_output_exceeded"
+        assert capture.terminal_code == "command_output_exceeded"
+
+    asyncio.run(exercise())
+
+
+def test_deadline_prefers_timeout_observed_before_later_output_overflow() -> None:
+    async def exercise() -> None:
+        capture = client.BoundedStderrCapture(1)
+
+        async def overflow_later() -> None:
+            await asyncio.sleep(0.05)
+            capture.overflow_observed_at = time.monotonic()
+            capture.overflow.set()
+
+        overflow_task = asyncio.create_task(overflow_later())
+        with pytest.raises(client.ProofError) as exc_info:
+            await client._deadline(asyncio.Event().wait(), 0.005, "mcp_tool_timeout", capture)
+        assert exc_info.value.code == "mcp_tool_timeout"
+        await overflow_task
+        assert capture.terminal_code == "mcp_tool_timeout"
+
+    asyncio.run(exercise())
+
+
+def _active_observation() -> dict[str, object]:
+    observation = _observation()
+    observation.update(
+        source_count=2,
+        active_publication_count=2,
+        active_evidence_count=2,
+    )
+    return observation
+
+
+def _flow_evidence(source: object, opaque_suffix: str) -> dict[str, object]:
+    value = _evidence()
+    value.update(
+        evidence_id="ev_" + opaque_suffix * 32,
+        source_id="src_" + opaque_suffix * 32,
+        publication_id="pub_" + opaque_suffix * 32,
+        run_id="run_" + opaque_suffix * 32,
+        content_fingerprint="sha256:" + cast(Any, source).sha256,
+    )
+    return value
+
+
+def _install_flow_sdk_fake(
+    monkeypatch: pytest.MonkeyPatch,
+    events: list[tuple[object, ...]],
+    *,
+    echo_mutation: tuple[str, str] | None = None,
+) -> None:
+    pack = client.load_source_pack(MANIFEST)
+    store_number = 0
+
+    @asynccontextmanager
+    async def fake_stdio(server: object, *, errlog: object):
+        nonlocal store_number
+        store_number += 1
+        events.append(("server_enter", store_number, tuple(cast(Any, server).args)))
+        try:
+            yield object(), object()
+        finally:
+            events.append(("server_close", store_number))
+
+    class FakeSession:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            self.store_number = store_number
+
+        async def __aenter__(self) -> FakeSession:
+            events.append(("session_enter", self.store_number))
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            events.append(("session_close", self.store_number))
+
+        async def initialize(self) -> object:
+            events.append(("initialize", self.store_number))
+            return object()
+
+        async def list_tools(self) -> object:
+            tools = _fixture_tools()
+            events.append(("list_tools", self.store_number, tuple(tool.name for tool in tools)))
+            return SimpleNamespace(tools=tools)
+
+        async def call_tool(self, name: str, arguments: dict[str, object]) -> object:
+            events.append(("call", self.store_number, name, copy.deepcopy(arguments)))
+            calls = [item for item in events if item[:3] == ("call", self.store_number, name)]
+            if name == "list_libraries_v1":
+                if len(calls) == 1:
+                    observation = {
+                        "schema_version": "mke.active_publication_observation.v1",
+                        "library_id": "local",
+                        "state": "empty",
+                        "source_count": 0,
+                        "active_publication_count": 0,
+                        "active_evidence_count": 0,
+                    }
+                else:
+                    observation = _active_observation()
+                payload = {
+                    "schema_version": "mke.list_libraries_response.v1",
+                    "ok": True,
+                    "observation": observation,
+                }
+            elif name == "ingest_file":
+                index = len(calls) - 1
+                payload = {
+                    "run_id": f"run_{self.store_number}{index}".ljust(36, "a"),
+                    "evidence_count": 1,
+                }
+            elif name == "get_run":
+                run_id = cast(str, arguments["run_id"])
+                payload = {
+                    "ok": True,
+                    "run": {"run_id": run_id, "state": "published"},
+                    "events": [
+                        {"event_index": 1, "event": "run_created"},
+                        {"event_index": 2, "event": "run_started"},
+                        {"event_index": 3, "event": "candidate_validated"},
+                        {"event_index": 4, "event": "publication_activated"},
+                    ],
+                }
+            elif name in {"search_library_v1", "ask_library_v1"}:
+                query_text = cast(str, arguments.get("query", arguments.get("question")))
+                query = next(item for item in pack.queries if item.query == query_text)
+                evidence = (
+                    []
+                    if query.expected_source_key is None
+                    else [
+                        _flow_evidence(
+                            next(
+                                source
+                                for source in pack.sources
+                                if source.source_key == query.expected_source_key
+                            ),
+                            str(self.store_number + pack.queries.index(query) + 1),
+                        )
+                    ]
+                )
+                if name == "search_library_v1":
+                    payload = {
+                        "schema_version": "mke.search_library_response.v1",
+                        "ok": True,
+                        "query": query_text,
+                        "observation": _active_observation(),
+                        "results": evidence,
+                    }
+                    if echo_mutation == ("search", query.role):
+                        payload["query"] = "mutated query"
+                else:
+                    payload = {
+                        "schema_version": "mke.ask_library_response.v1",
+                        "ok": True,
+                        "question": query_text,
+                        "answer_status": "evidence_found"
+                        if evidence
+                        else "insufficient_evidence",
+                        "summary": "bounded summary" if evidence else "insufficient evidence",
+                        "observation": _active_observation(),
+                        "evidence": evidence,
+                        "limitations": [] if evidence else ["insufficient_evidence"],
+                    }
+                    if echo_mutation == ("ask", query.role):
+                        payload["question"] = "mutated question"
+            else:
+                raise AssertionError(f"unexpected tool: {name}")
+            return SimpleNamespace(isError=False, structuredContent=payload, content=[])
+
+    monkeypatch.setattr(client, "stdio_client", fake_stdio)
+    monkeypatch.setattr(client, "ClientSession", FakeSession)
+
+
+@pytest.mark.parametrize(
+    "echo_mutation",
+    [
+        ("search", "operations_guide"),
+        ("ask", "operations_guide"),
+        ("search", "unsupported"),
+        ("ask", "unsupported"),
+    ],
+)
+def test_run_store_session_rejects_search_and_ask_query_echo_drift(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    echo_mutation: tuple[str, str],
+) -> None:
+    events: list[tuple[object, ...]] = []
+    _install_flow_sdk_fake(monkeypatch, events, echo_mutation=echo_mutation)
+    config = client.ConsumerConfig(
+        MANIFEST,
+        SCHEMAS,
+        _copied_source_root(tmp_path),
+        tmp_path / "mke",
+        tmp_path,
+        {},
+        1.0,
+        1.0,
+        1024,
+    )
+
+    with pytest.raises(client.ProofError) as exc_info:
+        asyncio.run(client.run_store_session(config, tmp_path / "fresh.sqlite"))
+
+    assert exc_info.value.code == "consumer_payload_invalid"
+
+
+@pytest.mark.parametrize(
+    ("failure_phase", "code"),
+    [("startup", "mcp_transport_failed"), ("established", "mcp_transport_failed")],
+)
+def test_run_store_session_maps_unobservable_sdk_failures_to_transport(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    failure_phase: str,
+    code: str,
+) -> None:
+    @asynccontextmanager
+    async def fake_stdio(server: object, *, errlog: object):
+        if failure_phase == "startup":
+            raise RuntimeError("sensitive startup detail")
+        yield object(), object()
+
+    class FakeSession:
+        async def __aenter__(self) -> FakeSession:
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            return None
+
+        async def initialize(self) -> object:
+            return object()
+
+        async def list_tools(self) -> object:
+            raise RuntimeError("sensitive transport detail")
+
+    def fake_session(*args: object, **kwargs: object) -> FakeSession:
+        return FakeSession()
+
+    monkeypatch.setattr(client, "stdio_client", fake_stdio)
+    monkeypatch.setattr(client, "ClientSession", fake_session)
+    config = client.ConsumerConfig(
+        MANIFEST,
+        SCHEMAS,
+        _copied_source_root(tmp_path),
+        tmp_path / "mke",
+        tmp_path,
+        {},
+        1.0,
+        1.0,
+        1024,
+    )
+
+    with pytest.raises(client.ProofError) as exc_info:
+        asyncio.run(client.run_store_session(config, tmp_path / "fresh.sqlite"))
+
+    assert exc_info.value.code == code
+
+
+def test_real_nonzero_child_is_transport_when_exit_code_is_controller_owned(
+    tmp_path: Path,
+) -> None:
+    server = tmp_path / "nonzero-mcp"
+    server.write_text(
+        "#!/usr/bin/env python3\n"
+        "import os, pathlib, sys\n"
+        "pathlib.Path('nonzero.pid').write_text(str(os.getpid()))\n"
+        "sys.exit(7)\n",
+        encoding="utf-8",
+    )
+    server.chmod(0o755)
+    config = client.ConsumerConfig(
+        MANIFEST,
+        SCHEMAS,
+        _copied_source_root(tmp_path),
+        server,
+        tmp_path,
+        {"PATH": os.environ["PATH"]},
+        10.0,
+        10.0,
+        1024,
+    )
+
+    started = time.monotonic()
+    with pytest.raises(client.ProofError) as exc_info:
+        asyncio.run(client.run_store_session(config, tmp_path / "store.sqlite"))
+
+    assert exc_info.value.code == "mcp_transport_failed"
+    assert time.monotonic() - started < 5.0
+    pid = int((tmp_path / "nonzero.pid").read_text(encoding="utf-8"))
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)
+
+
+def test_run_consumer_maps_fresh_store_receipt_mismatch_to_approved_fallback(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    pack = client.load_source_pack(MANIFEST)
+    receipts = tuple(
+        client.build_receipt(
+            {
+                **_evidence(),
+                "content_fingerprint": "sha256:" + pack.sources[index].sha256,
+            },
+            pack,
+            pack.queries[index],
+        )
+        for index in range(2)
+    )
+    calls = 0
+
+    async def fake_store(config: object, database: object) -> object:
+        nonlocal calls
+        calls += 1
+        current = receipts if calls == 1 else receipts[:1]
+        return client.StoreResult(
+            2, 2, 2, 2, ("empty", "active"), current, True, True, True, True, True
+        )
+
+    monkeypatch.setattr(client, "run_store_session", fake_store)
+    config = client.ConsumerConfig(
+        MANIFEST, SCHEMAS, LOCAL_FIXTURE_ROOT, tmp_path / "mke", tmp_path, {}, 1.0, 1.0, 1024
+    )
+
+    with pytest.raises(client.ProofError) as exc_info:
+        asyncio.run(client.run_consumer(config))
+
+    assert exc_info.value.code == "proof_failed"
+
+
+@pytest.mark.parametrize(
+    ("failure", "code"),
+    [
+        (client.ProofError("consumer_payload_invalid"), "consumer_payload_invalid"),
+        (client.ProofError("injected-secret:/private/source/repository"), "proof_failed"),
+        (RuntimeError("sensitive exception detail"), "proof_failed"),
+    ],
+)
+def test_main_failure_output_is_exact_and_redacted(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    failure: Exception,
+    code: str,
+) -> None:
+    async def fail(config: object) -> object:
+        raise failure
+
+    monkeypatch.setattr(client, "run_consumer", fail)
+    result = client.main(
+        [
+            "--manifest", str(MANIFEST),
+            "--schemas", str(SCHEMAS),
+            "--source-root", str(LOCAL_FIXTURE_ROOT),
+            "--mke", str(tmp_path / "mke"),
+            "--workspace", str(tmp_path),
+        ]
+    )
+
+    assert result == 1
+    output = capsys.readouterr().out.strip()
+    assert json.loads(output) == {"status": "failed", "code": code}
+    assert set(json.loads(output)) == {"status", "code"}
+    assert "sensitive" not in output and "reason" not in output and str(tmp_path) not in output
+
+
+def test_main_names_the_hard_bound_as_mcp_server_stderr(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    observed: list[_ServerStderrConfig] = []
+
+    async def capture(config: object) -> object:
+        observed.append(cast(_ServerStderrConfig, config))
+        raise client.ProofError("proof_failed")
+
+    monkeypatch.setattr(client, "run_consumer", capture)
+
+    result = client.main(
+        [
+            "--manifest", str(MANIFEST),
+            "--schemas", str(SCHEMAS),
+            "--source-root", str(LOCAL_FIXTURE_ROOT),
+            "--mke", str(tmp_path / "mke"),
+            "--workspace", str(tmp_path),
+            "--max-server-stderr-bytes", "777",
+        ]
+    )
+
+    assert result == 1
+    assert capsys.readouterr().out
+    assert len(observed) == 1
+    assert observed[0].max_server_stderr_bytes == 777
+    assert not hasattr(observed[0], "max_transport_bytes")
+
+
+def test_run_store_session_uses_exact_mcp_success_flow_and_closes_boundaries(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    events: list[tuple[object, ...]] = []
+    _install_flow_sdk_fake(monkeypatch, events)
+    config = client.ConsumerConfig(
+        MANIFEST,
+        SCHEMAS,
+        _copied_source_root(tmp_path),
+        tmp_path / "mke",
+        tmp_path,
+        {},
+        1.0,
+        1.0,
+        1024,
+    )
+
+    result = asyncio.run(client.run_store_session(config, tmp_path / "fresh.sqlite"))
+
+    pack = client.load_source_pack(MANIFEST)
+    calls = [event for event in events if event[0] == "call"]
+    assert [(event[0], event[1]) for event in events[:4]] == [
+        ("server_enter", 1),
+        ("session_enter", 1),
+        ("initialize", 1),
+        ("list_tools", 1),
+    ]
+    assert events[3][2] == tuple(tool.name for tool in _fixture_tools())
+    assert len(cast(tuple[str, ...], events[3][2])) == 8
+    assert [(call[2], call[3]) for call in calls] == [
+        ("list_libraries_v1", {}),
+        ("ingest_file", {"path": pack.sources[0].relative_filename}),
+        ("get_run", {"run_id": "run_10".ljust(36, "a")}),
+        ("ingest_file", {"path": pack.sources[1].relative_filename}),
+        ("get_run", {"run_id": "run_11".ljust(36, "a")}),
+        ("list_libraries_v1", {}),
+        ("search_library_v1", {"query": pack.queries[0].query, "limit": 5}),
+        ("ask_library_v1", {"question": pack.queries[0].query, "limit": 5}),
+        ("search_library_v1", {"query": pack.queries[1].query, "limit": 5}),
+        ("ask_library_v1", {"question": pack.queries[1].query, "limit": 5}),
+        ("search_library_v1", {"query": pack.queries[2].query, "limit": 5}),
+        ("ask_library_v1", {"question": pack.queries[2].query, "limit": 5}),
+    ]
+    assert events[-2:] == [("session_close", 1), ("server_close", 1)]
+    assert (result.source_count, result.published_run_count) == (2, 2)
+    assert (result.active_publication_count, result.active_evidence_count) == (2, 2)
+    assert result.observed_states == ("empty", "active")
+    assert result.search_ask_projection_equal is True
+
+
+def test_run_consumer_uses_two_fresh_databases_and_only_receipt_identity(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    events: list[tuple[object, ...]] = []
+    _install_flow_sdk_fake(monkeypatch, events)
+    config = client.ConsumerConfig(
+        MANIFEST,
+        SCHEMAS,
+        _copied_source_root(tmp_path),
+        tmp_path / "mke",
+        tmp_path,
+        {},
+        1.0,
+        1.0,
+        1024,
+    )
+
+    result = asyncio.run(client.run_consumer(config))
+
+    server_args = [
+        cast(tuple[str, ...], event[2]) for event in events if event[0] == "server_enter"
+    ]
+    assert server_args[0][1] == str(tmp_path / "store-1.sqlite")
+    assert server_args[1][1] == str(tmp_path / "store-2.sqlite")
+    assert result.fresh_store_mapping is True
+    rendered = client.render_controller_result(result)
+    opaque_fields = ("evidence_id", "source_id", "publication_id", "run_id")
+    assert not any(token in rendered for token in opaque_fields)
+
+
+def test_standalone_client_has_only_consumer_and_official_sdk_dependencies() -> None:
+    tree = ast.parse(CLIENT_PATH.read_text(encoding="utf-8"))
+    imported_roots = {
+        alias.name.split(".", 1)[0]
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    } | {
+        (node.module or "").split(".", 1)[0]
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+    }
+    assert imported_roots <= sys.stdlib_module_names | {"__future__", "mcp"}
+    assert "mcp" in imported_roots
+    assert not ({"mke", "pydantic", "sqlite3"} & imported_roots)
+    forbidden_calls = {
+        "connect",
+        "execute",
+        "executemany",
+        "executescript",
+    }
+    assert not {
+        node.func.attr
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+    } & forbidden_calls
+    assert "/Users/" not in CLIENT_PATH.read_text(encoding="utf-8")
+    assert "tests.fixtures" not in CLIENT_PATH.read_text(encoding="utf-8")
+
+
+def test_success_reads_only_copied_inputs_and_observes_mke_through_mcp(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    copied = tmp_path / "copied"
+    copied.mkdir()
+    manifest = copied / "manifest.json"
+    schemas = copied / "mcp-tool-schemas.json"
+    source_root = copied / "source-pack"
+    source_root.mkdir()
+    manifest.write_bytes(MANIFEST.read_bytes())
+    schemas.write_bytes(SCHEMAS.read_bytes())
+    for source in ("operations-guide.pdf", "incident-guide.pdf"):
+        (source_root / source).write_bytes((LOCAL_FIXTURE_ROOT / source).read_bytes())
+
+    events: list[tuple[object, ...]] = []
+    _install_flow_sdk_fake(monkeypatch, events)
+    discovered_tools = _fixture_tools()
+    monkeypatch.setattr(sys.modules[__name__], "_fixture_tools", lambda: discovered_tools)
+    opened: list[Path] = []
+    original_read_text = Path.read_text
+    original_read_bytes = Path.read_bytes
+
+    def recording_read_text(
+        path: Path, encoding: str | None = None, errors: str | None = None
+    ) -> str:
+        opened.append(path.resolve())
+        return original_read_text(path, encoding=encoding, errors=errors)
+
+    def recording_read_bytes(path: Path) -> bytes:
+        opened.append(path.resolve())
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_text", recording_read_text)
+    monkeypatch.setattr(Path, "read_bytes", recording_read_bytes)
+    config = client.ConsumerConfig(
+        manifest,
+        schemas,
+        source_root,
+        copied / "mke",
+        copied,
+        {},
+        1.0,
+        1.0,
+        1024,
+    )
+
+    result = asyncio.run(client.run_consumer(config))
+
+    allowed = {
+        manifest.resolve(),
+        schemas.resolve(),
+        (source_root / "operations-guide.pdf").resolve(),
+        (source_root / "incident-guide.pdf").resolve(),
+    }
+    assert opened and set(opened) == allowed
+    assert result.fresh_store_mapping is True
+    assert len([event for event in events if event[0] == "server_enter"]) == 2
+    assert len([event for event in events if event[0] == "list_tools"]) == 2
+    assert len([event for event in events if event[0] == "call"]) == 24
+
+
+def test_run_store_session_terminates_live_noisy_mcp_child_at_stderr_cap(
+    tmp_path: Path,
+) -> None:
+    server = tmp_path / "noisy-mcp"
+    server.write_text(
+        "#!/usr/bin/env python3\n"
+        "import os, pathlib, sys, time\n"
+        "pathlib.Path('noisy.pid').write_text(str(os.getpid()))\n"
+        "while True:\n"
+        "    try:\n"
+        "        sys.stderr.write('x' * 4096)\n"
+        "        sys.stderr.flush()\n"
+        "    except BrokenPipeError:\n"
+        "        while True:\n"
+        "            time.sleep(1)\n"
+        "    time.sleep(0.001)\n",
+        encoding="utf-8",
+    )
+    server.chmod(0o755)
+    config = client.ConsumerConfig(
+        MANIFEST,
+        SCHEMAS,
+        _copied_source_root(tmp_path),
+        server,
+        tmp_path,
+        {"PATH": os.environ["PATH"]},
+        10.0,
+        10.0,
+        1024,
+    )
+
+    started = time.monotonic()
+    with pytest.raises(client.ProofError) as exc_info:
+        asyncio.run(client.run_store_session(config, tmp_path / "store.sqlite"))
+    elapsed = time.monotonic() - started
+
+    assert exc_info.value.code == "command_output_exceeded"
+    assert elapsed < 5.0
+    pid = int((tmp_path / "noisy.pid").read_text(encoding="utf-8"))
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)
