@@ -5,7 +5,7 @@ claims after implementation.
 
 Review status: initial implementation review completed and accepted at commit
 `44fa5b3571173b09400c76f3b326633c63d08f31`; CI portability resolution completed and accepted by
-targeted re-review. Post-commit neutral detached full-suite verification remains pending.
+targeted re-review, including post-commit neutral detached full-suite verification.
 
 ## Finding 1 — Client Failure Propagation
 
@@ -67,6 +67,12 @@ and boundedness statement. Targeted re-review accepted the expanded review-fix s
 neutral detached-worktree command `UV_OFFLINE=1 uv run pytest -q` completed with
 `1584 passed, 5 skipped, 5 warnings in 117.75s` and exit code `0` at commit
 `44fa5b3571173b09400c76f3b326633c63d08f31`.
+
+The Linux portability resolution at commit `7781dd5a69fbfe422a411e4ad68817be22e0a860`
+passed the same bare command from a neutral detached worktree with
+`1586 passed, 5 skipped, 5 warnings in 120.46s` and exit code `0`. A discarded worktree path
+containing the command marker `proof` reproduced the already classified path-sensitive
+release-smoke failure and was not accepted as neutral verification evidence.
 
 This resolution does not modify producer runtime, canonical MCP schemas, evaluation behavior or
 artifacts, frozen source bytes, primary CI source identity, release verification, versioning,
