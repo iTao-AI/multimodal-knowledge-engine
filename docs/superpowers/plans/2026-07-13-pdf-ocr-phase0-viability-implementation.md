@@ -596,11 +596,14 @@ receipt to its canonical frozen bytes plus its internal distribution totals and 
 Candidate wheelhouses are seeded with that same MKE wheel before online resolution, so an
 all-resolver-failed candidate can emit valid-negative evidence without inventing provider packages;
 prepared wheelhouses remain read-only and fail closed when the MKE identity is absent or drifted.
-The resolution remains pending targeted re-review. The 25,101,925,887-byte figure is the sum of 16
-temporary installed trees measured before per-cell cleanup, not retained disk usage. The retained
-operator-local package evidence is approximately 2.2 GB; its location is intentionally not part of
-the public receipt or repository contract. Task 4 model acquisition and real-provider startup
-remain unauthorized and incomplete.
+Targeted re-review completed and accepted the package-only checkpoint at implementation HEAD
+`ba86e74f3f67fe0c153caf60133aebe74c27568b`; see the durable
+[Package Compatibility Checkpoint Review](../reviews/2026-07-14-pdf-ocr-phase0-package-checkpoint-review.md).
+The 25,101,925,887-byte figure is the sum of 16 temporary installed trees measured before per-cell
+cleanup, not retained disk usage. The retained operator-local package evidence is approximately
+2.2 GB; its location is intentionally not part of the public receipt or repository contract. Task 4
+Steps 4-6 remain unstarted and incomplete. Model acquisition, cache-only real-provider startup, and
+the real PaddleOCR-VL artifact inventory/schema check remain the next explicit authority gate.
 
 - [ ] **Step 4: Prepare model artifacts under explicit authority**
 
