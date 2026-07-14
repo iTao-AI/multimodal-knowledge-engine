@@ -46,6 +46,14 @@ Engineering execution review. The review checks whether the approved release-clo
 
 **Failure behavior:** Exit `0`, non-JSON output, raw traceback, unknown rule, empty violations, or any non-documentation/presentation violation is a hard stop. Blanket suppression is prohibited.
 
+### 5. P1: Staged Validators Lack A Complete Repository View
+
+**Root cause:** The amended Task 4 staged E3-C/D/E top-level artifacts outside the repository and required canonical validation before replacement, but it did not define a repository view containing the full staged dependency graph. Canonical builders and validators resolve repository-relative inputs through `repository_root`. In particular, `_validate_state` in `src/mke/evaluation/relevance_gate_artifact.py` resolves and hashes `development_freeze_path` and `holdout_receipt_path` under the supplied repository root. Dense and hybrid builders likewise resolve protocol, corpus, source, and dependency identities through their repository root. Supplying staged top-level artifact/protocol paths while retaining the old repository root therefore validates old dependency bytes or fails; it cannot prove the complete candidate graph.
+
+**Accepted amendment:** After the E1-E3-B atomic helper succeeds, create a call-owned detached validation mirror rooted at `task4_start`. Overlay the exact successful E1-E3-B candidate bytes and every staged E3-C/D/E byte at canonical repository-relative paths. Require the mirror changed set and bytes to equal the complete staged candidate set within the exact 21-path allowlist. Run applicable builders, layer validators, and all seven canonical validators with every path and `repository_root`/`--repository` bound to the mirror. Only after the complete mirror is green may the exact validated downstream bytes be applied to the feature worktree. Capture call-owned pre-apply descriptors and bytes, use per-file atomic replacement in dependency order, restore every touched downstream path on apply or post-apply failure, verify exact restoration, and rerun all seven validators against the real worktree before staging.
+
+**Failure behavior:** Missing mirror coverage, mirror/staged path or byte mismatch, old-root dependency resolution, apply failure, or post-apply validator failure blocks publication of the downstream set. Discard call-owned staging/mirror before application failures. After a touched-path failure, restore every downstream path exactly; restoration failure is a hard stop with exact dirty paths reported. Never stage or commit a partial set, and do not claim filesystem-wide multi-file atomicity.
+
 ## Confirmed Strengths
 
 - Runtime-neutral release boundary.
@@ -61,6 +69,7 @@ Engineering execution review. The review checks whether the approved release-clo
 - Markdown fence balance is even and all fences are closed.
 - Checkbox counts and incomplete status are internally consistent; no checkbox is completed.
 - No stale old Task 6 ordering, blanket `|| true`, or `implementation complete` wording remains.
+- No stale wording claims that top-level staged paths are canonically validated without the complete validation mirror.
 - Every referenced file, function, and regression test exists.
 - Public-neutral and private-path scans pass.
 - `git diff --check` passes.

@@ -534,22 +534,42 @@ Create a call-owned, untracked Python rebinder under `${evidence_dir}`. Do not a
 
 Dense development-freeze and holdout-receipt have no public identity-only builder. Do not rerun a model or re-observe the holdout. Rebind only their protocol, dependency, source, and state-receipt identity fields using the changed-field pattern verified by commit `6c2559b3fec80b3b98608214594f9069e4b5fd2e`; this commit is a changed-field reference, never a source for copied digests. Require the dense comparison builder, dense validator, and normalized semantic projection equality to prove the result.
 
-Generate all candidate bytes first under `${evidence_dir}/staged`. Before publication, the rebinder must:
+Generate all E3-C/D/E candidate bytes first under `${evidence_dir}/staged`. After the E1-E3-B helper succeeds, create a call-owned detached validation mirror rooted at `task4_start`. Overlay into canonical repository-relative paths in that mirror both:
+
+```bash
+validation_parent="$(mktemp -d)"
+validation_mirror="${validation_parent}/mke-identity-validation"
+git worktree add --detach "${validation_mirror}" "${task4_start}"
+```
+
+1. the exact successful E1-E3-B refreshed candidate bytes read from the feature worktree; and
+2. every staged E3-C/D/E candidate byte.
+
+The validation mirror must contain the complete proposed dependency graph. Passing only staged top-level `--artifact` or `--protocol` paths while leaving `--repository .` is prohibited because builders and validators resolve repository-relative sources, development freezes, holdout receipts, and dependency identities through `repository_root`.
+
+Before feature-worktree publication, the rebinder and validation mirror must:
 
 1. enforce the exact 21-path maximum allowlist;
-2. compare before/staged normalized semantic projections for every E1 through E3-E layer;
-3. permit changes only to path, bytes, SHA-256, source inventory, dependency identity, state-receipt digest, and equivalent identity metadata;
-4. reject changes to observations, results, metrics, thresholds, gates, diagnostics, selected profile/candidate, status, verdict, corpus, queries, qrels, or fixtures;
-5. run the applicable builders and layer validators against staged bytes, followed by all seven canonical validators;
-6. replace repository files in dependency order only after the complete staged set passes.
+2. require the mirror changed set relative to `task4_start` to equal the complete candidate changed set and remain within that allowlist;
+3. require every changed mirror byte to equal its corresponding refreshed/staged candidate byte;
+4. compare before/mirror normalized semantic projections for every E1 through E3-E layer;
+5. permit changes only to path, bytes, SHA-256, source inventory, dependency identity, state-receipt digest, and equivalent identity metadata;
+6. reject changes to observations, results, metrics, thresholds, gates, diagnostics, selected profile/candidate, status, verdict, corpus, queries, qrels, or fixtures;
+7. run applicable builders and layer validators using paths inside the mirror and `repository_root`/`--repository "${validation_mirror}"`;
+8. run all seven canonical validators against the mirror, with every artifact, protocol, and dense-artifact path resolved inside the mirror;
+9. preserve the exact validated downstream bytes for feature-worktree application only after the complete mirror is green.
 
-Any failure before publication discards only the call-owned E3-C/D/E staging. If E1-E3-B atomic refresh requires recovery, use only the existing `artifact_refresh recover` command. Never partially publish staged downstream files, hand-edit a validator, or weaken validation because a builder cannot express the identity-only change. Inability to express the change is an authority hard stop.
+Any failure before feature-worktree application discards only the call-owned E3-C/D/E staging and validation mirror. If E1-E3-B atomic refresh requires recovery, use only the existing `artifact_refresh recover` command. Never partially publish staged downstream files, hand-edit a validator, or weaken validation because a builder cannot express the identity-only change. Inability to express the change is an authority hard stop.
 
 - [ ] **Step 5: Enforce the exact changed-file and semantic allowlists**
 
-Compare the changed set against the conditional list above and against the previous repository identity chain. Require all corpus PDFs/text, manifests, qrels, query definitions, and evaluation implementation files to remain byte-identical to the Task 4 starting commit.
+Compare the staged set, validation-mirror changed set, and proposed feature-worktree changed set against the conditional list above and the previous repository identity chain. Require all corpus PDFs/text, manifests, qrels, query definitions, and evaluation implementation files to remain byte-identical to the Task 4 starting commit.
 
 The following must remain equal for every layer: observations, ordered results after approved volatile-field normalization, metrics, thresholds, gates, diagnostics, selected profile/candidate, holdout status, release/promotion status, and verdict.
+
+Before applying downstream bytes, capture path descriptors and exact bytes/digests for every pre-apply conditional downstream path in a call-owned backup. Apply only the exact mirror-validated E3-C/D/E bytes to the feature worktree, using per-file atomic replacement in dependency order. This is a recoverable ordered multi-file operation, not filesystem-wide multi-file atomicity.
+
+If any apply step or post-apply validator fails, restore every touched downstream path from the call-owned backup and verify exact descriptor/byte restoration. If restoration is not exact, hard stop and report the precise dirty paths. Never stage or commit a partial downstream set.
 
 - [ ] **Step 6: Run artifact regression suites and all validators GREEN**
 
@@ -570,7 +590,7 @@ UV_OFFLINE=1 uv run pytest -q \
   tests/evaluation/test_relevance_gate_workflow.py
 ```
 
-Then rerun all seven commands from Step 2. Every validator must pass. Optional cache-ready dense replay is not required and must not trigger a model download.
+After the exact validated downstream bytes are applied to the feature worktree, rerun all seven commands from Step 2 with `--repository .` before any staging or commit. Every validator must pass against the real worktree. A post-apply validator failure triggers the Step 5 restoration contract. Optional cache-ready dense replay is not required and must not trigger a model download.
 
 - [ ] **Step 7: Commit only if validator-proven files changed**
 
@@ -817,6 +837,10 @@ Task 7 completion makes the local candidate eligible for a separate push/PR auth
 | Evaluation validator fails on semantics rather than identity | Stop before artifact writes and return to authority review. |
 | Atomic artifact refresh is interrupted | Run supported recovery, inspect, and stop; do not hand-copy transaction files. |
 | E3-C/D/E identity cannot be rebuilt with existing deterministic tooling | Stop; do not add a release-specific mutator. |
+| Validators have not passed against a complete validation mirror containing every proposed dependency byte | Stop before feature-worktree application; staged top-level paths with the old repository root are not valid evidence. |
+| Validation-mirror changed paths or bytes differ from the exact staged candidate set | Stop, discard call-owned mirror/staging, and report the mismatch; do not apply downstream bytes. |
+| Downstream apply or post-apply validation fails | Restore every touched downstream path from call-owned backup and verify exact restoration before stopping. |
+| Downstream restoration is not exact | Hard stop, report exact dirty paths, and do not stage or commit any conditional identity file. |
 | Conditional artifact changed set exceeds the expected chain | Stop and report the exact extra paths. |
 | Python 3.12/3.13 or offline dependencies are unavailable | Report environment blocker; do not substitute, download, or use the network. |
 | Full pytest has any failure in the neutral worktree | Task 6 remains incomplete; no residual waiver. |
