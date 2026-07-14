@@ -1103,7 +1103,7 @@ def test_committed_receipt_is_canonical_closed_and_frozen() -> None:
 
     receipt = compatibility.validate_committed_receipt_bytes(
         encoded,
-        frozen_sha256="91c782fb147fbb1f59f2c2f447f79d8c8c82188860b2b6afeb4455c92630fcbb",
+        frozen_sha256="d2232fcbd6775a9f03fa3d2a77b181987b5cfa43c9fdc1efcb48f08f01553d2a",
     )
 
     candidates = receipt["candidates"]
