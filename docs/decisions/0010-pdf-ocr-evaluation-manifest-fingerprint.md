@@ -1,6 +1,6 @@
 # ADR-0010: PDF OCR Evaluation Manifest Fingerprint
 
-- Status: Proposed / pending implementation
+- Status: Accepted
 - Date: 2026-07-14
 
 ## Context
@@ -11,7 +11,7 @@ the built-in and PyMuPDF text-layer extractors; using either value for OCR-route
 the router, render, provider, model, package, wheel, and normalization authority that produced the
 candidate Evidence.
 
-## Proposed Decision
+## Decision
 
 Introduce an evaluation-only fingerprint with the exact form
 `pdf-ocr-eval-v1:<64 lowercase hex SHA-256>`. Its digest payload is a closed object whose exact
@@ -73,12 +73,14 @@ the digest against the compact `RunManifest` fingerprint before calling
 
 ## Scope And Consequences
 
-This proposal is limited to the Phase 0 evaluation runner. `MKEEngine.ingest_file`, CLI, and MCP
+This decision is limited to the Phase 0 evaluation runner. `MKEEngine.ingest_file`, CLI, and MCP
 have no input for selecting or submitting an OCR evaluation fingerprint or `RunManifest`, and
 Task 5A adds none. It adds no production OCR flag, runtime default, SQLite migration, dependency,
 or production OCR authority. Existing PDF and video fingerprints and behavior remain compatible;
-the normal PDF application path continues to produce `pymupdf-text-v1`. Implementation and
-acceptance require Task 5A TDD evidence; this ADR does not claim that the contract is implemented.
+the normal PDF application path continues to produce `pymupdf-text-v1`. Task 5A implemented only
+the compact domain fingerprint, exact-stage, duplicate-stage, and page-locator checks. Its focused
+domain, application, CLI, and MCP suite passed with `121 passed, 5 warnings`. Structured extractor
+identity validation and producer authority remain assigned to Task 5B.
 
 SQLite and the domain validate only the compact manifest contract. They do not persist or validate
 the structured extractor identity. The future production OCR report-and-activation gate belongs to

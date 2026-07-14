@@ -436,6 +436,10 @@ REQUIRED_VIDEO_STAGES = frozenset({"video_transcription", "candidate_evidence"})
 VIDEO_TRANSCRIPT_FINGERPRINT = "builtin-video-transcript-v1"
 LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT = "local-command-video-transcript-v1"
 _FASTER_WHISPER_FINGERPRINT_RE = re.compile(r"faster-whisper-v1:[0-9a-f]{64}\Z")
+_PDF_OCR_EVALUATION_FINGERPRINT_RE = re.compile(r"pdf-ocr-eval-v1:[0-9a-f]{64}\Z")
+_REQUIRED_PDF_OCR_EVALUATION_STAGES = frozenset(
+    {"pdf_ocr_extraction", "candidate_evidence"}
+)
 
 
 def is_recognized_video_fingerprint(value: str) -> bool:
@@ -464,9 +468,15 @@ def validate_manifest(manifest: RunManifest, evidence: list[CandidateEvidence]) 
     elif is_recognized_video_fingerprint(manifest.extractor_fingerprint):
         expected_stages = REQUIRED_VIDEO_STAGES
         expected_locator_kind = "timestamp_ms"
+    elif _PDF_OCR_EVALUATION_FINGERPRINT_RE.fullmatch(manifest.extractor_fingerprint):
+        expected_stages = _REQUIRED_PDF_OCR_EVALUATION_STAGES
+        expected_locator_kind = "page"
     else:
         raise ManifestValidationError("RunManifest extractor fingerprint is not recognized")
-    if frozenset(manifest.required_stages) != expected_stages:
+    if (
+        len(manifest.required_stages) != len(set(manifest.required_stages))
+        or frozenset(manifest.required_stages) != expected_stages
+    ):
         raise ManifestValidationError("RunManifest required stages are incomplete")
     if len(manifest.asset_sha256) != 64:
         raise ManifestValidationError("RunManifest asset sha256 must be a hex digest")

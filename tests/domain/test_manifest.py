@@ -2,6 +2,7 @@ import pytest
 
 from mke.domain import (
     PDF_EXTRACTOR_FINGERPRINT,
+    PYMUPDF_TEXT_FINGERPRINT,
     REQUIRED_PDF_STAGES,
     REQUIRED_VIDEO_STAGES,
     VIDEO_TRANSCRIPT_FINGERPRINT,
@@ -85,6 +86,117 @@ def test_manifest_validation_accepts_exact_faster_whisper_fingerprint() -> None:
     ]
 
     validate_manifest(manifest, evidence)
+
+
+def test_manifest_validation_accepts_exact_pdf_ocr_evaluation_fingerprint() -> None:
+    manifest = _make_manifest(
+        required_stages=("candidate_evidence", "pdf_ocr_extraction"),
+        extractor_fingerprint="pdf-ocr-eval-v1:" + ("a" * 64),
+    )
+
+    validate_manifest(manifest, [_make_evidence()])
+
+
+@pytest.mark.parametrize(
+    "fingerprint",
+    [
+        "pdf-ocr-eval-v1:",
+        "pdf-ocr-eval-v1:" + ("a" * 63),
+        "pdf-ocr-eval-v1:" + ("a" * 65),
+        "pdf-ocr-eval-v1:" + ("A" * 64),
+        "pdf-ocr-eval-v2:" + ("a" * 64),
+    ],
+)
+def test_manifest_validation_rejects_invalid_pdf_ocr_evaluation_fingerprint(
+    fingerprint: str,
+) -> None:
+    manifest = _make_manifest(
+        required_stages=("candidate_evidence", "pdf_ocr_extraction"),
+        extractor_fingerprint=fingerprint,
+    )
+
+    with pytest.raises(ManifestValidationError, match="fingerprint"):
+        validate_manifest(manifest, [_make_evidence()])
+
+
+@pytest.mark.parametrize(
+    "required_stages",
+    [tuple(sorted(REQUIRED_PDF_STAGES)), tuple(sorted(REQUIRED_VIDEO_STAGES))],
+)
+def test_manifest_validation_rejects_pdf_ocr_fingerprint_with_non_ocr_stages(
+    required_stages: tuple[str, ...],
+) -> None:
+    manifest = _make_manifest(
+        required_stages=required_stages,
+        extractor_fingerprint="pdf-ocr-eval-v1:" + ("a" * 64),
+    )
+
+    with pytest.raises(ManifestValidationError, match="required stages"):
+        validate_manifest(manifest, [_make_evidence()])
+
+
+@pytest.mark.parametrize(
+    "fingerprint",
+    [
+        PDF_EXTRACTOR_FINGERPRINT,
+        PYMUPDF_TEXT_FINGERPRINT,
+        VIDEO_TRANSCRIPT_FINGERPRINT,
+    ],
+)
+def test_manifest_validation_rejects_non_ocr_fingerprint_with_ocr_stages(
+    fingerprint: str,
+) -> None:
+    manifest = _make_manifest(
+        required_stages=("candidate_evidence", "pdf_ocr_extraction"),
+        extractor_fingerprint=fingerprint,
+    )
+
+    with pytest.raises(ManifestValidationError, match="required stages"):
+        validate_manifest(manifest, [_make_evidence()])
+
+
+def test_manifest_validation_rejects_duplicate_pdf_ocr_stages() -> None:
+    manifest = _make_manifest(
+        required_stages=(
+            "candidate_evidence",
+            "pdf_ocr_extraction",
+            "candidate_evidence",
+        ),
+        extractor_fingerprint="pdf-ocr-eval-v1:" + ("a" * 64),
+    )
+
+    with pytest.raises(ManifestValidationError, match="required stages"):
+        validate_manifest(manifest, [_make_evidence()])
+
+
+def test_manifest_validation_rejects_non_page_pdf_ocr_locator() -> None:
+    manifest = _make_manifest(
+        required_stages=("candidate_evidence", "pdf_ocr_extraction"),
+        extractor_fingerprint="pdf-ocr-eval-v1:" + ("a" * 64),
+    )
+
+    with pytest.raises(ManifestValidationError, match="locator kind"):
+        validate_manifest(
+            manifest,
+            [_make_evidence(locator_kind="timestamp_ms", locator_start=0, locator_end=1)],
+        )
+
+
+@pytest.mark.parametrize(("start", "end"), [(0, 1), (2, 1)])
+def test_manifest_validation_rejects_invalid_pdf_ocr_page_locator(
+    start: int,
+    end: int,
+) -> None:
+    manifest = _make_manifest(
+        required_stages=("candidate_evidence", "pdf_ocr_extraction"),
+        extractor_fingerprint="pdf-ocr-eval-v1:" + ("a" * 64),
+    )
+
+    with pytest.raises(ManifestValidationError, match="page locator"):
+        validate_manifest(
+            manifest,
+            [_make_evidence(locator_start=start, locator_end=end)],
+        )
 
 
 def test_manifest_validation_rejects_faster_whisper_prefix_only() -> None:

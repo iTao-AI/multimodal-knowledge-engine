@@ -236,6 +236,8 @@ def test_mcp_ingest_file_tool_schema_has_no_provider_runtime_overrides(tmp_path:
         "endpoint",
         "credential",
         "download",
+        "extractor_fingerprint",
+        "runmanifest",
     ):
         assert forbidden not in schema
 
