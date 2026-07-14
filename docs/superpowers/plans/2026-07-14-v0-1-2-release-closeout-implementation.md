@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this plan task-by-task. Use `superpowers:test-driven-development` for every behavior change and `superpowers:verification-before-completion` before claiming a gate passed. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-Status: pending authoritative engineering review. Implementation must not start until this committed plan is cleared and explicitly dispatched.
+Status: pending targeted engineering re-review. Implementation must not start until this committed plan is cleared and explicitly dispatched.
 
 Planning base: `main@16fae017ced5fe67da3fae4a01f26e9e9f1084aa`.
 
@@ -10,7 +10,7 @@ Approved design: [v0.1.2 Release Closeout Design](../specs/2026-07-14-v0-1-2-rel
 
 **Goal:** Prepare a locally verified `v0.1.2` release candidate whose package identity, Evidence-provenance presentation, external-consumer proof, downstream candidate boundary, evaluation identities, and installed-wheel evidence agree without publishing it.
 
-**Architecture:** Keep runtime and public contracts unchanged. Treat the release as an ordered identity-and-evidence closure: define the `0.1.2` contract in tests, update only package/release identity, make current release documentation describe the already-merged Evidence and source-pack capabilities, refresh frozen evaluation identities only when canonical validators prove a source-byte dependency, then generate final candidate evidence from one clean committed neutral worktree. Tagging and GitHub Release publication remain later, separately authorized stages.
+**Architecture:** Keep runtime and public contracts unchanged. Treat the release as an ordered identity-and-evidence closure: define the `0.1.2` contract in tests, update only package/release identity, make current release documentation describe the already-merged Evidence and source-pack capabilities, refresh frozen evaluation identities only when canonical validators prove a source-byte dependency, generate pre-review candidate evidence from one clean committed neutral worktree, stop for authoritative review, commit the accepted review closure, then re-prove the exact new commit from scratch. `UV_OFFLINE=1 uv build` remains a packaging gate, but only the exact candidate-output wheel bound by its receipt SHA-256 is final artifact authority. Tagging and GitHub Release publication remain later, separately authorized stages.
 
 **Tech Stack:** Python 3.12 and 3.13, Hatchling, uv, pytest, Ruff, Pyright, Markdown, Git.
 
@@ -60,13 +60,25 @@ identity-only E1 -> E2 -> E3-A -> E3-B -> E3-C -> E3-D -> E3-E closure
 all repository writes committed; worktree clean
           |
           v
-neutral detached-worktree full gate
+neutral detached-worktree pre-review full gate
           |
           v
-one exact 0.1.2 wheel + source-pack candidate receipt
+once-only candidate-output same-wheel proof
           |
           v
-authoritative pre-PR review (no publication side effect)
+candidate-output wheel installed smoke + receipt coherence
+          |
+          v
+authoritative review checkpoint (stop)
+          |
+          v
+accepted review-closure commit invalidates prior evidence
+          |
+          v
+fresh neutral worktree + complete gate rerun
+          |
+          v
+final reviewed candidate-output wheel + receipt
 ```
 
 ## File And Responsibility Map
@@ -231,7 +243,22 @@ Update `scripts/release_presentation_audit.py` so the current file tuples, headi
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/scripts/test_release_presentation_audit.py
-uv run python scripts/release_presentation_audit.py --root . || true
+set +e
+audit_stderr="$(mktemp)"
+audit_json="$(uv run python scripts/release_presentation_audit.py --root . 2>"${audit_stderr}")"
+audit_exit=$?
+set -e
+test "${audit_exit}" -eq 1
+test ! -s "${audit_stderr}"
+AUDIT_JSON="${audit_json}" uv run python - <<'PY'
+import json
+import os
+
+payload = json.loads(os.environ["AUDIT_JSON"])
+assert payload["status"] == "failed"
+assert payload["violations"]
+print(json.dumps(payload, sort_keys=True))
+PY
 git diff --check
 git add scripts/release_presentation_audit.py \
   tests/scripts/test_release_presentation_audit.py
@@ -239,7 +266,7 @@ git diff --cached --check
 git commit -m "test(release): define v0.1.2 presentation contract"
 ```
 
-The direct audit may remain non-zero here because Task 3 has not yet updated the real documents. Its violations must be limited to expected missing/stale `v0.1.2` presentation; implementation or schema violations are a hard stop.
+The expected-negative probe must exit `1` with valid JSON, `status == "failed"`, and non-empty `violations`. Review every violation and require it to come only from Task 3's not-yet-updated current `v0.1.2` documentation or presentation. Exit `0`, non-JSON output, raw traceback, an unknown rule, or any non-documentation/presentation violation is a hard stop. Remove the call-owned stderr file after inspection; never use blanket failure suppression.
 
 ## Task 3: Update Current Release Documentation
 
@@ -391,7 +418,11 @@ git commit -m "docs(release): prepare v0.1.2 candidate"
   - `benchmarks/retrieval/cjk-relevance-gate-reranker-v1-development-freeze.json`
   - `benchmarks/retrieval/cjk-relevance-gate-reranker-v1-holdout-receipt.json`
   - `benchmarks/retrieval/cjk-relevance-gate-reranker-v1-comparison.json`
-  - identity-reference docs/tests proven stale by the same chain.
+  - `docs/how-to/evaluate-dense-retrieval.md`
+  - `docs/how-to/evaluate-hybrid-rrf-retrieval.md`
+  - `docs/how-to/evaluate-relevance-gate-reranker.md`
+  - `tests/evaluation/test_relevance_gate_protocol.py`
+  - `tests/evaluation/test_relevance_gate_workflow.py`
 
 The maximum expected conditional changed set is the 21-file identity chain previously used by the repository. A smaller validator-proven subset is preferred. Any different or larger set is an authority hard stop.
 
@@ -487,15 +518,32 @@ Then stop and inspect. Do not continue after an incomplete transaction or manual
 
 - [ ] **Step 4: Rebind downstream E3-C, E3-D, and E3-E identities in dependency order**
 
-Use existing deterministic artifact builders/validators and the prior repository identity-closure pattern. Rebind only hashes, byte sizes, source inventories, dependency identities, and exact identity-reference literals. Do not rerun model scoring, retune a threshold, reopen a holdout, or rewrite semantic observations.
+Freeze `task4_start` before any write. Read every before byte with `git show "${task4_start}:<path>"`; never compare against a mutable worktree copy. Enter this step only after all seven validators have proven that every failure is identity-only.
 
-After each layer:
+Create a call-owned, untracked Python rebinder under `${evidence_dir}`. Do not add the rebinder or another mutator to the repository. The rebinder may call or mirror only these existing deterministic builder/renderer contracts:
 
-1. compare normalized semantic payload with the pre-change artifact;
-2. require metrics, gates, selected profile/candidate, status, verdict, and diagnostics to be equal;
-3. run that layer's model-free validator before proceeding.
+- `build_dense_protocol_lock` / `render_dense_protocol_lock_json`;
+- `build_dense_comparison_artifact` / `render_dense_comparison_artifact_json`;
+- `build_hybrid_rrf_protocol_lock` / `render_hybrid_rrf_protocol_lock_json`;
+- `build_hybrid_rrf_development_freeze`;
+- `build_hybrid_rrf_comparison_artifact` / `render_hybrid_rrf_artifact_json`;
+- `build_relevance_gate_protocol_lock` / `render_relevance_gate_protocol_lock_json`;
+- `build_relevance_gate_development_freeze`;
+- `build_relevance_gate_holdout_report`;
+- `build_relevance_gate_comparison_artifact`.
 
-If a deterministic existing builder cannot express an identity-only update, stop. Do not add release-specific artifact mutation code.
+Dense development-freeze and holdout-receipt have no public identity-only builder. Do not rerun a model or re-observe the holdout. Rebind only their protocol, dependency, source, and state-receipt identity fields using the changed-field pattern verified by commit `6c2559b3fec80b3b98608214594f9069e4b5fd2e`; this commit is a changed-field reference, never a source for copied digests. Require the dense comparison builder, dense validator, and normalized semantic projection equality to prove the result.
+
+Generate all candidate bytes first under `${evidence_dir}/staged`. Before publication, the rebinder must:
+
+1. enforce the exact 21-path maximum allowlist;
+2. compare before/staged normalized semantic projections for every E1 through E3-E layer;
+3. permit changes only to path, bytes, SHA-256, source inventory, dependency identity, state-receipt digest, and equivalent identity metadata;
+4. reject changes to observations, results, metrics, thresholds, gates, diagnostics, selected profile/candidate, status, verdict, corpus, queries, qrels, or fixtures;
+5. run the applicable builders and layer validators against staged bytes, followed by all seven canonical validators;
+6. replace repository files in dependency order only after the complete staged set passes.
+
+Any failure before publication discards only the call-owned E3-C/D/E staging. If E1-E3-B atomic refresh requires recovery, use only the existing `artifact_refresh recover` command. Never partially publish staged downstream files, hand-edit a validator, or weaken validation because a builder cannot express the identity-only change. Inability to express the change is an authority hard stop.
 
 - [ ] **Step 5: Enforce the exact changed-file and semantic allowlists**
 
@@ -512,7 +560,10 @@ UV_OFFLINE=1 uv run pytest -q \
   tests/evaluation/test_numeric_artifact.py \
   tests/evaluation/test_chinese_artifact.py \
   tests/evaluation/test_cjk_lexical_artifact.py \
+  tests/evaluation/test_dense_protocol.py \
   tests/evaluation/test_dense_artifact.py \
+  tests/evaluation/test_hybrid_rrf_protocol.py \
+  tests/evaluation/test_hybrid_rrf_workflow.py \
   tests/evaluation/test_hybrid_rrf_artifact.py \
   tests/evaluation/test_relevance_gate_artifact.py \
   tests/evaluation/test_relevance_gate_protocol.py \
@@ -535,6 +586,8 @@ git add -- <space-separated exact validator-proven paths>
 git diff --cached --check
 git commit -m "test(eval): refresh v0.1.2 release identities"
 ```
+
+The Task 4 handoff must report the call-owned rebinder SHA-256, exact changed paths, and before/after semantic projection equality for each E1 through E3-E layer. Do not commit the rebinder.
 
 ## Task 5: Finalize Durable Status Before Candidate Evidence
 
@@ -560,11 +613,11 @@ Record:
 - whether identity refresh was required and the exact changed set;
 - semantic equality and seven-validator evidence;
 - verification matrix still to run in Task 6;
-- status `implementation complete; final clean-candidate verification and authoritative review pending`.
+- status `release changes complete; clean-candidate verification and authoritative review pending`.
 
 - [ ] **Step 2: Update plan checkboxes and spec status accurately**
 
-Mark Tasks 1-4 complete only when their commands passed. Leave Task 6 unchecked. Set the spec to implemented locally but pending final candidate verification and authoritative pre-PR review. Do not use ambiguous `complete` wording.
+Mark Tasks 1-4 complete only when their commands passed. Leave Tasks 6 and 7 unchecked. Set the spec to release changes complete but pending pre-review candidate verification and authoritative review. Do not use ambiguous `complete` wording.
 
 - [ ] **Step 3: Run docs/status checks and commit all remaining repository writes**
 
@@ -582,37 +635,37 @@ git add docs/superpowers/specs/2026-07-14-v0-1-2-release-closeout-design.md \
   docs/superpowers/plans/2026-07-14-v0-1-2-release-closeout-implementation.md \
   docs/superpowers/reviews/2026-07-14-v0-1-2-release-implementation-review.md
 git diff --cached --check
-git commit -m "docs(release): record v0.1.2 candidate evidence"
+git commit -m "docs(release): prepare v0.1.2 candidate review"
 ```
 
-After this commit, make no repository write before the Task 6 candidate receipt. A later review fix invalidates Task 6 evidence and requires a complete rerun on the new reviewed commit.
+After this commit, make no repository write before the Task 6 pre-review candidate receipt. Any later review finding or review-closure commit invalidates Task 6 evidence and requires the complete Task 7 rerun on the new reviewed commit.
 
-## Task 6: Verify One Clean Committed Candidate And Stop For Review
+## Task 6: Produce Pre-Review Candidate Evidence And Stop For Review
 
 **Files:**
 
 - Do not modify tracked repository files.
-- Create only call-owned temporary worktrees, build outputs, venvs, and candidate-output directories.
+- Create only call-owned temporary worktrees, observations, build outputs, venvs, and candidate-output directories.
 
 **Interfaces:**
 
 - Consumes: exact clean Task 5 commit.
-- Produces: full repository gate, one exact `0.1.2` wheel, installed-wheel evidence, same-wheel dual-interpreter source-pack proof, strict candidate receipt, and review handoff.
-- Failure contract: any failure leaves Task 6 incomplete; there is no residual waiver.
+- Produces: pre-review full-gate evidence, one authoritative candidate-output wheel, its installed-wheel smoke, a same-wheel dual-interpreter proof, and a strict receipt for external authoritative review.
+- Failure contract: any failure leaves Task 6 incomplete; there is no residual waiver. Task 6 evidence is invalidated by every later tracked change, including the required review-closure commit.
 
-- [ ] **Step 1: Freeze the candidate commit and create a neutral detached worktree**
+- [ ] **Step 1: Freeze the pre-review commit and create a neutral detached worktree**
 
 ```bash
 git status --short
 candidate_commit="$(git rev-parse HEAD)"
 neutral_parent="$(mktemp -d)"
-neutral_worktree="${neutral_parent}/mke-release-candidate"
+neutral_worktree="${neutral_parent}/mke-candidate"
 git worktree add --detach "${neutral_worktree}" "${candidate_commit}"
 ```
 
 Require the source worktree clean before creation. The temporary worktree name must not contain `proof`, `demo`, `release_consumer_smoke`, or other test command markers that can affect path-sensitive synthetic tests.
 
-- [ ] **Step 2: Run static, full-suite, build, and core proof gates in the neutral worktree**
+- [ ] **Step 2: Run full suite, static, packaging, and core proof gates**
 
 From `neutral_worktree`:
 
@@ -627,20 +680,9 @@ UV_OFFLINE=1 uv run python scripts/local_knowledge_proof.py
 UV_OFFLINE=1 uv run python scripts/evidence_provenance_proof.py
 ```
 
-Require full pytest green with no residual waiver. Existing warnings may be reported but not reclassified as failures or silently hidden.
+Require full pytest green with no residual waiver. `UV_OFFLINE=1 uv build` proves ordinary packaging succeeds, but its `dist/` wheel is not final artifact authority and must not be used for installed-wheel smoke. Existing warnings may be reported but not reclassified as failures or silently hidden.
 
-- [ ] **Step 3: Verify the exact built wheel outside the source checkout**
-
-```bash
-wheel="dist/multimodal_knowledge_engine-0.1.2-py3-none-any.whl"
-test -f "${wheel}"
-UV_OFFLINE=1 uv run python scripts/release_consumer_smoke.py \
-  --wheel "${wheel}" --json
-```
-
-Require `status=passed`, installed package/module metadata `0.1.2`, external working directory, and all proof/demo/CLI/MCP substeps passed.
-
-- [ ] **Step 4: Run release presentation, documentation, and seven-validator gates**
+- [ ] **Step 3: Run documentation, presentation, and seven-validator gates**
 
 ```bash
 UV_OFFLINE=1 uv run python scripts/release_presentation_audit.py --root .
@@ -650,28 +692,15 @@ UV_OFFLINE=1 uv run pytest -q tests/evaluation/test_*documentation.py \
 
 Generate fresh E1/E2/E3-A/E3-B observations in a call-owned temporary directory and run all seven canonical validator commands from Task 4 Step 2. Require every validator green.
 
-- [ ] **Step 5: Run the same-wheel Python 3.12/3.13 source-pack gate**
+- [ ] **Step 4: Run the once-only candidate-output same-wheel proof**
 
-First verify the exact interpreters without substituting another version:
+Verify the exact interpreters without substitution, then invoke the source-pack proof exactly once:
 
 ```bash
 python312="$(command -v python3.12)"
 python313="$(command -v python3.13)"
 "${python312}" --version
 "${python313}" --version
-UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
-  --python "${python312}" \
-  --python "${python313}" \
-  --json
-```
-
-Require both interpreter cells to install and prove the same input wheel digest. Missing interpreters or offline packages are environment blockers; do not enable network access.
-
-- [ ] **Step 6: Generate the strict local candidate output last**
-
-The maintained candidate path builds from clean `HEAD`, so run it only after every tracked write is committed and the neutral gate is green:
-
-```bash
 candidate_parent="$(mktemp -d)"
 candidate_output="${candidate_parent}/mke-v0.1.2-candidate"
 UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
@@ -681,16 +710,32 @@ UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
   --json
 ```
 
-Verify:
+The invocation must internally build one wheel, prove that exact wheel in both interpreter cells, and atomically publish exactly one wheel plus one receipt. Missing Python 3.12/3.13 interpreters or offline dependencies are environment hard stops; do not substitute, download, or enable network fallback.
 
-- exactly one `multimodal_knowledge_engine-0.1.2-py3-none-any.whl` and one receipt;
+- [ ] **Step 5: Run installed-wheel smoke against the candidate-output wheel**
+
+Parse the strict receipt and locate the exact candidate-output wheel. Do not infer equivalence from filename or version, and do not substitute the `dist/` wheel. Require the wheel bytes and SHA-256 to match the receipt, then run:
+
+```bash
+UV_OFFLINE=1 uv run python scripts/release_consumer_smoke.py \
+  --wheel "${candidate_wheel}" --json
+```
+
+Require `status=passed`, installed package/module metadata `0.1.2`, an external working directory, and all proof/demo/CLI/MCP substeps passed against the receipt-bound candidate-output wheel.
+
+- [ ] **Step 6: Verify receipt coherence and final scope**
+
+Require:
+
+- exactly one `multimodal_knowledge_engine-0.1.2-py3-none-any.whl` and one receipt in candidate output;
 - receipt schema `mke.candidate_artifact_receipt.v1`;
 - `source_commit == candidate_commit`;
 - package version `0.1.2`;
-- wheel filename, bytes, SHA-256, proof input SHA-256, dual-interpreter result, and canonical receipt SHA agree;
-- candidate path is outside the repository and no candidate file is tracked.
+- wheel filename, bytes, SHA-256, proof input SHA-256, dual-interpreter result, installed-smoke input SHA-256, and canonical receipt SHA agree;
+- candidate path is outside the repository and no candidate file is tracked;
+- the `dist/` wheel is treated only as packaging evidence and never as equivalent authority by filename/version alone.
 
-- [ ] **Step 7: Run final diff, scope, marker, and public-neutral audits**
+Run:
 
 ```bash
 git -C "${neutral_worktree}" diff --check \
@@ -700,33 +745,66 @@ git diff --name-status \
   16fae017ced5fe67da3fae4a01f26e9e9f1084aa.."${candidate_commit}"
 ```
 
-Require:
+Require no out-of-scope runtime/schema/dependency/OCR/CI change, `src/mke/__init__.py` as the only `src/mke` diff, a clean neutral worktree, preserved historical release identities, and no private path, credential, traceback, private workflow, unsupported production claim, stale current command, or incomplete marker in changed public text.
 
-- no runtime/schema/dependency/OCR/CI workflow file outside the approved surface;
-- `src/mke/__init__.py` version literal as the only `src/mke` diff;
-- clean neutral worktree;
-- no private paths, credentials, raw tracebacks, private workflow, unsupported production claims, stale `0.1.1` current commands, or incomplete markers in changed public text;
-- historical release identities preserved.
+- [ ] **Step 7: Report pre-review evidence and stop**
 
-- [ ] **Step 8: Remove only call-owned temporary resources and report**
+Report the branch, exact pre-review commit, commit series, changed-file set, diff stat, RED/GREEN evidence, full gates, validator results, interpreter versions, identity-refresh evidence, candidate-output wheel filename/bytes/SHA-256, receipt SHA-256 and `source_commit`, installed-smoke result, remaining risks, and clean status. Final artifact claims must reference only the candidate-output wheel and receipt.
 
-Remove only the neutral worktree and temporary directories created by this task after preserving the exact command results, commit SHA, wheel SHA-256, receipt SHA-256, and candidate path needed for review. Do not remove or modify any pre-existing branch/worktree or OCR evidence.
+Preserve review-relevant evidence, remove only call-owned temporary resources when safe, and stop for external authoritative review. Do not push, create a PR, merge, tag, create a GitHub Release, or mark the candidate final. Task 6 is only a pre-review evidence checkpoint.
 
-Report:
+## Task 7: Finalize After Authoritative Review And Re-Prove The Exact Commit
 
-- branch and exact candidate commit;
-- commit series;
-- exact changed-file set and diff stat;
-- RED/GREEN evidence;
-- full test/lint/type/build/proof/audit/validator results;
-- Python 3.12/3.13 versions;
-- wheel filename/bytes/SHA-256;
-- receipt SHA-256 and `source_commit`;
-- identity refresh result and semantic-equality evidence;
-- remaining risks;
-- clean worktree status.
+**Files:**
 
-Stop for authoritative pre-PR review. Do not push, create a PR, merge, tag, create a GitHub Release, or mark publication complete.
+- Modify after a clean/accepted authority verdict:
+  - `docs/superpowers/specs/2026-07-14-v0-1-2-release-closeout-design.md`
+  - `docs/superpowers/plans/2026-07-14-v0-1-2-release-closeout-implementation.md`
+  - `docs/superpowers/reviews/2026-07-14-v0-1-2-release-implementation-review.md`
+- Do not modify tracked files after the review-closure commit.
+
+**Interfaces:**
+
+- Consumes: Task 6 pre-review evidence and an external authoritative review verdict.
+- Produces: an accepted-but-unpublished review-closure commit and fresh final reviewed candidate evidence bound to that exact commit.
+- Failure contract: findings, tracked changes, or reused evidence prevent final local-candidate status.
+
+- [ ] **Step 1: Resolve authoritative review findings before closure**
+
+Stop after Task 6 and wait for external authoritative review. If review has findings, fix only within the approved release scope using TDD, run targeted verification, and obtain targeted re-review. Do not enter closure while any finding remains unresolved.
+
+- [ ] **Step 2: Record the clean/accepted authority verdict**
+
+After a clean/accepted verdict, update plan checkboxes/status, spec status, and `docs/superpowers/reviews/2026-07-14-v0-1-2-release-implementation-review.md` to an accurate accepted-but-unpublished state. Record the reviewed implementation commit, findings and their resolution, and Task 6 pre-review evidence. Do not claim push, PR, merge, tag, Release, publication, or final-main verification.
+
+- [ ] **Step 3: Commit the review closure**
+
+Stage only the three durable status files after exact diff review, then commit:
+
+```bash
+git diff --check
+git add docs/superpowers/specs/2026-07-14-v0-1-2-release-closeout-design.md \
+  docs/superpowers/plans/2026-07-14-v0-1-2-release-closeout-implementation.md \
+  docs/superpowers/reviews/2026-07-14-v0-1-2-release-implementation-review.md
+git diff --cached --check
+git commit -m "docs(release): accept v0.1.2 candidate review"
+```
+
+The docs-only commit creates a new final commit and immediately invalidates every Task 6 wheel, receipt, observation, build output, and candidate result.
+
+- [ ] **Step 4: Create a fresh neutral worktree and rerun Task 6 in full**
+
+Freeze the review-closure commit, create a new neutral detached worktree, and rerun every Task 6 step in order. Do not reuse the old wheel, receipt, observed JSON, build output, venv, candidate directory, or temporary worktree. The new candidate-output receipt must have `source_commit` equal to the review-closure commit.
+
+- [ ] **Step 5: Re-prove the final candidate-output wheel**
+
+Run the once-only Python 3.12/3.13 candidate-output proof on the review-closure commit, parse the new exact wheel from its receipt, and run installed-wheel consumer smoke against that wheel. Require the new receipt SHA-256, exact wheel SHA-256, source commit, dual-interpreter proof, and installed smoke to agree. The `dist/` wheel remains packaging-only evidence.
+
+- [ ] **Step 6: Freeze the final reviewed local candidate and stop**
+
+After the complete rerun, make no tracked repository write. Any later tracked change invalidates the evidence and requires another full rerun. Report only the new review-closure commit, new candidate-output wheel filename/bytes/SHA-256, new receipt SHA-256/source commit, and fresh gate results as final reviewed local-candidate evidence.
+
+Task 7 completion makes the local candidate eligible for a separate push/PR authorization. It does not authorize push, PR, merge, tag, GitHub Release, registry publication, or deployment.
 
 ## Failure Modes And Required Response
 
@@ -743,12 +821,18 @@ Stop for authoritative pre-PR review. Do not push, create a PR, merge, tag, crea
 | Python 3.12/3.13 or offline dependencies are unavailable | Report environment blocker; do not substitute, download, or use the network. |
 | Full pytest has any failure in the neutral worktree | Task 6 remains incomplete; no residual waiver. |
 | Candidate receipt commit/wheel identity differs | Delete only call-owned invalid output, fix the cause, recommit if needed, and rerun the complete final gate. |
-| Authoritative review changes the candidate commit | Invalidate prior Task 6 evidence and rerun it in full on the reviewed commit. |
+| `dist/` wheel is used as final artifact authority or installed-smoke input | Stop; use only the exact candidate-output wheel bound by the receipt SHA-256. |
+| Source-pack proof is invoked more than once in one candidate gate | Invalidate the gate and rerun from a fresh neutral worktree with one candidate-output invocation. |
+| Authoritative review has unresolved findings | Stop before review closure; fix within scope, verify, and obtain targeted re-review. |
+| Review closure or any later tracked change changes the candidate commit | Invalidate all prior wheel, receipt, observation, build, and temporary-worktree evidence; rerun Task 6 in full under Task 7. |
+| Task 7 reuses any Task 6 output | Invalidate the final rerun and restart it from a fresh neutral worktree and call-owned directories. |
 | Tag/Release action is requested during implementation | Stop; publication requires a separate explicit authorization after merge and final-main verification. |
 
 ## Completion Boundary
 
-This plan completes only the locally verified release candidate and authoritative pre-PR handoff. It does not complete the release publication.
+Task 6 completes only a pre-review evidence checkpoint and must stop for external authoritative review. Task 7 alone can produce the final reviewed local candidate: it records the accepted-but-unpublished review closure, invalidates all pre-review artifact evidence, and reruns the complete gate on the exact new commit. `UV_OFFLINE=1 uv build` remains packaging evidence; final acceptance and reporting use only the candidate-output wheel filename, bytes, SHA-256, receipt SHA-256, and receipt-bound source commit. The final rerun must perform candidate-output same-wheel proof once, then installed smoke against that exact receipt-bound wheel. No tracked write may follow the rerun.
+
+This plan does not complete release publication.
 
 Later stages remain separately authorized:
 
