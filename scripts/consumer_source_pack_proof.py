@@ -149,6 +149,7 @@ class ProofConfig:
     command_timeout_seconds: float
     max_stdout_bytes: int
     max_stderr_bytes: int
+    candidate_output: Path | None = None
 
 
 def isolated_environment(base: Mapping[str, str]) -> dict[str, str]:
@@ -247,6 +248,114 @@ def build_candidate_receipt(
     if not _SHA256.fullmatch(receipt["receipt_sha256"]):
         raise ControllerError("candidate_artifact_invalid")
     return receipt
+
+
+def _candidate_target(requested: Path) -> Path:
+    if requested.name in {"", ".", ".."} or requested.exists() or requested.is_symlink():
+        raise ControllerError("candidate_artifact_invalid")
+    parent = requested.parent
+    try:
+        if parent.exists():
+            if parent.is_symlink() or not parent.is_dir():
+                raise ControllerError("candidate_artifact_invalid")
+        else:
+            parent.mkdir()
+        resolved_parent = parent.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise ControllerError("candidate_artifact_invalid") from exc
+    target = resolved_parent / requested.name
+    if target.exists() or target.is_symlink() or target.parent != resolved_parent:
+        raise ControllerError("candidate_artifact_invalid")
+    return target
+
+
+def _remove_candidate_staging(staging: Path) -> None:
+    try:
+        shutil.rmtree(staging)
+    except OSError as exc:
+        raise ControllerError("cleanup_failed") from exc
+    if staging.exists():
+        raise ControllerError("cleanup_failed")
+
+
+def _fsync_directory(directory: Path) -> None:
+    descriptor = os.open(directory, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _stage_candidate_output(
+    target: Path, wheel: Path, receipt: Mapping[str, object]
+) -> Path:
+    staging = Path(tempfile.mkdtemp(prefix=f".{target.name}.", dir=target.parent))
+    try:
+        staged_wheel = staging / wheel.name
+        staged_receipt = staging / "candidate-artifact-receipt.json"
+        shutil.copyfile(wheel, staged_wheel)
+        with staged_wheel.open("rb") as file:
+            os.fsync(file.fileno())
+        encoded_receipt = (
+            json.dumps(
+                receipt,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=True,
+                allow_nan=False,
+            ).encode("utf-8")
+            + b"\n"
+        )
+        with staged_receipt.open("xb") as file:
+            file.write(encoded_receipt)
+            file.flush()
+            os.fsync(file.fileno())
+        _fsync_directory(staging)
+        staged_payload = json.loads(staged_receipt.read_bytes())
+        if not isinstance(staged_payload, dict):
+            raise ControllerError("candidate_artifact_invalid")
+        normalized = cast(dict[str, object], staged_payload)
+        receipt_without_digest = {
+            key: value for key, value in normalized.items() if key != "receipt_sha256"
+        }
+        staged_wheel_sha256 = hashlib.sha256(staged_wheel.read_bytes()).hexdigest()
+        if (
+            set(normalized) != set(receipt)
+            or normalized != dict(receipt)
+            or normalized.get("wheel_sha256") != staged_wheel_sha256
+            or normalized.get("proof_input_wheel_sha256") != staged_wheel_sha256
+            or normalized.get("receipt_sha256") != canonical_sha256(receipt_without_digest)
+        ):
+            raise ControllerError("candidate_artifact_invalid")
+        return staging
+    except BaseException as exc:
+        try:
+            _remove_candidate_staging(staging)
+        except ControllerError:
+            raise
+        if isinstance(exc, ControllerError):
+            raise exc
+        raise ControllerError("candidate_artifact_invalid") from exc
+
+
+def _publish_candidate_output(staging: Path, target: Path) -> None:
+    renamed = False
+    try:
+        if target.exists() or target.is_symlink():
+            raise ControllerError("candidate_artifact_invalid")
+        staging.rename(target)
+        renamed = True
+        _fsync_directory(target.parent)
+    except BaseException as exc:
+        cleanup_target = target if renamed else staging
+        if cleanup_target.exists():
+            try:
+                _remove_candidate_staging(cleanup_target)
+            except ControllerError:
+                raise
+        if isinstance(exc, ControllerError):
+            raise exc
+        raise ControllerError("candidate_artifact_invalid") from exc
 
 
 def _group_exists(pgid: int) -> bool:
@@ -538,9 +647,13 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
     repository = config.repository.resolve()
     if len(config.python_interpreters) != 2:
         raise ControllerError("proof_failed")
+    candidate_target = (
+        _candidate_target(config.candidate_output) if config.candidate_output is not None else None
+    )
     root = Path(tempfile.mkdtemp(prefix="mke-consumer-source-pack-"))
     owned: list[Path] = [root]
     functional: dict[str, object] | None = None
+    candidate_staging: Path | None = None
     error: BaseException | None = None
     try:
         if _within(root, repository):
@@ -582,6 +695,7 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
             config=config,
         )
         results: list[dict[str, object]] = []
+        package_versions: list[str] = []
         for index, interpreter in enumerate(config.python_interpreters):
             environment = root / f"venv-{index}"
             workspace = root / f"workspace-{index}"
@@ -640,6 +754,7 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
             except (UnicodeDecodeError, json.JSONDecodeError) as exc:
                 raise ControllerError("installed_identity_failed") from exc
             _validate_identity(identity, environment, repository)
+            package_versions.append(cast(str, identity["metadata_version"]))
             client, manifest, schemas, source_root = _copy_inputs(repository, workspace)
             if any(
                 _within(path, repository)
@@ -690,7 +805,18 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
             results.append(_validate_client(client_payload))
         if results[0] != results[1]:
             raise ControllerError("proof_failed")
+        if len(set(package_versions)) != 1:
+            raise ControllerError("installed_identity_failed")
         functional = results[0]
+        if candidate_target is not None:
+            proof_binding = {
+                "status": "passed",
+                "proof_input_wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
+            }
+            receipt = build_candidate_receipt(
+                repository, wheel, package_versions[0], proof_binding
+            )
+            candidate_staging = _stage_candidate_output(candidate_target, wheel, receipt)
     except BaseException as exc:
         error = exc
     finally:
@@ -700,11 +826,19 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
             error = ControllerError("cleanup_failed")
         if any(path.exists() for path in owned):
             error = ControllerError("cleanup_failed")
+        if error is not None and candidate_staging is not None and candidate_staging.exists():
+            try:
+                _remove_candidate_staging(candidate_staging)
+            except ControllerError as exc:
+                error = exc
     if error is not None:
         if isinstance(error, ControllerError):
             raise error
         raise ControllerError("proof_failed") from error
     assert functional is not None
+    if candidate_staging is not None:
+        assert candidate_target is not None
+        _publish_candidate_output(candidate_staging, candidate_target)
     return {
         "proof": "consumer_source_pack",
         "status": "passed",
@@ -744,6 +878,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--command-timeout", type=float, default=600.0)
     parser.add_argument("--max-stdout-bytes", type=int, default=2 * 1024 * 1024)
     parser.add_argument("--max-stderr-bytes", type=int, default=512 * 1024)
+    parser.add_argument("--candidate-output", type=Path)
     args = parser.parse_args(argv)
     try:
         if len(args.python) != 2:
@@ -755,6 +890,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.command_timeout,
                 args.max_stdout_bytes,
                 args.max_stderr_bytes,
+                args.candidate_output,
             )
         )
         print(json.dumps(result, sort_keys=True, separators=(",", ":")))

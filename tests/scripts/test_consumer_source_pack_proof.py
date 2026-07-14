@@ -971,6 +971,256 @@ def _repository_fixture(tmp_path: Path) -> Path:
     return repository
 
 
+def _candidate_runtime_repository(tmp_path: Path) -> Path:
+    repository = _repository_fixture(tmp_path)
+    (repository / "pyproject.toml").write_text(
+        '[project]\nname = "multimodal-knowledge-engine"\n'
+        'version = "0.1.1"\nrequires-python = ">=3.12,<3.14"\n',
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "init", "-q"], cwd=repository, check=True)
+    subprocess.run(["git", "add", "--all"], cwd=repository, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=MKE Test",
+            "-c",
+            "user.email=mke-test@example.invalid",
+            "commit",
+            "-qm",
+            "fixture",
+        ],
+        cwd=repository,
+        check=True,
+    )
+    return repository
+
+
+def _candidate_output_config(proof: Any, repository: Path, output: Path) -> Any:
+    return proof.ProofConfig(
+        repository,
+        (Path("/py312"), Path("/py313")),
+        3,
+        10_000,
+        10_000,
+        candidate_output=output,
+    )
+
+
+def _assert_no_candidate_staging(output: Path) -> None:
+    assert list(output.parent.glob(f".{output.name}.*")) == []
+
+
+def test_candidate_output_contains_only_exact_proven_wheel_and_receipt(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    output = tmp_path / "artifacts/m4b-candidate"
+    monkeypatch.setattr(proof, "run_bounded", _successful_runner(proof))
+
+    result = proof.run_proof(_candidate_output_config(proof, repository, output))
+
+    files = sorted(path.name for path in output.iterdir())
+    assert files == [
+        "candidate-artifact-receipt.json",
+        "multimodal_knowledge_engine-0.1.1-py3-none-any.whl",
+    ]
+    wheel = output / files[1]
+    assert wheel.read_bytes() == b"wheel"
+    receipt = json.loads((output / files[0]).read_text(encoding="utf-8"))
+    assert receipt["wheel_sha256"] == hashlib.sha256(b"wheel").hexdigest()
+    assert receipt["wheel_sha256"] == receipt["proof_input_wheel_sha256"]
+    assert result["status"] == "passed" and result["cleanup"] is True
+    _assert_no_candidate_staging(output)
+
+
+@pytest.mark.parametrize("existing_kind", ["file", "directory"])
+def test_candidate_output_refuses_any_preexisting_final_path(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, existing_kind: str
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    output = tmp_path / "candidate"
+    if existing_kind == "file":
+        output.write_text("owned", encoding="utf-8")
+    else:
+        output.mkdir()
+    monkeypatch.setattr(proof, "run_bounded", _successful_runner(proof))
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.run_proof(_candidate_output_config(proof, repository, output))
+
+    assert exc_info.value.code == "candidate_artifact_invalid"
+    assert output.exists()
+    _assert_no_candidate_staging(output)
+
+
+def test_candidate_output_rejects_dirty_source_without_publication(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    (repository / "dirty.txt").write_text("dirty", encoding="utf-8")
+    output = tmp_path / "candidate"
+    monkeypatch.setattr(proof, "run_bounded", _successful_runner(proof))
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.run_proof(_candidate_output_config(proof, repository, output))
+
+    assert exc_info.value.code == "candidate_artifact_invalid"
+    assert not output.exists()
+    _assert_no_candidate_staging(output)
+
+
+def test_candidate_output_rejects_symlink_parent(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    linked_parent = tmp_path / "linked-parent"
+    linked_parent.symlink_to(real_parent, target_is_directory=True)
+    output = linked_parent / "candidate"
+    monkeypatch.setattr(proof, "run_bounded", _successful_runner(proof))
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.run_proof(_candidate_output_config(proof, repository, output))
+
+    assert exc_info.value.code == "candidate_artifact_invalid"
+    assert not (real_parent / "candidate").exists()
+
+
+def test_candidate_output_is_absent_after_functional_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    output = tmp_path / "candidate"
+    successful = _successful_runner(proof)
+
+    def fail_client(command: Sequence[str], *, cwd: Path, **kwargs: object) -> Any:
+        if len(command) > 1 and str(command[1]).endswith("consumer_source_pack_client.py"):
+            return proof.CommandResult(7, b"", b"")
+        return successful(command, cwd=cwd, **kwargs)
+
+    monkeypatch.setattr(proof, "run_bounded", fail_client)
+
+    with pytest.raises(proof.ControllerError, match="server_exit_nonzero"):
+        proof.run_proof(_candidate_output_config(proof, repository, output))
+
+    assert not output.exists()
+    _assert_no_candidate_staging(output)
+
+
+def test_candidate_output_removes_staging_after_copy_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    output = tmp_path / "candidate"
+    monkeypatch.setattr(proof, "run_bounded", _successful_runner(proof))
+    real_copyfile = proof.shutil.copyfile
+
+    def fail_candidate_copy(source: Path, target: Path) -> Path:
+        if Path(target).suffix == ".whl":
+            raise OSError("copy failed")
+        return real_copyfile(source, target)
+
+    monkeypatch.setattr(proof.shutil, "copyfile", fail_candidate_copy)
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.run_proof(_candidate_output_config(proof, repository, output))
+
+    assert exc_info.value.code == "candidate_artifact_invalid"
+    assert not output.exists()
+    _assert_no_candidate_staging(output)
+
+
+def test_candidate_output_revalidates_receipt_before_publication(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    output = tmp_path / "candidate"
+    monkeypatch.setattr(proof, "run_bounded", _successful_runner(proof))
+    real_builder = proof.build_candidate_receipt
+
+    def mismatched_receipt(*args: object, **kwargs: object) -> dict[str, object]:
+        receipt = real_builder(*args, **kwargs)
+        receipt["wheel_sha256"] = "0" * 64
+        return receipt
+
+    monkeypatch.setattr(proof, "build_candidate_receipt", mismatched_receipt)
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.run_proof(_candidate_output_config(proof, repository, output))
+
+    assert exc_info.value.code == "candidate_artifact_invalid"
+    assert not output.exists()
+    _assert_no_candidate_staging(output)
+
+
+def test_candidate_output_removes_renamed_final_when_parent_fsync_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    output = tmp_path / "candidate"
+    monkeypatch.setattr(proof, "run_bounded", _successful_runner(proof))
+    real_fsync_directory = proof._fsync_directory
+    calls = 0
+
+    def fail_parent_fsync(directory: Path) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("parent fsync failed")
+        real_fsync_directory(directory)
+
+    monkeypatch.setattr(proof, "_fsync_directory", fail_parent_fsync)
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.run_proof(_candidate_output_config(proof, repository, output))
+
+    assert exc_info.value.code == "candidate_artifact_invalid"
+    assert not output.exists()
+    _assert_no_candidate_staging(output)
+
+
+def test_candidate_output_cleanup_failure_overrides_publication_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    output = tmp_path / "candidate"
+    monkeypatch.setattr(proof, "run_bounded", _successful_runner(proof))
+    real_copyfile = proof.shutil.copyfile
+    real_rmtree = proof.shutil.rmtree
+
+    def fail_candidate_copy(source: Path, target: Path) -> Path:
+        if Path(target).suffix == ".whl":
+            raise OSError("copy failed")
+        return real_copyfile(source, target)
+
+    def remove_root_then_fail(path: Path) -> None:
+        real_rmtree(path)
+        if Path(path).name.startswith("mke-consumer-source-pack-"):
+            raise OSError("root cleanup failed")
+
+    monkeypatch.setattr(proof.shutil, "copyfile", fail_candidate_copy)
+    monkeypatch.setattr(proof.shutil, "rmtree", remove_root_then_fail)
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.run_proof(_candidate_output_config(proof, repository, output))
+
+    assert exc_info.value.code == "cleanup_failed"
+    assert not output.exists()
+    _assert_no_candidate_staging(output)
+
+
 def test_cleanup_failure_overrides_functional_success(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -996,7 +1246,9 @@ def _successful_runner(proof: Any):
         command = list(command)
         if command[:2] == ["uv", "build"]:
             out = Path(command[command.index("--out-dir") + 1])
-            (out / "mke.whl").write_bytes(b"wheel")
+            (out / "multimodal_knowledge_engine-0.1.1-py3-none-any.whl").write_bytes(
+                b"wheel"
+            )
         if "-c" in command:
             environment = Path(command[0]).parents[1]
             identity = {
@@ -1026,6 +1278,43 @@ def test_main_redacts_failure(
     monkeypatch.setattr(proof, "run_proof", fail)
     assert proof.main(["--python", sys.executable, "--python", sys.executable, "--json"]) == 1
     assert json.loads(capsys.readouterr().out) == {"status": "failed", "code": "install_failed"}
+
+
+def test_main_accepts_candidate_output_without_changing_success_stdout(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    output = tmp_path / "candidate"
+    observed: list[Any] = []
+    success: dict[str, object] = {
+        "proof": "consumer_source_pack",
+        "status": "passed",
+        "cleanup": True,
+    }
+
+    def succeed(config: object) -> dict[str, object]:
+        observed.append(config)
+        return success
+
+    monkeypatch.setattr(proof, "run_proof", succeed)
+
+    exit_code = proof.main(
+        [
+            "--python",
+            sys.executable,
+            "--python",
+            sys.executable,
+            "--candidate-output",
+            str(output),
+            "--json",
+        ]
+    )
+
+    assert exit_code == 0
+    assert observed[0].candidate_output == output
+    assert json.loads(capsys.readouterr().out) == success
 
 
 @pytest.mark.parametrize("code", STABLE_FAILURE_CODES)
