@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
+import errno
 import hashlib
 import json
 import os
@@ -11,6 +13,8 @@ import re
 import shutil
 import signal
 import subprocess
+import sys
+import tarfile
 import tempfile
 import threading
 import time
@@ -163,29 +167,8 @@ def canonical_sha256(value: Mapping[str, object]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def build_candidate_receipt(
-    repository: Path,
-    wheel: Path,
-    package_version: str,
-    proof_result: Mapping[str, object],
-) -> dict[str, object]:
+def _clean_sha1_source_commit(repository: Path) -> str:
     try:
-        status = subprocess.run(
-            ["git", "status", "--porcelain=v1", "--untracked-files=all"],
-            cwd=repository,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        commit = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=repository,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
         object_format = subprocess.run(
             ["git", "rev-parse", "--show-object-format"],
             cwd=repository,
@@ -194,13 +177,64 @@ def build_candidate_receipt(
             text=True,
             timeout=10,
         )
+        first_commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repository,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        status = subprocess.run(
+            ["git", "status", "--porcelain=v1", "--untracked-files=all"],
+            cwd=repository,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        second_commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repository,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ControllerError("candidate_artifact_invalid") from exc
+    source_commit = first_commit.stdout.strip()
+    if (
+        object_format.returncode != 0
+        or object_format.stdout.strip() != "sha1"
+        or first_commit.returncode != 0
+        or second_commit.returncode != 0
+        or status.returncode != 0
+        or status.stdout != ""
+        or second_commit.stdout.strip() != source_commit
+        or not _GIT_SHA1.fullmatch(source_commit)
+    ):
+        raise ControllerError("candidate_artifact_invalid")
+    return source_commit
+
+
+def build_candidate_receipt(
+    repository: Path,
+    wheel: Path,
+    package_version: str,
+    proof_result: Mapping[str, object],
+    *,
+    source_commit: str | None = None,
+) -> dict[str, object]:
+    try:
         project = tomllib.loads((repository / "pyproject.toml").read_text(encoding="utf-8"))[
             "project"
         ]
         wheel_bytes = wheel.read_bytes()
-    except (KeyError, OSError, subprocess.SubprocessError, tomllib.TOMLDecodeError) as exc:
+    except (KeyError, OSError, tomllib.TOMLDecodeError) as exc:
         raise ControllerError("candidate_artifact_invalid") from exc
-    source_commit = commit.stdout.strip()
+    if source_commit is None:
+        source_commit = _clean_sha1_source_commit(repository)
     project_name = project.get("name")
     project_version = project.get("version")
     requires_python = project.get("requires-python")
@@ -210,12 +244,7 @@ def build_candidate_receipt(
         rf"^multimodal_knowledge_engine-{re.escape(package_version)}-[A-Za-z0-9_.-]+\.whl$"
     )
     if (
-        status.returncode != 0
-        or status.stdout != ""
-        or commit.returncode != 0
-        or object_format.returncode != 0
-        or object_format.stdout.strip() != "sha1"
-        or not _GIT_SHA1.fullmatch(source_commit)
+        not _GIT_SHA1.fullmatch(source_commit)
         or project_name != _DISTRIBUTION
         or project_version != package_version
         or not isinstance(requires_python, str)
@@ -286,6 +315,41 @@ def _fsync_directory(directory: Path) -> None:
         os.close(descriptor)
 
 
+def _atomic_rename_no_replace(source: Path, target: Path) -> None:
+    if sys.platform == "darwin":
+        libc = ctypes.CDLL(None, use_errno=True)
+        try:
+            renamex_np = libc.renamex_np
+        except AttributeError as exc:
+            raise OSError(errno.ENOTSUP, "atomic no-replace rename unavailable") from exc
+        renamex_np.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
+        renamex_np.restype = ctypes.c_int
+        result = renamex_np(os.fsencode(source), os.fsencode(target), 0x00000004)
+    elif sys.platform.startswith("linux"):
+        libc = ctypes.CDLL(None, use_errno=True)
+        try:
+            renameat2 = libc.renameat2
+        except AttributeError as exc:
+            raise OSError(errno.ENOTSUP, "atomic no-replace rename unavailable") from exc
+        renameat2.argtypes = [
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_uint,
+        ]
+        renameat2.restype = ctypes.c_int
+        result = renameat2(-100, os.fsencode(source), -100, os.fsencode(target), 1)
+    elif os.name == "nt":
+        os.rename(source, target)
+        return
+    else:
+        raise OSError(errno.ENOTSUP, "atomic no-replace rename unavailable")
+    if result != 0:
+        error_number = ctypes.get_errno()
+        raise OSError(error_number, os.strerror(error_number), target)
+
+
 def _stage_candidate_output(
     target: Path, wheel: Path, receipt: Mapping[str, object]
 ) -> Path:
@@ -343,7 +407,7 @@ def _publish_candidate_output(staging: Path, target: Path) -> None:
     try:
         if target.exists() or target.is_symlink():
             raise ControllerError("candidate_artifact_invalid")
-        staging.rename(target)
+        _atomic_rename_no_replace(staging, target)
         renamed = True
         _fsync_directory(target.parent)
     except BaseException as exc:
@@ -643,10 +707,47 @@ def _client_failure_code(stdout: bytes) -> str | None:
     return code
 
 
+def _candidate_source_snapshot(
+    repository: Path, source_commit: str, root: Path, timeout_seconds: float
+) -> Path:
+    archive = root / "source.tar"
+    snapshot = root / "source"
+    snapshot.mkdir()
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "archive",
+                "--format=tar",
+                f"--output={archive}",
+                source_commit,
+            ],
+            cwd=repository,
+            check=False,
+            capture_output=True,
+            timeout=timeout_seconds,
+        )
+        if result.returncode != 0 or not archive.is_file():
+            raise ControllerError("candidate_artifact_invalid")
+        with tarfile.open(archive, mode="r:") as source:
+            source.extractall(snapshot, filter="data")
+        archive.unlink()
+    except ControllerError:
+        raise
+    except (OSError, subprocess.SubprocessError, tarfile.TarError) as exc:
+        raise ControllerError("candidate_artifact_invalid") from exc
+    if not (snapshot / "pyproject.toml").is_file() or (snapshot / ".git").exists():
+        raise ControllerError("candidate_artifact_invalid")
+    return snapshot
+
+
 def run_proof(config: ProofConfig) -> dict[str, object]:
     repository = config.repository.resolve()
     if len(config.python_interpreters) != 2:
         raise ControllerError("proof_failed")
+    candidate_source_commit = (
+        _clean_sha1_source_commit(repository) if config.candidate_output is not None else None
+    )
     candidate_target = (
         _candidate_target(config.candidate_output) if config.candidate_output is not None else None
     )
@@ -658,6 +759,14 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
     try:
         if _within(root, repository):
             raise ControllerError("external_isolation_failed")
+        source_repository = repository
+        if candidate_source_commit is not None:
+            source_repository = _candidate_source_snapshot(
+                repository,
+                candidate_source_commit,
+                root,
+                config.command_timeout_seconds,
+            )
         env = isolated_environment(os.environ)
         client_env = {
             key: value for key, value in env.items() if not _within_text(value, repository)
@@ -668,7 +777,14 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
         constraints = root / "constraints.txt"
         _command(
             "wheel_build_failed",
-            ["uv", "build", "--wheel", "--out-dir", str(build_dir), str(repository)],
+            [
+                "uv",
+                "build",
+                "--wheel",
+                "--out-dir",
+                str(build_dir),
+                str(source_repository),
+            ],
             cwd=root,
             env=env,
             config=config,
@@ -683,7 +799,7 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
                 "uv",
                 "export",
                 "--project",
-                str(repository),
+                str(source_repository),
                 "--locked",
                 "--no-dev",
                 "--no-emit-project",
@@ -755,7 +871,7 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
                 raise ControllerError("installed_identity_failed") from exc
             _validate_identity(identity, environment, repository)
             package_versions.append(cast(str, identity["metadata_version"]))
-            client, manifest, schemas, source_root = _copy_inputs(repository, workspace)
+            client, manifest, schemas, source_root = _copy_inputs(source_repository, workspace)
             if any(
                 _within(path, repository)
                 for path in (workspace, client, manifest, schemas, source_root)
@@ -814,7 +930,11 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
                 "proof_input_wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
             }
             receipt = build_candidate_receipt(
-                repository, wheel, package_versions[0], proof_binding
+                source_repository,
+                wheel,
+                package_versions[0],
+                proof_binding,
+                source_commit=candidate_source_commit,
             )
             candidate_staging = _stage_candidate_output(candidate_target, wheel, receipt)
     except BaseException as exc:
@@ -838,7 +958,20 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
     assert functional is not None
     if candidate_staging is not None:
         assert candidate_target is not None
-        _publish_candidate_output(candidate_staging, candidate_target)
+        assert candidate_source_commit is not None
+        try:
+            if _clean_sha1_source_commit(repository) != candidate_source_commit:
+                raise ControllerError("candidate_artifact_invalid")
+            _publish_candidate_output(candidate_staging, candidate_target)
+        except BaseException as exc:
+            if candidate_staging.exists():
+                try:
+                    _remove_candidate_staging(candidate_staging)
+                except ControllerError:
+                    raise
+            if isinstance(exc, ControllerError):
+                raise exc
+            raise ControllerError("candidate_artifact_invalid") from exc
     return {
         "proof": "consumer_source_pack",
         "status": "passed",

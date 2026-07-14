@@ -32,16 +32,18 @@ implementation branch. Authority review and the post-merge operational gate rema
   targeted review.
 - Preserve package version `0.1.1` unless a separate release decision changes it. This task
   creates a candidate artifact, not a tag, GitHub Release, or PyPI upload.
-- Build exactly one wheel and prove those exact bytes in both supported Python minors before
-  publishing any output.
+- Pin the clean SHA-1 source commit before any candidate build, build exactly one wheel from an
+  immutable tracked snapshot of that commit, and prove those exact bytes in both supported Python
+  minors before publishing any output.
 - Existing proof stdout success and failure contracts remain backward compatible.
 - Candidate output contains only the wheel and
   `candidate-artifact-receipt.json`; it contains no repository path, environment value,
   Evidence text, MKE opaque ID, traceback, stderr, credential, hostname, or username.
 - Source commit is derived from a clean Git tree. Dirty trees and non-Git snapshots may run
   the existing proof but cannot publish a candidate artifact.
-- The output directory is maintainer input, must not already exist, and is published
-  atomically only after functional proof and owned-temp cleanup both succeed.
+- The output directory is maintainer input, must not already exist, and is published with an
+  atomic no-replace operation only after functional proof, owned-temp cleanup, and live clean-HEAD
+  revalidation all succeed. Unsupported no-replace semantics fail closed.
 - Do not alter OCR, retrieval semantics, v1 response schemas, CLI/MCP product behavior,
   database formats, dependencies, version, Release files, or evaluation artifacts.
 - Before implementation, mechanically land this approved plan at
@@ -248,17 +250,21 @@ class ProofConfig:
 
 Implementation order is fixed:
 
-1. Build exactly one wheel in the existing owned root.
-2. Run both interpreter proofs using that exact path.
-3. Build the candidate receipt from the successful aggregate result.
-4. Copy wheel and canonical receipt into a hidden staging directory adjacent to the final
+1. Before any build, pin the clean SHA-1 commit and create an immutable tracked snapshot with
+   `git archive` inside the owned root.
+2. Build exactly one wheel and export the locked constraints from that snapshot.
+3. Run both interpreter proofs using that exact wheel and copied proof inputs from the snapshot.
+4. Build the candidate receipt from the successful aggregate result and pinned commit.
+5. Copy wheel and canonical receipt into a hidden staging directory adjacent to the final
    output; `fsync` both files and directory.
-5. Remove and verify all existing owned proof state.
-6. Atomically rename staging to the requested final directory.
-7. If any step fails, remove only staging/owned paths and emit the closed stable code.
+6. Remove and verify all existing owned proof state, then require the live repository to remain
+   clean at the pinned HEAD.
+7. Atomically rename staging to the requested final directory with platform no-replace semantics.
+8. If any step fails, remove only staging/owned paths and emit the closed stable code.
 
-Do not accept symlink output parents or an existing non-empty final directory. Resolve the
-parent once and keep every staging/final path under that parent.
+Do not accept symlink output parents or any existing final path. Resolve the parent once and keep
+every staging/final path under that parent. If atomic no-replace is unsupported, fail closed rather
+than falling back to an operation that can overwrite a racing target.
 
 - [x] **Step 4: Add the CLI flag without changing stdout**
 

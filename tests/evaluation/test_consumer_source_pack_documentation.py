@@ -247,6 +247,9 @@ def test_consumer_source_pack_how_to_documents_candidate_artifact_handoff() -> N
         "canonical SHA-256",
         "40 lowercase hexadecimal",
         "64 lowercase hexadecimal",
+        "immutable tracked snapshot",
+        "same clean HEAD",
+        "atomic no-replace",
     ):
         assert required in prose
 

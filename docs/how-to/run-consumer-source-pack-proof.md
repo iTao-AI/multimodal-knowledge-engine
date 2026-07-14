@@ -37,9 +37,14 @@ UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
 ```
 
 The target directory must not already exist. Candidate creation also requires a clean Git
-checkout using the `sha1` object format. The directory is published atomically only after the
-same wheel passes both interpreter proofs and all owned temporary proof state is removed. It
-contains exactly the proven wheel and `candidate-artifact-receipt.json`.
+checkout using the `sha1` object format. Before building, the controller pins that commit and
+creates an immutable tracked snapshot with `git archive`; the wheel, locked dependency export,
+and copied proof inputs all come from that snapshot. After both interpreter proofs and owned-temp
+cleanup, the controller requires the live checkout to remain at the same clean HEAD. The final
+directory becomes visible through a platform atomic no-replace rename; if that primitive is not
+available or another process creates the target first, publication fails closed without replacing
+the target. The directory contains exactly the proven wheel and
+`candidate-artifact-receipt.json`.
 
 The strict receipt uses `mke.candidate_artifact_receipt.v1` and contains exactly:
 
