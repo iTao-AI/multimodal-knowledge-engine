@@ -74,12 +74,8 @@ def test_matrix_rejects_interpreter_aliasing_and_wrong_minors(tmp_path: Path) ->
         compatibility.build_matrix_plan(
             wheel,
             (
-                compatibility.InterpreterIdentity(
-                    tmp_path / "first", "3.12.13", "3.12"
-                ),
-                compatibility.InterpreterIdentity(
-                    tmp_path / "second", "3.12.14", "3.12"
-                ),
+                compatibility.InterpreterIdentity(tmp_path / "first", "3.12.13", "3.12"),
+                compatibility.InterpreterIdentity(tmp_path / "second", "3.12.14", "3.12"),
             ),
         )
 
@@ -313,8 +309,7 @@ def test_all_resolver_failed_candidate_emits_mke_only_valid_receipt(
         mke = next(
             item
             for item in inventory
-            if item["filename"]
-            == "multimodal_knowledge_engine-0.1.1-py3-none-any.whl"
+            if item["filename"] == "multimodal_knowledge_engine-0.1.1-py3-none-any.whl"
         )
         mke["sha256"] = digest
     failed = candidates[0]
@@ -419,23 +414,17 @@ def test_controller_emits_valid_negative_when_all_resolvers_fail(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    compatibility, repository, wheel, python312, python313 = _controller_inputs(
-        tmp_path
-    )
+    compatibility, repository, wheel, python312, python313 = _controller_inputs(tmp_path)
     output = repository / "benchmarks/ocr/candidate-environments.json"
     monkeypatch.setattr(
         compatibility,
         "run_bounded",
-        lambda command, **kwargs: _fake_controller_command(
-            compatibility, command, **kwargs
-        ),
+        lambda command, **kwargs: _fake_controller_command(compatibility, command, **kwargs),
     )
     monkeypatch.setattr(
         compatibility,
         "_run_offline_cell",
-        lambda *_args, **_kwargs: pytest.fail(
-            "resolver-failed cells must not run offline replay"
-        ),
+        lambda *_args, **_kwargs: pytest.fail("resolver-failed cells must not run offline replay"),
     )
 
     receipt = compatibility.run_package_matrix(
@@ -466,9 +455,7 @@ def test_controller_emits_valid_negative_when_all_resolvers_fail(
         cells = candidate["cells"]
         assert len(cells) == 8
         assert {cell["result"] for cell in cells} == {"resolver_failed"}
-        assert {cell["failure_code"] for cell in cells} == {
-            "resolver_unavailable"
-        }
+        assert {cell["failure_code"] for cell in cells} == {"resolver_unavailable"}
     compatibility.validate_receipt(receipt)
     assert output.read_bytes() == compatibility.canonical_receipt_bytes(receipt)
 
@@ -479,9 +466,7 @@ def test_controller_rejects_prepared_mke_identity_without_mutating_evidence(
     monkeypatch: pytest.MonkeyPatch,
     prepared_state: str,
 ) -> None:
-    compatibility, repository, wheel, python312, python313 = _controller_inputs(
-        tmp_path
-    )
+    compatibility, repository, wheel, python312, python313 = _controller_inputs(tmp_path)
     prepared = tmp_path / "prepared-wheelhouses"
     for candidate in compatibility.CANDIDATES:
         candidate_root = prepared / candidate
@@ -494,9 +479,7 @@ def test_controller_rejects_prepared_mke_identity_without_mutating_evidence(
     monkeypatch.setattr(
         compatibility,
         "run_bounded",
-        lambda command, **kwargs: _fake_controller_command(
-            compatibility, command, **kwargs
-        ),
+        lambda command, **kwargs: _fake_controller_command(compatibility, command, **kwargs),
     )
 
     with pytest.raises(compatibility.CompatibilityError) as error:
@@ -664,18 +647,14 @@ def test_committed_receipt_is_canonical_closed_and_frozen() -> None:
     }
 
 
-def test_script_source_has_no_model_acquisition_surface() -> None:
+def test_model_acquisition_surface_requires_explicit_authority() -> None:
     source = Path("scripts/pdf_ocr_candidate_compatibility.py")
     if not source.exists():
         pytest.fail("candidate compatibility script is absent")
     text = source.read_text(encoding="utf-8").lower()
-    for forbidden in (
-        "allow-model-download",
-        "snapshot_download",
-        "pp-doclayoutv3",
-        "pp-ocrv6_medium_det",
-        "vl_rec_model_dir",
-    ):
+    assert "--allow-model-download" in text
+    assert "model_download_not_authorized" in text
+    for forbidden in ("snapshot_download", "trust_remote_code", "autodl", "modelscope"):
         assert forbidden not in text
 
 
@@ -689,3 +668,289 @@ def test_no_dependency_files_are_modified() -> None:
             capture_output=True,
         ).stdout
         assert (root / relative).read_bytes() == committed
+
+
+def _model_metadata(artifact, *, revision=None, license_name=None):
+    return {
+        "repository": artifact.repository,
+        "revision": revision or artifact.revision,
+        "license": license_name or artifact.license,
+        "files": [
+            {"path": path, "bytes": size, "sha256": digest} for path, size, digest in artifact.files
+        ],
+    }
+
+
+def test_model_prepare_without_authority_is_stable_noop(tmp_path: Path) -> None:
+    compatibility = _module()
+    staging = tmp_path / "staging"
+    final = tmp_path / "models"
+    output = tmp_path / "model-receipt.json"
+
+    with pytest.raises(compatibility.CompatibilityError) as error:
+        compatibility.prepare_model_artifacts(
+            compatibility.ModelPreparationConfig(
+                staging_root=staging,
+                final_root=final,
+                output=output,
+                allow_model_download=False,
+            )
+        )
+
+    assert error.value.code == "model_download_not_authorized"
+    assert not staging.exists()
+    assert not final.exists()
+    assert not output.exists()
+
+
+def test_model_prepare_cli_without_authority_is_stable_noop(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    compatibility = _module()
+    staging = tmp_path / "staging"
+    final = tmp_path / "models"
+    output = tmp_path / "receipt.json"
+
+    result = compatibility.main(
+        [
+            "--prepare-models",
+            "--model-staging-root",
+            str(staging),
+            "--model-final-root",
+            str(final),
+            "--model-output",
+            str(output),
+            "--json",
+        ]
+    )
+
+    assert result == 1
+    assert json.loads(capsys.readouterr().out) == {
+        "status": "failed",
+        "code": "model_download_not_authorized",
+    }
+    assert not staging.exists() and not final.exists() and not output.exists()
+
+
+@pytest.mark.parametrize("mutation", ["revision", "license", "inventory", "bytes", "digest"])
+def test_model_metadata_drift_fails_closed(mutation: str) -> None:
+    compatibility = _module()
+    artifact = compatibility.MODEL_ARTIFACTS[0]
+    metadata = _model_metadata(artifact)
+    if mutation == "revision":
+        metadata["revision"] = "0" * 40
+    elif mutation == "license":
+        metadata["license"] = "unknown"
+    elif mutation == "inventory":
+        metadata["files"].append({"path": "unexpected.bin", "bytes": 1, "sha256": "f" * 64})
+    elif mutation == "bytes":
+        metadata["files"][0]["bytes"] += 1
+    else:
+        metadata["files"][0]["sha256"] = "f" * 64
+
+    with pytest.raises(compatibility.CompatibilityError) as error:
+        compatibility.validate_model_metadata(artifact, metadata)
+
+    assert error.value.code == "model_metadata_drift"
+
+
+def test_model_metadata_accepts_exact_git_blob_and_lfs_identities() -> None:
+    compatibility = _module()
+    artifact = compatibility.MODEL_ARTIFACTS[0]
+
+    compatibility.validate_model_metadata(artifact, _model_metadata(artifact))
+
+
+@pytest.mark.parametrize(
+    "failure", ["partial", "symlink", "directory", "traversal", "collision", "oversize"]
+)
+def test_model_prepare_rejects_unsafe_or_incomplete_downloads(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
+) -> None:
+    compatibility = _module()
+    artifact = compatibility.ModelArtifact(
+        candidate="ppocrv6-medium-cpu-spike-v1",
+        component="test-model",
+        repository="PaddlePaddle/test-model",
+        revision="1" * 40,
+        license="Apache-2.0",
+        files=(("model.bin", 4, hashlib.sha256(b"xxxx").hexdigest()),),
+    )
+
+    def downloader(_artifact, file_receipt, destination):
+        if failure == "traversal":
+            raise compatibility.CompatibilityError("model_inventory_invalid")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if failure == "symlink":
+            destination.symlink_to(tmp_path / "outside")
+            return
+        if failure == "directory":
+            destination.mkdir()
+            return
+        if failure == "collision":
+            destination.write_bytes(b"first")
+            raise compatibility.CompatibilityError("model_file_collision")
+        size = file_receipt[1]
+        if failure == "partial":
+            size = max(0, size - 1)
+        elif failure == "oversize":
+            size += 1
+        destination.write_bytes(b"x" * size)
+
+    monkeypatch.setattr(compatibility, "MODEL_ARTIFACTS", (artifact,))
+    with pytest.raises(compatibility.CompatibilityError) as error:
+        compatibility.prepare_model_artifacts(
+            compatibility.ModelPreparationConfig(
+                staging_root=tmp_path / "staging",
+                final_root=tmp_path / "models",
+                output=tmp_path / "receipt.json",
+                allow_model_download=True,
+            ),
+            metadata_loader=lambda value: _model_metadata(value),
+            downloader=downloader,
+        )
+
+    if failure == "directory":
+        assert error.value.code == "model_inventory_invalid"
+
+    assert not (tmp_path / "models").exists()
+    assert not (tmp_path / "receipt.json").exists()
+    assert not (tmp_path / "staging").exists()
+
+
+def test_model_prepare_publishes_content_addressed_public_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    compatibility = _module()
+    digest = hashlib.sha256(b"model-bytes").hexdigest()
+    artifact = compatibility.ModelArtifact(
+        candidate="ppocrv6-medium-cpu-spike-v1",
+        component="test-model",
+        repository="PaddlePaddle/test-model",
+        revision="1" * 40,
+        license="Apache-2.0",
+        files=(("model.bin", 11, digest),),
+    )
+    monkeypatch.setattr(compatibility, "MODEL_ARTIFACTS", (artifact,))
+
+    def downloader(_artifact, _file_receipt, destination):
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(b"model-bytes")
+
+    final = tmp_path / "models"
+    output = tmp_path / "receipt.json"
+    receipt = compatibility.prepare_model_artifacts(
+        compatibility.ModelPreparationConfig(
+            staging_root=tmp_path / "staging",
+            final_root=final,
+            output=output,
+            allow_model_download=True,
+        ),
+        metadata_loader=lambda value: _model_metadata(value),
+        downloader=downloader,
+    )
+
+    compatibility.validate_model_receipt(receipt)
+    assert receipt["schema"] == "mke.pdf_ocr_model_artifacts.v1"
+    assert receipt["total_bytes"] == 11
+    assert output.read_bytes() == compatibility.canonical_model_receipt_bytes(receipt)
+    assert final.is_dir()
+    assert not (tmp_path / "staging").exists()
+    serialized = output.read_text(encoding="utf-8")
+    assert str(tmp_path) not in serialized
+    assert not any(
+        marker in serialized.lower()
+        for marker in ("token", "command", "cache", "traceback", "http://", "https://")
+    )
+
+
+def _provider_startup_receipt() -> dict[str, object]:
+    return {
+        "schema": "mke.pdf_ocr_provider_startup.v1",
+        "profile": "phase0-200dpi-plain-text-v1",
+        "platform": {"os": "Darwin", "architecture": "arm64"},
+        "package_receipt_sha256": "a" * 64,
+        "model_receipt_sha256": "b" * 64,
+        "network_isolation": {
+            "mechanism": "darwin-sandbox-deny-network",
+            "canary": "blocked",
+        },
+        "fixture": {"protocol": "pdf-ocr-phase0-v1", "document": "english-scan", "page": 1},
+        "providers": [
+            {
+                "provider": "apple-vision-local-v1",
+                "status": "passed",
+                "failure_code": None,
+                "duration_ms": 547,
+                "normalized_text_sha256": "c" * 64,
+                "vendor_artifacts": None,
+            },
+            {
+                "provider": "paddleocr-vl-1.6-cpu-spike-v1",
+                "status": "failed",
+                "failure_code": "vendor_artifact_schema_mismatch",
+                "duration_ms": None,
+                "normalized_text_sha256": None,
+                "vendor_artifacts": {
+                    "files": [
+                        {"name": "english-scan-page-1.md", "bytes": 51, "sha256": "d" * 64},
+                        {
+                            "name": "english-scan-page-1_res.json",
+                            "bytes": 2458,
+                            "sha256": "e" * 64,
+                        },
+                    ],
+                    "json_top_level_keys": ["height", "parsing_res_list"],
+                    "parsing_block_keys": ["block_content", "block_label"],
+                    "markdown_class": "prose_only",
+                    "adapter_result": "rejected_fail_closed",
+                },
+            },
+            {
+                "provider": "ppocrv6-medium-cpu-spike-v1",
+                "status": "passed",
+                "failure_code": None,
+                "duration_ms": 14365,
+                "normalized_text_sha256": "c" * 64,
+                "vendor_artifacts": None,
+            },
+        ],
+    }
+
+
+def test_provider_startup_receipt_is_closed_and_public_neutral() -> None:
+    compatibility = _module()
+    receipt = _provider_startup_receipt()
+
+    encoded = compatibility.canonical_provider_startup_bytes(receipt)
+
+    assert json.loads(encoded) == receipt
+    private = copy.deepcopy(receipt)
+    private["runtime_path"] = "/Users/example/private"
+    with pytest.raises(ValueError, match="startup receipt"):
+        compatibility.validate_provider_startup_receipt(private)
+
+
+def test_committed_model_and_startup_receipts_are_canonical_and_frozen() -> None:
+    compatibility = _module()
+    root = Path(__file__).resolve().parents[2] / "benchmarks/ocr"
+    cases = (
+        (
+            "model-artifacts.json",
+            "3d1e8c45b7ed0c817acaeda3f51954b463016763690e09ca1f23162042219d6e",
+            compatibility.canonical_model_receipt_bytes,
+        ),
+        (
+            "provider-startup.json",
+            "171cf5d345cbc986aa4354c5ede564daeff003b31f8e661e21099de990995069",
+            compatibility.canonical_provider_startup_bytes,
+        ),
+    )
+    for name, expected_sha256, canonical in cases:
+        encoded = (root / name).read_bytes()
+        assert hashlib.sha256(encoded).hexdigest() == expected_sha256
+        assert encoded == canonical(json.loads(encoded))

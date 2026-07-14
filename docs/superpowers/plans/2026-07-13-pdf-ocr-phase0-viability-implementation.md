@@ -2,9 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-Status: in progress. Tasks 1-3 and their review remediation are complete. Task 4 Steps 1-3 and the
-authorized package-only compatibility checkpoint are complete. Work is hard-stopped before Task 4
-model acquisition and real-provider startup; Task 4 Steps 4-6 and Tasks 5-6 have not started.
+Status: in progress. Tasks 1-3 and their review remediation are complete. Task 4 Steps 1-6 are
+complete as a bounded compatibility checkpoint. The pinned model roots were prepared and real
+startup evidence was recorded, but the strict provisional PaddleOCR-VL adapter rejected the
+observed vendor JSON schema. Tasks 5-6 have not started; work is hard-stopped for authority review
+before any scorecard, provider selection, or production runtime work.
 
 **Goal:** Produce reproducible valid-positive or valid-negative evidence for local scanned/mixed-PDF OCR before adding a production runtime contract.
 
@@ -48,6 +50,8 @@ model acquisition and real-provider startup; Task 4 Steps 4-6 and Tasks 5-6 have
 | `tests/evaluation/test_pdf_ocr_runner.py` | Hard gates, valid-negative behavior, and product proof. |
 | `tests/scripts/test_pdf_ocr_candidate_compatibility.py` | Command construction, isolation, and exact aggregate receipt. |
 | `tests/scripts/test_pdf_ocr_phase0_consumer.py` | External consumer contract and failure cases. |
+| `benchmarks/ocr/model-artifacts.json` | Immutable pinned model inventory, per-file identity, bytes, and tree receipt. |
+| `benchmarks/ocr/provider-startup.json` | Cache-only startup, network canary, and real PaddleOCR-VL artifact-schema evidence. |
 | `benchmarks/ocr/phase0-scorecard.json` | Public measurement/decision artifact generated only from a real authorized run. |
 | `docs/superpowers/reviews/2026-07-13-pdf-ocr-phase0-decision.md` | Public-neutral GO/NO-GO rationale and limits of the evidence. |
 
@@ -605,7 +609,7 @@ cleanup, not retained disk usage. The retained operator-local package evidence i
 Steps 4-6 remain unstarted and incomplete. Model acquisition, cache-only real-provider startup, and
 the real PaddleOCR-VL artifact inventory/schema check remain the next explicit authority gate.
 
-- [ ] **Step 4: Prepare model artifacts under explicit authority**
+- [x] **Step 4: Prepare model artifacts under explicit authority**
 
 Before downloading, print a bounded preflight naming every model, source host, declared license,
 expected or unknown bytes, staging root, and final candidate profile. Require
@@ -621,7 +625,15 @@ total bytes, record upstream model identifiers and license evidence, then atomic
 to the content-addressed final root. A partial root is never ready. Do not commit models or expose
 local locations in the receipt.
 
-- [ ] **Step 5: Prove cache-only real-provider startup**
+The authorized preparation pinned four official revisions and produced 34 regular files totaling
+2,201,640,507 bytes. The canonical model receipt SHA-256 is
+`3d1e8c45b7ed0c817acaeda3f51954b463016763690e09ca1f23162042219d6e`; its aggregate normalized tree
+SHA-256 is `9877eb33601bc06640608021b4b33f9950ccd6ef990cc0877501ba1d451cc998`. Every
+component is stored in a read-only content-addressed directory outside the repository. Acquisition
+used only the four pinned `PaddlePaddle` revisions, and the call-owned partial staging root was
+removed after atomic publication.
+
+- [x] **Step 5: Prove cache-only real-provider startup**
 
 Run each available real provider once with all local model-directory arguments and external egress
 blocked. Any attempted download, URL fetch, cache miss, missing artifact, package incompatibility,
@@ -632,7 +644,20 @@ PaddleOCR-VL direct CPU inference is the approved Phase 0 comparison path. Hoste
 local VLM service backends remain out of scope even if official documentation recommends them for
 speed.
 
-- [ ] **Step 6: Run GREEN and commit Task 4**
+Fresh Darwin/arm64 startup evidence used the accepted package receipt and an operating-system
+network-denial sandbox whose canary was blocked. Apple Vision and PP-OCRv6 medium returned the exact
+public fixture text through the project-owned result validator in 547 ms and 14,365 ms respectively.
+These are single-page startup observations, not OCR quality or production claims.
+
+PaddleOCR-VL loaded both local model roots and completed direct CPU inference, then wrote exactly
+`english-scan-page-1.md` (51 bytes) and `english-scan-page-1_res.json` (2,458 bytes). The Markdown
+was prose-only and matched the fixture text. The JSON used direct top-level result keys and richer
+block fields rather than the strict provisional `{"res":{"parsing_res_list":...}}` envelope, so
+the adapter correctly failed closed with `vendor_artifact_schema_mismatch`. The exact inventory,
+digests, top-level keys, and block keys are frozen in `benchmarks/ocr/provider-startup.json`. No
+adapter relaxation is included; that schema decision remains an authority gate.
+
+- [x] **Step 6: Run GREEN and commit Task 4**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/scripts/test_pdf_ocr_candidate_compatibility.py
@@ -649,6 +674,11 @@ git commit -m "test(ocr): record candidate compatibility"
 
 If no candidate environment can be recreated offline, continue to Task 5 only far enough to emit a
 tested `no_go` scorecard. Do not run or design a production provider.
+
+Task 4 closes as compatibility evidence, not a provider decision. The package matrix remains
+unchanged and canonical, the model and startup receipts are independently canonical, and required
+model-free suites remain network-free. Task 5 is not authorized by this checkpoint and remains
+unstarted pending review of the PaddleOCR-VL schema delta.
 
 ---
 

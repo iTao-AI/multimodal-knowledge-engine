@@ -16,7 +16,10 @@ import subprocess
 import tempfile
 import threading
 import time
-from collections.abc import Mapping, Sequence
+import urllib.error
+import urllib.parse
+import urllib.request
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO, NoReturn, cast
@@ -52,6 +55,16 @@ _PRIVATE_RE = re.compile(
     r"SECRET=|PASSWORD=|BEGIN [A-Z ]*PRIVATE KEY)",
     re.IGNORECASE,
 )
+_MODEL_SCHEMA = "mke.pdf_ocr_model_artifacts.v1"
+_MODEL_PROFILE = "phase0-model-artifacts-v1"
+_PROVIDER_STARTUP_SCHEMA = "mke.pdf_ocr_provider_startup.v1"
+_MODEL_MAX_TRANSIENT_BYTES = 5 * 1024 * 1024 * 1024
+_MODEL_DOWNLOAD_CHUNK_BYTES = 1024 * 1024
+_MODEL_METADATA_MAX_BYTES = 2 * 1024 * 1024
+_MODEL_NETWORK_TIMEOUT_SECONDS = 1800.0
+_MODEL_ALLOWED_HOSTS = frozenset(
+    {"huggingface.co", "cdn-lfs.huggingface.co", "cas-bridge.xethub.hf.co"}
+)
 _RESOLVER_MARKERS = (
     b"no matching distribution found",
     b"could not find a version that satisfies the requirement",
@@ -71,6 +84,145 @@ class Candidate:
     profile: str
     requirements: tuple[str, str]
     required_symbol: str
+
+
+@dataclass(frozen=True)
+class ModelArtifact:
+    candidate: str
+    component: str
+    repository: str
+    revision: str
+    license: str
+    files: tuple[tuple[str, int, str], ...]
+
+    def __post_init__(self) -> None:
+        if (
+            self.candidate
+            not in {
+                "ppocrv6-medium-cpu-spike-v1",
+                "paddleocr-vl-1.6-cpu-spike-v1",
+            }
+            or not _SAFE_RE.fullmatch(self.component)
+            or not re.fullmatch(r"PaddlePaddle/[A-Za-z0-9._-]+", self.repository)
+            or not re.fullmatch(r"[0-9a-f]{40}", self.revision)
+            or self.license != "Apache-2.0"
+            or not self.files
+        ):
+            raise ValueError("model artifact is invalid")
+        seen: set[str] = set()
+        for path, size, digest in self.files:
+            pure = Path(path)
+            if (
+                not path
+                or pure.is_absolute()
+                or ".." in pure.parts
+                or "\\" in path
+                or path in seen
+                or size <= 0
+                or not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", digest)
+            ):
+                raise ValueError("model artifact is invalid")
+            seen.add(path)
+
+
+# Exact pinned inventories observed from the official metadata endpoint. Git
+# blobs use their Git SHA-1 identity; LFS blobs use the declared SHA-256.
+MODEL_ARTIFACTS: tuple[ModelArtifact, ...] = (
+    ModelArtifact(
+        candidate="ppocrv6-medium-cpu-spike-v1",
+        component="PP-OCRv6_medium_det",
+        repository="PaddlePaddle/PP-OCRv6_medium_det",
+        revision="8e0f56fb2ef86b461d99cfc7ac5c137738985f61",
+        license="Apache-2.0",
+        files=(
+            (".gitattributes", 1575, "c48a31d8dce80bfbfe392212dc49792e212a6436"),
+            ("README.md", 23247, "715b0f0fcd71d2edc118b1e624ffd954fd9a02db"),
+            ("inference.json", 312150, "548f60c00e9303a0323feceeae460256576671a6"),
+            (
+                "inference.pdiparams",
+                61960476,
+                "85218d2e3d98f5a21c58b4220627be923a97aee5db3cc71f39536ab31ac53960",
+            ),
+            ("inference.yml", 886, "1c5c05809877e4c7385f899019fff0ac9017ca80"),
+        ),
+    ),
+    ModelArtifact(
+        candidate="ppocrv6-medium-cpu-spike-v1",
+        component="PP-OCRv6_medium_rec",
+        repository="PaddlePaddle/PP-OCRv6_medium_rec",
+        revision="e5a92bcbc5cc1b494628e458d267778f0704fd7c",
+        license="Apache-2.0",
+        files=(
+            (".gitattributes", 1575, "c48a31d8dce80bfbfe392212dc49792e212a6436"),
+            ("README.md", 23474, "580e21d8953c774df101f56bf01aa851992e344f"),
+            ("inference.json", 221814, "9e0192344de3b69dacdb19dd735efbd06bd852f9"),
+            (
+                "inference.pdiparams",
+                76465087,
+                "1b01c79a914587933f615569e75de54f2e638ebb5d3f3b3c1b38c24ede8c7319",
+            ),
+            ("inference.yml", 150580, "c53a96fcd315a86cb4748d2746f3d90941e1c6d8"),
+        ),
+    ),
+    ModelArtifact(
+        candidate="paddleocr-vl-1.6-cpu-spike-v1",
+        component="PP-DocLayoutV3",
+        repository="PaddlePaddle/PP-DocLayoutV3",
+        revision="7b48a7566925fa464281f930c58eee04fe2c862a",
+        license="Apache-2.0",
+        files=(
+            (".gitattributes", 1575, "c48a31d8dce80bfbfe392212dc49792e212a6436"),
+            ("README.md", 12077, "0e67905a060d65fffd43d158c078e320b3c5d784"),
+            ("inference.json", 1196890, "5fd3ae9d9615dd36cd2134551a3bcc60d222ed21"),
+            (
+                "inference.pdiparams",
+                130806572,
+                "70bd316b0582769ec968829fd1feb1a6a58b7c941b938327e551b6b12b45c137",
+            ),
+            ("inference.yml", 1482, "ed7472400b398e0e0e032893f7986b32692980e7"),
+        ),
+    ),
+    ModelArtifact(
+        candidate="paddleocr-vl-1.6-cpu-spike-v1",
+        component="PaddleOCR-VL-1.6",
+        repository="PaddlePaddle/PaddleOCR-VL-1.6",
+        revision="66317acc4c9fc17bd154591ce650735cd2855f3e",
+        license="Apache-2.0",
+        files=(
+            (".gitattributes", 1570, "52373fe24473b1aa44333d318f578ae6bf04b49b"),
+            ("LICENSE", 11376, "0491a00e80b424eb709078b57e35d8b83ffee985"),
+            ("README.md", 21466, "bf454fab90d7ce2f5529b437ac4f8bb1176c54d0"),
+            ("added_tokens.json", 25381, "6a2790e1462ecb007f9b92dfb00f594701462889"),
+            ("chat_template.jinja", 1474, "d8b8c271d7a7245d4937098f53aa372cff3dba70"),
+            ("config.json", 2059, "c54711466ae75457f8e57b909a49dae570bfa5c5"),
+            ("configuration_paddleocr_vl.py", 8104, "a8fd139287293301b287db6dfdaac21d7ad1a236"),
+            ("generation_config.json", 133, "ba87d71b9881c1d52f0be4286fb63e381ce3febf"),
+            ("image_processing_paddleocr_vl.py", 25032, "f7e28fd3c1971331581f73d573b9c4a2a4ce7a58"),
+            ("inference.yml", 43, "93f88dfb31b6dbc3f529094ccfe26ddec98fa8ad"),
+            (
+                "model.safetensors",
+                1917255968,
+                "85a479d506a11e724e7285d395c551be69f41dbc16b6342d3cacfb189aed71db",
+            ),
+            ("modeling_paddleocr_vl.py", 103889, "693782514116586458b12cfd911c88d6565f552c"),
+            ("preprocessor_config.json", 641, "d873cd63d04d9e6243999759fc30f7752dab3222"),
+            ("processing_paddleocr_vl.py", 12253, "73c3faeff201555fc7b52709848e3c669419dbb1"),
+            ("processor_config.json", 137, "033053ac4d8b5de2e47884ce85a6b4939cc58e87"),
+            ("special_tokens_map.json", 1151, "dcd70aaa8c9987899d7593995546d9c0cfc6a1f3"),
+            (
+                "tokenizer.json",
+                11189060,
+                "c8a215a59183d0d0781adc33bacd3ce6162716f7fd568fb30234a74d69803a7d",
+            ),
+            (
+                "tokenizer.model",
+                1614363,
+                "34ef7db83df785924fb83d7b887b6e822a031c56e15cff40aaf9b982988180df",
+            ),
+            ("tokenizer_config.json", 186947, "cd9eb7da01a3209f4fb9b3561e04be022cd87764"),
+        ),
+    ),
+)
 
 
 CANDIDATES: dict[str, Candidate] = {
@@ -137,6 +289,15 @@ class CompatibilityConfig:
     timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS
     max_stdout_bytes: int = _DEFAULT_STDOUT_BYTES
     max_stderr_bytes: int = _DEFAULT_STDERR_BYTES
+
+
+@dataclass(frozen=True)
+class ModelPreparationConfig:
+    staging_root: Path
+    final_root: Path
+    output: Path
+    allow_model_download: bool
+    timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS
 
 
 @dataclass
@@ -252,6 +413,533 @@ def validate_acquisition_mode(
     return resolved
 
 
+def validate_model_metadata(artifact: ModelArtifact, value: object) -> None:
+    try:
+        root = _mapping(value)
+        _exact(root, {"repository", "revision", "license", "files"})
+        if (
+            root["repository"] != artifact.repository
+            or root["revision"] != artifact.revision
+            or root["license"] != artifact.license
+            or not isinstance(root["files"], list)
+        ):
+            raise ValueError
+        observed: list[tuple[str, int, str]] = []
+        for raw in cast(list[object], root["files"]):
+            item = _mapping(raw)
+            _exact(item, {"path", "bytes", "sha256"})
+            identity = item["sha256"]
+            if not isinstance(identity, str) or not re.fullmatch(
+                r"(?:[0-9a-f]{40}|[0-9a-f]{64})", identity
+            ):
+                raise ValueError
+            observed.append(
+                (
+                    cast(str, item["path"]),
+                    _nonnegative_integer(item["bytes"]),
+                    identity,
+                )
+            )
+        if tuple(observed) != artifact.files:
+            raise ValueError
+    except (KeyError, TypeError, ValueError) as error:
+        raise CompatibilityError("model_metadata_drift") from error
+
+
+def canonical_model_receipt_bytes(receipt: object) -> bytes:
+    validate_model_receipt(receipt)
+    return (
+        json.dumps(receipt, sort_keys=True, separators=(",", ":"), ensure_ascii=True) + "\n"
+    ).encode("utf-8")
+
+
+def canonical_provider_startup_bytes(receipt: object) -> bytes:
+    validate_provider_startup_receipt(receipt)
+    return (
+        json.dumps(receipt, sort_keys=True, separators=(",", ":"), ensure_ascii=True) + "\n"
+    ).encode("utf-8")
+
+
+def validate_provider_startup_receipt(value: object) -> None:
+    try:
+        root = _mapping(value)
+        _exact(
+            root,
+            {
+                "schema",
+                "profile",
+                "platform",
+                "package_receipt_sha256",
+                "model_receipt_sha256",
+                "network_isolation",
+                "fixture",
+                "providers",
+            },
+        )
+        if root["schema"] != _PROVIDER_STARTUP_SCHEMA or root["profile"] != _CANDIDATE_PROFILE:
+            raise ValueError
+        platform_value = _mapping(root["platform"])
+        _exact(platform_value, {"os", "architecture"})
+        _safe(platform_value["os"])
+        _safe(platform_value["architecture"])
+        _digest(root["package_receipt_sha256"])
+        _digest(root["model_receipt_sha256"])
+        network = _mapping(root["network_isolation"])
+        _exact(network, {"mechanism", "canary"})
+        if network != {
+            "mechanism": "darwin-sandbox-deny-network",
+            "canary": "blocked",
+        }:
+            raise ValueError
+        fixture = _mapping(root["fixture"])
+        _exact(fixture, {"protocol", "document", "page"})
+        if fixture != {
+            "protocol": "pdf-ocr-phase0-v1",
+            "document": "english-scan",
+            "page": 1,
+        }:
+            raise ValueError
+        providers = root["providers"]
+        if not isinstance(providers, list):
+            raise ValueError
+        provider_values = cast(list[object], providers)
+        expected_providers = [
+            "apple-vision-local-v1",
+            "paddleocr-vl-1.6-cpu-spike-v1",
+            "ppocrv6-medium-cpu-spike-v1",
+        ]
+        if len(provider_values) != len(expected_providers):
+            raise ValueError
+        for raw, expected_provider in zip(provider_values, expected_providers, strict=True):
+            provider = _mapping(raw)
+            _exact(
+                provider,
+                {
+                    "provider",
+                    "status",
+                    "failure_code",
+                    "duration_ms",
+                    "normalized_text_sha256",
+                    "vendor_artifacts",
+                },
+            )
+            if provider["provider"] != expected_provider:
+                raise ValueError
+            status_value = provider["status"]
+            if status_value == "passed":
+                if (
+                    provider["failure_code"] is not None
+                    or _nonnegative_integer(provider["duration_ms"]) <= 0
+                    or not isinstance(provider["normalized_text_sha256"], str)
+                    or provider["vendor_artifacts"] is not None
+                ):
+                    raise ValueError
+                _digest(provider["normalized_text_sha256"])
+            elif status_value == "failed" and expected_provider == "paddleocr-vl-1.6-cpu-spike-v1":
+                if (
+                    provider["failure_code"] != "vendor_artifact_schema_mismatch"
+                    or provider["duration_ms"] is not None
+                    or provider["normalized_text_sha256"] is not None
+                ):
+                    raise ValueError
+                _validate_vendor_artifacts(provider["vendor_artifacts"])
+            else:
+                raise ValueError
+        encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+        if _PRIVATE_RE.search(encoded):
+            raise ValueError
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError("provider startup receipt is invalid") from error
+
+
+def _validate_vendor_artifacts(value: object) -> None:
+    artifacts = _mapping(value)
+    _exact(
+        artifacts,
+        {
+            "files",
+            "json_top_level_keys",
+            "parsing_block_keys",
+            "markdown_class",
+            "adapter_result",
+        },
+    )
+    files = artifacts["files"]
+    if not isinstance(files, list):
+        raise ValueError
+    file_values = cast(list[object], files)
+    if len(file_values) != 2:
+        raise ValueError
+    names: list[str] = []
+    for raw in file_values:
+        item = _mapping(raw)
+        _exact(item, {"name", "bytes", "sha256"})
+        name = _safe(item["name"])
+        names.append(name)
+        if _nonnegative_integer(item["bytes"]) <= 0:
+            raise ValueError
+        _digest(item["sha256"])
+    if names != ["english-scan-page-1.md", "english-scan-page-1_res.json"]:
+        raise ValueError
+    for field in ("json_top_level_keys", "parsing_block_keys"):
+        items = artifacts[field]
+        if not isinstance(items, list) or not items:
+            raise ValueError
+        for item in cast(list[object], items):
+            _safe(item)
+    if (
+        artifacts["markdown_class"] != "prose_only"
+        or artifacts["adapter_result"] != "rejected_fail_closed"
+    ):
+        raise ValueError
+
+
+def validate_model_receipt(value: object) -> None:
+    try:
+        root = _mapping(value)
+        _exact(root, {"schema", "profile", "models", "total_bytes", "tree_sha256"})
+        if root["schema"] != _MODEL_SCHEMA or root["profile"] != _MODEL_PROFILE:
+            raise ValueError
+        models = root["models"]
+        if not isinstance(models, list):
+            raise ValueError
+        model_values = cast(list[object], models)
+        if len(model_values) != len(MODEL_ARTIFACTS):
+            raise ValueError
+        total = 0
+        components: set[str] = set()
+        aggregate_files: list[dict[str, object]] = []
+        for raw, expected_artifact in zip(model_values, MODEL_ARTIFACTS, strict=True):
+            model = _mapping(raw)
+            _exact(
+                model,
+                {
+                    "candidate",
+                    "component",
+                    "repository",
+                    "revision",
+                    "license",
+                    "files",
+                    "total_bytes",
+                    "tree_sha256",
+                },
+            )
+            component = _safe(model["component"])
+            if component in components:
+                raise ValueError
+            components.add(component)
+            if (
+                model["candidate"] != expected_artifact.candidate
+                or model["repository"] != expected_artifact.repository
+                or model["revision"] != expected_artifact.revision
+                or model["license"] != expected_artifact.license
+            ):
+                raise ValueError
+            if not re.fullmatch(r"PaddlePaddle/[A-Za-z0-9._-]+", cast(str, model["repository"])):
+                raise ValueError
+            if not re.fullmatch(r"[0-9a-f]{40}", cast(str, model["revision"])):
+                raise ValueError
+            if model["license"] != "Apache-2.0":
+                raise ValueError
+            files = model["files"]
+            if not isinstance(files, list) or not files:
+                raise ValueError
+            file_total = 0
+            expected_paths = [(path, size) for path, size, _ in expected_artifact.files]
+            observed_paths: list[tuple[str, int]] = []
+            for raw_file in cast(list[object], files):
+                file_receipt = _mapping(raw_file)
+                _exact(file_receipt, {"path", "bytes", "sha256"})
+                path = cast(str, file_receipt["path"])
+                if Path(path).is_absolute() or ".." in Path(path).parts or "\\" in path:
+                    raise ValueError
+                file_bytes = _nonnegative_integer(file_receipt["bytes"])
+                observed_paths.append((path, file_bytes))
+                file_total += file_bytes
+                _digest(file_receipt["sha256"])
+            if observed_paths != expected_paths:
+                raise ValueError
+            if file_total != _nonnegative_integer(model["total_bytes"]):
+                raise ValueError
+            tree_digest = _digest(model["tree_sha256"])
+            if tree_digest != _model_tree_sha256(cast(list[dict[str, object]], files)):
+                raise ValueError
+            aggregate_files.append({"path": component, "bytes": file_total, "sha256": tree_digest})
+            total += file_total
+        if total != _nonnegative_integer(root["total_bytes"]):
+            raise ValueError
+        if _digest(root["tree_sha256"]) != _model_tree_sha256(aggregate_files):
+            raise ValueError
+        encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+        if _PRIVATE_RE.search(encoded):
+            raise ValueError
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError("model receipt is invalid") from error
+
+
+def prepare_model_artifacts(
+    config: ModelPreparationConfig,
+    *,
+    metadata_loader: Callable[[ModelArtifact], object] | None = None,
+    downloader: Callable[[ModelArtifact, tuple[str, int, str], Path], None] | None = None,
+) -> dict[str, object]:
+    if not config.allow_model_download:
+        raise CompatibilityError("model_download_not_authorized")
+    staging = config.staging_root.resolve()
+    final = config.final_root.resolve()
+    output = config.output.resolve()
+    if staging.exists() or final.exists() or output.exists():
+        raise CompatibilityError("model_call_owned_root_exists")
+    if staging == final or _within(staging, final) or _within(final, staging):
+        raise CompatibilityError("model_root_invalid")
+    load = metadata_loader or _fetch_model_metadata
+    fetch = downloader or _download_model_file
+    metadata_values: list[object] = []
+    for artifact in MODEL_ARTIFACTS:
+        value = load(artifact)
+        validate_model_metadata(artifact, value)
+        metadata_values.append(value)
+    expected_total = sum(size for item in MODEL_ARTIFACTS for _, size, _ in item.files)
+    if expected_total * 2 > _MODEL_MAX_TRANSIENT_BYTES:
+        raise CompatibilityError("model_disk_budget_exceeded")
+    staging.mkdir(mode=0o700, parents=True)
+    payload_root = staging / "snapshot"
+    payload_root.mkdir(mode=0o700)
+    try:
+        models: list[dict[str, object]] = []
+        for artifact in MODEL_ARTIFACTS:
+            component_root = payload_root / artifact.component
+            component_root.mkdir(mode=0o700)
+            for file_receipt in artifact.files:
+                relative = Path(file_receipt[0])
+                if relative.is_absolute() or ".." in relative.parts or "\\" in file_receipt[0]:
+                    raise CompatibilityError("model_inventory_invalid")
+                destination = component_root / relative
+                if destination.exists() or destination.is_symlink():
+                    raise CompatibilityError("model_file_collision")
+                fetch(artifact, file_receipt, destination)
+            files = _validated_model_tree(component_root, artifact.files)
+            tree_digest = _model_tree_sha256(files)
+            content_addressed = payload_root / f"{artifact.component}-{tree_digest}"
+            os.replace(component_root, content_addressed)
+            models.append(
+                {
+                    "candidate": artifact.candidate,
+                    "component": artifact.component,
+                    "repository": artifact.repository,
+                    "revision": artifact.revision,
+                    "license": artifact.license,
+                    "files": files,
+                    "total_bytes": sum(cast(int, item["bytes"]) for item in files),
+                    "tree_sha256": tree_digest,
+                }
+            )
+        aggregate_digest = _model_tree_sha256(
+            [
+                {
+                    "path": cast(str, item["component"]),
+                    "bytes": cast(int, item["total_bytes"]),
+                    "sha256": cast(str, item["tree_sha256"]),
+                }
+                for item in models
+            ]
+        )
+        receipt: dict[str, object] = {
+            "schema": _MODEL_SCHEMA,
+            "profile": _MODEL_PROFILE,
+            "models": models,
+            "total_bytes": sum(cast(int, item["total_bytes"]) for item in models),
+            "tree_sha256": aggregate_digest,
+        }
+        encoded = canonical_model_receipt_bytes(receipt)
+        os.replace(payload_root, final)
+        temporary = output.with_suffix(output.suffix + ".tmp")
+        output.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
+        temporary.write_bytes(encoded)
+        os.replace(temporary, output)
+        _make_model_tree_read_only(final)
+        return receipt
+    except Exception:
+        if final.exists():
+            shutil.rmtree(final, ignore_errors=True)
+        output.unlink(missing_ok=True)
+        raise
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+        if staging.exists():
+            raise CompatibilityError("cleanup_failed")
+
+
+def _validated_model_tree(
+    root: Path,
+    expected: tuple[tuple[str, int, str], ...],
+) -> list[dict[str, object]]:
+    observed: list[dict[str, object]] = []
+    expected_by_path = {path: (size, digest) for path, size, digest in expected}
+    for path in sorted(root.rglob("*"), key=lambda value: value.as_posix()):
+        metadata = path.lstat()
+        relative = path.relative_to(root).as_posix()
+        if path.is_symlink() or (
+            not stat.S_ISDIR(metadata.st_mode) and not stat.S_ISREG(metadata.st_mode)
+        ):
+            raise CompatibilityError("model_inventory_invalid")
+        if stat.S_ISDIR(metadata.st_mode):
+            if relative in expected_by_path:
+                raise CompatibilityError("model_inventory_invalid")
+            continue
+        if relative not in expected_by_path:
+            raise CompatibilityError("model_inventory_invalid")
+        expected_size, upstream_identity = expected_by_path[relative]
+        if (
+            metadata.st_size != expected_size
+            or _model_file_identity(path, upstream_identity) != upstream_identity
+        ):
+            raise CompatibilityError("model_artifact_invalid")
+        observed.append({"path": relative, "bytes": metadata.st_size, "sha256": _sha256_file(path)})
+    if [cast(str, item["path"]) for item in observed] != [path for path, _, _ in expected]:
+        raise CompatibilityError("model_artifact_invalid")
+    return observed
+
+
+def _model_file_identity(path: Path, expected: str) -> str:
+    if len(expected) == 64:
+        return _sha256_file(path)
+    content = path.read_bytes()
+    header = f"blob {len(content)}\0".encode("ascii")
+    return hashlib.sha1(header + content, usedforsecurity=False).hexdigest()
+
+
+def _model_tree_sha256(files: list[dict[str, object]]) -> str:
+    encoded = json.dumps(files, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _make_model_tree_read_only(root: Path) -> None:
+    entries = sorted(root.rglob("*"), key=lambda value: len(value.parts), reverse=True)
+    for path in entries:
+        metadata = path.lstat()
+        if path.is_symlink():
+            raise CompatibilityError("model_inventory_invalid")
+        path.chmod(0o555 if stat.S_ISDIR(metadata.st_mode) else 0o444)
+    root.chmod(0o555)
+
+
+class _PinnedRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(
+        self, req: object, fp: object, code: int, msg: str, headers: object, newurl: str
+    ):  # type: ignore[no-untyped-def]
+        parsed = urllib.parse.urlparse(newurl)
+        if parsed.scheme != "https" or parsed.hostname not in _MODEL_ALLOWED_HOSTS:
+            raise CompatibilityError("model_source_rejected")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)  # type: ignore[arg-type]
+
+
+def _model_opener() -> urllib.request.OpenerDirector:
+    return urllib.request.build_opener(
+        urllib.request.ProxyHandler({}),
+        _PinnedRedirectHandler(),
+    )
+
+
+def _read_network_response(response: object, limit: int) -> bytes:
+    stream = cast(BinaryIO, response)
+    content = bytearray()
+    while True:
+        chunk = stream.read(min(_MODEL_DOWNLOAD_CHUNK_BYTES, limit - len(content) + 1))
+        if not chunk:
+            return bytes(content)
+        content.extend(chunk)
+        if len(content) > limit:
+            raise CompatibilityError("model_network_output_exceeded")
+
+
+def _fetch_model_metadata(artifact: ModelArtifact) -> object:
+    repository = urllib.parse.quote(artifact.repository, safe="/")
+    url = f"https://huggingface.co/api/models/{repository}/revision/{artifact.revision}?blobs=true"
+    request = urllib.request.Request(url, headers={"User-Agent": "mke-phase0-model-receipt/1"})
+    try:
+        with _model_opener().open(request, timeout=30.0) as response:
+            payload = json.loads(_read_network_response(response, _MODEL_METADATA_MAX_BYTES))
+    except CompatibilityError:
+        raise
+    except (OSError, UnicodeError, json.JSONDecodeError, urllib.error.URLError) as error:
+        raise CompatibilityError("model_metadata_unavailable") from error
+    if not isinstance(payload, dict):
+        raise CompatibilityError("model_metadata_drift")
+    root = cast(dict[str, object], payload)
+    siblings = root.get("siblings")
+    card = root.get("cardData")
+    if not isinstance(siblings, list) or not isinstance(card, dict):
+        raise CompatibilityError("model_metadata_drift")
+    files: list[dict[str, object]] = []
+    for raw in cast(list[object], siblings):
+        if not isinstance(raw, dict):
+            raise CompatibilityError("model_metadata_drift")
+        item = cast(dict[str, object], raw)
+        path = item.get("rfilename")
+        size = item.get("size")
+        lfs = item.get("lfs")
+        identity = (
+            cast(dict[str, object], lfs).get("sha256")
+            if isinstance(lfs, dict)
+            else item.get("blobId")
+        )
+        if not isinstance(path, str) or not isinstance(size, int) or not isinstance(identity, str):
+            raise CompatibilityError("model_metadata_drift")
+        files.append({"path": path, "bytes": size, "sha256": identity})
+    license_value = cast(dict[str, object], card).get("license")
+    normalized_license = "Apache-2.0" if license_value == "apache-2.0" else license_value
+    return {
+        "repository": root.get("id"),
+        "revision": root.get("sha"),
+        "license": normalized_license,
+        "files": files,
+    }
+
+
+def _download_model_file(
+    artifact: ModelArtifact,
+    file_receipt: tuple[str, int, str],
+    destination: Path,
+) -> None:
+    relative, expected_bytes, _ = file_receipt
+    encoded_path = urllib.parse.quote(relative, safe="/")
+    repository = urllib.parse.quote(artifact.repository, safe="/")
+    url = f"https://huggingface.co/{repository}/resolve/{artifact.revision}/{encoded_path}"
+    request = urllib.request.Request(url, headers={"User-Agent": "mke-phase0-model-receipt/1"})
+    destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    created = False
+    try:
+        with _model_opener().open(request, timeout=_MODEL_NETWORK_TIMEOUT_SECONDS) as response:
+            with destination.open("xb") as output:
+                created = True
+                total = 0
+                while True:
+                    chunk = response.read(
+                        min(_MODEL_DOWNLOAD_CHUNK_BYTES, expected_bytes - total + 1)
+                    )
+                    if not chunk:
+                        break
+                    output.write(chunk)
+                    total += len(chunk)
+                    if total > expected_bytes:
+                        raise CompatibilityError("model_artifact_oversized")
+                output.flush()
+                os.fsync(output.fileno())
+        if total != expected_bytes:
+            raise CompatibilityError("model_artifact_incomplete")
+    except FileExistsError as error:
+        raise CompatibilityError("model_file_collision") from error
+    except CompatibilityError:
+        if created:
+            destination.unlink(missing_ok=True)
+        raise
+    except (OSError, urllib.error.URLError) as error:
+        if created:
+            destination.unlink(missing_ok=True)
+        raise CompatibilityError("model_download_failed") from error
+
+
 def run_bounded(
     command: Sequence[str],
     *,
@@ -362,10 +1050,7 @@ def validate_receipt(value: object) -> None:
         mke_distributions = [
             item for item in distributions if item["filename"] == _MKE_WHEEL_FILENAME
         ]
-        if (
-            len(mke_distributions) != 1
-            or mke_distributions[0]["sha256"] != mke_wheel_sha256
-        ):
+        if len(mke_distributions) != 1 or mke_distributions[0]["sha256"] != mke_wheel_sha256:
             _receipt_error()
         cells = candidate["cells"]
         if not isinstance(cells, list):
@@ -1111,7 +1796,7 @@ def _receipt_error() -> NoReturn:
     raise ValueError("candidate compatibility receipt is invalid")
 
 
-_FAKE_CHILD_PROOF = r'''
+_FAKE_CHILD_PROOF = r"""
 import json
 import pathlib
 import sys
@@ -1159,45 +1844,77 @@ with tempfile.TemporaryDirectory(prefix="mke-ocr-fake-child-") as raw:
     result = run_provider(command,image_path=image,page_number=1,output_root=root / "output")
     assert result.normalized_text == "package proof"
 print(json.dumps({"status":"passed"},sort_keys=True))
-'''
+"""
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--repository", required=True, type=Path)
-    parser.add_argument("--wheel", required=True, type=Path)
-    parser.add_argument("--python", required=True, action="append", type=Path)
-    parser.add_argument("--staging-root", required=True, type=Path)
-    parser.add_argument("--cache-root", required=True, type=Path)
-    parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--repository", type=Path)
+    parser.add_argument("--wheel", type=Path)
+    parser.add_argument("--python", action="append", type=Path)
+    parser.add_argument("--staging-root", type=Path)
+    parser.add_argument("--cache-root", type=Path)
+    parser.add_argument("--output", type=Path)
     parser.add_argument("--allow-package-download", action="store_true")
+    parser.add_argument("--prepare-models", action="store_true")
+    parser.add_argument("--allow-model-download", action="store_true")
+    parser.add_argument("--model-staging-root", type=Path)
+    parser.add_argument("--model-final-root", type=Path)
+    parser.add_argument("--model-output", type=Path)
     parser.add_argument("--prepared-wheelhouses", type=Path)
     parser.add_argument("--timeout-seconds", type=float, default=_DEFAULT_TIMEOUT_SECONDS)
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
-    if len(args.python) != 2:
-        parser.error("--python must be supplied exactly twice")
     try:
-        receipt = run_package_matrix(
-            CompatibilityConfig(
-                repository=args.repository,
-                wheel=args.wheel,
-                interpreters=(args.python[0], args.python[1]),
-                staging_root=args.staging_root,
-                cache_root=args.cache_root,
-                output=args.output,
-                allow_package_download=args.allow_package_download,
-                prepared_wheelhouses=args.prepared_wheelhouses,
-                timeout_seconds=args.timeout_seconds,
+        if args.prepare_models:
+            if (
+                args.model_staging_root is None
+                or args.model_final_root is None
+                or args.model_output is None
+            ):
+                raise CompatibilityError("model_input_invalid")
+            receipt = prepare_model_artifacts(
+                ModelPreparationConfig(
+                    staging_root=args.model_staging_root,
+                    final_root=args.model_final_root,
+                    output=args.model_output,
+                    allow_model_download=args.allow_model_download,
+                    timeout_seconds=args.timeout_seconds,
+                )
             )
-        )
+            encode = canonical_model_receipt_bytes
+        else:
+            if (
+                args.repository is None
+                or args.wheel is None
+                or args.python is None
+                or len(args.python) != 2
+                or args.staging_root is None
+                or args.cache_root is None
+                or args.output is None
+            ):
+                raise CompatibilityError("input_invalid")
+            receipt = run_package_matrix(
+                CompatibilityConfig(
+                    repository=args.repository,
+                    wheel=args.wheel,
+                    interpreters=(args.python[0], args.python[1]),
+                    staging_root=args.staging_root,
+                    cache_root=args.cache_root,
+                    output=args.output,
+                    allow_package_download=args.allow_package_download,
+                    prepared_wheelhouses=args.prepared_wheelhouses,
+                    timeout_seconds=args.timeout_seconds,
+                )
+            )
+            encode = canonical_receipt_bytes
     except (CompatibilityError, ValueError) as error:
         failure = error.code if isinstance(error, CompatibilityError) else "receipt_invalid"
         if args.json:
             print(json.dumps({"status": "failed", "code": failure}, sort_keys=True))
         return 1
     if args.json:
-        print(canonical_receipt_bytes(receipt).decode("utf-8"), end="")
+        print(encode(receipt).decode("utf-8"), end="")
     return 0
 
 
