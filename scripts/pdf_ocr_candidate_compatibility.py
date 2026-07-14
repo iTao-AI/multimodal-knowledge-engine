@@ -52,6 +52,7 @@ _DEFAULT_STDOUT_BYTES = 2 * 1024 * 1024
 _DEFAULT_STDERR_BYTES = 2 * 1024 * 1024
 _SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 _VERSION_RE = re.compile(r"[0-9]+(?:\.[0-9A-Za-z]+)+(?:[-+._][0-9A-Za-z]+)*\Z")
+_MKE_WHEEL_PREFIX = "multimodal_knowledge_engine-"
 _MKE_WHEEL_RE = re.compile(
     r"multimodal_knowledge_engine-(?P<version>"
     r"[0-9]+(?:\.[0-9]+)*(?:(?:a|b|rc)[0-9]+)?"
@@ -505,6 +506,12 @@ def _parse_mke_wheel_filename(filename: str) -> str:
     return match.group("version")
 
 
+def _mke_wheel_version(filename: str) -> str | None:
+    if not filename.startswith(_MKE_WHEEL_PREFIX):
+        return None
+    return _parse_mke_wheel_filename(filename)
+
+
 def _read_regular_file(path: Path) -> tuple[bytes, dict[str, object]]:
     inventory = path.lstat()
     if path.is_symlink() or not stat.S_ISREG(inventory.st_mode):
@@ -607,13 +614,16 @@ def _receipt_mke_authority(receipt: Mapping[str, object]) -> WheelAuthority:
         distributions = _validate_distributions(candidate.get("distributions"))
         matches: list[WheelAuthority] = []
         for item in distributions:
+            filename = cast(str, item["filename"])
             try:
-                version = _parse_mke_wheel_filename(cast(str, item["filename"]))
+                version = _mke_wheel_version(filename)
             except ValueError:
+                _receipt_error()
+            if version is None:
                 continue
             matches.append(
                 WheelAuthority(
-                    filename=cast(str, item["filename"]),
+                    filename=filename,
                     version=version,
                     bytes=_nonnegative_integer(item["bytes"]),
                     sha256=_digest(item["sha256"]),
@@ -2707,11 +2717,8 @@ def _prepared_wheelhouse_inventory(
             raise ValueError("prepared candidate root changed")
         mke_count = 0
         for receipt in receipts:
-            try:
-                _parse_mke_wheel_filename(cast(str, receipt["filename"]))
-            except ValueError:
-                continue
-            mke_count += 1
+            if _mke_wheel_version(cast(str, receipt["filename"])) is not None:
+                mke_count += 1
         if mke_count != 1:
             raise ValueError("prepared MKE wheel inventory is invalid")
         result[candidate_root.name] = receipts
@@ -2726,11 +2733,23 @@ def copy_rebound_prepared_wheelhouses(
     wheel: Path,
 ) -> Path:
     """Copy retained wheels into a call-owned root and replace only the MKE wheel."""
-    retained = Path(os.path.abspath(retained_root))
-    target = Path(os.path.abspath(destination))
+    retained_path = Path(os.path.abspath(retained_root))
+    destination_path = Path(os.path.abspath(destination))
     created = False
+    target: Path | None = None
     try:
-        if destination.exists() or destination.is_symlink():
+        if retained_path.is_symlink():
+            raise ValueError
+        retained = retained_path.resolve(strict=True)
+        target_parent = destination_path.parent.resolve(strict=True)
+        target = target_parent / destination_path.name
+        if (
+            destination_path.exists()
+            or destination_path.is_symlink()
+            or target.exists()
+            or target.is_symlink()
+            or _within(target, retained)
+        ):
             raise ValueError
         new_version = _parse_mke_wheel_filename(wheel.name)
         new_receipt = _regular_file_receipt(wheel)
@@ -2745,9 +2764,7 @@ def copy_rebound_prepared_wheelhouses(
             output_root.mkdir(mode=0o700)
             for receipt in before[candidate]:
                 source = source_root / cast(str, receipt["filename"])
-                try:
-                    _parse_mke_wheel_filename(source.name)
-                except ValueError:
+                if _mke_wheel_version(source.name) is None:
                     copied = _copy_regular_wheel(source, output_root / source.name)
                     if copied != receipt:
                         raise ValueError from None
@@ -2771,18 +2788,14 @@ def copy_rebound_prepared_wheelhouses(
             ):
                 raise ValueError
         return target.resolve()
-    except (OSError, TypeError, ValueError) as error:
-        if created and target.exists():
+    except (OSError, RuntimeError, TypeError, ValueError) as error:
+        if created and target is not None and target.exists():
             shutil.rmtree(target, ignore_errors=True)
         raise CompatibilityError("prepared_wheelhouses_invalid") from error
 
 
 def _is_mke_wheel_filename(filename: str) -> bool:
-    try:
-        _parse_mke_wheel_filename(filename)
-    except ValueError:
-        return False
-    return True
+    return _mke_wheel_version(filename) is not None
 
 
 def _public_wheel_receipt(receipt: Mapping[str, object]) -> dict[str, object]:

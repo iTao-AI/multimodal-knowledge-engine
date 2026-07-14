@@ -188,6 +188,29 @@ def test_receipt_validator_rejects_mke_authority_drift(drift: str) -> None:
         compatibility.validate_receipt(receipt)
 
 
+def test_receipt_rejects_invalid_tag_mke_like_distribution() -> None:
+    compatibility = _module()
+    receipt = _receipt()
+    candidates = receipt["candidates"]
+    assert isinstance(candidates, list) and isinstance(candidates[0], dict)
+    candidate = candidates[0]
+    inventory = candidate["distributions"]
+    assert isinstance(inventory, list)
+    rogue = {
+        "filename": (
+            "multimodal_knowledge_engine-0.1.1-"
+            "cp312-cp312-macosx_14_0_arm64.whl"
+        ),
+        "sha256": "d" * 64,
+        "bytes": 13,
+    }
+    inventory.append(rogue)
+    candidate["download_bytes"] = sum(item["bytes"] for item in inventory)
+
+    with pytest.raises(ValueError, match="receipt"):
+        compatibility.validate_receipt(receipt)
+
+
 def test_provider_runtime_identity_rejects_version_drift_from_referenced_cell(
     tmp_path: Path,
 ) -> None:
@@ -265,6 +288,71 @@ def test_prepared_wheelhouses_are_copied_and_rebound_without_source_mutation(
             (path.name, path.read_bytes()) for path in source_third_party
         ]
         assert (destination / candidate / new_wheel.name).read_bytes() == new_wheel.read_bytes()
+
+
+@pytest.mark.parametrize("alias", ["direct-nested", "symlink-parent"])
+def test_prepared_wheelhouse_rebind_rejects_destination_alias_without_source_touch(
+    tmp_path: Path,
+    alias: str,
+) -> None:
+    compatibility = _module()
+    retained = tmp_path / "retained"
+    _prepared_wheelhouses(retained)
+    if alias == "direct-nested":
+        destination = retained / "call-owned-rebound"
+    else:
+        parent_alias = tmp_path / "retained-alias"
+        parent_alias.symlink_to(retained, target_is_directory=True)
+        destination = parent_alias / "call-owned-rebound"
+    new_wheel = tmp_path / "multimodal_knowledge_engine-0.1.2-py3-none-any.whl"
+    _write_mke_wheel(new_wheel, "0.1.2")
+    before = _retained_snapshot(retained)
+
+    with pytest.raises(
+        compatibility.CompatibilityError,
+        match="prepared_wheelhouses_invalid",
+    ) as error:
+        compatibility.copy_rebound_prepared_wheelhouses(
+            retained,
+            destination,
+            new_wheel,
+        )
+
+    assert error.value.code == "prepared_wheelhouses_invalid"
+    assert _retained_snapshot(retained) == before
+    assert not destination.exists()
+
+
+def test_prepared_wheelhouse_rebind_rejects_invalid_tag_mke_like_wheel(
+    tmp_path: Path,
+) -> None:
+    compatibility = _module()
+    retained = tmp_path / "retained"
+    destination = tmp_path / "rebound"
+    _prepared_wheelhouses(retained)
+    rogue = (
+        retained
+        / "ppocrv6-medium-cpu-spike-v1"
+        / "multimodal_knowledge_engine-0.1.1-cp312-cp312-macosx_14_0_arm64.whl"
+    )
+    rogue.write_bytes(b"rogue-wheel")
+    new_wheel = tmp_path / "multimodal_knowledge_engine-0.1.2-py3-none-any.whl"
+    _write_mke_wheel(new_wheel, "0.1.2")
+    before = _retained_snapshot(retained)
+
+    with pytest.raises(
+        compatibility.CompatibilityError,
+        match="prepared_wheelhouses_invalid",
+    ) as error:
+        compatibility.copy_rebound_prepared_wheelhouses(
+            retained,
+            destination,
+            new_wheel,
+        )
+
+    assert error.value.code == "prepared_wheelhouses_invalid"
+    assert _retained_snapshot(retained) == before
+    assert not destination.exists()
 
 
 @pytest.mark.parametrize(
@@ -773,6 +861,29 @@ def _tree_snapshot(root: Path) -> dict[str, bytes | None]:
             snapshot[relative] = path.read_bytes()
         else:
             snapshot[relative] = b"<non-regular>"
+    return snapshot
+
+
+def _retained_snapshot(
+    root: Path,
+) -> dict[str, tuple[int, int, int, int, int, int, str | None]]:
+    snapshot: dict[str, tuple[int, int, int, int, int, int, str | None]] = {}
+    for path in (root, *sorted(root.rglob("*"))):
+        metadata = path.lstat()
+        digest = (
+            hashlib.sha256(path.read_bytes()).hexdigest()
+            if path.is_file() and not path.is_symlink()
+            else None
+        )
+        snapshot[str(path.relative_to(root)) or "."] = (
+            metadata.st_dev,
+            metadata.st_ino,
+            metadata.st_mode,
+            metadata.st_size,
+            metadata.st_mtime_ns,
+            metadata.st_ctime_ns,
+            digest,
+        )
     return snapshot
 
 
