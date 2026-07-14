@@ -24,6 +24,43 @@ UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
   --json
 ```
 
+## Candidate Artifact Handoff
+
+Maintainers can add an operator-supplied local output to the same proof:
+
+```bash
+UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
+  --python "$(command -v python3.12)" \
+  --python "$(command -v python3.13)" \
+  --candidate-output artifacts/m4b-candidate \
+  --json
+```
+
+The target directory must not already exist. Candidate creation also requires a clean Git
+checkout using the `sha1` object format. The directory is published atomically only after the
+same wheel passes both interpreter proofs and all owned temporary proof state is removed. It
+contains exactly the proven wheel and `candidate-artifact-receipt.json`.
+
+The strict receipt uses `mke.candidate_artifact_receipt.v1` and contains exactly:
+
+- identity: `schema_version`, `repository`, `source_commit`, `package_name`, and
+  `package_version`;
+- wheel identity: `wheel_filename`, `wheel_bytes`, `wheel_sha256`, and `requires_python`;
+- proof binding: `consumer_proof_schema`, `consumer_proof_status`, and
+  `proof_input_wheel_sha256`; and
+- receipt identity: `receipt_sha256`.
+
+`source_commit` is the exact Git commit ID and is 40 lowercase hexadecimal characters.
+`wheel_sha256`, `proof_input_wheel_sha256`, and `receipt_sha256` are 64 lowercase hexadecimal
+SHA-256 digests, and the two wheel digests must match. The receipt's canonical SHA-256 uses UTF-8
+JSON with ASCII escaping, sorted keys, compact separators, no NaN, and omits `receipt_sha256` from
+its own hash input.
+
+This is local maintainer output, not a Release or PyPI artifact. The hosted workflow exercises the
+same candidate-output path under `$RUNNER_TEMP`, but the result is not uploaded by the workflow.
+Regenerate the wheel and receipt from the exact merged clean commit before any downstream handoff;
+do not reuse feature-branch output as merged-commit evidence.
+
 The controller copies the standalone consumer and its external consumer assets into an external
 working directory. Each installed wheel starts an MKE stdio server through the official MCP SDK;
 the consumer does not import MKE, read the repository, or read SQLite directly. These checks run
@@ -57,8 +94,8 @@ Failure emits only `{"status":"failed","code":"<stable_code>"}`. The stable code
 `external_isolation_failed`, `consumer_schema_invalid`, `consumer_payload_invalid`,
 `manifest_mapping_missing`, `manifest_mapping_ambiguous`, `manifest_locator_mismatch`,
 `observation_state_mismatch`, `mcp_startup_timeout`, `mcp_tool_timeout`, `mcp_transport_failed`,
-`server_exit_nonzero`, `command_output_exceeded`, `cleanup_failed`, and `proof_failed`. These are
-stable redacted failures: paths, identifiers, Evidence text, filenames, stderr, tracebacks,
+`server_exit_nonzero`, `command_output_exceeded`, `candidate_artifact_invalid`, `cleanup_failed`,
+and `proof_failed`. These are stable redacted failures: paths, identifiers, Evidence text, filenames, stderr, tracebacks,
 environment values, and exception messages are not included.
 
 ## What This Proves

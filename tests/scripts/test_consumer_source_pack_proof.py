@@ -165,6 +165,17 @@ def test_consumer_source_pack_workflow_provisions_online_before_offline_proof() 
     assert "--no-index" not in proof
 
 
+def test_consumer_source_pack_workflow_exercises_local_candidate_output_without_upload() -> None:
+    workflow = CONSUMER_WORKFLOW.read_text(encoding="utf-8")
+    job = _consumer_proof_job(workflow)
+
+    assert job.count("scripts/consumer_source_pack_proof.py") == 1
+    assert job.count('--candidate-output "$RUNNER_TEMP/mke-candidate"') == 1
+    assert "upload-artifact" not in workflow
+    assert "releases: write" not in workflow
+    assert "packages: write" not in workflow
+
+
 def test_public_failure_allowlist_is_exact() -> None:
     proof = _load()
     assert proof._STABLE_FAILURE_CODES == frozenset(STABLE_FAILURE_CODES)

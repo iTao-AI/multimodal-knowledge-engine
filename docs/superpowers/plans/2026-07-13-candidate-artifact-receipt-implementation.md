@@ -82,10 +82,13 @@ class CandidateArtifactReceipt(TypedDict):
     receipt_sha256: str
 ```
 
-`source_commit`, `wheel_sha256`, `proof_input_wheel_sha256`, and `receipt_sha256` are 64
-lowercase hexadecimal characters. `wheel_sha256 == proof_input_wheel_sha256` is mandatory.
-Receipt hashing uses UTF-8 JSON, ASCII escaping, sorted keys, compact separators, no NaN,
-and omits `receipt_sha256` from its own input.
+`source_commit` is the exact Git commit ID and is 40 lowercase hexadecimal characters because
+this repository uses the `sha1` object format. Candidate receipt creation fails closed for any
+other object format; an object-format migration requires an explicit schema and downstream
+contract review. `wheel_sha256`, `proof_input_wheel_sha256`, and `receipt_sha256` are 64 lowercase
+hexadecimal SHA-256 digests. `wheel_sha256 == proof_input_wheel_sha256` is mandatory. Receipt
+hashing uses UTF-8 JSON, ASCII escaping, sorted keys, compact separators, no NaN, and omits
+`receipt_sha256` from its own input.
 
 ### Task 1: Freeze candidate receipt construction
 
