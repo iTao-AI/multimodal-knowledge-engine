@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import errno
+import hashlib
 import importlib.util
 import json
 import os
@@ -38,6 +40,7 @@ STABLE_FAILURE_CODES = (
     "mcp_transport_failed",
     "server_exit_nonzero",
     "command_output_exceeded",
+    "candidate_artifact_invalid",
     "cleanup_failed",
     "proof_failed",
 )
@@ -161,6 +164,17 @@ def test_consumer_source_pack_workflow_provisions_online_before_offline_proof() 
     assert "uv pip install" not in proof
     assert "--offline" not in proof
     assert "--no-index" not in proof
+
+
+def test_consumer_source_pack_workflow_exercises_local_candidate_output_without_upload() -> None:
+    workflow = CONSUMER_WORKFLOW.read_text(encoding="utf-8")
+    job = _consumer_proof_job(workflow)
+
+    assert job.count("scripts/consumer_source_pack_proof.py") == 1
+    assert job.count('--candidate-output "$RUNNER_TEMP/mke-candidate"') == 1
+    assert "upload-artifact" not in workflow
+    assert "releases: write" not in workflow
+    assert "packages: write" not in workflow
 
 
 def test_public_failure_allowlist_is_exact() -> None:
@@ -472,6 +486,169 @@ def _success_payload(proof: Any) -> dict[str, object]:
         "redaction": True,
         "server_cleanup": True,
     }
+
+
+def _candidate_repository(tmp_path: Path) -> tuple[Path, Path]:
+    repository = tmp_path / "candidate-repository"
+    repository.mkdir()
+    (repository / "pyproject.toml").write_text(
+        '[project]\nname = "multimodal-knowledge-engine"\n'
+        'version = "0.1.1"\nrequires-python = ">=3.12,<3.14"\n',
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "init", "-q"], cwd=repository, check=True)
+    subprocess.run(["git", "add", "pyproject.toml"], cwd=repository, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=MKE Test",
+            "-c",
+            "user.email=mke-test@example.invalid",
+            "commit",
+            "-qm",
+            "fixture",
+        ],
+        cwd=repository,
+        check=True,
+    )
+    wheel = repository.parent / "multimodal_knowledge_engine-0.1.1-py3-none-any.whl"
+    wheel.write_bytes(b"exact-wheel-bytes")
+    return repository, wheel
+
+
+def _candidate_success(wheel: Path) -> dict[str, object]:
+    return {
+        "status": "passed",
+        "proof_input_wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
+    }
+
+
+def test_candidate_receipt_is_closed_canonical_and_bound_to_clean_source(
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    repository, wheel = _candidate_repository(tmp_path)
+
+    receipt = proof.build_candidate_receipt(
+        repository, wheel, "0.1.1", _candidate_success(wheel)
+    )
+
+    assert set(receipt) == {
+        "schema_version",
+        "repository",
+        "source_commit",
+        "package_name",
+        "package_version",
+        "wheel_filename",
+        "wheel_bytes",
+        "wheel_sha256",
+        "requires_python",
+        "consumer_proof_schema",
+        "consumer_proof_status",
+        "proof_input_wheel_sha256",
+        "receipt_sha256",
+    }
+    assert receipt == {
+        "schema_version": "mke.candidate_artifact_receipt.v1",
+        "repository": "iTao-AI/multimodal-knowledge-engine",
+        "source_commit": subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repository,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip(),
+        "package_name": "multimodal-knowledge-engine",
+        "package_version": "0.1.1",
+        "wheel_filename": wheel.name,
+        "wheel_bytes": len(b"exact-wheel-bytes"),
+        "wheel_sha256": hashlib.sha256(b"exact-wheel-bytes").hexdigest(),
+        "requires_python": ">=3.12,<3.14",
+        "consumer_proof_schema": "mke.consumer_source_pack_proof.v1",
+        "consumer_proof_status": "passed",
+        "proof_input_wheel_sha256": hashlib.sha256(b"exact-wheel-bytes").hexdigest(),
+        "receipt_sha256": receipt["receipt_sha256"],
+    }
+    assert receipt["receipt_sha256"] == proof.canonical_sha256(
+        {key: value for key, value in receipt.items() if key != "receipt_sha256"}
+    )
+    source_commit = receipt["source_commit"]
+    assert isinstance(source_commit, str)
+    assert len(source_commit) == 40
+    assert re.fullmatch(r"[0-9a-f]{40}", source_commit)
+
+
+def test_candidate_receipt_fails_closed_for_non_sha1_repository(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    repository, wheel = _candidate_repository(tmp_path)
+    real_run = proof.subprocess.run
+
+    def fake_run(command: Sequence[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        if list(command) == ["git", "rev-parse", "--show-object-format"]:
+            return subprocess.CompletedProcess(command, 0, "sha256\n", "")
+        return real_run(command, **kwargs)
+
+    monkeypatch.setattr(proof.subprocess, "run", fake_run)
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.build_candidate_receipt(
+            repository, wheel, "0.1.1", _candidate_success(wheel)
+        )
+
+    assert exc_info.value.code == "candidate_artifact_invalid"
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "dirty_git",
+        "missing_git",
+        "wrong_package_version",
+        "failed_proof",
+        "zero_byte_wheel",
+        "invalid_wheel_filename",
+        "wheel_digest_mismatch",
+    ],
+)
+def test_candidate_receipt_rejects_invalid_source_artifact_or_proof(
+    tmp_path: Path, mutation: str
+) -> None:
+    proof = _load()
+    repository, wheel = _candidate_repository(tmp_path)
+    package_version = "0.1.1"
+    proof_result = _candidate_success(wheel)
+    if mutation == "dirty_git":
+        (repository / "untracked.txt").write_text("dirty", encoding="utf-8")
+    elif mutation == "missing_git":
+        repository = tmp_path / "not-a-repository"
+        repository.mkdir()
+        (repository / "pyproject.toml").write_text(
+            '[project]\nname = "multimodal-knowledge-engine"\n'
+            'version = "0.1.1"\nrequires-python = ">=3.12,<3.14"\n',
+            encoding="utf-8",
+        )
+    elif mutation == "wrong_package_version":
+        package_version = "0.1.2"
+    elif mutation == "failed_proof":
+        proof_result["status"] = "failed"
+    elif mutation == "zero_byte_wheel":
+        wheel.write_bytes(b"")
+        proof_result = _candidate_success(wheel)
+    elif mutation == "invalid_wheel_filename":
+        invalid = wheel.with_name("unsafe.whl")
+        invalid.write_bytes(wheel.read_bytes())
+        wheel = invalid
+        proof_result = _candidate_success(wheel)
+    elif mutation == "wheel_digest_mismatch":
+        proof_result["proof_input_wheel_sha256"] = "0" * 64
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.build_candidate_receipt(repository, wheel, package_version, proof_result)
+
+    assert exc_info.value.code == "candidate_artifact_invalid"
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX process-group contract")
@@ -806,6 +983,408 @@ def _repository_fixture(tmp_path: Path) -> Path:
     return repository
 
 
+def _candidate_runtime_repository(tmp_path: Path) -> Path:
+    repository = _repository_fixture(tmp_path)
+    (repository / "source-marker.txt").write_text("commit-a", encoding="utf-8")
+    (repository / "pyproject.toml").write_text(
+        '[project]\nname = "multimodal-knowledge-engine"\n'
+        'version = "0.1.1"\nrequires-python = ">=3.12,<3.14"\n',
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "init", "-q"], cwd=repository, check=True)
+    subprocess.run(["git", "add", "--all"], cwd=repository, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=MKE Test",
+            "-c",
+            "user.email=mke-test@example.invalid",
+            "commit",
+            "-qm",
+            "fixture",
+        ],
+        cwd=repository,
+        check=True,
+    )
+    return repository
+
+
+def _commit_fixture_change(repository: Path, value: str) -> str:
+    (repository / "source-marker.txt").write_text(value, encoding="utf-8")
+    subprocess.run(["git", "add", "source-marker.txt"], cwd=repository, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=MKE Test",
+            "-c",
+            "user.email=mke-test@example.invalid",
+            "commit",
+            "-qm",
+            value,
+        ],
+        cwd=repository,
+        check=True,
+    )
+    return subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def _candidate_output_config(proof: Any, repository: Path, output: Path) -> Any:
+    return proof.ProofConfig(
+        repository,
+        (Path("/py312"), Path("/py313")),
+        3,
+        10_000,
+        10_000,
+        candidate_output=output,
+    )
+
+
+def _assert_no_candidate_staging(output: Path) -> None:
+    assert list(output.parent.glob(f".{output.name}.*")) == []
+
+
+def test_candidate_output_contains_only_exact_proven_wheel_and_receipt(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    output = tmp_path / "artifacts/m4b-candidate"
+    monkeypatch.setattr(proof, "run_bounded", _successful_runner(proof))
+
+    result = proof.run_proof(_candidate_output_config(proof, repository, output))
+
+    files = sorted(path.name for path in output.iterdir())
+    assert files == [
+        "candidate-artifact-receipt.json",
+        "multimodal_knowledge_engine-0.1.1-py3-none-any.whl",
+    ]
+    wheel = output / files[1]
+    assert wheel.read_bytes() == b"wheel"
+    receipt = json.loads((output / files[0]).read_text(encoding="utf-8"))
+    assert receipt["wheel_sha256"] == hashlib.sha256(b"wheel").hexdigest()
+    assert receipt["wheel_sha256"] == receipt["proof_input_wheel_sha256"]
+    assert result["status"] == "passed" and result["cleanup"] is True
+    _assert_no_candidate_staging(output)
+
+
+def test_candidate_output_rejects_clean_head_change_after_wheel_build(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    initial_head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    output = tmp_path / "candidate"
+    successful = _successful_runner(proof)
+    advanced_head: str | None = None
+
+    def advance_after_build(command: Sequence[str], *, cwd: Path, **kwargs: object) -> Any:
+        nonlocal advanced_head
+        result = successful(command, cwd=cwd, **kwargs)
+        if list(command)[:2] == ["uv", "build"]:
+            build_source = Path(list(command)[-1])
+            assert build_source != repository
+            assert (build_source / "source-marker.txt").read_text(encoding="utf-8") == "commit-a"
+            advanced_head = _commit_fixture_change(repository, "commit-b")
+        return result
+
+    monkeypatch.setattr(proof, "run_bounded", advance_after_build)
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.run_proof(_candidate_output_config(proof, repository, output))
+
+    assert exc_info.value.code == "candidate_artifact_invalid"
+    assert advanced_head is not None and advanced_head != initial_head
+    assert not output.exists()
+    _assert_no_candidate_staging(output)
+
+
+def test_candidate_output_builds_from_pinned_snapshot_during_transient_mutation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    initial_head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    output = tmp_path / "candidate"
+    successful = _successful_runner(proof)
+
+    def mutate_during_build(command: Sequence[str], *, cwd: Path, **kwargs: object) -> Any:
+        if list(command)[:2] == ["uv", "build"]:
+            build_source = Path(list(command)[-1])
+            (repository / "source-marker.txt").write_text("transient", encoding="utf-8")
+            pinned_value = (build_source / "source-marker.txt").read_text(encoding="utf-8")
+            (repository / "source-marker.txt").write_text("commit-a", encoding="utf-8")
+            result = successful(command, cwd=cwd, **kwargs)
+            wheel = Path(list(command)[list(command).index("--out-dir") + 1]) / (
+                "multimodal_knowledge_engine-0.1.1-py3-none-any.whl"
+            )
+            wheel.write_bytes(f"wheel:{pinned_value}".encode())
+            return result
+        return successful(command, cwd=cwd, **kwargs)
+
+    monkeypatch.setattr(proof, "run_bounded", mutate_during_build)
+
+    result = proof.run_proof(_candidate_output_config(proof, repository, output))
+
+    wheel = output / "multimodal_knowledge_engine-0.1.1-py3-none-any.whl"
+    receipt = json.loads(
+        (output / "candidate-artifact-receipt.json").read_text(encoding="utf-8")
+    )
+    assert result["status"] == "passed"
+    assert wheel.read_bytes() == b"wheel:commit-a"
+    assert receipt["source_commit"] == initial_head
+    assert receipt["wheel_sha256"] == hashlib.sha256(wheel.read_bytes()).hexdigest()
+    _assert_no_candidate_staging(output)
+
+
+@pytest.mark.parametrize("existing_kind", ["file", "directory"])
+def test_candidate_output_refuses_any_preexisting_final_path(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, existing_kind: str
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    output = tmp_path / "candidate"
+    if existing_kind == "file":
+        output.write_text("owned", encoding="utf-8")
+    else:
+        output.mkdir()
+    monkeypatch.setattr(proof, "run_bounded", _successful_runner(proof))
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.run_proof(_candidate_output_config(proof, repository, output))
+
+    assert exc_info.value.code == "candidate_artifact_invalid"
+    assert output.exists()
+    _assert_no_candidate_staging(output)
+
+
+def test_candidate_output_rejects_dirty_source_without_publication(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    (repository / "dirty.txt").write_text("dirty", encoding="utf-8")
+    output = tmp_path / "candidate"
+    monkeypatch.setattr(proof, "run_bounded", _successful_runner(proof))
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.run_proof(_candidate_output_config(proof, repository, output))
+
+    assert exc_info.value.code == "candidate_artifact_invalid"
+    assert not output.exists()
+    _assert_no_candidate_staging(output)
+
+
+def test_candidate_output_rejects_symlink_parent(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    linked_parent = tmp_path / "linked-parent"
+    linked_parent.symlink_to(real_parent, target_is_directory=True)
+    output = linked_parent / "candidate"
+    monkeypatch.setattr(proof, "run_bounded", _successful_runner(proof))
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.run_proof(_candidate_output_config(proof, repository, output))
+
+    assert exc_info.value.code == "candidate_artifact_invalid"
+    assert not (real_parent / "candidate").exists()
+
+
+def test_candidate_output_is_absent_after_functional_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    output = tmp_path / "candidate"
+    successful = _successful_runner(proof)
+
+    def fail_client(command: Sequence[str], *, cwd: Path, **kwargs: object) -> Any:
+        if len(command) > 1 and str(command[1]).endswith("consumer_source_pack_client.py"):
+            return proof.CommandResult(7, b"", b"")
+        return successful(command, cwd=cwd, **kwargs)
+
+    monkeypatch.setattr(proof, "run_bounded", fail_client)
+
+    with pytest.raises(proof.ControllerError, match="server_exit_nonzero"):
+        proof.run_proof(_candidate_output_config(proof, repository, output))
+
+    assert not output.exists()
+    _assert_no_candidate_staging(output)
+
+
+def test_candidate_output_removes_staging_after_copy_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    output = tmp_path / "candidate"
+    monkeypatch.setattr(proof, "run_bounded", _successful_runner(proof))
+    real_copyfile = proof.shutil.copyfile
+
+    def fail_candidate_copy(source: Path, target: Path) -> Path:
+        if Path(target).suffix == ".whl":
+            raise OSError("copy failed")
+        return real_copyfile(source, target)
+
+    monkeypatch.setattr(proof.shutil, "copyfile", fail_candidate_copy)
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.run_proof(_candidate_output_config(proof, repository, output))
+
+    assert exc_info.value.code == "candidate_artifact_invalid"
+    assert not output.exists()
+    _assert_no_candidate_staging(output)
+
+
+def test_candidate_output_revalidates_receipt_before_publication(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    output = tmp_path / "candidate"
+    monkeypatch.setattr(proof, "run_bounded", _successful_runner(proof))
+    real_builder = proof.build_candidate_receipt
+
+    def mismatched_receipt(*args: object, **kwargs: object) -> dict[str, object]:
+        receipt = real_builder(*args, **kwargs)
+        receipt["wheel_sha256"] = "0" * 64
+        return receipt
+
+    monkeypatch.setattr(proof, "build_candidate_receipt", mismatched_receipt)
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.run_proof(_candidate_output_config(proof, repository, output))
+
+    assert exc_info.value.code == "candidate_artifact_invalid"
+    assert not output.exists()
+    _assert_no_candidate_staging(output)
+
+
+def test_candidate_output_removes_renamed_final_when_parent_fsync_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    output = tmp_path / "candidate"
+    monkeypatch.setattr(proof, "run_bounded", _successful_runner(proof))
+    real_fsync_directory = proof._fsync_directory
+    calls = 0
+
+    def fail_parent_fsync(directory: Path) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("parent fsync failed")
+        real_fsync_directory(directory)
+
+    monkeypatch.setattr(proof, "_fsync_directory", fail_parent_fsync)
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.run_proof(_candidate_output_config(proof, repository, output))
+
+    assert exc_info.value.code == "candidate_artifact_invalid"
+    assert not output.exists()
+    _assert_no_candidate_staging(output)
+
+
+def test_candidate_output_atomic_publish_never_clobbers_racing_empty_target(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    output = tmp_path / "candidate"
+    monkeypatch.setattr(proof, "run_bounded", _successful_runner(proof))
+    real_atomic_rename = proof._atomic_rename_no_replace
+
+    def race(staging: Path, target: Path) -> None:
+        target.mkdir()
+        real_atomic_rename(staging, target)
+
+    monkeypatch.setattr(proof, "_atomic_rename_no_replace", race)
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.run_proof(_candidate_output_config(proof, repository, output))
+
+    assert exc_info.value.code == "candidate_artifact_invalid"
+    assert output.is_dir() and list(output.iterdir()) == []
+    _assert_no_candidate_staging(output)
+
+
+def test_candidate_output_fails_closed_without_atomic_no_replace(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    output = tmp_path / "candidate"
+    monkeypatch.setattr(proof, "run_bounded", _successful_runner(proof))
+
+    def unsupported(_staging: Path, _target: Path) -> None:
+        raise OSError(errno.ENOTSUP, "unsupported")
+
+    monkeypatch.setattr(proof, "_atomic_rename_no_replace", unsupported)
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.run_proof(_candidate_output_config(proof, repository, output))
+
+    assert exc_info.value.code == "candidate_artifact_invalid"
+    assert not output.exists()
+    _assert_no_candidate_staging(output)
+
+
+def test_candidate_output_cleanup_failure_overrides_publication_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    output = tmp_path / "candidate"
+    monkeypatch.setattr(proof, "run_bounded", _successful_runner(proof))
+    real_copyfile = proof.shutil.copyfile
+    real_rmtree = proof.shutil.rmtree
+
+    def fail_candidate_copy(source: Path, target: Path) -> Path:
+        if Path(target).suffix == ".whl":
+            raise OSError("copy failed")
+        return real_copyfile(source, target)
+
+    def remove_root_then_fail(path: Path) -> None:
+        real_rmtree(path)
+        if Path(path).name.startswith("mke-consumer-source-pack-"):
+            raise OSError("root cleanup failed")
+
+    monkeypatch.setattr(proof.shutil, "copyfile", fail_candidate_copy)
+    monkeypatch.setattr(proof.shutil, "rmtree", remove_root_then_fail)
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.run_proof(_candidate_output_config(proof, repository, output))
+
+    assert exc_info.value.code == "cleanup_failed"
+    assert not output.exists()
+    _assert_no_candidate_staging(output)
+
+
 def test_cleanup_failure_overrides_functional_success(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -831,7 +1410,9 @@ def _successful_runner(proof: Any):
         command = list(command)
         if command[:2] == ["uv", "build"]:
             out = Path(command[command.index("--out-dir") + 1])
-            (out / "mke.whl").write_bytes(b"wheel")
+            (out / "multimodal_knowledge_engine-0.1.1-py3-none-any.whl").write_bytes(
+                b"wheel"
+            )
         if "-c" in command:
             environment = Path(command[0]).parents[1]
             identity = {
@@ -861,6 +1442,43 @@ def test_main_redacts_failure(
     monkeypatch.setattr(proof, "run_proof", fail)
     assert proof.main(["--python", sys.executable, "--python", sys.executable, "--json"]) == 1
     assert json.loads(capsys.readouterr().out) == {"status": "failed", "code": "install_failed"}
+
+
+def test_main_accepts_candidate_output_without_changing_success_stdout(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    output = tmp_path / "candidate"
+    observed: list[Any] = []
+    success: dict[str, object] = {
+        "proof": "consumer_source_pack",
+        "status": "passed",
+        "cleanup": True,
+    }
+
+    def succeed(config: object) -> dict[str, object]:
+        observed.append(config)
+        return success
+
+    monkeypatch.setattr(proof, "run_proof", succeed)
+
+    exit_code = proof.main(
+        [
+            "--python",
+            sys.executable,
+            "--python",
+            sys.executable,
+            "--candidate-output",
+            str(output),
+            "--json",
+        ]
+    )
+
+    assert exit_code == 0
+    assert observed[0].candidate_output == output
+    assert json.loads(capsys.readouterr().out) == success
 
 
 @pytest.mark.parametrize("code", STABLE_FAILURE_CODES)

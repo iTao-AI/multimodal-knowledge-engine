@@ -55,6 +55,7 @@ FAILURE_CODES = frozenset(
         "mcp_transport_failed",
         "server_exit_nonzero",
         "command_output_exceeded",
+        "candidate_artifact_invalid",
         "cleanup_failed",
         "proof_failed",
     }
@@ -128,6 +129,7 @@ def documentation_violations(how_to: str, readme: str, docs_index: str) -> list[
         "not a deployment",
         "not a production-readiness proof",
         "not a release verification step",
+        "not a release or pypi artifact",
     ):
         scoped_text = scoped_text.replace(allowed_negative, "")
     for label, pattern in (
@@ -150,8 +152,8 @@ def _add_success_field(text: str) -> str:
 
 def _add_failure_code(text: str) -> str:
     return text.replace(
-        "`cleanup_failed`, and `proof_failed`.",
-        "`cleanup_failed`, `proof_failed`, and `unexpected_code`.",
+        "`cleanup_failed`,\nand `proof_failed`.",
+        "`cleanup_failed`, `unexpected_code`,\nand `proof_failed`.",
     )
 
 
@@ -207,6 +209,49 @@ def test_consumer_source_pack_how_to_documents_exact_command_and_contract() -> N
     assert "online provisioning/prewarm step" in prose
     assert "empty machine" in prose
     assert "air-gapped" in prose
+
+
+def test_consumer_source_pack_how_to_documents_candidate_artifact_handoff() -> None:
+    text = HOW_TO.read_text(encoding="utf-8")
+    prose = normalized(text)
+
+    assert (
+        'UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \\\n'
+        '  --python "$(command -v python3.12)" \\\n'
+        '  --python "$(command -v python3.13)" \\\n'
+        '  --candidate-output artifacts/m4b-candidate \\\n'
+        "  --json"
+    ) in text
+    for field in (
+        "schema_version",
+        "repository",
+        "source_commit",
+        "package_name",
+        "package_version",
+        "wheel_filename",
+        "wheel_bytes",
+        "wheel_sha256",
+        "requires_python",
+        "consumer_proof_schema",
+        "consumer_proof_status",
+        "proof_input_wheel_sha256",
+        "receipt_sha256",
+    ):
+        assert f"`{field}`" in text
+    for required in (
+        "operator-supplied local output",
+        "not uploaded by the workflow",
+        "not a Release or PyPI artifact",
+        "exact merged clean commit",
+        "mke.candidate_artifact_receipt.v1",
+        "canonical SHA-256",
+        "40 lowercase hexadecimal",
+        "64 lowercase hexadecimal",
+        "immutable tracked snapshot",
+        "same clean HEAD",
+        "atomic no-replace",
+    ):
+        assert required in prose
 
 
 def test_consumer_source_pack_how_to_documents_closed_public_output() -> None:

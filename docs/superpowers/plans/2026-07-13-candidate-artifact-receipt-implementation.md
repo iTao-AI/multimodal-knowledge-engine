@@ -17,6 +17,9 @@ runtime surface.
 **Tech Stack:** Python 3.12/3.13, `uv`, existing stdio MCP proof, pytest, Ruff, Pyright,
 GitHub Actions.
 
+**Status:** Tasks 1-3 and the local candidate-output verification are complete on the
+implementation branch. Authority review and the post-merge operational gate remain pending.
+
 ## Global Constraints
 
 - Implementation base is the latest clean MKE `main` after the current OCR phase is either
@@ -29,16 +32,18 @@ GitHub Actions.
   targeted review.
 - Preserve package version `0.1.1` unless a separate release decision changes it. This task
   creates a candidate artifact, not a tag, GitHub Release, or PyPI upload.
-- Build exactly one wheel and prove those exact bytes in both supported Python minors before
-  publishing any output.
+- Pin the clean SHA-1 source commit before any candidate build, build exactly one wheel from an
+  immutable tracked snapshot of that commit, and prove those exact bytes in both supported Python
+  minors before publishing any output.
 - Existing proof stdout success and failure contracts remain backward compatible.
 - Candidate output contains only the wheel and
   `candidate-artifact-receipt.json`; it contains no repository path, environment value,
   Evidence text, MKE opaque ID, traceback, stderr, credential, hostname, or username.
 - Source commit is derived from a clean Git tree. Dirty trees and non-Git snapshots may run
   the existing proof but cannot publish a candidate artifact.
-- The output directory is maintainer input, must not already exist, and is published
-  atomically only after functional proof and owned-temp cleanup both succeed.
+- The output directory is maintainer input, must not already exist, and is published with an
+  atomic no-replace operation only after functional proof, owned-temp cleanup, and live clean-HEAD
+  revalidation all succeed. Unsupported no-replace semantics fail closed.
 - Do not alter OCR, retrieval semantics, v1 response schemas, CLI/MCP product behavior,
   database formats, dependencies, version, Release files, or evaluation artifacts.
 - Before implementation, mechanically land this approved plan at
@@ -82,10 +87,13 @@ class CandidateArtifactReceipt(TypedDict):
     receipt_sha256: str
 ```
 
-`source_commit`, `wheel_sha256`, `proof_input_wheel_sha256`, and `receipt_sha256` are 64
-lowercase hexadecimal characters. `wheel_sha256 == proof_input_wheel_sha256` is mandatory.
-Receipt hashing uses UTF-8 JSON, ASCII escaping, sorted keys, compact separators, no NaN,
-and omits `receipt_sha256` from its own input.
+`source_commit` is the exact Git commit ID and is 40 lowercase hexadecimal characters because
+this repository uses the `sha1` object format. Candidate receipt creation fails closed for any
+other object format; an object-format migration requires an explicit schema and downstream
+contract review. `wheel_sha256`, `proof_input_wheel_sha256`, and `receipt_sha256` are 64 lowercase
+hexadecimal SHA-256 digests. `wheel_sha256 == proof_input_wheel_sha256` is mandatory. Receipt
+hashing uses UTF-8 JSON, ASCII escaping, sorted keys, compact separators, no NaN, and omits
+`receipt_sha256` from its own input.
 
 ### Task 1: Freeze candidate receipt construction
 
@@ -103,7 +111,7 @@ and omits `receipt_sha256` from its own input.
   proof_result: Mapping[str, object]) -> dict[str, object]` and
   `canonical_sha256(value: Mapping[str, object]) -> str`.
 
-- [ ] **Step 1: Write RED receipt contract tests**
+- [x] **Step 1: Write RED receipt contract tests**
 
 Add tests that build a temporary Git repository with one clean commit and assert:
 
@@ -126,7 +134,7 @@ Also assert dirty Git status, missing Git metadata, wrong package version, faile
 zero-byte wheel, invalid wheel filename, and a result not bound to the current wheel all
 raise `ControllerError("candidate_artifact_invalid")`.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/scripts/test_consumer_source_pack_proof.py \
@@ -136,7 +144,7 @@ UV_OFFLINE=1 uv run pytest -q tests/scripts/test_consumer_source_pack_proof.py \
 Expected: FAIL because the receipt functions and `candidate_artifact_invalid` code do not
 exist.
 
-- [ ] **Step 3: Add the strict pure helpers**
+- [x] **Step 3: Add the strict pure helpers**
 
 Add `hashlib`, `tomllib`, and these exact constants/signatures:
 
@@ -144,7 +152,8 @@ Add `hashlib`, `tomllib`, and these exact constants/signatures:
 _CANDIDATE_RECEIPT_SCHEMA = "mke.candidate_artifact_receipt.v1"
 _CONSUMER_PROOF_SCHEMA = "mke.consumer_source_pack_proof.v1"
 _REPOSITORY = "iTao-AI/multimodal-knowledge-engine"
-_HEX64 = re.compile(r"^[0-9a-f]{64}$")
+_GIT_SHA1 = re.compile(r"^[0-9a-f]{40}$")
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 def canonical_sha256(value: Mapping[str, object]) -> str:
     encoded = json.dumps(
@@ -153,16 +162,18 @@ def canonical_sha256(value: Mapping[str, object]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 ```
 
-`build_candidate_receipt` must call `git status --porcelain=v1 --untracked-files=all` and
-`git rev-parse HEAD`, parse `project.name`, `project.version`, and `project.requires-python`
-from `pyproject.toml`, hash the already-built wheel bytes, require
+`build_candidate_receipt` must call `git status --porcelain=v1 --untracked-files=all`,
+`git rev-parse --show-object-format`, and `git rev-parse HEAD`; require the object format to be
+exactly `sha1`; validate the commit with `_GIT_SHA1` and every digest with `_SHA256`; parse
+`project.name`, `project.version`, and `project.requires-python` from `pyproject.toml`; hash the
+already-built wheel bytes; require
 `proof_result["status"] == "passed"`, set the same digest as the proof-input digest, and
 then compute the receipt digest.
 
 Add `candidate_artifact_invalid` to the controller's closed stable failure-code set. Do not
 add receipt fields to the existing public proof result.
 
-- [ ] **Step 4: Run GREEN and static checks**
+- [x] **Step 4: Run GREEN and static checks**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/scripts/test_consumer_source_pack_proof.py \
@@ -175,7 +186,7 @@ UV_OFFLINE=1 uv run pyright scripts/consumer_source_pack_proof.py \
 
 Expected: focused tests pass; Ruff and Pyright report no errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/consumer_source_pack_proof.py tests/scripts/test_consumer_source_pack_proof.py
@@ -195,7 +206,7 @@ git commit -m "feat(proof): define candidate artifact receipt"
 - Produces: optional `ProofConfig.candidate_output: Path | None`; when set, the final
   directory contains exactly the proven wheel and `candidate-artifact-receipt.json`.
 
-- [ ] **Step 1: Write RED atomic-output tests**
+- [x] **Step 1: Write RED atomic-output tests**
 
 Cover:
 
@@ -213,7 +224,7 @@ copy/write failure, any pre-existing output path, or receipt mismatch. Verify no
 directory remains after any path. Verify `cleanup_failed` still overrides an earlier
 candidate publication error when owned temp cleanup cannot be proven.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/scripts/test_consumer_source_pack_proof.py \
@@ -222,7 +233,7 @@ UV_OFFLINE=1 uv run pytest -q tests/scripts/test_consumer_source_pack_proof.py \
 
 Expected: FAIL because `ProofConfig` has no candidate output and no files are published.
 
-- [ ] **Step 3: Implement staging and final publication**
+- [x] **Step 3: Implement staging and final publication**
 
 Extend the config without changing existing callers:
 
@@ -239,19 +250,23 @@ class ProofConfig:
 
 Implementation order is fixed:
 
-1. Build exactly one wheel in the existing owned root.
-2. Run both interpreter proofs using that exact path.
-3. Build the candidate receipt from the successful aggregate result.
-4. Copy wheel and canonical receipt into a hidden staging directory adjacent to the final
+1. Before any build, pin the clean SHA-1 commit and create an immutable tracked snapshot with
+   `git archive` inside the owned root.
+2. Build exactly one wheel and export the locked constraints from that snapshot.
+3. Run both interpreter proofs using that exact wheel and copied proof inputs from the snapshot.
+4. Build the candidate receipt from the successful aggregate result and pinned commit.
+5. Copy wheel and canonical receipt into a hidden staging directory adjacent to the final
    output; `fsync` both files and directory.
-5. Remove and verify all existing owned proof state.
-6. Atomically rename staging to the requested final directory.
-7. If any step fails, remove only staging/owned paths and emit the closed stable code.
+6. Remove and verify all existing owned proof state, then require the live repository to remain
+   clean at the pinned HEAD.
+7. Atomically rename staging to the requested final directory with platform no-replace semantics.
+8. If any step fails, remove only staging/owned paths and emit the closed stable code.
 
-Do not accept symlink output parents or an existing non-empty final directory. Resolve the
-parent once and keep every staging/final path under that parent.
+Do not accept symlink output parents or any existing final path. Resolve the parent once and keep
+every staging/final path under that parent. If atomic no-replace is unsupported, fail closed rather
+than falling back to an operation that can overwrite a racing target.
 
-- [ ] **Step 4: Add the CLI flag without changing stdout**
+- [x] **Step 4: Add the CLI flag without changing stdout**
 
 ```python
 parser.add_argument("--candidate-output", type=Path)
@@ -261,7 +276,7 @@ Pass it into `ProofConfig`. Success stdout remains the existing
 `{"proof":"consumer_source_pack",...}` object. Failure remains exactly
 `{"status":"failed","code":"<stable_code>"}`.
 
-- [ ] **Step 5: Run GREEN**
+- [x] **Step 5: Run GREEN**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/scripts/test_consumer_source_pack_proof.py
@@ -271,7 +286,7 @@ UV_OFFLINE=1 uv run pyright scripts/consumer_source_pack_proof.py \
   tests/scripts/test_consumer_source_pack_proof.py
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add scripts/consumer_source_pack_proof.py tests/scripts/test_consumer_source_pack_proof.py
@@ -292,7 +307,7 @@ git commit -m "feat(proof): publish exact candidate wheel atomically"
 - Consumes: `--candidate-output` from Task 2.
 - Produces: hosted execution of the publication path plus a maintainer-only local command.
 
-- [ ] **Step 1: Write RED workflow/documentation tests**
+- [x] **Step 1: Write RED workflow/documentation tests**
 
 Require the hosted command to contain exactly one proof invocation and:
 
@@ -313,7 +328,7 @@ UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
 Require wording that the output is operator-supplied, local, not uploaded by the workflow,
 not a Release/PyPI artifact, and must be regenerated from the exact merged clean commit.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -321,14 +336,14 @@ UV_OFFLINE=1 uv run pytest -q \
   tests/evaluation/test_consumer_source_pack_documentation.py
 ```
 
-- [ ] **Step 3: Update workflow and docs**
+- [x] **Step 3: Update workflow and docs**
 
 Add `--candidate-output "$RUNNER_TEMP/mke-candidate"` only to the existing offline proof
 step. Do not add `upload-artifact`, Release permissions, secrets, a new job, or a required
 downstream callback. Update the how-to's output contract with all receipt fields and its
 canonical hash rule.
 
-- [ ] **Step 4: Run GREEN and full MKE gates**
+- [x] **Step 4: Run GREEN and full MKE gates**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -343,7 +358,7 @@ uv run mke demo --verify
 git diff --check
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add .github/workflows/consumer-source-pack-proof.yml \
@@ -360,7 +375,7 @@ git commit -m "docs(proof): document candidate artifact handoff"
 **Interfaces:** Produces a clean MKE branch for authority review. Artifact generation from
 the merged commit is a later authorized operation, not part of the implementation branch.
 
-- [ ] **Step 1: Run the exact local candidate path on the feature branch**
+- [x] **Step 1: Run the exact local candidate path on the feature branch**
 
 ```bash
 OUTPUT="artifacts/m4b-candidate-$(git rev-parse --short=12 HEAD)"
@@ -375,7 +390,7 @@ UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
 Expected: existing success stdout; output directory contains exactly one wheel and one
 receipt; receipt `source_commit` equals feature HEAD and both wheel digests match.
 
-- [ ] **Step 2: Prove cleanup and public hygiene**
+- [x] **Step 2: Prove cleanup and public hygiene**
 
 ```bash
 git status --short
@@ -386,7 +401,7 @@ find "$OUTPUT" -maxdepth 1 -type f -print
 
 `artifacts/` remains ignored and must not be staged. The Git worktree must be clean.
 
-- [ ] **Step 3: Stop for authority review**
+- [x] **Step 3: Stop for authority review**
 
 Report branch/worktree/base/HEAD, commits, full diff, RED/GREEN evidence, actual gates,
 documentation impact, and remaining risk. Do not push or create a PR.

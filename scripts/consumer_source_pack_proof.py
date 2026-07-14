@@ -4,14 +4,21 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
+import errno
+import hashlib
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
+import sys
+import tarfile
 import tempfile
 import threading
 import time
+import tomllib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,6 +26,11 @@ from typing import BinaryIO, cast
 
 _DIRTY_ENV = frozenset({"PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"})
 _DISTRIBUTION = "multimodal-knowledge-engine"
+_CANDIDATE_RECEIPT_SCHEMA = "mke.candidate_artifact_receipt.v1"
+_CONSUMER_PROOF_SCHEMA = "mke.consumer_source_pack_proof.v1"
+_REPOSITORY = "iTao-AI/multimodal-knowledge-engine"
+_GIT_SHA1 = re.compile(r"^[0-9a-f]{40}$")
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _READ_SIZE = 4096
 _TERMINATION_GRACE_SECONDS = 0.5
 _STABLE_FAILURE_CODES = frozenset(
@@ -41,6 +53,7 @@ _STABLE_FAILURE_CODES = frozenset(
         "mcp_transport_failed",
         "server_exit_nonzero",
         "command_output_exceeded",
+        "candidate_artifact_invalid",
         "cleanup_failed",
         "proof_failed",
     }
@@ -140,10 +153,273 @@ class ProofConfig:
     command_timeout_seconds: float
     max_stdout_bytes: int
     max_stderr_bytes: int
+    candidate_output: Path | None = None
 
 
 def isolated_environment(base: Mapping[str, str]) -> dict[str, str]:
     return {key: value for key, value in base.items() if key not in _DIRTY_ENV}
+
+
+def canonical_sha256(value: Mapping[str, object]) -> str:
+    encoded = json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _clean_sha1_source_commit(repository: Path) -> str:
+    try:
+        object_format = subprocess.run(
+            ["git", "rev-parse", "--show-object-format"],
+            cwd=repository,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        first_commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repository,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        status = subprocess.run(
+            ["git", "status", "--porcelain=v1", "--untracked-files=all"],
+            cwd=repository,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        second_commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repository,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ControllerError("candidate_artifact_invalid") from exc
+    source_commit = first_commit.stdout.strip()
+    if (
+        object_format.returncode != 0
+        or object_format.stdout.strip() != "sha1"
+        or first_commit.returncode != 0
+        or second_commit.returncode != 0
+        or status.returncode != 0
+        or status.stdout != ""
+        or second_commit.stdout.strip() != source_commit
+        or not _GIT_SHA1.fullmatch(source_commit)
+    ):
+        raise ControllerError("candidate_artifact_invalid")
+    return source_commit
+
+
+def build_candidate_receipt(
+    repository: Path,
+    wheel: Path,
+    package_version: str,
+    proof_result: Mapping[str, object],
+    *,
+    source_commit: str | None = None,
+) -> dict[str, object]:
+    try:
+        project = tomllib.loads((repository / "pyproject.toml").read_text(encoding="utf-8"))[
+            "project"
+        ]
+        wheel_bytes = wheel.read_bytes()
+    except (KeyError, OSError, tomllib.TOMLDecodeError) as exc:
+        raise ControllerError("candidate_artifact_invalid") from exc
+    if source_commit is None:
+        source_commit = _clean_sha1_source_commit(repository)
+    project_name = project.get("name")
+    project_version = project.get("version")
+    requires_python = project.get("requires-python")
+    wheel_sha256 = hashlib.sha256(wheel_bytes).hexdigest()
+    proof_wheel_sha256 = proof_result.get("proof_input_wheel_sha256")
+    expected_wheel = re.compile(
+        rf"^multimodal_knowledge_engine-{re.escape(package_version)}-[A-Za-z0-9_.-]+\.whl$"
+    )
+    if (
+        not _GIT_SHA1.fullmatch(source_commit)
+        or project_name != _DISTRIBUTION
+        or project_version != package_version
+        or not isinstance(requires_python, str)
+        or not requires_python
+        or not wheel_bytes
+        or wheel.is_symlink()
+        or expected_wheel.fullmatch(wheel.name) is None
+        or proof_result.get("status") != "passed"
+        or not isinstance(proof_wheel_sha256, str)
+        or not _SHA256.fullmatch(wheel_sha256)
+        or not _SHA256.fullmatch(proof_wheel_sha256)
+        or proof_wheel_sha256 != wheel_sha256
+    ):
+        raise ControllerError("candidate_artifact_invalid")
+    receipt: dict[str, object] = {
+        "schema_version": _CANDIDATE_RECEIPT_SCHEMA,
+        "repository": _REPOSITORY,
+        "source_commit": source_commit,
+        "package_name": _DISTRIBUTION,
+        "package_version": package_version,
+        "wheel_filename": wheel.name,
+        "wheel_bytes": len(wheel_bytes),
+        "wheel_sha256": wheel_sha256,
+        "requires_python": requires_python,
+        "consumer_proof_schema": _CONSUMER_PROOF_SCHEMA,
+        "consumer_proof_status": "passed",
+        "proof_input_wheel_sha256": proof_wheel_sha256,
+    }
+    receipt["receipt_sha256"] = canonical_sha256(receipt)
+    if not _SHA256.fullmatch(receipt["receipt_sha256"]):
+        raise ControllerError("candidate_artifact_invalid")
+    return receipt
+
+
+def _candidate_target(requested: Path) -> Path:
+    if requested.name in {"", ".", ".."} or requested.exists() or requested.is_symlink():
+        raise ControllerError("candidate_artifact_invalid")
+    parent = requested.parent
+    try:
+        if parent.exists():
+            if parent.is_symlink() or not parent.is_dir():
+                raise ControllerError("candidate_artifact_invalid")
+        else:
+            parent.mkdir()
+        resolved_parent = parent.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise ControllerError("candidate_artifact_invalid") from exc
+    target = resolved_parent / requested.name
+    if target.exists() or target.is_symlink() or target.parent != resolved_parent:
+        raise ControllerError("candidate_artifact_invalid")
+    return target
+
+
+def _remove_candidate_staging(staging: Path) -> None:
+    try:
+        shutil.rmtree(staging)
+    except OSError as exc:
+        raise ControllerError("cleanup_failed") from exc
+    if staging.exists():
+        raise ControllerError("cleanup_failed")
+
+
+def _fsync_directory(directory: Path) -> None:
+    descriptor = os.open(directory, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _atomic_rename_no_replace(source: Path, target: Path) -> None:
+    if sys.platform == "darwin":
+        libc = ctypes.CDLL(None, use_errno=True)
+        try:
+            renamex_np = libc.renamex_np
+        except AttributeError as exc:
+            raise OSError(errno.ENOTSUP, "atomic no-replace rename unavailable") from exc
+        renamex_np.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
+        renamex_np.restype = ctypes.c_int
+        result = renamex_np(os.fsencode(source), os.fsencode(target), 0x00000004)
+    elif sys.platform.startswith("linux"):
+        libc = ctypes.CDLL(None, use_errno=True)
+        try:
+            renameat2 = libc.renameat2
+        except AttributeError as exc:
+            raise OSError(errno.ENOTSUP, "atomic no-replace rename unavailable") from exc
+        renameat2.argtypes = [
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_uint,
+        ]
+        renameat2.restype = ctypes.c_int
+        result = renameat2(-100, os.fsencode(source), -100, os.fsencode(target), 1)
+    elif os.name == "nt":
+        os.rename(source, target)
+        return
+    else:
+        raise OSError(errno.ENOTSUP, "atomic no-replace rename unavailable")
+    if result != 0:
+        error_number = ctypes.get_errno()
+        raise OSError(error_number, os.strerror(error_number), target)
+
+
+def _stage_candidate_output(
+    target: Path, wheel: Path, receipt: Mapping[str, object]
+) -> Path:
+    staging = Path(tempfile.mkdtemp(prefix=f".{target.name}.", dir=target.parent))
+    try:
+        staged_wheel = staging / wheel.name
+        staged_receipt = staging / "candidate-artifact-receipt.json"
+        shutil.copyfile(wheel, staged_wheel)
+        with staged_wheel.open("rb") as file:
+            os.fsync(file.fileno())
+        encoded_receipt = (
+            json.dumps(
+                receipt,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=True,
+                allow_nan=False,
+            ).encode("utf-8")
+            + b"\n"
+        )
+        with staged_receipt.open("xb") as file:
+            file.write(encoded_receipt)
+            file.flush()
+            os.fsync(file.fileno())
+        _fsync_directory(staging)
+        staged_payload = json.loads(staged_receipt.read_bytes())
+        if not isinstance(staged_payload, dict):
+            raise ControllerError("candidate_artifact_invalid")
+        normalized = cast(dict[str, object], staged_payload)
+        receipt_without_digest = {
+            key: value for key, value in normalized.items() if key != "receipt_sha256"
+        }
+        staged_wheel_sha256 = hashlib.sha256(staged_wheel.read_bytes()).hexdigest()
+        if (
+            set(normalized) != set(receipt)
+            or normalized != dict(receipt)
+            or normalized.get("wheel_sha256") != staged_wheel_sha256
+            or normalized.get("proof_input_wheel_sha256") != staged_wheel_sha256
+            or normalized.get("receipt_sha256") != canonical_sha256(receipt_without_digest)
+        ):
+            raise ControllerError("candidate_artifact_invalid")
+        return staging
+    except BaseException as exc:
+        try:
+            _remove_candidate_staging(staging)
+        except ControllerError:
+            raise
+        if isinstance(exc, ControllerError):
+            raise exc
+        raise ControllerError("candidate_artifact_invalid") from exc
+
+
+def _publish_candidate_output(staging: Path, target: Path) -> None:
+    renamed = False
+    try:
+        if target.exists() or target.is_symlink():
+            raise ControllerError("candidate_artifact_invalid")
+        _atomic_rename_no_replace(staging, target)
+        renamed = True
+        _fsync_directory(target.parent)
+    except BaseException as exc:
+        cleanup_target = target if renamed else staging
+        if cleanup_target.exists():
+            try:
+                _remove_candidate_staging(cleanup_target)
+            except ControllerError:
+                raise
+        if isinstance(exc, ControllerError):
+            raise exc
+        raise ControllerError("candidate_artifact_invalid") from exc
 
 
 def _group_exists(pgid: int) -> bool:
@@ -431,17 +707,66 @@ def _client_failure_code(stdout: bytes) -> str | None:
     return code
 
 
+def _candidate_source_snapshot(
+    repository: Path, source_commit: str, root: Path, timeout_seconds: float
+) -> Path:
+    archive = root / "source.tar"
+    snapshot = root / "source"
+    snapshot.mkdir()
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "archive",
+                "--format=tar",
+                f"--output={archive}",
+                source_commit,
+            ],
+            cwd=repository,
+            check=False,
+            capture_output=True,
+            timeout=timeout_seconds,
+        )
+        if result.returncode != 0 or not archive.is_file():
+            raise ControllerError("candidate_artifact_invalid")
+        with tarfile.open(archive, mode="r:") as source:
+            source.extractall(snapshot, filter="data")
+        archive.unlink()
+    except ControllerError:
+        raise
+    except (OSError, subprocess.SubprocessError, tarfile.TarError) as exc:
+        raise ControllerError("candidate_artifact_invalid") from exc
+    if not (snapshot / "pyproject.toml").is_file() or (snapshot / ".git").exists():
+        raise ControllerError("candidate_artifact_invalid")
+    return snapshot
+
+
 def run_proof(config: ProofConfig) -> dict[str, object]:
     repository = config.repository.resolve()
     if len(config.python_interpreters) != 2:
         raise ControllerError("proof_failed")
+    candidate_source_commit = (
+        _clean_sha1_source_commit(repository) if config.candidate_output is not None else None
+    )
+    candidate_target = (
+        _candidate_target(config.candidate_output) if config.candidate_output is not None else None
+    )
     root = Path(tempfile.mkdtemp(prefix="mke-consumer-source-pack-"))
     owned: list[Path] = [root]
     functional: dict[str, object] | None = None
+    candidate_staging: Path | None = None
     error: BaseException | None = None
     try:
         if _within(root, repository):
             raise ControllerError("external_isolation_failed")
+        source_repository = repository
+        if candidate_source_commit is not None:
+            source_repository = _candidate_source_snapshot(
+                repository,
+                candidate_source_commit,
+                root,
+                config.command_timeout_seconds,
+            )
         env = isolated_environment(os.environ)
         client_env = {
             key: value for key, value in env.items() if not _within_text(value, repository)
@@ -452,7 +777,14 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
         constraints = root / "constraints.txt"
         _command(
             "wheel_build_failed",
-            ["uv", "build", "--wheel", "--out-dir", str(build_dir), str(repository)],
+            [
+                "uv",
+                "build",
+                "--wheel",
+                "--out-dir",
+                str(build_dir),
+                str(source_repository),
+            ],
             cwd=root,
             env=env,
             config=config,
@@ -467,7 +799,7 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
                 "uv",
                 "export",
                 "--project",
-                str(repository),
+                str(source_repository),
                 "--locked",
                 "--no-dev",
                 "--no-emit-project",
@@ -479,6 +811,7 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
             config=config,
         )
         results: list[dict[str, object]] = []
+        package_versions: list[str] = []
         for index, interpreter in enumerate(config.python_interpreters):
             environment = root / f"venv-{index}"
             workspace = root / f"workspace-{index}"
@@ -537,7 +870,8 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
             except (UnicodeDecodeError, json.JSONDecodeError) as exc:
                 raise ControllerError("installed_identity_failed") from exc
             _validate_identity(identity, environment, repository)
-            client, manifest, schemas, source_root = _copy_inputs(repository, workspace)
+            package_versions.append(cast(str, identity["metadata_version"]))
+            client, manifest, schemas, source_root = _copy_inputs(source_repository, workspace)
             if any(
                 _within(path, repository)
                 for path in (workspace, client, manifest, schemas, source_root)
@@ -587,7 +921,22 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
             results.append(_validate_client(client_payload))
         if results[0] != results[1]:
             raise ControllerError("proof_failed")
+        if len(set(package_versions)) != 1:
+            raise ControllerError("installed_identity_failed")
         functional = results[0]
+        if candidate_target is not None:
+            proof_binding = {
+                "status": "passed",
+                "proof_input_wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
+            }
+            receipt = build_candidate_receipt(
+                source_repository,
+                wheel,
+                package_versions[0],
+                proof_binding,
+                source_commit=candidate_source_commit,
+            )
+            candidate_staging = _stage_candidate_output(candidate_target, wheel, receipt)
     except BaseException as exc:
         error = exc
     finally:
@@ -597,11 +946,32 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
             error = ControllerError("cleanup_failed")
         if any(path.exists() for path in owned):
             error = ControllerError("cleanup_failed")
+        if error is not None and candidate_staging is not None and candidate_staging.exists():
+            try:
+                _remove_candidate_staging(candidate_staging)
+            except ControllerError as exc:
+                error = exc
     if error is not None:
         if isinstance(error, ControllerError):
             raise error
         raise ControllerError("proof_failed") from error
     assert functional is not None
+    if candidate_staging is not None:
+        assert candidate_target is not None
+        assert candidate_source_commit is not None
+        try:
+            if _clean_sha1_source_commit(repository) != candidate_source_commit:
+                raise ControllerError("candidate_artifact_invalid")
+            _publish_candidate_output(candidate_staging, candidate_target)
+        except BaseException as exc:
+            if candidate_staging.exists():
+                try:
+                    _remove_candidate_staging(candidate_staging)
+                except ControllerError:
+                    raise
+            if isinstance(exc, ControllerError):
+                raise exc
+            raise ControllerError("candidate_artifact_invalid") from exc
     return {
         "proof": "consumer_source_pack",
         "status": "passed",
@@ -641,6 +1011,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--command-timeout", type=float, default=600.0)
     parser.add_argument("--max-stdout-bytes", type=int, default=2 * 1024 * 1024)
     parser.add_argument("--max-stderr-bytes", type=int, default=512 * 1024)
+    parser.add_argument("--candidate-output", type=Path)
     args = parser.parse_args(argv)
     try:
         if len(args.python) != 2:
@@ -652,6 +1023,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.command_timeout,
                 args.max_stdout_bytes,
                 args.max_stderr_bytes,
+                args.candidate_output,
             )
         )
         print(json.dumps(result, sort_keys=True, separators=(",", ":")))
