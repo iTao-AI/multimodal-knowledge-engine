@@ -37,8 +37,11 @@ runtime contract.
   fresh provider entries contain only facts produced by the installed-wheel run and do not claim
   historical artifact bytes or digests as current-run output.
 - Provider startup owns cleanup from the first staging-directory creation. Environment setup and
-  atomic receipt write failures return stable errors, remove only call-owned temporary state, and
-  preserve any prior canonical receipt.
+  receipt write failures return stable errors and remove only call-owned temporary state. A new
+  receipt is first fsynced to a call-owned temporary file, all staging cleanup is then completed
+  and verified, and only then may an atomic replace update the canonical receipt. Cleanup or
+  temporary-file removal failure returns a stable cleanup error without overwriting prior
+  canonical evidence; cleanup attempts are not skipped by a temporary-file error.
 - The PaddleOCR-VL adapter no longer accepts the unobserved nested result envelope. It accepts only
   the observed pinned direct-top-level schema represented by a public-safe sanitized fixture,
   validates exact keys and bounded values, admits supported prose labels only, and requires the

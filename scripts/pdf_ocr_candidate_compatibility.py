@@ -989,6 +989,7 @@ def run_provider_startup(config: ProviderStartupConfig) -> dict[str, object]:
     runtime = staging / "venv"
     temporary = output.with_suffix(".json.tmp")
     temporary_owned = False
+    publication_ready = False
     try:
         staging.mkdir(mode=0o700, parents=True)
         environment = _package_environment(staging / "home", staging / "cache", offline=True)
@@ -1128,17 +1129,37 @@ def run_provider_startup(config: ProviderStartupConfig) -> dict[str, object]:
             stream.write(encoded)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, output)
-        temporary_owned = False
-        return receipt
+        publication_ready = True
     except (KeyError, OSError, UnicodeError, json.JSONDecodeError) as error:
         raise CompatibilityError("provider_startup_failed") from error
     finally:
-        if temporary_owned:
-            temporary.unlink(missing_ok=True)
-        shutil.rmtree(staging, ignore_errors=True)
+        cleanup_failed = False
+        try:
+            shutil.rmtree(staging, ignore_errors=True)
+        except OSError:
+            cleanup_failed = True
         if staging.exists():
+            cleanup_failed = True
+        if temporary_owned and (not publication_ready or cleanup_failed):
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                cleanup_failed = True
+            else:
+                temporary_owned = False
+        if cleanup_failed:
             raise CompatibilityError("cleanup_failed")
+    if not publication_ready:
+        raise CompatibilityError("provider_startup_failed")
+    try:
+        os.replace(temporary, output)
+    except OSError as error:
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError as cleanup_error:
+            raise CompatibilityError("cleanup_failed") from cleanup_error
+        raise CompatibilityError("provider_startup_failed") from error
+    return receipt
 
 
 def _probe_python_version(

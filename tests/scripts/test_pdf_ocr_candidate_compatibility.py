@@ -1261,6 +1261,9 @@ def test_provider_runtime_identity_accepts_standard_venv_python_symlink(
         "environment-failure",
         "replace-failure",
         "installed-drift",
+        "cleanup-failure",
+        "unlink-failure",
+        "existing-output",
     ],
 )
 def test_provider_startup_controller_binds_exact_package_evidence(
@@ -1480,12 +1483,66 @@ def test_provider_startup_controller_binds_exact_package_evidence(
         assert not config.output.with_suffix(".json.tmp").exists()
         assert not (tmp_path / "startup").exists()
         return
+    if wheelhouse_drift == "cleanup-failure":
+        prior = b"prior canonical evidence\n"
+        config.output.write_bytes(prior)
+
+        def leave_staging(_path: Path, *, ignore_errors: bool) -> None:
+            assert ignore_errors is True
+
+        monkeypatch.setattr(compatibility.shutil, "rmtree", leave_staging)
+        with pytest.raises(compatibility.CompatibilityError, match="cleanup_failed"):
+            compatibility.run_provider_startup(config)
+        assert config.output.read_bytes() == prior
+        assert not config.output.with_suffix(".json.tmp").exists()
+        return
+    if wheelhouse_drift == "unlink-failure":
+        prior = b"prior canonical evidence\n"
+        config.output.write_bytes(prior)
+        temporary = config.output.with_suffix(".json.tmp")
+        original_replace = compatibility.os.replace
+        original_unlink = Path.unlink
+        staging_cleanup_attempted = False
+        temporary_unlink_attempted = False
+
+        def fail_replace(source_path: Path, destination_path: Path) -> None:
+            if Path(destination_path) == config.output:
+                raise OSError("synthetic receipt replace failure")
+            original_replace(source_path, destination_path)
+
+        def fail_temporary_unlink(path: Path, *args, **kwargs) -> None:
+            nonlocal temporary_unlink_attempted
+            if path == temporary:
+                temporary_unlink_attempted = True
+                raise OSError("synthetic temporary unlink failure")
+            original_unlink(path, *args, **kwargs)
+
+        original_rmtree = compatibility.shutil.rmtree
+
+        def record_staging_cleanup(path: Path, *, ignore_errors: bool) -> None:
+            nonlocal staging_cleanup_attempted
+            if Path(path) == config.staging_root:
+                staging_cleanup_attempted = True
+            original_rmtree(path, ignore_errors=ignore_errors)
+
+        monkeypatch.setattr(compatibility.os, "replace", fail_replace)
+        monkeypatch.setattr(Path, "unlink", fail_temporary_unlink)
+        monkeypatch.setattr(compatibility.shutil, "rmtree", record_staging_cleanup)
+        with pytest.raises(compatibility.CompatibilityError, match="cleanup_failed"):
+            compatibility.run_provider_startup(config)
+        assert config.output.read_bytes() == prior
+        assert staging_cleanup_attempted is True
+        assert temporary_unlink_attempted is True
+        assert not config.staging_root.exists()
+        return
     if wheelhouse_drift == "installed-drift":
         with pytest.raises(compatibility.CompatibilityError, match="provider_runtime_invalid"):
             compatibility.run_provider_startup(config)
         assert not config.output.exists()
         assert not (tmp_path / "startup").exists()
         return
+    if wheelhouse_drift == "existing-output":
+        config.output.write_bytes(b"prior canonical evidence\n")
 
     receipt = compatibility.run_provider_startup(config)
 
