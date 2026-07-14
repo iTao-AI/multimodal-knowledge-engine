@@ -13,8 +13,10 @@ rewriting their provenance. Resumption now requires Task 4R, Task 5A, Task 5B, a
 order. Targeted authority re-review accepted the resumption plan at
 `3673c8373da6973b0961f789204be14adce3d4dd`. Task 4R-A is complete and its targeted authority
 re-review accepted implementation commit `3b029a47c69f32d63e9cae688196e205d96f8af7`. Task 4R-B has
-satisfied its prerequisite review gate and is cleared for a separate dispatch, but has not started.
-Task 4R as a whole remains incomplete; Task 5A, Task 5B, Task 5C, and Task 6 have not started.
+been completed and accepted at `97e2cb1c67f2ef3a5cd8fc936e697034c0b79ed0`, completing Task
+4R. Task 5A implementation commit `1953053c801b37ab6a43c9872f0108c7b49c98a3` and targeted
+repair commit `fecb732c5950855897219609b9ea0f63e7d75fa6` are accepted. Task 5B is cleared only for a
+later independent dispatch; Task 5B, Task 5C, and Task 6 have not started.
 
 **Goal:** Produce reproducible valid-positive or valid-negative evidence for local scanned/mixed-PDF OCR before adding a production runtime contract.
 
@@ -735,8 +737,9 @@ after targeted review accepts this resumption plan. The review of
 accepted the plan and cleared Task 4R-A. Task 4R-A implementation commit
 `3b029a47c69f32d63e9cae688196e205d96f8af7` was subsequently accepted with no findings. Task 4R-B
 was completed and accepted with no findings at
-`97e2cb1c67f2ef3a5cd8fc936e697034c0b79ed0`. Task 4R is accepted, and only Task 5A is cleared for
-a later independent dispatch; Task 5A and later work have not started.
+`97e2cb1c67f2ef3a5cd8fc936e697034c0b79ed0`. Task 4R is accepted. Task 5A was subsequently
+completed and accepted at `fecb732c5950855897219609b9ea0f63e7d75fa6`; only Task 5B is cleared
+for a later independent dispatch, and Task 5B and later work have not started.
 
 The pre-reconciliation package and startup receipts bound an MKE 0.1.1 wheel and remain historical
 evidence. Task 4R-A removed the compatibility controller's former fixed 0.1.1 wheel filename and
@@ -997,7 +1000,8 @@ same exact MKE 0.1.2 wheel and all 16 cells passed. Provider startup binds the r
 receipt, the Python 3.13 base installed environment, blocked network canary, and equal normalized
 truth digests. Call-owned roots were removed; retained package and model roots remained unchanged.
 These are local single-page startup compatibility facts only, not OCR quality, provider selection,
-or production capability. Task 5A is cleared only for a later independent dispatch.
+or production capability. Task 5A was subsequently completed and accepted; Task 5B is cleared only
+for a later independent dispatch.
 
 ---
 
@@ -1012,7 +1016,7 @@ or production capability. Task 5A is cleared only for a later independent dispat
 - Modify: `tests/interfaces/test_mcp_contract.py`
 - Add and then update: `docs/decisions/0010-pdf-ocr-evaluation-manifest-fingerprint.md`
 
-- [ ] **Step 1: Write RED fingerprint and stage-mismatch tests**
+- [x] **Step 1: Write RED fingerprint and stage-mismatch tests**
 
 Require exact `pdf-ocr-eval-v1:<64 lowercase hex SHA-256>` recognition and exact OCR stages
 `pdf_ocr_extraction` plus `candidate_evidence`. Reject prefix-only, wrong-length, uppercase, unknown
@@ -1021,7 +1025,7 @@ Reject duplicate required stages. Keep all existing PDF and video compatibility 
 the normal PDF application path still emits `pymupdf-text-v1`, and prove public CLI/MCP contracts
 do not add an `extractor_fingerprint` or `RunManifest` input.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Run the exact focused set:
 
@@ -1037,7 +1041,7 @@ UV_OFFLINE=1 uv run pytest -q \
 Only the new OCR domain cases may be RED because the evaluation fingerprint is not recognized.
 Existing PDF/video behavior and application/interface no-new-input assertions must remain GREEN.
 
-- [ ] **Step 3: Implement the minimal domain validator contract**
+- [x] **Step 3: Implement the minimal domain validator contract**
 
 Add only the evaluation fingerprint regex and required-stage mapping. The domain validator checks
 compact syntax, exact stages, and page locators; it does not validate the structured payload.
@@ -1046,7 +1050,7 @@ interface code, CLI, MCP, SQLite schema, runtime defaults, dependencies, or defa
 implementation requires an application or interface production-code change, hard stop for a new
 authority finding.
 
-- [ ] **Step 4: Run GREEN and update ADR status**
+- [x] **Step 4: Run GREEN and update ADR status**
 
 After the exact compatibility and mismatch tests pass, change ADR-0010 from Proposed to Accepted
 with the actual implementation evidence. Do not mark it Accepted before implementation.
@@ -1067,10 +1071,25 @@ UV_OFFLINE=1 uv run ruff check src/mke/domain/__init__.py \
 UV_OFFLINE=1 uv run pyright src/mke/domain/__init__.py
 ```
 
-- [ ] **Step 5: Commit Task 5A and stop for review**
+- [x] **Step 5: Commit Task 5A and stop for review**
 
 Stage only the domain validator, its tests, and ADR. Create an independent local commit and review
 checkpoint.
+
+Task 5A implementation commit `1953053c801b37ab6a43c9872f0108c7b49c98a3` added the compact
+evaluation fingerprint contract and set ADR-0010 to Accepted. Targeted review found one test-only
+authority gap: the MCP schema substring probe could miss a conventional `run_manifest` property,
+and the CLI regression covered only `--extractor-fingerprint`. Repair commit
+`fecb732c5950855897219609b9ea0f63e7d75fa6` bound the MCP input property set exactly to `{"path"}`
+and covered both `--extractor-fingerprint` and `--run-manifest`. Final targeted re-review found no
+remaining findings. The focused domain, application, CLI, and MCP suite passed with `122 passed, 5
+warnings`; Ruff passed, Pyright reported `0 errors, 0 warnings`, and `git diff --check` passed.
+
+Task 5A is accepted and clears only Task 5B for a later independent dispatch. Structured extractor
+identity payload validation and digest/producer authority remain Task 5B work. This acceptance is
+not OCR quality evidence, provider selection, production OCR authority, runtime promotion, or a
+release decision. See
+`docs/superpowers/reviews/2026-07-14-pdf-ocr-phase0-task5a-implementation-review.md`.
 
 ---
 
