@@ -732,22 +732,70 @@ The existing package and startup receipts bind an MKE 0.1.1 wheel. They remain h
 after the MKE 0.1.2 merge and cannot authorize Task 5B. The model receipt may remain the same model
 provenance only if a fresh descriptor-bound rehash confirms identical bytes and tree identity.
 
+**Files:**
+
+- Modify: `benchmarks/ocr/candidate-environments.json`
+- Modify: `benchmarks/ocr/provider-startup.json`
+- Verify byte-identical: `benchmarks/ocr/model-artifacts.json`
+
+No production or dependency file may change. Task 4R stages only the two modified receipt files;
+any other tracked change is an authority hard stop.
+
 - [ ] **Step 1: Verify the preserved merge provenance gate**
 
-Require the merge commit to have the prior OCR HEAD and exact current `main` as parents. Confirm the
-worktree is clean and the accepted Task 4 commits remain ancestors. Do not rebase, squash, or rewrite
-the 20 pre-reconciliation OCR commits.
+Freeze `task4r_start="$(git rev-parse HEAD)"` before any write. Require it to be the current
+review-cleared resumption-plan commit, to contain merge commit
+`804b9205c35b657ab3aba51faf4cdc40ab0e4057`, and to preserve the accepted Task 4 commits as
+ancestors. The merge commit is provenance in the history, not the current source candidate. Confirm
+the worktree is clean. Do not rebase, squash, or rewrite the 20 pre-reconciliation OCR commits.
 
 - [ ] **Step 2: Build one merged-tree MKE 0.1.2 wheel offline**
 
-Build from the clean committed merge tree. Record the exact wheel filename, bytes, SHA-256, version,
-and source commit. Do not use or retain an MKE 0.1.1 wheel as current authority.
+Build from exact committed `task4r_start`. Record the exact wheel filename, bytes, SHA-256, version,
+and `task4r_start` in the handoff. The current receipt schema has no `source_commit` field, so do
+not claim that either receipt binds the commit. Do not extend the schema in Task 4R, and do not use
+or retain an MKE 0.1.1 wheel as current authority.
+
+Freeze the execution inputs explicitly:
+
+```bash
+task4r_start="$(git rev-parse HEAD)"
+python312="$(command -v python3.12)"
+python313="$(command -v python3.13)"
+prepared_wheelhouses="${MKE_OCR_RETAINED_WHEELHOUSES:?operator input required}"
+model_root="${MKE_OCR_RETAINED_MODEL_ROOT:?operator input required}"
+apple_executable="$(xcrun --find swift)"
+staging_root="$(mktemp -d)"
+cache_root="$(mktemp -d)"
+wheel="${staging_root}/wheel/multimodal_knowledge_engine-0.1.2-py3-none-any.whl"
+mkdir -p "${staging_root}/wheel"
+UV_OFFLINE=1 uv build --wheel --out-dir "${staging_root}/wheel"
+test -f "${wheel}"
+```
+
+`prepared_wheelhouses` and `model_root` are operator-selected retained evidence outside Git. The
+staging and cache roots are call-owned and must be empty or absent after the run.
 
 - [ ] **Step 3: Refresh the complete package matrix from retained evidence**
 
 Use only the existing retained wheelhouses. Replace the MKE wheel inside call-owned copies and run
 the full 16-cell ordinary-pip offline matrix for Python 3.12 and 3.13. Update
-`candidate-environments.json` only from the validated controller path.
+`candidate-environments.json` only from the validated controller path:
+
+```bash
+UV_OFFLINE=1 uv run python scripts/pdf_ocr_candidate_compatibility.py \
+  --repository . \
+  --wheel "${wheel}" \
+  --python "${python312}" \
+  --python "${python313}" \
+  --prepared-wheelhouses "${prepared_wheelhouses}" \
+  --staging-root "${staging_root}/matrix" \
+  --cache-root "${cache_root}/matrix" \
+  --output benchmarks/ocr/candidate-environments.json \
+  --json
+```
+
+Do not pass `--allow-package-download` or `--allow-model-download`.
 
 - [ ] **Step 4: Refresh installed-wheel provider startup**
 
@@ -756,18 +804,84 @@ PaddleOCR-VL, and PP-OCRv6 startup with network denial and the canary. Update
 `provider-startup.json` from the authority path. Descriptor-bound rehash the retained model tree;
 if its bytes and tree identity are unchanged, do not rewrite `model-artifacts.json`.
 
+Invoke existing `ProviderStartupConfig` and `run_provider_startup` from a call-owned Python
+invocation, passing the exact wheel, `python313`, retained wheelhouses and models,
+`apple_executable`, and call-owned staging/cache roots. Do not add a tracked runner. The invocation
+must write exactly `benchmarks/ocr/provider-startup.json` and must prove the existing package and
+model receipt bindings, installed-wheel module origin, network denial, and canary result.
+
+```bash
+UV_OFFLINE=1 uv run python - "${task4r_start}" "${wheel}" "${python313}" \
+  "${prepared_wheelhouses}/paddleocr-vl-1.6-cpu-spike-v1" \
+  "${model_root}" "${apple_executable}" "${staging_root}/provider" <<'PY'
+import pathlib
+import sys
+
+from scripts.pdf_ocr_candidate_compatibility import (
+    ProviderStartupConfig,
+    run_provider_startup,
+)
+
+task4r_start, wheel, python313, wheelhouse, model_root, apple, staging = sys.argv[1:]
+repository = pathlib.Path.cwd().resolve()
+if task4r_start != __import__("subprocess").check_output(
+    ["git", "rev-parse", "HEAD"], cwd=repository, text=True
+).strip():
+    raise SystemExit("task4r_source_drift")
+run_provider_startup(
+    ProviderStartupConfig(
+        repository=repository,
+        wheel=pathlib.Path(wheel),
+        python=pathlib.Path(python313),
+        wheelhouse=pathlib.Path(wheelhouse),
+        model_root=pathlib.Path(model_root),
+        apple_executable=pathlib.Path(apple),
+        staging_root=pathlib.Path(staging),
+        output=repository / "benchmarks/ocr/provider-startup.json",
+    )
+)
+PY
+```
+
 - [ ] **Step 5: Enforce offline and disk ownership gates**
 
 No new package or model download, hosted API, AutoDL, or remote fallback is allowed. Create cells
 serially, clean call-owned environments after measurement, and do not retain a new large duplicate
 cache. Missing or drifted retained evidence is a hard stop and must not be repaired through network
-access.
+access. Require `UV_OFFLINE=1` for every `uv` command, prohibit both download authorization flags,
+and verify the call-owned `staging_root` and `cache_root` are empty or absent on exit.
 
 - [ ] **Step 6: Verify and commit Task 4R**
 
-Run the compatibility, canonical receipt, offline replay, installed-wheel startup, network canary,
-model rehash, static, and exact-file audits. Commit Task 4R independently and stop for its review
-checkpoint.
+Run the exact focused gates:
+
+```bash
+UV_OFFLINE=1 uv run pytest -q tests/scripts/test_pdf_ocr_candidate_compatibility.py
+UV_OFFLINE=1 uv run pytest -q \
+  tests/evaluation/test_pdf_ocr_protocol.py \
+  tests/evaluation/test_pdf_ocr_router.py \
+  tests/evaluation/test_pdf_ocr_provider.py
+UV_OFFLINE=1 uv run ruff check scripts/pdf_ocr_candidate_compatibility.py \
+  tests/scripts/test_pdf_ocr_candidate_compatibility.py
+UV_OFFLINE=1 uv run pyright scripts/pdf_ocr_candidate_compatibility.py
+UV_OFFLINE=1 uv build
+```
+
+Require wheel metadata version `0.1.2`, record its exact bytes and digest, validate canonical
+receipt bytes, exact two candidates times two Python minors times four surfaces (16 cells), exact
+Python versions, full distribution inventories, provider-startup authority, network canary, and a
+fresh descriptor-bound model rehash equal to the checked-in model receipt. Then run:
+
+```bash
+git diff --check
+git diff --name-only "${task4r_start}"..HEAD
+git status --short
+```
+
+Stage only `benchmarks/ocr/candidate-environments.json` and
+`benchmarks/ocr/provider-startup.json`, commit Task 4R independently, and stop for its review
+checkpoint. `benchmarks/ocr/model-artifacts.json` must remain byte-identical; any rehash drift or
+other tracked change is a hard stop.
 
 ---
 
@@ -776,6 +890,10 @@ checkpoint.
 **Files:**
 - Modify: `src/mke/domain/__init__.py`
 - Modify: `tests/domain/test_manifest.py`
+- Modify: `tests/application/test_pdf_publication.py`
+- Modify: `tests/application/test_video_publication.py`
+- Modify: `tests/interfaces/test_cli_retrieval.py`
+- Modify: `tests/interfaces/test_mcp_contract.py`
 - Add and then update: `docs/decisions/0010-pdf-ocr-evaluation-manifest-fingerprint.md`
 
 - [ ] **Step 1: Write RED fingerprint and stage-mismatch tests**
@@ -783,7 +901,9 @@ checkpoint.
 Require exact `pdf-ocr-eval-v1:<64 lowercase hex SHA-256>` recognition and exact OCR stages
 `pdf_ocr_extraction` plus `candidate_evidence`. Reject prefix-only, wrong-length, uppercase, unknown
 version, OCR fingerprint with text stages, text fingerprint with OCR stages, and non-page locators.
-Keep all existing PDF and video compatibility cases green.
+Reject duplicate required stages. Keep all existing PDF and video compatibility cases green, prove
+the normal PDF application path still emits `pymupdf-text-v1`, and prove public CLI/MCP contracts
+do not add an `extractor_fingerprint` or `RunManifest` input.
 
 - [ ] **Step 2: Run RED**
 
@@ -792,8 +912,12 @@ not yet recognized.
 
 - [ ] **Step 3: Implement the minimal domain validator contract**
 
-Add only the evaluation fingerprint regex and required-stage mapping. Do not change CLI, MCP,
-SQLite schema, runtime defaults, dependencies, or default PDF ingest.
+Add only the evaluation fingerprint regex and required-stage mapping. The domain validator checks
+compact syntax, exact stages, and page locators; it does not validate the structured payload.
+Production code changes are limited to the minimal domain validator. Do not change application or
+interface code, CLI, MCP, SQLite schema, runtime defaults, dependencies, or default PDF ingest. If
+implementation requires an application or interface production-code change, hard stop for a new
+authority finding.
 
 - [ ] **Step 4: Run GREEN and update ADR status**
 
@@ -856,6 +980,10 @@ Use fake provider outputs to require:
 - a candidate with lower CER but a dependency, cache-only, query, locator, or license failure loses;
 - `no_go` is emitted deterministically when no candidate passes every hard gate;
 - JSON contains no non-finite numbers, paths, timestamps, hostnames, or unbounded diagnostics.
+- the extractor identity schema has exactly the frozen top-level and nested keys and types;
+- mutating every nested authority leaf either changes the digest or is rejected;
+- every missing/extra key, fixture or page reordering/duplicate, non-finite value, and
+  boolean-as-integer value fails closed.
 
 ```python
 def test_fast_candidate_cannot_win_without_exact_evidence_refs() -> None:
@@ -902,10 +1030,10 @@ method. For each document:
 2. create a Run and transition it through current legal states;
 3. convert accepted text-layer pages and accepted OCR pages into distinct Evidence rows with exact
    page locators;
-4. create the canonical structured `mke.pdf_ocr_extractor_identity.v1` payload, including router,
-   render, provider, model-tree, package-receipt, installed package set, MKE wheel, and
-   normalization fingerprints; verify its digest exactly matches the compact `RunManifest`
-   `pdf-ocr-eval-v1:<sha256>` fingerprint before activation;
+4. create and validate the closed structured `mke.pdf_ocr_extractor_identity.v1` payload with the
+   exact ADR-0010 keys, types, rational encoding, ordering, and compact serialization; verify its
+   digest exactly matches the compact `RunManifest` `pdf-ocr-eval-v1:<sha256>` fingerprint before
+   calling `persist_validated_candidate`;
 5. validate and activate one disposable Publication;
 6. call current `search_library_v1` and `ask_library_v1` application contracts;
 7. compare normalized payloads and portable EvidenceRefs to protocol truth.
@@ -957,34 +1085,202 @@ Commit Task 5B independently and stop for its review checkpoint before Task 5C b
 The E1 source identity hashes the complete `src/mke/**/*.py` inventory. On the reconciled OCR
 branch, the checked-in canonical baseline validator already reports `evaluation_content` identity
 drift. Perform one refresh only after Task 5A and Task 5B production/evaluation code is stable so
-the repository does not churn provenance repeatedly.
+the repository does not churn provenance repeatedly. Reuse the proven current-main closure from
+`docs/superpowers/plans/2026-07-14-v0-1-2-release-closeout-implementation.md` Task 4 exactly.
 
-- [ ] **Step 1: Run the complete current-main validator chain**
+The maximum conditional allowlist is exactly these 21 paths; a smaller validator-proven subset is
+allowed, while any different or larger changed set is an authority hard stop:
 
-Enumerate E1, E2, E3-A, E3-B, E3-C, E3-D, E3-E, their dependency identities, and every direct SHA
-consumer required by current `main`. A failure is evidence of drift, not an unchanged baseline.
+- `benchmarks/retrieval/retrieval-eval-v1-baseline.json`
+- `tests/fixtures/retrieval-numeric-v1/protocol-lock.json`
+- `benchmarks/retrieval/numeric-grouping-v1-comparison.json`
+- `benchmarks/retrieval/retrieval-chinese-v1-baseline.json`
+- `benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json`
+- `tests/fixtures/retrieval-dense-v1/protocol-lock.json`
+- `benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-development-freeze.json`
+- `benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-holdout-receipt.json`
+- `benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json`
+- `tests/fixtures/retrieval-hybrid-rrf-v1/protocol-lock.json`
+- `benchmarks/retrieval/cjk-active-scan-qwen3-rrf-v1-development-freeze.json`
+- `benchmarks/retrieval/cjk-active-scan-qwen3-rrf-v1-comparison.json`
+- `tests/fixtures/retrieval-relevance-gate-v1/protocol-lock.json`
+- `benchmarks/retrieval/cjk-relevance-gate-reranker-v1-development-freeze.json`
+- `benchmarks/retrieval/cjk-relevance-gate-reranker-v1-holdout-receipt.json`
+- `benchmarks/retrieval/cjk-relevance-gate-reranker-v1-comparison.json`
+- `docs/how-to/evaluate-dense-retrieval.md`
+- `docs/how-to/evaluate-hybrid-rrf-retrieval.md`
+- `docs/how-to/evaluate-relevance-gate-reranker.md`
+- `tests/evaluation/test_relevance_gate_protocol.py`
+- `tests/evaluation/test_relevance_gate_workflow.py`
 
-- [ ] **Step 2: Generate one recoverable canonical refresh transaction**
+- [ ] **Step 1: Freeze the reference and generate fresh observations in the proven order**
 
-Use the repository-supported atomic refresh workflow, extended only as required to cover the full
-current-main provenance chain. Do not change corpus, fixtures, queries, qrels, observations,
-metrics, thresholds, gates, selected candidates, statuses, diagnostics, or verdicts.
+Before any write, set `task5c_start="$(git rev-parse HEAD)"` and create a call-owned
+`evidence_dir`. Generate E2 first from an exclusive call-owned hidden protocol copy inside
+`tests/fixtures/retrieval-numeric-v1`, because `load_numeric_protocol` derives its root from that
+path. Never overwrite an existing hidden protocol:
 
-- [ ] **Step 3: Prove normalized semantic equality**
+```bash
+evidence_dir="$(mktemp -d)"
+task5c_start="$(git rev-parse HEAD)"
+e2_protocol="tests/fixtures/retrieval-numeric-v1/.protocol-lock.ocr-observation.json"
+test ! -e "${e2_protocol}"
+cleanup_e2_protocol() { rm -f -- "${e2_protocol}"; }
+trap cleanup_e2_protocol EXIT INT TERM
+cp tests/fixtures/retrieval-numeric-v1/protocol-lock.json "${e2_protocol}"
+uv run python -m mke.evaluation.numeric_comparison refresh-scope \
+  --protocol "${e2_protocol}" --repository .
+uv run mke eval retrieval-numeric --protocol "${e2_protocol}" --json \
+  > "${evidence_dir}/e2.json"
+jq -e '
+  .schema_version == "mke.retrieval_numeric_comparison.v1" and
+  .protocol_id == "retrieval-numeric-v1" and
+  .integrity_status == "passed" and
+  .candidate_status == "passed" and
+  .integrity_failures == []
+' "${evidence_dir}/e2.json"
+rm -f -- "${e2_protocol}"
+trap - EXIT INT TERM
+test ! -e "${e2_protocol}"
 
-For every artifact, normalize only the allowed source, scope, dependency, and downstream
-provenance bindings. Before/after semantic equality must hold. Any validator or semantic equality
-failure is a hard stop.
+uv run mke eval retrieval --manifest tests/fixtures/retrieval-eval-v1.json \
+  --json > "${evidence_dir}/e1.json"
+uv run mke eval retrieval-chinese \
+  --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
+  --json > "${evidence_dir}/e3a.json"
+uv run mke eval retrieval-cjk-lexical \
+  --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
+  --candidate cjk-trigram-overlap-v1 \
+  --json > "${evidence_dir}/e3b.json"
+```
 
-- [ ] **Step 4: Run complete canonical validators and full pytest**
+An E2 observation generated directly from the checked-in protocol is diagnostic only and must
+never be passed to `artifact_refresh`. Run `tests/evaluation/test_artifact_refresh.py` before any
+artifact write.
 
-Validate the entire refreshed dependency chain and run the full repository test suite from the
-same committed candidate.
+- [ ] **Step 2: Run all seven exact canonical validators before writing**
 
-- [ ] **Step 5: Commit Task 5C and stop for review**
+Run the seven canonical validator commands from the release-closeout plan Task 4 Step 2, in order:
+`mke.evaluation.baseline`, `numeric_artifact validate`, `chinese_artifact validate`,
+`cjk_lexical_artifact validate`, `dense_artifact validate`, `hybrid_rrf_artifact validate`, and
+`relevance_gate_artifact validate`, with their exact checked-in artifact/protocol paths,
+`${evidence_dir}` observations for E2/E3-A/E3-B, and `--repository .`. Generate all four
+observations before this validator chain. Continue only if every failure is an identity-only
+source/scope/dependency mismatch; never call it an unchanged baseline.
 
-Stage only the exact provenance transaction, tests, and changed canonical artifacts. Create an
-independent local commit and review checkpoint.
+```bash
+uv run python -m mke.evaluation.baseline \
+  --artifact benchmarks/retrieval/retrieval-eval-v1-baseline.json \
+  --manifest tests/fixtures/retrieval-eval-v1.json \
+  --repository .
+uv run python -m mke.evaluation.numeric_artifact validate \
+  --artifact benchmarks/retrieval/numeric-grouping-v1-comparison.json \
+  --observed "${evidence_dir}/e2.json" \
+  --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json \
+  --repository .
+uv run python -m mke.evaluation.chinese_artifact validate \
+  --artifact benchmarks/retrieval/retrieval-chinese-v1-baseline.json \
+  --observed "${evidence_dir}/e3a.json" \
+  --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
+  --repository .
+uv run python -m mke.evaluation.cjk_lexical_artifact validate \
+  --artifact benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json \
+  --observed "${evidence_dir}/e3b.json" \
+  --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
+  --repository .
+uv run python -m mke.evaluation.dense_artifact validate \
+  --artifact benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json \
+  --protocol tests/fixtures/retrieval-dense-v1/protocol-lock.json \
+  --repository .
+uv run python -m mke.evaluation.hybrid_rrf_artifact validate \
+  --artifact benchmarks/retrieval/cjk-active-scan-qwen3-rrf-v1-comparison.json \
+  --protocol tests/fixtures/retrieval-hybrid-rrf-v1/protocol-lock.json \
+  --dense-artifact benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json \
+  --repository .
+uv run python -m mke.evaluation.relevance_gate_artifact validate \
+  --artifact benchmarks/retrieval/cjk-relevance-gate-reranker-v1-comparison.json \
+  --protocol tests/fixtures/retrieval-relevance-gate-v1/protocol-lock.json \
+  --repository .
+```
+
+- [ ] **Step 3: Refresh E1 through E3-B only through the recoverable five-target transaction**
+
+```bash
+uv run python -m mke.evaluation.artifact_refresh \
+  --repository . \
+  --e1-observed "${evidence_dir}/e1.json" \
+  --e2-observed "${evidence_dir}/e2.json" \
+  --e3-observed "${evidence_dir}/e3a.json" \
+  --e3b-observed "${evidence_dir}/e3b.json"
+```
+
+On failure, run only
+`uv run python -m mke.evaluation.artifact_refresh recover --repository .`, then stop. Do not modify
+`src/mke/evaluation/artifact_refresh.py`. If the existing helper cannot express this identity-only
+change, stop with a new authority finding; do not extend it.
+
+- [ ] **Step 4: Rebind E3-C, E3-D, and E3-E in a detached validation mirror**
+
+Create a call-owned rebinder under `${evidence_dir}` and record its SHA-256. Generate all downstream
+candidate bytes before applying any. Create a detached mirror at `task5c_start`, then overlay the
+successful E1-E3-B bytes and every staged E3-C/D/E byte at canonical repository-relative paths.
+The mirror must contain the complete proposed dependency graph.
+
+Before feature-worktree apply, require the mirror changed set to equal the complete proposed set
+and remain within the 21-path allowlist; exact candidate/mirror byte equality; normalized semantic
+equality at every E1 through E3-E layer; and all seven validators green with `--repository` and all
+paths rooted in the mirror. Permit only source, scope, dependency, path, byte, SHA-256, and
+state-receipt identity changes. Corpus, fixtures, queries, qrels, observations, ordered results,
+metrics, thresholds, gates, diagnostics, selected candidate/profile, status, and verdict must not
+change.
+
+- [ ] **Step 5: Apply with exact backup and recovery**
+
+Before apply, save exact bytes, digests, and path descriptors for every conditional downstream path
+in a call-owned backup. Apply only mirror-validated E3-C/D/E bytes using per-file atomic replacement
+in dependency order. If any apply or post-apply check fails, restore every touched path and verify
+exact bytes and descriptors. Inexact restoration is an authority hard stop. Do not publish a
+partial downstream set.
+
+- [ ] **Step 6: Run the proven regression and validator closure**
+
+Run the complete artifact regression suite from release-closeout Task 4 Step 6:
+
+```bash
+UV_OFFLINE=1 uv run pytest -q \
+  tests/evaluation/test_artifact_refresh.py \
+  tests/evaluation/test_baseline.py \
+  tests/evaluation/test_numeric_artifact.py \
+  tests/evaluation/test_numeric_comparison.py \
+  tests/evaluation/test_chinese_artifact.py \
+  tests/evaluation/test_cjk_lexical_artifact.py \
+  tests/evaluation/test_dense_protocol.py \
+  tests/evaluation/test_dense_artifact.py \
+  tests/evaluation/test_hybrid_rrf_protocol.py \
+  tests/evaluation/test_hybrid_rrf_workflow.py \
+  tests/evaluation/test_hybrid_rrf_artifact.py \
+  tests/evaluation/test_relevance_gate_artifact.py \
+  tests/evaluation/test_relevance_gate_protocol.py \
+  tests/evaluation/test_relevance_gate_workflow.py
+```
+
+Then rerun all seven exact canonical validator commands against the real worktree. Every command
+must pass before staging. Run full pytest from the same candidate.
+
+- [ ] **Step 7: Commit only validator-proven identities and stop for review**
+
+Stage only the exact validator-proven subset of the 21-path allowlist and commit:
+
+```bash
+git diff --check
+git diff --name-only -- benchmarks/retrieval tests/fixtures tests/evaluation docs/how-to
+git add -- <space-separated exact validator-proven paths>
+git diff --cached --check
+git commit -m "test(eval): refresh OCR evaluation identities"
+```
+
+The review handoff must include the rebinder SHA-256, exact changed paths, and before/after
+normalized semantic equality for every E1 through E3-E layer.
 
 Task 5A and Task 5B completion is required before any scorecard or OCR viability conclusion may be
 claimed. Task 5C must finish before Task 6 begins.
