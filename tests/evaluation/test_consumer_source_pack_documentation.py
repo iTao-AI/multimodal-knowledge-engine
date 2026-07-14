@@ -112,6 +112,14 @@ def documentation_violations(how_to: str, readme: str, docs_index: str) -> list[
     if len(docs_navigation) != 1:
         violations.append("docs_navigation")
 
+    gate = "a `v0.1.2` release-candidate verification gate"
+    if gate not in normalized(how_to).lower():
+        violations.append("how_to_release_candidate_gate")
+    if any(gate not in normalized(paragraph).lower() for paragraph in readme_navigation):
+        violations.append("readme_release_candidate_gate")
+    if any(gate not in normalized(paragraph).lower() for paragraph in docs_navigation):
+        violations.append("docs_release_candidate_gate")
+
     scoped_text = normalized(
         "\n".join(
             (
@@ -121,25 +129,32 @@ def documentation_violations(how_to: str, readme: str, docs_index: str) -> list[
             )
         )
     ).lower()
-    for allowed_negative in (
-        "not the tagged `v0.1.1` release wheel",
-        "not a release artifact",
-        "not a release gate",
-        "not a pypi proof",
-        "not a deployment",
-        "not a production-readiness proof",
-        "not a release verification step",
-        "not a release or pypi artifact",
+    for label, required in (
+        ("release_candidate_gate", "`v0.1.2` release-candidate verification gate"),
+        ("final_wheel_boundary", "not the final tagged `v0.1.2` release wheel"),
+        ("release_asset_boundary", "not a github release asset"),
+        ("pypi_boundary", "not a pypi artifact"),
+        ("deployment_boundary", "not a deployment"),
+        ("production_boundary", "not proof of production adoption"),
     ):
-        scoped_text = scoped_text.replace(allowed_negative, "")
+        if required not in scoped_text:
+            violations.append(label)
+    for allowed_boundary in (
+        "`v0.1.2` release-candidate verification gate",
+        "not the final tagged `v0.1.2` release wheel",
+        "not a github release asset",
+        "not a release or pypi artifact",
+        "not a pypi artifact",
+        "not a deployment",
+        "not proof of production adoption",
+    ):
+        scoped_text = scoped_text.replace(allowed_boundary, "")
     for label, pattern in (
-        ("v0.1.1_claim", r"`?v0\.1\.1`?"),
-        ("release_artifact_claim", r"\brelease artifact\b"),
-        ("release_gate_claim", r"\brelease gate\b"),
-        ("pypi_claim", r"\bpypi\b"),
+        ("final_wheel_claim", r"\bfinal tagged `?v0\.1\.2`? release wheel\b"),
+        ("release_asset_claim", r"\bgithub release asset\b"),
+        ("pypi_claim", r"\bpypi (?:artifact|proof)\b"),
         ("deployment_claim", r"\bdeploy(?:ment|s|ed|ing)?\b"),
-        ("production_claim", r"\bproduction[- ]readiness\b"),
-        ("release_verification_claim", r"\brelease verification step\b"),
+        ("production_claim", r"\bproduction adoption\b"),
     ):
         if re.search(pattern, scoped_text, re.IGNORECASE):
             violations.append(label)
@@ -157,12 +172,18 @@ def _add_failure_code(text: str) -> str:
     )
 
 
-def _add_v0_1_1_claim(text: str) -> str:
-    return text + "\nThis is a `v0.1.1` capability.\n"
+def _claim_final_release_wheel(text: str) -> str:
+    return text.replace(
+        "not the final tagged `v0.1.2` Release wheel",
+        "the final tagged `v0.1.2` Release wheel",
+    )
 
 
-def _add_release_gate_claim(text: str) -> str:
-    return text + "\nThis proof is a release gate.\n"
+def _remove_release_candidate_gate(text: str) -> str:
+    return text.replace(
+        "a `v0.1.2` release-candidate verification gate",
+        "an optional local check",
+    )
 
 
 def _add_pypi_claim(text: str) -> str:
@@ -310,7 +331,7 @@ def test_consumer_source_pack_navigation_is_minimal_and_discoverable() -> None:
     assert "source-built proof for the current source checkout" in docs_index
 
 
-def test_consumer_source_pack_docs_preserve_non_release_boundary() -> None:
+def test_consumer_source_pack_docs_preserve_release_candidate_boundary() -> None:
     text = normalized(
         "\n".join(
             (
@@ -322,13 +343,12 @@ def test_consumer_source_pack_docs_preserve_non_release_boundary() -> None:
     )
 
     for required_boundary in (
-        "not the tagged `v0.1.1` Release wheel",
-        "not a Release artifact",
-        "not a release gate",
-        "not a PyPI proof",
+        "a `v0.1.2` release-candidate verification gate",
+        "not the final tagged `v0.1.2` Release wheel",
+        "not a GitHub Release asset",
+        "not a PyPI artifact",
         "not a deployment",
-        "not a production-readiness proof",
-        "not a release verification step",
+        "not proof of production adoption",
     ):
         assert required_boundary in text
 
@@ -338,16 +358,16 @@ def test_consumer_source_pack_docs_preserve_non_release_boundary() -> None:
     (
         _add_success_field,
         _add_failure_code,
-        _add_v0_1_1_claim,
-        _add_release_gate_claim,
+        _claim_final_release_wheel,
+        _remove_release_candidate_gate,
         _add_pypi_claim,
         _add_deployment_claim,
     ),
     ids=(
         "extra-success-field",
         "extra-failure-code",
-        "affirmative-v0.1.1",
-        "affirmative-release-gate",
+        "final-release-wheel-claim",
+        "missing-release-candidate-gate",
         "affirmative-pypi",
         "affirmative-deploy",
     ),
@@ -375,16 +395,17 @@ def test_current_documentation_contract_has_no_violations() -> None:
 @pytest.mark.parametrize(
     ("surface", "claim"),
     (
-        (README, "This proof is a release gate."),
-        (DOCS_INDEX, "This is a PyPI proof."),
+        (README, "This is the final tagged `v0.1.2` Release wheel."),
+        (DOCS_INDEX, "This is a PyPI artifact."),
     ),
-    ids=("readme-release-gate", "docs-index-pypi"),
+    ids=("readme-final-wheel", "docs-index-pypi"),
 )
 def test_navigation_contract_rejects_affirmative_claims(surface: Path, claim: str) -> None:
     original = surface.read_text(encoding="utf-8")
-    mutated = original.replace(
-        "without changing release claims.",
+    mutated = re.sub(
+        r"as a `v0\.1\.2` release-candidate\s+verification\s+gate\.",
         claim,
+        original,
     )
     assert mutated != original
 

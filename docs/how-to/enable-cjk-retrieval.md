@@ -89,7 +89,7 @@ For isolated installed-wheel CLI and stdio MCP proof on Python 3.12 or 3.13:
 ```bash
 uv build
 uv run python scripts/cjk_active_scan_runtime_deployment_proof.py \
-  --wheel dist/multimodal_knowledge_engine-0.1.1-py3-none-any.whl \
+  --wheel dist/multimodal_knowledge_engine-0.1.2-py3-none-any.whl \
   --python 3.12 \
   --explicit-only
 ```
