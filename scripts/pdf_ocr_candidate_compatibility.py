@@ -300,6 +300,19 @@ class ModelPreparationConfig:
     timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS
 
 
+@dataclass(frozen=True)
+class ProviderStartupConfig:
+    repository: Path
+    wheel: Path
+    python: Path
+    wheelhouse: Path
+    model_root: Path
+    apple_executable: Path
+    staging_root: Path
+    output: Path
+    timeout_seconds: float = _MODEL_NETWORK_TIMEOUT_SECONDS
+
+
 @dataclass
 class _Capture:
     limit: int
@@ -469,7 +482,7 @@ def validate_provider_startup_authority(repository: Path, value: object) -> None
         protocol_path = repository / "tests/fixtures/pdf-ocr-phase0-v1/protocol.json"
         observed_path = (
             repository
-            / "tests/fixtures/pdf-ocr-provider/paddleocr-vl-1.6-observed.json"
+            / "src/mke/evaluation/fixtures/paddleocr-vl-1.6-observed.json"
         )
         package_bytes = package_path.read_bytes()
         package_value: object = json.loads(package_bytes.decode("utf-8"))
@@ -483,8 +496,36 @@ def validate_provider_startup_authority(repository: Path, value: object) -> None
             raise ValueError
         if root["model_receipt_sha256"] != hashlib.sha256(model_bytes).hexdigest():
             raise ValueError
+        package = _mapping(package_value)
+        runtime = _mapping(root["runtime"])
+        if runtime["mke_wheel_sha256"] != package["mke_wheel_sha256"]:
+            raise ValueError
+        if runtime["mke_version"] != "0.1.1":
+            raise ValueError
+        candidate_values = package.get("candidates")
+        if not isinstance(candidate_values, list):
+            raise ValueError
+        for raw_candidate in cast(list[object], candidate_values):
+            candidate = _mapping(raw_candidate)
+            distributions = candidate.get("distributions")
+            if not isinstance(distributions, list):
+                raise ValueError
+            matching = [
+                _mapping(item)
+                for item in cast(list[object], distributions)
+                if _mapping(item).get("filename") == _MKE_WHEEL_FILENAME
+            ]
+            if (
+                len(matching) != 1
+                or matching[0].get("sha256") != runtime["mke_wheel_sha256"]
+            ):
+                raise ValueError
         protocol: object = json.loads(protocol_path.read_text(encoding="utf-8"))
         expected_text = _expected_english_scan_truth(protocol)
+        _, fixture_sha256 = _provider_fixture_identity(repository, protocol)
+        fixture_receipt = _mapping(root["fixture"])
+        if fixture_receipt["source_sha256"] != fixture_sha256:
+            raise ValueError
         expected_text_sha256 = hashlib.sha256(expected_text.encode("utf-8")).hexdigest()
         provider_inventory = root["providers"]
         if not isinstance(provider_inventory, list):
@@ -498,18 +539,12 @@ def validate_provider_startup_authority(repository: Path, value: object) -> None
                 provider["normalized_text_sha256"] != expected_text_sha256
             ):
                 raise ValueError
-        observed = _mapping(json.loads(observed_path.read_text(encoding="utf-8")))
+        observed_bytes = observed_path.read_bytes()
+        if runtime["vendor_fixture_sha256"] != hashlib.sha256(observed_bytes).hexdigest():
+            raise ValueError
+        observed = _mapping(json.loads(observed_bytes.decode("utf-8")))
         _exact(observed, {"source_artifacts", "vendor_json", "markdown"})
         if observed["markdown"] != expected_text:
-            raise ValueError
-        from mke.evaluation.pdf_ocr_paddle_vl import validate_observed_vendor_evidence
-
-        if (
-            validate_observed_vendor_evidence(
-                observed["vendor_json"], cast(str, observed["markdown"])
-            )
-            != expected_text
-        ):
             raise ValueError
         paddle = _mapping(providers[1])
         artifacts = _mapping(paddle["vendor_artifacts"])
@@ -584,6 +619,7 @@ def validate_provider_startup_receipt(value: object) -> None:
                 "model_receipt_sha256",
                 "network_isolation",
                 "fixture",
+                "runtime",
                 "providers",
             },
         )
@@ -603,13 +639,15 @@ def validate_provider_startup_receipt(value: object) -> None:
         }:
             raise ValueError
         fixture = _mapping(root["fixture"])
-        _exact(fixture, {"protocol", "document", "page"})
-        if fixture != {
-            "protocol": "pdf-ocr-phase0-v1",
-            "document": "english-scan",
-            "page": 1,
-        }:
+        _exact(fixture, {"protocol", "document", "page", "source_sha256"})
+        if (
+            fixture["protocol"] != "pdf-ocr-phase0-v1"
+            or fixture["document"] != "english-scan"
+            or fixture["page"] != 1
+        ):
             raise ValueError
+        _digest(fixture["source_sha256"])
+        _validate_provider_runtime_receipt(root["runtime"])
         providers = root["providers"]
         if not isinstance(providers, list):
             raise ValueError
@@ -664,6 +702,329 @@ def validate_provider_startup_receipt(value: object) -> None:
             raise ValueError
     except (KeyError, TypeError, ValueError) as error:
         raise ValueError("provider startup receipt is invalid") from error
+
+
+def _validate_provider_runtime_receipt(value: object) -> None:
+    runtime = _mapping(value)
+    _exact(
+        runtime,
+        {
+            "python",
+            "mke_version",
+            "mke_wheel_sha256",
+            "module_origin",
+            "isolated",
+            "pythonpath",
+            "vendor_fixture_sha256",
+        },
+    )
+    _version(runtime["python"])
+    _version(runtime["mke_version"])
+    _digest(runtime["mke_wheel_sha256"])
+    _digest(runtime["vendor_fixture_sha256"])
+    if (
+        runtime["module_origin"] != "installed-environment"
+        or runtime["isolated"] is not True
+        or runtime["pythonpath"] != "absent"
+    ):
+        raise ValueError
+
+
+def validate_provider_runtime_identity(
+    value: object,
+    *,
+    runtime: Path,
+    repository: Path,
+    expected_python: str,
+    expected_wheel_sha256: str,
+) -> dict[str, object]:
+    """Reduce an installed-wheel doctor result to public startup authority."""
+    try:
+        identity = _mapping(value)
+        _exact(
+            identity,
+            {
+                "python",
+                "mke_version",
+                "mke_file",
+                "sys_executable",
+                "sys_prefix",
+                "isolated",
+                "pythonpath_present",
+                "vendor_fixture_sha256",
+                "vendor_fixture_text",
+            },
+        )
+        runtime = runtime.resolve()
+        repository = repository.resolve()
+        module = Path(cast(str, identity["mke_file"])).resolve(strict=True)
+        executable = Path(cast(str, identity["sys_executable"]))
+        prefix = Path(cast(str, identity["sys_prefix"])).resolve(strict=True)
+        if (
+            identity["python"] != expected_python
+            or identity["mke_version"] != "0.1.1"
+            or identity["isolated"] is not True
+            or identity["pythonpath_present"] is not False
+            or prefix != runtime
+            or not _within(module, runtime)
+            or not executable.is_file()
+            or not _lexically_within(executable, runtime)
+            or _lexically_within(executable, repository)
+            or _within(module, repository)
+            or "site-packages" not in module.parts
+            or module.name != "__init__.py"
+            or module.parent.name != "mke"
+        ):
+            raise ValueError
+        fixture_text = identity["vendor_fixture_text"]
+        if not isinstance(fixture_text, str):
+            raise ValueError
+        fixture_bytes = fixture_text.encode("utf-8")
+        fixture_digest = hashlib.sha256(fixture_bytes).hexdigest()
+        if identity["vendor_fixture_sha256"] != fixture_digest:
+            raise ValueError
+        fixture = _mapping(json.loads(fixture_text))
+        _exact(fixture, {"source_artifacts", "vendor_json", "markdown"})
+        _digest(expected_wheel_sha256)
+        public: dict[str, object] = {
+            "python": expected_python,
+            "mke_version": "0.1.1",
+            "mke_wheel_sha256": expected_wheel_sha256,
+            "module_origin": "installed-environment",
+            "isolated": True,
+            "pythonpath": "absent",
+            "vendor_fixture_sha256": fixture_digest,
+        }
+        _validate_provider_runtime_receipt(public)
+        return public
+    except (KeyError, OSError, TypeError, UnicodeError, json.JSONDecodeError, ValueError) as error:
+        raise CompatibilityError("provider_runtime_invalid") from error
+
+
+def run_provider_startup(config: ProviderStartupConfig) -> dict[str, object]:
+    """Generate startup evidence only from one offline installed-wheel runtime."""
+    repository = config.repository.resolve()
+    wheel = config.wheel.resolve()
+    wheelhouse = config.wheelhouse.resolve()
+    model_root = config.model_root.resolve()
+    apple_executable = config.apple_executable.resolve()
+    staging = config.staging_root.resolve()
+    output = config.output.resolve()
+    if (
+        not repository.is_dir()
+        or not wheel.is_file()
+        or not wheelhouse.is_dir()
+        or not model_root.is_dir()
+        or not apple_executable.is_file()
+        or output != repository / "benchmarks/ocr/provider-startup.json"
+        or _within(staging, repository)
+        or staging.exists()
+    ):
+        raise CompatibilityError("provider_startup_input_invalid")
+    package_path = repository / "benchmarks/ocr/candidate-environments.json"
+    model_path = repository / "benchmarks/ocr/model-artifacts.json"
+    protocol_path = repository / "tests/fixtures/pdf-ocr-phase0-v1/protocol.json"
+    package_bytes = package_path.read_bytes()
+    package_value: object = json.loads(package_bytes.decode("utf-8"))
+    model_bytes = model_path.read_bytes()
+    model_value: object = json.loads(model_bytes.decode("utf-8"))
+    if (
+        canonical_receipt_bytes(package_value) != package_bytes
+        or canonical_model_receipt_bytes(model_value) != model_bytes
+    ):
+        raise CompatibilityError("provider_startup_authority_invalid")
+    package = _mapping(package_value)
+    wheel_digest = _sha256_file(wheel)
+    if package.get("mke_wheel_sha256") != wheel_digest:
+        raise CompatibilityError("provider_startup_wheel_mismatch")
+    _bind_candidate_mke_wheel(wheel, wheelhouse, seed=False)
+    model_receipt = _mapping(model_value)
+    model_values = model_receipt.get("models")
+    if not isinstance(model_values, list):
+        raise CompatibilityError("provider_startup_authority_invalid")
+    typed_models = [_mapping(item) for item in cast(list[object], model_values)]
+    _revalidate_sealed_model_tree(
+        model_root,
+        typed_models,
+        cast(str, model_receipt["tree_sha256"]),
+    )
+    protocol: object = json.loads(protocol_path.read_text(encoding="utf-8"))
+    fixture_pdf, fixture_sha256 = _provider_fixture_identity(repository, protocol)
+    staging.mkdir(mode=0o700, parents=True)
+    runtime = staging / "venv"
+    environment = _package_environment(staging / "home", staging / "cache", offline=True)
+    try:
+        created = run_bounded(
+            (str(config.python.resolve()), "-m", "venv", str(runtime)),
+            cwd=staging,
+            env=environment,
+            timeout_seconds=config.timeout_seconds,
+            max_stdout_bytes=_DEFAULT_STDOUT_BYTES,
+            max_stderr_bytes=_DEFAULT_STDERR_BYTES,
+        )
+        if created.returncode != 0:
+            raise CompatibilityError("provider_runtime_create_failed")
+        python = runtime / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        installed = run_bounded(
+            offline_install_command(
+                python=python,
+                wheel=wheel,
+                candidate=CANDIDATES["paddleocr-vl-1.6-cpu-spike-v1"],
+                surface="base",
+                wheelhouse=wheelhouse,
+            ),
+            cwd=staging,
+            env=environment,
+            timeout_seconds=config.timeout_seconds,
+            max_stdout_bytes=_DEFAULT_STDOUT_BYTES,
+            max_stderr_bytes=_DEFAULT_STDERR_BYTES,
+        )
+        if installed.returncode != 0:
+            raise CompatibilityError("provider_runtime_install_failed")
+        doctor = run_bounded(
+            (str(python), "-I", "-c", _PROVIDER_RUNTIME_DOCTOR),
+            cwd=staging,
+            env=environment,
+            timeout_seconds=config.timeout_seconds,
+            max_stdout_bytes=_DEFAULT_STDOUT_BYTES,
+            max_stderr_bytes=_DEFAULT_STDERR_BYTES,
+        )
+        if doctor.returncode != 0:
+            raise CompatibilityError("provider_runtime_invalid")
+        runtime_identity = validate_provider_runtime_identity(
+            json.loads(doctor.stdout),
+            runtime=runtime,
+            repository=repository,
+            expected_python=_probe_python_version(config.python, staging, environment, config),
+            expected_wheel_sha256=wheel_digest,
+        )
+        components = {
+            cast(str, item["component"]): model_root
+            / f"{cast(str, item['component'])}-{cast(str, item['tree_sha256'])}"
+            for item in typed_models
+        }
+        proof = run_bounded(
+            (
+                str(python),
+                "-I",
+                "-c",
+                _INSTALLED_PROVIDER_STARTUP_PROOF,
+                str(fixture_pdf),
+                str(apple_executable),
+                str(components["PP-DocLayoutV3"]),
+                str(components["PaddleOCR-VL-1.6"]),
+                str(components["PP-OCRv6_medium_det"]),
+                str(components["PP-OCRv6_medium_rec"]),
+                str(staging / "proof"),
+            ),
+            cwd=staging,
+            env=environment,
+            timeout_seconds=config.timeout_seconds,
+            max_stdout_bytes=_DEFAULT_STDOUT_BYTES,
+            max_stderr_bytes=_DEFAULT_STDERR_BYTES,
+        )
+        if proof.returncode != 0:
+            raise CompatibilityError("provider_startup_failed")
+        proof_value = _mapping(json.loads(proof.stdout))
+        _exact(proof_value, {"network_isolation", "providers"})
+        doctor_value = _mapping(json.loads(doctor.stdout))
+        fixture_value = _mapping(
+            json.loads(cast(str, doctor_value["vendor_fixture_text"]))
+        )
+        providers = proof_value["providers"]
+        if not isinstance(providers, list):
+            raise CompatibilityError("provider_startup_failed")
+        provider_items = cast(list[object], providers)
+        if len(provider_items) != 3:
+            raise CompatibilityError("provider_startup_failed")
+        provider_values = [_mapping(item) for item in provider_items]
+        provider_values[1]["vendor_artifacts"] = _vendor_artifact_receipt(fixture_value)
+        receipt: dict[str, object] = {
+            "schema": _PROVIDER_STARTUP_SCHEMA,
+            "profile": _CANDIDATE_PROFILE,
+            "platform": {"os": platform.system(), "architecture": platform.machine()},
+            "package_receipt_sha256": hashlib.sha256(package_bytes).hexdigest(),
+            "model_receipt_sha256": hashlib.sha256(model_bytes).hexdigest(),
+            "network_isolation": proof_value["network_isolation"],
+            "fixture": {
+                "protocol": "pdf-ocr-phase0-v1",
+                "document": "english-scan",
+                "page": 1,
+                "source_sha256": fixture_sha256,
+            },
+            "runtime": runtime_identity,
+            "providers": provider_values,
+        }
+        validate_provider_startup_authority(repository, receipt)
+        encoded = canonical_provider_startup_bytes(receipt)
+        temporary = output.with_suffix(".json.tmp")
+        temporary.write_bytes(encoded)
+        os.replace(temporary, output)
+        return receipt
+    except (KeyError, OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise CompatibilityError("provider_startup_failed") from error
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+        if staging.exists():
+            raise CompatibilityError("cleanup_failed")
+
+
+def _probe_python_version(
+    python: Path,
+    cwd: Path,
+    environment: Mapping[str, str],
+    config: ProviderStartupConfig,
+) -> str:
+    identity = probe_interpreter(
+        python,
+        cwd=cwd,
+        env=environment,
+        timeout_seconds=config.timeout_seconds,
+        max_stdout_bytes=_DEFAULT_STDOUT_BYTES,
+        max_stderr_bytes=_DEFAULT_STDERR_BYTES,
+    )
+    return identity.version
+
+
+def _provider_fixture_identity(repository: Path, protocol: object) -> tuple[Path, str]:
+    root = _mapping(protocol)
+    documents = root.get("documents")
+    if root.get("protocol_id") != "pdf-ocr-phase0-v1" or not isinstance(documents, list):
+        raise CompatibilityError("provider_fixture_invalid")
+    matches = [
+        _mapping(item)
+        for item in cast(list[object], documents)
+        if _mapping(item).get("document_id") == "english-scan"
+    ]
+    if len(matches) != 1:
+        raise CompatibilityError("provider_fixture_invalid")
+    fixture = _mapping(matches[0].get("fixture"))
+    _exact(fixture, {"path", "bytes", "sha256"})
+    path = repository / "tests/fixtures/pdf-ocr-phase0-v1" / cast(str, fixture["path"])
+    if (
+        not path.is_file()
+        or path.stat().st_size != fixture["bytes"]
+        or _sha256_file(path) != fixture["sha256"]
+    ):
+        raise CompatibilityError("provider_fixture_invalid")
+    return path, cast(str, fixture["sha256"])
+
+
+def _vendor_artifact_receipt(fixture: Mapping[str, object]) -> dict[str, object]:
+    vendor_json = _mapping(fixture["vendor_json"])
+    blocks = vendor_json.get("parsing_res_list")
+    if not isinstance(blocks, list):
+        raise CompatibilityError("provider_startup_failed")
+    block_items = cast(list[object], blocks)
+    if len(block_items) != 1:
+        raise CompatibilityError("provider_startup_failed")
+    return {
+        "files": fixture["source_artifacts"],
+        "json_top_level_keys": sorted(vendor_json),
+        "parsing_block_keys": sorted(_mapping(block_items[0])),
+        "markdown_class": "prose_only",
+        "adapter_result": "accepted_strict_observed_schema",
+    }
 
 
 def _validate_vendor_artifacts(value: object, *, accepted: bool) -> None:
@@ -803,7 +1164,13 @@ def prepare_model_artifacts(
     staging = config.staging_root.resolve()
     final = config.final_root.resolve()
     output = config.output.resolve()
-    if staging.exists() or final.exists() or output.exists():
+    publication_staging = final.with_name(f".{final.name}.staging")
+    if (
+        staging.exists()
+        or final.exists()
+        or publication_staging.exists()
+        or output.exists()
+    ):
         raise CompatibilityError("model_call_owned_root_exists")
     if staging == final or _within(staging, final) or _within(final, staging):
         raise CompatibilityError("model_root_invalid")
@@ -866,21 +1233,26 @@ def prepare_model_artifacts(
             "total_bytes": sum(cast(int, item["total_bytes"]) for item in models),
             "tree_sha256": aggregate_digest,
         }
+        os.replace(payload_root, publication_staging)
+        _make_model_tree_read_only(publication_staging)
+        _revalidate_sealed_model_tree(publication_staging, models, aggregate_digest)
+        os.replace(publication_staging, final)
+        _revalidate_sealed_model_tree(final, models, aggregate_digest)
         encoded = canonical_model_receipt_bytes(receipt)
-        os.replace(payload_root, final)
         temporary = output.with_suffix(output.suffix + ".tmp")
         output.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
         temporary.write_bytes(encoded)
         os.replace(temporary, output)
-        _make_model_tree_read_only(final)
         return receipt
     except Exception:
         if final.exists():
-            shutil.rmtree(final, ignore_errors=True)
+            _remove_model_tree(final)
+        if publication_staging.exists():
+            _remove_model_tree(publication_staging)
         output.unlink(missing_ok=True)
         raise
     finally:
-        shutil.rmtree(staging, ignore_errors=True)
+        _remove_model_tree(staging)
         if staging.exists():
             raise CompatibilityError("cleanup_failed")
 
@@ -1004,6 +1376,75 @@ def _make_model_tree_read_only(root: Path) -> None:
             raise CompatibilityError("model_inventory_invalid")
         path.chmod(0o555 if stat.S_ISDIR(metadata.st_mode) else 0o444)
     root.chmod(0o555)
+
+
+def _revalidate_sealed_model_tree(
+    root: Path,
+    models: list[dict[str, object]],
+    expected_aggregate_digest: str,
+) -> None:
+    try:
+        root_metadata = root.lstat()
+        if (
+            root.is_symlink()
+            or not stat.S_ISDIR(root_metadata.st_mode)
+            or root_metadata.st_mode & 0o222
+        ):
+            raise CompatibilityError("model_artifact_invalid")
+        expected_components = [
+            f"{cast(str, model['component'])}-{cast(str, model['tree_sha256'])}"
+            for model in models
+        ]
+        entries = sorted(root.iterdir(), key=lambda path: path.name)
+        if [path.name for path in entries] != sorted(expected_components):
+            raise CompatibilityError("model_artifact_invalid")
+        aggregate: list[dict[str, object]] = []
+        for artifact, model in zip(MODEL_ARTIFACTS, models, strict=True):
+            component = root / f"{artifact.component}-{cast(str, model['tree_sha256'])}"
+            component_metadata = component.lstat()
+            if (
+                component.is_symlink()
+                or not stat.S_ISDIR(component_metadata.st_mode)
+                or component_metadata.st_mode & 0o222
+            ):
+                raise CompatibilityError("model_artifact_invalid")
+            for path in component.rglob("*"):
+                metadata = path.lstat()
+                if metadata.st_mode & 0o222:
+                    raise CompatibilityError("model_artifact_invalid")
+            files = _validated_model_tree(component, artifact.files)
+            if files != model["files"]:
+                raise CompatibilityError("model_artifact_invalid")
+            tree_digest = _model_tree_sha256(files)
+            if tree_digest != model["tree_sha256"]:
+                raise CompatibilityError("model_artifact_invalid")
+            aggregate.append(
+                {
+                    "path": artifact.component,
+                    "bytes": model["total_bytes"],
+                    "sha256": tree_digest,
+                }
+            )
+        if _model_tree_sha256(aggregate) != expected_aggregate_digest:
+            raise CompatibilityError("model_artifact_invalid")
+    except OSError as error:
+        raise CompatibilityError("model_artifact_invalid") from error
+
+
+def _remove_model_tree(root: Path) -> None:
+    if not root.exists() and not root.is_symlink():
+        return
+    try:
+        if root.is_symlink():
+            root.unlink()
+            return
+        directories = [path for path in root.rglob("*") if path.is_dir() and not path.is_symlink()]
+        for directory in sorted(directories, key=lambda path: len(path.parts)):
+            directory.chmod(0o700)
+        root.chmod(0o700)
+        shutil.rmtree(root)
+    except OSError:
+        return
 
 
 class _PinnedRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -1976,6 +2417,121 @@ def _validate_distributions(value: object) -> list[dict[str, object]]:
 
 def _receipt_error() -> NoReturn:
     raise ValueError("candidate compatibility receipt is invalid")
+
+
+_PROVIDER_RUNTIME_DOCTOR = r"""
+import hashlib
+import importlib.metadata as metadata
+import importlib.resources as resources
+import json
+import os
+import platform
+import sys
+import mke
+fixture = resources.files("mke.evaluation").joinpath(
+    "fixtures/paddleocr-vl-1.6-observed.json"
+).read_text(encoding="utf-8")
+print(json.dumps({
+    "python": platform.python_version(),
+    "mke_version": metadata.version("multimodal-knowledge-engine"),
+    "mke_file": mke.__file__,
+    "sys_executable": sys.executable,
+    "sys_prefix": sys.prefix,
+    "isolated": sys.flags.isolated == 1,
+    "pythonpath_present": "PYTHONPATH" in os.environ,
+    "vendor_fixture_sha256": hashlib.sha256(fixture.encode("utf-8")).hexdigest(),
+    "vendor_fixture_text": fixture,
+}, sort_keys=True))
+"""
+
+
+_INSTALLED_PROVIDER_STARTUP_PROOF = r"""
+import hashlib
+import json
+import pathlib
+import subprocess
+import sys
+import fitz
+from mke.evaluation.pdf_ocr_provider import ProviderCommand, run_provider
+
+pdf, apple, layout, vl, detection, recognition, raw_root = sys.argv[1:]
+root = pathlib.Path(raw_root)
+root.mkdir(mode=0o700)
+document = fitz.open(pdf)
+try:
+    page = document.load_page(0)
+    image = root / "english-scan-page-1.png"
+    image.write_bytes(page.get_pixmap(dpi=200, colorspace=fitz.csRGB, alpha=False).tobytes("png"))
+finally:
+    document.close()
+
+profile = "(version 1)(allow default)(deny network*)"
+sandbox = "/usr/bin/sandbox-exec"
+canary = subprocess.run(
+    [sandbox, "-p", profile, sys.executable, "-I", "-c",
+     "import socket;socket.create_connection(('1.1.1.1',53),timeout=1)"],
+    stdin=subprocess.DEVNULL,
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.DEVNULL,
+    check=False,
+    timeout=10,
+)
+if canary.returncode == 0:
+    raise RuntimeError("network canary was not blocked")
+
+commands = [
+    ProviderCommand(
+        argv=(sandbox, "-p", profile, apple, "--input", "{input}", "--output",
+              "{output}", "--page-number", "{page_number}"),
+        provider="apple-vision-local-v1",
+        profile="phase0-200dpi-plain-text-v1",
+        timeout_seconds=180,
+    ),
+    ProviderCommand(
+        argv=(sandbox, "-p", profile, sys.executable, "-I", "-m",
+              "mke.evaluation.pdf_ocr_paddle_vl", "--input", "{input}", "--output",
+              "{output}", "--page-number", "{page_number}",
+              "--layout-model-dir", layout, "--vl-model-dir", vl),
+        provider="paddleocr-vl-1.6-cpu-spike-v1",
+        profile="phase0-200dpi-plain-text-v1",
+        timeout_seconds=600,
+    ),
+    ProviderCommand(
+        argv=(sandbox, "-p", profile, sys.executable, "-I", "-m",
+              "mke.evaluation.pdf_ocr_ppocrv6", "--input", "{input}", "--output",
+              "{output}", "--page-number", "{page_number}",
+              "--detection-model-dir", detection, "--recognition-model-dir", recognition),
+        provider="ppocrv6-medium-cpu-spike-v1",
+        profile="phase0-200dpi-plain-text-v1",
+        timeout_seconds=600,
+    ),
+]
+providers = []
+for index, command in enumerate(commands):
+    result = run_provider(
+        command,
+        image_path=image,
+        page_number=1,
+        output_root=root / f"provider-{index}",
+    )
+    providers.append({
+        "provider": result.provider,
+        "status": "passed",
+        "failure_code": None,
+        "duration_ms": result.duration_ms,
+        "normalized_text_sha256": hashlib.sha256(
+            result.normalized_text.encode("utf-8")
+        ).hexdigest(),
+        "vendor_artifacts": None,
+    })
+print(json.dumps({
+    "network_isolation": {
+        "mechanism": "darwin-sandbox-deny-network",
+        "canary": "blocked",
+    },
+    "providers": providers,
+}, sort_keys=True))
+"""
 
 
 _FAKE_CHILD_PROOF = r"""

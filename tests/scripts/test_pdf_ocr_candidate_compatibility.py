@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -626,7 +627,7 @@ def test_committed_receipt_is_canonical_closed_and_frozen() -> None:
 
     receipt = compatibility.validate_committed_receipt_bytes(
         encoded,
-        frozen_sha256="df04fff10a7f170b7dbf51ccafba3e189d15f64719a4e172c165bb0a15ee360e",
+        frozen_sha256="3b8014d0988b3b657fb2ada23ae78ac7d48e4f63eafd4a7074e4c6976d0896ff",
     )
 
     candidates = receipt["candidates"]
@@ -868,6 +869,62 @@ def test_model_prepare_publishes_content_addressed_public_receipt(
     )
 
 
+def test_model_prepare_rejects_replacement_after_validation_before_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    compatibility = _module()
+    original = b"original-model"
+    replacement = b"changed-model!"
+    assert len(original) == len(replacement)
+    digest = hashlib.sha256(original).hexdigest()
+    artifact = compatibility.ModelArtifact(
+        candidate="ppocrv6-medium-cpu-spike-v1",
+        component="test-model",
+        repository="PaddlePaddle/test-model",
+        revision="1" * 40,
+        license="Apache-2.0",
+        files=(("model.bin", len(original), digest),),
+    )
+    monkeypatch.setattr(compatibility, "MODEL_ARTIFACTS", (artifact,))
+    real_seal = compatibility._make_model_tree_read_only
+    replaced = False
+
+    def replace_before_seal(root: Path) -> None:
+        nonlocal replaced
+        target = next(root.rglob("model.bin"))
+        replacement_path = target.with_name("replacement.bin")
+        replacement_path.write_bytes(replacement)
+        os.replace(replacement_path, target)
+        replaced = True
+        real_seal(root)
+
+    monkeypatch.setattr(compatibility, "_make_model_tree_read_only", replace_before_seal)
+
+    def downloader(_artifact, _file_receipt, destination):
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(original)
+
+    final = tmp_path / "models"
+    output = tmp_path / "receipt.json"
+    with pytest.raises(compatibility.CompatibilityError, match="model_artifact_invalid"):
+        compatibility.prepare_model_artifacts(
+            compatibility.ModelPreparationConfig(
+                staging_root=tmp_path / "staging",
+                final_root=final,
+                output=output,
+                allow_model_download=True,
+            ),
+            metadata_loader=lambda value: _model_metadata(value),
+            downloader=downloader,
+        )
+
+    assert replaced is True
+    assert not final.exists()
+    assert not output.exists()
+    assert not (tmp_path / "staging").exists()
+
+
 def test_model_tree_rejects_same_size_replacement_between_identity_and_receipt_hash(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -919,7 +976,21 @@ def _provider_startup_receipt() -> dict[str, object]:
             "mechanism": "darwin-sandbox-deny-network",
             "canary": "blocked",
         },
-        "fixture": {"protocol": "pdf-ocr-phase0-v1", "document": "english-scan", "page": 1},
+        "fixture": {
+            "protocol": "pdf-ocr-phase0-v1",
+            "document": "english-scan",
+            "page": 1,
+            "source_sha256": "e" * 64,
+        },
+        "runtime": {
+            "python": "3.13.12",
+            "mke_version": "0.1.1",
+            "mke_wheel_sha256": "a" * 64,
+            "module_origin": "installed-environment",
+            "isolated": True,
+            "pythonpath": "absent",
+            "vendor_fixture_sha256": "f" * 64,
+        },
         "providers": [
             {
                 "provider": "apple-vision-local-v1",
@@ -1011,6 +1082,298 @@ def test_committed_provider_startup_receipt_passes_repository_authority() -> Non
 
     compatibility.validate_provider_startup_authority(repository, receipt)
     assert path.read_bytes() == compatibility.canonical_provider_startup_bytes(receipt)
+
+
+def test_provider_startup_authority_rejects_missing_installed_wheel_identity() -> None:
+    compatibility = _module()
+    repository = Path(__file__).resolve().parents[2]
+    receipt = json.loads((repository / "benchmarks/ocr/provider-startup.json").read_bytes())
+    receipt.pop("runtime", None)
+
+    with pytest.raises(ValueError, match="startup authority"):
+        compatibility.validate_provider_startup_authority(repository, receipt)
+
+
+@pytest.mark.parametrize("drift", ["repository-shadow", "pythonpath-shadow"])
+def test_provider_runtime_identity_rejects_source_shadow(
+    tmp_path: Path,
+    drift: str,
+) -> None:
+    compatibility = _module()
+    repository = tmp_path / "repository"
+    runtime = tmp_path / "runtime"
+    repository_module = repository / "src/mke/__init__.py"
+    runtime_module = runtime / "lib/python3.13/site-packages/mke/__init__.py"
+    module = repository_module if drift == "repository-shadow" else runtime_module
+    fixture = Path(
+        "src/mke/evaluation/fixtures/paddleocr-vl-1.6-observed.json"
+    ).read_text(encoding="utf-8")
+    identity = {
+        "python": "3.13.12",
+        "mke_version": "0.1.1",
+        "mke_file": str(module),
+        "sys_executable": str(runtime / "bin/python"),
+        "sys_prefix": str(runtime),
+        "isolated": True,
+        "pythonpath_present": drift == "pythonpath-shadow",
+        "vendor_fixture_sha256": hashlib.sha256(fixture.encode("utf-8")).hexdigest(),
+        "vendor_fixture_text": fixture,
+    }
+
+    with pytest.raises(compatibility.CompatibilityError, match="provider_runtime_invalid"):
+        compatibility.validate_provider_runtime_identity(
+            identity,
+            runtime=runtime,
+            repository=repository,
+            expected_python="3.13.12",
+            expected_wheel_sha256="b" * 64,
+        )
+
+
+def test_observed_vendor_fixture_is_packaged_with_mke() -> None:
+    repository = Path(__file__).resolve().parents[2]
+    fixture = repository / "src/mke/evaluation/fixtures/paddleocr-vl-1.6-observed.json"
+
+    assert fixture.is_file()
+    value = json.loads(fixture.read_bytes())
+    assert value["markdown"] == "Aurora station uses amber seals for verified cargo."
+
+
+def test_provider_runtime_identity_returns_public_installed_wheel_binding(
+    tmp_path: Path,
+) -> None:
+    compatibility = _module()
+    repository = tmp_path / "repository"
+    runtime = tmp_path / "runtime"
+    module = runtime / "lib/python3.13/site-packages/mke/__init__.py"
+    executable = runtime / "bin/python"
+    module.parent.mkdir(parents=True)
+    executable.parent.mkdir(parents=True)
+    module.write_text("", encoding="utf-8")
+    executable.write_text("", encoding="utf-8")
+    fixture = Path(
+        "src/mke/evaluation/fixtures/paddleocr-vl-1.6-observed.json"
+    ).read_text(encoding="utf-8")
+    fixture_digest = hashlib.sha256(fixture.encode("utf-8")).hexdigest()
+    wheel_digest = "b" * 64
+    identity = {
+        "python": "3.13.12",
+        "mke_version": "0.1.1",
+        "mke_file": str(module),
+        "sys_executable": str(executable),
+        "sys_prefix": str(runtime),
+        "isolated": True,
+        "pythonpath_present": False,
+        "vendor_fixture_sha256": fixture_digest,
+        "vendor_fixture_text": fixture,
+    }
+
+    public = compatibility.validate_provider_runtime_identity(
+        identity,
+        runtime=runtime,
+        repository=repository,
+        expected_python="3.13.12",
+        expected_wheel_sha256=wheel_digest,
+    )
+
+    assert public == {
+        "python": "3.13.12",
+        "mke_version": "0.1.1",
+        "mke_wheel_sha256": wheel_digest,
+        "module_origin": "installed-environment",
+        "isolated": True,
+        "pythonpath": "absent",
+        "vendor_fixture_sha256": fixture_digest,
+    }
+
+
+def test_provider_runtime_identity_accepts_standard_venv_python_symlink(
+    tmp_path: Path,
+) -> None:
+    compatibility = _module()
+    repository = tmp_path / "repository"
+    runtime = tmp_path / "runtime"
+    module = runtime / "lib/python3.13/site-packages/mke/__init__.py"
+    base_python = tmp_path / "base/python3.13"
+    executable = runtime / "bin/python"
+    module.parent.mkdir(parents=True)
+    base_python.parent.mkdir(parents=True)
+    executable.parent.mkdir(parents=True)
+    module.write_text("", encoding="utf-8")
+    base_python.write_text("", encoding="utf-8")
+    executable.symlink_to(base_python)
+    fixture = Path(
+        "src/mke/evaluation/fixtures/paddleocr-vl-1.6-observed.json"
+    ).read_text(encoding="utf-8")
+    identity = {
+        "python": "3.13.12",
+        "mke_version": "0.1.1",
+        "mke_file": str(module),
+        "sys_executable": str(executable),
+        "sys_prefix": str(runtime),
+        "isolated": True,
+        "pythonpath_present": False,
+        "vendor_fixture_sha256": hashlib.sha256(fixture.encode()).hexdigest(),
+        "vendor_fixture_text": fixture,
+    }
+
+    public = compatibility.validate_provider_runtime_identity(
+        identity,
+        runtime=runtime,
+        repository=repository,
+        expected_python="3.13.12",
+        expected_wheel_sha256="b" * 64,
+    )
+
+    assert public["module_origin"] == "installed-environment"
+
+
+def test_provider_startup_controller_runs_from_exact_installed_wheel(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    compatibility = _module()
+    source = Path(__file__).resolve().parents[2]
+    repository = tmp_path / "repository"
+    benchmark_root = repository / "benchmarks/ocr"
+    fixture_root = repository / "tests/fixtures/pdf-ocr-phase0-v1"
+    observed_root = repository / "src/mke/evaluation/fixtures"
+    benchmark_root.mkdir(parents=True)
+    (fixture_root / "documents").mkdir(parents=True)
+    observed_root.mkdir(parents=True)
+    shutil.copyfile(
+        source / "benchmarks/ocr/model-artifacts.json",
+        benchmark_root / "model-artifacts.json",
+    )
+    shutil.copyfile(
+        source / "tests/fixtures/pdf-ocr-phase0-v1/protocol.json",
+        fixture_root / "protocol.json",
+    )
+    shutil.copyfile(
+        source / "tests/fixtures/pdf-ocr-phase0-v1/documents/english-scan.pdf",
+        fixture_root / "documents/english-scan.pdf",
+    )
+    observed_source = source / "src/mke/evaluation/fixtures/paddleocr-vl-1.6-observed.json"
+    observed = observed_source.read_text(encoding="utf-8")
+    (observed_root / observed_source.name).write_text(observed, encoding="utf-8")
+    wheel = tmp_path / "multimodal_knowledge_engine-0.1.1-py3-none-any.whl"
+    wheel.write_bytes(b"current reviewed MKE wheel")
+    wheel_digest = hashlib.sha256(wheel.read_bytes()).hexdigest()
+    package = json.loads((source / "benchmarks/ocr/candidate-environments.json").read_bytes())
+    package["mke_wheel_sha256"] = wheel_digest
+    for candidate in package["candidates"]:
+        for distribution in candidate["distributions"]:
+            if distribution["filename"] == wheel.name:
+                candidate["download_bytes"] += len(wheel.read_bytes()) - distribution["bytes"]
+                distribution["bytes"] = len(wheel.read_bytes())
+                distribution["sha256"] = wheel_digest
+    (benchmark_root / "candidate-environments.json").write_bytes(
+        compatibility.canonical_receipt_bytes(package)
+    )
+    wheelhouse = tmp_path / "wheelhouse"
+    wheelhouse.mkdir()
+    shutil.copyfile(wheel, wheelhouse / wheel.name)
+    model_root = tmp_path / "models"
+    model_root.mkdir()
+    apple = tmp_path / "apple-vision"
+    apple.write_text("binary", encoding="utf-8")
+    python = tmp_path / "python3.13"
+    python.write_text("binary", encoding="utf-8")
+    monkeypatch.setattr(compatibility, "_revalidate_sealed_model_tree", lambda *_args: None)
+    calls: list[tuple[tuple[str, ...], dict[str, str]]] = []
+
+    def fake_run(command, *, env, **_kwargs):
+        command = tuple(command)
+        calls.append((command, dict(env)))
+        if command[1:3] == ("-m", "venv"):
+            runtime = Path(command[3])
+            module = runtime / "lib/python3.13/site-packages/mke/__init__.py"
+            executable = runtime / "bin/python"
+            module.parent.mkdir(parents=True)
+            executable.parent.mkdir(parents=True)
+            module.write_text("", encoding="utf-8")
+            executable.write_text("", encoding="utf-8")
+            return compatibility.CommandResult(0, b"", b"")
+        if "pip" in command and "install" in command:
+            return compatibility.CommandResult(0, b"", b"")
+        if "importlib.resources" in command[-1]:
+            runtime = tmp_path / "startup/venv"
+            payload = {
+                "python": "3.13.12",
+                "mke_version": "0.1.1",
+                "mke_file": str(runtime / "lib/python3.13/site-packages/mke/__init__.py"),
+                "sys_executable": str(runtime / "bin/python"),
+                "sys_prefix": str(runtime),
+                "isolated": True,
+                "pythonpath_present": False,
+                "vendor_fixture_sha256": hashlib.sha256(observed.encode()).hexdigest(),
+                "vendor_fixture_text": observed,
+            }
+            return compatibility.CommandResult(0, json.dumps(payload).encode(), b"")
+        if "platform.python_version" in command[-1]:
+            payload = {"executable": str(python), "version": "3.13.12", "minor": "3.13"}
+            return compatibility.CommandResult(0, json.dumps(payload).encode(), b"")
+        if command[-8] == compatibility._INSTALLED_PROVIDER_STARTUP_PROOF:
+            text_digest = hashlib.sha256(
+                b"Aurora station uses amber seals for verified cargo."
+            ).hexdigest()
+            providers = [
+                {
+                    "provider": provider,
+                    "status": "passed",
+                    "failure_code": None,
+                    "duration_ms": index + 1,
+                    "normalized_text_sha256": text_digest,
+                    "vendor_artifacts": None,
+                }
+                for index, provider in enumerate(
+                    [
+                        "apple-vision-local-v1",
+                        "paddleocr-vl-1.6-cpu-spike-v1",
+                        "ppocrv6-medium-cpu-spike-v1",
+                    ]
+                )
+            ]
+            payload = {
+                "network_isolation": {
+                    "mechanism": "darwin-sandbox-deny-network",
+                    "canary": "blocked",
+                },
+                "providers": providers,
+            }
+            return compatibility.CommandResult(0, json.dumps(payload).encode(), b"")
+        pytest.fail(f"unexpected command: {command!r}")
+
+    monkeypatch.setattr(compatibility, "run_bounded", fake_run)
+    receipt = compatibility.run_provider_startup(
+        compatibility.ProviderStartupConfig(
+            repository=repository,
+            wheel=wheel,
+            python=python,
+            wheelhouse=wheelhouse,
+            model_root=model_root,
+            apple_executable=apple,
+            staging_root=tmp_path / "startup",
+            output=benchmark_root / "provider-startup.json",
+        )
+    )
+
+    compatibility.validate_provider_startup_authority(repository, receipt)
+    assert receipt["runtime"]["mke_wheel_sha256"] == wheel_digest
+    assert receipt["runtime"]["module_origin"] == "installed-environment"
+    assert (benchmark_root / "provider-startup.json").read_bytes() == (
+        compatibility.canonical_provider_startup_bytes(receipt)
+    )
+    assert not (tmp_path / "startup").exists()
+    assert all("PYTHONPATH" not in environment for _, environment in calls)
+    proof_commands = [
+        command
+        for command, _ in calls
+        if compatibility._INSTALLED_PROVIDER_STARTUP_PROOF in command
+    ]
+    assert len(proof_commands) == 1
+    assert proof_commands[0][0].endswith("/venv/bin/python")
+    assert proof_commands[0][1:3] == ("-I", "-c")
 
 
 def test_provider_startup_authority_writer_is_atomic_and_rejects_drift(

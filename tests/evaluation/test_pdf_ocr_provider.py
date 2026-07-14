@@ -491,7 +491,7 @@ def _valid_vl_writer(root: Path, kind: str) -> None:
 
 
 def _observed_vl_fixture() -> dict[str, Any]:
-    path = Path("tests/fixtures/pdf-ocr-provider/paddleocr-vl-1.6-observed.json")
+    path = Path("src/mke/evaluation/fixtures/paddleocr-vl-1.6-observed.json")
     return json.loads(path.read_text(encoding="utf-8"))
 
 
