@@ -7,12 +7,13 @@ import pytest
 from scripts.release_presentation_audit import audit_release_presentation
 
 
-def test_audit_targets_v0_1_1_release_identity() -> None:
+def test_audit_targets_v0_1_2_release_identity() -> None:
     from scripts import release_presentation_audit as audit
 
-    assert audit.EXPECTED_VERSION == "0.1.1"
-    assert "docs/releases/v0.1.1.md" in audit.RELEASE_FACING_FILES
+    assert audit.EXPECTED_VERSION == "0.1.2"
+    assert "docs/releases/v0.1.2.md" in audit.RELEASE_FACING_FILES
     assert "docs/releases/v0.1.0.md" not in audit.RELEASE_FACING_FILES
+    assert "docs/releases/v0.1.1.md" not in audit.RELEASE_FACING_FILES
 
 
 def _write_release_tree(root: Path) -> None:
@@ -20,16 +21,16 @@ def _write_release_tree(root: Path) -> None:
     (root / "docs/releases").mkdir(parents=True)
     (root / "docs/how-to").mkdir(parents=True)
     (root / "pyproject.toml").write_text(
-        '[project]\nname = "multimodal-knowledge-engine"\nversion = "0.1.1"\n',
+        '[project]\nname = "multimodal-knowledge-engine"\nversion = "0.1.2"\n',
         encoding="utf-8",
     )
-    (root / "src/mke/__init__.py").write_text('__version__ = "0.1.1"\n', encoding="utf-8")
+    (root / "src/mke/__init__.py").write_text('__version__ = "0.1.2"\n', encoding="utf-8")
     readme_en_text = """
 # Multimodal Knowledge Engine
 
 [English](./README.md) | [中文](./README_CN.md)
 
-v0.1.1 ships `cjk-active-scan-overlap-v1` as the current owner-startup runtime.
+v0.1.2 ships `cjk-active-scan-overlap-v1` as the current owner-startup runtime.
 E3-C dense, E3-D RRF, and E3-E reranker work are comparison-only evidence and are
 not runtime strategies.
 
@@ -102,7 +103,7 @@ flowchart TB
     Proof -. release gate .-> App
 ```
 
-## Verified in v0.1.1
+## Verified in v0.1.2
 
 | Capability | Evidence |
 |---|---|
@@ -114,27 +115,37 @@ flowchart TB
 | Real stdio MCP local knowledge proof | Verified |
 | cjk-active-scan-overlap-v1 default owner-startup strategy | Verified |
 | proof/demo/installed-wheel consumer smoke | Verified |
+| Evidence provenance with strict `mke.evidence_ref.v1` | Verified |
+| external source-pack proof with the same wheel on Python 3.12/3.13 | Verified |
+| owner lifecycle and runtime hardening | Verified |
 
 ## What this release proves
 
-MKE v0.1.1 exercises the Evidence lifecycle, active Publication, CLI/MCP application
+MKE v0.1.2 exercises the Evidence lifecycle, active Publication, CLI/MCP application
 service contract, and retrieval evaluation artifacts.
 
-| Retrieval evidence | v0.1.1 status | Boundary |
+Evidence provenance, the external source-pack proof, same-wheel Python 3.12/3.13
+validation, and owner lifecycle and runtime hardening are release evidence.
+OCR remains excluded.
+
+| Retrieval evidence | v0.1.2 status | Boundary |
 |---|---|---|
 | Shipped runtime | lexical search and cjk-active-scan-overlap-v1 active scan | Active Evidence |
 | Comparison-only evidence | dense, RRF, relevance gate / reranker | Runtime neutral |
-| Not included | query rewrite, HyDE, OCR, HTTP/UI, API adapters | not v0.1.1 runtime behavior |
+| Not included | query rewrite, HyDE, OCR, HTTP/UI, API adapters | not v0.1.2 runtime behavior |
 
 Search/Ask/MCP read active Publication Evidence.
 This does not change normal Search, Ask, MCP, or the runtime default.
+
+`uv run python scripts/release_consumer_smoke.py \
+  --wheel dist/multimodal_knowledge_engine-0.1.2-py3-none-any.whl --json`
 """
     readme_cn_text = """
 # Multimodal Knowledge Engine
 
 [English](./README.md) | [中文](./README_CN.md)
 
-v0.1.1 ships `cjk-active-scan-overlap-v1` as the current owner-startup runtime.
+v0.1.2 ships `cjk-active-scan-overlap-v1` as the current owner-startup runtime.
 E3-C dense, E3-D RRF, and E3-E reranker work are comparison-only evidence and are
 not runtime strategies.
 
@@ -207,7 +218,7 @@ flowchart TB
     Proof -. release gate .-> App
 ```
 
-## v0.1.1 已验证能力
+## v0.1.2 已验证能力
 
 | 能力 | 验证证据 |
 |---|---|
@@ -219,42 +230,67 @@ flowchart TB
 | Real stdio MCP local knowledge proof | Verified |
 | cjk-active-scan-overlap-v1 default owner-startup strategy | Verified |
 | proof/demo/installed-wheel consumer smoke | Verified |
+| Evidence provenance with strict `mke.evidence_ref.v1` | Verified |
+| external source-pack proof with the same wheel on Python 3.12/3.13 | Verified |
+| owner lifecycle and runtime hardening | Verified |
 
-## v0.1.1 工程深度
+## v0.1.2 工程深度
 
-MKE v0.1.1 验证 Evidence 生命周期、active Publication、CLI/MCP application
+MKE v0.1.2 验证 Evidence 生命周期、active Publication、CLI/MCP application
 service contract，以及 retrieval evaluation artifacts。
 
-| Retrieval evidence | v0.1.1 状态 | 边界 |
+Evidence provenance、external source-pack proof、same-wheel Python 3.12/3.13
+validation，以及 owner lifecycle and runtime hardening 都是 release evidence。OCR 仍排除。
+
+| Retrieval evidence | v0.1.2 状态 | 边界 |
 |---|---|---|
 | 已发布 runtime | lexical search 和 cjk-active-scan-overlap-v1 active scan | Active Evidence |
 | Comparison-only evidence | dense、RRF、relevance gate / reranker | Runtime neutral |
-| 不包含 | query rewrite、HyDE、OCR、HTTP/UI、API adapters | 不是 v0.1.1 runtime behavior |
+| 不包含 | query rewrite、HyDE、OCR、HTTP/UI、API adapters | 不是 v0.1.2 runtime behavior |
 
 Search/Ask/MCP 读取 active Publication Evidence。
 不改变 normal Search、Ask、MCP 或 runtime default。
+
+`uv run python scripts/release_consumer_smoke.py \
+  --wheel dist/multimodal_knowledge_engine-0.1.2-py3-none-any.whl --json`
 """
     (root / "README.md").write_text(readme_en_text, encoding="utf-8")
     (root / "README_CN.md").write_text(readme_cn_text, encoding="utf-8")
     (root / "docs/README.md").write_text(
         readme_en_text
-        + "\nSee [v0.1.1](./releases/v0.1.1.md) and "
+        + "\nSee [v0.1.2](./releases/v0.1.2.md) and "
+        "`dist/multimodal_knowledge_engine-0.1.2-py3-none-any.whl` and "
         "[Verify Release](./how-to/verify-release.md).\n",
         encoding="utf-8",
     )
     (root / "CHANGELOG.md").write_text(
-        "# Changelog\n\n## [0.1.1] - 2026-07-02\n\n"
-        "Comparison-only dense/RRF/reranker evidence is not shipped runtime.\n",
+        "# Changelog\n\n## [0.1.2] - 2026-07-14\n\n"
+        "Evidence provenance and external source-pack proof ship with owner/runtime "
+        "hardening. Same-wheel Python 3.12/3.13 evidence uses mke.evidence_ref.v1. "
+        "OCR is excluded; dense/RRF/reranker evidence remains comparison-only.\n",
         encoding="utf-8",
     )
-    (root / "docs/releases/v0.1.1.md").write_text(
-        "# v0.1.1\n\nProof, demo, CLI, MCP, local knowledge proof, and retrieval "
-        "evaluation docs are linked.\n"
-        "E3-C dense, E3-D RRF, and E3-E reranker remain comparison-only evidence.\n",
+    (root / "docs/releases/v0.1.2.md").write_text(
+        "# v0.1.2\n\nProof, demo, CLI, MCP, local knowledge proof, and retrieval "
+        "evaluation docs are linked. Evidence provenance uses strict mke.evidence_ref.v1. "
+        "The external source-pack proof validates the same wheel on Python 3.12/3.13, "
+        "with owner lifecycle and runtime hardening. OCR remains excluded.\n"
+        "E3-C dense, E3-D RRF, and E3-E reranker remain comparison-only evidence.\n\n"
+        "An independent consumer validated a pre-release candidate from synthetic fixtures "
+        "and a strict receipt at https://github.com/iTao-AI/night-voyager/pull/21, bound "
+        "to source commit 16fae017ced5fe67da3fae4a01f26e9e9f1084aa. This did not "
+        "validate the final v0.1.2 wheel and does not prove production adoption, hosted "
+        "deployment, or real-user outcomes. Night Voyager remains an independent consumer "
+        "and is not an MKE CI dependency. An identity-only release does not require a "
+        "downstream lock update.\n\n"
+        "`uv run python scripts/release_consumer_smoke.py --wheel "
+        "dist/multimodal_knowledge_engine-0.1.2-py3-none-any.whl --json`\n",
         encoding="utf-8",
     )
     (root / "docs/how-to/verify-release.md").write_text(
-        "# Verify Release\n\nRun `mke proof run` and `mke demo --verify`.\n",
+        "# Verify Release\n\nRun `mke proof run` and `mke demo --verify`.\n"
+        "`uv run python scripts/release_consumer_smoke.py --wheel "
+        "dist/multimodal_knowledge_engine-0.1.2-py3-none-any.whl --json`\n",
         encoding="utf-8",
     )
 
@@ -329,22 +365,22 @@ def test_audit_rejects_diagram_without_comparison_only_evidence_boundary(
 
 
 @pytest.mark.parametrize("path", ["README.md", "README_CN.md"])
-def test_audit_rejects_missing_verified_v011_table(tmp_path: Path, path: str) -> None:
+def test_audit_rejects_missing_verified_v012_table(tmp_path: Path, path: str) -> None:
     _write_release_tree(tmp_path)
-    heading = "## Verified in v0.1.1" if path == "README.md" else "## v0.1.1 已验证能力"
+    heading = "## Verified in v0.1.2" if path == "README.md" else "## v0.1.2 已验证能力"
     text = (tmp_path / path).read_text(encoding="utf-8").replace(
         heading,
         "## Release Scope",
     )
     (tmp_path / path).write_text(text, encoding="utf-8")
 
-    assert "verified_v011_table" in _rules(tmp_path)
+    assert "verified_v012_table" in _rules(tmp_path)
 
 
 @pytest.mark.parametrize("path", ["README.md", "README_CN.md"])
 def test_audit_rejects_shallow_readme_engineering_depth(tmp_path: Path, path: str) -> None:
     _write_release_tree(tmp_path)
-    marker = "## What this release proves" if path == "README.md" else "## v0.1.1 工程深度"
+    marker = "## What this release proves" if path == "README.md" else "## v0.1.2 工程深度"
     text = (tmp_path / path).read_text(encoding="utf-8").replace(
         marker,
         "## Notes",
@@ -366,30 +402,53 @@ def test_audit_rejects_missing_retrieval_evidence_table(tmp_path: Path, path: st
     assert "readme_engineering_depth" in _rules(tmp_path)
 
 
+@pytest.mark.parametrize(
+    "term",
+    [
+        "Evidence provenance",
+        "mke.evidence_ref.v1",
+        "external source-pack proof",
+        "same-wheel Python 3.12/3.13",
+        "owner lifecycle and runtime hardening",
+        "OCR remains excluded",
+    ],
+)
+def test_audit_rejects_missing_v012_capability_term(tmp_path: Path, term: str) -> None:
+    _write_release_tree(tmp_path)
+    for path in ("README.md", "README_CN.md"):
+        target = tmp_path / path
+        target.write_text(
+            target.read_text(encoding="utf-8").replace(term, "removed release term"),
+            encoding="utf-8",
+        )
+
+    assert "readme_engineering_depth" in _rules(tmp_path)
+
+
 def test_audit_rejects_english_verified_labels_in_chinese_readme(tmp_path: Path) -> None:
     _write_release_tree(tmp_path)
     text = (tmp_path / "README_CN.md").read_text(encoding="utf-8")
-    text = text.replace("## v0.1.1 已验证能力", "## Verified in v0.1.1")
+    text = text.replace("## v0.1.2 已验证能力", "## Verified in v0.1.2")
     text = text.replace("| 能力 | 验证证据 |", "| Capability | Evidence |")
     (tmp_path / "README_CN.md").write_text(text, encoding="utf-8")
 
-    assert "verified_v011_table" in _rules(tmp_path)
+    assert "verified_v012_table" in _rules(tmp_path)
 
 
 def test_audit_rejects_chinese_verified_labels_in_english_readme(tmp_path: Path) -> None:
     _write_release_tree(tmp_path)
     text = (tmp_path / "README.md").read_text(encoding="utf-8")
-    text = text.replace("## Verified in v0.1.1", "## v0.1.1 已验证能力")
+    text = text.replace("## Verified in v0.1.2", "## v0.1.2 已验证能力")
     text = text.replace("| Capability | Evidence |", "| 能力 | 验证证据 |")
     (tmp_path / "README.md").write_text(text, encoding="utf-8")
 
-    assert "verified_v011_table" in _rules(tmp_path)
+    assert "verified_v012_table" in _rules(tmp_path)
 
 
 @pytest.mark.parametrize("path", ["README.md", "README_CN.md"])
 def test_audit_rejects_missing_current_runtime_default(tmp_path: Path, path: str) -> None:
     _write_release_tree(tmp_path)
-    (tmp_path / path).write_text("v0.1.1 release notes\n", encoding="utf-8")
+    (tmp_path / path).write_text("v0.1.2 release notes\n", encoding="utf-8")
 
     assert "current_runtime_default" in _rules(tmp_path)
 
@@ -398,9 +457,9 @@ def test_audit_rejects_dense_rrf_or_reranker_runtime_claims(tmp_path: Path) -> N
     _write_release_tree(tmp_path)
     (tmp_path / "README.md").write_text(
         "[English](./README.md) | [中文](./README_CN.md)\n\n"
-        "v0.1.1 ships `cjk-active-scan-overlap-v1`.\n"
+        "v0.1.2 ships `cjk-active-scan-overlap-v1`.\n"
         "```mermaid\nflowchart LR\n    app[MKE Application Service] --> search[Search / Ask]\n```\n"
-        "## Verified in v0.1.1\n\n| Capability | Evidence |\n|---|---|\n| Proof | Verified |\n"
+        "## Verified in v0.1.2\n\n| Capability | Evidence |\n|---|---|\n| Proof | Verified |\n"
         "Dense retrieval, RRF, and reranker runtime support are available.\n",
         encoding="utf-8",
     )
@@ -412,8 +471,8 @@ def test_audit_rejects_release_docs_presenting_comparison_candidates_as_runtime(
     tmp_path: Path,
 ) -> None:
     _write_release_tree(tmp_path)
-    (tmp_path / "docs/releases/v0.1.1.md").write_text(
-        "# v0.1.1\n\nProof, demo, CLI, MCP, and retrieval evaluation docs are linked.\n"
+    (tmp_path / "docs/releases/v0.1.2.md").write_text(
+        "# v0.1.2\n\nProof, demo, CLI, MCP, and retrieval evaluation docs are linked.\n"
         "Dense/RRF/reranker runtime is part of this release.\n",
         encoding="utf-8",
     )
@@ -423,8 +482,8 @@ def test_audit_rejects_release_docs_presenting_comparison_candidates_as_runtime(
 
 def test_audit_requires_comparison_only_language_for_e3_candidates(tmp_path: Path) -> None:
     _write_release_tree(tmp_path)
-    (tmp_path / "docs/releases/v0.1.1.md").write_text(
-        "# v0.1.1\n\nE3-C dense, E3-D RRF, and E3-E reranker are documented.\n",
+    (tmp_path / "docs/releases/v0.1.2.md").write_text(
+        "# v0.1.2\n\nE3-C dense, E3-D RRF, and E3-E reranker are documented.\n",
         encoding="utf-8",
     )
 
@@ -434,7 +493,7 @@ def test_audit_requires_comparison_only_language_for_e3_candidates(tmp_path: Pat
 def test_audit_rejects_stale_release_status_phrases(tmp_path: Path) -> None:
     _write_release_tree(tmp_path)
     (tmp_path / "README.md").write_text(
-        "v0.1.1 uses cjk-active-scan-overlap-v1. runtime_promotion_status=not_evaluated\n",
+        "v0.1.2 uses cjk-active-scan-overlap-v1. runtime_promotion_status=not_evaluated\n",
         encoding="utf-8",
     )
 
@@ -444,7 +503,7 @@ def test_audit_rejects_stale_release_status_phrases(tmp_path: Path) -> None:
 def test_audit_rejects_stale_stage2_changelog_gate(tmp_path: Path) -> None:
     _write_release_tree(tmp_path)
     (tmp_path / "CHANGELOG.md").write_text(
-        "# Changelog\n\n## [0.1.1] - 2026-07-02\n\n"
+        "# Changelog\n\n## [0.1.2] - 2026-07-14\n\n"
         "Stage 2 installed-package consumer smoke, tag creation, and GitHub Release "
         "publication are separate gates after this presentation-readiness work merges.\n",
         encoding="utf-8",
@@ -469,7 +528,7 @@ def test_audit_rejects_separate_branch_stage2_wording(tmp_path: Path) -> None:
     [
         "README.md",
         "README_CN.md",
-        "docs/releases/v0.1.1.md",
+        "docs/releases/v0.1.2.md",
         "docs/how-to/verify-release.md",
     ],
 )
@@ -503,6 +562,20 @@ def test_audit_rejects_multiline_consumer_smoke_wheel_wildcard(
     assert "consumer_smoke_wheel_selection" in _rules(tmp_path)
 
 
+def test_audit_rejects_old_exact_consumer_smoke_wheel(tmp_path: Path) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "docs/how-to/verify-release.md"
+    target.write_text(
+        target.read_text(encoding="utf-8").replace(
+            "dist/multimodal_knowledge_engine-0.1.2-py3-none-any.whl",
+            "dist/multimodal_knowledge_engine-0.1.1-py3-none-any.whl",
+        ),
+        encoding="utf-8",
+    )
+
+    assert "consumer_smoke_wheel_selection" in _rules(tmp_path)
+
+
 def test_audit_does_not_apply_current_wheel_rule_to_v0_1_0_history(
     tmp_path: Path,
 ) -> None:
@@ -515,6 +588,50 @@ def test_audit_does_not_apply_current_wheel_rule_to_v0_1_0_history(
     )
 
     assert audit_release_presentation(tmp_path) == []
+
+
+def test_audit_does_not_apply_current_wheel_rule_to_v0_1_1_history(
+    tmp_path: Path,
+) -> None:
+    _write_release_tree(tmp_path)
+    historical = tmp_path / "docs/releases/v0.1.1.md"
+    historical.write_text(
+        "# v0.1.1\n\n"
+        "uv run python scripts/release_consumer_smoke.py --wheel dist/*.whl --json\n",
+        encoding="utf-8",
+    )
+
+    assert audit_release_presentation(tmp_path) == []
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("16fae017ced5fe67da3fae4a01f26e9e9f1084aa", "0" * 40),
+        ("https://github.com/iTao-AI/night-voyager/pull/21", "https://example.com/pr/21"),
+        ("did not validate the final v0.1.2 wheel", "validated the final v0.1.2 wheel"),
+        ("does not prove production adoption", "proves production adoption"),
+        ("hosted deployment", "hosted service"),
+        ("real-user outcomes", "customer outcomes"),
+        ("is not an MKE CI dependency", "is an MKE CI dependency"),
+        (
+            "does not require a downstream lock update",
+            "requires a downstream lock update",
+        ),
+    ],
+)
+def test_audit_rejects_invalid_downstream_candidate_boundary(
+    tmp_path: Path,
+    old: str,
+    new: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "docs/releases/v0.1.2.md"
+    text = target.read_text(encoding="utf-8")
+    assert old in text
+    target.write_text(text.replace(old, new), encoding="utf-8")
+
+    assert "downstream_candidate_boundary" in _rules(tmp_path)
 
 
 def test_audit_limits_current_wheel_rule_to_command_docs(tmp_path: Path) -> None:
@@ -533,20 +650,20 @@ def test_audit_limits_current_wheel_rule_to_command_docs(tmp_path: Path) -> None
     ("path", "stale_text"),
     [
         (
-            "docs/releases/v0.1.1.md",
+            "docs/releases/v0.1.2.md",
             "GitHub Release metadata records the final tag and target commit when Stage 3 "
             "creates the release from the verified commit.",
         ),
         (
-            "docs/releases/v0.1.1.md",
+            "docs/releases/v0.1.2.md",
             "This document describes release scope and verification before publication.",
         ),
         (
-            "docs/releases/v0.1.1.md",
+            "docs/releases/v0.1.2.md",
             "This document does not predeclare a future tag target.",
         ),
         (
-            "docs/releases/v0.1.1.md",
+            "docs/releases/v0.1.2.md",
             "Tag and GitHub Release publication remain a separate authorized Stage 3 action.",
         ),
         (
@@ -563,7 +680,7 @@ def test_audit_rejects_post_release_stale_publication_status(
 ) -> None:
     _write_release_tree(tmp_path)
     (tmp_path / path).write_text(
-        "# v0.1.1\n\n"
+        "# v0.1.2\n\n"
         "Proof, demo, CLI, MCP, and retrieval evaluation docs are linked.\n"
         "E3-C dense, E3-D RRF, and E3-E reranker remain comparison-only evidence.\n"
         f"{stale_text}\n",
@@ -579,7 +696,9 @@ def test_audit_allows_verify_release_generic_stage3_instructions(tmp_path: Path)
         "# Verify Release\n\n"
         "After Stage 1 and Stage 2 merge, create the annotated tag and GitHub Release only "
         "with explicit authorization. Then verify the public archive from a clean temporary "
-        "directory.\n",
+        "directory.\n"
+        "`uv run python scripts/release_consumer_smoke.py --wheel "
+        "dist/multimodal_knowledge_engine-0.1.2-py3-none-any.whl --json`\n",
         encoding="utf-8",
     )
 
@@ -601,8 +720,8 @@ def test_audit_rejects_unresolved_release_placeholders(
     placeholder: str,
 ) -> None:
     _write_release_tree(tmp_path)
-    (tmp_path / "docs/releases/v0.1.1.md").write_text(
-        "# v0.1.1\n\n"
+    (tmp_path / "docs/releases/v0.1.2.md").write_text(
+        "# v0.1.2\n\n"
         "Proof, demo, CLI, MCP, and retrieval evaluation docs are linked.\n"
         "E3-C dense, E3-D RRF, and E3-E reranker remain comparison-only evidence.\n"
         f"{placeholder}\n",
@@ -634,8 +753,8 @@ def test_audit_rejects_private_paths_gstack_artifacts_credentials_and_tracebacks
     tmp_path: Path,
 ) -> None:
     _write_release_tree(tmp_path)
-    (tmp_path / "docs/releases/v0.1.1.md").write_text(
-        "# v0.1.1\n\n/Users/mac/.gstack/rollout token=secret\nTraceback (most recent call last):\n",
+    (tmp_path / "docs/releases/v0.1.2.md").write_text(
+        "# v0.1.2\n\n/Users/mac/.gstack/rollout token=secret\nTraceback (most recent call last):\n",
         encoding="utf-8",
     )
 
