@@ -1,6 +1,6 @@
 # v0.1.2 Release Closeout Implementation Review
 
-Status: CLEAN / ACCEPTED for final reviewed local-candidate verification; unpublished and not authorized for external action.
+Status: published and verified. The v0.1.2 release closeout is complete.
 
 Review base: `main@16fae017ced5fe67da3fae4a01f26e9e9f1084aa`.
 
@@ -65,4 +65,40 @@ This verdict accepts the implementation for final reviewed local-candidate verif
 - GREEN: the current presentation audit returned `status=ok`; Ruff and Pyright passed on the changed Python surfaces.
 - GREEN: the exact five-file diff contains no runtime, lock, evaluation artifact, workflow, OCR, or private-path change.
 
-Targeted engineering re-review is complete and accepted. The review-closure commit will invalidate every prior Task 6 wheel, receipt, observation, build output, venv, candidate directory, and temporary worktree. Task 7 must therefore rerun the complete gate in a fresh neutral worktree and bind new candidate evidence to the exact closure commit. Until that rerun passes, final reviewed local-candidate verification remains pending. Publication and every external side effect remain unauthorized.
+Targeted engineering re-review completed and accepted the implementation. The required Task 7
+rerun produced fresh evidence on the review-closure commit before PR handoff.
+
+## Merge And Final-Main Verification
+
+PR #69 was squash-merged as
+`main@e4be0eee11c671e31c17af8b698bf7921cfc045f`. The complete final-main gate
+passed on that exact clean commit: full pytest, Ruff, Pyright, build, product proof, demo, local
+knowledge proof, Evidence provenance proof, release presentation audit, corrected E2 observation,
+all seven canonical evaluation validators, same-wheel Python 3.12/3.13 proof, and installed-wheel
+smoke.
+
+The final-main candidate receipt used schema `mke.candidate_artifact_receipt.v1`, bound
+`source_commit` to the merge commit, and recorded wheel SHA-256
+`ca4c978ec6fc8ffab3e04375ab2500b39584e2b5fcfa333bb0cb0cbd76b223dd`.
+Its canonical receipt SHA-256 was
+`8412d0b1b879a31c94f7c09e805dc6d54dd869ebe08342246073e5eff28a35da`.
+
+## Publication And Public Archive Verification
+
+The annotated `v0.1.2` tag object
+`3f693502e87367d2c984fb9a04db83e98b68bab6` peels to the exact merge commit.
+The non-draft, non-prerelease GitHub Release was published at
+`2026-07-14T09:11:16Z`:
+<https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.2>.
+It was the latest Release at publication and contained zero extra assets.
+
+The public archive `multimodal-knowledge-engine-0.1.2.tar.gz` contained `3334646`
+bytes and had SHA-256
+`19004992527b0d7244bf81756eb0d40302720942473cd3a8fcb1211ef46ef5e0`.
+`uv sync --locked`, product proof `8/8`, demo, local knowledge proof, and Evidence
+provenance proof passed from the clean extracted archive.
+
+No candidate wheel was uploaded. PyPI or another registry publication, deployment, hosted
+operation, and OCR did not occur. The independent downstream integration remains evidence for a
+pre-release candidate only; it does not prove final-wheel validation, production adoption, hosted
+deployment, or real-user outcomes.

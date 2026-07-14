@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this plan task-by-task. Use `superpowers:test-driven-development` for every behavior change and `superpowers:verification-before-completion` before claiming a gate passed. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-Status: implementation accepted by authoritative review; final reviewed local-candidate verification pending. Publication remains unauthorized.
+Status: completed, published, and verified.
 
 Planning base: `main@16fae017ced5fe67da3fae4a01f26e9e9f1084aa`.
 
@@ -844,19 +844,32 @@ git commit -m "docs(release): accept v0.1.2 candidate review"
 
 The docs-only commit creates a new final commit and immediately invalidates every Task 6 wheel, receipt, observation, build output, and candidate result.
 
-- [ ] **Step 4: Create a fresh neutral worktree and rerun Task 6 in full**
+- [x] **Step 4: Create a fresh neutral worktree and rerun Task 6 in full**
 
 Freeze the review-closure commit, create a new neutral detached worktree, and rerun every Task 6 step in order. Do not reuse the old wheel, receipt, observed JSON, build output, venv, candidate directory, or temporary worktree. The new candidate-output receipt must have `source_commit` equal to the review-closure commit.
 
-- [ ] **Step 5: Re-prove the final candidate-output wheel**
+- [x] **Step 5: Re-prove the final candidate-output wheel**
 
 Run the once-only Python 3.12/3.13 candidate-output proof on the review-closure commit, parse the new exact wheel from its receipt, and run installed-wheel consumer smoke against that wheel. Require the new receipt SHA-256, exact wheel SHA-256, source commit, dual-interpreter proof, and installed smoke to agree. The `dist/` wheel remains packaging-only evidence.
 
-- [ ] **Step 6: Freeze the final reviewed local candidate and stop**
+- [x] **Step 6: Freeze the final reviewed local candidate and stop**
 
 After the complete rerun, make no tracked repository write. Any later tracked change invalidates the evidence and requires another full rerun. Report only the new review-closure commit, new candidate-output wheel filename/bytes/SHA-256, new receipt SHA-256/source commit, and fresh gate results as final reviewed local-candidate evidence.
 
 Task 7 completion makes the local candidate eligible for a separate push/PR authorization. It does not authorize push, PR, merge, tag, GitHub Release, registry publication, or deployment.
+
+## Post-Release Documentation Closure
+
+Task 7 Steps 4 through 6 were deliberately left unchecked in the tracked plan when they ran.
+Writing that evidence back into the repository would have changed the commit and invalidated the
+commit-bound candidate receipt. The exact reviewed candidate was subsequently squash-merged as
+`main@e4be0eee11c671e31c17af8b698bf7921cfc045f`, fully re-proved on that commit,
+tagged, published, and verified through the public archive.
+
+This independent docs-only closeout occurs after the tag, GitHub Release, and archive smoke. It
+records completed facts without changing the published tag target, Release archive, or historical
+candidate authority. It does not require candidate regeneration because it is not part of the
+published `v0.1.2` source commit. PyPI publication, deployment, and OCR remain outside this plan.
 
 ## Failure Modes And Required Response
 
@@ -886,16 +899,13 @@ Task 7 completion makes the local candidate eligible for a separate push/PR auth
 
 ## Completion Boundary
 
-Task 6 completes only a pre-review evidence checkpoint and must stop for external authoritative review. Task 7 alone can produce the final reviewed local candidate: it records the accepted-but-unpublished review closure, invalidates all pre-review artifact evidence, and reruns the complete gate on the exact new commit. `UV_OFFLINE=1 uv build` remains packaging evidence; final acceptance and reporting use only the candidate-output wheel filename, bytes, SHA-256, receipt SHA-256, and receipt-bound source commit. The final rerun must perform candidate-output same-wheel proof once, then installed smoke against that exact receipt-bound wheel. No tracked write may follow the rerun.
+During implementation, Task 6 ended at the pre-review evidence checkpoint and Task 7 produced the
+final reviewed local candidate. The commit-bound evidence rule required the final candidate rerun
+to be the last tracked-source action before handoff.
 
-This plan does not complete release publication.
-
-Later stages remain separately authorized:
-
-1. push and create the release PR;
-2. merge after hosted checks pass;
-3. rerun the entire final gate on the exact resulting `main` commit;
-4. create annotated tag `v0.1.2` and GitHub Release only after explicit publication authorization;
-5. run downloaded public-archive smoke and land a separate durable post-release closeout if needed.
+The separately authorized release PR, squash merge, exact-main rerun, annotated `v0.1.2` tag,
+GitHub Release, downloaded public-archive smoke, and this durable post-release documentation
+closeout have now completed. This plan is complete. PyPI publication and deployment remain
+outside its authority.
 
 The OCR branch remains independent throughout.
