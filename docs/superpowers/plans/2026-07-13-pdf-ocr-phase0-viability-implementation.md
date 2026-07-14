@@ -11,9 +11,10 @@ protocol, and vendor-artifact identities. Targeted authority re-review accepted 
 commit `804b9205c35b657ab3aba51faf4cdc40ab0e4057`, preserving the reviewed Task 4 commits rather than
 rewriting their provenance. Resumption now requires Task 4R, Task 5A, Task 5B, and Task 5C in that
 order. Targeted authority re-review accepted the resumption plan at
-`3673c8373da6973b0961f789204be14adce3d4dd` and cleared only Task 4R-A. Task 4R-B requires the
-completed Task 4R-A implementation and a separate authority review and dispatch. None of Task 4R,
-Task 5A, Task 5B, Task 5C, or Task 6 has started.
+`3673c8373da6973b0961f789204be14adce3d4dd`. Task 4R-A is complete and its targeted authority
+re-review accepted implementation commit `3b029a47c69f32d63e9cae688196e205d96f8af7`. Task 4R-B has
+satisfied its prerequisite review gate and is cleared for a separate dispatch, but has not started.
+Task 4R as a whole remains incomplete; Task 5A, Task 5B, Task 5C, and Task 6 have not started.
 
 **Goal:** Produce reproducible valid-positive or valid-negative evidence for local scanned/mixed-PDF OCR before adding a production runtime contract.
 
@@ -731,13 +732,15 @@ The branch was reconciled with `main` through merge commit
 accepted Task 4 commit identities referenced by the review record. Task 4R execution begins only
 after targeted review accepts this resumption plan. The review of
 `dccf5bb7eb4d1ff7527e1ee5801554576c4dfcd1..3673c8373da6973b0961f789204be14adce3d4dd`
-accepted the plan and cleared only Task 4R-A. It did not clear Task 4R-B or later work.
+accepted the plan and cleared Task 4R-A. Task 4R-A implementation commit
+`3b029a47c69f32d63e9cae688196e205d96f8af7` was subsequently accepted with no findings. Task 4R-B
+is cleared only for a separate dispatch and has not started; later work remains gated.
 
 The existing package and startup receipts bind an MKE 0.1.1 wheel. They remain historical,
-self-consistent evidence after the MKE 0.1.2 merge and cannot authorize Task 5B. The current
-compatibility controller also hard-codes the 0.1.1 wheel filename and installed version, so Task 4R
-must first repair that evaluation harness before refreshing evidence. Task 4R-A and Task 4R-B are
-separate TDD commits and reviewable checkpoints; both must complete before Task 4R review.
+self-consistent evidence after the MKE 0.1.2 merge and cannot authorize Task 5B. Task 4R-A removed
+the compatibility controller's former fixed 0.1.1 wheel filename and installed-version authority
+and added the call-owned rebind harness required before evidence refresh. Task 4R-A and Task 4R-B
+remain separate TDD commits and reviewable checkpoints; both must complete before Task 4R review.
 
 #### Task 4R-A: Generalize candidate wheel authority and prepare rebound wheelhouses
 
@@ -748,13 +751,13 @@ separate TDD commits and reviewable checkpoints; both must complete before Task 
 
 No dependency or production `src/mke` file may change.
 
-Task 4R-A must preserve the existing committed-receipt freeze exactly. The assertion for
+Task 4R-A preserved the existing committed-receipt freeze exactly. The assertion for
 `benchmarks/ocr/candidate-environments.json` remains bound to
-`91c782fb147fbb1f59f2c2f447f79d8c8c82188860b2b6afeb4455c92630fcbb` throughout Task 4R-A.
+`91c782fb147fbb1f59f2c2f447f79d8c8c82188860b2b6afeb4455c92630fcbb` after Task 4R-A.
 Synthetic historical 0.1.1 cases supplement that gate; they must not delete, weaken, dynamically
 derive, or turn the exact committed SHA assertion into a tautology.
 
-- [ ] **Step 1: Freeze the plan start and write RED version-authority tests**
+- [x] **Step 1: Freeze the plan start and write RED version-authority tests**
 
 Freeze `task4r_plan_start="$(git rev-parse HEAD)"`. Require it to be the review-cleared resumption
 plan commit, contain merge `804b9205c35b657ab3aba51faf4cdc40ab0e4057`, and preserve accepted
@@ -768,7 +771,7 @@ Task 4 commits. Add failing tests for:
 - duplicate or missing MKE distributions and cross-candidate MKE filename/digest drift;
 - successful-cell installed package version drift and provider runtime version drift.
 
-- [ ] **Step 2: Implement self-consistent wheel authority**
+- [x] **Step 2: Implement self-consistent wheel authority**
 
 Remove fixed `0.1.1` filename and version authority from generation and validation paths. Use a
 strict parser for exactly `multimodal_knowledge_engine-<version>-py3-none-any.whl`, where `version`
@@ -783,7 +786,7 @@ set exactly match the referenced package receipt cell. Wheel filename, wheel MET
 doctor, repository version, or runtime disagreement fails closed. Historical 0.1.1 receipts remain
 readable evidence but cannot authorize Task 5B after reconciliation.
 
-- [ ] **Step 3: Implement and test call-owned prepared-wheelhouse copy/rebind**
+- [x] **Step 3: Implement and test call-owned prepared-wheelhouse copy/rebind**
 
 Add an internal helper that consumes the retained prepared root, a nonexistent call-owned
 destination, and the new exact MKE wheel. The source must contain exactly the two candidate
@@ -799,7 +802,7 @@ unexpected entry fails closed. Only this rebound call-owned root may be passed t
 `--prepared-wheelhouses` and `ProviderStartupConfig.wheelhouse`; the retained source is never
 modified.
 
-- [ ] **Step 4: Run GREEN and commit Task 4R-A**
+- [x] **Step 4: Run GREEN and commit Task 4R-A**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/scripts/test_pdf_ocr_candidate_compatibility.py
@@ -816,6 +819,9 @@ git commit -m "fix(ocr): generalize candidate wheel authority"
 ```
 
 Task 4R-A stages only the script and its tests. Stop on any other tracked change.
+Targeted authority re-review accepted Task 4R-A at
+`3b029a47c69f32d63e9cae688196e205d96f8af7`. This acceptance covers the model-free harness and
+controller authority only. Task 4R-B remains a separate, unstarted evidence operation.
 
 #### Task 4R-B: Refresh v0.1.2 package and provider evidence
 
