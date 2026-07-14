@@ -27,7 +27,7 @@ It records facts only and does not alter the published release.
 - GitHub Release:
   <https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.2>
 - Published: `2026-07-14T09:11:16Z` by `iTao-AI`
-- Release state: latest, non-draft, non-prerelease, with zero extra assets
+- Release state: latest at publication, non-draft, non-prerelease, with zero extra assets
 
 ## Final-Main Gate
 

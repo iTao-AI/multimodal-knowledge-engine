@@ -20,7 +20,7 @@ to the earlier releases.
 - Tag target commit: `e4be0eee11c671e31c17af8b698bf7921cfc045f`
 - GitHub Release: <https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.2>
 - Published: `2026-07-14T09:11:16Z` by `iTao-AI`
-- Release state: latest, non-draft, non-prerelease, with zero extra assets
+- Release state: latest at publication, non-draft, non-prerelease, with zero extra assets
 - Release archive: `multimodal-knowledge-engine-0.1.2.tar.gz`
 - Release archive bytes: `3334646`
 - Release archive SHA-256:
