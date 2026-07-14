@@ -13,6 +13,24 @@ identity and archive-smoke evidence. The current four-stage workflow adds an exa
 receipt and a separate final-main gate; those newer requirements are not retroactively attributed
 to the earlier releases.
 
+## Completed v0.1.2 Release Record
+
+- Tag: `v0.1.2`
+- Annotated tag object SHA: `3f693502e87367d2c984fb9a04db83e98b68bab6`
+- Tag target commit: `e4be0eee11c671e31c17af8b698bf7921cfc045f`
+- GitHub Release: <https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.2>
+- Published: `2026-07-14T09:11:16Z` by `iTao-AI`
+- Release state: latest at publication, non-draft, non-prerelease, with zero extra assets
+- Release archive: `multimodal-knowledge-engine-0.1.2.tar.gz`
+- Release archive bytes: `3334646`
+- Release archive SHA-256:
+  `19004992527b0d7244bf81756eb0d40302720942473cd3a8fcb1211ef46ef5e0`
+- Post-release archive smoke: `uv sync --locked`, product proof `8/8`, demo
+  `result=passed`, local knowledge proof `status=passed`, and Evidence provenance proof
+  `status=passed`.
+- PyPI and other package registries: not published.
+- Deployment: not performed.
+
 ## Completed v0.1.1 Release Record
 
 - Tag: `v0.1.1`

@@ -1,12 +1,12 @@
 # v0.1.2 Release Closeout Design
 
-Status: implementation accepted by authoritative review; final reviewed local-candidate verification pending. Publication remains unauthorized.
+Status: published and verified. The v0.1.2 release closeout is complete.
 
 Planning base: `main@16fae017ced5fe67da3fae4a01f26e9e9f1084aa`.
 
 ## Context
 
-The latest published MKE release is `v0.1.1`, while the package metadata on the planning base still reports `0.1.1`. Since that release, the following independently reviewed changes have merged:
+At planning time, the latest published MKE release was `v0.1.1`, while the package metadata on the planning base still reported `0.1.1`. Since that release, the following independently reviewed changes had merged:
 
 - the additive versioned Evidence provenance contract;
 - strict `mke.evidence_ref.v1` responses from `list_libraries_v1`, `search_library_v1`, and `ask_library_v1`;
@@ -136,6 +136,21 @@ Only after separate publication authorization:
 - update the durable closeout record through a separate post-release documentation change if required.
 
 PyPI remains unpublished unless separately designed and authorized.
+
+### Completed Stage 3 And Stage 4 Record
+
+PR #69 was squash-merged as
+`main@e4be0eee11c671e31c17af8b698bf7921cfc045f`. The complete final-main gate
+passed on that exact clean commit, including the receipt-bound candidate wheel, installed-wheel
+smoke, same-wheel Python 3.12/3.13 proof, and all seven canonical evaluation validators.
+
+The annotated `v0.1.2` tag object
+`3f693502e87367d2c984fb9a04db83e98b68bab6` peels to the exact final-main
+commit. The GitHub Release was published at `2026-07-14T09:11:16Z`, and its public
+`multimodal-knowledge-engine-0.1.2.tar.gz` archive contains `3334646` bytes with
+SHA-256 `19004992527b0d7244bf81756eb0d40302720942473cd3a8fcb1211ef46ef5e0`.
+Locked archive installation, product proof, demo, local knowledge proof, and Evidence provenance
+proof passed. The Release contains no extra assets. PyPI publication and deployment did not occur.
 
 ## Allowed Change Surface
 
@@ -282,4 +297,5 @@ The release closeout is ready for publication authorization only when:
 
 ## Approved Next Step
 
-Commit the accepted review closure, then re-prove the exact closure commit in a fresh neutral worktree. Do not push, create a PR, merge, tag, create a GitHub Release, publish, or deploy without separate authorization.
+The v0.1.2 release closeout is complete. Continue routine maintenance through separately scoped
+work. PDF OCR remains an independent follow-up and is not retroactively part of v0.1.2.
