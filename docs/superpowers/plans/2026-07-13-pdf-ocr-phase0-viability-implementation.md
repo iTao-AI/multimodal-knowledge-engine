@@ -10,7 +10,10 @@ protocol, and vendor-artifact identities. Targeted authority re-review accepted 
 `040cb6cea2439f5f9d46b09862b17fa1fee59e39`. The branch then reconciled MKE 0.1.2 through merge
 commit `804b9205c35b657ab3aba51faf4cdc40ab0e4057`, preserving the reviewed Task 4 commits rather than
 rewriting their provenance. Resumption now requires Task 4R, Task 5A, Task 5B, and Task 5C in that
-order. None of those tasks or Task 6 has started.
+order. Targeted authority re-review accepted the resumption plan at
+`3673c8373da6973b0961f789204be14adce3d4dd` and cleared only Task 4R-A. Task 4R-B requires the
+completed Task 4R-A implementation and a separate authority review and dispatch. None of Task 4R,
+Task 5A, Task 5B, Task 5C, or Task 6 has started.
 
 **Goal:** Produce reproducible valid-positive or valid-negative evidence for local scanned/mixed-PDF OCR before adding a production runtime contract.
 
@@ -726,7 +729,9 @@ receipts. This does not select a provider or authorize production OCR.
 The branch was reconciled with `main` through merge commit
 `804b9205c35b657ab3aba51faf4cdc40ab0e4057`. Merge, rather than rebase or squash, preserves the
 accepted Task 4 commit identities referenced by the review record. Task 4R execution begins only
-after targeted review accepts this resumption plan.
+after targeted review accepts this resumption plan. The review of
+`dccf5bb7eb4d1ff7527e1ee5801554576c4dfcd1..3673c8373da6973b0961f789204be14adce3d4dd`
+accepted the plan and cleared only Task 4R-A. It did not clear Task 4R-B or later work.
 
 The existing package and startup receipts bind an MKE 0.1.1 wheel. They remain historical,
 self-consistent evidence after the MKE 0.1.2 merge and cannot authorize Task 5B. The current

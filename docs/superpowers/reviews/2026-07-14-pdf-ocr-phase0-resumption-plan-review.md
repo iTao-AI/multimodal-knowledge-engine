@@ -2,7 +2,9 @@
 
 Date: 2026-07-14
 
-Status: PENDING TARGETED AUTHORITY RE-REVIEW. Tasks 4R, 5A, 5B, 5C, and 6 have not started.
+Status: targeted authority re-review accepted / CLEARED FOR TASK 4R-A. Task 4R-B remains gated on
+Task 4R-A implementation plus separate authority review and dispatch. Tasks 4R, 5A, 5B, 5C, and 6
+have not started.
 
 ## Main Reconciliation
 
@@ -101,5 +103,21 @@ prove the test diff contains only the new frozen SHA. `model-artifacts.json` rem
 and no Task 4R-B controller behavior change is authorized. The receipts bind wheel, package, model,
 and runtime bytes, not `source_commit`; the post-generation freeze is not a source-commit binding.
 
-This resolution does not clear Task 4R-A or Task 4R-B. Status remains PENDING TARGETED AUTHORITY
-RE-REVIEW, and Tasks 4R, 5A, 5B, 5C, and 6 remain unstarted.
+## Accepted Targeted Re-review Evidence
+
+Targeted authority re-review accepted implementation-plan commit
+`3673c8373da6973b0961f789204be14adce3d4dd` with no findings. The reviewed range was
+`dccf5bb7eb4d1ff7527e1ee5801554576c4dfcd1..3673c8373da6973b0961f789204be14adce3d4dd`.
+Its exact diff changed the four approved documentation files with 79 insertions and 7 deletions.
+
+The accepted plan preserves the exact historical committed-receipt SHA gate through Task 4R-A.
+For Task 4R-B it freezes the executable order: generate canonical package and startup receipts,
+calculate the new package receipt SHA-256, mechanically update only the frozen SHA literal, run the
+complete suite, then commit exactly the two receipts plus the test file. The reviewed commit changed
+no controller, test, receipt, artifact, dependency, or workflow bytes. `git diff --check`, exact
+changed-file audit, and clean-worktree verification passed.
+
+This acceptance clears only Task 4R-A. It does not claim implementation, matrix or provider
+execution, receipt refresh, Task 4R-B authority, or production OCR. Every Task 4R, 5A, 5B, 5C, and
+6 checkbox remains uncompleted. Task 4R-B requires the completed Task 4R-A implementation and its
+separate authority review and dispatch.
