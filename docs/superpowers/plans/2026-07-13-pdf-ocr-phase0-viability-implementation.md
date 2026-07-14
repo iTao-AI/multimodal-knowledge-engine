@@ -4,9 +4,11 @@
 
 Status: in progress. Tasks 1-3 and their review remediation are complete. Task 4 Steps 1-6 are
 complete as a bounded compatibility checkpoint. The pinned model roots were prepared and real
-startup evidence was recorded, but the strict provisional PaddleOCR-VL adapter rejected the
-observed vendor JSON schema. Tasks 5-6 have not started; work is hard-stopped for authority review
-before any scorecard, provider selection, or production runtime work.
+startup evidence was recorded. A bounded Task 4 amendment now accepts only the observed pinned
+PaddleOCR-VL direct-top-level prose envelope and binds startup evidence to the package, model,
+protocol, and vendor-artifact identities. Targeted authority re-review of the amendment is pending.
+Tasks 5-6 have not started; work is hard-stopped before any scorecard, provider selection, or
+production runtime work.
 
 **Goal:** Produce reproducible valid-positive or valid-negative evidence for local scanned/mixed-PDF OCR before adding a production runtime contract.
 
@@ -606,8 +608,10 @@ Targeted re-review completed and accepted the package-only checkpoint at impleme
 The 25,101,925,887-byte figure is the sum of 16 temporary installed trees measured before per-cell
 cleanup, not retained disk usage. The retained operator-local package evidence is approximately
 2.2 GB; its location is intentionally not part of the public receipt or repository contract. Task 4
-Steps 4-6 remain unstarted and incomplete. Model acquisition, cache-only real-provider startup, and
-the real PaddleOCR-VL artifact inventory/schema check remain the next explicit authority gate.
+Steps 4-6 subsequently completed under separate model-download authority. Their bounded amendment
+is recorded in the
+[Task 4 Amendment Review](../reviews/2026-07-14-pdf-ocr-phase0-task4-amendment-review.md) and remains
+pending targeted authority re-review.
 
 - [x] **Step 4: Prepare model artifacts under explicit authority**
 
@@ -644,18 +648,20 @@ PaddleOCR-VL direct CPU inference is the approved Phase 0 comparison path. Hoste
 local VLM service backends remain out of scope even if official documentation recommends them for
 speed.
 
-Fresh Darwin/arm64 startup evidence used the accepted package receipt and an operating-system
-network-denial sandbox whose canary was blocked. Apple Vision and PP-OCRv6 medium returned the exact
-public fixture text through the project-owned result validator in 547 ms and 14,365 ms respectively.
-These are single-page startup observations, not OCR quality or production claims.
+Fresh amended Darwin/arm64 startup evidence used the accepted package receipt and an
+operating-system network-denial sandbox whose canary was blocked. Apple Vision, PaddleOCR-VL, and
+PP-OCRv6 medium returned the exact public fixture text through the project-owned result validator in
+212 ms, 12,766 ms, and 8,759 ms respectively. These are single-page startup observations, not OCR
+quality or production claims.
 
 PaddleOCR-VL loaded both local model roots and completed direct CPU inference, then wrote exactly
 `english-scan-page-1.md` (51 bytes) and `english-scan-page-1_res.json` (2,458 bytes). The Markdown
-was prose-only and matched the fixture text. The JSON used direct top-level result keys and richer
-block fields rather than the strict provisional `{"res":{"parsing_res_list":...}}` envelope, so
-the adapter correctly failed closed with `vendor_artifact_schema_mismatch`. The exact inventory,
-digests, top-level keys, and block keys are frozen in `benchmarks/ocr/provider-startup.json`. No
-adapter relaxation is included; that schema decision remains an authority gate.
+was prose-only and matched the fixture text. The amended adapter rejects the unobserved nested
+envelope and accepts only the exact observed direct-top-level keys, strict page/layout/block types
+and bounds, supported prose labels, and Markdown/block equality. The exact inventory, digests,
+top-level keys, and block keys are bound through the repository authority validator to
+`benchmarks/ocr/provider-startup.json` and a public-safe sanitized observed fixture. Unknown or
+unsupported vendor content still fails closed.
 
 - [x] **Step 6: Run GREEN and commit Task 4**
 
@@ -678,7 +684,7 @@ tested `no_go` scorecard. Do not run or design a production provider.
 Task 4 closes as compatibility evidence, not a provider decision. The package matrix remains
 unchanged and canonical, the model and startup receipts are independently canonical, and required
 model-free suites remain network-free. Task 5 is not authorized by this checkpoint and remains
-unstarted pending review of the PaddleOCR-VL schema delta.
+unstarted pending targeted authority re-review of the bounded Task 4 amendment.
 
 ---
 

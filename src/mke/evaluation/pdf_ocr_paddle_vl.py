@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+import math
 import os
 import re
 import shutil
@@ -22,6 +23,48 @@ _MAX_VENDOR_FILE_BYTES = 8 * 1024 * 1024
 _MAX_VENDOR_TOTAL_BYTES = 12 * 1024 * 1024
 _VENDOR_READ_CHUNK_BYTES = 8192
 _SUPPORTED_BLOCK_LABELS = frozenset({"paragraph", "text"})
+_MAX_PAGE_DIMENSION = 100_000
+_MAX_BLOCKS = 1_000
+_MAX_TEXT_BYTES = 1024 * 1024
+_MAX_IDENTIFIER = 1_000_000
+_TOP_LEVEL_KEYS = {
+    "input_path",
+    "page_index",
+    "page_count",
+    "width",
+    "height",
+    "model_settings",
+    "parsing_res_list",
+    "layout_det_res",
+}
+_BLOCK_KEYS = {
+    "block_label",
+    "block_content",
+    "block_bbox",
+    "block_id",
+    "block_order",
+    "group_id",
+    "block_polygon_points",
+}
+_MODEL_SETTINGS = {
+    "use_doc_preprocessor": False,
+    "use_layout_detection": True,
+    "use_chart_recognition": False,
+    "use_seal_recognition": False,
+    "use_ocr_for_image_block": False,
+    "format_block_content": False,
+    "merge_layout_blocks": True,
+    "markdown_ignore_labels": [
+        "number",
+        "footnote",
+        "header",
+        "header_image",
+        "footer",
+        "footer_image",
+        "aside_text",
+    ],
+    "return_layout_polygon_points": True,
+}
 
 
 class PdfOcrChildError(RuntimeError):
@@ -113,6 +156,15 @@ def _plain_text(markdown: str) -> str:
     return normalized
 
 
+def validate_observed_vendor_evidence(value: object, markdown: str) -> str:
+    """Validate the pinned Phase 0 vendor envelope without exposing vendor-only fields."""
+    structured_text = _structured_text(value)
+    normalized_markdown = _plain_text(markdown)
+    if structured_text != normalized_markdown:
+        _fail("provider result schema is invalid")
+    return structured_text
+
+
 def _read_vendor_artifacts(private_root: Path) -> tuple[bytes, bytes]:
     try:
         entries = tuple(private_root.iterdir())
@@ -201,33 +253,168 @@ def _structured_text(value: object) -> str:
     if not isinstance(value, dict):
         _fail("provider result schema is invalid")
     root = cast(dict[str, object], value)
-    if set(root) != {"res"}:
+    if set(root) != _TOP_LEVEL_KEYS:
         _fail("provider result schema is invalid")
-    result = root["res"]
-    if not isinstance(result, dict):
+    width = _bounded_integer(root["width"], minimum=1, maximum=_MAX_PAGE_DIMENSION)
+    height = _bounded_integer(root["height"], minimum=1, maximum=_MAX_PAGE_DIMENSION)
+    input_path = root["input_path"]
+    if (
+        not isinstance(input_path, str)
+        or not input_path
+        or len(input_path) > 4096
+        or "\x00" in input_path
+    ):
         _fail("provider result schema is invalid")
-    result_payload = cast(dict[str, object], result)
-    if set(result_payload) != {"parsing_res_list"}:
+    if root["page_index"] is not None or root["page_count"] is not None:
         _fail("provider result schema is invalid")
-    blocks = result_payload["parsing_res_list"]
-    if not isinstance(blocks, list) or not blocks:
+    if root["model_settings"] != _MODEL_SETTINGS:
+        _fail("provider result schema is invalid")
+    layout_boxes = _layout_boxes(root["layout_det_res"], width=width, height=height)
+    blocks = root["parsing_res_list"]
+    if not isinstance(blocks, list):
+        _fail("provider result schema is invalid")
+    block_values = cast(list[object], blocks)
+    if (
+        not block_values
+        or len(block_values) > _MAX_BLOCKS
+        or len(layout_boxes) != len(block_values)
+    ):
         _fail("provider result schema is invalid")
     lines: list[str] = []
-    for raw_block in cast(list[object], blocks):
+    for index, raw_block in enumerate(block_values):
         if not isinstance(raw_block, dict):
             _fail("provider result schema is invalid")
         block = cast(dict[str, object], raw_block)
-        if set(block) != {"block_label", "block_content"}:
+        if set(block) != _BLOCK_KEYS:
             _fail("provider result schema is invalid")
         label = block["block_label"]
         content = block["block_content"]
-        if label not in _SUPPORTED_BLOCK_LABELS or not isinstance(content, str):
+        if (
+            label not in _SUPPORTED_BLOCK_LABELS
+            or not isinstance(content, str)
+            or len(content.encode("utf-8")) > _MAX_TEXT_BYTES
+        ):
+            _fail("provider result schema is invalid")
+        bbox = _bbox(block["block_bbox"], width=width, height=height)
+        polygon = _polygon(block["block_polygon_points"], width=width, height=height)
+        block_id = _bounded_integer(block["block_id"], minimum=0, maximum=_MAX_IDENTIFIER)
+        block_order = _bounded_integer(
+            block["block_order"], minimum=0, maximum=_MAX_IDENTIFIER
+        )
+        group_id = _bounded_integer(block["group_id"], minimum=0, maximum=_MAX_IDENTIFIER)
+        layout = layout_boxes[index] if index < len(layout_boxes) else None
+        if layout != (label, bbox, polygon, block_order):
+            _fail("provider result schema is invalid")
+        if block_id != index or group_id > block_id:
             _fail("provider result schema is invalid")
         normalized = _plain_text(content)
         if not normalized:
             _fail("provider result schema is invalid")
         lines.append(normalized)
     return normalize_ocr_text("\n".join(lines))
+
+
+def _layout_boxes(
+    value: object, *, width: int, height: int
+) -> list[tuple[str, tuple[int, int, int, int], tuple[tuple[float, float], ...], int]]:
+    if not isinstance(value, dict):
+        _fail("provider result schema is invalid")
+    root = cast(dict[str, object], value)
+    if set(root) != {"input_path", "page_index", "boxes"}:
+        _fail("provider result schema is invalid")
+    if root["input_path"] is not None or root["page_index"] is not None:
+        _fail("provider result schema is invalid")
+    boxes = root["boxes"]
+    if not isinstance(boxes, list):
+        _fail("provider result schema is invalid")
+    box_values = cast(list[object], boxes)
+    if not box_values or len(box_values) > _MAX_BLOCKS:
+        _fail("provider result schema is invalid")
+    validated: list[
+        tuple[str, tuple[int, int, int, int], tuple[tuple[float, float], ...], int]
+    ] = []
+    for raw in box_values:
+        if not isinstance(raw, dict):
+            _fail("provider result schema is invalid")
+        box = cast(dict[str, object], raw)
+        if set(box) != {
+            "cls_id",
+            "label",
+            "score",
+            "coordinate",
+            "order",
+            "polygon_points",
+        }:
+            _fail("provider result schema is invalid")
+        label = box["label"]
+        if label not in _SUPPORTED_BLOCK_LABELS:
+            _fail("provider result schema is invalid")
+        _bounded_integer(box["cls_id"], minimum=0, maximum=_MAX_IDENTIFIER)
+        score = _finite_number(box["score"])
+        if score < 0.0 or score > 1.0:
+            _fail("provider result schema is invalid")
+        validated.append(
+            (
+                cast(str, label),
+                _bbox(box["coordinate"], width=width, height=height),
+                _polygon(box["polygon_points"], width=width, height=height),
+                _bounded_integer(box["order"], minimum=0, maximum=_MAX_IDENTIFIER),
+            )
+        )
+    return validated
+
+
+def _bbox(value: object, *, width: int, height: int) -> tuple[int, int, int, int]:
+    if not isinstance(value, list):
+        _fail("provider result schema is invalid")
+    items = cast(list[object], value)
+    if len(items) != 4:
+        _fail("provider result schema is invalid")
+    x1 = _bounded_integer(items[0], minimum=0, maximum=width)
+    y1 = _bounded_integer(items[1], minimum=0, maximum=height)
+    x2 = _bounded_integer(items[2], minimum=0, maximum=width)
+    y2 = _bounded_integer(items[3], minimum=0, maximum=height)
+    if x2 <= x1 or y2 <= y1:
+        _fail("provider result schema is invalid")
+    return x1, y1, x2, y2
+
+
+def _polygon(
+    value: object, *, width: int, height: int
+) -> tuple[tuple[float, float], ...]:
+    if not isinstance(value, list):
+        _fail("provider result schema is invalid")
+    point_values = cast(list[object], value)
+    if len(point_values) != 4:
+        _fail("provider result schema is invalid")
+    points: list[tuple[float, float]] = []
+    for raw in point_values:
+        if not isinstance(raw, list):
+            _fail("provider result schema is invalid")
+        pair = cast(list[object], raw)
+        if len(pair) != 2:
+            _fail("provider result schema is invalid")
+        x = _finite_number(pair[0])
+        y = _finite_number(pair[1])
+        if x < 0 or x > width or y < 0 or y > height:
+            _fail("provider result schema is invalid")
+        points.append((x, y))
+    return tuple(points)
+
+
+def _bounded_integer(value: object, *, minimum: int, maximum: int) -> int:
+    if type(value) is not int or value < minimum or value > maximum:
+        _fail("provider result schema is invalid")
+    return value
+
+
+def _finite_number(value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        _fail("provider result schema is invalid")
+    result = float(value)
+    if not math.isfinite(result):
+        _fail("provider result schema is invalid")
+    return result
 
 
 def _require_file(path: Path, cause: str) -> None:

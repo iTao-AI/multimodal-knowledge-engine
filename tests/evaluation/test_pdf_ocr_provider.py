@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import os
 import sys
@@ -480,21 +481,150 @@ def _run_fake_vl(
 
 
 def _valid_vl_writer(root: Path, kind: str) -> None:
+    fixture = _observed_vl_fixture()
     if kind == "json":
-        (root / "result.json").write_text(
-            json.dumps(
-                {
-                    "res": {
-                        "parsing_res_list": [
-                            {"block_label": "text", "block_content": "alpha beta"}
-                        ]
-                    }
-                }
-            ),
-            encoding="utf-8",
-        )
+        value = copy.deepcopy(fixture["vendor_json"])
+        value["parsing_res_list"][0]["block_content"] = "alpha beta"
+        (root / "result.json").write_text(json.dumps(value), encoding="utf-8")
     else:
         (root / "result.md").write_text("alpha beta", encoding="utf-8")
+
+
+def _observed_vl_fixture() -> dict[str, Any]:
+    path = Path("tests/fixtures/pdf-ocr-provider/paddleocr-vl-1.6-observed.json")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_paddle_vl_accepts_only_observed_direct_top_level_prose_schema(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _observed_vl_fixture()
+
+    def writer(root: Path, kind: str) -> None:
+        if kind == "json":
+            (root / "result.json").write_text(
+                json.dumps(fixture["vendor_json"]), encoding="utf-8"
+            )
+        else:
+            (root / "result.md").write_text(fixture["markdown"], encoding="utf-8")
+
+    output, _private_root = _run_fake_vl(tmp_path, monkeypatch, writer)
+    result = json.loads(output.read_text(encoding="utf-8"))
+
+    assert result["normalized_text"] == fixture["markdown"]
+    serialized = output.read_text(encoding="utf-8")
+    assert "input_path" not in serialized
+    assert "model_settings" not in serialized
+
+
+def test_paddle_vl_rejects_the_unobserved_nested_result_envelope(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def writer(root: Path, kind: str) -> None:
+        if kind == "json":
+            (root / "result.json").write_text(
+                json.dumps(
+                    {"res": {"parsing_res_list": [{"block_label": "text", "block_content": "x"}]}}
+                ),
+                encoding="utf-8",
+            )
+        else:
+            (root / "result.md").write_text("x", encoding="utf-8")
+
+    with pytest.raises(PaddleVlChildError, match="provider result schema is invalid"):
+        _run_fake_vl(tmp_path, monkeypatch, writer)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "extra-top-level-key",
+        "boolean-width",
+        "page-index",
+        "extra-block-key",
+        "unsupported-label",
+        "non-finite-coordinate",
+        "model-setting-drift",
+        "layout-label-drift",
+        "extra-layout-box",
+        "excessive-blocks",
+    ],
+)
+def test_paddle_vl_rejects_observed_schema_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: str,
+) -> None:
+    fixture = _observed_vl_fixture()
+    vendor = copy.deepcopy(fixture["vendor_json"])
+    if mutation == "extra-top-level-key":
+        vendor["unexpected"] = True
+    elif mutation == "boolean-width":
+        vendor["width"] = True
+    elif mutation == "page-index":
+        vendor["page_index"] = 0
+    elif mutation == "extra-block-key":
+        vendor["parsing_res_list"][0]["unexpected"] = 1
+    elif mutation == "unsupported-label":
+        vendor["parsing_res_list"][0]["block_label"] = "table"
+    elif mutation == "non-finite-coordinate":
+        vendor["parsing_res_list"][0]["block_polygon_points"][0][0] = float("inf")
+    elif mutation == "model-setting-drift":
+        vendor["model_settings"]["use_chart_recognition"] = True
+    elif mutation == "layout-label-drift":
+        vendor["layout_det_res"]["boxes"][0]["label"] = "image"
+    elif mutation == "extra-layout-box":
+        vendor["layout_det_res"]["boxes"].append(
+            copy.deepcopy(vendor["layout_det_res"]["boxes"][0])
+        )
+    else:
+        vendor["parsing_res_list"] = vendor["parsing_res_list"] * 1001
+
+    def writer(root: Path, kind: str) -> None:
+        if kind == "json":
+            (root / "result.json").write_text(json.dumps(vendor), encoding="utf-8")
+        else:
+            (root / "result.md").write_text(fixture["markdown"], encoding="utf-8")
+
+    with pytest.raises(PaddleVlChildError, match="provider result schema is invalid"):
+        _run_fake_vl(tmp_path, monkeypatch, writer)
+
+
+def test_paddle_vl_requires_markdown_to_equal_validated_block_text(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _observed_vl_fixture()
+
+    def writer(root: Path, kind: str) -> None:
+        if kind == "json":
+            (root / "result.json").write_text(
+                json.dumps(fixture["vendor_json"]), encoding="utf-8"
+            )
+        else:
+            (root / "result.md").write_text("different prose", encoding="utf-8")
+
+    with pytest.raises(PaddleVlChildError, match="provider result schema is invalid"):
+        _run_fake_vl(tmp_path, monkeypatch, writer)
+
+
+def test_paddle_vl_fails_closed_on_excessive_json_nesting(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def writer(root: Path, kind: str) -> None:
+        if kind == "json":
+            (root / "result.json").write_text(
+                '{"nested":' + "[" * 2000 + "0" + "]" * 2000 + "}",
+                encoding="utf-8",
+            )
+        else:
+            (root / "result.md").write_text("plain prose", encoding="utf-8")
+
+    with pytest.raises(PaddleVlChildError, match="provider result schema is invalid"):
+        _run_fake_vl(tmp_path, monkeypatch, writer)
 
 
 @pytest.mark.parametrize("mutation", ["unexpected", "nested", "symlink"])

@@ -868,6 +868,46 @@ def test_model_prepare_publishes_content_addressed_public_receipt(
     )
 
 
+def test_model_tree_rejects_same_size_replacement_between_identity_and_receipt_hash(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    compatibility = _module()
+    original = b"original-model"
+    replacement = b"changed-model!"
+    assert len(original) == len(replacement)
+    path = tmp_path / "model.bin"
+    path.write_bytes(original)
+    expected = (("model.bin", len(original), hashlib.sha256(original).hexdigest()),)
+    real_sha256 = compatibility.hashlib.sha256
+    replaced = False
+
+    class RacingDigest:
+        def __init__(self, *args, **kwargs) -> None:
+            self._digest = real_sha256(*args, **kwargs)
+
+        def update(self, value: bytes) -> None:
+            self._digest.update(value)
+
+        def hexdigest(self) -> str:
+            nonlocal replaced
+            result = self._digest.hexdigest()
+            if not replaced:
+                replacement_path = tmp_path / "replacement.bin"
+                replacement_path.write_bytes(replacement)
+                os.replace(replacement_path, path)
+                replaced = True
+            return result
+
+    monkeypatch.setattr(compatibility.hashlib, "sha256", RacingDigest)
+
+    with pytest.raises(compatibility.CompatibilityError, match="model_artifact_invalid"):
+        compatibility._validated_model_tree(tmp_path, expected)
+
+    assert replaced is True
+    assert path.read_bytes() == replacement
+
+
 def _provider_startup_receipt() -> dict[str, object]:
     return {
         "schema": "mke.pdf_ocr_provider_startup.v1",
@@ -935,6 +975,75 @@ def test_provider_startup_receipt_is_closed_and_public_neutral() -> None:
         compatibility.validate_provider_startup_receipt(private)
 
 
+@pytest.mark.parametrize(
+    ("field", "provider_index", "value"),
+    [
+        ("package_receipt_sha256", None, "a" * 64),
+        ("model_receipt_sha256", None, "b" * 64),
+        ("normalized_text_sha256", 0, "c" * 64),
+        ("normalized_text_sha256", 1, "c" * 64),
+        ("normalized_text_sha256", 2, "c" * 64),
+    ],
+)
+def test_provider_startup_authority_rejects_cross_artifact_hash_drift(
+    field: str,
+    provider_index: int | None,
+    value: str,
+) -> None:
+    compatibility = _module()
+    repository = Path(__file__).resolve().parents[2]
+    receipt = json.loads((repository / "benchmarks/ocr/provider-startup.json").read_bytes())
+    if provider_index is not None:
+        receipt["providers"][provider_index][field] = value
+    else:
+        receipt[field] = value
+
+    compatibility.validate_provider_startup_receipt(receipt)
+    with pytest.raises(ValueError, match="startup authority"):
+        compatibility.validate_provider_startup_authority(repository, receipt)
+
+
+def test_committed_provider_startup_receipt_passes_repository_authority() -> None:
+    compatibility = _module()
+    repository = Path(__file__).resolve().parents[2]
+    path = repository / "benchmarks/ocr/provider-startup.json"
+    receipt = json.loads(path.read_bytes())
+
+    compatibility.validate_provider_startup_authority(repository, receipt)
+    assert path.read_bytes() == compatibility.canonical_provider_startup_bytes(receipt)
+
+
+def test_provider_startup_authority_writer_is_atomic_and_rejects_drift(
+    tmp_path: Path,
+) -> None:
+    compatibility = _module()
+    repository = Path(__file__).resolve().parents[2]
+    receipt = json.loads((repository / "benchmarks/ocr/provider-startup.json").read_bytes())
+    expected_text = b"Aurora station uses amber seals for verified cargo."
+    text_digest = hashlib.sha256(expected_text).hexdigest()
+    paddle = receipt["providers"][1]
+    paddle.update(
+        {
+            "status": "passed",
+            "failure_code": None,
+            "duration_ms": 1,
+            "normalized_text_sha256": text_digest,
+        }
+    )
+    paddle["vendor_artifacts"]["adapter_result"] = "accepted_strict_observed_schema"
+    output = tmp_path / "provider-startup.json"
+
+    compatibility.write_provider_startup_receipt(repository, receipt, output)
+    assert output.read_bytes() == compatibility.canonical_provider_startup_bytes(receipt)
+
+    drifted = copy.deepcopy(receipt)
+    drifted["model_receipt_sha256"] = "f" * 64
+    rejected = tmp_path / "rejected.json"
+    with pytest.raises(ValueError, match="startup authority"):
+        compatibility.write_provider_startup_receipt(repository, drifted, rejected)
+    assert not rejected.exists()
+
+
 def test_committed_model_and_startup_receipts_are_canonical_and_frozen() -> None:
     compatibility = _module()
     root = Path(__file__).resolve().parents[2] / "benchmarks/ocr"
@@ -943,11 +1052,6 @@ def test_committed_model_and_startup_receipts_are_canonical_and_frozen() -> None
             "model-artifacts.json",
             "3d1e8c45b7ed0c817acaeda3f51954b463016763690e09ca1f23162042219d6e",
             compatibility.canonical_model_receipt_bytes,
-        ),
-        (
-            "provider-startup.json",
-            "171cf5d345cbc986aa4354c5ede564daeff003b31f8e661e21099de990995069",
-            compatibility.canonical_provider_startup_bytes,
         ),
     )
     for name, expected_sha256, canonical in cases:

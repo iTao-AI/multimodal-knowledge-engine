@@ -460,6 +460,117 @@ def canonical_provider_startup_bytes(receipt: object) -> bytes:
     ).encode("utf-8")
 
 
+def validate_provider_startup_authority(repository: Path, value: object) -> None:
+    try:
+        validate_provider_startup_receipt(value)
+        root = _mapping(value)
+        package_path = repository / "benchmarks/ocr/candidate-environments.json"
+        model_path = repository / "benchmarks/ocr/model-artifacts.json"
+        protocol_path = repository / "tests/fixtures/pdf-ocr-phase0-v1/protocol.json"
+        observed_path = (
+            repository
+            / "tests/fixtures/pdf-ocr-provider/paddleocr-vl-1.6-observed.json"
+        )
+        package_bytes = package_path.read_bytes()
+        package_value: object = json.loads(package_bytes.decode("utf-8"))
+        if package_bytes != canonical_receipt_bytes(package_value):
+            raise ValueError
+        model_bytes = model_path.read_bytes()
+        model_value: object = json.loads(model_bytes.decode("utf-8"))
+        if model_bytes != canonical_model_receipt_bytes(model_value):
+            raise ValueError
+        if root["package_receipt_sha256"] != hashlib.sha256(package_bytes).hexdigest():
+            raise ValueError
+        if root["model_receipt_sha256"] != hashlib.sha256(model_bytes).hexdigest():
+            raise ValueError
+        protocol: object = json.loads(protocol_path.read_text(encoding="utf-8"))
+        expected_text = _expected_english_scan_truth(protocol)
+        expected_text_sha256 = hashlib.sha256(expected_text.encode("utf-8")).hexdigest()
+        provider_inventory = root["providers"]
+        if not isinstance(provider_inventory, list):
+            raise ValueError
+        providers = cast(list[object], provider_inventory)
+        if any(_mapping(item)["status"] != "passed" for item in providers):
+            raise ValueError
+        for raw_provider in providers:
+            provider = _mapping(raw_provider)
+            if provider["status"] == "passed" and (
+                provider["normalized_text_sha256"] != expected_text_sha256
+            ):
+                raise ValueError
+        observed = _mapping(json.loads(observed_path.read_text(encoding="utf-8")))
+        _exact(observed, {"source_artifacts", "vendor_json", "markdown"})
+        if observed["markdown"] != expected_text:
+            raise ValueError
+        from mke.evaluation.pdf_ocr_paddle_vl import validate_observed_vendor_evidence
+
+        if (
+            validate_observed_vendor_evidence(
+                observed["vendor_json"], cast(str, observed["markdown"])
+            )
+            != expected_text
+        ):
+            raise ValueError
+        paddle = _mapping(providers[1])
+        artifacts = _mapping(paddle["vendor_artifacts"])
+        if artifacts["files"] != observed["source_artifacts"]:
+            raise ValueError
+        vendor_json = _mapping(observed["vendor_json"])
+        blocks = cast(list[object], vendor_json["parsing_res_list"])
+        first_block = _mapping(blocks[0])
+        if artifacts["json_top_level_keys"] != sorted(vendor_json):
+            raise ValueError
+        if artifacts["parsing_block_keys"] != sorted(first_block):
+            raise ValueError
+    except (KeyError, OSError, TypeError, UnicodeError, json.JSONDecodeError, ValueError) as error:
+        raise ValueError("provider startup authority is invalid") from error
+
+
+def write_provider_startup_receipt(repository: Path, value: object, output: Path) -> None:
+    validate_provider_startup_authority(repository, value)
+    encoded = canonical_provider_startup_bytes(value)
+    temporary = output.with_suffix(output.suffix + ".tmp")
+    if output.exists() or temporary.exists():
+        raise ValueError("provider startup authority is invalid")
+    try:
+        temporary.write_bytes(encoded)
+        os.replace(temporary, output)
+    except OSError as error:
+        temporary.unlink(missing_ok=True)
+        raise ValueError("provider startup authority is invalid") from error
+
+
+def _expected_english_scan_truth(value: object) -> str:
+    root = _mapping(value)
+    if root.get("protocol_id") != "pdf-ocr-phase0-v1":
+        raise ValueError
+    documents = root.get("documents")
+    if not isinstance(documents, list):
+        raise ValueError
+    matches = [
+        _mapping(item)
+        for item in cast(list[object], documents)
+        if _mapping(item).get("document_id") == "english-scan"
+    ]
+    if len(matches) != 1:
+        raise ValueError
+    pages = matches[0].get("pages")
+    if not isinstance(pages, list):
+        raise ValueError
+    page_values = cast(list[object], pages)
+    if len(page_values) != 1:
+        raise ValueError
+    page = _mapping(page_values[0])
+    if page.get("page_number") != 1 or page.get("expected_route") != "ocr_required":
+        raise ValueError
+    text = page.get("expected_ocr_text")
+    if not isinstance(text, str) or not text:
+        raise ValueError
+    from mke.evaluation.pdf_ocr_provider import normalize_ocr_text
+
+    return normalize_ocr_text(text)
+
+
 def validate_provider_startup_receipt(value: object) -> None:
     try:
         root = _mapping(value)
@@ -531,10 +642,13 @@ def validate_provider_startup_receipt(value: object) -> None:
                     provider["failure_code"] is not None
                     or _nonnegative_integer(provider["duration_ms"]) <= 0
                     or not isinstance(provider["normalized_text_sha256"], str)
-                    or provider["vendor_artifacts"] is not None
                 ):
                     raise ValueError
                 _digest(provider["normalized_text_sha256"])
+                if expected_provider == "paddleocr-vl-1.6-cpu-spike-v1":
+                    _validate_vendor_artifacts(provider["vendor_artifacts"], accepted=True)
+                elif provider["vendor_artifacts"] is not None:
+                    raise ValueError
             elif status_value == "failed" and expected_provider == "paddleocr-vl-1.6-cpu-spike-v1":
                 if (
                     provider["failure_code"] != "vendor_artifact_schema_mismatch"
@@ -542,7 +656,7 @@ def validate_provider_startup_receipt(value: object) -> None:
                     or provider["normalized_text_sha256"] is not None
                 ):
                     raise ValueError
-                _validate_vendor_artifacts(provider["vendor_artifacts"])
+                _validate_vendor_artifacts(provider["vendor_artifacts"], accepted=False)
             else:
                 raise ValueError
         encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
@@ -552,7 +666,7 @@ def validate_provider_startup_receipt(value: object) -> None:
         raise ValueError("provider startup receipt is invalid") from error
 
 
-def _validate_vendor_artifacts(value: object) -> None:
+def _validate_vendor_artifacts(value: object, *, accepted: bool) -> None:
     artifacts = _mapping(value)
     _exact(
         artifacts,
@@ -589,7 +703,8 @@ def _validate_vendor_artifacts(value: object) -> None:
             _safe(item)
     if (
         artifacts["markdown_class"] != "prose_only"
-        or artifacts["adapter_result"] != "rejected_fail_closed"
+        or artifacts["adapter_result"]
+        != ("accepted_strict_observed_schema" if accepted else "rejected_fail_closed")
     ):
         raise ValueError
 
@@ -790,23 +905,90 @@ def _validated_model_tree(
         if relative not in expected_by_path:
             raise CompatibilityError("model_inventory_invalid")
         expected_size, upstream_identity = expected_by_path[relative]
-        if (
-            metadata.st_size != expected_size
-            or _model_file_identity(path, upstream_identity) != upstream_identity
-        ):
-            raise CompatibilityError("model_artifact_invalid")
-        observed.append({"path": relative, "bytes": metadata.st_size, "sha256": _sha256_file(path)})
+        observed.append(
+            _validated_model_file(
+                path,
+                relative=relative,
+                inventory_metadata=metadata,
+                expected_size=expected_size,
+                upstream_identity=upstream_identity,
+            )
+        )
     if [cast(str, item["path"]) for item in observed] != [path for path, _, _ in expected]:
         raise CompatibilityError("model_artifact_invalid")
     return observed
 
 
-def _model_file_identity(path: Path, expected: str) -> str:
-    if len(expected) == 64:
-        return _sha256_file(path)
-    content = path.read_bytes()
-    header = f"blob {len(content)}\0".encode("ascii")
-    return hashlib.sha1(header + content, usedforsecurity=False).hexdigest()
+def _validated_model_file(
+    path: Path,
+    *,
+    relative: str,
+    inventory_metadata: os.stat_result,
+    expected_size: int,
+    upstream_identity: str,
+) -> dict[str, object]:
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_CLOEXEC", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    descriptor = -1
+    try:
+        before = path.lstat()
+        if not stat.S_ISREG(before.st_mode) or _file_identity(before) != _file_identity(
+            inventory_metadata
+        ):
+            raise CompatibilityError("model_artifact_invalid")
+        descriptor = os.open(path, flags)
+        opened = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or opened.st_size != expected_size
+            or _file_identity(opened) != _file_identity(inventory_metadata)
+        ):
+            raise CompatibilityError("model_artifact_invalid")
+        receipt_digest = hashlib.sha256()
+        git_digest = hashlib.sha1(usedforsecurity=False)
+        git_digest.update(f"blob {expected_size}\0".encode("ascii"))
+        actual_size = 0
+        while True:
+            chunk = os.read(
+                descriptor,
+                min(_MODEL_DOWNLOAD_CHUNK_BYTES, expected_size - actual_size + 1),
+            )
+            if not chunk:
+                break
+            actual_size += len(chunk)
+            if actual_size > expected_size:
+                raise CompatibilityError("model_artifact_invalid")
+            receipt_digest.update(chunk)
+            git_digest.update(chunk)
+        receipt_sha256 = receipt_digest.hexdigest()
+        observed_upstream = (
+            receipt_sha256 if len(upstream_identity) == 64 else git_digest.hexdigest()
+        )
+        after_descriptor = os.fstat(descriptor)
+        after_path = path.lstat()
+        if (
+            actual_size != expected_size
+            or observed_upstream != upstream_identity
+            or _file_identity(after_descriptor) != _file_identity(inventory_metadata)
+            or _file_identity(after_path) != _file_identity(inventory_metadata)
+        ):
+            raise CompatibilityError("model_artifact_invalid")
+        return {"path": relative, "bytes": actual_size, "sha256": receipt_sha256}
+    except OSError as error:
+        raise CompatibilityError("model_artifact_invalid") from error
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+
+
+def _file_identity(metadata: os.stat_result) -> tuple[int, int, int, int, int]:
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        metadata.st_size,
+        metadata.st_mtime_ns,
+        metadata.st_ctime_ns,
+    )
 
 
 def _model_tree_sha256(files: list[dict[str, object]]) -> str:
