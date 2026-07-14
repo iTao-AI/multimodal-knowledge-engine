@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import os
@@ -38,6 +39,7 @@ STABLE_FAILURE_CODES = (
     "mcp_transport_failed",
     "server_exit_nonzero",
     "command_output_exceeded",
+    "candidate_artifact_invalid",
     "cleanup_failed",
     "proof_failed",
 )
@@ -472,6 +474,169 @@ def _success_payload(proof: Any) -> dict[str, object]:
         "redaction": True,
         "server_cleanup": True,
     }
+
+
+def _candidate_repository(tmp_path: Path) -> tuple[Path, Path]:
+    repository = tmp_path / "candidate-repository"
+    repository.mkdir()
+    (repository / "pyproject.toml").write_text(
+        '[project]\nname = "multimodal-knowledge-engine"\n'
+        'version = "0.1.1"\nrequires-python = ">=3.12,<3.14"\n',
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "init", "-q"], cwd=repository, check=True)
+    subprocess.run(["git", "add", "pyproject.toml"], cwd=repository, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=MKE Test",
+            "-c",
+            "user.email=mke-test@example.invalid",
+            "commit",
+            "-qm",
+            "fixture",
+        ],
+        cwd=repository,
+        check=True,
+    )
+    wheel = repository.parent / "multimodal_knowledge_engine-0.1.1-py3-none-any.whl"
+    wheel.write_bytes(b"exact-wheel-bytes")
+    return repository, wheel
+
+
+def _candidate_success(wheel: Path) -> dict[str, object]:
+    return {
+        "status": "passed",
+        "proof_input_wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
+    }
+
+
+def test_candidate_receipt_is_closed_canonical_and_bound_to_clean_source(
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    repository, wheel = _candidate_repository(tmp_path)
+
+    receipt = proof.build_candidate_receipt(
+        repository, wheel, "0.1.1", _candidate_success(wheel)
+    )
+
+    assert set(receipt) == {
+        "schema_version",
+        "repository",
+        "source_commit",
+        "package_name",
+        "package_version",
+        "wheel_filename",
+        "wheel_bytes",
+        "wheel_sha256",
+        "requires_python",
+        "consumer_proof_schema",
+        "consumer_proof_status",
+        "proof_input_wheel_sha256",
+        "receipt_sha256",
+    }
+    assert receipt == {
+        "schema_version": "mke.candidate_artifact_receipt.v1",
+        "repository": "iTao-AI/multimodal-knowledge-engine",
+        "source_commit": subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repository,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip(),
+        "package_name": "multimodal-knowledge-engine",
+        "package_version": "0.1.1",
+        "wheel_filename": wheel.name,
+        "wheel_bytes": len(b"exact-wheel-bytes"),
+        "wheel_sha256": hashlib.sha256(b"exact-wheel-bytes").hexdigest(),
+        "requires_python": ">=3.12,<3.14",
+        "consumer_proof_schema": "mke.consumer_source_pack_proof.v1",
+        "consumer_proof_status": "passed",
+        "proof_input_wheel_sha256": hashlib.sha256(b"exact-wheel-bytes").hexdigest(),
+        "receipt_sha256": receipt["receipt_sha256"],
+    }
+    assert receipt["receipt_sha256"] == proof.canonical_sha256(
+        {key: value for key, value in receipt.items() if key != "receipt_sha256"}
+    )
+    source_commit = receipt["source_commit"]
+    assert isinstance(source_commit, str)
+    assert len(source_commit) == 40
+    assert re.fullmatch(r"[0-9a-f]{40}", source_commit)
+
+
+def test_candidate_receipt_fails_closed_for_non_sha1_repository(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof = _load()
+    repository, wheel = _candidate_repository(tmp_path)
+    real_run = proof.subprocess.run
+
+    def fake_run(command: Sequence[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        if list(command) == ["git", "rev-parse", "--show-object-format"]:
+            return subprocess.CompletedProcess(command, 0, "sha256\n", "")
+        return real_run(command, **kwargs)
+
+    monkeypatch.setattr(proof.subprocess, "run", fake_run)
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.build_candidate_receipt(
+            repository, wheel, "0.1.1", _candidate_success(wheel)
+        )
+
+    assert exc_info.value.code == "candidate_artifact_invalid"
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "dirty_git",
+        "missing_git",
+        "wrong_package_version",
+        "failed_proof",
+        "zero_byte_wheel",
+        "invalid_wheel_filename",
+        "wheel_digest_mismatch",
+    ],
+)
+def test_candidate_receipt_rejects_invalid_source_artifact_or_proof(
+    tmp_path: Path, mutation: str
+) -> None:
+    proof = _load()
+    repository, wheel = _candidate_repository(tmp_path)
+    package_version = "0.1.1"
+    proof_result = _candidate_success(wheel)
+    if mutation == "dirty_git":
+        (repository / "untracked.txt").write_text("dirty", encoding="utf-8")
+    elif mutation == "missing_git":
+        repository = tmp_path / "not-a-repository"
+        repository.mkdir()
+        (repository / "pyproject.toml").write_text(
+            '[project]\nname = "multimodal-knowledge-engine"\n'
+            'version = "0.1.1"\nrequires-python = ">=3.12,<3.14"\n',
+            encoding="utf-8",
+        )
+    elif mutation == "wrong_package_version":
+        package_version = "0.1.2"
+    elif mutation == "failed_proof":
+        proof_result["status"] = "failed"
+    elif mutation == "zero_byte_wheel":
+        wheel.write_bytes(b"")
+        proof_result = _candidate_success(wheel)
+    elif mutation == "invalid_wheel_filename":
+        invalid = wheel.with_name("unsafe.whl")
+        invalid.write_bytes(wheel.read_bytes())
+        wheel = invalid
+        proof_result = _candidate_success(wheel)
+    elif mutation == "wheel_digest_mismatch":
+        proof_result["proof_input_wheel_sha256"] = "0" * 64
+
+    with pytest.raises(proof.ControllerError) as exc_info:
+        proof.build_candidate_receipt(repository, wheel, package_version, proof_result)
+
+    assert exc_info.value.code == "candidate_artifact_invalid"
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX process-group contract")

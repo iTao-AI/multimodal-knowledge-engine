@@ -4,14 +4,17 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
 import tempfile
 import threading
 import time
+import tomllib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,6 +22,11 @@ from typing import BinaryIO, cast
 
 _DIRTY_ENV = frozenset({"PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"})
 _DISTRIBUTION = "multimodal-knowledge-engine"
+_CANDIDATE_RECEIPT_SCHEMA = "mke.candidate_artifact_receipt.v1"
+_CONSUMER_PROOF_SCHEMA = "mke.consumer_source_pack_proof.v1"
+_REPOSITORY = "iTao-AI/multimodal-knowledge-engine"
+_GIT_SHA1 = re.compile(r"^[0-9a-f]{40}$")
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _READ_SIZE = 4096
 _TERMINATION_GRACE_SECONDS = 0.5
 _STABLE_FAILURE_CODES = frozenset(
@@ -41,6 +49,7 @@ _STABLE_FAILURE_CODES = frozenset(
         "mcp_transport_failed",
         "server_exit_nonzero",
         "command_output_exceeded",
+        "candidate_artifact_invalid",
         "cleanup_failed",
         "proof_failed",
     }
@@ -144,6 +153,100 @@ class ProofConfig:
 
 def isolated_environment(base: Mapping[str, str]) -> dict[str, str]:
     return {key: value for key, value in base.items() if key not in _DIRTY_ENV}
+
+
+def canonical_sha256(value: Mapping[str, object]) -> str:
+    encoded = json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def build_candidate_receipt(
+    repository: Path,
+    wheel: Path,
+    package_version: str,
+    proof_result: Mapping[str, object],
+) -> dict[str, object]:
+    try:
+        status = subprocess.run(
+            ["git", "status", "--porcelain=v1", "--untracked-files=all"],
+            cwd=repository,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repository,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        object_format = subprocess.run(
+            ["git", "rev-parse", "--show-object-format"],
+            cwd=repository,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        project = tomllib.loads((repository / "pyproject.toml").read_text(encoding="utf-8"))[
+            "project"
+        ]
+        wheel_bytes = wheel.read_bytes()
+    except (KeyError, OSError, subprocess.SubprocessError, tomllib.TOMLDecodeError) as exc:
+        raise ControllerError("candidate_artifact_invalid") from exc
+    source_commit = commit.stdout.strip()
+    project_name = project.get("name")
+    project_version = project.get("version")
+    requires_python = project.get("requires-python")
+    wheel_sha256 = hashlib.sha256(wheel_bytes).hexdigest()
+    proof_wheel_sha256 = proof_result.get("proof_input_wheel_sha256")
+    expected_wheel = re.compile(
+        rf"^multimodal_knowledge_engine-{re.escape(package_version)}-[A-Za-z0-9_.-]+\.whl$"
+    )
+    if (
+        status.returncode != 0
+        or status.stdout != ""
+        or commit.returncode != 0
+        or object_format.returncode != 0
+        or object_format.stdout.strip() != "sha1"
+        or not _GIT_SHA1.fullmatch(source_commit)
+        or project_name != _DISTRIBUTION
+        or project_version != package_version
+        or not isinstance(requires_python, str)
+        or not requires_python
+        or not wheel_bytes
+        or wheel.is_symlink()
+        or expected_wheel.fullmatch(wheel.name) is None
+        or proof_result.get("status") != "passed"
+        or not isinstance(proof_wheel_sha256, str)
+        or not _SHA256.fullmatch(wheel_sha256)
+        or not _SHA256.fullmatch(proof_wheel_sha256)
+        or proof_wheel_sha256 != wheel_sha256
+    ):
+        raise ControllerError("candidate_artifact_invalid")
+    receipt: dict[str, object] = {
+        "schema_version": _CANDIDATE_RECEIPT_SCHEMA,
+        "repository": _REPOSITORY,
+        "source_commit": source_commit,
+        "package_name": _DISTRIBUTION,
+        "package_version": package_version,
+        "wheel_filename": wheel.name,
+        "wheel_bytes": len(wheel_bytes),
+        "wheel_sha256": wheel_sha256,
+        "requires_python": requires_python,
+        "consumer_proof_schema": _CONSUMER_PROOF_SCHEMA,
+        "consumer_proof_status": "passed",
+        "proof_input_wheel_sha256": proof_wheel_sha256,
+    }
+    receipt["receipt_sha256"] = canonical_sha256(receipt)
+    if not _SHA256.fullmatch(receipt["receipt_sha256"]):
+        raise ControllerError("candidate_artifact_invalid")
+    return receipt
 
 
 def _group_exists(pgid: int) -> bool:
