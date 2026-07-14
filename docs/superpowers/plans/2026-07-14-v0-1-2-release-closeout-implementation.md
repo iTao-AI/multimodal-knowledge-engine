@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this plan task-by-task. Use `superpowers:test-driven-development` for every behavior change and `superpowers:verification-before-completion` before claiming a gate passed. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-Status: pending targeted engineering re-review. Implementation must not start until this committed plan is cleared and explicitly dispatched.
+Status: CLEARED FOR IMPLEMENTATION. Implementation may begin only after explicit authority dispatch; this closure does not start implementation.
 
 Planning base: `main@16fae017ced5fe67da3fae4a01f26e9e9f1084aa`.
 

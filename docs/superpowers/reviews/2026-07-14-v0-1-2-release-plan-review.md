@@ -1,12 +1,15 @@
 # v0.1.2 Release Closeout Plan Review
 
-Status: AMENDMENTS REQUIRED — targeted engineering re-review pending.
+Status: CLEARED FOR IMPLEMENTATION. Explicit authority dispatch is still required before implementation begins.
 
 ## Review Target
 
 - Plan commit: `d7b706428f238e4ff1d3b5bf220d10e24438a41c`.
+- Targeted re-review commit: `f2c7ae3ec393aad7ed40f9fbd898d587e6d58eed`.
 - Approved spec: [v0.1.2 Release Closeout Design](../specs/2026-07-14-v0-1-2-release-closeout-design.md).
 - Planning base: `main@16fae017ced5fe67da3fae4a01f26e9e9f1084aa`.
+
+Targeted engineering re-review completed against the amended plan commit and accepted all five amendments. No actionable engineering finding remains. This review closure does not start implementation or authorize any external side effect.
 
 ## Review Mode
 
@@ -76,6 +79,6 @@ Engineering execution review. The review checks whether the approved release-clo
 
 ## Verdict
 
-AMENDMENTS REQUIRED — targeted engineering re-review pending.
+CLEARED FOR IMPLEMENTATION.
 
-Release implementation, version changes, push, PR, merge, tag, GitHub Release, and publication remain unauthorized.
+Implementation may begin only after explicit authority dispatch. This closure itself does not start implementation. Push, PR, merge, tag, GitHub Release, publication, OCR changes, and candidate-artifact worktree changes remain unauthorized.
