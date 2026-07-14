@@ -1,6 +1,6 @@
 # v0.1.2 Release Closeout Design
 
-Status: approved for implementation planning after authoritative review of the committed specification.
+Status: release changes complete; clean-candidate verification and authoritative review pending.
 
 Planning base: `main@16fae017ced5fe67da3fae4a01f26e9e9f1084aa`.
 

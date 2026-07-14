@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this plan task-by-task. Use `superpowers:test-driven-development` for every behavior change and `superpowers:verification-before-completion` before claiming a gate passed. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-Status: CLEARED FOR IMPLEMENTATION. Implementation may begin only after explicit authority dispatch; this closure does not start implementation.
+Status: release changes complete; clean-candidate verification and authoritative review pending.
 
 Planning base: `main@16fae017ced5fe67da3fae4a01f26e9e9f1084aa`.
 
@@ -119,7 +119,7 @@ final reviewed candidate-output wheel + receipt
 - Produces: one exact `0.1.2` identity across source, lock, build, and consumer smoke.
 - Failure contract: any metadata disagreement is a stable smoke failure; dependency or runtime drift is a hard stop.
 
-- [ ] **Step 1: Write the RED version assertions**
+- [x] **Step 1: Write the RED version assertions**
 
 Change only current-release expectations in the three test files from `0.1.1` to `0.1.2`. Rename test functions that embed `v0_1_1`. Keep failure-path fixture versions unchanged when they are intentionally synthetic.
 
@@ -134,7 +134,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected RED: failures identify the still-current `0.1.1` source and smoke implementation. Any unrelated failure is investigated before implementation.
 
-- [ ] **Step 2: Apply the minimal package identity change**
+- [x] **Step 2: Apply the minimal package identity change**
 
 Set:
 
@@ -150,7 +150,7 @@ uv lock --offline
 
 Inspect `uv.lock` and require that the root `multimodal-knowledge-engine` package version is the only dependency-graph identity delta. If any dependency name, version, source, marker, extra, wheel, or checksum changes, restore nothing automatically: stop and report the lock drift.
 
-- [ ] **Step 3: Run the identity tests GREEN**
+- [x] **Step 3: Run the identity tests GREEN**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -170,7 +170,7 @@ PY
 git diff --check
 ```
 
-- [ ] **Step 4: Audit and commit the exact Task 1 files**
+- [x] **Step 4: Audit and commit the exact Task 1 files**
 
 ```bash
 git diff -- pyproject.toml src/mke/__init__.py uv.lock \
@@ -196,7 +196,7 @@ git commit -m "chore(release): set v0.1.2 identity"
 - Produces: deterministic violations for stale release identity, wildcard wheel commands, missing Evidence/source-pack presentation, comparison-only drift, and overclaimed downstream evidence.
 - Failure contract: a missing or overstated boundary is a release audit failure, never a warning.
 
-- [ ] **Step 1: Add RED audit tests for current release identity**
+- [x] **Step 1: Add RED audit tests for current release identity**
 
 Update the synthetic release tree and assertions to require:
 
@@ -216,7 +216,7 @@ UV_OFFLINE=1 uv run pytest -q tests/scripts/test_release_presentation_audit.py
 
 Expected RED: the audit implementation still targets `v0.1.1` and lacks the new current-release terms.
 
-- [ ] **Step 2: Add RED downstream-boundary mutation tests**
+- [x] **Step 2: Add RED downstream-boundary mutation tests**
 
 Require the current release notes to contain:
 
@@ -235,11 +235,11 @@ Add mutations that must be rejected:
 
 Run the focused new cases and confirm RED for the missing audit behavior.
 
-- [ ] **Step 3: Implement the minimal audit update**
+- [x] **Step 3: Implement the minimal audit update**
 
 Update `scripts/release_presentation_audit.py` so the current file tuples, headings, terms, release-note checks, command checks, and parser description target `v0.1.2`. Keep historical release documents outside current-release mutation rules. Add one focused downstream boundary audit; do not embed private workflow or local paths.
 
-- [ ] **Step 4: Run audit tests GREEN and commit**
+- [x] **Step 4: Run audit tests GREEN and commit**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/scripts/test_release_presentation_audit.py
@@ -298,7 +298,7 @@ The expected-negative probe must exit `1` with valid JSON, `status == "failed"`,
 - Produces: public-neutral current release notes and reproducible commands without inventing tag, Release, archive, publication, or PyPI facts.
 - Failure contract: stale current-release language, private material, wildcard wheel commands, or unsupported claims fail tests/audit.
 
-- [ ] **Step 1: Write RED source-pack documentation assertions**
+- [x] **Step 1: Write RED source-pack documentation assertions**
 
 Change the source-pack documentation contract so it requires both truths:
 
@@ -315,7 +315,7 @@ UV_OFFLINE=1 uv run pytest -q tests/evaluation/test_consumer_source_pack_documen
 
 Expected RED: the current how-to still says the proof is not a release gate and references the old tag.
 
-- [ ] **Step 2: Add `CHANGELOG` and candidate release notes**
+- [x] **Step 2: Add `CHANGELOG` and candidate release notes**
 
 Add a `0.1.2` entry dated `2026-07-14` and create `docs/releases/v0.1.2.md`. Lead with:
 
@@ -327,11 +327,11 @@ Add a `0.1.2` entry dated `2026-07-14` and create `docs/releases/v0.1.2.md`. Lea
 
 Include exact verification commands and links. State comparison-only retrieval and OCR exclusion. Omit tag object SHA, Release URL, publication timestamp, archive filename/SHA, and post-release archive smoke until those facts exist. Do not use incomplete markers or fake placeholders inside the current release note.
 
-- [ ] **Step 3: Update bilingual entry points and docs navigation**
+- [x] **Step 3: Update bilingual entry points and docs navigation**
 
 Update `README.md`, `README_CN.md`, and `docs/README.md` to make `v0.1.2` current. Preserve the existing architecture diagram and runtime default. Expand the verified-capability table and engineering-depth section with the Evidence/source-pack capabilities while keeping dense, RRF, and reranker comparison-only and OCR out of the release.
 
-- [ ] **Step 4: Update release verification and exact wheel commands**
+- [x] **Step 4: Update release verification and exact wheel commands**
 
 In `docs/how-to/verify-release.md`:
 
@@ -342,11 +342,11 @@ In `docs/how-to/verify-release.md`:
 
 Replace current exact wheel examples with `dist/multimodal_knowledge_engine-0.1.2-py3-none-any.whl` in the listed current docs/tests. Do not change historical release commands and do not mass-replace synthetic `0.1.1` fixture values.
 
-- [ ] **Step 5: Apply the approved flexible version policy**
+- [x] **Step 5: Apply the approved flexible version policy**
 
 In `docs/releases/v0.1.1.md`, change only the future guidance that rigidly assigns contract expansion to `0.2.0`. State that backward-compatible fixes, proofs, operational hardening, and bounded capability additions may remain `0.1.x`; reserve `0.2.0` for materially larger product or contract evolution; do not preassign a future feature version.
 
-- [ ] **Step 6: Run focused documentation gates GREEN**
+- [x] **Step 6: Run focused documentation gates GREEN**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -360,7 +360,7 @@ uv run python scripts/release_presentation_audit.py --root .
 
 Expected: tests pass; audit emits `{"status":"ok","violations":[]}`.
 
-- [ ] **Step 7: Run link, stale-wording, and public-boundary checks**
+- [x] **Step 7: Run link, stale-wording, and public-boundary checks**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/evaluation/test_*documentation.py
@@ -376,7 +376,7 @@ git diff --check
 
 Expected: no current wildcard/old-wheel, incomplete marker, private path/workflow, credential, or traceback hit. Review any broad-scan hit in unchanged historical or fail-closed test text; do not weaken tests to silence an intentional sentinel.
 
-- [ ] **Step 8: Commit the documentation slice**
+- [x] **Step 8: Commit the documentation slice**
 
 Stage only the documented Task 3 paths after reviewing the exact diff.
 
@@ -432,7 +432,7 @@ The maximum expected conditional changed set is the 21-file identity chain previ
 - Produces: validator-accepted provenance identities with normalized semantics unchanged.
 - Failure contract: semantic drift stops the release task; it is not repaired here.
 
-- [ ] **Step 1: Capture pre-refresh semantic reference and fresh observations**
+- [x] **Step 1: Capture pre-refresh semantic reference and fresh observations**
 
 Before writing any artifact, freeze the exact pre-refresh commit and run fresh observations into a call-owned temporary directory. Later semantic comparison must read pre-refresh artifacts with `git show "${task4_start}:<path>"`; it must not compare against a mutable worktree copy.
 
@@ -487,7 +487,7 @@ Before any artifact write, run only the helper regression that proves its intern
 UV_OFFLINE=1 uv run pytest -q tests/evaluation/test_artifact_refresh.py
 ```
 
-- [ ] **Step 2: Run all seven canonical validators before writing**
+- [x] **Step 2: Run all seven canonical validators before writing**
 
 ```bash
 uv run python -m mke.evaluation.baseline \
@@ -526,7 +526,7 @@ uv run python -m mke.evaluation.relevance_gate_artifact validate \
 
 This is a diagnostic against the checked-in canonical graph before any write. Record the exact pass/fail chain. If all pass, skip directly to Step 6 with no artifact write. Continue only when failures are exclusively source/scope/dependency identity mismatches caused by the version-byte change. Step 3 consumes the corrected, refreshed-scope `${evidence_dir}/e2.json`; it does not change helper semantics.
 
-- [ ] **Step 3: Perform the supported atomic E1 through E3-B refresh**
+- [x] **Step 3: Perform the supported atomic E1 through E3-B refresh**
 
 Use the repository helper; do not hand-edit its five targets:
 
@@ -547,7 +547,7 @@ uv run python -m mke.evaluation.artifact_refresh recover --repository .
 
 Then stop and inspect. Do not continue after an incomplete transaction or manually copy staged files.
 
-- [ ] **Step 4: Rebind downstream E3-C, E3-D, and E3-E identities in dependency order**
+- [x] **Step 4: Rebind downstream E3-C, E3-D, and E3-E identities in dependency order**
 
 Freeze `task4_start` before any write. Read every before byte with `git show "${task4_start}:<path>"`; never compare against a mutable worktree copy. Enter this step only after all seven validators have proven that every failure is identity-only.
 
@@ -592,7 +592,7 @@ Before feature-worktree publication, the rebinder and validation mirror must:
 
 Any failure before feature-worktree application discards only the call-owned E3-C/D/E staging and validation mirror. If E1-E3-B atomic refresh requires recovery, use only the existing `artifact_refresh recover` command. Never partially publish staged downstream files, hand-edit a validator, or weaken validation because a builder cannot express the identity-only change. Inability to express the change is an authority hard stop.
 
-- [ ] **Step 5: Enforce the exact changed-file and semantic allowlists**
+- [x] **Step 5: Enforce the exact changed-file and semantic allowlists**
 
 Compare the staged set, validation-mirror changed set, and proposed feature-worktree changed set against the conditional list above and the previous repository identity chain. Require all corpus PDFs/text, manifests, qrels, query definitions, and evaluation implementation files to remain byte-identical to the Task 4 starting commit.
 
@@ -602,7 +602,7 @@ Before applying downstream bytes, capture path descriptors and exact bytes/diges
 
 If any apply step or post-apply validator fails, restore every touched downstream path from the call-owned backup and verify exact descriptor/byte restoration. If restoration is not exact, hard stop and report the precise dirty paths. Never stage or commit a partial downstream set.
 
-- [ ] **Step 6: Run artifact regression suites and all validators GREEN**
+- [x] **Step 6: Run artifact regression suites and all validators GREEN**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -624,7 +624,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 After the exact validated downstream bytes are applied to the feature worktree, rerun all seven commands from Step 2 with `--repository .` before any staging or commit. Every validator must pass against the real worktree. A post-apply validator failure triggers the Step 5 restoration contract. Optional cache-ready dense replay is not required and must not trigger a model download.
 
-- [ ] **Step 7: Commit only if validator-proven files changed**
+- [x] **Step 7: Commit only if validator-proven files changed**
 
 ```bash
 git diff --check
