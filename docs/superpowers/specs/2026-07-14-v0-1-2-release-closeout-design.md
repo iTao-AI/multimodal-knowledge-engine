@@ -1,6 +1,6 @@
 # v0.1.2 Release Closeout Design
 
-Status: release changes complete; clean-candidate verification and authoritative review pending.
+Status: implementation accepted by authoritative review; final reviewed local-candidate verification pending. Publication remains unauthorized.
 
 Planning base: `main@16fae017ced5fe67da3fae4a01f26e9e9f1084aa`.
 
@@ -282,4 +282,4 @@ The release closeout is ready for publication authorization only when:
 
 ## Approved Next Step
 
-Create and authoritatively review the implementation plan. Do not begin release implementation until the committed plan is cleared and an explicit implementation dispatch is sent.
+Commit the accepted review closure, then re-prove the exact closure commit in a fresh neutral worktree. Do not push, create a PR, merge, tag, create a GitHub Release, publish, or deploy without separate authorization.

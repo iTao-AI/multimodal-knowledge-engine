@@ -1,6 +1,6 @@
 # v0.1.2 Release Closeout Implementation Review
 
-Status: authoritative pre-review findings addressed locally; targeted engineering re-review pending.
+Status: CLEAN / ACCEPTED for final reviewed local-candidate verification; unpublished and not authorized for external action.
 
 Review base: `main@16fae017ced5fe67da3fae4a01f26e9e9f1084aa`.
 
@@ -16,7 +16,9 @@ The implementation does not include OCR, dependency changes, database migrations
 - `ca467cd1d891f4eb5b203901acf629f72558aba7` — release presentation contract;
 - `7c2a845a516508058fb6c8ce7019cff32b4d04ec` — current release documentation;
 - `188ccbf5cac69c632f22c5ca164cacc74d5e8bb1` — corrected E2 observation ordering;
-- `628ab537c87b87b06eff249582735d5dec5ffc96` — validator-proven E1 through E3-E identity closure.
+- `628ab537c87b87b06eff249582735d5dec5ffc96` — validator-proven E1 through E3-E identity closure;
+- `12e177dfd465ef0481352ec7fd9bc7a5f10948ec` — pre-review candidate status and evidence boundary;
+- `ee69082a6c235ddb45ffb61950bc04d259a544ac` — authoritative pre-review findings repair.
 
 ## Package And Release Identity
 
@@ -42,6 +44,18 @@ Authoritative pre-review of `12e177dfd465ef0481352ec7fd9bc7a5f10948ec` identifie
 
 The pre-review candidate evidence produced from `12e177dfd465ef0481352ec7fd9bc7a5f10948ec`, including wheel SHA-256 `ca4c978ec6fc8ffab3e04375ab2500b39584e2b5fcfa333bb0cb0cbd76b223dd` and canonical receipt SHA-256 `40b2674059645a9162d96510c5d5aec444629625cf9f4b8a3f328ec67e1560c2`, is invalidated by this tracked findings fix. It is retained only as historical pre-review evidence and must not be reused by Task 7.
 
+## Authoritative Review Verdict
+
+Targeted authoritative re-review completed against `ee69082a6c235ddb45ffb61950bc04d259a544ac` with verdict `CLEAN / ACCEPTED`. The review confirmed that the exact five-file findings diff resolves all three findings, introduces no new finding, and preserves the approved runtime-neutral release boundary.
+
+The reviewed verification evidence was 108 focused release and documentation tests passed with 5 warnings, current presentation audit `status=ok`, Ruff passed, Pyright reported 0 errors, `git diff --check` passed, and the worktree was clean. The three findings are closed as follows:
+
+1. Contradictory affirmative downstream claims are rejected by adversarial regression coverage while the correct joint-negative boundary remains accepted.
+2. Prior releases are described against their earlier three-check workflow rather than the current four-stage workflow.
+3. Task 5 checklist state now matches its committed completion; Task 6 records the completed historical pre-review checkpoint.
+
+This verdict accepts the implementation for final reviewed local-candidate verification. It does not authorize push, pull request, merge, tag, GitHub Release, publication, or deployment.
+
 ## Verification And Review Status
 
 - RED: all six contradictory affirmative downstream mutations were accepted before the audit fix.
@@ -51,4 +65,4 @@ The pre-review candidate evidence produced from `12e177dfd465ef0481352ec7fd9bc7a
 - GREEN: the current presentation audit returned `status=ok`; Ruff and Pyright passed on the changed Python surfaces.
 - GREEN: the exact five-file diff contains no runtime, lock, evaluation artifact, workflow, OCR, or private-path change.
 
-Targeted engineering re-review remains pending. Task 7, candidate re-proving, publication, and every external side effect remain separately authorized and have not started. The candidate-output proof was not invoked again during this findings fix.
+Targeted engineering re-review is complete and accepted. The review-closure commit will invalidate every prior Task 6 wheel, receipt, observation, build output, venv, candidate directory, and temporary worktree. Task 7 must therefore rerun the complete gate in a fresh neutral worktree and bind new candidate evidence to the exact closure commit. Until that rerun passes, final reviewed local-candidate verification remains pending. Publication and every external side effect remain unauthorized.

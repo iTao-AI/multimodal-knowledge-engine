@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this plan task-by-task. Use `superpowers:test-driven-development` for every behavior change and `superpowers:verification-before-completion` before claiming a gate passed. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-Status: release changes complete; clean-candidate verification and authoritative review pending.
+Status: implementation accepted by authoritative review; final reviewed local-candidate verification pending. Publication remains unauthorized.
 
 Planning base: `main@16fae017ced5fe67da3fae4a01f26e9e9f1084aa`.
 
@@ -705,7 +705,7 @@ After this commit, make no repository write before the Task 6 pre-review candida
 - Produces: pre-review full-gate evidence, one authoritative candidate-output wheel, its installed-wheel smoke, a same-wheel dual-interpreter proof, and a strict receipt for external authoritative review.
 - Failure contract: any failure leaves Task 6 incomplete; there is no residual waiver. Task 6 evidence is invalidated by every later tracked change, including the required review-closure commit.
 
-- [ ] **Step 1: Freeze the pre-review commit and create a neutral detached worktree**
+- [x] **Step 1: Freeze the pre-review commit and create a neutral detached worktree**
 
 ```bash
 git status --short
@@ -717,7 +717,7 @@ git worktree add --detach "${neutral_worktree}" "${candidate_commit}"
 
 Require the source worktree clean before creation. The temporary worktree name must not contain `proof`, `demo`, `release_consumer_smoke`, or other test command markers that can affect path-sensitive synthetic tests.
 
-- [ ] **Step 2: Run full suite, static, packaging, and core proof gates**
+- [x] **Step 2: Run full suite, static, packaging, and core proof gates**
 
 From `neutral_worktree`:
 
@@ -734,7 +734,7 @@ UV_OFFLINE=1 uv run python scripts/evidence_provenance_proof.py
 
 Require full pytest green with no residual waiver. `UV_OFFLINE=1 uv build` proves ordinary packaging succeeds, but its `dist/` wheel is not final artifact authority and must not be used for installed-wheel smoke. Existing warnings may be reported but not reclassified as failures or silently hidden.
 
-- [ ] **Step 3: Run documentation, presentation, and seven-validator gates**
+- [x] **Step 3: Run documentation, presentation, and seven-validator gates**
 
 ```bash
 UV_OFFLINE=1 uv run python scripts/release_presentation_audit.py --root .
@@ -744,7 +744,7 @@ UV_OFFLINE=1 uv run pytest -q tests/evaluation/test_*documentation.py \
 
 Generate fresh E1/E2/E3-A/E3-B observations by reusing the corrected Task 4 Step 1 sequence in full, including the call-owned hidden numeric protocol, `refresh-scope` before `eval retrieval-numeric`, the exact `jq` integrity assertion, trap cleanup, and proof that the hidden protocol no longer exists. A stale checked-in-protocol E2 observation is prohibited. Then run all seven canonical validator commands from Task 4 Step 2 and require every validator green.
 
-- [ ] **Step 4: Run the once-only candidate-output same-wheel proof**
+- [x] **Step 4: Run the once-only candidate-output same-wheel proof**
 
 Verify the exact interpreters without substitution, then invoke the source-pack proof exactly once:
 
@@ -764,7 +764,7 @@ UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
 
 The invocation must internally build one wheel, prove that exact wheel in both interpreter cells, and atomically publish exactly one wheel plus one receipt. Missing Python 3.12/3.13 interpreters or offline dependencies are environment hard stops; do not substitute, download, or enable network fallback.
 
-- [ ] **Step 5: Run installed-wheel smoke against the candidate-output wheel**
+- [x] **Step 5: Run installed-wheel smoke against the candidate-output wheel**
 
 Parse the strict receipt and locate the exact candidate-output wheel. Do not infer equivalence from filename or version, and do not substitute the `dist/` wheel. Require the wheel bytes and SHA-256 to match the receipt, then run:
 
@@ -775,7 +775,7 @@ UV_OFFLINE=1 uv run python scripts/release_consumer_smoke.py \
 
 Require `status=passed`, installed package/module metadata `0.1.2`, an external working directory, and all proof/demo/CLI/MCP substeps passed against the receipt-bound candidate-output wheel.
 
-- [ ] **Step 6: Verify receipt coherence and final scope**
+- [x] **Step 6: Verify receipt coherence and final scope**
 
 Require:
 
@@ -799,7 +799,7 @@ git diff --name-status \
 
 Require no out-of-scope runtime/schema/dependency/OCR/CI change, `src/mke/__init__.py` as the only `src/mke` diff, a clean neutral worktree, preserved historical release identities, and no private path, credential, traceback, private workflow, unsupported production claim, stale current command, or incomplete marker in changed public text.
 
-- [ ] **Step 7: Report pre-review evidence and stop**
+- [x] **Step 7: Report pre-review evidence and stop**
 
 Report the branch, exact pre-review commit, commit series, changed-file set, diff stat, RED/GREEN evidence, full gates, validator results, interpreter versions, identity-refresh evidence, candidate-output wheel filename/bytes/SHA-256, receipt SHA-256 and `source_commit`, installed-smoke result, remaining risks, and clean status. Final artifact claims must reference only the candidate-output wheel and receipt.
 
@@ -821,15 +821,15 @@ Preserve review-relevant evidence, remove only call-owned temporary resources wh
 - Produces: an accepted-but-unpublished review-closure commit and fresh final reviewed candidate evidence bound to that exact commit.
 - Failure contract: findings, tracked changes, or reused evidence prevent final local-candidate status.
 
-- [ ] **Step 1: Resolve authoritative review findings before closure**
+- [x] **Step 1: Resolve authoritative review findings before closure**
 
 Stop after Task 6 and wait for external authoritative review. If review has findings, fix only within the approved release scope using TDD, run targeted verification, and obtain targeted re-review. Do not enter closure while any finding remains unresolved.
 
-- [ ] **Step 2: Record the clean/accepted authority verdict**
+- [x] **Step 2: Record the clean/accepted authority verdict**
 
 After a clean/accepted verdict, update plan checkboxes/status, spec status, and `docs/superpowers/reviews/2026-07-14-v0-1-2-release-implementation-review.md` to an accurate accepted-but-unpublished state. Record the reviewed implementation commit, findings and their resolution, and Task 6 pre-review evidence. Do not claim push, PR, merge, tag, Release, publication, or final-main verification.
 
-- [ ] **Step 3: Commit the review closure**
+- [x] **Step 3: Commit the review closure**
 
 Stage only the three durable status files after exact diff review, then commit:
 
