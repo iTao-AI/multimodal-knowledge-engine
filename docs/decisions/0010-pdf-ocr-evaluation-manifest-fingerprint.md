@@ -92,3 +92,9 @@ implicitly bound to the version of the checkout that validates them. This keeps 
 receipt readable as historical evidence while requiring Task 5B to consume the separately reviewed
 0.1.2 receipt and installed-wheel startup evidence. Task 4R copies retained wheelhouses into a
 call-owned root and replaces only the MKE wheel in that copy; it never mutates retained evidence.
+The existing exact committed-receipt SHA gate remains unchanged while Task 4R-A generalizes the
+harness. After Task 4R-B generates canonical 0.1.2 package and startup receipts, it computes the
+package receipt SHA from those canonical bytes and mechanically updates that one frozen test
+literal before running the complete suite. This regression freeze binds receipt bytes, not the
+source commit; the receipt schemas continue to bind wheel, package, model, and runtime identities
+without a `source_commit` field.

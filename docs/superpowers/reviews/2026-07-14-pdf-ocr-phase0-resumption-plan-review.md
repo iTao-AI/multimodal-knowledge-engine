@@ -84,3 +84,22 @@ Task 5A now has exact RED/GREEN commands covering domain, PDF/video application,
 only new OCR domain cases may be RED, while existing behavior and no-new-input assertions remain
 green. These resolutions still do not clear Task 4R-A or Task 4R-B. Status remains PENDING TARGETED
 AUTHORITY RE-REVIEW, and Tasks 4R, 5A, 5B, 5C, and 6 remain unstarted.
+
+## Third Targeted Review Finding And Resolution
+
+The third review found one remaining Task 4R-B executability conflict. The committed compatibility
+suite freezes `benchmarks/ocr/candidate-environments.json` at exact SHA-256
+`91c782fb147fbb1f59f2c2f447f79d8c8c82188860b2b6afeb4455c92630fcbb`, while Task 4R-B must
+replace that receipt with canonical 0.1.2 evidence. Running the complete suite without updating the
+freeze would necessarily fail, but changing the test was absent from the approved file scope.
+
+The plan now preserves the exact freeze unchanged throughout Task 4R-A. Task 4R-B generates both
+receipts first, computes the canonical package receipt SHA-256, and mechanically updates only that
+frozen test literal before running the complete compatibility and focused suites. Its exact staged
+set is the two receipts plus `tests/scripts/test_pdf_ocr_candidate_compatibility.py`; review must
+prove the test diff contains only the new frozen SHA. `model-artifacts.json` remains byte-identical,
+and no Task 4R-B controller behavior change is authorized. The receipts bind wheel, package, model,
+and runtime bytes, not `source_commit`; the post-generation freeze is not a source-commit binding.
+
+This resolution does not clear Task 4R-A or Task 4R-B. Status remains PENDING TARGETED AUTHORITY
+RE-REVIEW, and Tasks 4R, 5A, 5B, 5C, and 6 remain unstarted.

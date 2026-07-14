@@ -743,6 +743,12 @@ separate TDD commits and reviewable checkpoints; both must complete before Task 
 
 No dependency or production `src/mke` file may change.
 
+Task 4R-A must preserve the existing committed-receipt freeze exactly. The assertion for
+`benchmarks/ocr/candidate-environments.json` remains bound to
+`91c782fb147fbb1f59f2c2f447f79d8c8c82188860b2b6afeb4455c92630fcbb` throughout Task 4R-A.
+Synthetic historical 0.1.1 cases supplement that gate; they must not delete, weaken, dynamically
+derive, or turn the exact committed SHA assertion into a tautology.
+
 - [ ] **Step 1: Freeze the plan start and write RED version-authority tests**
 
 Freeze `task4r_plan_start="$(git rev-parse HEAD)"`. Require it to be the review-cleared resumption
@@ -812,7 +818,12 @@ Task 4R-A stages only the script and its tests. Stop on any other tracked change
 
 - Modify: `benchmarks/ocr/candidate-environments.json`
 - Modify: `benchmarks/ocr/provider-startup.json`
+- Modify mechanically after generation: `tests/scripts/test_pdf_ocr_candidate_compatibility.py`
 - Verify byte-identical: `benchmarks/ocr/model-artifacts.json`
+
+Task 4R-B permits no controller or production behavior change. The test file may change only to
+replace the committed package receipt's exact frozen SHA with the SHA-256 of the newly generated
+canonical 0.1.2 receipt.
 
 - [ ] **Step 5: Freeze the evidence source and call-owned cleanup contract**
 
@@ -887,7 +898,27 @@ installed-wheel origin, package receipt/cell identity, network denial, canary, a
 provider startup results. Descriptor-bound rehash `model_root`; any difference from
 `benchmarks/ocr/model-artifacts.json` is a hard stop and that receipt remains byte-identical.
 
-- [ ] **Step 8: Verify cleanup, exact files, and commit Task 4R-B**
+- [ ] **Step 8: Freeze the new canonical package receipt**
+
+Only after the offline matrix and provider startup have completed, require
+`benchmarks/ocr/candidate-environments.json` to equal its canonical bytes and compute its exact
+SHA-256. Mechanically replace only the old literal passed as `frozen_sha256` by
+`test_committed_receipt_is_canonical_closed_and_frozen` with that new digest. Do not derive the
+expected value from the file at test time, weaken or remove the assertion, or change any other test.
+
+Inspect the test diff before verification:
+
+```bash
+candidate_receipt_sha256="$(sha256sum benchmarks/ocr/candidate-environments.json | awk '{print $1}')"
+test "${#candidate_receipt_sha256}" -eq 64
+git diff -- tests/scripts/test_pdf_ocr_candidate_compatibility.py
+```
+
+The receipt and startup evidence bind exact wheel, package, model, and runtime bytes and identities;
+they do not bind `source_commit`. This post-run test-only freeze update is repository regression
+authority for the generated receipt bytes, not a source-commit binding.
+
+- [ ] **Step 9: Run complete verification after the freeze update**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/scripts/test_pdf_ocr_candidate_compatibility.py
@@ -904,15 +935,24 @@ git status --short
 ```
 
 Validate both canonical receipts, exact wheel version/digest, the 16-cell JSON, full package-set
-authority, provider runtime authority, network canary, and model rehash. Remove the two call-owned
-roots through `cleanup_task4r`, run `trap - EXIT INT TERM`, and require
-`test ! -e "${staging_root}"` plus `test ! -e "${cache_root}"`. Stage only
-`benchmarks/ocr/candidate-environments.json` and `benchmarks/ocr/provider-startup.json`, verify
-`benchmarks/ocr/model-artifacts.json` is byte-identical, and commit:
+authority, provider runtime authority, network canary, model rehash, and the exact new frozen SHA.
+The complete compatibility suite runs only after the freeze assertion is updated. Remove the two
+call-owned roots through `cleanup_task4r`, run `trap - EXIT INT TERM`, and require
+`test ! -e "${staging_root}"` plus `test ! -e "${cache_root}"`.
+
+- [ ] **Step 10: Audit three exact files and commit Task 4R-B**
+
+Require the test diff to contain only the single mechanical committed-receipt frozen-SHA update;
+any other test or code change is a hard stop. Verify `benchmarks/ocr/model-artifacts.json` remains
+byte-identical. Stage exactly the two receipts and the test file:
 
 ```bash
-git add benchmarks/ocr/candidate-environments.json benchmarks/ocr/provider-startup.json
+git diff -- tests/scripts/test_pdf_ocr_candidate_compatibility.py
+git add benchmarks/ocr/candidate-environments.json \
+  benchmarks/ocr/provider-startup.json \
+  tests/scripts/test_pdf_ocr_candidate_compatibility.py
 git diff --cached --check
+git diff --cached --name-only
 git commit -m "test(ocr): refresh v0.1.2 provider evidence"
 ```
 

@@ -383,6 +383,13 @@ descriptor-bound reads into a call-owned root, replace only the MKE wheel in tha
 the retained source unchanged. Apple Vision startup uses a call-owned executable compiled from
 `scripts/pdf_ocr_apple_vision.swift`, never the `swift` or `swiftc` driver itself.
 
+Task 4R-A preserves the existing exact committed 0.1.1 receipt SHA regression while generalizing
+version authority. Task 4R-B first generates the canonical 0.1.2 package and startup receipts, then
+computes the new package receipt SHA from those bytes and mechanically updates only the frozen SHA
+literal before running the complete compatibility suite. The frozen test binds the committed
+receipt bytes. It does not add a `source_commit` field or imply source-commit binding; the receipts
+continue to bind wheel, package, model, and runtime identities.
+
 ## Publication Atomicity
 
 OCR uses the stronger report pattern already established by first-party transcription:
