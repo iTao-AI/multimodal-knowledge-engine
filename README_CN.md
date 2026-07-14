@@ -6,12 +6,12 @@ Multimodal Knowledge Engine 是一个本地优先、可被 Agent 调用的 Evide
 source processing、Publication activation、retrieval 和 Agent-facing interfaces 收在同一个可验证的本地
 application boundary 内。
 
-`v0.1.1` 在第一个公开版本 `v0.1.0` 上增加了一条公开安全的 synthetic proof，证明 MKE 可以作为
-Agent-callable local knowledge tool。这个版本保持同一条收窄的 runtime 边界：可观察 ingest Runs、
-active Publication Search、evidence-only Ask、retrieval evaluation artifacts，以及 CLI 和 stdio MCP
-server 共享的一套 application service contract。它不是托管 RAG 平台。
+`v0.1.2` 以 strict Evidence provenance 和 external source-pack proof 为首要结果，并使用同一个 wheel
+完成 Python 3.12/3.13 验证。它也记录 owner lifecycle and runtime hardening，同时保持同一条收窄的
+runtime 边界：可观察 ingest Runs、active Publication Search、evidence-only Ask、retrieval evaluation
+artifacts，以及 CLI 和 stdio MCP server 共享的一套 application service contract。它不是托管 RAG 平台。
 
-## v0.1.1 已验证能力
+## v0.1.2 已验证能力
 
 | 能力 | 验证证据 |
 |---|---|
@@ -23,6 +23,9 @@ server 共享的一套 application service contract。它不是托管 RAG 平台
 | Real stdio MCP local knowledge proof | 两份 synthetic PDF 通过 MCP ingest、published Runs、active Publication Search、带引用 Ask 和 `insufficient_evidence` 完成闭环。 |
 | cjk-active-scan-overlap-v1 default owner-startup strategy | `cjk-active-scan-overlap-v1` 是已发布的 owner-startup CJK retrieval default。 |
 | proof/demo/installed-wheel consumer smoke | `mke proof run`、`mke demo --verify` 和 installed-wheel consumer smoke 都是 release gates。 |
+| Evidence provenance | `list_libraries_v1`、`search_library_v1` 和 `ask_library_v1` 返回 strict portable `mke.evidence_ref.v1`。 |
+| external source-pack proof | same wheel on Python 3.12/3.13，通过 official MCP SDK 在 fresh environments 中完成证明。 |
+| owner lifecycle and runtime hardening | deadlines、bounded output、cancellation、subprocess cleanup、stable redacted failures 和 atomic transitions 已加固。 |
 
 ```mermaid
 flowchart TB
@@ -103,18 +106,18 @@ flowchart TB
 SQLite 是 first Pilot 的 domain truth。Retrieval indexes 是可重建 projections，Assets 和
 Artifacts 不可变，Search/Ask 只读取 active Publications。
 
-## v0.1.1 工程深度
+## v0.1.2 工程深度
 
-`v0.1.1` 的产品面很小，但它验证了系统可审计性的关键部分：Evidence 生命周期、active Publication
-切换、CLI/MCP application service contract、真实 stdio MCP local knowledge proof、source checkout 外
-installed-wheel consumption，以及记录已接受和已拒绝 retrieval candidates 的 retrieval evaluation
-artifacts。
+`v0.1.2` 的产品面很小，但它验证了系统可审计性的关键部分：Evidence 生命周期、active Publication
+切换、CLI/MCP application service contract、Evidence provenance、external source-pack proof、
+same-wheel Python 3.12/3.13 verification、owner lifecycle and runtime hardening，以及记录已接受和已拒绝
+retrieval candidates 的 retrieval evaluation artifacts。OCR 仍排除。
 
-| Retrieval evidence | v0.1.1 状态 | 边界 |
+| Retrieval evidence | v0.1.2 状态 | 边界 |
 |---|---|---|
 | 已发布 runtime | lexical search 加 `cjk-active-scan-overlap-v1` owner-startup CJK active scan。 | Search/Ask/MCP 通过同一 application service 读取 active Publication Evidence。 |
 | Comparison-only evidence | dense exact-cosine、RRF fusion、relevance gate / reranker artifacts 已记录。 | 它们不改变 normal Search、Ask、MCP 或 runtime default。 |
-| 不包含 | query rewrite、HyDE、OCR、HTTP/UI 和 API adapters。 | 它们不是 `v0.1.1` runtime behavior 或 release claims。 |
+| 不包含 | query rewrite、HyDE、OCR、HTTP/UI 和 API adapters。 | 它们不是 `v0.1.2` runtime behavior 或 release claims。 |
 
 ## 快速验证
 
@@ -135,7 +138,7 @@ uv run mke proof run
 uv run mke demo --verify
 uv run python scripts/release_presentation_audit.py --root .
 uv run python scripts/release_consumer_smoke.py \
-  --wheel dist/multimodal_knowledge_engine-0.1.1-py3-none-any.whl --json
+  --wheel dist/multimodal_knowledge_engine-0.1.2-py3-none-any.whl --json
 ```
 
 ## Local Knowledge Proof
@@ -209,13 +212,13 @@ uv run mke --db .tmp/mke.sqlite \
 | E3-D RRF fusion | Valid negative; recall improved but refusal collapsed. | None |
 | E3-E relevance gate/reranker | Development passed, holdout observed, holdout gate failed. | None |
 
-E3-C dense、E3-D RRF、E3-E relevance-gate/reranker 在 `v0.1.1` 中都是 comparison-only
+E3-C dense、E3-D RRF、E3-E relevance-gate/reranker 在 `v0.1.2` 中都是 comparison-only
 evidence，不是 runtime behavior。它们不改变 Search、Ask、MCP、owner startup、Publication、
 ingestion 或 runtime defaults。
 
 ## 边界
 
-`v0.1.1` 不包含 dense retrieval execution、hybrid/RRF execution、reranker execution、query
+`v0.1.2` 不包含 dense retrieval execution、hybrid/RRF execution、reranker execution、query
 rewrite、HyDE、segmentation rewrite、scanned-PDF OCR、任意视频处理、HTTP、UI、public API
 adapter、LangChain、LlamaIndex、LangGraph、Milvus、Redis、pgvector、bundled model weights 或托管
 多租户协调。
@@ -225,7 +228,7 @@ CLI ingest、MCP execution 或 consumer smoke 的要求。
 
 ## 文档
 
-- [Release notes](./docs/releases/v0.1.1.md)
+- [Release notes](./docs/releases/v0.1.2.md)
 - [Verify The Release](./docs/how-to/verify-release.md)
 - [Documentation index](./docs/README.md)
 - [Run The Local Product Proof](./docs/how-to/run-local-product-proof.md)

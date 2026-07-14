@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.1.2] - 2026-07-14
+
+### Added
+
+- Additive read-only `list_libraries_v1`, `search_library_v1`, and `ask_library_v1` tools with
+  strict portable `mke.evidence_ref.v1` provenance.
+- Standalone external source-pack proof over the official MCP SDK, validating the same wheel in
+  fresh Python 3.12 and Python 3.13 environments.
+- Strict local `mke.candidate_artifact_receipt.v1` binding a candidate wheel to its clean source
+  commit and proof input digest.
+
+### Verified
+
+- Source-byte fingerprint, Publication revision, producing Run, and page or timestamp locator map
+  through fresh stores without importing MKE or inspecting SQLite directly.
+- Controller output, deadlines, failures, cancellation, subprocess cleanup, owner lifecycle, and
+  transition boundaries are bounded or fail closed.
+- A separate downstream consumer validated the pre-release candidate boundary documented in
+  [the v0.1.2 release notes](./docs/releases/v0.1.2.md).
+- E3-C dense, E3-D RRF, and E3-E relevance-gate/reranker remain comparison-only evidence.
+
+### Not included
+
+- PDF OCR Phase 0, layout-aware extraction, retrieval runtime promotion, HTTP/UI/service adapters,
+  hosted deployment, and PyPI publication are excluded.
+
 ## [0.1.1] - 2026-07-08
 
 ### Added
