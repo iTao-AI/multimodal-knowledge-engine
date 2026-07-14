@@ -658,16 +658,18 @@ Fresh targeted-repair evidence rebuilt the current MKE wheel at SHA-256
 `529a49b33ffce5af8243f9b50f5050d5b0e3a28ada9c13dabb8cd723549e6f47`, replaced only the MKE wheel
 inside call-owned copies of the retained third-party wheelhouses, and reran the complete offline
 matrix. All 16 cells passed with exact Python 3.12.13 and 3.13.12; the updated canonical package
-receipt SHA-256 is `3b8014d0988b3b657fb2ada23ae78ac7d48e4f63eafd4a7074e4c6976d0896ff`.
+receipt SHA-256 is `91c782fb147fbb1f59f2c2f447f79d8c8c82188860b2b6afeb4455c92630fcbb`.
 The original prepared evidence remained unchanged.
 
 The real-provider controller then created a fresh offline Python 3.13.12 environment from that
 exact wheel and verified that `mke` resolved from its `site-packages`, isolated mode was active,
-`PYTHONPATH` was absent, and the packaged sanitized vendor fixture matched its recorded digest.
+`PYTHONPATH` was absent, the supplied wheelhouse exactly matched the candidate distribution
+inventory, and the installed package map exactly matched the passed Python 3.13/base cell after
+the same Paddle provider import boundary.
 With operating-system network denial and a blocked canary, Apple Vision, PaddleOCR-VL, and
 PP-OCRv6 medium returned the exact public fixture text through the installed-wheel result validator
-in 291 ms, 18,951 ms, and 8,688 ms respectively. The canonical provider-startup receipt SHA-256 is
-`e271df496688e4960cf9f117f63fca8f7afc85d995d15614317d1d291b5f3838`. These are single-page
+in 328 ms, 15,118 ms, and 9,536 ms respectively. The canonical provider-startup receipt SHA-256 is
+`b51dccfc532d8866e49f8325ccb5684b755a63c0356198d793c63b7cad4a7d5f`. These are single-page
 startup observations, not OCR quality or production claims.
 
 PaddleOCR-VL loaded both local model roots and completed direct CPU inference, then wrote exactly
@@ -676,8 +678,10 @@ was prose-only and matched the fixture text. The amended adapter rejects the uno
 envelope and accepts only the exact observed direct-top-level keys, strict page/layout/block types
 and bounds, supported prose labels, and Markdown/block equality. The exact inventory, digests,
 top-level keys, and block keys are bound through the repository authority validator to
-`benchmarks/ocr/provider-startup.json` and a public-safe sanitized observed fixture. Unknown or
-unsupported vendor content still fails closed.
+`benchmarks/ocr/provider-startup.json` and a public-safe sanitized observed fixture. The receipt
+records this retained two-file inventory separately as `observed_vendor_fixture`; fresh provider
+entries claim only current-run startup facts and do not reuse historical artifact digests as if
+they were captured again. Unknown or unsupported vendor content still fails closed.
 
 - [x] **Step 6: Run GREEN and commit Task 4**
 

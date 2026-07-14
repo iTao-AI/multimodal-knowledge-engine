@@ -473,6 +473,111 @@ def canonical_provider_startup_bytes(receipt: object) -> bytes:
     ).encode("utf-8")
 
 
+def canonical_sha256(value: object) -> str:
+    encoded = json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _provider_package_authority(
+    package: Mapping[str, object],
+) -> tuple[list[dict[str, object]], dict[str, object]]:
+    try:
+        candidates = package["candidates"]
+        if not isinstance(candidates, list):
+            raise ValueError
+        matches = [
+            _mapping(item)
+            for item in cast(list[object], candidates)
+            if _mapping(item).get("candidate") == "paddleocr-vl-1.6-cpu-spike-v1"
+        ]
+        if len(matches) != 1:
+            raise ValueError
+        candidate = matches[0]
+        distributions = _validate_distributions(candidate["distributions"])
+        cells = candidate["cells"]
+        if not isinstance(cells, list):
+            raise ValueError
+        cell_matches = [
+            _mapping(item)
+            for item in cast(list[object], cells)
+            if _mapping(item).get("python_minor") == "3.13"
+            and _mapping(item).get("surface") == "base"
+            and _mapping(item).get("result") == "passed"
+        ]
+        if len(cell_matches) != 1:
+            raise ValueError
+        cell = cell_matches[0]
+        versions = _mapping(cell["package_versions"])
+        if not versions:
+            raise ValueError
+        return distributions, cell
+    except (KeyError, TypeError, ValueError) as error:
+        raise CompatibilityError("provider_startup_authority_invalid") from error
+
+
+def _validate_provider_wheelhouse(
+    wheelhouse: Path, expected: list[dict[str, object]]
+) -> str:
+    try:
+        root_metadata = wheelhouse.lstat()
+        if wheelhouse.is_symlink() or not stat.S_ISDIR(root_metadata.st_mode):
+            raise ValueError
+        expected_by_name = {cast(str, item["filename"]): item for item in expected}
+        entries = sorted(wheelhouse.iterdir(), key=lambda item: item.name)
+        if [item.name for item in entries] != sorted(expected_by_name):
+            raise ValueError
+        observed: list[dict[str, object]] = []
+        for path in entries:
+            inventory = path.lstat()
+            item = expected_by_name[path.name]
+            if path.is_symlink() or not stat.S_ISREG(inventory.st_mode):
+                raise ValueError
+            expected_size = _nonnegative_integer(item["bytes"])
+            expected_digest = _digest(item["sha256"])
+            flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_CLOEXEC", 0)
+            flags |= getattr(os, "O_NOFOLLOW", 0)
+            descriptor = os.open(path, flags)
+            try:
+                opened = os.fstat(descriptor)
+                if (
+                    not stat.S_ISREG(opened.st_mode)
+                    or opened.st_size != expected_size
+                    or _file_identity(opened) != _file_identity(inventory)
+                ):
+                    raise ValueError
+                digest = hashlib.sha256()
+                actual = 0
+                while True:
+                    chunk = os.read(descriptor, min(_READ_CHUNK_BYTES, expected_size - actual + 1))
+                    if not chunk:
+                        break
+                    actual += len(chunk)
+                    if actual > expected_size:
+                        raise ValueError
+                    digest.update(chunk)
+                after_descriptor = os.fstat(descriptor)
+                after_path = path.lstat()
+                if (
+                    actual != expected_size
+                    or digest.hexdigest() != expected_digest
+                    or _file_identity(after_descriptor) != _file_identity(inventory)
+                    or _file_identity(after_path) != _file_identity(inventory)
+                ):
+                    raise ValueError
+                observed.append(
+                    {"filename": path.name, "sha256": expected_digest, "bytes": actual}
+                )
+            finally:
+                os.close(descriptor)
+        if observed != sorted(expected, key=lambda item: cast(str, item["filename"])):
+            raise ValueError
+        return canonical_sha256(observed)
+    except (KeyError, OSError, TypeError, ValueError) as error:
+        raise CompatibilityError("provider_wheelhouse_invalid") from error
+
+
 def validate_provider_startup_authority(repository: Path, value: object) -> None:
     try:
         validate_provider_startup_receipt(value)
@@ -520,6 +625,16 @@ def validate_provider_startup_authority(repository: Path, value: object) -> None
                 or matching[0].get("sha256") != runtime["mke_wheel_sha256"]
             ):
                 raise ValueError
+        distributions, cell = _provider_package_authority(package)
+        if (
+            runtime["candidate"] != "paddleocr-vl-1.6-cpu-spike-v1"
+            or runtime["surface"] != "base"
+            or runtime["python"] != cell["python"]
+            or runtime["wheelhouse_sha256"] != canonical_sha256(distributions)
+            or runtime["installed_packages_sha256"]
+            != canonical_sha256(_mapping(cell["package_versions"]))
+        ):
+            raise ValueError
         protocol: object = json.loads(protocol_path.read_text(encoding="utf-8"))
         expected_text = _expected_english_scan_truth(protocol)
         _, fixture_sha256 = _provider_fixture_identity(repository, protocol)
@@ -540,14 +655,14 @@ def validate_provider_startup_authority(repository: Path, value: object) -> None
             ):
                 raise ValueError
         observed_bytes = observed_path.read_bytes()
-        if runtime["vendor_fixture_sha256"] != hashlib.sha256(observed_bytes).hexdigest():
+        observed_receipt = _mapping(root["observed_vendor_fixture"])
+        if observed_receipt["fixture_sha256"] != hashlib.sha256(observed_bytes).hexdigest():
             raise ValueError
         observed = _mapping(json.loads(observed_bytes.decode("utf-8")))
         _exact(observed, {"source_artifacts", "vendor_json", "markdown"})
         if observed["markdown"] != expected_text:
             raise ValueError
-        paddle = _mapping(providers[1])
-        artifacts = _mapping(paddle["vendor_artifacts"])
+        artifacts = observed_receipt
         if artifacts["files"] != observed["source_artifacts"]:
             raise ValueError
         vendor_json = _mapping(observed["vendor_json"])
@@ -620,6 +735,7 @@ def validate_provider_startup_receipt(value: object) -> None:
                 "network_isolation",
                 "fixture",
                 "runtime",
+                "observed_vendor_fixture",
                 "providers",
             },
         )
@@ -648,6 +764,7 @@ def validate_provider_startup_receipt(value: object) -> None:
             raise ValueError
         _digest(fixture["source_sha256"])
         _validate_provider_runtime_receipt(root["runtime"])
+        _validate_observed_vendor_fixture(root["observed_vendor_fixture"])
         providers = root["providers"]
         if not isinstance(providers, list):
             raise ValueError
@@ -683,9 +800,7 @@ def validate_provider_startup_receipt(value: object) -> None:
                 ):
                     raise ValueError
                 _digest(provider["normalized_text_sha256"])
-                if expected_provider == "paddleocr-vl-1.6-cpu-spike-v1":
-                    _validate_vendor_artifacts(provider["vendor_artifacts"], accepted=True)
-                elif provider["vendor_artifacts"] is not None:
+                if provider["vendor_artifacts"] is not None:
                     raise ValueError
             elif status_value == "failed" and expected_provider == "paddleocr-vl-1.6-cpu-spike-v1":
                 if (
@@ -694,7 +809,8 @@ def validate_provider_startup_receipt(value: object) -> None:
                     or provider["normalized_text_sha256"] is not None
                 ):
                     raise ValueError
-                _validate_vendor_artifacts(provider["vendor_artifacts"], accepted=False)
+                if provider["vendor_artifacts"] is not None:
+                    raise ValueError
             else:
                 raise ValueError
         encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
@@ -712,18 +828,24 @@ def _validate_provider_runtime_receipt(value: object) -> None:
             "python",
             "mke_version",
             "mke_wheel_sha256",
+            "candidate",
+            "surface",
+            "wheelhouse_sha256",
+            "installed_packages_sha256",
             "module_origin",
             "isolated",
             "pythonpath",
-            "vendor_fixture_sha256",
         },
     )
     _version(runtime["python"])
     _version(runtime["mke_version"])
     _digest(runtime["mke_wheel_sha256"])
-    _digest(runtime["vendor_fixture_sha256"])
+    _digest(runtime["wheelhouse_sha256"])
+    _digest(runtime["installed_packages_sha256"])
     if (
-        runtime["module_origin"] != "installed-environment"
+        runtime["candidate"] != "paddleocr-vl-1.6-cpu-spike-v1"
+        or runtime["surface"] != "base"
+        or runtime["module_origin"] != "installed-environment"
         or runtime["isolated"] is not True
         or runtime["pythonpath"] != "absent"
     ):
@@ -737,6 +859,8 @@ def validate_provider_runtime_identity(
     repository: Path,
     expected_python: str,
     expected_wheel_sha256: str,
+    expected_package_versions: Mapping[str, object],
+    expected_wheelhouse_sha256: str,
 ) -> dict[str, object]:
     """Reduce an installed-wheel doctor result to public startup authority."""
     try:
@@ -753,6 +877,7 @@ def validate_provider_runtime_identity(
                 "pythonpath_present",
                 "vendor_fixture_sha256",
                 "vendor_fixture_text",
+                "package_versions",
             },
         )
         runtime = runtime.resolve()
@@ -785,15 +910,22 @@ def validate_provider_runtime_identity(
             raise ValueError
         fixture = _mapping(json.loads(fixture_text))
         _exact(fixture, {"source_artifacts", "vendor_json", "markdown"})
+        package_versions = _mapping(identity["package_versions"])
+        if package_versions != expected_package_versions:
+            raise ValueError
         _digest(expected_wheel_sha256)
+        _digest(expected_wheelhouse_sha256)
         public: dict[str, object] = {
             "python": expected_python,
             "mke_version": "0.1.1",
             "mke_wheel_sha256": expected_wheel_sha256,
+            "candidate": "paddleocr-vl-1.6-cpu-spike-v1",
+            "surface": "base",
+            "wheelhouse_sha256": expected_wheelhouse_sha256,
+            "installed_packages_sha256": canonical_sha256(package_versions),
             "module_origin": "installed-environment",
             "isolated": True,
             "pythonpath": "absent",
-            "vendor_fixture_sha256": fixture_digest,
         }
         _validate_provider_runtime_receipt(public)
         return public
@@ -837,7 +969,11 @@ def run_provider_startup(config: ProviderStartupConfig) -> dict[str, object]:
     wheel_digest = _sha256_file(wheel)
     if package.get("mke_wheel_sha256") != wheel_digest:
         raise CompatibilityError("provider_startup_wheel_mismatch")
-    _bind_candidate_mke_wheel(wheel, wheelhouse, seed=False)
+    expected_distributions, expected_cell = _provider_package_authority(package)
+    wheelhouse_sha256 = _validate_provider_wheelhouse(wheelhouse, expected_distributions)
+    expected_packages = _mapping(expected_cell["package_versions"])
+    if expected_cell["python"] != "3.13.12":
+        raise CompatibilityError("provider_startup_authority_invalid")
     model_receipt = _mapping(model_value)
     model_values = model_receipt.get("models")
     if not isinstance(model_values, list):
@@ -850,10 +986,12 @@ def run_provider_startup(config: ProviderStartupConfig) -> dict[str, object]:
     )
     protocol: object = json.loads(protocol_path.read_text(encoding="utf-8"))
     fixture_pdf, fixture_sha256 = _provider_fixture_identity(repository, protocol)
-    staging.mkdir(mode=0o700, parents=True)
     runtime = staging / "venv"
-    environment = _package_environment(staging / "home", staging / "cache", offline=True)
+    temporary = output.with_suffix(".json.tmp")
+    temporary_owned = False
     try:
+        staging.mkdir(mode=0o700, parents=True)
+        environment = _package_environment(staging / "home", staging / "cache", offline=True)
         created = run_bounded(
             (str(config.python.resolve()), "-m", "venv", str(runtime)),
             cwd=staging,
@@ -881,6 +1019,16 @@ def run_provider_startup(config: ProviderStartupConfig) -> dict[str, object]:
         )
         if installed.returncode != 0:
             raise CompatibilityError("provider_runtime_install_failed")
+        checked = run_bounded(
+            (str(python), "-m", "pip", "check"),
+            cwd=staging,
+            env=environment,
+            timeout_seconds=config.timeout_seconds,
+            max_stdout_bytes=_DEFAULT_STDOUT_BYTES,
+            max_stderr_bytes=_DEFAULT_STDERR_BYTES,
+        )
+        if checked.returncode != 0:
+            raise CompatibilityError("provider_runtime_pip_check_failed")
         doctor = run_bounded(
             (str(python), "-I", "-c", _PROVIDER_RUNTIME_DOCTOR),
             cwd=staging,
@@ -897,6 +1045,8 @@ def run_provider_startup(config: ProviderStartupConfig) -> dict[str, object]:
             repository=repository,
             expected_python=_probe_python_version(config.python, staging, environment, config),
             expected_wheel_sha256=wheel_digest,
+            expected_package_versions=expected_packages,
+            expected_wheelhouse_sha256=wheelhouse_sha256,
         )
         components = {
             cast(str, item["component"]): model_root
@@ -938,7 +1088,15 @@ def run_provider_startup(config: ProviderStartupConfig) -> dict[str, object]:
         if len(provider_items) != 3:
             raise CompatibilityError("provider_startup_failed")
         provider_values = [_mapping(item) for item in provider_items]
-        provider_values[1]["vendor_artifacts"] = _vendor_artifact_receipt(fixture_value)
+        observed_vendor_fixture = _vendor_artifact_receipt(fixture_value)
+        observed_vendor_fixture.update(
+            {
+                "provenance": "retained-authorized-observation",
+                "fixture_sha256": hashlib.sha256(
+                    cast(str, doctor_value["vendor_fixture_text"]).encode("utf-8")
+                ).hexdigest(),
+            }
+        )
         receipt: dict[str, object] = {
             "schema": _PROVIDER_STARTUP_SCHEMA,
             "profile": _CANDIDATE_PROFILE,
@@ -953,17 +1111,31 @@ def run_provider_startup(config: ProviderStartupConfig) -> dict[str, object]:
                 "source_sha256": fixture_sha256,
             },
             "runtime": runtime_identity,
+            "observed_vendor_fixture": observed_vendor_fixture,
             "providers": provider_values,
         }
         validate_provider_startup_authority(repository, receipt)
         encoded = canonical_provider_startup_bytes(receipt)
-        temporary = output.with_suffix(".json.tmp")
-        temporary.write_bytes(encoded)
+        if temporary.exists():
+            raise CompatibilityError("provider_startup_output_invalid")
+        descriptor = os.open(
+            temporary,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_CLOEXEC", 0),
+            0o600,
+        )
+        temporary_owned = True
+        with os.fdopen(descriptor, "wb", closefd=True) as stream:
+            stream.write(encoded)
+            stream.flush()
+            os.fsync(stream.fileno())
         os.replace(temporary, output)
+        temporary_owned = False
         return receipt
     except (KeyError, OSError, UnicodeError, json.JSONDecodeError) as error:
         raise CompatibilityError("provider_startup_failed") from error
     finally:
+        if temporary_owned:
+            temporary.unlink(missing_ok=True)
         shutil.rmtree(staging, ignore_errors=True)
         if staging.exists():
             raise CompatibilityError("cleanup_failed")
@@ -1068,6 +1240,38 @@ def _validate_vendor_artifacts(value: object, *, accepted: bool) -> None:
         != ("accepted_strict_observed_schema" if accepted else "rejected_fail_closed")
     ):
         raise ValueError
+
+
+def _validate_observed_vendor_fixture(value: object) -> None:
+    observed = _mapping(value)
+    _exact(
+        observed,
+        {
+            "provenance",
+            "fixture_sha256",
+            "files",
+            "json_top_level_keys",
+            "parsing_block_keys",
+            "markdown_class",
+            "adapter_result",
+        },
+    )
+    if observed["provenance"] != "retained-authorized-observation":
+        raise ValueError
+    _digest(observed["fixture_sha256"])
+    _validate_vendor_artifacts(
+        {
+            key: observed[key]
+            for key in (
+                "files",
+                "json_top_level_keys",
+                "parsing_block_keys",
+                "markdown_class",
+                "adapter_result",
+            )
+        },
+        accepted=True,
+    )
 
 
 def validate_model_receipt(value: object) -> None:
@@ -2421,6 +2625,7 @@ def _receipt_error() -> NoReturn:
 
 _PROVIDER_RUNTIME_DOCTOR = r"""
 import hashlib
+import importlib
 import importlib.metadata as metadata
 import importlib.resources as resources
 import json
@@ -2428,9 +2633,18 @@ import os
 import platform
 import sys
 import mke
+paddle = importlib.import_module("paddle")
+paddleocr = importlib.import_module("paddleocr")
+assert paddle is not None
+assert hasattr(paddleocr, "PaddleOCRVL")
 fixture = resources.files("mke.evaluation").joinpath(
     "fixtures/paddleocr-vl-1.6-observed.json"
 ).read_text(encoding="utf-8")
+versions = {}
+for distribution in metadata.distributions():
+    name = distribution.metadata.get("Name")
+    if name:
+        versions.setdefault(name.lower().replace("_", "-"), distribution.version)
 print(json.dumps({
     "python": platform.python_version(),
     "mke_version": metadata.version("multimodal-knowledge-engine"),
@@ -2441,6 +2655,7 @@ print(json.dumps({
     "pythonpath_present": "PYTHONPATH" in os.environ,
     "vendor_fixture_sha256": hashlib.sha256(fixture.encode("utf-8")).hexdigest(),
     "vendor_fixture_text": fixture,
+    "package_versions": versions,
 }, sort_keys=True))
 """
 

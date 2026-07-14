@@ -22,12 +22,23 @@ runtime contract.
   confirmed.
 - The provider-startup authority path derives package and model receipt identities from their
   canonical committed bytes and derives passed-provider text identity from the normalized
-  `english-scan` page-1 protocol truth. Provider order, profile, fixture, network isolation, and
-  PaddleOCR-VL artifact inventory and digests are verified in the same path.
+  `english-scan` page-1 protocol truth. Before creating a venv, it verifies every supplied
+  wheelhouse filename, byte count, and SHA-256 through bounded descriptor reads against the exact
+  PaddleOCR-VL candidate inventory. It then binds the exact passed Python 3.13/base cell and
+  requires the fresh installed distribution map to match that cell after the same provider import
+  boundary and a successful `pip check`.
 - Provider startup now runs from a fresh offline environment installed from the exact MKE wheel
   bound by the package receipt. The controller rejects repository or `PYTHONPATH` source shadows
   and records the exact Python version, distribution version, wheel digest, installed module
-  origin, isolated-mode result, and packaged vendor-fixture digest.
+  origin, isolated-mode result, candidate, surface, wheelhouse identity, and installed package-set
+  identity.
+- Historical vendor evidence and fresh startup evidence are separate. The top-level
+  `observed_vendor_fixture` records the retained authorized two-file observation and its schema;
+  fresh provider entries contain only facts produced by the installed-wheel run and do not claim
+  historical artifact bytes or digests as current-run output.
+- Provider startup owns cleanup from the first staging-directory creation. Environment setup and
+  atomic receipt write failures return stable errors, remove only call-owned temporary state, and
+  preserve any prior canonical receipt.
 - The PaddleOCR-VL adapter no longer accepts the unobserved nested result envelope. It accepts only
   the observed pinned direct-top-level schema represented by a public-safe sanitized fixture,
   validates exact keys and bounded values, admits supported prose labels only, and requires the
@@ -40,19 +51,21 @@ One current MKE wheel was built at SHA-256
 `529a49b33ffce5af8243f9b50f5050d5b0e3a28ada9c13dabb8cd723549e6f47`. Call-owned copies of the
 retained third-party wheelhouses replaced only their MKE distribution, and the complete offline
 matrix passed all 16 cells on exact Python 3.12.13 and 3.13.12. The resulting canonical package
-receipt SHA-256 is `3b8014d0988b3b657fb2ada23ae78ac7d48e4f63eafd4a7074e4c6976d0896ff`.
+receipt SHA-256 is `91c782fb147fbb1f59f2c2f447f79d8c8c82188860b2b6afeb4455c92630fcbb`.
 
 With external egress denied by the operating system and the canary blocked, cache-only startup from
 that exact installed wheel and the retained model evidence returned the exact fixture truth for
-Apple Vision, PaddleOCR-VL, and PP-OCRv6 medium. The observed durations were 291 ms, 18,951 ms, and
-8,688 ms respectively. The canonical provider-startup receipt SHA-256 is
-`e271df496688e4960cf9f117f63fca8f7afc85d995d15614317d1d291b5f3838`. These are bounded single-page
+Apple Vision, PaddleOCR-VL, and PP-OCRv6 medium. The observed durations were 328 ms, 15,118 ms, and
+9,536 ms respectively. The canonical provider-startup receipt SHA-256 is
+`b51dccfc532d8866e49f8325ccb5684b755a63c0356198d793c63b7cad4a7d5f`. These are bounded single-page
 startup observations, not OCR quality or production claims.
 
-The retained PaddleOCR-VL evidence remains exactly two regular files: a 51-byte Markdown artifact
-and a 2,458-byte JSON artifact. Their SHA-256 values, direct top-level keys, and parsing-block keys
-are recorded in the canonical provider-startup receipt. The amended adapter passed the same strict
-prose-only envelope during the fresh real-provider run.
+The retained PaddleOCR-VL observation remains exactly two regular files: a 51-byte Markdown
+artifact and a 2,458-byte JSON artifact. Its SHA-256 values, direct top-level keys, and
+parsing-block keys are recorded separately as `observed_vendor_fixture`. The fresh installed-wheel
+run proves that the adapter accepted new provider output under the same strict prose-only schema
+and returned the normalized fixture truth; it does not claim that the fresh temporary artifacts
+had the retained observation's exact byte identities.
 
 The retained model receipt remains SHA-256
 `3d1e8c45b7ed0c817acaeda3f51954b463016763690e09ca1f23162042219d6e`; the controller rehashed the

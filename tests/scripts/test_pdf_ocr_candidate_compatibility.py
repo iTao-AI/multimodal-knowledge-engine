@@ -627,7 +627,7 @@ def test_committed_receipt_is_canonical_closed_and_frozen() -> None:
 
     receipt = compatibility.validate_committed_receipt_bytes(
         encoded,
-        frozen_sha256="3b8014d0988b3b657fb2ada23ae78ac7d48e4f63eafd4a7074e4c6976d0896ff",
+        frozen_sha256="91c782fb147fbb1f59f2c2f447f79d8c8c82188860b2b6afeb4455c92630fcbb",
     )
 
     candidates = receipt["candidates"]
@@ -986,10 +986,29 @@ def _provider_startup_receipt() -> dict[str, object]:
             "python": "3.13.12",
             "mke_version": "0.1.1",
             "mke_wheel_sha256": "a" * 64,
+            "candidate": "paddleocr-vl-1.6-cpu-spike-v1",
+            "surface": "base",
+            "wheelhouse_sha256": "b" * 64,
+            "installed_packages_sha256": "c" * 64,
             "module_origin": "installed-environment",
             "isolated": True,
             "pythonpath": "absent",
-            "vendor_fixture_sha256": "f" * 64,
+        },
+        "observed_vendor_fixture": {
+            "provenance": "retained-authorized-observation",
+            "fixture_sha256": "f" * 64,
+            "files": [
+                {"name": "english-scan-page-1.md", "bytes": 51, "sha256": "d" * 64},
+                {
+                    "name": "english-scan-page-1_res.json",
+                    "bytes": 2458,
+                    "sha256": "e" * 64,
+                },
+            ],
+            "json_top_level_keys": ["height", "parsing_res_list"],
+            "parsing_block_keys": ["block_content", "block_label"],
+            "markdown_class": "prose_only",
+            "adapter_result": "accepted_strict_observed_schema",
         },
         "providers": [
             {
@@ -1006,20 +1025,7 @@ def _provider_startup_receipt() -> dict[str, object]:
                 "failure_code": "vendor_artifact_schema_mismatch",
                 "duration_ms": None,
                 "normalized_text_sha256": None,
-                "vendor_artifacts": {
-                    "files": [
-                        {"name": "english-scan-page-1.md", "bytes": 51, "sha256": "d" * 64},
-                        {
-                            "name": "english-scan-page-1_res.json",
-                            "bytes": 2458,
-                            "sha256": "e" * 64,
-                        },
-                    ],
-                    "json_top_level_keys": ["height", "parsing_res_list"],
-                    "parsing_block_keys": ["block_content", "block_label"],
-                    "markdown_class": "prose_only",
-                    "adapter_result": "rejected_fail_closed",
-                },
+                "vendor_artifacts": None,
             },
             {
                 "provider": "ppocrv6-medium-cpu-spike-v1",
@@ -1118,6 +1124,7 @@ def test_provider_runtime_identity_rejects_source_shadow(
         "pythonpath_present": drift == "pythonpath-shadow",
         "vendor_fixture_sha256": hashlib.sha256(fixture.encode("utf-8")).hexdigest(),
         "vendor_fixture_text": fixture,
+        "package_versions": {"multimodal-knowledge-engine": "0.1.1"},
     }
 
     with pytest.raises(compatibility.CompatibilityError, match="provider_runtime_invalid"):
@@ -1127,6 +1134,8 @@ def test_provider_runtime_identity_rejects_source_shadow(
             repository=repository,
             expected_python="3.13.12",
             expected_wheel_sha256="b" * 64,
+            expected_package_versions={"multimodal-knowledge-engine": "0.1.1"},
+            expected_wheelhouse_sha256="c" * 64,
         )
 
 
@@ -1166,6 +1175,7 @@ def test_provider_runtime_identity_returns_public_installed_wheel_binding(
         "pythonpath_present": False,
         "vendor_fixture_sha256": fixture_digest,
         "vendor_fixture_text": fixture,
+        "package_versions": {"multimodal-knowledge-engine": "0.1.1"},
     }
 
     public = compatibility.validate_provider_runtime_identity(
@@ -1174,16 +1184,23 @@ def test_provider_runtime_identity_returns_public_installed_wheel_binding(
         repository=repository,
         expected_python="3.13.12",
         expected_wheel_sha256=wheel_digest,
+        expected_package_versions={"multimodal-knowledge-engine": "0.1.1"},
+        expected_wheelhouse_sha256="c" * 64,
     )
 
     assert public == {
         "python": "3.13.12",
         "mke_version": "0.1.1",
         "mke_wheel_sha256": wheel_digest,
+        "candidate": "paddleocr-vl-1.6-cpu-spike-v1",
+        "surface": "base",
+        "wheelhouse_sha256": "c" * 64,
+        "installed_packages_sha256": compatibility.canonical_sha256(
+            {"multimodal-knowledge-engine": "0.1.1"}
+        ),
         "module_origin": "installed-environment",
         "isolated": True,
         "pythonpath": "absent",
-        "vendor_fixture_sha256": fixture_digest,
     }
 
 
@@ -1215,6 +1232,7 @@ def test_provider_runtime_identity_accepts_standard_venv_python_symlink(
         "pythonpath_present": False,
         "vendor_fixture_sha256": hashlib.sha256(fixture.encode()).hexdigest(),
         "vendor_fixture_text": fixture,
+        "package_versions": {"multimodal-knowledge-engine": "0.1.1"},
     }
 
     public = compatibility.validate_provider_runtime_identity(
@@ -1223,14 +1241,32 @@ def test_provider_runtime_identity_accepts_standard_venv_python_symlink(
         repository=repository,
         expected_python="3.13.12",
         expected_wheel_sha256="b" * 64,
+        expected_package_versions={"multimodal-knowledge-engine": "0.1.1"},
+        expected_wheelhouse_sha256="c" * 64,
     )
 
     assert public["module_origin"] == "installed-environment"
 
 
-def test_provider_startup_controller_runs_from_exact_installed_wheel(
+@pytest.mark.parametrize(
+    "wheelhouse_drift",
+    [
+        None,
+        "missing",
+        "extra",
+        "digest",
+        "size",
+        "symlink",
+        "replaced",
+        "environment-failure",
+        "replace-failure",
+        "installed-drift",
+    ],
+)
+def test_provider_startup_controller_binds_exact_package_evidence(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    wheelhouse_drift: str | None,
 ) -> None:
     compatibility = _module()
     source = Path(__file__).resolve().parents[2]
@@ -1262,17 +1298,31 @@ def test_provider_startup_controller_runs_from_exact_installed_wheel(
     package = json.loads((source / "benchmarks/ocr/candidate-environments.json").read_bytes())
     package["mke_wheel_sha256"] = wheel_digest
     for candidate in package["candidates"]:
-        for distribution in candidate["distributions"]:
-            if distribution["filename"] == wheel.name:
-                candidate["download_bytes"] += len(wheel.read_bytes()) - distribution["bytes"]
-                distribution["bytes"] = len(wheel.read_bytes())
-                distribution["sha256"] = wheel_digest
+        candidate["distributions"] = [
+            {
+                "filename": wheel.name,
+                "bytes": len(wheel.read_bytes()),
+                "sha256": wheel_digest,
+            }
+        ]
+        candidate["download_bytes"] = len(wheel.read_bytes())
     (benchmark_root / "candidate-environments.json").write_bytes(
         compatibility.canonical_receipt_bytes(package)
     )
     wheelhouse = tmp_path / "wheelhouse"
     wheelhouse.mkdir()
     shutil.copyfile(wheel, wheelhouse / wheel.name)
+    if wheelhouse_drift == "missing":
+        (wheelhouse / wheel.name).unlink()
+    elif wheelhouse_drift == "extra":
+        (wheelhouse / "extra-1.0-py3-none-any.whl").write_bytes(b"installable")
+    elif wheelhouse_drift == "digest":
+        (wheelhouse / wheel.name).write_bytes(b"different reviewed MKE whl")
+    elif wheelhouse_drift == "size":
+        (wheelhouse / wheel.name).write_bytes(b"short")
+    elif wheelhouse_drift == "symlink":
+        (wheelhouse / wheel.name).unlink()
+        (wheelhouse / wheel.name).symlink_to(wheel)
     model_root = tmp_path / "models"
     model_root.mkdir()
     apple = tmp_path / "apple-vision"
@@ -1281,6 +1331,13 @@ def test_provider_startup_controller_runs_from_exact_installed_wheel(
     python.write_text("binary", encoding="utf-8")
     monkeypatch.setattr(compatibility, "_revalidate_sealed_model_tree", lambda *_args: None)
     calls: list[tuple[tuple[str, ...], dict[str, str]]] = []
+    expected_cell = next(
+        cell
+        for candidate in package["candidates"]
+        if candidate["candidate"] == "paddleocr-vl-1.6-cpu-spike-v1"
+        for cell in candidate["cells"]
+        if cell["python"] == "3.13.12" and cell["surface"] == "base"
+    )
 
     def fake_run(command, *, env, **_kwargs):
         command = tuple(command)
@@ -1296,6 +1353,8 @@ def test_provider_startup_controller_runs_from_exact_installed_wheel(
             return compatibility.CommandResult(0, b"", b"")
         if "pip" in command and "install" in command:
             return compatibility.CommandResult(0, b"", b"")
+        if command[1:4] == ("-m", "pip", "check"):
+            return compatibility.CommandResult(0, b"", b"")
         if "importlib.resources" in command[-1]:
             runtime = tmp_path / "startup/venv"
             payload = {
@@ -1308,6 +1367,11 @@ def test_provider_startup_controller_runs_from_exact_installed_wheel(
                 "pythonpath_present": False,
                 "vendor_fixture_sha256": hashlib.sha256(observed.encode()).hexdigest(),
                 "vendor_fixture_text": observed,
+                "package_versions": (
+                    {**expected_cell["package_versions"], "paddleocr": "3.6.0"}
+                    if wheelhouse_drift == "installed-drift"
+                    else expected_cell["package_versions"]
+                ),
             }
             return compatibility.CommandResult(0, json.dumps(payload).encode(), b"")
         if "platform.python_version" in command[-1]:
@@ -1345,22 +1409,102 @@ def test_provider_startup_controller_runs_from_exact_installed_wheel(
         pytest.fail(f"unexpected command: {command!r}")
 
     monkeypatch.setattr(compatibility, "run_bounded", fake_run)
-    receipt = compatibility.run_provider_startup(
-        compatibility.ProviderStartupConfig(
-            repository=repository,
-            wheel=wheel,
-            python=python,
-            wheelhouse=wheelhouse,
-            model_root=model_root,
-            apple_executable=apple,
-            staging_root=tmp_path / "startup",
-            output=benchmark_root / "provider-startup.json",
-        )
+    config = compatibility.ProviderStartupConfig(
+        repository=repository,
+        wheel=wheel,
+        python=python,
+        wheelhouse=wheelhouse,
+        model_root=model_root,
+        apple_executable=apple,
+        staging_root=tmp_path / "startup",
+        output=benchmark_root / "provider-startup.json",
     )
+    if wheelhouse_drift == "replaced":
+        original_open = compatibility.os.open
+        replaced = False
+
+        def replace_before_open(path, flags, mode=0o777):
+            nonlocal replaced
+            target = wheelhouse / wheel.name
+            if Path(path) == target and not replaced:
+                replacement = wheelhouse / ".replacement"
+                replacement.write_bytes(b"x" * target.stat().st_size)
+                compatibility.os.replace(replacement, target)
+                replaced = True
+            return original_open(path, flags, mode)
+
+        monkeypatch.setattr(compatibility.os, "open", replace_before_open)
+    if wheelhouse_drift in {
+        "missing",
+        "extra",
+        "digest",
+        "size",
+        "symlink",
+        "replaced",
+    }:
+        with pytest.raises(
+            compatibility.CompatibilityError, match="provider_wheelhouse_invalid"
+        ):
+            compatibility.run_provider_startup(config)
+        if wheelhouse_drift == "replaced":
+            assert replaced is True
+        assert calls == []
+        assert not (tmp_path / "startup").exists()
+        return
+    if wheelhouse_drift == "environment-failure":
+        def fail_environment(home: Path, _cache: Path, *, offline: bool):
+            assert offline is True
+            home.mkdir(parents=True)
+            raise OSError("synthetic environment failure")
+
+        monkeypatch.setattr(compatibility, "_package_environment", fail_environment)
+        with pytest.raises(compatibility.CompatibilityError, match="provider_startup_failed"):
+            compatibility.run_provider_startup(config)
+        assert calls == []
+        assert not (tmp_path / "startup").exists()
+        return
+    if wheelhouse_drift == "replace-failure":
+        prior = b"prior canonical evidence\n"
+        config.output.write_bytes(prior)
+        original_replace = compatibility.os.replace
+
+        def fail_replace(source_path: Path, destination_path: Path) -> None:
+            if Path(destination_path) == config.output:
+                raise OSError("synthetic receipt replace failure")
+            original_replace(source_path, destination_path)
+
+        monkeypatch.setattr(compatibility.os, "replace", fail_replace)
+        with pytest.raises(compatibility.CompatibilityError, match="provider_startup_failed"):
+            compatibility.run_provider_startup(config)
+        assert config.output.read_bytes() == prior
+        assert not config.output.with_suffix(".json.tmp").exists()
+        assert not (tmp_path / "startup").exists()
+        return
+    if wheelhouse_drift == "installed-drift":
+        with pytest.raises(compatibility.CompatibilityError, match="provider_runtime_invalid"):
+            compatibility.run_provider_startup(config)
+        assert not config.output.exists()
+        assert not (tmp_path / "startup").exists()
+        return
+
+    receipt = compatibility.run_provider_startup(config)
 
     compatibility.validate_provider_startup_authority(repository, receipt)
     assert receipt["runtime"]["mke_wheel_sha256"] == wheel_digest
     assert receipt["runtime"]["module_origin"] == "installed-environment"
+    assert receipt["runtime"]["candidate"] == "paddleocr-vl-1.6-cpu-spike-v1"
+    assert receipt["runtime"]["surface"] == "base"
+    assert receipt["runtime"]["python"] == "3.13.12"
+    assert receipt["runtime"]["wheelhouse_sha256"] == compatibility.canonical_sha256(
+        package["candidates"][1]["distributions"]
+    )
+    assert receipt["runtime"]["installed_packages_sha256"] == compatibility.canonical_sha256(
+        expected_cell["package_versions"]
+    )
+    assert receipt["providers"][1]["vendor_artifacts"] is None
+    assert receipt["observed_vendor_fixture"]["provenance"] == (
+        "retained-authorized-observation"
+    )
     assert (benchmark_root / "provider-startup.json").read_bytes() == (
         compatibility.canonical_provider_startup_bytes(receipt)
     )
@@ -1374,6 +1518,18 @@ def test_provider_startup_controller_runs_from_exact_installed_wheel(
     assert len(proof_commands) == 1
     assert proof_commands[0][0].endswith("/venv/bin/python")
     assert proof_commands[0][1:3] == ("-I", "-c")
+
+
+def test_provider_runtime_doctor_matches_package_cell_import_boundary() -> None:
+    compatibility = _module()
+    program = compatibility._PROVIDER_RUNTIME_DOCTOR
+
+    paddle_import = program.index('importlib.import_module("paddle")')
+    paddleocr_import = program.index('importlib.import_module("paddleocr")')
+    distribution_scan = program.index("metadata.distributions()")
+    assert paddle_import < distribution_scan
+    assert paddleocr_import < distribution_scan
+    assert 'hasattr(paddleocr, "PaddleOCRVL")' in program
 
 
 def test_provider_startup_authority_writer_is_atomic_and_rejects_drift(
@@ -1393,7 +1549,6 @@ def test_provider_startup_authority_writer_is_atomic_and_rejects_drift(
             "normalized_text_sha256": text_digest,
         }
     )
-    paddle["vendor_artifacts"]["adapter_result"] = "accepted_strict_observed_schema"
     output = tmp_path / "provider-startup.json"
 
     compatibility.write_provider_startup_receipt(repository, receipt, output)
