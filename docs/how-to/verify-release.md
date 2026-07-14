@@ -7,10 +7,11 @@ This guide separates four ordered stages:
 3. Stage 3 complete final gate on the exact merged `main` commit.
 4. Stage 4 separately authorized tag, GitHub Release, and public-archive smoke.
 
-`v0.1.0` and `v0.1.1` have completed all three checks. The records below preserve their release
-identity and archive-smoke evidence. For the same workflow, Stage 1 and Stage 2 may run together
-on a final release-candidate branch, followed by a complete final gate on `main` before separately
-authorized tag and GitHub Release creation.
+`v0.1.0` and `v0.1.1` completed the earlier three-check workflow: repository readiness,
+installed-package smoke, and post-tag archive smoke. The records below preserve their release
+identity and archive-smoke evidence. The current four-stage workflow adds an exact candidate
+receipt and a separate final-main gate; those newer requirements are not retroactively attributed
+to the earlier releases.
 
 ## Completed v0.1.1 Release Record
 

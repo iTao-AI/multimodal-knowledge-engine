@@ -634,6 +634,40 @@ def test_audit_rejects_invalid_downstream_candidate_boundary(
     assert "downstream_candidate_boundary" in _rules(tmp_path)
 
 
+@pytest.mark.parametrize(
+    "contradictory_claim",
+    [
+        "The final v0.1.2 wheel was validated by the downstream consumer.",
+        "The downstream integration proves production adoption.",
+        "The downstream integration proves hosted deployment.",
+        "The downstream integration proves real-user outcomes.",
+        "Night Voyager is an MKE CI dependency.",
+        "A downstream lock update is required for this release.",
+    ],
+)
+def test_audit_rejects_contradictory_affirmative_downstream_claims(
+    tmp_path: Path,
+    contradictory_claim: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "docs/releases/v0.1.2.md"
+    original = target.read_text(encoding="utf-8")
+    target.write_text(
+        f"{original.rstrip()}\n\n{contradictory_claim}\n",
+        encoding="utf-8",
+    )
+
+    assert "downstream_candidate_boundary" in _rules(tmp_path)
+
+
+def test_verify_release_does_not_mix_four_stage_workflow_with_stale_three_check_claim() -> None:
+    text = Path("docs/how-to/verify-release.md").read_text(encoding="utf-8")
+
+    assert "This guide separates four ordered stages" in text
+    assert "completed all three checks" not in text
+    assert "earlier three-check workflow" in text
+
+
 def test_audit_limits_current_wheel_rule_to_command_docs(tmp_path: Path) -> None:
     _write_release_tree(tmp_path)
     changelog = tmp_path / "CHANGELOG.md"

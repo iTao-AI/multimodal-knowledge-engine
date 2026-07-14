@@ -655,7 +655,7 @@ The Task 4 handoff must report the call-owned rebinder SHA-256, exact changed pa
 - Produces: accurate repository-visible implementation status before the commit-bound candidate proof.
 - Failure contract: no claim of review acceptance, PR, merge, tag, Release, or publication before it occurs.
 
-- [ ] **Step 1: Add the implementation review skeleton**
+- [x] **Step 1: Add the implementation review skeleton**
 
 Record:
 
@@ -667,11 +667,11 @@ Record:
 - verification matrix still to run in Task 6;
 - status `release changes complete; clean-candidate verification and authoritative review pending`.
 
-- [ ] **Step 2: Update plan checkboxes and spec status accurately**
+- [x] **Step 2: Update plan checkboxes and spec status accurately**
 
 Mark Tasks 1-4 complete only when their commands passed. Leave Tasks 6 and 7 unchecked. Set the spec to release changes complete but pending pre-review candidate verification and authoritative review. Do not use ambiguous `complete` wording.
 
-- [ ] **Step 3: Run docs/status checks and commit all remaining repository writes**
+- [x] **Step 3: Run docs/status checks and commit all remaining repository writes**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \

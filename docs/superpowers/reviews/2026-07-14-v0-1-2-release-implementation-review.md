@@ -1,6 +1,6 @@
 # v0.1.2 Release Closeout Implementation Review
 
-Status: release changes complete; clean-candidate verification and authoritative review pending.
+Status: authoritative pre-review findings addressed locally; targeted engineering re-review pending.
 
 Review base: `main@16fae017ced5fe67da3fae4a01f26e9e9f1084aa`.
 
@@ -32,17 +32,23 @@ The pre-write validator chain reported identity failures for E1, E2, E3-A, E3-B,
 
 Normalized semantic projections were equal for every E1 through E3-E layer. Observations, ordered results, metrics, thresholds, gates, diagnostics, selected profiles and candidates, statuses, verdicts, corpus, queries, qrels, and fixtures were unchanged. The Task 4 regression suite passed with 191 tests, and all seven canonical validators passed against both the validation mirror and the real worktree.
 
-## Verification Pending
+## Authoritative Pre-Review Findings
 
-Task 6 must still run from the exact clean commit produced by this review-preparation change. It must complete:
+Authoritative pre-review of `12e177dfd465ef0481352ec7fd9bc7a5f10948ec` identified three actionable findings:
 
-- full pytest, Ruff, Pyright, and packaging build gates;
-- product proof, demo verification, local-knowledge proof, and Evidence-provenance proof;
-- release presentation and documentation gates;
-- fresh E1 through E3-B observations using the corrected E2 scope-refresh order;
-- all seven canonical validators;
-- one receipt-bound candidate-output proof with exact Python 3.12 and Python 3.13 interpreters;
-- installed-wheel smoke against the exact candidate-output wheel;
-- receipt, wheel, source-commit, scope, marker, and public-neutral coherence checks.
+1. The downstream-boundary audit required denial terms but did not reject contradictory affirmative final-wheel, production-adoption, hosted-deployment, real-user-outcome, CI-dependency, or downstream-lock claims. Adversarial mutation tests now preserve every required denial while appending each overclaim, and the audit rejects those affirmative forms without rejecting the current joint-negative wording.
+2. The release verification guide described the current four-stage workflow and then attributed “all three checks” to prior releases. It now names the earlier three-check workflow—repository readiness, installed-package smoke, and post-tag archive smoke—and does not retroactively attribute the current candidate-receipt or final-main gates.
+3. Task 5 had been completed and committed while its three checklist entries remained open. Those entries now reflect the completed work; Tasks 6 and 7 remain unchecked in the committed plan.
 
-Task 6 produces pre-review evidence only. Authoritative review remains pending, and any later tracked change invalidates that evidence. Task 7 and every publication or external side effect remain separately authorized.
+The pre-review candidate evidence produced from `12e177dfd465ef0481352ec7fd9bc7a5f10948ec`, including wheel SHA-256 `ca4c978ec6fc8ffab3e04375ab2500b39584e2b5fcfa333bb0cb0cbd76b223dd` and canonical receipt SHA-256 `40b2674059645a9162d96510c5d5aec444629625cf9f4b8a3f328ec67e1560c2`, is invalidated by this tracked findings fix. It is retained only as historical pre-review evidence and must not be reused by Task 7.
+
+## Verification And Review Status
+
+- RED: all six contradictory affirmative downstream mutations were accepted before the audit fix.
+- RED: the four-stage verification guide still contained the stale “completed all three checks” claim.
+- GREEN: the seven focused downstream-boundary and verification-wording cases passed.
+- GREEN: the release presentation, installed-smoke, version, bootstrap, and documentation slice passed 120 tests.
+- GREEN: the current presentation audit returned `status=ok`; Ruff and Pyright passed on the changed Python surfaces.
+- GREEN: the exact five-file diff contains no runtime, lock, evaluation artifact, workflow, OCR, or private-path change.
+
+Targeted engineering re-review remains pending. Task 7, candidate re-proving, publication, and every external side effect remain separately authorized and have not started. The candidate-output proof was not invoked again during this findings fix.

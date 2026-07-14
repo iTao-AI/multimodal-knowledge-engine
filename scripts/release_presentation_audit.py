@@ -526,6 +526,38 @@ def _audit_downstream_candidate_boundary(root: Path) -> list[Violation]:
                 ),
             )
         ]
+    normalized = " ".join(text.split())
+    affirmative_overclaims = (
+        re.compile(
+            r"\bfinal v0\.1\.2 wheel (?:was|is|has been) validated\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:proves|proved|demonstrates|demonstrated|confirms|confirmed) "
+            r"(?:production adoption|hosted deployment|real-user outcomes)\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:is|was|has been) an? MKE CI dependency\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:a )?downstream lock update (?:is|was|remains) required\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\brequires a downstream lock update\b",
+            re.IGNORECASE,
+        ),
+    )
+    if any(pattern.search(normalized) for pattern in affirmative_overclaims):
+        return [
+            Violation(
+                file=file_name,
+                rule="downstream_candidate_boundary",
+                message="release notes must not add affirmative downstream overclaims",
+            )
+        ]
     return []
 
 
