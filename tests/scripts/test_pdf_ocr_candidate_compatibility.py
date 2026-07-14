@@ -1771,10 +1771,11 @@ def test_provider_startup_controller_binds_exact_package_evidence(
     observed_source = source / "src/mke/evaluation/fixtures/paddleocr-vl-1.6-observed.json"
     observed = observed_source.read_text(encoding="utf-8")
     (observed_root / observed_source.name).write_text(observed, encoding="utf-8")
-    wheel = tmp_path / "multimodal_knowledge_engine-0.1.1-py3-none-any.whl"
+    package = json.loads((source / "benchmarks/ocr/candidate-environments.json").read_bytes())
+    mke_authority = compatibility._receipt_mke_authority(package)
+    wheel = tmp_path / mke_authority.filename
     wheel.write_bytes(b"current reviewed MKE wheel")
     wheel_digest = hashlib.sha256(wheel.read_bytes()).hexdigest()
-    package = json.loads((source / "benchmarks/ocr/candidate-environments.json").read_bytes())
     package["mke_wheel_sha256"] = wheel_digest
     for candidate in package["candidates"]:
         candidate["distributions"] = [
@@ -1838,7 +1839,7 @@ def test_provider_startup_controller_binds_exact_package_evidence(
             runtime = tmp_path / "startup/venv"
             payload = {
                 "python": "3.13.12",
-                "mke_version": "0.1.1",
+                "mke_version": mke_authority.version,
                 "mke_file": str(runtime / "lib/python3.13/site-packages/mke/__init__.py"),
                 "sys_executable": str(runtime / "bin/python"),
                 "sys_prefix": str(runtime),
@@ -2051,6 +2052,48 @@ def test_provider_startup_controller_binds_exact_package_evidence(
     assert len(proof_commands) == 1
     assert proof_commands[0][0].endswith("/venv/bin/python")
     assert proof_commands[0][1:3] == ("-I", "-c")
+
+
+@pytest.mark.parametrize("receipt_version", ["0.1.1", "0.1.2"])
+def test_provider_startup_controller_fixture_accepts_self_consistent_receipt_versions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    receipt_version: str,
+) -> None:
+    compatibility = _module()
+    package_path = (
+        Path(__file__).resolve().parents[2]
+        / "benchmarks/ocr/candidate-environments.json"
+    )
+    original_read_bytes = Path.read_bytes
+
+    def read_versioned_receipt(path: Path) -> bytes:
+        encoded = original_read_bytes(path)
+        if path != package_path:
+            return encoded
+        receipt = json.loads(encoded)
+        for candidate in receipt["candidates"]:
+            for distribution in candidate["distributions"]:
+                if distribution["filename"].startswith(
+                    "multimodal_knowledge_engine-"
+                ):
+                    distribution["filename"] = (
+                        f"multimodal_knowledge_engine-{receipt_version}-py3-none-any.whl"
+                    )
+            for cell in candidate["cells"]:
+                if cell["result"] == "passed":
+                    cell["package_versions"]["multimodal-knowledge-engine"] = (
+                        receipt_version
+                    )
+        return compatibility.canonical_receipt_bytes(receipt)
+
+    monkeypatch.setattr(Path, "read_bytes", read_versioned_receipt)
+
+    test_provider_startup_controller_binds_exact_package_evidence(
+        tmp_path,
+        monkeypatch,
+        None,
+    )
 
 
 def test_provider_runtime_doctor_matches_package_cell_import_boundary() -> None:

@@ -836,6 +836,19 @@ Task 4R-B permits no controller or production behavior change. The test file may
 replace the committed package receipt's exact frozen SHA with the SHA-256 of the newly generated
 canonical 0.1.2 receipt.
 
+The first Task 4R-B evidence attempt completed the fresh 0.1.2 wheel build, offline 16-cell matrix,
+and cache-only three-provider startup, but the complete compatibility suite exposed a synthetic
+test-fixture version drift before the targeted controller branches ran. The operation restored the
+three tracked files from call-owned byte-identical backups and removed its call-owned roots; none of
+that attempt's temporary wheel or receipt identities is reusable authority. The accepted amendment
+first generalizes only the provider-startup controller test fixture: its wheel filename, version,
+selected Python 3.13 base package set, and fake runtime version derive from the fixture's own strict
+receipt authority. Explicit 0.1.1 and 0.1.2 self-consistency cases must pass without weakening the
+controller or validators. This test-and-documentation amendment is committed separately, after
+which Task 4R-B freezes a new `task4r_evidence_start` and repeats Steps 5-10 from fresh call-owned
+roots. In the later evidence commit, the test-file diff remains limited to the one frozen receipt
+SHA literal.
+
 - [ ] **Step 5: Freeze the evidence source and call-owned cleanup contract**
 
 After Task 4R-A is committed and the worktree is clean, freeze
