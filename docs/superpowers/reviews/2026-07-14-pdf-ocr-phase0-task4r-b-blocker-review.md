@@ -45,3 +45,11 @@ the package and provider receipts from fresh call-owned roots using only retaine
 The later evidence commit may change only the two canonical receipts and the committed package
 receipt's frozen SHA literal. Task 4R-B Steps 5-10 remain incomplete until that retry and its full
 verification finish. Task 5A and later work remain outside this review.
+
+## Later Acceptance
+
+The authorized retry was later completed and accepted with no findings at implementation HEAD
+`97e2cb1c67f2ef3a5cd8fc936e697034c0b79ed0`. That acceptance is recorded separately in
+`2026-07-14-pdf-ocr-phase0-task4r-b-implementation-review.md`. This historical record continues to
+describe the earlier hard stop and its test-only amendment; it does not itself establish the
+refreshed evidence authority.

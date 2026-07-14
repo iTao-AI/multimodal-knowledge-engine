@@ -734,13 +734,18 @@ after targeted review accepts this resumption plan. The review of
 `dccf5bb7eb4d1ff7527e1ee5801554576c4dfcd1..3673c8373da6973b0961f789204be14adce3d4dd`
 accepted the plan and cleared Task 4R-A. Task 4R-A implementation commit
 `3b029a47c69f32d63e9cae688196e205d96f8af7` was subsequently accepted with no findings. Task 4R-B
-is cleared only for a separate dispatch and has not started; later work remains gated.
+was completed and accepted with no findings at
+`97e2cb1c67f2ef3a5cd8fc936e697034c0b79ed0`. Task 4R is accepted, and only Task 5A is cleared for
+a later independent dispatch; Task 5A and later work have not started.
 
-The existing package and startup receipts bind an MKE 0.1.1 wheel. They remain historical,
-self-consistent evidence after the MKE 0.1.2 merge and cannot authorize Task 5B. Task 4R-A removed
-the compatibility controller's former fixed 0.1.1 wheel filename and installed-version authority
-and added the call-owned rebind harness required before evidence refresh. Task 4R-A and Task 4R-B
-remain separate TDD commits and reviewable checkpoints; both must complete before Task 4R review.
+The pre-reconciliation package and startup receipts bound an MKE 0.1.1 wheel and remain historical
+evidence. Task 4R-A removed the compatibility controller's former fixed 0.1.1 wheel filename and
+installed-version authority and added the call-owned rebind harness. Task 4R-B refreshed the
+canonical package and startup receipts against the exact MKE 0.1.2 wheel while leaving model and
+third-party package authority unchanged. The accepted package, startup, and model receipt SHA-256
+values are respectively `d2232fcbd6775a9f03fa3d2a77b181987b5cfa43c9fdc1efcb48f08f01553d2a`,
+`1a159461fd73c7069905b0a085f5b900f4b1577dbf418a86adcf96b9c6354652`, and
+`3d1e8c45b7ed0c817acaeda3f51954b463016763690e09ca1f23162042219d6e`.
 
 #### Task 4R-A: Generalize candidate wheel authority and prepare rebound wheelhouses
 
@@ -849,7 +854,7 @@ which Task 4R-B freezes a new `task4r_evidence_start` and repeats Steps 5-10 fro
 roots. In the later evidence commit, the test-file diff remains limited to the one frozen receipt
 SHA literal.
 
-- [ ] **Step 5: Freeze the evidence source and call-owned cleanup contract**
+- [x] **Step 5: Freeze the evidence source and call-owned cleanup contract**
 
 After Task 4R-A is committed and the worktree is clean, freeze
 `task4r_evidence_start="$(git rev-parse HEAD)"`. Build only from that exact committed HEAD. The
@@ -880,7 +885,7 @@ The trap owns only the two `mktemp` roots and never deletes operator-retained ev
 wheel filename, bytes, SHA-256, version, and METADATA before cleanup. After all evidence and checks
 complete, invoke the trap cleanup, disable it, and require both roots not to exist.
 
-- [ ] **Step 6: Create the rebound wheelhouses and run the offline matrix**
+- [x] **Step 6: Create the rebound wheelhouses and run the offline matrix**
 
 Use the Task 4R-A helper to create `rebound_wheelhouses` from `retained_wheelhouses` and the exact
 new wheel. Prove the retained source unchanged and the destination identity constraints, then run:
@@ -902,7 +907,7 @@ Require `UV_OFFLINE=1` and do not pass `--allow-package-download` or
 `--allow-model-download`. Require exact 0.1.2 filename/METADATA/cell versions, two candidates,
 Python 3.12/3.13, four surfaces, and 16 validated cells.
 
-- [ ] **Step 7: Compile the Apple Vision child and refresh provider startup**
+- [x] **Step 7: Compile the Apple Vision child and refresh provider startup**
 
 The Swift driver is not a provider child. Typecheck and compile the tracked source into the
 call-owned executable, then pass only that compiled child to `ProviderStartupConfig`:
@@ -922,7 +927,7 @@ installed-wheel origin, package receipt/cell identity, network denial, canary, a
 provider startup results. Descriptor-bound rehash `model_root`; any difference from
 `benchmarks/ocr/model-artifacts.json` is a hard stop and that receipt remains byte-identical.
 
-- [ ] **Step 8: Freeze the new canonical package receipt**
+- [x] **Step 8: Freeze the new canonical package receipt**
 
 Only after the offline matrix and provider startup have completed, require
 `benchmarks/ocr/candidate-environments.json` to equal its canonical bytes and compute its exact
@@ -942,7 +947,7 @@ The receipt and startup evidence bind exact wheel, package, model, and runtime b
 they do not bind `source_commit`. This post-run test-only freeze update is repository regression
 authority for the generated receipt bytes, not a source-commit binding.
 
-- [ ] **Step 9: Run complete verification after the freeze update**
+- [x] **Step 9: Run complete verification after the freeze update**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/scripts/test_pdf_ocr_candidate_compatibility.py
@@ -964,7 +969,7 @@ The complete compatibility suite runs only after the freeze assertion is updated
 call-owned roots through `cleanup_task4r`, run `trap - EXIT INT TERM`, and require
 `test ! -e "${staging_root}"` plus `test ! -e "${cache_root}"`.
 
-- [ ] **Step 10: Audit three exact files and commit Task 4R-B**
+- [x] **Step 10: Audit three exact files and commit Task 4R-B**
 
 Require the test diff to contain only the single mechanical committed-receipt frozen-SHA update;
 any other test or code change is a hard stop. Verify `benchmarks/ocr/model-artifacts.json` remains
@@ -983,6 +988,16 @@ git commit -m "test(ocr): refresh v0.1.2 provider evidence"
 Any other tracked change, missing retained evidence, identity drift, or attempted network fallback
 is an authority hard stop. Task 4R-A and Task 4R-B must both complete before the Task 4R authority
 review checkpoint.
+
+Targeted authority review accepted Task 4R-B at
+`97e2cb1c67f2ef3a5cd8fc936e697034c0b79ed0` with no findings. Fresh review verification recorded
+`104 passed, 5 warnings` for compatibility, `86 passed, 5 warnings` for protocol/router/provider,
+Ruff passed, Pyright reported `0 errors`, and `git diff --check` passed. Both candidates bind the
+same exact MKE 0.1.2 wheel and all 16 cells passed. Provider startup binds the refreshed package
+receipt, the Python 3.13 base installed environment, blocked network canary, and equal normalized
+truth digests. Call-owned roots were removed; retained package and model roots remained unchanged.
+These are local single-page startup compatibility facts only, not OCR quality, provider selection,
+or production capability. Task 5A is cleared only for a later independent dispatch.
 
 ---
 
