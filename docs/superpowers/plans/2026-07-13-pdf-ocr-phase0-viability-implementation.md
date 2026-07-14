@@ -6,9 +6,9 @@ Status: in progress. Tasks 1-3 and their review remediation are complete. Task 4
 complete as a bounded compatibility checkpoint. The pinned model roots were prepared and real
 startup evidence was recorded. A bounded Task 4 amendment now accepts only the observed pinned
 PaddleOCR-VL direct-top-level prose envelope and binds startup evidence to the package, model,
-protocol, and vendor-artifact identities. Targeted authority re-review of the amendment is pending.
-Tasks 5-6 have not started; work is hard-stopped before any scorecard, provider selection, or
-production runtime work.
+protocol, and vendor-artifact identities. Targeted authority re-review accepted the amendment at
+`040cb6cea2439f5f9d46b09862b17fa1fee59e39` and cleared Task 5. Task 5 is authorized but has not
+yet produced a scorecard; Task 6 and production runtime work have not started.
 
 **Goal:** Produce reproducible valid-positive or valid-negative evidence for local scanned/mixed-PDF OCR before adding a production runtime contract.
 
@@ -610,8 +610,8 @@ cleanup, not retained disk usage. The retained operator-local package evidence i
 2.2 GB; its location is intentionally not part of the public receipt or repository contract. Task 4
 Steps 4-6 subsequently completed under separate model-download authority. Their bounded amendment
 is recorded in the
-[Task 4 Amendment Review](../reviews/2026-07-14-pdf-ocr-phase0-task4-amendment-review.md) and remains
-pending targeted authority re-review.
+[Task 4 Amendment Review](../reviews/2026-07-14-pdf-ocr-phase0-task4-amendment-review.md) and was
+accepted at implementation HEAD `040cb6cea2439f5f9d46b09862b17fa1fee59e39`, clearing Task 5.
 
 - [x] **Step 4: Prepare model artifacts under explicit authority**
 
@@ -703,9 +703,11 @@ tested `no_go` scorecard. Do not run or design a production provider.
 
 Task 4 closes as compatibility evidence, not a provider decision. The package matrix is rebound to
 the amended exact MKE wheel and remains canonical; model and startup receipts are independently
-canonical, and required model-free suites remain network-free. Task 5 is not authorized by this
-checkpoint and remains unstarted pending targeted authority re-review of the bounded Task 4
-amendment.
+canonical, and required model-free suites remain network-free. Targeted authority re-review
+accepted the bounded Task 4 amendment at `040cb6cea2439f5f9d46b09862b17fa1fee59e39`, with
+`158 passed, 5 warnings`, Ruff, Pyright, diff check, and all three canonical receipt identities
+passing. Task 5 is cleared to generate the scorecard; this does not select a provider or authorize
+production OCR.
 
 ---
 

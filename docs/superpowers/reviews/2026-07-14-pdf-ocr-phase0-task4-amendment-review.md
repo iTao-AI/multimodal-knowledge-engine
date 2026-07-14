@@ -2,7 +2,10 @@
 
 Date: 2026-07-14
 
-Status: implementation complete; targeted authority re-review pending. Task 5 has not started.
+Status: targeted authority re-review accepted at implementation HEAD
+`040cb6cea2439f5f9d46b09862b17fa1fee59e39`; CLEARED FOR TASK 5. The independent review
+recorded `158 passed, 5 warnings`, with Ruff, Pyright, diff check, and all three canonical receipt
+SHA-256 identities passing. Task 5 had not started at this acceptance boundary.
 
 ## Scope
 
@@ -75,7 +78,9 @@ The retained model receipt remains SHA-256
 sealed 34-file, 2,201,640,507-byte snapshot before startup. No package or model was downloaded during
 this targeted repair.
 
-## Remaining Gate
+## Accepted Boundary
 
-Targeted authority re-review must accept this amendment before Task 5 begins. No scorecard,
-provider selection, production OCR surface, dependency change, or external publication is included.
+Targeted authority re-review accepted this bounded amendment and cleared Task 5 to generate the
+evaluation scorecard through current Publication, Search, Ask, and EvidenceRef contracts. This
+acceptance does not select a provider, approve numeric thresholds, authorize production OCR,
+change dependencies, or authorize external publication.
