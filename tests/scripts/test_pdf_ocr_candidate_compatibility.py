@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import time
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -29,6 +30,359 @@ def _interpreters(tmp_path: Path):
         compatibility.InterpreterIdentity(first, "3.12.13", "3.12"),
         compatibility.InterpreterIdentity(second, "3.13.12", "3.13"),
     )
+
+
+def _write_mke_wheel(
+    path: Path,
+    version: str,
+    *,
+    metadata_version: str | None = None,
+) -> None:
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr(
+            f"multimodal_knowledge_engine-{version}.dist-info/METADATA",
+            "Metadata-Version: 2.1\n"
+            "Name: multimodal-knowledge-engine\n"
+            f"Version: {metadata_version or version}\n",
+        )
+
+
+def _write_project_version(repository: Path, version: str) -> None:
+    (repository / "pyproject.toml").write_text(
+        "[project]\nname = 'multimodal-knowledge-engine'\n"
+        f"version = '{version}'\n",
+        encoding="utf-8",
+    )
+
+
+def _prepared_wheelhouses(root: Path, *, old_version: str = "0.1.1") -> None:
+    for index, candidate in enumerate(
+        (
+            "ppocrv6-medium-cpu-spike-v1",
+            "paddleocr-vl-1.6-cpu-spike-v1",
+        )
+    ):
+        candidate_root = root / candidate
+        candidate_root.mkdir(parents=True)
+        _write_mke_wheel(
+            candidate_root
+            / f"multimodal_knowledge_engine-{old_version}-py3-none-any.whl",
+            old_version,
+        )
+        (candidate_root / f"third_party_{index}-1.0-py3-none-any.whl").write_bytes(
+            f"third-party-{index}".encode()
+        )
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "multimodal_knowledge_engine-0.1.2-cp312-cp312-macosx.whl",
+        "other_project-0.1.2-py3-none-any.whl",
+        "multimodal_knowledge_engine-../0.1.2-py3-none-any.whl",
+        "multimodal_knowledge_engine-0.1.2-py3-none-any.whl.backup",
+        "multimodal_knowledge_engine-0.1.2-evil-py3-none-any.whl",
+    ],
+)
+def test_mke_wheel_filename_parser_rejects_unsafe_or_ambiguous_names(filename: str) -> None:
+    compatibility = _module()
+
+    with pytest.raises(ValueError, match="wheel"):
+        compatibility._parse_mke_wheel_filename(filename)
+
+
+def test_generation_wheel_binds_filename_metadata_and_project_version(tmp_path: Path) -> None:
+    compatibility = _module()
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    _write_project_version(repository, "0.1.2")
+    wheel = tmp_path / "multimodal_knowledge_engine-0.1.2-py3-none-any.whl"
+    _write_mke_wheel(wheel, "0.1.2")
+
+    authority = compatibility._validate_generation_wheel(repository, wheel)
+
+    assert authority.version == "0.1.2"
+    assert authority.filename == wheel.name
+    assert authority.sha256 == hashlib.sha256(wheel.read_bytes()).hexdigest()
+
+
+@pytest.mark.parametrize(
+    ("filename_version", "metadata_version", "project_version"),
+    [
+        ("0.1.1", "0.1.1", "0.1.2"),
+        ("0.1.2", "0.1.1", "0.1.2"),
+        ("0.1.2", "0.1.2", "0.1.3"),
+    ],
+)
+def test_generation_wheel_rejects_filename_metadata_or_project_drift(
+    tmp_path: Path,
+    filename_version: str,
+    metadata_version: str,
+    project_version: str,
+) -> None:
+    compatibility = _module()
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    _write_project_version(repository, project_version)
+    wheel = tmp_path / (
+        f"multimodal_knowledge_engine-{filename_version}-py3-none-any.whl"
+    )
+    _write_mke_wheel(wheel, filename_version, metadata_version=metadata_version)
+
+    with pytest.raises(compatibility.CompatibilityError, match="input_invalid"):
+        compatibility._validate_generation_wheel(repository, wheel)
+
+
+def test_historical_receipt_remains_self_consistent_on_newer_checkout() -> None:
+    compatibility = _module()
+
+    compatibility.validate_receipt(_receipt())
+
+
+@pytest.mark.parametrize(
+    "drift",
+    [
+        "missing-mke",
+        "duplicate-mke",
+        "cross-filename",
+        "cross-digest",
+        "installed-version",
+    ],
+)
+def test_receipt_validator_rejects_mke_authority_drift(drift: str) -> None:
+    compatibility = _module()
+    receipt = _receipt()
+    candidates = receipt["candidates"]
+    assert isinstance(candidates, list)
+    first = candidates[0]
+    second = candidates[1]
+    assert isinstance(first, dict) and isinstance(second, dict)
+    first_inventory = first["distributions"]
+    second_inventory = second["distributions"]
+    assert isinstance(first_inventory, list) and isinstance(second_inventory, list)
+    if drift == "missing-mke":
+        first_inventory.pop(0)
+        first["download_bytes"] = 7
+    elif drift == "duplicate-mke":
+        duplicate = copy.deepcopy(first_inventory[0])
+        assert isinstance(duplicate, dict)
+        duplicate["filename"] = "multimodal_knowledge_engine-0.1.2-py3-none-any.whl"
+        first_inventory.append(duplicate)
+        first["download_bytes"] = 29
+    elif drift == "cross-filename":
+        assert isinstance(second_inventory[0], dict)
+        second_inventory[0]["filename"] = (
+            "multimodal_knowledge_engine-0.1.2-py3-none-any.whl"
+        )
+    elif drift == "cross-digest":
+        assert isinstance(second_inventory[0], dict)
+        second_inventory[0]["sha256"] = "c" * 64
+    else:
+        cells = first["cells"]
+        assert isinstance(cells, list) and isinstance(cells[0], dict)
+        versions = cells[0]["package_versions"]
+        assert isinstance(versions, dict)
+        versions["multimodal-knowledge-engine"] = "0.1.2"
+
+    with pytest.raises(ValueError, match="receipt"):
+        compatibility.validate_receipt(receipt)
+
+
+def test_provider_runtime_identity_rejects_version_drift_from_referenced_cell(
+    tmp_path: Path,
+) -> None:
+    compatibility = _module()
+    repository = tmp_path / "repository"
+    runtime = tmp_path / "runtime"
+    module = runtime / "lib/python3.13/site-packages/mke/__init__.py"
+    executable = runtime / "bin/python"
+    module.parent.mkdir(parents=True)
+    executable.parent.mkdir(parents=True)
+    module.write_text("", encoding="utf-8")
+    executable.write_text("", encoding="utf-8")
+    fixture = Path(
+        "src/mke/evaluation/fixtures/paddleocr-vl-1.6-observed.json"
+    ).read_text(encoding="utf-8")
+    identity = {
+        "python": "3.13.12",
+        "mke_version": "0.1.1",
+        "mke_file": str(module),
+        "sys_executable": str(executable),
+        "sys_prefix": str(runtime),
+        "isolated": True,
+        "pythonpath_present": False,
+        "vendor_fixture_sha256": hashlib.sha256(fixture.encode()).hexdigest(),
+        "vendor_fixture_text": fixture,
+        "package_versions": {"multimodal-knowledge-engine": "0.1.2"},
+    }
+
+    with pytest.raises(compatibility.CompatibilityError, match="provider_runtime_invalid"):
+        compatibility.validate_provider_runtime_identity(
+            identity,
+            runtime=runtime,
+            repository=repository,
+            expected_python="3.13.12",
+            expected_wheel_filename=(
+                "multimodal_knowledge_engine-0.1.2-py3-none-any.whl"
+            ),
+            expected_wheel_sha256="b" * 64,
+            expected_package_versions={"multimodal-knowledge-engine": "0.1.2"},
+            expected_wheelhouse_sha256="c" * 64,
+        )
+
+
+def test_prepared_wheelhouses_are_copied_and_rebound_without_source_mutation(
+    tmp_path: Path,
+) -> None:
+    compatibility = _module()
+    retained = tmp_path / "retained"
+    destination = tmp_path / "rebound"
+    _prepared_wheelhouses(retained)
+    new_wheel = tmp_path / "multimodal_knowledge_engine-0.1.2-py3-none-any.whl"
+    _write_mke_wheel(new_wheel, "0.1.2")
+    before = _tree_snapshot(retained)
+
+    rebound = compatibility.copy_rebound_prepared_wheelhouses(
+        retained,
+        destination,
+        new_wheel,
+    )
+
+    assert rebound == destination.resolve()
+    assert _tree_snapshot(retained) == before
+    for candidate in compatibility.CANDIDATES:
+        source_files = sorted((retained / candidate).iterdir())
+        output_files = sorted((destination / candidate).iterdir())
+        assert new_wheel.name in {path.name for path in output_files}
+        assert not any("-0.1.1-" in path.name for path in output_files)
+        source_third_party = [
+            path for path in source_files if not path.name.startswith("multimodal_")
+        ]
+        output_third_party = [
+            path for path in output_files if not path.name.startswith("multimodal_")
+        ]
+        assert [(path.name, path.read_bytes()) for path in output_third_party] == [
+            (path.name, path.read_bytes()) for path in source_third_party
+        ]
+        assert (destination / candidate / new_wheel.name).read_bytes() == new_wheel.read_bytes()
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        "collision",
+        "missing-mke",
+        "multiple-mke",
+        "symlink",
+        "non-regular",
+        "nested",
+        "unexpected",
+    ],
+)
+def test_prepared_wheelhouse_rebind_rejects_invalid_inventory(
+    tmp_path: Path,
+    invalid: str,
+) -> None:
+    compatibility = _module()
+    retained = tmp_path / "retained"
+    destination = tmp_path / "rebound"
+    _prepared_wheelhouses(retained)
+    candidate = retained / "ppocrv6-medium-cpu-spike-v1"
+    old_wheel = candidate / "multimodal_knowledge_engine-0.1.1-py3-none-any.whl"
+    if invalid == "collision":
+        destination.mkdir()
+    elif invalid == "missing-mke":
+        old_wheel.unlink()
+    elif invalid == "multiple-mke":
+        _write_mke_wheel(
+            candidate / "multimodal_knowledge_engine-0.1.0-py3-none-any.whl",
+            "0.1.0",
+        )
+    elif invalid == "symlink":
+        target = tmp_path / "external.whl"
+        target.write_bytes(b"external")
+        (candidate / "linked-1.0-py3-none-any.whl").symlink_to(target)
+    elif invalid == "non-regular":
+        if os.name != "posix":
+            pytest.skip("FIFO inventory regression is POSIX-only")
+        os.mkfifo(candidate / "fifo-1.0-py3-none-any.whl")
+    elif invalid == "nested":
+        (candidate / "nested").mkdir()
+    else:
+        (candidate / "unexpected.txt").write_text("unexpected", encoding="utf-8")
+    new_wheel = tmp_path / "multimodal_knowledge_engine-0.1.2-py3-none-any.whl"
+    _write_mke_wheel(new_wheel, "0.1.2")
+    before = _tree_snapshot(retained)
+
+    with pytest.raises(compatibility.CompatibilityError, match="prepared_wheelhouses_invalid"):
+        compatibility.copy_rebound_prepared_wheelhouses(
+            retained,
+            destination,
+            new_wheel,
+        )
+
+    assert _tree_snapshot(retained) == before
+
+
+def test_prepared_wheelhouse_rebind_rejects_source_mutation_during_copy(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    compatibility = _module()
+    retained = tmp_path / "retained"
+    destination = tmp_path / "rebound"
+    _prepared_wheelhouses(retained)
+    new_wheel = tmp_path / "multimodal_knowledge_engine-0.1.2-py3-none-any.whl"
+    _write_mke_wheel(new_wheel, "0.1.2")
+    target = retained / "ppocrv6-medium-cpu-spike-v1/third_party_0-1.0-py3-none-any.whl"
+    original = compatibility._copy_regular_wheel
+    mutated = False
+
+    def mutate_after_copy(source: Path, output: Path):
+        nonlocal mutated
+        receipt = original(source, output)
+        if source == target and not mutated:
+            target.write_bytes(b"X" * target.stat().st_size)
+            mutated = True
+        return receipt
+
+    monkeypatch.setattr(compatibility, "_copy_regular_wheel", mutate_after_copy)
+
+    with pytest.raises(compatibility.CompatibilityError, match="prepared_wheelhouses_invalid"):
+        compatibility.copy_rebound_prepared_wheelhouses(retained, destination, new_wheel)
+
+    assert mutated is True
+
+
+def test_prepared_wheelhouse_rebind_rejects_path_replacement_before_open(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    compatibility = _module()
+    retained = tmp_path / "retained"
+    destination = tmp_path / "rebound"
+    _prepared_wheelhouses(retained)
+    new_wheel = tmp_path / "multimodal_knowledge_engine-0.1.2-py3-none-any.whl"
+    _write_mke_wheel(new_wheel, "0.1.2")
+    target = retained / "ppocrv6-medium-cpu-spike-v1/third_party_0-1.0-py3-none-any.whl"
+    original_open = compatibility.os.open
+    replaced = False
+
+    def replace_before_open(path, flags, mode=0o777):
+        nonlocal replaced
+        if Path(path) == target and flags & os.O_WRONLY == 0 and not replaced:
+            replacement = target.with_name(".replacement.whl")
+            replacement.write_bytes(target.read_bytes())
+            os.replace(replacement, target)
+            replaced = True
+        return original_open(path, flags, mode)
+
+    monkeypatch.setattr(compatibility.os, "open", replace_before_open)
+
+    with pytest.raises(compatibility.CompatibilityError, match="prepared_wheelhouses_invalid"):
+        compatibility.copy_rebound_prepared_wheelhouses(retained, destination, new_wheel)
+
+    assert replaced is True
 
 
 def test_matrix_uses_one_wheel_both_interpreters_and_exact_sixteen_cells(
@@ -313,6 +667,8 @@ def test_all_resolver_failed_candidate_emits_mke_only_valid_receipt(
             if item["filename"] == "multimodal_knowledge_engine-0.1.1-py3-none-any.whl"
         )
         mke["sha256"] = digest
+        mke["bytes"] = wheel.stat().st_size
+        candidate["download_bytes"] = sum(item["bytes"] for item in inventory)
     failed = candidates[0]
     assert isinstance(failed, dict)
     failed["distributions"] = distributions
@@ -376,8 +732,9 @@ def _controller_inputs(tmp_path: Path):
     compatibility = _module()
     repository = tmp_path / "repository"
     repository.mkdir()
-    wheel = tmp_path / "multimodal_knowledge_engine-0.1.1-py3-none-any.whl"
-    wheel.write_bytes(b"one immutable MKE wheel")
+    _write_project_version(repository, "0.1.2")
+    wheel = tmp_path / "multimodal_knowledge_engine-0.1.2-py3-none-any.whl"
+    _write_mke_wheel(wheel, "0.1.2")
     python312 = tmp_path / "python312"
     python313 = tmp_path / "python313"
     python312.write_bytes(b"python")
@@ -405,10 +762,18 @@ def _fake_controller_command(compatibility, command, **_kwargs):
 
 
 def _tree_snapshot(root: Path) -> dict[str, bytes | None]:
-    return {
-        str(path.relative_to(root)): None if path.is_dir() else path.read_bytes()
-        for path in sorted(root.rglob("*"))
-    }
+    snapshot: dict[str, bytes | None] = {}
+    for path in sorted(root.rglob("*")):
+        relative = str(path.relative_to(root))
+        if path.is_symlink():
+            snapshot[relative] = f"<symlink:{os.readlink(path)}>".encode()
+        elif path.is_dir():
+            snapshot[relative] = None
+        elif path.is_file():
+            snapshot[relative] = path.read_bytes()
+        else:
+            snapshot[relative] = b"<non-regular>"
+    return snapshot
 
 
 def test_controller_emits_valid_negative_when_all_resolvers_fail(

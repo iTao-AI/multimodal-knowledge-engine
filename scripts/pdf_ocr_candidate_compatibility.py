@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import email.parser
 import hashlib
+import io
 import json
 import os
 import platform
@@ -16,9 +18,11 @@ import subprocess
 import tempfile
 import threading
 import time
+import tomllib
 import urllib.error
 import urllib.parse
 import urllib.request
+import zipfile
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -27,7 +31,6 @@ from typing import BinaryIO, NoReturn, cast
 _SCHEMA = "mke.pdf_ocr_candidate_environments.v1"
 _RECEIPT_PROFILE = "phase0-package-only-v1"
 _CANDIDATE_PROFILE = "phase0-200dpi-plain-text-v1"
-_MKE_WHEEL_FILENAME = "multimodal_knowledge_engine-0.1.1-py3-none-any.whl"
 _SURFACES = ("base", "embedding", "transcription", "embedding+transcription")
 _PYTHON_MINORS = ("3.12", "3.13")
 _RESULTS = frozenset({"passed", "resolver_failed", "offline_replay_failed", "validation_failed"})
@@ -49,6 +52,13 @@ _DEFAULT_STDOUT_BYTES = 2 * 1024 * 1024
 _DEFAULT_STDERR_BYTES = 2 * 1024 * 1024
 _SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 _VERSION_RE = re.compile(r"[0-9]+(?:\.[0-9A-Za-z]+)+(?:[-+._][0-9A-Za-z]+)*\Z")
+_MKE_WHEEL_RE = re.compile(
+    r"multimodal_knowledge_engine-(?P<version>"
+    r"[0-9]+(?:\.[0-9]+)*(?:(?:a|b|rc)[0-9]+)?"
+    r"(?:\.post[0-9]+)?(?:\.dev[0-9]+)?"
+    r"(?:\+[a-z0-9]+(?:[._-][a-z0-9]+)*)?"
+    r")-py3-none-any\.whl\Z"
+)
 _SAFE_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+()-]{0,255}\Z")
 _PRIVATE_RE = re.compile(
     r"(?:/Users/|/private/|[A-Za-z]:\\|https?://|Traceback|API[_-]?KEY|TOKEN=|"
@@ -76,6 +86,14 @@ class CompatibilityError(RuntimeError):
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
+
+
+@dataclass(frozen=True)
+class WheelAuthority:
+    filename: str
+    version: str
+    bytes: int
+    sha256: str
 
 
 @dataclass(frozen=True)
@@ -480,6 +498,138 @@ def canonical_sha256(value: object) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _parse_mke_wheel_filename(filename: str) -> str:
+    match = _MKE_WHEEL_RE.fullmatch(filename)
+    if match is None:
+        raise ValueError("MKE wheel filename is invalid")
+    return match.group("version")
+
+
+def _read_regular_file(path: Path) -> tuple[bytes, dict[str, object]]:
+    inventory = path.lstat()
+    if path.is_symlink() or not stat.S_ISREG(inventory.st_mode):
+        raise ValueError("wheel file is not regular")
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_CLOEXEC", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(path, flags)
+    try:
+        opened = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or _file_identity(opened) != _file_identity(inventory)
+        ):
+            raise ValueError("wheel file identity changed")
+        expected_size = opened.st_size
+        value = bytearray()
+        digest = hashlib.sha256()
+        while True:
+            chunk = os.read(descriptor, min(_READ_CHUNK_BYTES, expected_size - len(value) + 1))
+            if not chunk:
+                break
+            value.extend(chunk)
+            if len(value) > expected_size:
+                raise ValueError("wheel file grew during read")
+            digest.update(chunk)
+        after_descriptor = os.fstat(descriptor)
+        after_path = path.lstat()
+        if (
+            len(value) != expected_size
+            or _file_identity(after_descriptor) != _file_identity(inventory)
+            or _file_identity(after_path) != _file_identity(inventory)
+        ):
+            raise ValueError("wheel file identity changed")
+        return bytes(value), {
+            "filename": path.name,
+            "sha256": digest.hexdigest(),
+            "bytes": expected_size,
+        }
+    finally:
+        os.close(descriptor)
+
+
+def _wheel_metadata_version(value: bytes, filename_version: str) -> str:
+    try:
+        with zipfile.ZipFile(io.BytesIO(value)) as archive:
+            expected_suffix = (
+                f"multimodal_knowledge_engine-{filename_version}.dist-info/METADATA"
+            )
+            names = [name for name in archive.namelist() if name.endswith(".dist-info/METADATA")]
+            if names != [expected_suffix]:
+                raise ValueError
+            metadata = email.parser.Parser().parsestr(
+                archive.read(expected_suffix).decode("utf-8", errors="strict")
+            )
+        if (
+            metadata.get("Name") != "multimodal-knowledge-engine"
+            or metadata.get("Version") != filename_version
+            or len(metadata.get_all("Name", [])) != 1
+            or len(metadata.get_all("Version", [])) != 1
+        ):
+            raise ValueError
+        return filename_version
+    except (KeyError, UnicodeError, ValueError, zipfile.BadZipFile) as error:
+        raise CompatibilityError("input_invalid") from error
+
+
+def _validate_generation_wheel(repository: Path, wheel: Path) -> WheelAuthority:
+    try:
+        version = _parse_mke_wheel_filename(wheel.name)
+        value, receipt = _read_regular_file(wheel)
+        _wheel_metadata_version(value, version)
+        project = tomllib.loads((repository / "pyproject.toml").read_text(encoding="utf-8"))
+        configured = project["project"]["version"]
+        if configured != version:
+            raise ValueError
+        return WheelAuthority(
+            filename=wheel.name,
+            version=version,
+            bytes=cast(int, receipt["bytes"]),
+            sha256=cast(str, receipt["sha256"]),
+        )
+    except (
+        KeyError,
+        OSError,
+        TypeError,
+        UnicodeError,
+        ValueError,
+        tomllib.TOMLDecodeError,
+    ) as error:
+        raise CompatibilityError("input_invalid") from error
+
+
+def _receipt_mke_authority(receipt: Mapping[str, object]) -> WheelAuthority:
+    candidates = receipt.get("candidates")
+    if not isinstance(candidates, list):
+        _receipt_error()
+    authorities: list[WheelAuthority] = []
+    for raw_candidate in cast(list[object], candidates):
+        candidate = _mapping(raw_candidate)
+        distributions = _validate_distributions(candidate.get("distributions"))
+        matches: list[WheelAuthority] = []
+        for item in distributions:
+            try:
+                version = _parse_mke_wheel_filename(cast(str, item["filename"]))
+            except ValueError:
+                continue
+            matches.append(
+                WheelAuthority(
+                    filename=cast(str, item["filename"]),
+                    version=version,
+                    bytes=_nonnegative_integer(item["bytes"]),
+                    sha256=_digest(item["sha256"]),
+                )
+            )
+        if len(matches) != 1:
+            _receipt_error()
+        authorities.append(matches[0])
+    if len(authorities) != len(CANDIDATES) or len(set(authorities)) != 1:
+        _receipt_error()
+    authority = authorities[0]
+    if authority.sha256 != _digest(receipt.get("mke_wheel_sha256")):
+        _receipt_error()
+    return authority
+
+
 def _provider_package_authority(
     package: Mapping[str, object],
 ) -> tuple[list[dict[str, object]], dict[str, object]]:
@@ -602,10 +752,11 @@ def validate_provider_startup_authority(repository: Path, value: object) -> None
         if root["model_receipt_sha256"] != hashlib.sha256(model_bytes).hexdigest():
             raise ValueError
         package = _mapping(package_value)
+        mke_authority = _receipt_mke_authority(package)
         runtime = _mapping(root["runtime"])
         if runtime["mke_wheel_sha256"] != package["mke_wheel_sha256"]:
             raise ValueError
-        if runtime["mke_version"] != "0.1.1":
+        if runtime["mke_version"] != mke_authority.version:
             raise ValueError
         candidate_values = package.get("candidates")
         if not isinstance(candidate_values, list):
@@ -615,15 +766,19 @@ def validate_provider_startup_authority(repository: Path, value: object) -> None
             distributions = candidate.get("distributions")
             if not isinstance(distributions, list):
                 raise ValueError
-            matching = [
-                _mapping(item)
-                for item in cast(list[object], distributions)
-                if _mapping(item).get("filename") == _MKE_WHEEL_FILENAME
-            ]
-            if (
-                len(matching) != 1
-                or matching[0].get("sha256") != runtime["mke_wheel_sha256"]
-            ):
+            matching: list[dict[str, object]] = []
+            for item in cast(list[object], distributions):
+                distribution = _mapping(item)
+                try:
+                    _parse_mke_wheel_filename(cast(str, distribution.get("filename")))
+                except (TypeError, ValueError):
+                    continue
+                matching.append(distribution)
+            if len(matching) != 1 or matching[0] != {
+                "filename": mke_authority.filename,
+                "sha256": runtime["mke_wheel_sha256"],
+                "bytes": mke_authority.bytes,
+            }:
                 raise ValueError
         distributions, cell = _provider_package_authority(package)
         if (
@@ -633,6 +788,8 @@ def validate_provider_startup_authority(repository: Path, value: object) -> None
             or runtime["wheelhouse_sha256"] != canonical_sha256(distributions)
             or runtime["installed_packages_sha256"]
             != canonical_sha256(_mapping(cell["package_versions"]))
+            or _mapping(cell["package_versions"]).get("multimodal-knowledge-engine")
+            != mke_authority.version
         ):
             raise ValueError
         protocol: object = json.loads(protocol_path.read_text(encoding="utf-8"))
@@ -861,10 +1018,22 @@ def validate_provider_runtime_identity(
     expected_wheel_sha256: str,
     expected_package_versions: Mapping[str, object],
     expected_wheelhouse_sha256: str,
+    expected_wheel_filename: str | None = None,
 ) -> dict[str, object]:
     """Reduce an installed-wheel doctor result to public startup authority."""
     try:
         identity = _mapping(value)
+        expected_version = cast(
+            str,
+            _mapping(expected_package_versions).get("multimodal-knowledge-engine"),
+        )
+        _version(expected_version)
+        if expected_wheel_filename is None:
+            expected_wheel_filename = (
+                f"multimodal_knowledge_engine-{expected_version}-py3-none-any.whl"
+            )
+        if _parse_mke_wheel_filename(expected_wheel_filename) != expected_version:
+            raise ValueError
         _exact(
             identity,
             {
@@ -887,7 +1056,7 @@ def validate_provider_runtime_identity(
         prefix = Path(cast(str, identity["sys_prefix"])).resolve(strict=True)
         if (
             identity["python"] != expected_python
-            or identity["mke_version"] != "0.1.1"
+            or identity["mke_version"] != expected_version
             or identity["isolated"] is not True
             or identity["pythonpath_present"] is not False
             or prefix != runtime
@@ -917,7 +1086,7 @@ def validate_provider_runtime_identity(
         _digest(expected_wheelhouse_sha256)
         public: dict[str, object] = {
             "python": expected_python,
-            "mke_version": "0.1.1",
+            "mke_version": expected_version,
             "mke_wheel_sha256": expected_wheel_sha256,
             "candidate": "paddleocr-vl-1.6-cpu-spike-v1",
             "surface": "base",
@@ -966,8 +1135,12 @@ def run_provider_startup(config: ProviderStartupConfig) -> dict[str, object]:
     ):
         raise CompatibilityError("provider_startup_authority_invalid")
     package = _mapping(package_value)
+    mke_authority = _receipt_mke_authority(package)
     wheel_digest = _sha256_file(wheel)
-    if package.get("mke_wheel_sha256") != wheel_digest:
+    if (
+        package.get("mke_wheel_sha256") != wheel_digest
+        or wheel.name != mke_authority.filename
+    ):
         raise CompatibilityError("provider_startup_wheel_mismatch")
     expected_distributions, expected_cell = _provider_package_authority(package)
     wheelhouse_sha256 = _validate_provider_wheelhouse(wheelhouse, expected_distributions)
@@ -1045,6 +1218,7 @@ def run_provider_startup(config: ProviderStartupConfig) -> dict[str, object]:
             runtime=runtime,
             repository=repository,
             expected_python=_probe_python_version(config.python, staging, environment, config),
+            expected_wheel_filename=mke_authority.filename,
             expected_wheel_sha256=wheel_digest,
             expected_package_versions=expected_packages,
             expected_wheelhouse_sha256=wheelhouse_sha256,
@@ -1873,6 +2047,7 @@ def validate_receipt(value: object) -> None:
     candidate_items = cast(list[object], raw_candidates)
     if len(candidate_items) != 2:
         _receipt_error()
+    mke_authority = _receipt_mke_authority(receipt)
     observed_candidates: set[str] = set()
     observed_cells: set[tuple[str, str, str]] = set()
     for raw_candidate in candidate_items:
@@ -1895,10 +2070,7 @@ def validate_receipt(value: object) -> None:
             _nonnegative_integer(item["bytes"]) for item in distributions
         ):
             _receipt_error()
-        mke_distributions = [
-            item for item in distributions if item["filename"] == _MKE_WHEEL_FILENAME
-        ]
-        if len(mke_distributions) != 1 or mke_distributions[0]["sha256"] != mke_wheel_sha256:
+        if mke_authority.sha256 != mke_wheel_sha256:
             _receipt_error()
         cells = candidate["cells"]
         if not isinstance(cells, list):
@@ -1941,7 +2113,7 @@ def validate_receipt(value: object) -> None:
                 if failure_code is not None or not versions:
                     _receipt_error()
                 if (
-                    versions.get("multimodal-knowledge-engine") != "0.1.1"
+                    versions.get("multimodal-knowledge-engine") != mke_authority.version
                     or versions.get("paddleocr") != "3.7.0"
                     or versions.get("paddlepaddle") != "3.3.1"
                 ):
@@ -2046,6 +2218,7 @@ def run_package_matrix(config: CompatibilityConfig) -> dict[str, object]:
     )
     if not repository.is_dir() or not wheel.is_file():
         raise CompatibilityError("input_invalid")
+    wheel_authority = _validate_generation_wheel(repository, wheel)
     external_paths = (staging, cache) + (
         (prepared_wheelhouses,) if prepared_wheelhouses is not None else ()
     )
@@ -2082,6 +2255,8 @@ def run_package_matrix(config: CompatibilityConfig) -> dict[str, object]:
         wheel,
         cast(tuple[InterpreterIdentity, InterpreterIdentity], identities),
     )
+    if plan.mke_wheel_sha256 != wheel_authority.sha256:
+        raise CompatibilityError("input_invalid")
     candidate_receipts: list[dict[str, object]] = []
     for candidate in CANDIDATES.values():
         wheelhouse = wheelhouse_root / candidate.candidate
@@ -2403,19 +2578,237 @@ def _failed_cell(
     }
 
 
+def _regular_file_receipt(path: Path) -> dict[str, object]:
+    inventory = path.lstat()
+    if path.is_symlink() or not stat.S_ISREG(inventory.st_mode):
+        raise ValueError("wheel file is not regular")
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_CLOEXEC", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(path, flags)
+    try:
+        opened = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or _file_identity(opened) != _file_identity(inventory)
+        ):
+            raise ValueError("wheel file identity changed")
+        expected_size = opened.st_size
+        actual = 0
+        digest = hashlib.sha256()
+        while True:
+            chunk = os.read(descriptor, min(_READ_CHUNK_BYTES, expected_size - actual + 1))
+            if not chunk:
+                break
+            actual += len(chunk)
+            if actual > expected_size:
+                raise ValueError("wheel file grew during read")
+            digest.update(chunk)
+        after_descriptor = os.fstat(descriptor)
+        after_path = path.lstat()
+        if (
+            actual != expected_size
+            or _file_identity(after_descriptor) != _file_identity(inventory)
+            or _file_identity(after_path) != _file_identity(inventory)
+        ):
+            raise ValueError("wheel file identity changed")
+        return {
+            "filename": path.name,
+            "sha256": digest.hexdigest(),
+            "bytes": actual,
+            "_identity": _file_identity(inventory),
+        }
+    finally:
+        os.close(descriptor)
+
+
+def _copy_regular_wheel(source: Path, output: Path) -> dict[str, object]:
+    inventory = source.lstat()
+    if source.is_symlink() or not stat.S_ISREG(inventory.st_mode):
+        raise ValueError("wheel file is not regular")
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_CLOEXEC", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    source_descriptor = os.open(source, flags)
+    output_descriptor: int | None = None
+    try:
+        opened = os.fstat(source_descriptor)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or _file_identity(opened) != _file_identity(inventory)
+        ):
+            raise ValueError("wheel file identity changed")
+        output_descriptor = os.open(
+            output,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_CLOEXEC", 0),
+            0o600,
+        )
+        expected_size = opened.st_size
+        actual = 0
+        digest = hashlib.sha256()
+        while True:
+            chunk = os.read(
+                source_descriptor,
+                min(_READ_CHUNK_BYTES, expected_size - actual + 1),
+            )
+            if not chunk:
+                break
+            actual += len(chunk)
+            if actual > expected_size:
+                raise ValueError("wheel file grew during copy")
+            digest.update(chunk)
+            view = memoryview(chunk)
+            while view:
+                written = os.write(output_descriptor, view)
+                if written <= 0:
+                    raise OSError("wheel copy did not progress")
+                view = view[written:]
+        os.fsync(output_descriptor)
+        after_descriptor = os.fstat(source_descriptor)
+        after_path = source.lstat()
+        if (
+            actual != expected_size
+            or _file_identity(after_descriptor) != _file_identity(inventory)
+            or _file_identity(after_path) != _file_identity(inventory)
+        ):
+            raise ValueError("wheel file identity changed")
+        return {
+            "filename": source.name,
+            "sha256": digest.hexdigest(),
+            "bytes": actual,
+            "_identity": _file_identity(inventory),
+        }
+    finally:
+        if output_descriptor is not None:
+            os.close(output_descriptor)
+        os.close(source_descriptor)
+
+
+def _prepared_wheelhouse_inventory(
+    root: Path,
+) -> dict[str, list[dict[str, object]]]:
+    root_metadata = root.lstat()
+    if root.is_symlink() or not stat.S_ISDIR(root_metadata.st_mode):
+        raise ValueError("prepared wheelhouse root is invalid")
+    entries = sorted(root.iterdir(), key=lambda item: item.name)
+    if [entry.name for entry in entries] != sorted(CANDIDATES):
+        raise ValueError("prepared wheelhouse candidates are invalid")
+    result: dict[str, list[dict[str, object]]] = {}
+    for candidate_root in entries:
+        candidate_metadata = candidate_root.lstat()
+        if candidate_root.is_symlink() or not stat.S_ISDIR(candidate_metadata.st_mode):
+            raise ValueError("prepared candidate root is invalid")
+        wheels = sorted(candidate_root.iterdir(), key=lambda item: item.name)
+        receipts: list[dict[str, object]] = []
+        for wheel in wheels:
+            if Path(wheel.name).name != wheel.name or wheel.suffix != ".whl":
+                raise ValueError("prepared wheel inventory is invalid")
+            _safe(wheel.name)
+            receipts.append(_regular_file_receipt(wheel))
+        if _file_identity(candidate_root.lstat()) != _file_identity(candidate_metadata):
+            raise ValueError("prepared candidate root changed")
+        mke_count = 0
+        for receipt in receipts:
+            try:
+                _parse_mke_wheel_filename(cast(str, receipt["filename"]))
+            except ValueError:
+                continue
+            mke_count += 1
+        if mke_count != 1:
+            raise ValueError("prepared MKE wheel inventory is invalid")
+        result[candidate_root.name] = receipts
+    if _file_identity(root.lstat()) != _file_identity(root_metadata):
+        raise ValueError("prepared wheelhouse root changed")
+    return result
+
+
+def copy_rebound_prepared_wheelhouses(
+    retained_root: Path,
+    destination: Path,
+    wheel: Path,
+) -> Path:
+    """Copy retained wheels into a call-owned root and replace only the MKE wheel."""
+    retained = Path(os.path.abspath(retained_root))
+    target = Path(os.path.abspath(destination))
+    created = False
+    try:
+        if destination.exists() or destination.is_symlink():
+            raise ValueError
+        new_version = _parse_mke_wheel_filename(wheel.name)
+        new_receipt = _regular_file_receipt(wheel)
+        if _parse_mke_wheel_filename(cast(str, new_receipt["filename"])) != new_version:
+            raise ValueError
+        before = _prepared_wheelhouse_inventory(retained)
+        target.mkdir(mode=0o700, parents=False)
+        created = True
+        for candidate in sorted(CANDIDATES):
+            source_root = retained / candidate
+            output_root = target / candidate
+            output_root.mkdir(mode=0o700)
+            for receipt in before[candidate]:
+                source = source_root / cast(str, receipt["filename"])
+                try:
+                    _parse_mke_wheel_filename(source.name)
+                except ValueError:
+                    copied = _copy_regular_wheel(source, output_root / source.name)
+                    if copied != receipt:
+                        raise ValueError from None
+            copied_mke = _copy_regular_wheel(wheel, output_root / wheel.name)
+            if copied_mke != new_receipt:
+                raise ValueError
+        after = _prepared_wheelhouse_inventory(retained)
+        if after != before:
+            raise ValueError
+        rebound = _prepared_wheelhouse_inventory(target)
+        for candidate in sorted(CANDIDATES):
+            expected = [
+                _public_wheel_receipt(receipt)
+                for receipt in before[candidate]
+                if not _is_mke_wheel_filename(cast(str, receipt["filename"]))
+            ] + [_public_wheel_receipt(new_receipt)]
+            observed = [_public_wheel_receipt(receipt) for receipt in rebound[candidate]]
+            if observed != sorted(
+                expected,
+                key=lambda item: cast(str, item["filename"]),
+            ):
+                raise ValueError
+        return target.resolve()
+    except (OSError, TypeError, ValueError) as error:
+        if created and target.exists():
+            shutil.rmtree(target, ignore_errors=True)
+        raise CompatibilityError("prepared_wheelhouses_invalid") from error
+
+
+def _is_mke_wheel_filename(filename: str) -> bool:
+    try:
+        _parse_mke_wheel_filename(filename)
+    except ValueError:
+        return False
+    return True
+
+
+def _public_wheel_receipt(receipt: Mapping[str, object]) -> dict[str, object]:
+    return {
+        "filename": receipt["filename"],
+        "sha256": receipt["sha256"],
+        "bytes": receipt["bytes"],
+    }
+
+
 def _bind_candidate_mke_wheel(wheel: Path, wheelhouse: Path, *, seed: bool) -> None:
     try:
         source_metadata = wheel.lstat()
     except OSError as error:
         raise CompatibilityError("input_invalid") from error
     if (
-        wheel.name != _MKE_WHEEL_FILENAME
-        or wheel.is_symlink()
+        wheel.is_symlink()
         or not stat.S_ISREG(source_metadata.st_mode)
     ):
         raise CompatibilityError("input_invalid")
+    try:
+        _parse_mke_wheel_filename(wheel.name)
+    except ValueError as error:
+        raise CompatibilityError("input_invalid") from error
     expected_digest = _sha256_file(wheel)
-    target = wheelhouse / _MKE_WHEEL_FILENAME
+    target = wheelhouse / wheel.name
     if not target.exists() and not target.is_symlink():
         if not seed:
             raise CompatibilityError("prepared_wheelhouses_invalid")
