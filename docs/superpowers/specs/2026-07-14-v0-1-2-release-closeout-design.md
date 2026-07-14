@@ -1,6 +1,6 @@
 # v0.1.2 Release Closeout Design
 
-Status: approved for documentation landing. Implementation planning remains pending review of the committed specification diff.
+Status: approved for implementation planning after authoritative review of the committed specification.
 
 Planning base: `main@16fae017ced5fe67da3fae4a01f26e9e9f1084aa`.
 
@@ -142,7 +142,7 @@ PyPI remains unpublished unless separately designed and authorized.
 The release implementation may change:
 
 - `pyproject.toml`;
-- `src/mke/**init**.py`, limited to the version literal;
+- `src/mke/__init__.py`, limited to the version literal;
 - the mechanical root-package identity in `uv.lock`;
 - version identity tests;
 - release presentation audit and tests;
@@ -282,4 +282,4 @@ The release closeout is ready for publication authorization only when:
 
 ## Approved Next Step
 
-Mechanically land this approved specification in an isolated worktree and create one local docs-only commit. Do not start implementation planning until the committed spec diff receives authority review.
+Create and authoritatively review the implementation plan. Do not begin release implementation until the committed plan is cleared and an explicit implementation dispatch is sent.
