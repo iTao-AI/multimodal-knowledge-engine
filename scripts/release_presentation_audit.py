@@ -10,7 +10,7 @@ from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-EXPECTED_VERSION = "0.1.1"
+EXPECTED_VERSION = "0.1.2"
 RUNTIME_STRATEGY = "cjk-active-scan-overlap-v1"
 
 RELEASE_FACING_FILES = (
@@ -18,7 +18,7 @@ RELEASE_FACING_FILES = (
     "README_CN.md",
     "docs/README.md",
     "CHANGELOG.md",
-    "docs/releases/v0.1.1.md",
+    "docs/releases/v0.1.2.md",
     "docs/how-to/verify-release.md",
 )
 ENTRY_POINT_FILES = (
@@ -32,12 +32,12 @@ README_FILES = (
 )
 RELEASE_NOTE_FILES = (
     "CHANGELOG.md",
-    "docs/releases/v0.1.1.md",
+    "docs/releases/v0.1.2.md",
 )
 CONSUMER_SMOKE_COMMAND_FILES = (
     "README.md",
     "README_CN.md",
-    "docs/releases/v0.1.1.md",
+    "docs/releases/v0.1.2.md",
     "docs/how-to/verify-release.md",
 )
 
@@ -157,14 +157,14 @@ def _audit_readme_presentation(root: Path) -> list[Violation]:
     language_switch = "[English](./README.md) | [中文](./README_CN.md)"
     verified_table_labels = {
         "README.md": {
-            "heading": "## Verified in v0.1.1",
+            "heading": "## Verified in v0.1.2",
             "header": "| Capability | Evidence |",
-            "message": "English README must include the Verified in v0.1.1 capability table",
+            "message": "English README must include the Verified in v0.1.2 capability table",
         },
         "README_CN.md": {
-            "heading": "## v0.1.1 已验证能力",
+            "heading": "## v0.1.2 已验证能力",
             "header": "| 能力 | 验证证据 |",
-            "message": "Chinese README must include localized v0.1.1 verified capability labels",
+            "message": "Chinese README must include localized v0.1.2 verified capability labels",
         },
     }
     diagram_terms = (
@@ -229,9 +229,15 @@ def _audit_readme_presentation(root: Path) -> list[Violation]:
             "OCR",
             "HTTP/UI",
             "API adapters",
+            "Evidence provenance",
+            "mke.evidence_ref.v1",
+            "external source-pack proof",
+            "same-wheel Python 3.12/3.13",
+            "owner lifecycle and runtime hardening",
+            "OCR remains excluded",
         ),
         "README_CN.md": (
-            "## v0.1.1 工程深度",
+            "## v0.1.2 工程深度",
             "Evidence 生命周期",
             "active Publication",
             "CLI/MCP application service contract",
@@ -251,6 +257,12 @@ def _audit_readme_presentation(root: Path) -> list[Violation]:
             "OCR",
             "HTTP/UI",
             "API adapters",
+            "Evidence provenance",
+            "mke.evidence_ref.v1",
+            "external source-pack proof",
+            "same-wheel Python 3.12/3.13",
+            "owner lifecycle and runtime hardening",
+            "OCR 仍排除",
         ),
     }
     verified_terms_by_file = {
@@ -265,6 +277,11 @@ def _audit_readme_presentation(root: Path) -> list[Violation]:
             "Real stdio MCP local knowledge proof",
             RUNTIME_STRATEGY,
             "consumer smoke",
+            "Evidence provenance",
+            "mke.evidence_ref.v1",
+            "external source-pack proof",
+            "same wheel on Python 3.12/3.13",
+            "owner lifecycle and runtime hardening",
         ),
         "README_CN.md": (
             "Evidence 生命周期",
@@ -277,6 +294,11 @@ def _audit_readme_presentation(root: Path) -> list[Violation]:
             "Real stdio MCP local knowledge proof",
             RUNTIME_STRATEGY,
             "consumer smoke",
+            "Evidence provenance",
+            "mke.evidence_ref.v1",
+            "external source-pack proof",
+            "same wheel on Python 3.12/3.13",
+            "owner lifecycle and runtime hardening",
         ),
     }
     for file_name in README_FILES:
@@ -297,7 +319,7 @@ def _audit_readme_presentation(root: Path) -> list[Violation]:
                 Violation(
                     file=file_name,
                     rule="readme_architecture_diagram",
-                    message="README must include the v0.1.1 Mermaid architecture diagram",
+                    message="README must include the v0.1.2 Mermaid architecture diagram",
                 )
             )
         labels = verified_table_labels[file_name]
@@ -309,7 +331,7 @@ def _audit_readme_presentation(root: Path) -> list[Violation]:
             violations.append(
                 Violation(
                     file=file_name,
-                    rule="verified_v011_table",
+                    rule="verified_v012_table",
                     message=labels["message"],
                 )
             )
@@ -319,7 +341,7 @@ def _audit_readme_presentation(root: Path) -> list[Violation]:
                     file=file_name,
                     rule="readme_engineering_depth",
                     message=(
-                        "README must explain v0.1.1 engineering depth and retrieval "
+                        "README must explain v0.1.2 engineering depth and retrieval "
                         "evidence boundaries"
                     ),
                 )
@@ -391,17 +413,16 @@ def _audit_release_notes_links(root: Path) -> list[Violation]:
         "local knowledge proof",
     )
     violations: list[Violation] = []
-    release_notes = _read_text(root, "docs/releases/v0.1.1.md")
-    if release_notes:
-        for term in required_terms:
-            if term.lower() not in release_notes.lower():
-                violations.append(
-                    Violation(
-                        file="docs/releases/v0.1.1.md",
-                        rule="release_notes_links",
-                        message=f"release notes must link or name {term}",
-                    )
+    release_notes = _read_text(root, "docs/releases/v0.1.2.md")
+    for term in required_terms:
+        if term.lower() not in release_notes.lower():
+            violations.append(
+                Violation(
+                    file="docs/releases/v0.1.2.md",
+                    rule="release_notes_links",
+                    message=f"release notes must link or name {term}",
                 )
+            )
     return violations
 
 
@@ -455,8 +476,18 @@ def _audit_consumer_smoke_wheel_selection(
     files: Iterable[str],
 ) -> list[Violation]:
     violations: list[Violation] = []
+    exact_wheel = "dist/multimodal_knowledge_engine-0.1.2-py3-none-any.whl"
     for file_name in files:
-        if "dist/*.whl" in _read_text(root, file_name):
+        text = _read_text(root, file_name)
+        if exact_wheel not in text:
+            violations.append(
+                Violation(
+                    file=file_name,
+                    rule="consumer_smoke_wheel_selection",
+                    message=f"consumer smoke must name {exact_wheel}",
+                )
+            )
+        if "dist/*.whl" in text or "multimodal_knowledge_engine-0.1.1-py3-none-any.whl" in text:
             violations.append(
                 Violation(
                     file=file_name,
@@ -465,6 +496,69 @@ def _audit_consumer_smoke_wheel_selection(
                 )
             )
     return violations
+
+
+def _audit_downstream_candidate_boundary(root: Path) -> list[Violation]:
+    file_name = "docs/releases/v0.1.2.md"
+    text = _read_text(root, file_name)
+    required_terms = (
+        "https://github.com/iTao-AI/night-voyager/pull/21",
+        "16fae017ced5fe67da3fae4a01f26e9e9f1084aa",
+        "independent consumer",
+        "pre-release candidate",
+        "synthetic fixtures",
+        "strict receipt",
+        "did not validate the final v0.1.2 wheel",
+        "does not prove production adoption",
+        "hosted deployment",
+        "real-user outcomes",
+        "is not an MKE CI dependency",
+        "does not require a downstream lock update",
+    )
+    if not _contains_all_terms(text, required_terms):
+        return [
+            Violation(
+                file=file_name,
+                rule="downstream_candidate_boundary",
+                message=(
+                    "release notes must preserve the exact downstream pre-release "
+                    "candidate and non-production boundary"
+                ),
+            )
+        ]
+    normalized = " ".join(text.split())
+    affirmative_overclaims = (
+        re.compile(
+            r"\bfinal v0\.1\.2 wheel (?:was|is|has been) validated\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:proves|proved|demonstrates|demonstrated|confirms|confirmed) "
+            r"(?:production adoption|hosted deployment|real-user outcomes)\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:is|was|has been) an? MKE CI dependency\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:a )?downstream lock update (?:is|was|remains) required\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\brequires a downstream lock update\b",
+            re.IGNORECASE,
+        ),
+    )
+    if any(pattern.search(normalized) for pattern in affirmative_overclaims):
+        return [
+            Violation(
+                file=file_name,
+                rule="downstream_candidate_boundary",
+                message="release notes must not add affirmative downstream overclaims",
+            )
+        ]
+    return []
 
 
 def _audit_public_boundary(root: Path, files: Iterable[str]) -> list[Violation]:
@@ -507,12 +601,13 @@ def audit_release_presentation(root: Path) -> list[Violation]:
     violations.extend(
         _audit_consumer_smoke_wheel_selection(root, CONSUMER_SMOKE_COMMAND_FILES)
     )
+    violations.extend(_audit_downstream_candidate_boundary(root))
     violations.extend(_audit_public_boundary(root, release_files))
     return violations
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Audit v0.1.1 release presentation docs.")
+    parser = argparse.ArgumentParser(description="Audit v0.1.2 release presentation docs.")
     parser.add_argument("--root", type=Path, default=Path("."))
     args = parser.parse_args(argv)
 

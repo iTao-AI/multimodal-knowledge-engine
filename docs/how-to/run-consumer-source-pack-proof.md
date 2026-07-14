@@ -2,7 +2,8 @@
 
 This how-to runs a source-built proof against the current source checkout. The controller builds
 the current source checkout once, installs that same wheel into two fresh environments for Python
-3.12 and Python 3.13, and runs a copied standalone client through the official MCP SDK.
+3.12 and Python 3.13, and runs a copied standalone client through the official MCP SDK. This
+source-built proof is a `v0.1.2` release-candidate verification gate.
 
 ## Prerequisites
 
@@ -23,6 +24,48 @@ UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
   --python "$(command -v python3.13)" \
   --json
 ```
+
+## Candidate Artifact Handoff
+
+Maintainers can add an operator-supplied local output to the same proof:
+
+```bash
+UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
+  --python "$(command -v python3.12)" \
+  --python "$(command -v python3.13)" \
+  --candidate-output artifacts/m4b-candidate \
+  --json
+```
+
+The target directory must not already exist. Candidate creation also requires a clean Git
+checkout using the `sha1` object format. Before building, the controller pins that commit and
+creates an immutable tracked snapshot with `git archive`; the wheel, locked dependency export,
+and copied proof inputs all come from that snapshot. After both interpreter proofs and owned-temp
+cleanup, the controller requires the live checkout to remain at the same clean HEAD. The final
+directory becomes visible through a platform atomic no-replace rename; if that primitive is not
+available or another process creates the target first, publication fails closed without replacing
+the target. The directory contains exactly the proven wheel and
+`candidate-artifact-receipt.json`.
+
+The strict receipt uses `mke.candidate_artifact_receipt.v1` and contains exactly:
+
+- identity: `schema_version`, `repository`, `source_commit`, `package_name`, and
+  `package_version`;
+- wheel identity: `wheel_filename`, `wheel_bytes`, `wheel_sha256`, and `requires_python`;
+- proof binding: `consumer_proof_schema`, `consumer_proof_status`, and
+  `proof_input_wheel_sha256`; and
+- receipt identity: `receipt_sha256`.
+
+`source_commit` is the exact Git commit ID and is 40 lowercase hexadecimal characters.
+`wheel_sha256`, `proof_input_wheel_sha256`, and `receipt_sha256` are 64 lowercase hexadecimal
+SHA-256 digests, and the two wheel digests must match. The receipt's canonical SHA-256 uses UTF-8
+JSON with ASCII escaping, sorted keys, compact separators, no NaN, and omits `receipt_sha256` from
+its own hash input.
+
+This is local maintainer output, not a Release or PyPI artifact. The hosted workflow exercises the
+same candidate-output path under `$RUNNER_TEMP`, but the result is not uploaded by the workflow.
+Regenerate the wheel and receipt from the exact merged clean commit before any downstream handoff;
+do not reuse feature-branch output as merged-commit evidence.
 
 The controller copies the standalone consumer and its external consumer assets into an external
 working directory. Each installed wheel starts an MKE stdio server through the official MCP SDK;
@@ -57,8 +100,8 @@ Failure emits only `{"status":"failed","code":"<stable_code>"}`. The stable code
 `external_isolation_failed`, `consumer_schema_invalid`, `consumer_payload_invalid`,
 `manifest_mapping_missing`, `manifest_mapping_ambiguous`, `manifest_locator_mismatch`,
 `observation_state_mismatch`, `mcp_startup_timeout`, `mcp_tool_timeout`, `mcp_transport_failed`,
-`server_exit_nonzero`, `command_output_exceeded`, `cleanup_failed`, and `proof_failed`. These are
-stable redacted failures: paths, identifiers, Evidence text, filenames, stderr, tracebacks,
+`server_exit_nonzero`, `command_output_exceeded`, `candidate_artifact_invalid`, `cleanup_failed`,
+and `proof_failed`. These are stable redacted failures: paths, identifiers, Evidence text, filenames, stderr, tracebacks,
 environment values, and exception messages are not included.
 
 ## What This Proves
@@ -73,7 +116,7 @@ environment values, and exception messages are not included.
 
 ## What This Does Not Prove
 
-This source-built wheel is not the tagged `v0.1.1` Release wheel. This proof is not a Release
-artifact, not a release gate, not a PyPI proof, not a deployment, not a production-readiness proof,
-and not a release verification step. It also does not prove installation from an empty machine,
-network-independent cache provisioning, or OS-level isolation.
+This source-built wheel is not the final tagged `v0.1.2` Release wheel, not a GitHub Release asset,
+not a PyPI artifact, not a deployment, and not proof of production adoption. Candidate output is
+local release-gate evidence, not publication. The proof also does not establish installation from
+an empty machine, network-independent cache provisioning, or OS-level isolation.

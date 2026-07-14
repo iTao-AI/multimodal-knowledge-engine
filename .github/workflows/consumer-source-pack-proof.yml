@@ -54,4 +54,5 @@ jobs:
           uv run python scripts/consumer_source_pack_proof.py \
             --python "${{ steps.python312.outputs.python-path }}" \
             --python "${{ steps.python313.outputs.python-path }}" \
+            --candidate-output "$RUNNER_TEMP/mke-candidate" \
             --json

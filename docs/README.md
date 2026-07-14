@@ -6,6 +6,7 @@ auditing implementation history.
 
 ## Release And First Run
 
+- [v0.1.2 Release Notes](./releases/v0.1.2.md)
 - [v0.1.1 Release Notes](./releases/v0.1.1.md)
 - [v0.1.0 Release Notes](./releases/v0.1.0.md)
 - [Verify The Release](./how-to/verify-release.md)
@@ -16,9 +17,11 @@ auditing implementation history.
 - [MCP Contract Reference](./reference/mcp-contract.md)
 - [Run The Evidence Provenance Proof](./how-to/run-evidence-provenance-proof.md)
 - [Run The Consumer Source-Pack Proof](./how-to/run-consumer-source-pack-proof.md) documents a
-  source-built proof for the current source checkout without changing release claims.
+  source-built proof for the current source checkout as a `v0.1.2` release-candidate verification
+  gate.
 
-`v0.1.1` adds the real stdio MCP local knowledge proof while retaining
+`v0.1.2` adds strict `mke.evidence_ref.v1` provenance, an external same-wheel Python 3.12/3.13
+source-pack proof, and owner lifecycle and runtime hardening while retaining
 `cjk-active-scan-overlap-v1` as the current owner-startup CJK runtime strategy.
 E3-C dense, E3-D RRF, and E3-E relevance-gate/reranker records are comparison-only evidence and
 do not change Search, Ask, MCP, owner startup, Publication, ingestion, or runtime defaults.
@@ -47,7 +50,7 @@ application contract.
   does not combine raw lexical and dense scores.
 - [Evaluate The Relevance Gate Reranker Candidate](./how-to/evaluate-relevance-gate-reranker.md)
 
-The runtime boundary remains fixed for `v0.1.1`: only E3-F changes the default retrieval strategy.
+The runtime boundary remains fixed for `v0.1.2`: only E3-F changes the default retrieval strategy.
 Comparison-only dense preparation does not change normal Search, Ask, MCP, or the runtime default.
 Dense, RRF, and relevance-gate/reranker artifacts remain evaluation artifacts, not runtime
 features.
@@ -93,6 +96,7 @@ ADRs.
 - [Local Dense Retrieval Candidate Implementation Review](./superpowers/reviews/2026-06-28-local-dense-retrieval-candidate-review.md)
 - [CJK Lexical Dense RRF Fusion Implementation Review](./superpowers/reviews/2026-06-30-cjk-lexical-dense-rrf-fusion-review.md)
 - [CJK Relevance Gate Reranker Implementation Review](./superpowers/reviews/2026-06-30-cjk-relevance-gate-reranker-review.md)
+- [MKE Candidate Artifact Receipt Prerequisite Implementation Plan](./superpowers/plans/2026-07-13-candidate-artifact-receipt-implementation.md) — approved; local implementation and verification complete, with the post-merge operational gate pending.
 
 ## Development Verification
 

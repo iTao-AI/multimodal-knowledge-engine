@@ -10,11 +10,11 @@
     "arms": [
       {
         "arm_id": "e3a-historical-fts5-baseline",
-        "semantic_digest": "f3fc53b8d63c703d1c242782efaf3294a3bfd1d8ea3ffbd78d579b0691a63da6"
+        "semantic_digest": "f3970637a82bce3a3d1d47f25f71fb572ea93c34e7e188a8689808e0d6080373"
       },
       {
         "arm_id": "cjk-trigram-overlap-v1",
-        "semantic_digest": "c02f34e1e21a6e054af9b1d6428cbd5e93d44732e4fd40899da5a0ff34ada48a"
+        "semantic_digest": "a4bbb2d477a915b4efa0bf9ecf5f179347a3b30e1cadb1471c359d25801a0b27"
       },
       {
         "arm_id": "cjk-active-scan-overlap-v1",
@@ -4341,12 +4341,12 @@
     "e3a": {
       "bytes": 115929,
       "path": "benchmarks/retrieval/retrieval-chinese-v1-baseline.json",
-      "sha256": "f3fc53b8d63c703d1c242782efaf3294a3bfd1d8ea3ffbd78d579b0691a63da6"
+      "sha256": "f3970637a82bce3a3d1d47f25f71fb572ea93c34e7e188a8689808e0d6080373"
     },
     "e3b": {
       "bytes": 196145,
       "path": "benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json",
-      "sha256": "c02f34e1e21a6e054af9b1d6428cbd5e93d44732e4fd40899da5a0ff34ada48a"
+      "sha256": "a4bbb2d477a915b4efa0bf9ecf5f179347a3b30e1cadb1471c359d25801a0b27"
     }
   },
   "holdout_candidate": {
@@ -9493,7 +9493,7 @@
   "protocol": {
     "bytes": 5127,
     "path": "tests/fixtures/retrieval-dense-v1/protocol-lock.json",
-    "sha256": "73d707e081cb5f0d368d31e8d1d694deecabcc32ec6a67050689a2d1a5a9d87b"
+    "sha256": "d342324669db8e83d0a6fa8e389647ad2ccb3efe94110ace304344955decbbd5"
   },
   "schema_version": "mke.dense_comparison_artifact.v1",
   "source": {
@@ -9501,12 +9501,12 @@
       {
         "bytes": 1167,
         "path": "pyproject.toml",
-        "sha256": "d4200f549e9a612b469df6c3e696743cdd7b117b0e1f874d4b43cf8efc2d60ff"
+        "sha256": "84d3a666206588b1913d75d99aa7a2f5ae038431c60113e294a628138c7a1854"
       },
       {
         "bytes": 204983,
         "path": "uv.lock",
-        "sha256": "bb31c77b8a8f975246c620a0e114417c6a4865d9c26c3f4c12c780b9e6952cce"
+        "sha256": "effc8437cff95d78995f5d3256d2a530b27633eaa313d6a3aca9cbd9c2777bf6"
       },
       {
         "bytes": 10868,
@@ -9564,11 +9564,11 @@
         "sha256": "1c838b1464be9426c67887bfe5e0ff082d5a81d0addaf6addb4e7b7317c3627b"
       }
     ],
-    "sha256": "sha256:6a889fd713978affc608f4f151625c986e520b199ef32b1b25d80f8c72eb7380"
+    "sha256": "sha256:5d5c6fdbf29897a2eb79d260761d5f898248cfd7719fb59a3d9c0fada29c851b"
   },
   "state": {
-    "development_freeze_sha256": "5757b54724f9773fac2c05915e732ab9498b91a53051fb7824b84df4a452e863",
-    "holdout_receipt_sha256": "92f5c1a25db4bad124b59eb62cd6ce42c93b80f86bb86b4aae737aa8bdea1d28"
+    "development_freeze_sha256": "dfeb129f8956a9fa8a5e7f66fe843df799a1c209073e917f34f41a9e7d6e8f00",
+    "holdout_receipt_sha256": "624286d4414f7f836c93c16a36449be225cbb0eec19b21b11ec438810f45a2b3"
   },
   "threshold_report": {
     "candidate_status": "not_evaluated",
