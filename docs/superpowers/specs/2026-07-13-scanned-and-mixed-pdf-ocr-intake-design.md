@@ -1,7 +1,7 @@
 # Scanned and Mixed PDF OCR Intake Design
 
-Status: approved design; Phase 0 Tasks 1-3 are implemented with review remediation complete, and
-work is hard-stopped before package or model acquisition.
+Status: approved design amended for resumption planning. Phase 0 Tasks 1-4 and their review
+remediation are complete; Tasks 4R, 5A, 5B, 5C, and 6 have not started.
 
 Planning baseline: `337d9a42105a1a6769f3e0ae21bb28c59282da48`.
 
@@ -294,6 +294,49 @@ The extractor fingerprint uses canonical serialization and SHA-256 over:
 - project-owned result and report schema versions.
 
 A readable prefix alone is never sufficient for validation.
+
+### Phase 0 evaluation manifest identity amendment
+
+Phase 0 must not disguise an OCR composite identity as `builtin-pdf-text-v1` or
+`pymupdf-text-v1`. The evaluation runner uses a dedicated fingerprint with the exact form
+`pdf-ocr-eval-v1:<64 lowercase hex SHA-256>`. This fingerprint is evaluation-only and does not
+change the default PDF ingest path.
+
+The digest input is canonical JSON with schema `mke.pdf_ocr_extractor_identity.v1`. The structured
+identity closes over at least:
+
+- protocol identity and every fixture identity;
+- router identity, policy, and thresholds;
+- render identity, DPI, and page-image digests;
+- provider ID and profile;
+- model receipt identity and model-tree identity;
+- package receipt identity, installed package-set identity, and MKE wheel identity;
+- normalization identity.
+
+An OCR evaluation `RunManifest` uses exactly these required stages:
+
+- `pdf_ocr_extraction`;
+- `candidate_evidence`.
+
+A text-layer-only Publication continues to use `pymupdf-text-v1` and the existing PDF stages. If
+any page in a document follows the OCR route, that evaluation Publication uses the composite OCR
+fingerprint and OCR stages for the whole document.
+
+The domain validator recognizes only the exact versioned prefix, exactly 64 lowercase hexadecimal
+digest characters, the exact OCR stages, and page locators. It rejects a prefix without a digest,
+wrong-length or uppercase digests, unknown versions, an OCR fingerprint paired with text stages,
+and a text fingerprint paired with OCR stages. Existing PDF and video fingerprints remain
+compatible.
+
+The scorecard persists the complete structured extractor identity. Before Publication activation,
+the runner canonicalizes that payload, recomputes its digest, and requires exact equality with the
+`RunManifest` fingerprint. The `RunManifest` stores only the compact fingerprint, not the large
+structured payload.
+
+This contract adds no public CLI or MCP input, production OCR flag, default PDF behavior, database
+migration, dependency, or production OCR authorization. Its architecture decision is recorded in
+`docs/decisions/0010-pdf-ocr-evaluation-manifest-fingerprint.md`, initially as Proposed pending
+implementation.
 
 ## Publication Atomicity
 

@@ -7,8 +7,10 @@ complete as a bounded compatibility checkpoint. The pinned model roots were prep
 startup evidence was recorded. A bounded Task 4 amendment now accepts only the observed pinned
 PaddleOCR-VL direct-top-level prose envelope and binds startup evidence to the package, model,
 protocol, and vendor-artifact identities. Targeted authority re-review accepted the amendment at
-`040cb6cea2439f5f9d46b09862b17fa1fee59e39` and cleared Task 5. Task 5 is authorized but has not
-yet produced a scorecard; Task 6 and production runtime work have not started.
+`040cb6cea2439f5f9d46b09862b17fa1fee59e39`. The branch then reconciled MKE 0.1.2 through merge
+commit `804b9205c35b657ab3aba51faf4cdc40ab0e4057`, preserving the reviewed Task 4 commits rather than
+rewriting their provenance. Resumption now requires Task 4R, Task 5A, Task 5B, and Task 5C in that
+order. None of those tasks or Task 6 has started.
 
 **Goal:** Produce reproducible valid-positive or valid-negative evidence for local scanned/mixed-PDF OCR before adding a production runtime contract.
 
@@ -55,6 +57,8 @@ yet produced a scorecard; Task 6 and production runtime work have not started.
 | `benchmarks/ocr/model-artifacts.json` | Immutable pinned model inventory, per-file identity, bytes, and tree receipt. |
 | `benchmarks/ocr/provider-startup.json` | Cache-only startup, network canary, and real PaddleOCR-VL artifact-schema evidence. |
 | `benchmarks/ocr/phase0-scorecard.json` | Public measurement/decision artifact generated only from a real authorized run. |
+| `docs/decisions/0010-pdf-ocr-evaluation-manifest-fingerprint.md` | Proposed evaluation-only OCR fingerprint contract pending Task 5A implementation. |
+| `docs/superpowers/reviews/2026-07-14-pdf-ocr-phase0-resumption-plan-review.md` | Main reconciliation and resumption-plan review checkpoint. |
 | `docs/superpowers/reviews/2026-07-13-pdf-ocr-phase0-decision.md` | Public-neutral GO/NO-GO rationale and limits of the evidence. |
 
 ## Interfaces Frozen by This Plan
@@ -116,10 +120,15 @@ The provider child accepts fixed `--input`, `--output`, `--page-number`, and pro
 - Tasks 1-2 here may run in parallel with owner-lifecycle Tasks 1-2 because they are pure
   evaluation code and fixtures.
 - Task 3 here depends on owner-lifecycle Task 3's operation-scoped `ActiveProcessController`.
-- Tasks 4-6 are sequential and require both preceding plans plus the explicit package/model
-  authorization stated below.
+- Task 4 is historical compatibility evidence. After the MKE 0.1.2 reconciliation, Tasks 4R,
+  5A, 5B, 5C, and 6 are sequential and require their explicit authority checkpoints.
 - A valid-positive Phase 0 result returns to planning. It does not unlock production Tasks 7-9 from
   the design spec automatically; those require a new reviewed production plan.
+
+Every behavior change follows RED then minimal GREEN. Tasks 4R, 5A, 5B, and 5C each produce an
+independent local commit and stop for a review checkpoint. Task 5A and Task 5B must both complete
+before any scorecard or OCR viability conclusion is claimed. Push, PR creation, merge to `main`,
+tag, release, and deployment remain separately authorized actions and are not granted by this plan.
 
 ---
 
@@ -706,12 +715,99 @@ the amended exact MKE wheel and remains canonical; model and startup receipts ar
 canonical, and required model-free suites remain network-free. Targeted authority re-review
 accepted the bounded Task 4 amendment at `040cb6cea2439f5f9d46b09862b17fa1fee59e39`, with
 `158 passed, 5 warnings`, Ruff, Pyright, diff check, and all three canonical receipt identities
-passing. Task 5 is cleared to generate the scorecard; this does not select a provider or authorize
-production OCR.
+passing. That acceptance predates the MKE 0.1.2 reconciliation. The existing package and startup
+receipts are therefore historical until Task 4R rebinds them; Task 5B cannot start from those
+receipts. This does not select a provider or authorize production OCR.
 
 ---
 
-### Task 5: Generate the real scorecard through Publication, Search, Ask, and EvidenceRef
+### Task 4R: Reconcile v0.1.2 and refresh retained provider authority
+
+The branch was reconciled with `main` through merge commit
+`804b9205c35b657ab3aba51faf4cdc40ab0e4057`. Merge, rather than rebase or squash, preserves the
+accepted Task 4 commit identities referenced by the review record. Task 4R execution begins only
+after targeted review accepts this resumption plan.
+
+The existing package and startup receipts bind an MKE 0.1.1 wheel. They remain historical evidence
+after the MKE 0.1.2 merge and cannot authorize Task 5B. The model receipt may remain the same model
+provenance only if a fresh descriptor-bound rehash confirms identical bytes and tree identity.
+
+- [ ] **Step 1: Verify the preserved merge provenance gate**
+
+Require the merge commit to have the prior OCR HEAD and exact current `main` as parents. Confirm the
+worktree is clean and the accepted Task 4 commits remain ancestors. Do not rebase, squash, or rewrite
+the 20 pre-reconciliation OCR commits.
+
+- [ ] **Step 2: Build one merged-tree MKE 0.1.2 wheel offline**
+
+Build from the clean committed merge tree. Record the exact wheel filename, bytes, SHA-256, version,
+and source commit. Do not use or retain an MKE 0.1.1 wheel as current authority.
+
+- [ ] **Step 3: Refresh the complete package matrix from retained evidence**
+
+Use only the existing retained wheelhouses. Replace the MKE wheel inside call-owned copies and run
+the full 16-cell ordinary-pip offline matrix for Python 3.12 and 3.13. Update
+`candidate-environments.json` only from the validated controller path.
+
+- [ ] **Step 4: Refresh installed-wheel provider startup**
+
+Use the same new MKE wheel and existing cache-only model roots to rerun Apple Vision,
+PaddleOCR-VL, and PP-OCRv6 startup with network denial and the canary. Update
+`provider-startup.json` from the authority path. Descriptor-bound rehash the retained model tree;
+if its bytes and tree identity are unchanged, do not rewrite `model-artifacts.json`.
+
+- [ ] **Step 5: Enforce offline and disk ownership gates**
+
+No new package or model download, hosted API, AutoDL, or remote fallback is allowed. Create cells
+serially, clean call-owned environments after measurement, and do not retain a new large duplicate
+cache. Missing or drifted retained evidence is a hard stop and must not be repaired through network
+access.
+
+- [ ] **Step 6: Verify and commit Task 4R**
+
+Run the compatibility, canonical receipt, offline replay, installed-wheel startup, network canary,
+model rehash, static, and exact-file audits. Commit Task 4R independently and stop for its review
+checkpoint.
+
+---
+
+### Task 5A: Add the evaluation-only OCR manifest fingerprint contract
+
+**Files:**
+- Modify: `src/mke/domain/__init__.py`
+- Modify: `tests/domain/test_manifest.py`
+- Add and then update: `docs/decisions/0010-pdf-ocr-evaluation-manifest-fingerprint.md`
+
+- [ ] **Step 1: Write RED fingerprint and stage-mismatch tests**
+
+Require exact `pdf-ocr-eval-v1:<64 lowercase hex SHA-256>` recognition and exact OCR stages
+`pdf_ocr_extraction` plus `candidate_evidence`. Reject prefix-only, wrong-length, uppercase, unknown
+version, OCR fingerprint with text stages, text fingerprint with OCR stages, and non-page locators.
+Keep all existing PDF and video compatibility cases green.
+
+- [ ] **Step 2: Run RED**
+
+Run the focused manifest suite and confirm failures arise because the OCR evaluation fingerprint is
+not yet recognized.
+
+- [ ] **Step 3: Implement the minimal domain validator contract**
+
+Add only the evaluation fingerprint regex and required-stage mapping. Do not change CLI, MCP,
+SQLite schema, runtime defaults, dependencies, or default PDF ingest.
+
+- [ ] **Step 4: Run GREEN and update ADR status**
+
+After the exact compatibility and mismatch tests pass, change ADR-0010 from Proposed to Accepted
+with the actual implementation evidence. Do not mark it Accepted before implementation.
+
+- [ ] **Step 5: Commit Task 5A and stop for review**
+
+Stage only the domain validator, its tests, and ADR. Create an independent local commit and review
+checkpoint.
+
+---
+
+### Task 5B: Generate the real scorecard through Publication, Search, Ask, and EvidenceRef
 
 **Files:**
 - Create: `src/mke/evaluation/pdf_ocr_runner.py`
@@ -806,8 +902,10 @@ method. For each document:
 2. create a Run and transition it through current legal states;
 3. convert accepted text-layer pages and accepted OCR pages into distinct Evidence rows with exact
    page locators;
-4. create a deterministic `RunManifest` whose extractor fingerprint includes router, render,
-   provider, model-tree, package-receipt, and normalization fingerprints;
+4. create the canonical structured `mke.pdf_ocr_extractor_identity.v1` payload, including router,
+   render, provider, model-tree, package-receipt, installed package set, MKE wheel, and
+   normalization fingerprints; verify its digest exactly matches the compact `RunManifest`
+   `pdf-ocr-eval-v1:<sha256>` fingerprint before activation;
 5. validate and activate one disposable Publication;
 6. call current `search_library_v1` and `ask_library_v1` application contracts;
 7. compare normalized payloads and portable EvidenceRefs to protocol truth.
@@ -832,7 +930,7 @@ Write the scorecard with stable sorted JSON and no timestamps. Its `decision` is
 Numeric quality and resource limits remain `observed`, not `approved`, until the planning/review
 window accepts the scorecard. A green runner alone does not authorize production implementation.
 
-- [ ] **Step 6: Run GREEN and commit Task 5**
+- [ ] **Step 6: Run GREEN and commit Task 5B**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -849,6 +947,47 @@ git add \
 git diff --cached --check
 git commit -m "test(ocr): add phase zero product scorecard"
 ```
+
+Commit Task 5B independently and stop for its review checkpoint before Task 5C begins.
+
+---
+
+### Task 5C: Refresh retrieval evaluation provenance once after code stabilizes
+
+The E1 source identity hashes the complete `src/mke/**/*.py` inventory. On the reconciled OCR
+branch, the checked-in canonical baseline validator already reports `evaluation_content` identity
+drift. Perform one refresh only after Task 5A and Task 5B production/evaluation code is stable so
+the repository does not churn provenance repeatedly.
+
+- [ ] **Step 1: Run the complete current-main validator chain**
+
+Enumerate E1, E2, E3-A, E3-B, E3-C, E3-D, E3-E, their dependency identities, and every direct SHA
+consumer required by current `main`. A failure is evidence of drift, not an unchanged baseline.
+
+- [ ] **Step 2: Generate one recoverable canonical refresh transaction**
+
+Use the repository-supported atomic refresh workflow, extended only as required to cover the full
+current-main provenance chain. Do not change corpus, fixtures, queries, qrels, observations,
+metrics, thresholds, gates, selected candidates, statuses, diagnostics, or verdicts.
+
+- [ ] **Step 3: Prove normalized semantic equality**
+
+For every artifact, normalize only the allowed source, scope, dependency, and downstream
+provenance bindings. Before/after semantic equality must hold. Any validator or semantic equality
+failure is a hard stop.
+
+- [ ] **Step 4: Run complete canonical validators and full pytest**
+
+Validate the entire refreshed dependency chain and run the full repository test suite from the
+same committed candidate.
+
+- [ ] **Step 5: Commit Task 5C and stop for review**
+
+Stage only the exact provenance transaction, tests, and changed canonical artifacts. Create an
+independent local commit and review checkpoint.
+
+Task 5A and Task 5B completion is required before any scorecard or OCR viability conclusion may be
+claimed. Task 5C must finish before Task 6 begins.
 
 ---
 
