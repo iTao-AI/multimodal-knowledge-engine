@@ -436,15 +436,40 @@ The maximum expected conditional changed set is the 21-file identity chain previ
 
 Before writing any artifact, freeze the exact pre-refresh commit and run fresh observations into a call-owned temporary directory. Later semantic comparison must read pre-refresh artifacts with `git show "${task4_start}:<path>"`; it must not compare against a mutable worktree copy.
 
+The E2 observation must bind the refreshed scope identity before the comparison runs. The call-owned hidden protocol must remain in the canonical numeric fixture directory because `load_numeric_protocol` derives `protocol_root` from the protocol path. Never overwrite a pre-existing hidden protocol.
+
 ```bash
 evidence_dir="$(mktemp -d)"
 task4_start="$(git rev-parse HEAD)"
+e2_protocol="tests/fixtures/retrieval-numeric-v1/.protocol-lock.v0.1.2-observation.json"
+test ! -e "${e2_protocol}"
+cleanup_e2_protocol() {
+  rm -f -- "${e2_protocol}"
+}
+trap cleanup_e2_protocol EXIT INT TERM
+
+cp tests/fixtures/retrieval-numeric-v1/protocol-lock.json "${e2_protocol}"
+uv run python -m mke.evaluation.numeric_comparison refresh-scope \
+  --protocol "${e2_protocol}" \
+  --repository .
+uv run mke eval retrieval-numeric \
+  --protocol "${e2_protocol}" \
+  --json > "${evidence_dir}/e2.json"
+jq -e '
+  .schema_version == "mke.retrieval_numeric_comparison.v1" and
+  .protocol_id == "retrieval-numeric-v1" and
+  .integrity_status == "passed" and
+  .candidate_status == "passed" and
+  .integrity_failures == []
+' "${evidence_dir}/e2.json"
+
+rm -f -- "${e2_protocol}"
+trap - EXIT INT TERM
+test ! -e "${e2_protocol}"
+
 uv run mke eval retrieval \
   --manifest tests/fixtures/retrieval-eval-v1.json \
   --json > "${evidence_dir}/e1.json"
-uv run mke eval retrieval-numeric \
-  --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json \
-  --json > "${evidence_dir}/e2.json"
 uv run mke eval retrieval-chinese \
   --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \
   --json > "${evidence_dir}/e3a.json"
@@ -454,7 +479,13 @@ uv run mke eval retrieval-cjk-lexical \
   --json > "${evidence_dir}/e3b.json"
 ```
 
-Expected: all four commands exit `0`. Preserve the temporary observations until Task 4 completes.
+Expected: all four observation commands exit `0`, and the exact E2 integrity assertion passes. Preserve the temporary observations until Task 4 completes. An E2 observation generated from the pre-refresh checked-in protocol is diagnostic only; it must never be passed to `artifact_refresh`.
+
+Before any artifact write, run only the helper regression that proves its internal refreshed-protocol observation order without requiring the still-stale checked-in canonical protocol to pass:
+
+```bash
+UV_OFFLINE=1 uv run pytest -q tests/evaluation/test_artifact_refresh.py
+```
 
 - [ ] **Step 2: Run all seven canonical validators before writing**
 
@@ -493,7 +524,7 @@ uv run python -m mke.evaluation.relevance_gate_artifact validate \
   --repository .
 ```
 
-Record the exact pass/fail chain. If all pass, skip directly to Step 6 with no artifact write. Continue only when failures are exclusively source/scope/dependency identity mismatches caused by the version-byte change.
+This is a diagnostic against the checked-in canonical graph before any write. Record the exact pass/fail chain. If all pass, skip directly to Step 6 with no artifact write. Continue only when failures are exclusively source/scope/dependency identity mismatches caused by the version-byte change. Step 3 consumes the corrected, refreshed-scope `${evidence_dir}/e2.json`; it does not change helper semantics.
 
 - [ ] **Step 3: Perform the supported atomic E1 through E3-B refresh**
 
@@ -578,6 +609,7 @@ UV_OFFLINE=1 uv run pytest -q \
   tests/evaluation/test_artifact_refresh.py \
   tests/evaluation/test_baseline.py \
   tests/evaluation/test_numeric_artifact.py \
+  tests/evaluation/test_numeric_comparison.py \
   tests/evaluation/test_chinese_artifact.py \
   tests/evaluation/test_cjk_lexical_artifact.py \
   tests/evaluation/test_dense_protocol.py \
@@ -710,7 +742,7 @@ UV_OFFLINE=1 uv run pytest -q tests/evaluation/test_*documentation.py \
   tests/scripts/test_release_presentation_audit.py
 ```
 
-Generate fresh E1/E2/E3-A/E3-B observations in a call-owned temporary directory and run all seven canonical validator commands from Task 4 Step 2. Require every validator green.
+Generate fresh E1/E2/E3-A/E3-B observations by reusing the corrected Task 4 Step 1 sequence in full, including the call-owned hidden numeric protocol, `refresh-scope` before `eval retrieval-numeric`, the exact `jq` integrity assertion, trap cleanup, and proof that the hidden protocol no longer exists. A stale checked-in-protocol E2 observation is prohibited. Then run all seven canonical validator commands from Task 4 Step 2 and require every validator green.
 
 - [ ] **Step 4: Run the once-only candidate-output same-wheel proof**
 

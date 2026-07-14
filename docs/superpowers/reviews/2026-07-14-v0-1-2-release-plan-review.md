@@ -9,7 +9,7 @@ Status: CLEARED FOR IMPLEMENTATION. Explicit authority dispatch is still require
 - Approved spec: [v0.1.2 Release Closeout Design](../specs/2026-07-14-v0-1-2-release-closeout-design.md).
 - Planning base: `main@16fae017ced5fe67da3fae4a01f26e9e9f1084aa`.
 
-Targeted engineering re-review completed against the amended plan commit and accepted all five amendments. No actionable engineering finding remains. This review closure does not start implementation or authorize any external side effect.
+Targeted engineering re-review completed against the amended plan commit and accepted the first five amendments. A post-dispatch ordering finding was recovered safely at implementation HEAD `7c2a845a516508058fb6c8ce7019cff32b4d04ec` and is cleared by the exact sixth amendment below. No actionable engineering finding remains. This review closure does not start or resume implementation and does not authorize any external side effect.
 
 ## Review Mode
 
@@ -56,6 +56,18 @@ Engineering execution review. The review checks whether the approved release-clo
 **Accepted amendment:** After the E1-E3-B atomic helper succeeds, create a call-owned detached validation mirror rooted at `task4_start`. Overlay the exact successful E1-E3-B candidate bytes and every staged E3-C/D/E byte at canonical repository-relative paths. Require the mirror changed set and bytes to equal the complete staged candidate set within the exact 21-path allowlist. Run applicable builders, layer validators, and all seven canonical validators with every path and `repository_root`/`--repository` bound to the mirror. Only after the complete mirror is green may the exact validated downstream bytes be applied to the feature worktree. Capture call-owned pre-apply descriptors and bytes, use per-file atomic replacement in dependency order, restore every touched downstream path on apply or post-apply failure, verify exact restoration, and rerun all seven validators against the real worktree before staging.
 
 **Failure behavior:** Missing mirror coverage, mirror/staged path or byte mismatch, old-root dependency resolution, apply failure, or post-apply validator failure blocks publication of the downstream set. Discard call-owned staging/mirror before application failures. After a touched-path failure, restore every downstream path exactly; restoration failure is a hard stop with exact dirty paths reported. Never stage or commit a partial set, and do not claim filesystem-wide multi-file atomicity.
+
+### 6. P1: E2 Observation Preceded Scope Refresh
+
+**Root cause:** Task 4 Step 1 originally ran `eval retrieval-numeric` against the stale checked-in protocol before refreshing its scope identity. The production helper stages and refreshes the E2 protocol before `record_numeric_artifact`, and `tests/evaluation/test_artifact_refresh.py::_observations()` likewise copies the protocol, calls `refresh_numeric_protocol_scope()`, and only then runs `run_numeric_comparison()`. A stale-protocol observation therefore fails integrity and cannot be consumed by the refreshed staged protocol.
+
+**Accepted amendment:** Create a call-owned hidden protocol in the canonical numeric fixture directory, fail closed if it already exists, install a trap that removes only that file, copy the checked-in protocol, run `numeric_comparison refresh-scope`, and only then generate E2. Require the exact schema, protocol ID, passed integrity and candidate status, and empty integrity failures with `jq`; remove the hidden protocol, clear the trap, and prove the path is absent. Task 3 of the helper consumes that corrected E2 observation without changing helper semantics. Task 6 must reuse the same corrected ordering before its seven-validator gate. Before writes, run only `test_artifact_refresh.py` to prove the helper's internal refreshed-protocol observation order without requiring the stale checked-in canonical protocol to pass. Run `test_numeric_comparison.py` in Task 4 Step 6 only after the supported helper has refreshed the canonical scope. No production or evaluation code or test change is required.
+
+**Failure behavior:** A stale or pre-refresh E2 observation, failed integrity assertion, leftover call-owned protocol, unexpected semantic change, or helper failure is a hard stop. On helper failure use only the supported `artifact_refresh recover` command. Do not modify the helper, hand-edit an artifact, or continue with a diagnostic observation.
+
+The post-dispatch helper failure at implementation HEAD `7c2a845a516508058fb6c8ce7019cff32b4d04ec` completed supported recovery with no conditional artifact diff. This finding is CLEARED by the precise plan-order amendment; continuing execution still requires explicit authority dispatch.
+
+The pre-amendment combined-gate diagnostic confirmed that the artifact-refresh tests pass while numeric-comparison tests reject the intentionally stale checked-in scope before Task 4 refresh. Those failures are sequencing evidence, not a code defect, baseline waiver, or permission to continue after a failed gate.
 
 ## Confirmed Strengths
 
