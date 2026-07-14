@@ -637,6 +637,12 @@ component is stored in a read-only content-addressed directory outside the repos
 used only the four pinned `PaddlePaddle` revisions, and the call-owned partial staging root was
 removed after atomic publication.
 
+The targeted amendment seals the content-addressed snapshot in private staging, reopens every
+regular file through the descriptor-bound validator, and recomputes every file, component, and
+aggregate identity before atomic publication. The public final tree is revalidated before the
+canonical receipt is published, so a same-size replacement after the initial validation fails
+closed without exposing a writable accepted snapshot.
+
 - [x] **Step 5: Prove cache-only real-provider startup**
 
 Run each available real provider once with all local model-directory arguments and external egress
@@ -648,11 +654,21 @@ PaddleOCR-VL direct CPU inference is the approved Phase 0 comparison path. Hoste
 local VLM service backends remain out of scope even if official documentation recommends them for
 speed.
 
-Fresh amended Darwin/arm64 startup evidence used the accepted package receipt and an
-operating-system network-denial sandbox whose canary was blocked. Apple Vision, PaddleOCR-VL, and
-PP-OCRv6 medium returned the exact public fixture text through the project-owned result validator in
-212 ms, 12,766 ms, and 8,759 ms respectively. These are single-page startup observations, not OCR
-quality or production claims.
+Fresh targeted-repair evidence rebuilt the current MKE wheel at SHA-256
+`529a49b33ffce5af8243f9b50f5050d5b0e3a28ada9c13dabb8cd723549e6f47`, replaced only the MKE wheel
+inside call-owned copies of the retained third-party wheelhouses, and reran the complete offline
+matrix. All 16 cells passed with exact Python 3.12.13 and 3.13.12; the updated canonical package
+receipt SHA-256 is `3b8014d0988b3b657fb2ada23ae78ac7d48e4f63eafd4a7074e4c6976d0896ff`.
+The original prepared evidence remained unchanged.
+
+The real-provider controller then created a fresh offline Python 3.13.12 environment from that
+exact wheel and verified that `mke` resolved from its `site-packages`, isolated mode was active,
+`PYTHONPATH` was absent, and the packaged sanitized vendor fixture matched its recorded digest.
+With operating-system network denial and a blocked canary, Apple Vision, PaddleOCR-VL, and
+PP-OCRv6 medium returned the exact public fixture text through the installed-wheel result validator
+in 291 ms, 18,951 ms, and 8,688 ms respectively. The canonical provider-startup receipt SHA-256 is
+`e271df496688e4960cf9f117f63fca8f7afc85d995d15614317d1d291b5f3838`. These are single-page
+startup observations, not OCR quality or production claims.
 
 PaddleOCR-VL loaded both local model roots and completed direct CPU inference, then wrote exactly
 `english-scan-page-1.md` (51 bytes) and `english-scan-page-1_res.json` (2,458 bytes). The Markdown
@@ -681,10 +697,11 @@ git commit -m "test(ocr): record candidate compatibility"
 If no candidate environment can be recreated offline, continue to Task 5 only far enough to emit a
 tested `no_go` scorecard. Do not run or design a production provider.
 
-Task 4 closes as compatibility evidence, not a provider decision. The package matrix remains
-unchanged and canonical, the model and startup receipts are independently canonical, and required
-model-free suites remain network-free. Task 5 is not authorized by this checkpoint and remains
-unstarted pending targeted authority re-review of the bounded Task 4 amendment.
+Task 4 closes as compatibility evidence, not a provider decision. The package matrix is rebound to
+the amended exact MKE wheel and remains canonical; model and startup receipts are independently
+canonical, and required model-free suites remain network-free. Task 5 is not authorized by this
+checkpoint and remains unstarted pending targeted authority re-review of the bounded Task 4
+amendment.
 
 ---
 
