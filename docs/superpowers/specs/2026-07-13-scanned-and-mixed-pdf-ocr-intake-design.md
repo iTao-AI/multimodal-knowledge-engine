@@ -373,6 +373,16 @@ behavior, database migration, dependency, or production OCR authorization. Its a
 decision is recorded in `docs/decisions/0010-pdf-ocr-evaluation-manifest-fingerprint.md`, initially
 as Proposed pending implementation.
 
+The package identity used by this payload comes from a separately reviewed Task 4R receipt and
+installed-wheel startup chain. Receipt validation is self-consistent rather than bound to the
+validator checkout: the exact safe-version wheel filename, digest, both candidate inventories,
+passed-cell installed versions, and provider runtime must agree. The retained 0.1.1 receipts remain
+readable historical evidence after the 0.1.2 merge, but they cannot authorize the Phase 0 runner.
+Task 4R must build the current committed 0.1.2 wheel, copy retained third-party wheelhouses through
+descriptor-bound reads into a call-owned root, replace only the MKE wheel in that copy, and prove
+the retained source unchanged. Apple Vision startup uses a call-owned executable compiled from
+`scripts/pdf_ocr_apple_vision.swift`, never the `swift` or `swiftc` driver itself.
+
 ## Publication Atomicity
 
 OCR uses the stronger report pattern already established by first-party transcription:

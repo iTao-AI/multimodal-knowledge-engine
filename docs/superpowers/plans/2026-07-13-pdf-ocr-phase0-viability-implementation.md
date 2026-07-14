@@ -728,9 +728,85 @@ The branch was reconciled with `main` through merge commit
 accepted Task 4 commit identities referenced by the review record. Task 4R execution begins only
 after targeted review accepts this resumption plan.
 
-The existing package and startup receipts bind an MKE 0.1.1 wheel. They remain historical evidence
-after the MKE 0.1.2 merge and cannot authorize Task 5B. The model receipt may remain the same model
-provenance only if a fresh descriptor-bound rehash confirms identical bytes and tree identity.
+The existing package and startup receipts bind an MKE 0.1.1 wheel. They remain historical,
+self-consistent evidence after the MKE 0.1.2 merge and cannot authorize Task 5B. The current
+compatibility controller also hard-codes the 0.1.1 wheel filename and installed version, so Task 4R
+must first repair that evaluation harness before refreshing evidence. Task 4R-A and Task 4R-B are
+separate TDD commits and reviewable checkpoints; both must complete before Task 4R review.
+
+#### Task 4R-A: Generalize candidate wheel authority and prepare rebound wheelhouses
+
+**Files:**
+
+- Modify: `scripts/pdf_ocr_candidate_compatibility.py`
+- Modify: `tests/scripts/test_pdf_ocr_candidate_compatibility.py`
+
+No dependency or production `src/mke` file may change.
+
+- [ ] **Step 1: Freeze the plan start and write RED version-authority tests**
+
+Freeze `task4r_plan_start="$(git rev-parse HEAD)"`. Require it to be the review-cleared resumption
+plan commit, contain merge `804b9205c35b657ab3aba51faf4cdc40ab0e4057`, and preserve accepted
+Task 4 commits. Add failing tests for:
+
+- a historical 0.1.1 receipt remaining valid through self-consistency rather than current-checkout
+  version binding;
+- current 0.1.2 generation from an exact
+  `multimodal_knowledge_engine-0.1.2-py3-none-any.whl`;
+- filename/version/repository `pyproject.toml` drift;
+- duplicate or missing MKE distributions and cross-candidate MKE filename/digest drift;
+- successful-cell installed package version drift and provider runtime version drift.
+
+- [ ] **Step 2: Implement self-consistent wheel authority**
+
+Remove fixed `0.1.1` filename and version authority from generation and validation paths. Use a
+strict parser for exactly `multimodal_knowledge_engine-<version>-py3-none-any.whl`, where `version`
+matches a closed safe-version regular expression. New generation requires the filename version to
+equal `project.version` from repository `pyproject.toml`; for this branch it is `0.1.2`.
+
+Receipt validation remains checkout-independent and self-consistent: each candidate has exactly one
+MKE distribution; both candidates use the same filename, bytes, and digest; every passed cell has
+`package_versions["multimodal-knowledge-engine"]` equal to the parsed filename version; and the
+provider runtime version, digest, filename, candidate, surface, Python cell, and installed package
+set exactly match the referenced package receipt cell. Wheel filename, wheel METADATA, install
+doctor, repository version, or runtime disagreement fails closed. Historical 0.1.1 receipts remain
+readable evidence but cannot authorize Task 5B after reconciliation.
+
+- [ ] **Step 3: Implement and test call-owned prepared-wheelhouse copy/rebind**
+
+Add an internal helper that consumes the retained prepared root, a nonexistent call-owned
+destination, and the new exact MKE wheel. The source must contain exactly the two candidate
+directories and only regular `.whl` files: no symlinks, nested paths, or unexpected entries. Each
+candidate must contain exactly one old MKE wheel.
+
+Copy every third-party wheel through descriptor-bound reads into the destination. Omit the old MKE
+wheel and write the same new MKE wheel bytes once per candidate. Verify source entry inventory,
+bytes, and digests before and after; it must remain byte-identical. Verify destination third-party
+inventory exactly equals source and differs only in MKE filename/version/bytes/digest. Destination
+collision, missing or multiple MKE wheels, source drift, symlink, non-regular file, nested or
+unexpected entry fails closed. Only this rebound call-owned root may be passed to
+`--prepared-wheelhouses` and `ProviderStartupConfig.wheelhouse`; the retained source is never
+modified.
+
+- [ ] **Step 4: Run GREEN and commit Task 4R-A**
+
+```bash
+UV_OFFLINE=1 uv run pytest -q tests/scripts/test_pdf_ocr_candidate_compatibility.py
+UV_OFFLINE=1 uv run ruff check scripts/pdf_ocr_candidate_compatibility.py \
+  tests/scripts/test_pdf_ocr_candidate_compatibility.py
+UV_OFFLINE=1 uv run pyright scripts/pdf_ocr_candidate_compatibility.py
+git diff --check
+git diff --name-only
+git status --short
+git add scripts/pdf_ocr_candidate_compatibility.py \
+  tests/scripts/test_pdf_ocr_candidate_compatibility.py
+git diff --cached --check
+git commit -m "fix(ocr): generalize candidate wheel authority"
+```
+
+Task 4R-A stages only the script and its tests. Stop on any other tracked change.
+
+#### Task 4R-B: Refresh v0.1.2 package and provider evidence
 
 **Files:**
 
@@ -738,49 +814,41 @@ provenance only if a fresh descriptor-bound rehash confirms identical bytes and 
 - Modify: `benchmarks/ocr/provider-startup.json`
 - Verify byte-identical: `benchmarks/ocr/model-artifacts.json`
 
-No production or dependency file may change. Task 4R stages only the two modified receipt files;
-any other tracked change is an authority hard stop.
+- [ ] **Step 5: Freeze the evidence source and call-owned cleanup contract**
 
-- [ ] **Step 1: Verify the preserved merge provenance gate**
-
-Freeze `task4r_start="$(git rev-parse HEAD)"` before any write. Require it to be the current
-review-cleared resumption-plan commit, to contain merge commit
-`804b9205c35b657ab3aba51faf4cdc40ab0e4057`, and to preserve the accepted Task 4 commits as
-ancestors. The merge commit is provenance in the history, not the current source candidate. Confirm
-the worktree is clean. Do not rebase, squash, or rewrite the 20 pre-reconciliation OCR commits.
-
-- [ ] **Step 2: Build one merged-tree MKE 0.1.2 wheel offline**
-
-Build from exact committed `task4r_start`. Record the exact wheel filename, bytes, SHA-256, version,
-and `task4r_start` in the handoff. The current receipt schema has no `source_commit` field, so do
-not claim that either receipt binds the commit. Do not extend the schema in Task 4R, and do not use
-or retain an MKE 0.1.1 wheel as current authority.
-
-Freeze the execution inputs explicitly:
+After Task 4R-A is committed and the worktree is clean, freeze
+`task4r_evidence_start="$(git rev-parse HEAD)"`. Build only from that exact committed HEAD. The
+handoff records `task4r_plan_start`, the Task 4R-A commit, and `task4r_evidence_start`; current
+receipt schemas have no `source_commit`, so do not claim they bind those commits.
 
 ```bash
-task4r_start="$(git rev-parse HEAD)"
 python312="$(command -v python3.12)"
 python313="$(command -v python3.13)"
-prepared_wheelhouses="${MKE_OCR_RETAINED_WHEELHOUSES:?operator input required}"
+retained_wheelhouses="${MKE_OCR_RETAINED_WHEELHOUSES:?operator input required}"
 model_root="${MKE_OCR_RETAINED_MODEL_ROOT:?operator input required}"
-apple_executable="$(xcrun --find swift)"
 staging_root="$(mktemp -d)"
 cache_root="$(mktemp -d)"
-wheel="${staging_root}/wheel/multimodal_knowledge_engine-0.1.2-py3-none-any.whl"
-mkdir -p "${staging_root}/wheel"
-UV_OFFLINE=1 uv build --wheel --out-dir "${staging_root}/wheel"
+cleanup_task4r() {
+  rm -rf -- "${staging_root}" "${cache_root}"
+}
+trap cleanup_task4r EXIT INT TERM
+wheel_dir="${staging_root}/wheel"
+rebound_wheelhouses="${staging_root}/rebound-wheelhouses"
+apple_executable="${staging_root}/apple-vision-child"
+mkdir -p "${wheel_dir}"
+UV_OFFLINE=1 uv build --wheel --out-dir "${wheel_dir}"
+wheel="${wheel_dir}/multimodal_knowledge_engine-0.1.2-py3-none-any.whl"
 test -f "${wheel}"
 ```
 
-`prepared_wheelhouses` and `model_root` are operator-selected retained evidence outside Git. The
-staging and cache roots are call-owned and must be empty or absent after the run.
+The trap owns only the two `mktemp` roots and never deletes operator-retained evidence. Record the
+wheel filename, bytes, SHA-256, version, and METADATA before cleanup. After all evidence and checks
+complete, invoke the trap cleanup, disable it, and require both roots not to exist.
 
-- [ ] **Step 3: Refresh the complete package matrix from retained evidence**
+- [ ] **Step 6: Create the rebound wheelhouses and run the offline matrix**
 
-Use only the existing retained wheelhouses. Replace the MKE wheel inside call-owned copies and run
-the full 16-cell ordinary-pip offline matrix for Python 3.12 and 3.13. Update
-`candidate-environments.json` only from the validated controller path:
+Use the Task 4R-A helper to create `rebound_wheelhouses` from `retained_wheelhouses` and the exact
+new wheel. Prove the retained source unchanged and the destination identity constraints, then run:
 
 ```bash
 UV_OFFLINE=1 uv run python scripts/pdf_ocr_candidate_compatibility.py \
@@ -788,72 +856,38 @@ UV_OFFLINE=1 uv run python scripts/pdf_ocr_candidate_compatibility.py \
   --wheel "${wheel}" \
   --python "${python312}" \
   --python "${python313}" \
-  --prepared-wheelhouses "${prepared_wheelhouses}" \
+  --prepared-wheelhouses "${rebound_wheelhouses}" \
   --staging-root "${staging_root}/matrix" \
   --cache-root "${cache_root}/matrix" \
   --output benchmarks/ocr/candidate-environments.json \
   --json
 ```
 
-Do not pass `--allow-package-download` or `--allow-model-download`.
+Require `UV_OFFLINE=1` and do not pass `--allow-package-download` or
+`--allow-model-download`. Require exact 0.1.2 filename/METADATA/cell versions, two candidates,
+Python 3.12/3.13, four surfaces, and 16 validated cells.
 
-- [ ] **Step 4: Refresh installed-wheel provider startup**
+- [ ] **Step 7: Compile the Apple Vision child and refresh provider startup**
 
-Use the same new MKE wheel and existing cache-only model roots to rerun Apple Vision,
-PaddleOCR-VL, and PP-OCRv6 startup with network denial and the canary. Update
-`provider-startup.json` from the authority path. Descriptor-bound rehash the retained model tree;
-if its bytes and tree identity are unchanged, do not rewrite `model-artifacts.json`.
-
-Invoke existing `ProviderStartupConfig` and `run_provider_startup` from a call-owned Python
-invocation, passing the exact wheel, `python313`, retained wheelhouses and models,
-`apple_executable`, and call-owned staging/cache roots. Do not add a tracked runner. The invocation
-must write exactly `benchmarks/ocr/provider-startup.json` and must prove the existing package and
-model receipt bindings, installed-wheel module origin, network denial, and canary result.
+The Swift driver is not a provider child. Typecheck and compile the tracked source into the
+call-owned executable, then pass only that compiled child to `ProviderStartupConfig`:
 
 ```bash
-UV_OFFLINE=1 uv run python - "${task4r_start}" "${wheel}" "${python313}" \
-  "${prepared_wheelhouses}/paddleocr-vl-1.6-cpu-spike-v1" \
-  "${model_root}" "${apple_executable}" "${staging_root}/provider" <<'PY'
-import pathlib
-import sys
-
-from scripts.pdf_ocr_candidate_compatibility import (
-    ProviderStartupConfig,
-    run_provider_startup,
-)
-
-task4r_start, wheel, python313, wheelhouse, model_root, apple, staging = sys.argv[1:]
-repository = pathlib.Path.cwd().resolve()
-if task4r_start != __import__("subprocess").check_output(
-    ["git", "rev-parse", "HEAD"], cwd=repository, text=True
-).strip():
-    raise SystemExit("task4r_source_drift")
-run_provider_startup(
-    ProviderStartupConfig(
-        repository=repository,
-        wheel=pathlib.Path(wheel),
-        python=pathlib.Path(python313),
-        wheelhouse=pathlib.Path(wheelhouse),
-        model_root=pathlib.Path(model_root),
-        apple_executable=pathlib.Path(apple),
-        staging_root=pathlib.Path(staging),
-        output=repository / "benchmarks/ocr/provider-startup.json",
-    )
-)
-PY
+xcrun swiftc -typecheck scripts/pdf_ocr_apple_vision.swift
+xcrun swiftc scripts/pdf_ocr_apple_vision.swift -o "${apple_executable}"
+test -x "${apple_executable}"
 ```
 
-- [ ] **Step 5: Enforce offline and disk ownership gates**
+Use a call-owned Python invocation of existing `ProviderStartupConfig` and
+`run_provider_startup`, with `task4r_evidence_start`, the exact wheel, `python313`,
+`rebound_wheelhouses/paddleocr-vl-1.6-cpu-spike-v1`, retained `model_root`, compiled
+`apple_executable`, and call-owned provider staging. Do not add a tracked runner or pass `swift` or
+`swiftc` as the provider executable. Write exactly `benchmarks/ocr/provider-startup.json`. Require
+installed-wheel origin, package receipt/cell identity, network denial, canary, and all three
+provider startup results. Descriptor-bound rehash `model_root`; any difference from
+`benchmarks/ocr/model-artifacts.json` is a hard stop and that receipt remains byte-identical.
 
-No new package or model download, hosted API, AutoDL, or remote fallback is allowed. Create cells
-serially, clean call-owned environments after measurement, and do not retain a new large duplicate
-cache. Missing or drifted retained evidence is a hard stop and must not be repaired through network
-access. Require `UV_OFFLINE=1` for every `uv` command, prohibit both download authorization flags,
-and verify the call-owned `staging_root` and `cache_root` are empty or absent on exit.
-
-- [ ] **Step 6: Verify and commit Task 4R**
-
-Run the exact focused gates:
+- [ ] **Step 8: Verify cleanup, exact files, and commit Task 4R-B**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/scripts/test_pdf_ocr_candidate_compatibility.py
@@ -864,24 +898,27 @@ UV_OFFLINE=1 uv run pytest -q \
 UV_OFFLINE=1 uv run ruff check scripts/pdf_ocr_candidate_compatibility.py \
   tests/scripts/test_pdf_ocr_candidate_compatibility.py
 UV_OFFLINE=1 uv run pyright scripts/pdf_ocr_candidate_compatibility.py
-UV_OFFLINE=1 uv build
-```
-
-Require wheel metadata version `0.1.2`, record its exact bytes and digest, validate canonical
-receipt bytes, exact two candidates times two Python minors times four surfaces (16 cells), exact
-Python versions, full distribution inventories, provider-startup authority, network canary, and a
-fresh descriptor-bound model rehash equal to the checked-in model receipt. Then run:
-
-```bash
 git diff --check
-git diff --name-only "${task4r_start}"..HEAD
+git diff --name-only
 git status --short
 ```
 
-Stage only `benchmarks/ocr/candidate-environments.json` and
-`benchmarks/ocr/provider-startup.json`, commit Task 4R independently, and stop for its review
-checkpoint. `benchmarks/ocr/model-artifacts.json` must remain byte-identical; any rehash drift or
-other tracked change is a hard stop.
+Validate both canonical receipts, exact wheel version/digest, the 16-cell JSON, full package-set
+authority, provider runtime authority, network canary, and model rehash. Remove the two call-owned
+roots through `cleanup_task4r`, run `trap - EXIT INT TERM`, and require
+`test ! -e "${staging_root}"` plus `test ! -e "${cache_root}"`. Stage only
+`benchmarks/ocr/candidate-environments.json` and `benchmarks/ocr/provider-startup.json`, verify
+`benchmarks/ocr/model-artifacts.json` is byte-identical, and commit:
+
+```bash
+git add benchmarks/ocr/candidate-environments.json benchmarks/ocr/provider-startup.json
+git diff --cached --check
+git commit -m "test(ocr): refresh v0.1.2 provider evidence"
+```
+
+Any other tracked change, missing retained evidence, identity drift, or attempted network fallback
+is an authority hard stop. Task 4R-A and Task 4R-B must both complete before the Task 4R authority
+review checkpoint.
 
 ---
 
@@ -907,8 +944,19 @@ do not add an `extractor_fingerprint` or `RunManifest` input.
 
 - [ ] **Step 2: Run RED**
 
-Run the focused manifest suite and confirm failures arise because the OCR evaluation fingerprint is
-not yet recognized.
+Run the exact focused set:
+
+```bash
+UV_OFFLINE=1 uv run pytest -q \
+  tests/domain/test_manifest.py \
+  tests/application/test_pdf_publication.py \
+  tests/application/test_video_publication.py \
+  tests/interfaces/test_cli_retrieval.py \
+  tests/interfaces/test_mcp_contract.py
+```
+
+Only the new OCR domain cases may be RED because the evaluation fingerprint is not recognized.
+Existing PDF/video behavior and application/interface no-new-input assertions must remain GREEN.
 
 - [ ] **Step 3: Implement the minimal domain validator contract**
 
@@ -923,6 +971,22 @@ authority finding.
 
 After the exact compatibility and mismatch tests pass, change ADR-0010 from Proposed to Accepted
 with the actual implementation evidence. Do not mark it Accepted before implementation.
+
+```bash
+UV_OFFLINE=1 uv run pytest -q \
+  tests/domain/test_manifest.py \
+  tests/application/test_pdf_publication.py \
+  tests/application/test_video_publication.py \
+  tests/interfaces/test_cli_retrieval.py \
+  tests/interfaces/test_mcp_contract.py
+UV_OFFLINE=1 uv run ruff check src/mke/domain/__init__.py \
+  tests/domain/test_manifest.py \
+  tests/application/test_pdf_publication.py \
+  tests/application/test_video_publication.py \
+  tests/interfaces/test_cli_retrieval.py \
+  tests/interfaces/test_mcp_contract.py
+UV_OFFLINE=1 uv run pyright src/mke/domain/__init__.py
+```
 
 - [ ] **Step 5: Commit Task 5A and stop for review**
 

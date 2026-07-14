@@ -84,3 +84,11 @@ SQLite and the domain validate only the compact manifest contract. They do not p
 the structured extractor identity. The future production OCR report-and-activation gate belongs to
 production Tasks 7-9. Phase 0 instead relies on disposable runner and scorecard coherence, which
 must not be described as a production OCR capability or successful production OCR report gate.
+
+The package identity leaf is supplied only by the refreshed Task 4R authority chain. Compatibility
+receipts are self-consistent across their own MKE wheel filename, parsed safe version, digest,
+candidate inventories, successful-cell installed versions, and provider runtime. They are not
+implicitly bound to the version of the checkout that validates them. This keeps the retained 0.1.1
+receipt readable as historical evidence while requiring Task 5B to consume the separately reviewed
+0.1.2 receipt and installed-wheel startup evidence. Task 4R copies retained wheelhouses into a
+call-owned root and replaces only the MKE wheel in that copy; it never mutates retained evidence.
