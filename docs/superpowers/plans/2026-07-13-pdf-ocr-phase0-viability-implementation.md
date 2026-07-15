@@ -17,8 +17,9 @@ been completed and accepted at `97e2cb1c67f2ef3a5cd8fc936e697034c0b79ed0`, compl
 4R. Task 5A implementation commit `1953053c801b37ab6a43c9872f0108c7b49c98a3` and targeted
 repair commit `fecb732c5950855897219609b9ea0f63e7d75fa6` are accepted. Task 5B was subsequently
 completed and accepted at reviewed HEAD
-`d74cbe4181df69e198bbbb881d672c83e2b1437c`. Task 5C is cleared only for a later independent
-dispatch; Task 5C and Task 6 have not started.
+`d74cbe4181df69e198bbbb881d672c83e2b1437c`. Task 5C was completed and accepted at reviewed HEAD
+`5d857766770639a0cf25fa77fe044a060f60ead6`. Task 6 is cleared only for a later independent
+dispatch and has not started.
 
 **Goal:** Produce reproducible valid-positive or valid-negative evidence for local scanned/mixed-PDF OCR before adding a production runtime contract.
 
@@ -1289,7 +1290,7 @@ allowed, while any different or larger changed set is an authority hard stop:
 - `tests/evaluation/test_relevance_gate_protocol.py`
 - `tests/evaluation/test_relevance_gate_workflow.py`
 
-- [ ] **Step 1: Freeze the reference and generate fresh observations in the proven order**
+- [x] **Step 1: Freeze the reference and generate fresh observations in the proven order**
 
 Before any write, set `task5c_start="$(git rev-parse HEAD)"` and create a call-owned
 `evidence_dir`. Generate E2 first from an exclusive call-owned hidden protocol copy inside
@@ -1334,7 +1335,7 @@ An E2 observation generated directly from the checked-in protocol is diagnostic 
 never be passed to `artifact_refresh`. Run `tests/evaluation/test_artifact_refresh.py` before any
 artifact write.
 
-- [ ] **Step 2: Run all seven exact canonical validators before writing**
+- [x] **Step 2: Run all seven exact canonical validators before writing**
 
 Run the seven canonical validator commands from the release-closeout plan Task 4 Step 2, in order:
 `mke.evaluation.baseline`, `numeric_artifact validate`, `chinese_artifact validate`,
@@ -1379,7 +1380,7 @@ uv run python -m mke.evaluation.relevance_gate_artifact validate \
   --repository .
 ```
 
-- [ ] **Step 3: Refresh E1 through E3-B only through the recoverable five-target transaction**
+- [x] **Step 3: Refresh E1 through E3-B only through the recoverable five-target transaction**
 
 ```bash
 uv run python -m mke.evaluation.artifact_refresh \
@@ -1395,7 +1396,7 @@ On failure, run only
 `src/mke/evaluation/artifact_refresh.py`. If the existing helper cannot express this identity-only
 change, stop with a new authority finding; do not extend it.
 
-- [ ] **Step 4: Rebind E3-C, E3-D, and E3-E in a detached validation mirror**
+- [x] **Step 4: Rebind E3-C, E3-D, and E3-E in a detached validation mirror**
 
 Create a call-owned rebinder under `${evidence_dir}` and record its SHA-256. Generate all downstream
 candidate bytes before applying any. Create a detached mirror at `task5c_start`, then overlay the
@@ -1410,7 +1411,7 @@ state-receipt identity changes. Corpus, fixtures, queries, qrels, observations, 
 metrics, thresholds, gates, diagnostics, selected candidate/profile, status, and verdict must not
 change.
 
-- [ ] **Step 5: Apply with exact backup and recovery**
+- [x] **Step 5: Apply with exact backup and recovery**
 
 Before apply, save exact bytes, digests, and path descriptors for every conditional downstream path
 in a call-owned backup. Apply only mirror-validated E3-C/D/E bytes using per-file atomic replacement
@@ -1418,7 +1419,7 @@ in dependency order. If any apply or post-apply check fails, restore every touch
 exact bytes and descriptors. Inexact restoration is an authority hard stop. Do not publish a
 partial downstream set.
 
-- [ ] **Step 6: Run the proven regression and validator closure**
+- [x] **Step 6: Run the proven regression and validator closure**
 
 Run the complete artifact regression suite from release-closeout Task 4 Step 6:
 
@@ -1443,7 +1444,7 @@ UV_OFFLINE=1 uv run pytest -q \
 Then rerun all seven exact canonical validator commands against the real worktree. Every command
 must pass before staging. Run full pytest from the same candidate.
 
-- [ ] **Step 7: Commit only validator-proven identities and stop for review**
+- [x] **Step 7: Commit only validator-proven identities and stop for review**
 
 Stage only the exact validator-proven subset of the 21-path allowlist and commit:
 
@@ -1458,8 +1459,20 @@ git commit -m "test(eval): refresh OCR evaluation identities"
 The review handoff must include the rebinder SHA-256, exact changed paths, and before/after
 normalized semantic equality for every E1 through E3-E layer.
 
-Task 5A and Task 5B completion is required before any scorecard or OCR viability conclusion may be
-claimed. Task 5C must finish before Task 6 begins.
+Targeted authority review accepted Task 5C at
+`5d857766770639a0cf25fa77fe044a060f60ead6`. The validator-proven changed set contains 16 paths
+within the 21-path maximum allowlist, and the rebinder SHA-256 is
+`0d52af0fb0f09f439346d3e70d1f142c1a8fd4a1c69877f98f2025f32f7a184b`. Normalized semantic
+equality holds across E1 through E3-E: only source, scope, dependency, path, byte, SHA-256, and
+state-receipt identities changed. Corpus, fixtures, queries, qrels, observations, results,
+metrics, thresholds, gates, diagnostics, candidate/profile, status, and verdict did not change.
+All seven canonical validators passed; the artifact suite passed with `191 passed`, and full
+pytest passed with `1987 passed`. This acceptance clears only Task 6 for a later independent
+dispatch. See
+`docs/superpowers/reviews/2026-07-15-pdf-ocr-phase0-task5c-implementation-review.md`.
+
+Task 5A and Task 5B completion remains required before any scorecard or OCR viability conclusion
+may be claimed. Task 5C is complete; Task 6 may begin only through its independent dispatch.
 
 ---
 
