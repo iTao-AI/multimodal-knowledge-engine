@@ -1,6 +1,8 @@
 # Scanned and Mixed PDF OCR Intake Design
 
-Status: approved design; implementation has not started.
+Status: approved design with Phase 0 viability accepted for production planning. The accepted
+Phase 0 result does not authorize production OCR, a public flag, runtime promotion, release, or
+deployment.
 
 Planning baseline: `337d9a42105a1a6769f3e0ae21bb28c59282da48`.
 
@@ -70,7 +72,18 @@ The viability spike succeeds only when all of the following hold on the approved
 - model size, installation size, cold start, per-page time, peak RSS, temporary storage, and text
   volume remain inside a measured and documented local envelope;
 - model code and weights have documented source, version, digest, and license status;
-- an installed MKE wheel completes OCR ingest, Search, Ask, and portable EvidenceRef proof.
+- composed evidence binds real OCR evaluation and scorecard authority to its reviewed installed
+  wheel, then independently proves installed-wheel scorecard validation, Publication replay,
+  Search, Ask, and portable EvidenceRef consumption.
+
+The accepted Phase 0 evidence uses two explicit wheel authorities. The Task 4R package/startup and
+Task 5B scorecard OCR evidence binds MKE wheel SHA-256
+`6f499710dce8f4ac3e23ac0513c0020a8367f83b38755d43f6ffc4fb49056218`. The Task 6 installed
+consumer and product replay binds MKE wheel SHA-256
+`e17ed9ce1f374eb10a5e006f56d34c50bacc35f497d32654faf40459fa0316b1`. The Task 6 replay uses the
+closed protocol truth; it does not rerun OCR providers or generate the scorecard. This composed
+evidence is sufficient for Phase 0 production planning. A final installed-wheel real OCR ingest
+remains mandatory before exposing a production OCR capability or public flag.
 
 The production route is killed or deferred if any of the following hold:
 
@@ -294,6 +307,101 @@ The extractor fingerprint uses canonical serialization and SHA-256 over:
 
 A readable prefix alone is never sufficient for validation.
 
+### Phase 0 evaluation manifest identity amendment
+
+Phase 0 must not disguise an OCR composite identity as `builtin-pdf-text-v1` or
+`pymupdf-text-v1`. The evaluation runner uses a dedicated fingerprint with the exact form
+`pdf-ocr-eval-v1:<64 lowercase hex SHA-256>`. This fingerprint is evaluation-only and does not
+change the default PDF ingest path.
+
+The digest input is a closed JSON object. Its exact top-level keys are `schema`, `protocol`,
+`fixtures`, `router`, `render`, `provider`, `model`, `package`, and `normalization`; `schema` is
+exactly `mke.pdf_ocr_extractor_identity.v1`. Nested keys and ordering are exact:
+
+- `protocol`: `id`, `sha256`;
+- `fixtures`: sorted by `document_id`, with each item containing `document_id`, `source_bytes`,
+  `source_sha256`;
+- `router`: `implementation_sha256`, `policy`; `policy` contains every current
+  `EvaluationRoutingPolicy` field: `accepted_text_min_chars`,
+  `accepted_text_max_replacement_ratio`, `ocr_text_max_chars`, `ocr_min_image_coverage`,
+  `render_dpi`, `max_pages`, `max_page_pixels`, `max_total_rendered_pixels`,
+  `max_rendered_file_bytes`, and `max_total_rendered_bytes`;
+- `accepted_text_max_replacement_ratio` and `ocr_min_image_coverage` are exact rational objects
+  with only `numerator` and `denominator`; every other policy value is a positive integer;
+- `render`: `profile`, `dpi`, `pages`; pages are sorted by (`document_id`, `page_number`) and each
+  contains `document_id`, `page_number`, `image_bytes`, `image_sha256`;
+- `provider`: `id`, `profile`;
+- `model`: `receipt_sha256`, `tree_sha256`;
+- `package`: `receipt_sha256`, `installed_packages_sha256`, `mke_wheel_sha256`;
+- `normalization`: `implementation_sha256`, `profile`.
+
+All SHA-256 values are exactly 64 lowercase hexadecimal characters. Bytes, pages, DPI, integer
+limits, and rational numerators and denominators are non-boolean positive integers. Lists have no
+duplicate identity or sort key. Missing or extra keys, wrong types, invalid ordering, duplicates,
+non-finite values, and boolean-as-integer values fail closed.
+
+The digest bytes are exactly:
+
+```python
+json.dumps(
+    payload,
+    ensure_ascii=True,
+    sort_keys=True,
+    separators=(",", ":"),
+    allow_nan=False,
+).encode("utf-8")
+```
+
+No newline is appended. The fingerprint is `pdf-ocr-eval-v1:` plus the lowercase SHA-256 of those
+bytes. The scorecard may use its existing stable JSON formatting; only the exact compact bytes
+above authorize the fingerprint digest.
+
+An OCR evaluation `RunManifest` uses exactly these required stages:
+
+- `pdf_ocr_extraction`;
+- `candidate_evidence`.
+
+A text-layer-only Publication continues to use `pymupdf-text-v1` and the existing PDF stages. If
+any page in a document follows the OCR route, that evaluation Publication uses the composite OCR
+fingerprint and OCR stages for the whole document.
+
+The Task 5A domain validator recognizes only the exact versioned prefix, exactly 64 lowercase
+hexadecimal digest characters, the exact OCR stage set, and page locators. It rejects a prefix
+without a digest, wrong-length or uppercase digests, unknown versions, duplicate required stages,
+an OCR fingerprint paired with text stages, and a text fingerprint paired with OCR stages.
+Existing PDF and video fingerprints remain compatible. This validator sees only the compact
+manifest and does not validate the structured payload.
+
+The scorecard persists the complete structured extractor identity. The Task 5B disposable runner
+is its only current producer and authority. Before it calls `persist_validated_candidate`, the
+runner validates the closed payload, recomputes its digest, and requires exact equality with the
+`RunManifest` fingerprint. The `RunManifest` stores only the compact fingerprint, not the large
+structured payload; SQLite and domain validation do not persist or validate that payload.
+
+`MKEEngine.ingest_file`, CLI, and MCP have no input for selecting or submitting this evaluation
+fingerprint or manifest, and Task 5A adds none. The normal PDF application path continues to use
+`pymupdf-text-v1`. This contract adds no public OCR input, production OCR flag, default PDF
+behavior, database migration, dependency, or production OCR authorization. Its architecture
+decision is recorded in `docs/decisions/0010-pdf-ocr-evaluation-manifest-fingerprint.md`, initially
+as Proposed pending implementation.
+
+The package identity used by this payload comes from a separately reviewed Task 4R receipt and
+installed-wheel startup chain. Receipt validation is self-consistent rather than bound to the
+validator checkout: the exact safe-version wheel filename, digest, both candidate inventories,
+passed-cell installed versions, and provider runtime must agree. The retained 0.1.1 receipts remain
+readable historical evidence after the 0.1.2 merge, but they cannot authorize the Phase 0 runner.
+Task 4R must build the current committed 0.1.2 wheel, copy retained third-party wheelhouses through
+descriptor-bound reads into a call-owned root, replace only the MKE wheel in that copy, and prove
+the retained source unchanged. Apple Vision startup uses a call-owned executable compiled from
+`scripts/pdf_ocr_apple_vision.swift`, never the `swift` or `swiftc` driver itself.
+
+Task 4R-A preserves the existing exact committed 0.1.1 receipt SHA regression while generalizing
+version authority. Task 4R-B first generates the canonical 0.1.2 package and startup receipts, then
+computes the new package receipt SHA from those bytes and mechanically updates only the frozen SHA
+literal before running the complete compatibility suite. The frozen test binds the committed
+receipt bytes. It does not add a `source_commit` field or imply source-commit binding; the receipts
+continue to bind wheel, package, model, and runtime identities.
+
 ## Publication Atomicity
 
 OCR uses the stronger report pattern already established by first-party transcription:
@@ -305,9 +413,13 @@ OCR uses the stronger report pattern already established by first-party transcri
 5. append the matching Run event in that transaction;
 6. expose the report only after commit.
 
-Activation rejects an OCR fingerprint without a complete successful OCR report. Any exception,
-malformed result, resource limit, cancellation, timeout, readiness failure, storage failure, or
-unsupported page leaves the previous active Publication and its Search/Ask behavior unchanged.
+The production OCR report gate described in this section belongs to future production Tasks 7-9
+and is not implemented by Phase 0. Phase 0 disposable evaluation instead uses runner/scorecard
+coherence before candidate persistence; it does not add an OCR report to SQLite activation.
+Future production activation rejects an OCR fingerprint without a complete successful OCR report.
+Any exception, malformed result, resource limit, cancellation, timeout, readiness failure, storage
+failure, or unsupported page leaves the previous active Publication and its Search/Ask behavior
+unchanged.
 
 ## Runtime Profile and Model Lifecycle
 
@@ -527,8 +639,9 @@ Each candidate is measured on the same corpus for:
 - license and artifact provenance;
 - preparation, doctor, cache, upgrade, rollback, and error-recovery UX.
 
-Numeric acceptance thresholds are recorded only after real measurements. Vendor marketing numbers
-are not used as project evidence.
+Numeric acceptance thresholds are recorded only after real measurements. Phase 0 numeric ceilings
+are accepted solely as provisional regression and planning budgets for the closed synthetic
+protocol, not as production SLAs. Vendor marketing numbers are not used as project evidence.
 
 ### Required test matrix
 

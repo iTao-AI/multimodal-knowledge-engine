@@ -6,6 +6,7 @@ from mke.adapters.pdf import PdfExtractionError
 from mke.application import KnowledgeEngine, PdfIngestError
 from mke.domain import (
     PDF_EXTRACTOR_FINGERPRINT,
+    PYMUPDF_TEXT_FINGERPRINT,
     REQUIRED_PDF_STAGES,
     CandidateEvidence,
     FailurePoint,
@@ -29,6 +30,39 @@ def test_pdf_ingest_publishes_page_evidence_to_active_search(tmp_path: Path) -> 
     matches = engine.search("trustworthy")
     assert [(match.page_number, match.text) for match in matches] == [
         (1, "Trustworthy evidence starts on page one.")
+    ]
+
+
+def test_normal_pdf_ingest_uses_pymupdf_text_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    observed: list[RunManifest] = []
+    persist = engine._store.persist_validated_candidate  # pyright: ignore[reportPrivateUsage]
+
+    def capture_manifest(
+        run_id: str,
+        evidence: list[CandidateEvidence],
+        manifest: RunManifest,
+        *,
+        failure_point: FailurePoint | None = None,
+    ) -> None:
+        observed.append(manifest)
+        persist(run_id, evidence, manifest, failure_point=failure_point)
+
+    monkeypatch.setattr(
+        engine._store,  # pyright: ignore[reportPrivateUsage]
+        "persist_validated_candidate",
+        capture_manifest,
+    )
+
+    engine.ingest_pdf(PDF_FIXTURES / "text-layer.pdf")
+
+    assert [manifest.extractor_fingerprint for manifest in observed] == [
+        PYMUPDF_TEXT_FINGERPRINT
+    ]
+    assert [manifest.required_stages for manifest in observed] == [
+        tuple(sorted(REQUIRED_PDF_STAGES))
     ]
 
 

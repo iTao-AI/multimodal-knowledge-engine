@@ -57,6 +57,27 @@ def test_retrieval_doctor_reports_not_ready_without_active_publication(
     assert str(tmp_path) not in json.dumps(payload)
 
 
+@pytest.mark.parametrize(
+    ("option", "value"),
+    [
+        ("--extractor-fingerprint", "pdf-ocr-eval-v1:" + ("a" * 64)),
+        ("--run-manifest", "{}"),
+    ],
+)
+def test_cli_ingest_has_no_manifest_authority_input(
+    option: str,
+    value: str,
+    capsys: CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as raised:
+        main(["ingest", "fixture.pdf", option, value])
+
+    assert raised.value.code == 2
+    error = capsys.readouterr().err
+    assert "unrecognized arguments" in error
+    assert option in error
+
+
 def test_retrieval_doctor_does_not_create_missing_database(
     tmp_path: Path, capsys: CaptureFixture[str]
 ) -> None:

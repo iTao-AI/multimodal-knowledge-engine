@@ -7,8 +7,10 @@ import pytest
 from mke.application import KnowledgeEngine, VideoIngestError
 from mke.domain import (
     ActivationResult,
+    CandidateEvidence,
     FailurePoint,
     RunEventType,
+    RunManifest,
     RunState,
     RunTransitionError,
     TranscriptExtractionResult,
@@ -40,6 +42,36 @@ def test_video_ingest_publishes_timestamp_evidence_to_active_search(tmp_path: Pa
             "Video evidence introduces timestamp search.",
         )
     ]
+
+
+def test_normal_video_ingest_keeps_recognized_video_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    observed: list[RunManifest] = []
+    persist = engine._store.persist_validated_candidate  # pyright: ignore[reportPrivateUsage]
+
+    def capture_manifest(
+        run_id: str,
+        evidence: list[CandidateEvidence],
+        manifest: RunManifest,
+        *,
+        failure_point: FailurePoint | None = None,
+    ) -> None:
+        observed.append(manifest)
+        persist(run_id, evidence, manifest, failure_point=failure_point)
+
+    monkeypatch.setattr(
+        engine._store,  # pyright: ignore[reportPrivateUsage]
+        "persist_validated_candidate",
+        capture_manifest,
+    )
+
+    engine.ingest_video(VIDEO_FIXTURES / "short-audio.mp4")
+
+    assert len(observed) == 1
+    assert observed[0].extractor_fingerprint == "builtin-video-transcript-v1"
+    assert observed[0].required_stages == ("candidate_evidence", "video_transcription")
 
 
 def test_pdf_and_video_share_active_search_projection(tmp_path: Path) -> None:

@@ -226,6 +226,7 @@ def test_mcp_ingest_file_tool_schema_has_no_provider_runtime_overrides(tmp_path:
     server = build_mcp_server(_config(tmp_path, VIDEO_FIXTURES))
     tools = asyncio.run(server.list_tools())
     ingest_tool = next(tool for tool in tools if tool.name == "ingest_file")
+    assert set(ingest_tool.inputSchema["properties"]) == {"path"}
     schema = json.dumps(ingest_tool.inputSchema).casefold()
 
     for forbidden in (
@@ -236,6 +237,7 @@ def test_mcp_ingest_file_tool_schema_has_no_provider_runtime_overrides(tmp_path:
         "endpoint",
         "credential",
         "download",
+        "extractor_fingerprint",
     ):
         assert forbidden not in schema
 

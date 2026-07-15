@@ -1,0 +1,58 @@
+{
+  "markdown": "Aurora station uses amber seals for verified cargo.",
+  "source_artifacts": [
+    {
+      "bytes": 51,
+      "name": "english-scan-page-1.md",
+      "sha256": "99f0067b82c76e3e329f04c6fb1e786302144d07d59cfad333d24f44eded5f00"
+    },
+    {
+      "bytes": 2458,
+      "name": "english-scan-page-1_res.json",
+      "sha256": "0f65e87a92a4101db66900f9cb73766d633e2ee922cb94736bd2bec31e533909"
+    }
+  ],
+  "vendor_json": {
+    "height": 2200,
+    "input_path": "english-scan-page-1.png",
+    "layout_det_res": {
+      "boxes": [
+        {
+          "cls_id": 22,
+          "coordinate": [190, 272, 1321, 339],
+          "label": "text",
+          "order": 1,
+          "polygon_points": [[190.0, 272.0], [1321.0, 272.0], [1321.0, 339.0], [190.0, 339.0]],
+          "score": 0.7808037996292114
+        }
+      ],
+      "input_path": null,
+      "page_index": null
+    },
+    "model_settings": {
+      "format_block_content": false,
+      "markdown_ignore_labels": ["number", "footnote", "header", "header_image", "footer", "footer_image", "aside_text"],
+      "merge_layout_blocks": true,
+      "return_layout_polygon_points": true,
+      "use_chart_recognition": false,
+      "use_doc_preprocessor": false,
+      "use_layout_detection": true,
+      "use_ocr_for_image_block": false,
+      "use_seal_recognition": false
+    },
+    "page_count": null,
+    "page_index": null,
+    "parsing_res_list": [
+      {
+        "block_bbox": [190, 272, 1321, 339],
+        "block_content": "Aurora station uses amber seals for verified cargo.",
+        "block_id": 0,
+        "block_label": "text",
+        "block_order": 1,
+        "block_polygon_points": [[190.0, 272.0], [1321.0, 272.0], [1321.0, 339.0], [190.0, 339.0]],
+        "group_id": 0
+      }
+    ],
+    "width": 1700
+  }
+}
