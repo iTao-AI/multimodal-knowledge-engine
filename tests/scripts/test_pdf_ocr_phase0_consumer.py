@@ -132,6 +132,13 @@ def _successful_runner(consumer: ModuleType, calls: list[list[str]]):
     return run
 
 
+def _test_sandbox(
+    _runtime_root: Path,
+    command: list[str],
+) -> list[str]:
+    return ["test-deny-network", *command]
+
+
 def test_controller_reuses_one_installed_wheel_for_runner_and_mcp(tmp_path: Path) -> None:
     repository, wheel, scorecard = _repository(tmp_path)
     calls: list[list[str]] = []
@@ -139,6 +146,7 @@ def test_controller_reuses_one_installed_wheel_for_runner_and_mcp(tmp_path: Path
     result = consumer._run_consumer_proof_for_test(
         _config(consumer, repository, wheel, scorecard),
         command_runner=_successful_runner(consumer, calls),
+        sandbox_command=_test_sandbox,
     )
 
     assert result == {
@@ -191,7 +199,9 @@ def test_controller_maps_outer_stage_failures(tmp_path: Path, marker: str, code:
 
     with pytest.raises(consumer.ConsumerProofError, match=code):
         consumer._run_consumer_proof_for_test(
-            _config(consumer, repository, wheel, scorecard), command_runner=fail
+            _config(consumer, repository, wheel, scorecard),
+            command_runner=fail,
+            sandbox_command=_test_sandbox,
         )
 
 
@@ -221,7 +231,9 @@ def test_controller_preserves_closed_client_failure_codes(tmp_path: Path, code: 
 
     with pytest.raises(consumer.ConsumerProofError, match=code):
         consumer._run_consumer_proof_for_test(
-            _config(consumer, repository, wheel, scorecard), command_runner=fail
+            _config(consumer, repository, wheel, scorecard),
+            command_runner=fail,
+            sandbox_command=_test_sandbox,
         )
 
 
@@ -240,7 +252,9 @@ def test_controller_rejects_source_checkout_import(tmp_path: Path) -> None:
 
     with pytest.raises(consumer.ConsumerProofError, match="schema_failed"):
         consumer._run_consumer_proof_for_test(
-            _config(consumer, repository, wheel, scorecard), command_runner=contaminated
+            _config(consumer, repository, wheel, scorecard),
+            command_runner=contaminated,
+            sandbox_command=_test_sandbox,
         )
 
 
@@ -284,6 +298,7 @@ def test_controller_cleanup_failure_overrides_success(tmp_path: Path) -> None:
         consumer._run_consumer_proof_for_test(
             _config(consumer, repository, wheel, scorecard),
             command_runner=_successful_runner(consumer, calls),
+            sandbox_command=_test_sandbox,
             cleanup=fail_cleanup,
         )
 
@@ -322,11 +337,58 @@ def test_no_go_scorecard_emits_no_provider_claim(tmp_path: Path) -> None:
     result = consumer._run_consumer_proof_for_test(
         _config(consumer, repository, wheel, scorecard),
         command_runner=_successful_runner(consumer, calls),
+        sandbox_command=_test_sandbox,
         validate_scorecard=False,
     )
 
     assert result["status"] == "no_go"
     assert "provider" not in result and "profile" not in result
+    assert not any("--internal-client" in command for command in calls)
+
+
+def test_private_controller_sandbox_seam_is_host_independent(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from mke.evaluation.pdf_ocr_runner import canonical_scorecard_bytes
+
+    assert callable(canonical_scorecard_bytes)
+    repository, wheel, scorecard = _repository(tmp_path)
+    calls: list[list[str]] = []
+    monkeypatch.setattr(consumer.sys, "platform", "linux")
+
+    result = consumer._run_consumer_proof_for_test(
+        _config(consumer, repository, wheel, scorecard),
+        command_runner=_successful_runner(consumer, calls),
+        sandbox_command=_test_sandbox,
+    )
+
+    assert result["status"] == "passed"
+    sandboxed = [
+        command
+        for command in calls
+        if "--internal-candidate" in command or "--internal-client" in command
+    ]
+    assert len(sandboxed) == 2
+    assert all(command[0] == "test-deny-network" for command in sandboxed)
+
+
+def test_public_controller_remains_fail_closed_without_darwin_sandbox(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from mke.evaluation.pdf_ocr_runner import canonical_scorecard_bytes
+
+    assert callable(canonical_scorecard_bytes)
+    repository, wheel, scorecard = _repository(tmp_path)
+    calls: list[list[str]] = []
+    monkeypatch.setattr(consumer.sys, "platform", "linux")
+    monkeypatch.setattr(consumer, "run_bounded", _successful_runner(consumer, calls))
+
+    with pytest.raises(consumer.ConsumerProofError, match="candidate_failed"):
+        consumer.run_consumer_proof(_config(consumer, repository, wheel, scorecard))
+
+    assert not any("--internal-candidate" in command for command in calls)
     assert not any("--internal-client" in command for command in calls)
 
 

@@ -83,6 +83,7 @@ class _WheelAuthority:
 
 CommandRunner = Callable[..., CommandResult]
 Cleanup = Callable[[Path], None]
+SandboxCommand = Callable[[Path, list[str]], list[str]]
 
 
 def run_consumer_proof(config: ConsumerProofConfig) -> dict[str, object]:
@@ -90,6 +91,7 @@ def run_consumer_proof(config: ConsumerProofConfig) -> dict[str, object]:
         config,
         command_runner=run_bounded,
         cleanup=_remove_runtime_root,
+        sandbox_command=_sandboxed,
         validate_scorecard=True,
     )
 
@@ -98,6 +100,7 @@ def _run_consumer_proof_for_test(  # pyright: ignore[reportUnusedFunction]
     config: ConsumerProofConfig,
     *,
     command_runner: CommandRunner,
+    sandbox_command: SandboxCommand,
     cleanup: Cleanup = shutil.rmtree,
     validate_scorecard: bool = True,
 ) -> dict[str, object]:
@@ -105,6 +108,7 @@ def _run_consumer_proof_for_test(  # pyright: ignore[reportUnusedFunction]
         config,
         command_runner=command_runner,
         cleanup=cleanup,
+        sandbox_command=sandbox_command,
         validate_scorecard=validate_scorecard,
     )
 
@@ -114,6 +118,7 @@ def _run_consumer_proof(
     *,
     command_runner: CommandRunner,
     cleanup: Cleanup,
+    sandbox_command: SandboxCommand,
     validate_scorecard: bool,
 ) -> dict[str, object]:
     repository = _directory(config.repository, "build_failed")
@@ -178,7 +183,7 @@ def _run_consumer_proof(
         candidate = _json_step(
             command_runner,
             "candidate_failed",
-            _sandboxed(
+            sandbox_command(
                 runtime_root,
                 [
                     str(installed_python),
@@ -208,7 +213,7 @@ def _run_consumer_proof(
             provider, profile = _validate_candidate_result(candidate, scorecard)
             client = _client_step(
                 command_runner,
-                _sandboxed(
+                sandbox_command(
                     runtime_root,
                     [
                         str(installed_python),
