@@ -15,8 +15,10 @@ order. Targeted authority re-review accepted the resumption plan at
 re-review accepted implementation commit `3b029a47c69f32d63e9cae688196e205d96f8af7`. Task 4R-B has
 been completed and accepted at `97e2cb1c67f2ef3a5cd8fc936e697034c0b79ed0`, completing Task
 4R. Task 5A implementation commit `1953053c801b37ab6a43c9872f0108c7b49c98a3` and targeted
-repair commit `fecb732c5950855897219609b9ea0f63e7d75fa6` are accepted. Task 5B is cleared only for a
-later independent dispatch; Task 5B, Task 5C, and Task 6 have not started.
+repair commit `fecb732c5950855897219609b9ea0f63e7d75fa6` are accepted. Task 5B was subsequently
+completed and accepted at reviewed HEAD
+`d74cbe4181df69e198bbbb881d672c83e2b1437c`. Task 5C is cleared only for a later independent
+dispatch; Task 5C and Task 6 have not started.
 
 **Goal:** Produce reproducible valid-positive or valid-negative evidence for local scanned/mixed-PDF OCR before adding a production runtime contract.
 
@@ -738,8 +740,9 @@ accepted the plan and cleared Task 4R-A. Task 4R-A implementation commit
 `3b029a47c69f32d63e9cae688196e205d96f8af7` was subsequently accepted with no findings. Task 4R-B
 was completed and accepted with no findings at
 `97e2cb1c67f2ef3a5cd8fc936e697034c0b79ed0`. Task 4R is accepted. Task 5A was subsequently
-completed and accepted at `fecb732c5950855897219609b9ea0f63e7d75fa6`; only Task 5B is cleared
-for a later independent dispatch, and Task 5B and later work have not started.
+completed and accepted at `fecb732c5950855897219609b9ea0f63e7d75fa6`. Task 5B was subsequently
+completed and accepted at `d74cbe4181df69e198bbbb881d672c83e2b1437c`; only Task 5C is cleared
+for a later independent dispatch, and Task 5C and later work have not started.
 
 The pre-reconciliation package and startup receipts bound an MKE 0.1.1 wheel and remain historical
 evidence. Task 4R-A removed the compatibility controller's former fixed 0.1.1 wheel filename and
@@ -1000,8 +1003,8 @@ same exact MKE 0.1.2 wheel and all 16 cells passed. Provider startup binds the r
 receipt, the Python 3.13 base installed environment, blocked network canary, and equal normalized
 truth digests. Call-owned roots were removed; retained package and model roots remained unchanged.
 These are local single-page startup compatibility facts only, not OCR quality, provider selection,
-or production capability. Task 5A was subsequently completed and accepted; Task 5B is cleared only
-for a later independent dispatch.
+or production capability. Tasks 5A and 5B were subsequently completed and accepted; Task 5C is
+cleared only for a later independent dispatch.
 
 ---
 
@@ -1085,10 +1088,11 @@ and covered both `--extractor-fingerprint` and `--run-manifest`. Final targeted 
 remaining findings. The focused domain, application, CLI, and MCP suite passed with `122 passed, 5
 warnings`; Ruff passed, Pyright reported `0 errors, 0 warnings`, and `git diff --check` passed.
 
-Task 5A is accepted and clears only Task 5B for a later independent dispatch. Structured extractor
-identity payload validation and digest/producer authority remain Task 5B work. This acceptance is
-not OCR quality evidence, provider selection, production OCR authority, runtime promotion, or a
-release decision. See
+At its review checkpoint, Task 5A was accepted and cleared only Task 5B for a later independent
+dispatch. Structured extractor identity payload validation and digest/producer authority were
+assigned to Task 5B and are now completed and accepted. Task 5A acceptance by itself is not OCR
+quality evidence, provider selection, production OCR authority, runtime promotion, or a release
+decision. See
 `docs/superpowers/reviews/2026-07-14-pdf-ocr-phase0-task5a-implementation-review.md`.
 
 ---
@@ -1128,7 +1132,7 @@ class Phase0Decision:
     outcomes: tuple[CandidateOutcome, ...]
 ```
 
-- [ ] **Step 1: Write failing metric, publication, and hard-gate tests**
+- [x] **Step 1: Write failing metric, publication, and hard-gate tests**
 
 Use fake provider outputs to require:
 
@@ -1158,7 +1162,7 @@ def test_ambiguous_page_never_reaches_disposable_publication() -> None:
     assert result.publication_evidence_pages.isdisjoint(result.ambiguous_pages)
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/evaluation/test_pdf_ocr_runner.py
@@ -1166,7 +1170,7 @@ UV_OFFLINE=1 uv run pytest -q tests/evaluation/test_pdf_ocr_runner.py
 
 Expected: metrics, publication builder, and decision logic are absent.
 
-- [ ] **Step 3: Implement deterministic metrics and hard gates**
+- [x] **Step 3: Implement deterministic metrics and hard gates**
 
 Implement edit distance locally; do not add an evaluation dependency. Normalize both truth and
 candidate text using the protocol normalization. Store exact numerators/denominators in JSON and
@@ -1183,7 +1187,7 @@ quality/resource thresholds. The following gates are already non-negotiable:
 - no external runtime egress;
 - bounded completion with complete measurements.
 
-- [ ] **Step 4: Build a disposable Publication using current contracts**
+- [x] **Step 4: Build a disposable Publication using current contracts**
 
 Use a temporary SQLite database and current domain/store APIs; do not add a production repository
 method. For each document:
@@ -1204,7 +1208,7 @@ The evaluation runner may compose current public/application contracts, but it m
 Publication authority by writing ad hoc retrieval rows or querying private database tables for the
 product assertion.
 
-- [ ] **Step 5: Run real candidates and write the scorecard**
+- [x] **Step 5: Run real candidates and write the scorecard**
 
 Execute every available candidate on the same rendered page identities. Run candidates serially to
 make resource measurements comparable. Measure wall time, peak child RSS, temporary bytes, result
@@ -1220,7 +1224,7 @@ Write the scorecard with stable sorted JSON and no timestamps. Its `decision` is
 Numeric quality and resource limits remain `observed`, not `approved`, until the planning/review
 window accepts the scorecard. A green runner alone does not authorize production implementation.
 
-- [ ] **Step 6: Run GREEN and commit Task 5B**
+- [x] **Step 6: Run GREEN and commit Task 5B**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1239,6 +1243,16 @@ git commit -m "test(ocr): add phase zero product scorecard"
 ```
 
 Commit Task 5B independently and stop for its review checkpoint before Task 5C begins.
+
+Targeted authority review accepted Task 5B at
+`d74cbe4181df69e198bbbb881d672c83e2b1437c`. The tracked controller binds the real current run to
+the reviewed cache-only package, model, installed-wheel, Swift-source, and blocked-network
+authority; builds disposable Publications through current contracts; and verifies Search, Ask,
+and exact portable `mke.evidence_ref.v1` results. The canonical scorecard SHA-256 is
+`b84720bd33999ad333e3ac5105b7abd996ab910b3c9cd458f6c43e66fa709457`; its deterministic decision
+is `go` with `ppocrv6-medium-cpu-spike-v1` selected. Numeric quality and resource values remain
+observed only. This acceptance clears only Task 5C for a later independent dispatch. See
+`docs/superpowers/reviews/2026-07-15-pdf-ocr-phase0-task5b-implementation-review.md`.
 
 ---
 
