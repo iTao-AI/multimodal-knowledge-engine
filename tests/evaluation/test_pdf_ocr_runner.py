@@ -11,16 +11,25 @@ import pytest
 
 import mke.evaluation.pdf_ocr_runner as runner
 from mke.evaluation.pdf_ocr_protocol import load_pdf_ocr_evaluation_protocol
+from mke.evaluation.pdf_ocr_provider import (
+    OcrEvalLine,
+    OcrEvalPageResult,
+    PdfOcrProviderError,
+    ProviderCommand,
+)
 from mke.evaluation.pdf_ocr_runner import (
     CandidateOutcome,
+    CandidateRunConfig,
     ExactRate,
     ExtractorIdentityError,
+    Phase0RunnerConfig,
     canonical_extractor_identity_bytes,
     canonical_scorecard_bytes,
     decide,
     edit_rate,
     extractor_fingerprint,
     publish_and_verify,
+    run_phase0_scorecard,
     validate_extractor_identity,
     validate_scorecard,
 )
@@ -28,7 +37,10 @@ from mke.evaluation.pdf_ocr_runner import (
 PROTOCOL_PATH = Path("tests/fixtures/pdf-ocr-phase0-v1/protocol.json")
 SCORECARD_PATH = Path("benchmarks/ocr/phase0-scorecard.json")
 SHA = "a" * 64
-SCORECARD_SHA256 = "131742b67a10da57355279367a99507365fdcc812e676c48452dd7f7745fe0b2"
+SCORECARD_SHA256 = "9f646a6e48f2d2d17c266036b4e331cecba5240c009257d65d4131e25f29881c"
+PACKAGE_RECEIPT = Path("benchmarks/ocr/candidate-environments.json")
+MODEL_RECEIPT = Path("benchmarks/ocr/model-artifacts.json")
+STARTUP_RECEIPT = Path("benchmarks/ocr/provider-startup.json")
 
 
 def _identity() -> dict[str, object]:
@@ -111,79 +123,224 @@ def _outcome(
 
 
 def _scorecard() -> dict[str, object]:
-    providers = (
-        "apple-vision-local-v1",
-        "paddleocr-vl-1.6-cpu-spike-v1",
-        "ppocrv6-medium-cpu-spike-v1",
+    return json.loads(SCORECARD_PATH.read_bytes())
+
+
+def _controller_config(
+    tmp_path: Path, *, unavailable: frozenset[str] = frozenset()
+) -> Phase0RunnerConfig:
+    candidates = tuple(
+        CandidateRunConfig(
+            provider=provider,
+            command=(
+                None
+                if provider in unavailable
+                else ProviderCommand(
+                    argv=("provider", "{input}", "{output}", "{page_number}"),
+                    provider=provider,
+                    profile="phase0-200dpi-plain-text-v1",
+                )
+            ),
+            unavailable_code=("provider_unavailable" if provider in unavailable else None),
+        )
+        for provider in (
+            "apple-vision-local-v1",
+            "paddleocr-vl-1.6-cpu-spike-v1",
+            "ppocrv6-medium-cpu-spike-v1",
+        )
     )
-    identities = []
-    candidates = []
-    for provider in providers:
-        identity = _identity()
-        identity["provider"] = {"id": provider, "profile": "profile-v1"}
-        outcome = _outcome(provider)
-        identities.append(
-            {
-                "provider": provider,
-                "fingerprint": extractor_fingerprint(identity),
-                "payload": identity,
-            }
-        )
-        candidates.append(
-            {
-                "outcome": outcome.to_dict(),
-                "page_results": [
-                    {
-                        "document_id": "a",
-                        "page_number": 1,
-                        "normalized_text_sha256": SHA,
-                        "nonempty": True,
-                    },
-                    {
-                        "document_id": "b",
-                        "page_number": 2,
-                        "normalized_text_sha256": "b" * 64,
-                        "nonempty": True,
-                    },
-                ],
-                "publication_evidence_pages": [
-                    {"document_id": "a", "page_number": 1}
-                ],
-            }
-        )
-    return {
-        "schema": "mke.pdf_ocr_phase0_scorecard.v1",
-        "protocol": {
-            "id": "pdf-ocr-phase0-v1",
-            "sha256": SHA,
-            "documents": 4,
-            "pages": 9,
-            "queries": 3,
-        },
-        "receipts": {
-            "package_sha256": SHA,
-            "model_sha256": "b" * 64,
-            "provider_startup_sha256": "c" * 64,
-        },
-        "measurement_policy": {
-            "quality": "observed_not_approved",
-            "resources": "observed_not_approved",
-        },
-        "authority_gates": {
-            "package_matrix": "passed_16_of_16",
-            "provider_startup": "passed_cache_only",
-            "model_provenance": "verified",
-            "licenses": "compatible_declared",
-            "network": "blocked",
-        },
-        "extractor_identities": identities,
-        "candidates": candidates,
-        "decision": {
-            "status": "go",
-            "selected_provider": "apple-vision-local-v1",
-            "selected_profile": "profile-v1",
-        },
+    return Phase0RunnerConfig(
+        protocol=PROTOCOL_PATH,
+        package_receipt=PACKAGE_RECEIPT,
+        model_receipt=MODEL_RECEIPT,
+        startup_receipt=STARTUP_RECEIPT,
+        workspace=tmp_path / "owned-workspace",
+        output=tmp_path / "phase0-scorecard.json",
+        candidates=candidates,
+    )
+
+
+def _fake_provider(
+    command: ProviderCommand,
+    *,
+    image_path: Path,
+    page_number: int,
+    output_root: Path,
+    **_: object,
+) -> OcrEvalPageResult:
+    protocol = load_pdf_ocr_evaluation_protocol(PROTOCOL_PATH)
+    document_id = image_path.parent.name
+    expected = next(
+        page.expected_ocr_text
+        for document in protocol.documents
+        if document.document_id == document_id
+        for page in document.pages
+        if page.page_number == page_number
+    )
+    output_root.mkdir(parents=True)
+    (output_root / "result.json").write_text("{}", encoding="utf-8")
+    return OcrEvalPageResult(
+        schema="mke.pdf_ocr_page_result.v1",
+        provider=command.provider,
+        profile=command.profile,
+        page_number=page_number,
+        lines=(OcrEvalLine(text=expected or "", confidence=1.0, box=(0.0, 0.0, 1.0, 1.0)),),
+        normalized_text=expected or "",
+        duration_ms=1,
+    )
+
+
+def test_tracked_controller_runs_candidates_serially_with_common_render_and_atomic_output(
+    tmp_path: Path,
+) -> None:
+    config = _controller_config(tmp_path)
+    calls: list[tuple[str, str, int]] = []
+
+    def provider(*args: object, **kwargs: object) -> OcrEvalPageResult:
+        command = args[0]
+        image_path = kwargs["image_path"]
+        page_number = kwargs["page_number"]
+        assert isinstance(command, ProviderCommand)
+        assert isinstance(image_path, Path)
+        assert isinstance(page_number, int)
+        calls.append((command.provider, image_path.parent.name, page_number))
+        return _fake_provider(command, **kwargs)  # type: ignore[arg-type]
+
+    payload = run_phase0_scorecard(
+        config,
+        provider_runner=provider,
+        peak_rss_reader=lambda: 1024,
+    )
+
+    assert payload["decision"] == {
+        "status": "go",
+        "selected_provider": "apple-vision-local-v1",
+        "selected_profile": "phase0-200dpi-plain-text-v1",
     }
+    assert [item[0] for item in calls] == [
+        provider for provider in runner._PROVIDERS for _ in range(4)
+    ]
+    assert len({(item[1], item[2]) for item in calls}) == 4
+    assert config.output.read_bytes() == canonical_scorecard_bytes(payload)
+    assert not config.workspace.exists()
+    assert not list(tmp_path.glob(".phase0-scorecard.json.*.tmp"))
+
+
+def test_tracked_controller_records_unavailable_and_failure_without_fabricated_measurements(
+    tmp_path: Path,
+) -> None:
+    unavailable = frozenset({"apple-vision-local-v1"})
+    config = _controller_config(tmp_path, unavailable=unavailable)
+
+    def provider(command: ProviderCommand, **kwargs: object) -> OcrEvalPageResult:
+        if command.provider == "paddleocr-vl-1.6-cpu-spike-v1":
+            raise PdfOcrProviderError(
+                problem="pdf_ocr_process_failed",
+                cause="PDF OCR process failed",
+                next_step="inspect_pdf_ocr_run",
+                provider=command.provider,
+            )
+        return _fake_provider(command, **kwargs)  # type: ignore[arg-type]
+
+    payload = run_phase0_scorecard(
+        config,
+        provider_runner=provider,
+        peak_rss_reader=lambda: 1024,
+    )
+
+    outcomes = {item["outcome"]["provider"]: item["outcome"] for item in payload["candidates"]}
+    unavailable_outcome = outcomes["apple-vision-local-v1"]
+    assert unavailable_outcome["status"] == "unavailable"
+    assert unavailable_outcome["failure_codes"] == ["provider_unavailable"]
+    assert unavailable_outcome["elapsed_ms"] is None
+    failed = outcomes["paddleocr-vl-1.6-cpu-spike-v1"]
+    assert failed["status"] == "failed"
+    assert failed["failure_codes"] == ["pdf_ocr_process_failed"]
+    assert payload["decision"]["selected_provider"] == "ppocrv6-medium-cpu-spike-v1"
+
+
+def test_tracked_controller_emits_deterministic_valid_negative_no_go(tmp_path: Path) -> None:
+    config = _controller_config(tmp_path, unavailable=frozenset(runner._PROVIDERS))
+    payload = run_phase0_scorecard(config, provider_runner=_fake_provider)
+    assert payload["decision"] == {
+        "status": "no_go",
+        "selected_provider": None,
+        "selected_profile": None,
+    }
+    validate_scorecard(payload)
+
+
+@pytest.mark.parametrize("receipt_name", ["package_receipt", "model_receipt", "startup_receipt"])
+def test_tracked_controller_rejects_committed_receipt_drift_before_workspace(
+    tmp_path: Path, receipt_name: str
+) -> None:
+    config = _controller_config(tmp_path)
+    source = getattr(config, receipt_name)
+    changed = tmp_path / source.name
+    changed.write_bytes(source.read_bytes() + b" ")
+    config = replace(config, **{receipt_name: changed})
+    with pytest.raises(runner.Phase0RunnerError, match="receipt_authority_invalid"):
+        run_phase0_scorecard(config, provider_runner=_fake_provider)
+    assert not config.workspace.exists()
+
+
+def test_tracked_controller_preserves_prior_output_when_cleanup_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = _controller_config(tmp_path)
+    config.output.write_bytes(b"prior authority\n")
+    real_rmtree = runner.shutil.rmtree
+
+    def fail_owned_cleanup(path: Path, *args: object, **kwargs: object) -> None:
+        if Path(path) == config.workspace:
+            raise OSError("controlled cleanup failure")
+        real_rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(runner.shutil, "rmtree", fail_owned_cleanup)
+    with pytest.raises(runner.Phase0RunnerError, match="cleanup_failed"):
+        run_phase0_scorecard(config, provider_runner=_fake_provider, peak_rss_reader=lambda: 1024)
+    assert config.output.read_bytes() == b"prior authority\n"
+
+
+def test_tracked_controller_preserves_prior_output_when_atomic_replace_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = _controller_config(tmp_path)
+    config.output.write_bytes(b"prior authority\n")
+
+    def fail_replace(source: Path, destination: Path) -> None:
+        raise OSError("controlled replace failure")
+
+    monkeypatch.setattr(runner.os, "replace", fail_replace)
+    with pytest.raises(runner.Phase0RunnerError, match="scorecard_publication_failed"):
+        run_phase0_scorecard(
+            config,
+            provider_runner=_fake_provider,
+            peak_rss_reader=lambda: 1024,
+        )
+    assert config.output.read_bytes() == b"prior authority\n"
+    assert not config.workspace.exists()
+    assert not list(tmp_path.glob(".phase0-scorecard.json.*.tmp"))
+
+
+def test_tracked_controller_cleans_owned_state_after_provider_failure(tmp_path: Path) -> None:
+    config = _controller_config(tmp_path)
+
+    def fail_provider(command: ProviderCommand, **_: object) -> OcrEvalPageResult:
+        raise PdfOcrProviderError(
+            problem="pdf_ocr_process_failed",
+            cause="PDF OCR process failed",
+            next_step="inspect_pdf_ocr_run",
+            provider=command.provider,
+        )
+
+    payload = run_phase0_scorecard(
+        config,
+        provider_runner=fail_provider,
+        peak_rss_reader=lambda: 1024,
+    )
+    assert payload["decision"]["status"] == "no_go"
+    assert not config.workspace.exists()
 
 
 def test_edit_rates_use_unicode_code_points_and_whitespace_tokens() -> None:
@@ -338,6 +495,81 @@ def test_disposable_publication_uses_search_ask_and_exact_evidence_refs(tmp_path
     assert proof.failure_codes == ()
 
 
+@pytest.mark.parametrize("surface", ["search", "ask"])
+@pytest.mark.parametrize(
+    ("field", "replacement", "failure_code"),
+    [
+        ("schema_version", "mke.evidence_ref.v2", "evidence_ref_mismatch"),
+        ("evidence_id", "ev_" + "f" * 32, "evidence_ref_mismatch"),
+        ("source_id", "src_" + "f" * 32, "evidence_ref_mismatch"),
+        ("content_fingerprint", "sha256:" + "f" * 64, "evidence_ref_mismatch"),
+        ("publication_id", "pub_" + "f" * 32, "evidence_ref_mismatch"),
+        ("publication_revision", 99, "evidence_ref_mismatch"),
+        ("run_id", "run_" + "f" * 32, "evidence_ref_mismatch"),
+        ("locator_kind", {"kind": "timestamp_ms"}, "evidence_ref_mismatch"),
+        ("locator_start", {"start": 2}, "evidence_ref_mismatch"),
+        ("locator_end", {"end": 2}, "evidence_ref_mismatch"),
+        ("text", "wrong normalized payload", "payload_truth_mismatch"),
+    ],
+)
+def test_product_proof_rejects_every_portable_evidence_leaf_and_text(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    surface: str,
+    field: str,
+    replacement: object,
+    failure_code: str,
+) -> None:
+    protocol = load_pdf_ocr_evaluation_protocol(PROTOCOL_PATH)
+    recognized = {
+        (document.document_id, page.page_number): page.expected_ocr_text
+        for document in protocol.documents
+        for page in document.pages
+        if page.expected_ocr_text is not None
+    }
+    function_name = f"{surface}_library_v1"
+    real_function = getattr(runner, function_name)
+    expected_text_by_query = {
+        query.text: next(
+            page.expected_ocr_text or page.expected_text_layer_text
+            for document in protocol.documents
+            if document.document_id == query.expected_document_id
+            for page in document.pages
+            if page.page_number == query.expected_page
+        )
+        for query in protocol.queries
+    }
+
+    def mutate_response(config: object, query: str) -> object:
+        response = real_function(config, query)
+        root = response.root
+        collection_name = "results" if surface == "search" else "evidence"
+        items = list(getattr(root, collection_name))
+        target = next(
+            index for index, item in enumerate(items) if item.text == expected_text_by_query[query]
+        )
+        if field.startswith("locator_"):
+            changed = items[target].model_copy(
+                update={"locator": items[target].locator.model_copy(update=replacement)}
+            )
+        else:
+            changed = items[target].model_copy(update={field: replacement})
+        items[target] = changed
+        changed_root = root.model_copy(update={collection_name: items})
+        return response.model_copy(update={"root": changed_root})
+
+    monkeypatch.setattr(runner, function_name, mutate_response)
+    proof = publish_and_verify(
+        protocol=protocol,
+        recognized_text=recognized,
+        extractor_identity=_identity(),
+        database=tmp_path / "evaluation.sqlite",
+    )
+
+    assert failure_code in proof.failure_codes
+    assert proof.evidence_ref_accuracy != ExactRate(3, 3)
+
+
 def test_missing_ocr_text_fails_closed_before_product_success(tmp_path: Path) -> None:
     protocol = load_pdf_ocr_evaluation_protocol(PROTOCOL_PATH)
     proof = publish_and_verify(
@@ -422,6 +654,152 @@ def test_scorecard_schema_is_closed_and_cross_bound(mutation: object) -> None:
         validate_scorecard(payload)
 
 
+@pytest.mark.parametrize(
+    "measurement",
+    [
+        "elapsed_ms",
+        "peak_rss_bytes",
+        "temporary_bytes",
+        "result_bytes",
+        "model_bytes",
+        "package_bytes",
+        "cold_start",
+    ],
+)
+def test_passed_candidate_requires_every_complete_measurement(measurement: str) -> None:
+    payload = _scorecard()
+    selected = payload["candidates"][2]["outcome"]  # type: ignore[index]
+    selected[measurement] = None
+    with pytest.raises(ValueError):
+        validate_scorecard(payload)
+
+
+@pytest.mark.parametrize(
+    "measurement",
+    [
+        "elapsed_ms",
+        "peak_rss_bytes",
+        "temporary_bytes",
+        "result_bytes",
+        "model_bytes",
+        "package_bytes",
+    ],
+)
+def test_passed_candidate_rejects_boolean_numeric_measurements(measurement: str) -> None:
+    payload = _scorecard()
+    payload["candidates"][2]["outcome"][measurement] = True  # type: ignore[index]
+    with pytest.raises(ValueError):
+        validate_scorecard(payload)
+
+
+@pytest.mark.parametrize("status", ["failed", "unavailable"])
+def test_nonpassing_candidate_may_preserve_unknown_measurements(status: str) -> None:
+    payload = _scorecard()
+    outcome = payload["candidates"][0]["outcome"]  # type: ignore[index]
+    outcome.update(
+        {
+            "status": status,
+            "elapsed_ms": None,
+            "peak_rss_bytes": None,
+            "temporary_bytes": None,
+            "result_bytes": None,
+            "model_bytes": None,
+            "package_bytes": None,
+            "cold_start": None,
+            "failure_codes": [f"provider_{status}"],
+        }
+    )
+    payload["candidates"][0]["page_results"] = []  # type: ignore[index]
+    payload["candidates"][0]["publication_evidence_pages"] = []  # type: ignore[index]
+    validate_scorecard(payload)
+
+
+def test_scorecard_rejects_top_level_protocol_authority_drift() -> None:
+    payload = _scorecard()
+    payload["protocol"]["sha256"] = "f" * 64  # type: ignore[index]
+    with pytest.raises(ValueError):
+        validate_scorecard(payload)
+
+
+def test_scorecard_rejects_identity_protocol_authority_drift() -> None:
+    payload = _scorecard()
+    binding = payload["extractor_identities"][1]  # type: ignore[index]
+    binding["payload"]["protocol"]["sha256"] = "f" * 64
+    binding["fingerprint"] = extractor_fingerprint(binding["payload"])
+    with pytest.raises(ValueError):
+        validate_scorecard(payload)
+
+
+@pytest.mark.parametrize("authority", ["fixtures", "render"])
+def test_scorecard_rejects_cross_provider_comparison_identity_drift(authority: str) -> None:
+    payload = _scorecard()
+    binding = payload["extractor_identities"][1]  # type: ignore[index]
+    if authority == "fixtures":
+        binding["payload"]["fixtures"][0]["source_sha256"] = "f" * 64
+    else:
+        binding["payload"]["render"]["pages"][0]["image_sha256"] = "f" * 64
+    binding["fingerprint"] = extractor_fingerprint(binding["payload"])
+    with pytest.raises(ValueError):
+        validate_scorecard(payload)
+
+
+@pytest.mark.parametrize("mutation", ["blank", "missing", "extra"])
+def test_scorecard_rejects_publication_page_inventory_drift(mutation: str) -> None:
+    payload = _scorecard()
+    for candidate in payload["candidates"]:  # type: ignore[union-attr]
+        pages = candidate["publication_evidence_pages"]
+        if mutation == "blank":
+            pages[-1] = {"document_id": "routing-adversarial", "page_number": 1}
+        elif mutation == "missing":
+            pages.pop()
+        else:
+            pages.append({"document_id": "routing-adversarial", "page_number": 1})
+    with pytest.raises(ValueError):
+        validate_scorecard(payload)
+
+
+def test_scorecard_rejects_internal_receipt_leaf_drift() -> None:
+    payload = _scorecard()
+    binding = payload["extractor_identities"][1]  # type: ignore[index]
+    binding["payload"]["package"]["receipt_sha256"] = "f" * 64
+    binding["fingerprint"] = extractor_fingerprint(binding["payload"])
+    with pytest.raises(ValueError):
+        validate_scorecard(payload)
+
+
+def test_scorecard_rejects_candidate_page_render_identity_drift() -> None:
+    payload = _scorecard()
+    payload["candidates"][1]["page_results"][0]["image_sha256"] = "f" * 64  # type: ignore[index]
+    with pytest.raises(ValueError):
+        validate_scorecard(payload)
+
+
+@pytest.mark.parametrize(
+    "unsafe",
+    [
+        "/private/tmp/operator-cache",
+        "/tmp/operator-cache",
+        r"C:\\operator\\cache",
+        r"\\\\host\\share",
+        "file:///tmp/operator-cache",
+        "operator-host.local",
+        "2026-07-15T12:34:56Z",
+    ],
+)
+def test_scorecard_rejects_non_neutral_profile_values(unsafe: str) -> None:
+    payload = _scorecard()
+    for binding, candidate in zip(
+        payload["extractor_identities"],
+        payload["candidates"],
+        strict=True,  # type: ignore[arg-type]
+    ):
+        binding["payload"]["provider"]["profile"] = unsafe
+        candidate["outcome"]["profile"] = unsafe
+    payload["decision"]["selected_profile"] = unsafe  # type: ignore[index]
+    with pytest.raises(ValueError):
+        canonical_scorecard_bytes(payload)
+
+
 def test_committed_scorecard_is_canonical_closed_and_frozen() -> None:
     encoded = SCORECARD_PATH.read_bytes()
     payload = json.loads(encoded)
@@ -439,36 +817,28 @@ def test_committed_scorecard_is_canonical_closed_and_frozen() -> None:
         "provider_startup_sha256": Path("benchmarks/ocr/provider-startup.json"),
     }
     assert payload["receipts"] == {
-        key: hashlib.sha256(path.read_bytes()).hexdigest()
-        for key, path in receipt_paths.items()
+        key: hashlib.sha256(path.read_bytes()).hexdigest() for key, path in receipt_paths.items()
     }
     startup = json.loads(receipt_paths["provider_startup_sha256"].read_bytes())
     model = json.loads(receipt_paths["model_sha256"].read_bytes())
     for binding in payload["extractor_identities"]:
         identity = binding["payload"]
         assert identity["package"]["receipt_sha256"] == startup["package_receipt_sha256"]
-        assert identity["package"]["mke_wheel_sha256"] == startup["runtime"][
-            "mke_wheel_sha256"
-        ]
-        assert identity["package"]["installed_packages_sha256"] == startup["runtime"][
-            "installed_packages_sha256"
-        ]
+        assert identity["package"]["mke_wheel_sha256"] == startup["runtime"]["mke_wheel_sha256"]
+        assert (
+            identity["package"]["installed_packages_sha256"]
+            == startup["runtime"]["installed_packages_sha256"]
+        )
         assert identity["model"]["receipt_sha256"] == startup["model_receipt_sha256"]
         assert identity["model"]["tree_sha256"] == model["tree_sha256"]
 
 
 def _leaf_paths(value: object, path: tuple[object, ...] = ()) -> list[tuple[object, ...]]:
     if isinstance(value, dict):
-        return [
-            leaf
-            for key, item in value.items()
-            for leaf in _leaf_paths(item, (*path, key))
-        ]
+        return [leaf for key, item in value.items() for leaf in _leaf_paths(item, (*path, key))]
     if isinstance(value, list):
         return [
-            leaf
-            for index, item in enumerate(value)
-            for leaf in _leaf_paths(item, (*path, index))
+            leaf for index, item in enumerate(value) for leaf in _leaf_paths(item, (*path, index))
         ]
     return [path]
 
