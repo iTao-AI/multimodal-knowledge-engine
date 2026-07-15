@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 import math
+import subprocess
 from dataclasses import replace
 from pathlib import Path
 
@@ -37,7 +38,7 @@ from mke.evaluation.pdf_ocr_runner import (
 PROTOCOL_PATH = Path("tests/fixtures/pdf-ocr-phase0-v1/protocol.json")
 SCORECARD_PATH = Path("benchmarks/ocr/phase0-scorecard.json")
 SHA = "a" * 64
-SCORECARD_SHA256 = "9f646a6e48f2d2d17c266036b4e331cecba5240c009257d65d4131e25f29881c"
+SCORECARD_SHA256 = "c8145d1cdfa30e23bf67900baf74c2bcab30c5b47796de9433a7dc342f6194c2"
 PACKAGE_RECEIPT = Path("benchmarks/ocr/candidate-environments.json")
 MODEL_RECEIPT = Path("benchmarks/ocr/model-artifacts.json")
 STARTUP_RECEIPT = Path("benchmarks/ocr/provider-startup.json")
@@ -190,6 +191,199 @@ def _fake_provider(
     )
 
 
+def _authority_shaped_config(tmp_path: Path) -> Phase0RunnerConfig:
+    runtime_python = tmp_path / "runtime" / "bin" / "python"
+    runtime_python.parent.mkdir(parents=True)
+    runtime_python.write_bytes(b"python")
+    apple = tmp_path / "apple" / "pdf-ocr-apple-vision"
+    apple.parent.mkdir()
+    apple.write_bytes(b"swift-child")
+    model_root = tmp_path / "models"
+    components = {
+        "layout": model_root / "PP-DocLayoutV3-authority",
+        "vl": model_root / "PaddleOCR-VL-1.6-authority",
+        "detection": model_root / "PP-OCRv6_medium_det-authority",
+        "recognition": model_root / "PP-OCRv6_medium_rec-authority",
+    }
+    for component in components.values():
+        component.mkdir(parents=True)
+    sandbox = (
+        "/usr/bin/sandbox-exec",
+        "-p",
+        "(version 1)(allow default)(deny network*)",
+    )
+    common = ("--input", "{input}", "--output", "{output}", "--page-number", "{page_number}")
+    return replace(
+        _controller_config(tmp_path),
+        candidates=(
+            CandidateRunConfig(
+                provider="apple-vision-local-v1",
+                command=ProviderCommand(
+                    argv=(*sandbox, str(apple), *common),
+                    provider="apple-vision-local-v1",
+                    profile="phase0-200dpi-plain-text-v1",
+                    timeout_seconds=180,
+                ),
+            ),
+            CandidateRunConfig(
+                provider="paddleocr-vl-1.6-cpu-spike-v1",
+                command=ProviderCommand(
+                    argv=(
+                        *sandbox,
+                        str(runtime_python),
+                        "-I",
+                        "-m",
+                        "mke.evaluation.pdf_ocr_paddle_vl",
+                        *common,
+                        "--layout-model-dir",
+                        str(components["layout"]),
+                        "--vl-model-dir",
+                        str(components["vl"]),
+                    ),
+                    provider="paddleocr-vl-1.6-cpu-spike-v1",
+                    profile="phase0-200dpi-plain-text-v1",
+                    timeout_seconds=900,
+                ),
+            ),
+            CandidateRunConfig(
+                provider="ppocrv6-medium-cpu-spike-v1",
+                command=ProviderCommand(
+                    argv=(
+                        *sandbox,
+                        str(runtime_python),
+                        "-I",
+                        "-m",
+                        "mke.evaluation.pdf_ocr_ppocrv6",
+                        *common,
+                        "--detection-model-dir",
+                        str(components["detection"]),
+                        "--recognition-model-dir",
+                        str(components["recognition"]),
+                    ),
+                    provider="ppocrv6-medium-cpu-spike-v1",
+                    profile="phase0-200dpi-plain-text-v1",
+                    timeout_seconds=600,
+                ),
+            ),
+        ),
+    )
+
+
+def test_public_authority_rejects_unsandboxed_commands_before_owned_writes(
+    tmp_path: Path,
+) -> None:
+    config = _controller_config(tmp_path)
+    config.output.write_bytes(b"prior authority\n")
+
+    with pytest.raises(runner.Phase0RunnerError, match="current_run_authority_invalid"):
+        run_phase0_scorecard(config)
+
+    assert config.output.read_bytes() == b"prior authority\n"
+    assert not config.workspace.exists()
+
+
+def test_public_authority_entrypoint_rejects_fake_provider_and_rss_injection(
+    tmp_path: Path,
+) -> None:
+    config = _controller_config(tmp_path)
+
+    with pytest.raises(TypeError):
+        run_phase0_scorecard(  # type: ignore[call-arg]
+            config,
+            provider_runner=_fake_provider,
+            peak_rss_reader=lambda: 1024,
+        )
+
+    assert not config.output.exists()
+    assert not config.workspace.exists()
+
+
+@pytest.mark.parametrize(
+    ("provider", "replacement"),
+    [
+        ("paddleocr-vl-1.6-cpu-spike-v1", "mke.evaluation.pdf_ocr_ppocrv6"),
+        ("ppocrv6-medium-cpu-spike-v1", "mke.evaluation.pdf_ocr_paddle_vl"),
+    ],
+)
+def test_public_authority_rejects_wrong_provider_module_before_owned_writes(
+    tmp_path: Path, provider: str, replacement: str
+) -> None:
+    config = _authority_shaped_config(tmp_path)
+    candidates = list(config.candidates)
+    index = next(index for index, item in enumerate(candidates) if item.provider == provider)
+    command = candidates[index].command
+    assert command is not None
+    argv = list(command.argv)
+    argv[6] = replacement
+    candidates[index] = replace(candidates[index], command=replace(command, argv=tuple(argv)))
+    config = replace(config, candidates=tuple(candidates))
+
+    with pytest.raises(runner.Phase0RunnerError, match="current_run_authority_invalid"):
+        run_phase0_scorecard(config)
+
+    assert not config.output.exists()
+    assert not config.workspace.exists()
+
+
+def test_public_authority_rejects_wrong_model_root_before_owned_writes(tmp_path: Path) -> None:
+    config = _authority_shaped_config(tmp_path)
+    candidates = list(config.candidates)
+    command = candidates[1].command
+    assert command is not None
+    argv = list(command.argv)
+    argv[-3] = str(tmp_path / "unbound-layout-model")
+    candidates[1] = replace(candidates[1], command=replace(command, argv=tuple(argv)))
+    config = replace(config, candidates=tuple(candidates))
+
+    with pytest.raises(runner.Phase0RunnerError, match="current_run_authority_invalid"):
+        run_phase0_scorecard(config)
+
+    assert not config.output.exists()
+    assert not config.workspace.exists()
+
+
+def test_public_authority_requires_current_sandbox_canary_before_owned_writes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = _authority_shaped_config(tmp_path)
+    probes: list[tuple[str, ...]] = []
+
+    def canary_succeeds(argv: tuple[str, ...], **_: object) -> subprocess.CompletedProcess[bytes]:
+        probes.append(argv)
+        return subprocess.CompletedProcess(argv, 0, b"connected", b"")
+
+    monkeypatch.setattr(runner.subprocess, "run", canary_succeeds)
+    with pytest.raises(runner.Phase0RunnerError, match="current_run_network_not_blocked"):
+        run_phase0_scorecard(config)
+
+    assert probes
+    assert probes[0][:3] == (
+        "/usr/bin/sandbox-exec",
+        "-p",
+        "(version 1)(allow default)(deny network*)",
+    )
+    assert not config.output.exists()
+    assert not config.workspace.exists()
+
+
+def test_installed_runtime_doctor_timeout_is_stable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = _authority_shaped_config(tmp_path)
+
+    def timeout(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[bytes]:
+        raise subprocess.TimeoutExpired("runtime-doctor", 120)
+
+    monkeypatch.setattr(runner, "_run_network_canary", lambda _python: None)
+    monkeypatch.setattr(runner.subprocess, "run", timeout)
+
+    with pytest.raises(runner.Phase0RunnerError, match="current_run_authority_invalid"):
+        run_phase0_scorecard(config)
+
+    assert not config.output.exists()
+    assert not config.workspace.exists()
+
+
 def test_tracked_controller_runs_candidates_serially_with_common_render_and_atomic_output(
     tmp_path: Path,
 ) -> None:
@@ -206,7 +400,7 @@ def test_tracked_controller_runs_candidates_serially_with_common_render_and_atom
         calls.append((command.provider, image_path.parent.name, page_number))
         return _fake_provider(command, **kwargs)  # type: ignore[arg-type]
 
-    payload = run_phase0_scorecard(
+    payload = runner._run_phase0_scorecard_for_test(
         config,
         provider_runner=provider,
         peak_rss_reader=lambda: 1024,
@@ -221,7 +415,7 @@ def test_tracked_controller_runs_candidates_serially_with_common_render_and_atom
         provider for provider in runner._PROVIDERS for _ in range(4)
     ]
     assert len({(item[1], item[2]) for item in calls}) == 4
-    assert config.output.read_bytes() == canonical_scorecard_bytes(payload)
+    assert not config.output.exists()
     assert not config.workspace.exists()
     assert not list(tmp_path.glob(".phase0-scorecard.json.*.tmp"))
 
@@ -242,7 +436,7 @@ def test_tracked_controller_records_unavailable_and_failure_without_fabricated_m
             )
         return _fake_provider(command, **kwargs)  # type: ignore[arg-type]
 
-    payload = run_phase0_scorecard(
+    payload = runner._run_phase0_scorecard_for_test(
         config,
         provider_runner=provider,
         peak_rss_reader=lambda: 1024,
@@ -261,7 +455,9 @@ def test_tracked_controller_records_unavailable_and_failure_without_fabricated_m
 
 def test_tracked_controller_emits_deterministic_valid_negative_no_go(tmp_path: Path) -> None:
     config = _controller_config(tmp_path, unavailable=frozenset(runner._PROVIDERS))
-    payload = run_phase0_scorecard(config, provider_runner=_fake_provider)
+    payload = runner._run_phase0_scorecard_for_test(
+        config, provider_runner=_fake_provider, peak_rss_reader=lambda: 1024
+    )
     assert payload["decision"] == {
         "status": "no_go",
         "selected_provider": None,
@@ -280,7 +476,7 @@ def test_tracked_controller_rejects_committed_receipt_drift_before_workspace(
     changed.write_bytes(source.read_bytes() + b" ")
     config = replace(config, **{receipt_name: changed})
     with pytest.raises(runner.Phase0RunnerError, match="receipt_authority_invalid"):
-        run_phase0_scorecard(config, provider_runner=_fake_provider)
+        run_phase0_scorecard(config)
     assert not config.workspace.exists()
 
 
@@ -298,7 +494,9 @@ def test_tracked_controller_preserves_prior_output_when_cleanup_fails(
 
     monkeypatch.setattr(runner.shutil, "rmtree", fail_owned_cleanup)
     with pytest.raises(runner.Phase0RunnerError, match="cleanup_failed"):
-        run_phase0_scorecard(config, provider_runner=_fake_provider, peak_rss_reader=lambda: 1024)
+        runner._run_phase0_scorecard_for_test(
+            config, provider_runner=_fake_provider, peak_rss_reader=lambda: 1024
+        )
     assert config.output.read_bytes() == b"prior authority\n"
 
 
@@ -313,11 +511,7 @@ def test_tracked_controller_preserves_prior_output_when_atomic_replace_fails(
 
     monkeypatch.setattr(runner.os, "replace", fail_replace)
     with pytest.raises(runner.Phase0RunnerError, match="scorecard_publication_failed"):
-        run_phase0_scorecard(
-            config,
-            provider_runner=_fake_provider,
-            peak_rss_reader=lambda: 1024,
-        )
+        runner._publish_scorecard(config.output, canonical_scorecard_bytes(_scorecard()))
     assert config.output.read_bytes() == b"prior authority\n"
     assert not config.workspace.exists()
     assert not list(tmp_path.glob(".phase0-scorecard.json.*.tmp"))
@@ -334,7 +528,7 @@ def test_tracked_controller_cleans_owned_state_after_provider_failure(tmp_path: 
             provider=command.provider,
         )
 
-    payload = run_phase0_scorecard(
+    payload = runner._run_phase0_scorecard_for_test(
         config,
         provider_runner=fail_provider,
         peak_rss_reader=lambda: 1024,

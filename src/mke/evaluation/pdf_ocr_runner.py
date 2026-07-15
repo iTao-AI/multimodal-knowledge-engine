@@ -8,6 +8,7 @@ import os
 import re
 import secrets
 import shutil
+import stat
 import subprocess
 import threading
 import time
@@ -79,6 +80,61 @@ _STARTUP_RECEIPT_SHA256 = "1a159461fd73c7069905b0a085f5b900f4b1577dbf418a86adcf9
 _PACKAGE_CANDIDATES = (
     "ppocrv6-medium-cpu-spike-v1",
     "paddleocr-vl-1.6-cpu-spike-v1",
+)
+_SANDBOX_PREFIX = (
+    "/usr/bin/sandbox-exec",
+    "-p",
+    "(version 1)(allow default)(deny network*)",
+)
+_COMMON_PROVIDER_ARGUMENTS = (
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--page-number",
+    "{page_number}",
+)
+_RUNTIME_DOCTOR = r"""
+import hashlib
+import importlib
+import importlib.metadata as metadata
+import json
+import os
+import pathlib
+import platform
+import sys
+import mke
+paddle = importlib.import_module("paddle")
+paddleocr = importlib.import_module("paddleocr")
+assert paddle is not None
+assert hasattr(paddleocr, "PaddleOCRVL")
+versions = {}
+for distribution in metadata.distributions():
+    name = distribution.metadata.get("Name")
+    if name:
+        versions.setdefault(name.lower().replace("_", "-"), distribution.version)
+distribution = metadata.distribution("multimodal-knowledge-engine")
+direct_url_file = next(
+    item for item in (distribution.files or ()) if item.name == "direct_url.json"
+)
+direct_url_path = pathlib.Path(distribution.locate_file(direct_url_file))
+direct_url = json.loads(direct_url_path.read_text(encoding="utf-8"))
+print(json.dumps({
+    "python": platform.python_version(),
+    "mke_version": metadata.version("multimodal-knowledge-engine"),
+    "mke_file": mke.__file__,
+    "sys_executable": sys.executable,
+    "sys_prefix": sys.prefix,
+    "sys_base_prefix": sys.base_prefix,
+    "isolated": sys.flags.isolated == 1,
+    "pythonpath_present": "PYTHONPATH" in os.environ,
+    "package_versions": versions,
+    "direct_url": direct_url,
+}, sort_keys=True))
+"""
+_NETWORK_CANARY = (
+    "import socket;"
+    "socket.create_connection(('1.1.1.1',53),timeout=1)"
 )
 _SAFE_TEXT_RE = re.compile(r"[a-z0-9]+(?:[._-][a-z0-9]+)*\Z")
 _TIMESTAMP_RE = re.compile(r"\d{4}-\d{2}-\d{2}[T ][0-9:]+(?:\.\d+)?Z?\Z")
@@ -236,6 +292,9 @@ class _RunnerAuthority:
     mke_wheel_sha256: str
     package_bytes: dict[str, int]
     model_bytes: dict[str, int]
+    package_versions: dict[str, str]
+    mke_wheel_filename: str
+    model_receipt: dict[str, object]
 
 
 class _ProcessTreeRssMonitor:
@@ -644,11 +703,41 @@ def _ref_matches(value: EvidenceRefV1, expected: _ExpectedEvidenceRef) -> bool:
 
 def run_phase0_scorecard(
     config: Phase0RunnerConfig,
-    *,
-    provider_runner: Callable[..., OcrEvalPageResult] = run_provider,
-    peak_rss_reader: Callable[[], int] | None = None,
 ) -> dict[str, object]:
     """Run the closed Phase 0 comparison and atomically publish canonical evidence."""
+    protocol, authority = _load_controller_inputs(config)
+    _validate_current_run_authority(config, authority)
+    payload = _evaluate_phase0_scorecard(
+        config,
+        protocol,
+        authority,
+        provider_runner=run_provider,
+        peak_rss_reader=None,
+    )
+    _publish_scorecard(config.output, canonical_scorecard_bytes(payload))
+    return payload
+
+
+def _run_phase0_scorecard_for_test(  # pyright: ignore[reportUnusedFunction]
+    config: Phase0RunnerConfig,
+    *,
+    provider_runner: Callable[..., OcrEvalPageResult],
+    peak_rss_reader: Callable[[], int] | None = None,
+) -> dict[str, object]:
+    """Exercise controller composition without publishing an authority artifact."""
+    protocol, authority = _load_controller_inputs(config)
+    return _evaluate_phase0_scorecard(
+        config,
+        protocol,
+        authority,
+        provider_runner=provider_runner,
+        peak_rss_reader=peak_rss_reader,
+    )
+
+
+def _load_controller_inputs(
+    config: Phase0RunnerConfig,
+) -> tuple[PdfOcrEvaluationProtocol, _RunnerAuthority]:
     _validate_runner_config(config)
     authority = _load_runner_authority(config)
     protocol = load_pdf_ocr_evaluation_protocol(config.protocol)
@@ -657,9 +746,18 @@ def run_phase0_scorecard(
     protocol_bytes = config.protocol.read_bytes()
     if hashlib.sha256(protocol_bytes).hexdigest() != _PROTOCOL_SHA256:
         raise Phase0RunnerError("protocol_authority_invalid")
-    temporary = config.output.parent / (f".{config.output.name}.{secrets.token_hex(8)}.tmp")
+    return protocol, authority
+
+
+def _evaluate_phase0_scorecard(
+    config: Phase0RunnerConfig,
+    protocol: PdfOcrEvaluationProtocol,
+    authority: _RunnerAuthority,
+    *,
+    provider_runner: Callable[..., OcrEvalPageResult],
+    peak_rss_reader: Callable[[], int] | None,
+) -> dict[str, object]:
     payload: dict[str, object]
-    encoded: bytes
     try:
         config.workspace.mkdir(mode=0o700, parents=False, exist_ok=False)
         inspections, renders = _render_common_pages(protocol, config.workspace / "renders")
@@ -701,8 +799,7 @@ def run_phase0_scorecard(
             "candidates": candidates,
             "decision": decide(outcomes).to_dict(),
         }
-        encoded = canonical_scorecard_bytes(payload)
-        _write_owned_file(temporary, encoded)
+        canonical_scorecard_bytes(payload)
     except Phase0RunnerError:
         raise
     except (OSError, ValueError) as error:
@@ -715,20 +812,21 @@ def run_phase0_scorecard(
             except OSError as error:
                 cleanup_error = error
         if cleanup_error is not None:
-            try:
-                temporary.unlink(missing_ok=True)
-            except OSError:
-                pass
             raise Phase0RunnerError("cleanup_failed") from cleanup_error
+    return payload
+
+
+def _publish_scorecard(output: Path, encoded: bytes) -> None:
+    temporary = output.parent / (f".{output.name}.{secrets.token_hex(8)}.tmp")
     try:
-        os.replace(temporary, config.output)
+        _write_owned_file(temporary, encoded)
+        os.replace(temporary, output)
     except OSError as error:
         try:
             temporary.unlink(missing_ok=True)
         except OSError:
             pass
         raise Phase0RunnerError("scorecard_publication_failed") from error
-    return payload
 
 
 def _validate_runner_config(config: Phase0RunnerConfig) -> None:
@@ -762,6 +860,370 @@ def _validate_runner_config(config: Phase0RunnerConfig) -> None:
         and config.output == config.workspace
     ):
         raise Phase0RunnerError("scorecard_output_invalid")
+
+
+def _validate_current_run_authority(
+    config: Phase0RunnerConfig, authority: _RunnerAuthority
+) -> None:
+    try:
+        commands = {
+            item.provider: item.command
+            for item in config.candidates
+            if item.command is not None
+        }
+        if not commands:
+            raise ValueError("no available candidate command")
+        runtime_python, apple_executable, components = _validate_command_shapes(commands)
+        _run_network_canary(runtime_python)
+        authority_home = config.workspace.parent / ".pdf-ocr-current-authority"
+        authority_home.mkdir(mode=0o700, exist_ok=False)
+        try:
+            runtime_prefix = _validate_installed_runtime(
+                runtime_python, authority, authority_home
+            )
+        finally:
+            try:
+                shutil.rmtree(authority_home)
+            except OSError as error:
+                raise Phase0RunnerError("cleanup_failed") from error
+            if authority_home.exists():
+                raise Phase0RunnerError("cleanup_failed")
+        _validate_apple_executable(apple_executable, runtime_prefix, config.workspace.parent)
+        _validate_model_root(components, authority.model_receipt)
+    except Phase0RunnerError:
+        raise
+    except (
+        KeyError,
+        OSError,
+        subprocess.SubprocessError,
+        TypeError,
+        ValueError,
+        json.JSONDecodeError,
+    ) as error:
+        raise Phase0RunnerError("current_run_authority_invalid") from error
+
+
+def _validate_command_shapes(
+    commands: Mapping[str, ProviderCommand],
+) -> tuple[Path, Path, dict[str, Path]]:
+    expected_available = set(_PROVIDERS)
+    if set(commands) != expected_available:
+        raise ValueError("all reviewed candidates must be available")
+    apple = commands["apple-vision-local-v1"]
+    vl = commands["paddleocr-vl-1.6-cpu-spike-v1"]
+    ppocr = commands["ppocrv6-medium-cpu-spike-v1"]
+    _validate_command_limits(apple, timeout=180.0)
+    _validate_command_limits(vl, timeout=900.0)
+    _validate_command_limits(ppocr, timeout=600.0)
+    if apple.argv[:3] != _SANDBOX_PREFIX or apple.argv[4:] != _COMMON_PROVIDER_ARGUMENTS:
+        raise ValueError("Apple Vision command is not closed")
+    apple_executable = Path(apple.argv[3])
+    runtime_python, vl_components = _validate_paddle_command(
+        vl,
+        module="mke.evaluation.pdf_ocr_paddle_vl",
+        model_arguments=("--layout-model-dir", "--vl-model-dir"),
+        component_names=("PP-DocLayoutV3", "PaddleOCR-VL-1.6"),
+    )
+    ppocr_python, ppocr_components = _validate_paddle_command(
+        ppocr,
+        module="mke.evaluation.pdf_ocr_ppocrv6",
+        model_arguments=("--detection-model-dir", "--recognition-model-dir"),
+        component_names=("PP-OCRv6_medium_det", "PP-OCRv6_medium_rec"),
+    )
+    if runtime_python != ppocr_python:
+        raise ValueError("Paddle candidates do not share one installed runtime")
+    return runtime_python, apple_executable, {**vl_components, **ppocr_components}
+
+
+def _validate_command_limits(command: ProviderCommand, *, timeout: float) -> None:
+    if (
+        command.profile != _PROFILE
+        or command.timeout_seconds != timeout
+        or command.max_stdout_bytes != 64 * 1024
+        or command.max_stderr_bytes != 256 * 1024
+        or command.max_result_bytes != 8 * 1024 * 1024
+    ):
+        raise ValueError("provider limits are not the reviewed profile")
+
+
+def _validate_paddle_command(
+    command: ProviderCommand,
+    *,
+    module: str,
+    model_arguments: tuple[str, str],
+    component_names: tuple[str, str],
+) -> tuple[Path, dict[str, Path]]:
+    argv = command.argv
+    if len(argv) != 17 or argv[:3] != _SANDBOX_PREFIX:
+        raise ValueError("Paddle command is not closed")
+    if argv[4:7] != ("-I", "-m", module) or argv[7:13] != _COMMON_PROVIDER_ARGUMENTS:
+        raise ValueError("Paddle module authority is invalid")
+    if argv[13] != model_arguments[0] or argv[15] != model_arguments[1]:
+        raise ValueError("Paddle model arguments are invalid")
+    components = {
+        component_names[0]: Path(argv[14]),
+        component_names[1]: Path(argv[16]),
+    }
+    if any(
+        not path.name.startswith(f"{component}-")
+        for component, path in components.items()
+    ):
+        raise ValueError("Paddle model root is invalid")
+    return Path(argv[3]), components
+
+
+def _run_network_canary(runtime_python: Path) -> None:
+    try:
+        result = subprocess.run(
+            (*_SANDBOX_PREFIX, str(runtime_python), "-I", "-c", _NETWORK_CANARY),
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            check=False,
+            timeout=10.0,
+            env={"PATH": "/usr/bin:/bin", "HOME": "/var/empty", "TMPDIR": "/tmp"},
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise Phase0RunnerError("current_run_authority_invalid") from error
+    if result.returncode == 0:
+        raise Phase0RunnerError("current_run_network_not_blocked")
+    diagnostic = result.stderr.decode("utf-8", errors="replace")
+    if "Operation not permitted" not in diagnostic and "PermissionError" not in diagnostic:
+        raise Phase0RunnerError("current_run_network_not_blocked")
+
+
+def _validate_installed_runtime(
+    runtime_python: Path, authority: _RunnerAuthority, authority_home: Path
+) -> Path:
+    if not runtime_python.exists() or runtime_python.is_dir():
+        raise ValueError("installed Python is unavailable")
+    result = subprocess.run(
+        (str(runtime_python), "-I", "-c", _RUNTIME_DOCTOR),
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        check=False,
+        timeout=120.0,
+        env={
+            "PATH": "/usr/bin:/bin",
+            "HOME": str(authority_home),
+            "TMPDIR": str(authority_home),
+            "PADDLE_PDX_CACHE_HOME": str(authority_home / "paddlex"),
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+        },
+    )
+    if result.returncode != 0 or len(result.stdout) > 8 * 1024 * 1024:
+        raise ValueError("installed runtime doctor failed")
+    raw: object = json.loads(result.stdout)
+    doctor = _closed(
+        raw,
+        {
+            "python",
+            "mke_version",
+            "mke_file",
+            "sys_executable",
+            "sys_prefix",
+            "sys_base_prefix",
+            "isolated",
+            "pythonpath_present",
+            "package_versions",
+            "direct_url",
+        },
+        "installed runtime doctor",
+    )
+    package_versions_raw = doctor["package_versions"]
+    if not isinstance(package_versions_raw, dict):
+        raise ValueError("installed package map is invalid")
+    package_versions = cast(dict[object, object], package_versions_raw)
+    if (
+        doctor["python"] != "3.13.12"
+        or doctor["mke_version"] != "0.1.2"
+        or doctor["isolated"] is not True
+        or doctor["pythonpath_present"] is not False
+        or package_versions != authority.package_versions
+        or _canonical_sha256(package_versions) != authority.installed_packages_sha256
+    ):
+        raise ValueError("installed runtime identity drifted")
+    prefix = Path(cast(str, doctor["sys_prefix"])).resolve()
+    executable = Path(cast(str, doctor["sys_executable"])).resolve()
+    module = Path(cast(str, doctor["mke_file"])).resolve()
+    base_prefix = Path(cast(str, doctor["sys_base_prefix"])).resolve()
+    if (
+        executable != runtime_python.resolve()
+        or not _within(module, prefix)
+        or "site-packages" not in module.parts
+        or _within(base_prefix, prefix)
+    ):
+        raise ValueError("installed runtime origin is invalid")
+    direct_url = _closed(doctor["direct_url"], {"archive_info", "url"}, "wheel direct URL")
+    archive = _closed(direct_url["archive_info"], {"hash", "hashes"}, "wheel archive")
+    hashes = _closed(archive["hashes"], {"sha256"}, "wheel archive hashes")
+    url = cast(str, direct_url["url"])
+    if (
+        archive["hash"] != f"sha256={authority.mke_wheel_sha256}"
+        or hashes["sha256"] != authority.mke_wheel_sha256
+        or not url.startswith("file://")
+        or Path(url.removeprefix("file://")).name != authority.mke_wheel_filename
+    ):
+        raise ValueError("installed MKE wheel identity drifted")
+    return prefix
+
+
+def _validate_apple_executable(executable: Path, runtime_prefix: Path, owned_parent: Path) -> None:
+    metadata = executable.lstat()
+    if (
+        executable.is_symlink()
+        or not stat.S_ISREG(metadata.st_mode)
+        or metadata.st_mode & 0o111 == 0
+        or executable.name != "apple-vision-child"
+        or executable.parent.resolve() != owned_parent.resolve()
+        or runtime_prefix.parent.resolve() != owned_parent.resolve()
+    ):
+        raise ValueError("Apple Vision child identity is invalid")
+    _read_bound_regular_file(executable, metadata.st_size, None)
+
+
+def _validate_model_root(
+    components: Mapping[str, Path], model_receipt: Mapping[str, object]
+) -> None:
+    models_raw = model_receipt.get("models")
+    if not isinstance(models_raw, list):
+        raise ValueError("model receipt inventory is invalid")
+    model_items = cast(list[object], models_raw)
+    models = [cast(dict[str, object], item) for item in model_items if isinstance(item, dict)]
+    if len(models) != 4 or set(components) != {cast(str, item["component"]) for item in models}:
+        raise ValueError("model component inventory is invalid")
+    roots = {path.parent.resolve() for path in components.values()}
+    if len(roots) != 1:
+        raise ValueError("model components do not share one retained root")
+    aggregate: list[dict[str, object]] = []
+    for model in models:
+        component_name = cast(str, model["component"])
+        tree_sha256 = _sha(model["tree_sha256"], "model component tree sha256")
+        component = components[component_name]
+        if component.name != f"{component_name}-{tree_sha256}":
+            raise ValueError("model component path is not content-addressed")
+        files = _validate_model_component(component, model)
+        if _canonical_sha256(files) != tree_sha256:
+            raise ValueError("model component tree drifted")
+        aggregate.append(
+            {
+                "path": component_name,
+                "bytes": _positive(model["total_bytes"], "model component bytes"),
+                "sha256": tree_sha256,
+            }
+        )
+    if _canonical_sha256(aggregate) != model_receipt.get("tree_sha256"):
+        raise ValueError("model aggregate tree drifted")
+
+
+def _validate_model_component(
+    component: Path, model: Mapping[str, object]
+) -> list[dict[str, object]]:
+    metadata = component.lstat()
+    if component.is_symlink() or not stat.S_ISDIR(metadata.st_mode) or metadata.st_mode & 0o222:
+        raise ValueError("model component is not sealed")
+    files_raw = model.get("files")
+    if not isinstance(files_raw, list):
+        raise ValueError("model file inventory is invalid")
+    file_items = cast(list[object], files_raw)
+    expected = [cast(dict[str, object], item) for item in file_items if isinstance(item, dict)]
+    if len(expected) != len(file_items):
+        raise ValueError("model file inventory is invalid")
+    observed_paths: list[str] = []
+    observed: list[dict[str, object]] = []
+    expected_by_path = {cast(str, item["path"]): item for item in expected}
+    for path in sorted(component.rglob("*"), key=lambda item: item.as_posix()):
+        entry = path.lstat()
+        if path.is_symlink() or entry.st_mode & 0o222:
+            raise ValueError("model file is not sealed")
+        if stat.S_ISDIR(entry.st_mode):
+            continue
+        relative = path.relative_to(component).as_posix()
+        expected_item = expected_by_path.get(relative)
+        if not stat.S_ISREG(entry.st_mode) or expected_item is None:
+            raise ValueError("model file inventory drifted")
+        observed_paths.append(relative)
+        observed.append(
+            {
+                "path": relative,
+                "bytes": _positive(expected_item["bytes"], "model file bytes"),
+                "sha256": _read_bound_regular_file(
+                    path,
+                    cast(int, expected_item["bytes"]),
+                    _sha(expected_item["sha256"], "model file sha256"),
+                ),
+            }
+        )
+    if observed_paths != [cast(str, item["path"]) for item in expected]:
+        raise ValueError("model file inventory drifted")
+    return observed
+
+
+def _read_bound_regular_file(path: Path, expected_size: int, expected_sha256: str | None) -> str:
+    inventory = path.lstat()
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(path, flags)
+    try:
+        opened = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or opened.st_size != expected_size
+            or _file_identity(opened) != _file_identity(inventory)
+        ):
+            raise ValueError("regular file identity drifted")
+        digest = hashlib.sha256()
+        actual = 0
+        while True:
+            chunk = os.read(descriptor, min(1024 * 1024, expected_size - actual + 1))
+            if not chunk:
+                break
+            actual += len(chunk)
+            if actual > expected_size:
+                raise ValueError("regular file grew")
+            digest.update(chunk)
+        after_descriptor = os.fstat(descriptor)
+        after_path = path.lstat()
+        observed = digest.hexdigest()
+        if (
+            actual != expected_size
+            or _file_identity(after_descriptor) != _file_identity(inventory)
+            or _file_identity(after_path) != _file_identity(inventory)
+            or (expected_sha256 is not None and observed != expected_sha256)
+        ):
+            raise ValueError("regular file identity drifted")
+        return observed
+    finally:
+        os.close(descriptor)
+
+
+def _file_identity(metadata: os.stat_result) -> tuple[int, int, int, int, int]:
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        metadata.st_size,
+        metadata.st_mtime_ns,
+        metadata.st_ctime_ns,
+    )
+
+
+def _within(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    return True
+
+
+def _canonical_sha256(value: object) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+            allow_nan=False,
+        ).encode("utf-8")
+    ).hexdigest()
 
 
 def _load_runner_authority(config: Phase0RunnerConfig) -> _RunnerAuthority:
@@ -827,6 +1289,7 @@ def _load_runner_authority(config: Phase0RunnerConfig) -> _RunnerAuthority:
     ):
         raise Phase0RunnerError("receipt_authority_invalid")
     package_bytes: dict[str, int] = {}
+    package_versions: dict[str, str] | None = None
     for item in package_candidates:
         if not isinstance(item, dict):
             raise Phase0RunnerError("receipt_authority_invalid")
@@ -847,7 +1310,24 @@ def _load_runner_authority(config: Phase0RunnerConfig) -> _RunnerAuthority:
             )
         ):
             raise Phase0RunnerError("receipt_authority_invalid")
-    wheel_bytes = _mke_wheel_bytes(package_candidates)
+        if candidate == "paddleocr-vl-1.6-cpu-spike-v1":
+            selected = [
+                cast(dict[str, object], cell)
+                for cell in cells
+                if isinstance(cell, dict)
+                and cast(dict[str, object], cell).get("python") == "3.13.12"
+                and cast(dict[str, object], cell).get("surface") == "base"
+            ]
+            if len(selected) != 1 or not isinstance(selected[0].get("package_versions"), dict):
+                raise Phase0RunnerError("receipt_authority_invalid")
+            raw_versions = cast(dict[object, object], selected[0]["package_versions"])
+            if any(
+                not isinstance(key, str) or not isinstance(value, str)
+                for key, value in raw_versions.items()
+            ):
+                raise Phase0RunnerError("receipt_authority_invalid")
+            package_versions = cast(dict[str, str], raw_versions)
+    wheel_filename, wheel_bytes, wheel_digest = _mke_wheel_authority(package_candidates)
     package_bytes["apple-vision-local-v1"] = wheel_bytes
     models_raw = model.get("models")
     if not isinstance(models_raw, list) or model.get("total_bytes") != 2_201_640_507:
@@ -877,6 +1357,12 @@ def _load_runner_authority(config: Phase0RunnerConfig) -> _RunnerAuthority:
     installed_sha = runtime.get("installed_packages_sha256")
     wheel_sha = package.get("mke_wheel_sha256")
     tree_sha = model.get("tree_sha256")
+    if (
+        package_versions is None
+        or installed_sha != _canonical_sha256(package_versions)
+        or wheel_sha != wheel_digest
+    ):
+        raise Phase0RunnerError("receipt_authority_invalid")
     return _RunnerAuthority(
         receipts={
             "package_sha256": package_sha,
@@ -888,6 +1374,9 @@ def _load_runner_authority(config: Phase0RunnerConfig) -> _RunnerAuthority:
         mke_wheel_sha256=_sha(wheel_sha, "MKE wheel sha256"),
         package_bytes=package_bytes,
         model_bytes=model_bytes,
+        package_versions=package_versions,
+        mke_wheel_filename=wheel_filename,
+        model_receipt=model,
     )
 
 
@@ -904,8 +1393,8 @@ def _load_receipt(path: Path) -> tuple[dict[str, object], str]:
     return cast(dict[str, object], raw), hashlib.sha256(encoded).hexdigest()
 
 
-def _mke_wheel_bytes(candidates: list[object]) -> int:
-    values: set[tuple[int, str]] = set()
+def _mke_wheel_authority(candidates: list[object]) -> tuple[str, int, str]:
+    values: set[tuple[str, int, str]] = set()
     for raw in candidates:
         item = cast(dict[str, object], raw)
         distributions_raw = item.get("distributions")
@@ -924,13 +1413,14 @@ def _mke_wheel_bytes(candidates: list[object]) -> int:
             raise Phase0RunnerError("receipt_authority_invalid")
         values.add(
             (
+                _text(mke[0].get("filename"), "MKE wheel filename"),
                 _positive(mke[0].get("bytes"), "MKE wheel bytes"),
                 _sha(mke[0].get("sha256"), "MKE wheel sha256"),
             )
         )
     if len(values) != 1:
         raise Phase0RunnerError("receipt_authority_invalid")
-    return next(iter(values))[0]
+    return next(iter(values))
 
 
 def _render_common_pages(
