@@ -13,6 +13,7 @@ import secrets
 import shutil
 import stat
 import subprocess
+import sys
 import threading
 import time
 import urllib.parse
@@ -94,6 +95,7 @@ _SANDBOX_PREFIX = (
 _APPLE_EXECUTABLE_PLACEHOLDER = "{controller_compiled_apple_vision}"
 _APPLE_SWIFT_SOURCE = Path(__file__).resolve().parents[3] / "scripts/pdf_ocr_apple_vision.swift"
 _APPLE_SWIFT_SOURCE_SHA256 = "6d0cba035372974dcc82d6e397930061c8da969b62c373d73203292e874d4424"
+_AUTHORITY_ROOT_PREFIX = ".pdf-ocr-current-authority-"
 _COMMON_PROVIDER_ARGUMENTS = (
     "--input",
     "{input}",
@@ -313,6 +315,13 @@ class _BoundAppleChild:
     size: int
     sha256: str
     identity: tuple[int, int, int, int, int]
+
+
+@dataclass(frozen=True)
+class _OwnedAuthorityRoot:
+    path: Path
+    device: int
+    inode: int
 
 
 class _ProcessTreeRssMonitor:
@@ -889,8 +898,8 @@ def _validate_runner_config(config: Phase0RunnerConfig) -> None:
 
 def _prepare_current_run_authority(
     config: Phase0RunnerConfig, authority: _RunnerAuthority
-) -> tuple[Phase0RunnerConfig, _BoundAppleChild, Path]:
-    authority_root = config.workspace.parent / ".pdf-ocr-current-authority"
+) -> tuple[Phase0RunnerConfig, _BoundAppleChild, _OwnedAuthorityRoot]:
+    owned_root: _OwnedAuthorityRoot | None = None
     try:
         commands = {
             item.provider: item.command
@@ -901,7 +910,8 @@ def _prepare_current_run_authority(
             raise ValueError("no available candidate command")
         runtime_python, components = _validate_command_shapes(commands)
         _run_network_canary(runtime_python)
-        authority_root.mkdir(mode=0o700, exist_ok=False)
+        owned_root = _create_owned_authority_root(config.workspace.parent)
+        authority_root = owned_root.path
         authority_home = authority_root / "home"
         authority_home.mkdir(mode=0o700)
         _remove_call_owned_mke_bytecode(runtime_python.parent.parent, config.workspace.parent)
@@ -921,10 +931,11 @@ def _prepare_current_run_authority(
         argv = list(apple.command.argv)
         argv[3] = str(apple_binding.path)
         candidates[apple_index] = replace(apple, command=replace(apple.command, argv=tuple(argv)))
-        authority_root.chmod(0o500)
-        return replace(config, candidates=tuple(candidates)), apple_binding, authority_root
+        _set_owned_authority_root_mode(owned_root, 0o500)
+        return replace(config, candidates=tuple(candidates)), apple_binding, owned_root
     except Phase0RunnerError:
-        _cleanup_authority_root(authority_root)
+        if owned_root is not None:
+            _cleanup_authority_root(owned_root)
         raise
     except (
         KeyError,
@@ -934,19 +945,136 @@ def _prepare_current_run_authority(
         ValueError,
         json.JSONDecodeError,
     ) as error:
-        _cleanup_authority_root(authority_root)
+        if owned_root is not None:
+            _cleanup_authority_root(owned_root)
         raise Phase0RunnerError("current_run_authority_invalid") from error
 
 
-def _cleanup_authority_root(authority_root: Path) -> None:
-    if not authority_root.exists():
-        return
+def _create_owned_authority_root(parent: Path) -> _OwnedAuthorityRoot:
+    for _ in range(16):
+        path = parent / f"{_AUTHORITY_ROOT_PREFIX}{secrets.token_hex(16)}"
+        try:
+            path.mkdir(mode=0o700, exist_ok=False)
+        except FileExistsError:
+            continue
+        metadata = path.lstat()
+        if not stat.S_ISDIR(metadata.st_mode):
+            raise Phase0RunnerError("current_run_authority_invalid")
+        return _OwnedAuthorityRoot(path, metadata.st_dev, metadata.st_ino)
+    raise Phase0RunnerError("current_run_authority_invalid")
+
+
+def _open_owned_authority_root(owned_root: _OwnedAuthorityRoot) -> int:
     try:
-        authority_root.chmod(0o700)
-        shutil.rmtree(authority_root)
+        inventory = owned_root.path.lstat()
+        if (
+            not stat.S_ISDIR(inventory.st_mode)
+            or inventory.st_dev != owned_root.device
+            or inventory.st_ino != owned_root.inode
+        ):
+            raise ValueError("authority root identity drifted")
+        flags = (
+            os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_DIRECTORY", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+        )
+        descriptor = os.open(owned_root.path, flags)
+        try:
+            _revalidate_owned_authority_root(owned_root, descriptor)
+        except (OSError, ValueError):
+            os.close(descriptor)
+            raise
+        return descriptor
+    except (OSError, ValueError) as error:
+        raise Phase0RunnerError("cleanup_failed") from error
+
+
+def _revalidate_owned_authority_root(
+    owned_root: _OwnedAuthorityRoot, descriptor: int
+) -> None:
+    opened = os.fstat(descriptor)
+    after_path = owned_root.path.lstat()
+    if (
+        not stat.S_ISDIR(opened.st_mode)
+        or not stat.S_ISDIR(after_path.st_mode)
+        or opened.st_dev != owned_root.device
+        or opened.st_ino != owned_root.inode
+        or after_path.st_dev != owned_root.device
+        or after_path.st_ino != owned_root.inode
+    ):
+        raise ValueError("authority root identity drifted")
+
+
+def _set_owned_authority_root_mode(owned_root: _OwnedAuthorityRoot, mode: int) -> None:
+    descriptor = _open_owned_authority_root(owned_root)
+    try:
+        os.fchmod(descriptor, mode)
+        _revalidate_owned_authority_root(owned_root, descriptor)
+    except (OSError, ValueError) as error:
+        raise Phase0RunnerError("cleanup_failed") from error
+    finally:
+        os.close(descriptor)
+
+
+def _remove_owned_authority_contents(descriptor: int) -> None:
+    for name in os.listdir(descriptor):
+        metadata = os.stat(name, dir_fd=descriptor, follow_symlinks=False)
+        if stat.S_ISDIR(metadata.st_mode):
+            shutil.rmtree(name, dir_fd=descriptor)
+        else:
+            os.unlink(name, dir_fd=descriptor)
+    if os.listdir(descriptor):
+        raise OSError("authority root cleanup was incomplete")
+
+
+def _remove_owned_authority_root_entry(
+    owned_root: _OwnedAuthorityRoot, parent_descriptor: int
+) -> None:
+    if sys.platform == "darwin":
+        identity_path = Path("/.vol") / str(owned_root.device) / str(owned_root.inode)
+        metadata = identity_path.lstat()
+        if (
+            not stat.S_ISDIR(metadata.st_mode)
+            or metadata.st_dev != owned_root.device
+            or metadata.st_ino != owned_root.inode
+        ):
+            raise ValueError("authority root identity drifted")
+        os.rmdir(identity_path)
+        return
+    os.rmdir(owned_root.path.name, dir_fd=parent_descriptor)
+
+
+def _cleanup_authority_root(owned_root: _OwnedAuthorityRoot) -> None:
+    descriptor = _open_owned_authority_root(owned_root)
+    parent_descriptor: int | None = None
+    try:
+        os.fchmod(descriptor, 0o700)
+        _revalidate_owned_authority_root(owned_root, descriptor)
+        _remove_owned_authority_contents(descriptor)
+        _revalidate_owned_authority_root(owned_root, descriptor)
+        parent_flags = (
+            os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_DIRECTORY", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+        )
+        parent_descriptor = os.open(owned_root.path.parent, parent_flags)
+        _revalidate_owned_authority_root(owned_root, descriptor)
+        _remove_owned_authority_root_entry(owned_root, parent_descriptor)
+    except (OSError, ValueError) as error:
+        raise Phase0RunnerError("cleanup_failed") from error
+    finally:
+        if parent_descriptor is not None:
+            os.close(parent_descriptor)
+        os.close(descriptor)
+    try:
+        owned_root.path.lstat()
+    except FileNotFoundError:
+        return
     except OSError as error:
         raise Phase0RunnerError("cleanup_failed") from error
-    if authority_root.exists():
+    else:
         raise Phase0RunnerError("cleanup_failed")
 
 

@@ -40,7 +40,7 @@ from mke.evaluation.pdf_ocr_runner import (
 PROTOCOL_PATH = Path("tests/fixtures/pdf-ocr-phase0-v1/protocol.json")
 SCORECARD_PATH = Path("benchmarks/ocr/phase0-scorecard.json")
 SHA = "a" * 64
-SCORECARD_SHA256 = "34d2bc48114418965003656bb4a1266388ec15c3bdd59c52609462f9614de29e"
+SCORECARD_SHA256 = "b84720bd33999ad333e3ac5105b7abd996ab910b3c9cd458f6c43e66fa709457"
 PACKAGE_RECEIPT = Path("benchmarks/ocr/candidate-environments.json")
 MODEL_RECEIPT = Path("benchmarks/ocr/model-artifacts.json")
 STARTUP_RECEIPT = Path("benchmarks/ocr/provider-startup.json")
@@ -268,6 +268,276 @@ def _authority_shaped_config(tmp_path: Path) -> Phase0RunnerConfig:
             ),
         ),
     )
+
+
+def _path_metadata(path: Path) -> tuple[int, int, int, int, int, int]:
+    metadata = path.lstat()
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        metadata.st_mode,
+        metadata.st_size,
+        metadata.st_mtime_ns,
+        metadata.st_ctime_ns,
+    )
+
+
+def _fail_after_authority_root_creation(
+    monkeypatch: pytest.MonkeyPatch, captured_roots: list[Path]
+) -> None:
+    monkeypatch.setattr(runner, "_run_network_canary", lambda _python: None)
+    monkeypatch.setattr(
+        runner,
+        "_remove_call_owned_mke_bytecode",
+        lambda _prefix, _owned_parent: None,
+    )
+    monkeypatch.setattr(
+        runner,
+        "_validate_installed_runtime",
+        lambda runtime_python, _authority, _home: runtime_python.parent.parent,
+    )
+    monkeypatch.setattr(runner, "_validate_model_root", lambda _components, _receipt: None)
+
+    def fail_compile(authority_root: Path) -> runner._BoundAppleChild:
+        captured_roots.append(authority_root)
+        raise ValueError("controlled post-creation failure")
+
+    monkeypatch.setattr(runner, "_compile_controller_apple_child", fail_compile)
+
+
+def _prepare_until_controlled_failure(
+    config: Phase0RunnerConfig, monkeypatch: pytest.MonkeyPatch
+) -> list[Path]:
+    captured_roots: list[Path] = []
+    _fail_after_authority_root_creation(monkeypatch, captured_roots)
+    authority = runner._load_runner_authority(config)
+    with pytest.raises(runner.Phase0RunnerError, match="current_run_authority_invalid"):
+        runner._prepare_current_run_authority(config, authority)
+    return captured_roots
+
+
+def test_current_authority_does_not_delete_preexisting_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = _authority_shaped_config(tmp_path)
+    preexisting = tmp_path / ".pdf-ocr-current-authority"
+    preexisting.mkdir(mode=0o750)
+    sentinel = preexisting / "operator-owned-sentinel"
+    sentinel.write_bytes(b"operator-owned authority\n")
+    before_root = _path_metadata(preexisting)
+    before_sentinel = (_path_metadata(sentinel), sentinel.read_bytes())
+
+    captured = _prepare_until_controlled_failure(config, monkeypatch)
+
+    assert _path_metadata(preexisting) == before_root
+    assert (_path_metadata(sentinel), sentinel.read_bytes()) == before_sentinel
+    assert sorted(item.name for item in preexisting.iterdir()) == [sentinel.name]
+    assert len(captured) == 1
+    assert captured[0] != preexisting
+
+
+def test_current_authority_does_not_modify_preexisting_regular_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = _authority_shaped_config(tmp_path)
+    preexisting = tmp_path / ".pdf-ocr-current-authority"
+    preexisting.write_bytes(b"operator-owned regular file\n")
+    preexisting.chmod(0o640)
+    before = (_path_metadata(preexisting), preexisting.read_bytes())
+
+    captured = _prepare_until_controlled_failure(config, monkeypatch)
+
+    assert (_path_metadata(preexisting), preexisting.read_bytes()) == before
+    assert len(captured) == 1
+    assert captured[0] != preexisting
+
+
+def test_current_authority_does_not_follow_preexisting_symlink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = _authority_shaped_config(tmp_path)
+    target = tmp_path / "operator-owned-target"
+    target.mkdir(mode=0o750)
+    sentinel = target / "operator-owned-sentinel"
+    sentinel.write_bytes(b"operator-owned symlink target\n")
+    preexisting = tmp_path / ".pdf-ocr-current-authority"
+    preexisting.symlink_to(target, target_is_directory=True)
+    before_link = (_path_metadata(preexisting), os.readlink(preexisting))
+    before_target = (_path_metadata(target), _path_metadata(sentinel), sentinel.read_bytes())
+
+    captured = _prepare_until_controlled_failure(config, monkeypatch)
+
+    assert preexisting.is_symlink()
+    assert (_path_metadata(preexisting), os.readlink(preexisting)) == before_link
+    assert (
+        _path_metadata(target),
+        _path_metadata(sentinel),
+        sentinel.read_bytes(),
+    ) == before_target
+    assert len(captured) == 1
+    assert captured[0] != preexisting
+
+
+def test_current_authority_cleans_exclusively_created_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = _authority_shaped_config(tmp_path)
+
+    captured = _prepare_until_controlled_failure(config, monkeypatch)
+
+    assert len(captured) == 1
+    assert captured[0].name.startswith(".pdf-ocr-current-authority-")
+    assert not captured[0].exists()
+    assert not captured[0].is_symlink()
+
+
+def test_current_authority_cleanup_rejects_symlink_replacement_without_following(
+    tmp_path: Path,
+) -> None:
+    owned_path = tmp_path / ".pdf-ocr-current-authority-owned"
+    owned_path.mkdir()
+    metadata = owned_path.lstat()
+    owned = runner._OwnedAuthorityRoot(owned_path, metadata.st_dev, metadata.st_ino)
+    original = tmp_path / "displaced-owned-root"
+    os.replace(owned_path, original)
+    target = tmp_path / "operator-target"
+    target.mkdir(mode=0o750)
+    sentinel = target / "sentinel"
+    sentinel.write_bytes(b"do not follow\n")
+    owned_path.symlink_to(target, target_is_directory=True)
+    before_link = (_path_metadata(owned_path), os.readlink(owned_path))
+    before_target = (_path_metadata(target), _path_metadata(sentinel), sentinel.read_bytes())
+
+    with pytest.raises(runner.Phase0RunnerError, match="cleanup_failed"):
+        runner._cleanup_authority_root(owned)
+
+    assert original.is_dir()
+    assert owned_path.is_symlink()
+    assert (_path_metadata(owned_path), os.readlink(owned_path)) == before_link
+    assert (
+        _path_metadata(target),
+        _path_metadata(sentinel),
+        sentinel.read_bytes(),
+    ) == before_target
+
+
+def test_current_authority_cleanup_rejects_directory_replacement(
+    tmp_path: Path,
+) -> None:
+    owned_path = tmp_path / ".pdf-ocr-current-authority-owned"
+    owned_path.mkdir()
+    metadata = owned_path.lstat()
+    owned = runner._OwnedAuthorityRoot(owned_path, metadata.st_dev, metadata.st_ino)
+    original = tmp_path / "displaced-owned-root"
+    os.replace(owned_path, original)
+    replacement = owned_path
+    replacement.mkdir(mode=0o750)
+    sentinel = replacement / "operator-owned-sentinel"
+    sentinel.write_bytes(b"replacement authority\n")
+    before = (_path_metadata(replacement), _path_metadata(sentinel), sentinel.read_bytes())
+
+    with pytest.raises(runner.Phase0RunnerError, match="cleanup_failed"):
+        runner._cleanup_authority_root(owned)
+
+    assert original.is_dir()
+    assert (_path_metadata(replacement), _path_metadata(sentinel), sentinel.read_bytes()) == before
+
+
+def test_current_authority_cleanup_revalidates_after_descriptor_content_removal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    owned_path = tmp_path / ".pdf-ocr-current-authority-owned"
+    owned_path.mkdir()
+    (owned_path / "owned-state").write_bytes(b"call-owned\n")
+    metadata = owned_path.lstat()
+    owned = runner._OwnedAuthorityRoot(owned_path, metadata.st_dev, metadata.st_ino)
+    displaced = tmp_path / "displaced-owned-root"
+    real_remove_contents = runner._remove_owned_authority_contents
+
+    def swap_after_content_removal(descriptor: int) -> None:
+        real_remove_contents(descriptor)
+        os.replace(owned_path, displaced)
+        owned_path.mkdir(mode=0o750)
+        (owned_path / "operator-owned-sentinel").write_bytes(b"operator replacement\n")
+
+    monkeypatch.setattr(runner, "_remove_owned_authority_contents", swap_after_content_removal)
+
+    with pytest.raises(runner.Phase0RunnerError, match="cleanup_failed"):
+        runner._cleanup_authority_root(owned)
+
+    assert displaced.is_dir()
+    assert (owned_path / "operator-owned-sentinel").read_bytes() == b"operator replacement\n"
+
+
+def test_current_authority_final_removal_is_bound_to_owned_inode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if not Path("/.vol").is_dir():
+        pytest.skip("inode-addressed directory removal is a macOS authority boundary")
+    owned_path = tmp_path / ".pdf-ocr-current-authority-owned"
+    owned_path.mkdir()
+    (owned_path / "owned-state").write_bytes(b"call-owned\n")
+    metadata = owned_path.lstat()
+    owned = runner._OwnedAuthorityRoot(owned_path, metadata.st_dev, metadata.st_ino)
+    displaced = tmp_path / "displaced-owned-root"
+    replacement_metadata: list[tuple[int, int, int, int, int, int]] = []
+    real_rmdir = runner.os.rmdir
+    swapped = False
+
+    def swap_at_final_removal(
+        path: str | bytes | os.PathLike[str] | os.PathLike[bytes], *, dir_fd: int | None = None
+    ) -> None:
+        nonlocal swapped
+        if not swapped:
+            swapped = True
+            os.replace(owned_path, displaced)
+            owned_path.mkdir(mode=0o750)
+            replacement_metadata.append(_path_metadata(owned_path))
+        real_rmdir(path, dir_fd=dir_fd)
+
+    monkeypatch.setattr(runner.os, "rmdir", swap_at_final_removal)
+
+    with pytest.raises(runner.Phase0RunnerError, match="cleanup_failed"):
+        runner._cleanup_authority_root(owned)
+
+    assert swapped
+    assert _path_metadata(owned_path) == replacement_metadata[0]
+    assert not displaced.exists()
+
+
+def test_current_authority_cleanup_failure_blocks_scorecard_publication(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = _controller_config(tmp_path)
+    config.output.write_bytes(b"prior authority\n")
+    owned_path = tmp_path / ".pdf-ocr-current-authority-owned"
+    owned_path.mkdir()
+    metadata = owned_path.lstat()
+    owned = runner._OwnedAuthorityRoot(owned_path, metadata.st_dev, metadata.st_ino)
+    apple_path = owned_path / "apple-vision-child"
+    apple_path.write_bytes(b"compiled child")
+    apple_path.chmod(0o500)
+    apple = runner._bind_apple_child(apple_path)
+    monkeypatch.setattr(runner, "_load_controller_inputs", lambda _config: (object(), object()))
+    monkeypatch.setattr(
+        runner,
+        "_prepare_current_run_authority",
+        lambda _config, _authority: (_config, apple, owned),
+    )
+    monkeypatch.setattr(
+        runner,
+        "_evaluate_phase0_scorecard",
+        lambda *_args, **_kwargs: _scorecard(),
+    )
+    def fail_authority_cleanup(_descriptor: int) -> None:
+        raise OSError("controlled authority cleanup failure")
+
+    monkeypatch.setattr(runner, "_remove_owned_authority_contents", fail_authority_cleanup)
+
+    with pytest.raises(runner.Phase0RunnerError, match="cleanup_failed"):
+        run_phase0_scorecard(config)
+
+    assert config.output.read_bytes() == b"prior authority\n"
 
 
 def test_public_authority_rejects_unsandboxed_commands_before_owned_writes(
