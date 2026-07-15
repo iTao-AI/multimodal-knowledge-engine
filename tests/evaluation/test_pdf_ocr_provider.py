@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import time
+from collections.abc import Callable
 from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,21 +15,27 @@ import pytest
 
 from mke.adapters.video.process import ActiveProcessController, ProcessOperationId
 from mke.evaluation.pdf_ocr_paddle_vl import PdfOcrChildError as PaddleVlChildError
-from mke.evaluation.pdf_ocr_paddle_vl import _plain_text, _read_vendor_artifacts
+from mke.evaluation.pdf_ocr_paddle_vl import (
+    _plain_text,  # pyright: ignore[reportPrivateUsage]
+    _read_vendor_artifacts,  # pyright: ignore[reportPrivateUsage]
+)
 from mke.evaluation.pdf_ocr_paddle_vl import recognize as recognize_paddle_vl
 from mke.evaluation.pdf_ocr_ppocrv6 import PdfOcrChildError as PpOcrChildError
-from mke.evaluation.pdf_ocr_ppocrv6 import _text
+from mke.evaluation.pdf_ocr_ppocrv6 import _text  # pyright: ignore[reportPrivateUsage]
 from mke.evaluation.pdf_ocr_ppocrv6 import recognize as recognize_ppocrv6
 from mke.evaluation.pdf_ocr_provider import (
+    OcrEvalPageResult,
     PdfOcrProviderError,
     ProviderCommand,
-    _normalize_line_join,
+    _normalize_line_join,  # pyright: ignore[reportPrivateUsage]
     run_provider,
 )
 
 PROVIDER = "ppocrv6-medium-cpu-spike-v1"
 PROFILE = "phase0-200dpi-plain-text-v1"
 FIXTURE_IMAGE = Path("tests/fixtures/pdf-ocr-phase0-v1/documents/english-scan.pdf")
+ResultMutation = Callable[[dict[str, object]], object | None]
+VendorWriter = Callable[[Path, str], None]
 
 
 def _result(
@@ -117,7 +124,7 @@ raise SystemExit({exit_code})
     return command, image, output_root
 
 
-def _run(command: ProviderCommand, image: Path, output_root: Path) -> object:
+def _run(command: ProviderCommand, image: Path, output_root: Path) -> OcrEvalPageResult:
     return run_provider(command, image_path=image, page_number=1, output_root=output_root)
 
 
@@ -139,37 +146,53 @@ def test_fake_child_success_has_closed_project_owned_result(tmp_path: Path) -> N
     assert result.lines[0].box == (0.1, 0.2, 0.4, 0.3)
 
 
+def _add_unexpected(payload: dict[str, object]) -> None:
+    payload.update({"unexpected": True})
+
+
+def _remove_lines(payload: dict[str, object]) -> object:
+    return payload.pop("lines")
+
+
+def _change_page(payload: dict[str, object]) -> None:
+    payload.update({"page_number": 2})
+
+
+def _change_provider(payload: dict[str, object]) -> None:
+    payload.update({"provider": "wrong-provider"})
+
+
+def _set_nan_confidence(payload: dict[str, object]) -> None:
+    cast(list[dict[str, object]], payload["lines"])[0].update(
+        {"confidence": math_nan()}
+    )
+
+
+def _set_invalid_box(payload: dict[str, object]) -> None:
+    cast(list[dict[str, object]], payload["lines"])[0].update(
+        {"box": [-0.1, 0.2, 0.4, 0.3]}
+    )
+
+
+def _change_normalized_text(payload: dict[str, object]) -> None:
+    payload.update({"normalized_text": "different"})
+
+
 @pytest.mark.parametrize(
     ("mutation", "problem"),
     [
-        (lambda payload: payload.update({"unexpected": True}), "pdf_ocr_result_invalid"),
-        (lambda payload: payload.pop("lines"), "pdf_ocr_result_invalid"),
-        (lambda payload: payload.update({"page_number": 2}), "pdf_ocr_result_invalid"),
-        (
-            lambda payload: payload.update({"provider": "wrong-provider"}),
-            "pdf_ocr_result_invalid",
-        ),
-        (
-            lambda payload: cast(list[dict[str, object]], payload["lines"])[0].update(
-                {"confidence": math_nan()}
-            ),
-            "pdf_ocr_result_invalid",
-        ),
-        (
-            lambda payload: cast(list[dict[str, object]], payload["lines"])[0].update(
-                {"box": [-0.1, 0.2, 0.4, 0.3]}
-            ),
-            "pdf_ocr_result_invalid",
-        ),
-        (
-            lambda payload: payload.update({"normalized_text": "different"}),
-            "pdf_ocr_result_invalid",
-        ),
+        (_add_unexpected, "pdf_ocr_result_invalid"),
+        (_remove_lines, "pdf_ocr_result_invalid"),
+        (_change_page, "pdf_ocr_result_invalid"),
+        (_change_provider, "pdf_ocr_result_invalid"),
+        (_set_nan_confidence, "pdf_ocr_result_invalid"),
+        (_set_invalid_box, "pdf_ocr_result_invalid"),
+        (_change_normalized_text, "pdf_ocr_result_invalid"),
     ],
 )
 def test_result_rejects_closed_schema_violations(
     tmp_path: Path,
-    mutation: Any,
+    mutation: ResultMutation,
     problem: str,
 ) -> None:
     payload = _result()
@@ -371,12 +394,12 @@ pathlib.Path(a.output).write_text({payload!r}, encoding='utf-8')
     )
 
     _run(command, image, output_root)
-    observed = json.loads(marker.read_text(encoding="utf-8"))
+    observed = cast(dict[str, object], json.loads(marker.read_text(encoding="utf-8")))
 
     assert observed["canary"] is None
     assert observed["proxy"] is None
     for key in ("home", "tmpdir", "cache"):
-        assert Path(observed[key]).is_relative_to(output_root)
+        assert Path(cast(str, observed[key])).is_relative_to(output_root)
     assert observed["path"]
     assert observed["lang"]
     assert not (output_root / "child-runtime").exists()
@@ -408,11 +431,10 @@ def test_registration_rejection_kills_waits_and_closes_streams(
 
     command, image, output_root = _fake_command(tmp_path, payload=_result())
     process = _FakeProcess()
-    monkeypatch.setattr(
-        pdf_ocr_provider,
-        "_start_process",
-        lambda argv, environment: process,
-    )
+    def start_process(_argv: tuple[str, ...], _environment: dict[str, str]) -> _FakeProcess:
+        return process
+
+    monkeypatch.setattr(pdf_ocr_provider, "_start_process", start_process)
     controller = ActiveProcessController()
 
     with pytest.raises(PdfOcrProviderError, match="pdf_ocr_process_failed"):
@@ -445,7 +467,7 @@ def _prepare_vl_call(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
 def _run_fake_vl(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    writer: Any,
+    writer: VendorWriter,
 ) -> tuple[Path, Path]:
     from mke.evaluation import pdf_ocr_paddle_vl
 
@@ -464,8 +486,13 @@ def _run_fake_vl(
         def predict(self, _input: str) -> list[FakeResult]:
             return [FakeResult()]
 
-    module = SimpleNamespace(PaddleOCRVL=lambda **_kwargs: FakePipeline())
-    monkeypatch.setattr(pdf_ocr_paddle_vl.importlib, "import_module", lambda _name: module)
+    def paddle_ocr_vl(**_kwargs: object) -> FakePipeline:
+        return FakePipeline()
+
+    def import_module(_name: str) -> SimpleNamespace:
+        return SimpleNamespace(PaddleOCRVL=paddle_ocr_vl)
+
+    monkeypatch.setattr(pdf_ocr_paddle_vl.importlib, "import_module", import_module)
     try:
         recognize_paddle_vl(
             input_image=image,

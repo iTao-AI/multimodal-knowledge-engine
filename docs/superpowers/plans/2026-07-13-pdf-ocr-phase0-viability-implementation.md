@@ -24,6 +24,10 @@ completed and accepted at reviewed HEAD
 installed-wheel proof. The selected planning baseline is
 `ppocrv6-medium-cpu-spike-v1` with profile `phase0-200dpi-plain-text-v1`; numeric ceilings remain
 provisional closed-protocol regression and planning budgets rather than production SLAs.
+The post-acceptance strict-typing closure correctly attributed 368 branch-only Pyright errors to
+the four Phase 0 OCR test files, repaired their type expressions without changing authority
+assertions or evidence, and restored the repository's bare strict `uv run pyright` gate to zero
+errors.
 
 **Goal:** Produce reproducible valid-positive or valid-negative evidence for local scanned/mixed-PDF OCR before adding a production runtime contract.
 
@@ -1620,9 +1624,10 @@ Search/Ask/EvidenceRef consumer. Task 6 did not rerun OCR providers or generate 
 aggregate replay passed with blocked network egress, exact portable page EvidenceRef validation,
 and confirmed call-owned cleanup. Focused Task 6 tests passed with `19 passed`; full pytest passed with
 `2006 passed, 5 skipped, 5 warnings`; Ruff, product proof, demo, provenance proofs, release audit,
-and diff checks passed. Full Pyright reports the same pre-existing `368 errors` in both this
-worktree and a neutral detached worktree at
-`f29730eb4433d08a9a0d00bb5a86584a577dd469`; focused Task 6 Pyright passed with `0 errors`.
+and diff checks passed. A later PR-gate audit established that the 368 full-Pyright errors were
+branch-owned test typing failures rather than a main baseline. The bounded strict-typing closure
+kept all test authority assertions and evidence bytes unchanged and brought bare `uv run pyright`
+to `0 errors, 0 warnings, 0 informations`.
 The Phase 0 `GO`, selected provider, and selected profile are accepted only as the baseline for a
 separate production plan. Numeric ceilings remain provisional closed-protocol budgets. A final
 installed-wheel real OCR ingest and a representative corpus remain mandatory before any public OCR

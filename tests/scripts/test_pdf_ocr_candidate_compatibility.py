@@ -9,9 +9,30 @@ import subprocess
 import sys
 import time
 import zipfile
+from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
+
+JsonObject = dict[str, object]
+
+
+def _as_object(value: object) -> JsonObject:
+    assert isinstance(value, dict)
+    return cast(JsonObject, value)
+
+
+def _as_objects(value: object) -> list[JsonObject]:
+    assert isinstance(value, list)
+    items = cast(list[object], value)
+    assert all(isinstance(item, dict) for item in items)
+    return cast(list[JsonObject], value)
+
+
+def _as_list(value: object) -> list[object]:
+    assert isinstance(value, list)
+    return cast(list[object], value)
 
 
 def _module():
@@ -88,7 +109,7 @@ def test_mke_wheel_filename_parser_rejects_unsafe_or_ambiguous_names(filename: s
     compatibility = _module()
 
     with pytest.raises(ValueError, match="wheel"):
-        compatibility._parse_mke_wheel_filename(filename)
+        compatibility._parse_mke_wheel_filename(filename)  # pyright: ignore[reportPrivateUsage]
 
 
 def test_generation_wheel_binds_filename_metadata_and_project_version(tmp_path: Path) -> None:
@@ -99,7 +120,9 @@ def test_generation_wheel_binds_filename_metadata_and_project_version(tmp_path: 
     wheel = tmp_path / "multimodal_knowledge_engine-0.1.2-py3-none-any.whl"
     _write_mke_wheel(wheel, "0.1.2")
 
-    authority = compatibility._validate_generation_wheel(repository, wheel)
+    authority = compatibility._validate_generation_wheel(  # pyright: ignore[reportPrivateUsage]
+        repository, wheel
+    )
 
     assert authority.version == "0.1.2"
     assert authority.filename == wheel.name
@@ -130,7 +153,9 @@ def test_generation_wheel_rejects_filename_metadata_or_project_drift(
     _write_mke_wheel(wheel, filename_version, metadata_version=metadata_version)
 
     with pytest.raises(compatibility.CompatibilityError, match="input_invalid"):
-        compatibility._validate_generation_wheel(repository, wheel)
+        compatibility._validate_generation_wheel(  # pyright: ignore[reportPrivateUsage]
+            repository, wheel
+        )
 
 
 def test_historical_receipt_remains_self_consistent_on_newer_checkout() -> None:
@@ -152,36 +177,28 @@ def test_historical_receipt_remains_self_consistent_on_newer_checkout() -> None:
 def test_receipt_validator_rejects_mke_authority_drift(drift: str) -> None:
     compatibility = _module()
     receipt = _receipt()
-    candidates = receipt["candidates"]
-    assert isinstance(candidates, list)
-    first = candidates[0]
-    second = candidates[1]
-    assert isinstance(first, dict) and isinstance(second, dict)
-    first_inventory = first["distributions"]
-    second_inventory = second["distributions"]
-    assert isinstance(first_inventory, list) and isinstance(second_inventory, list)
+    candidates = _as_objects(receipt["candidates"])
+    first, second = candidates
+    first_inventory = _as_objects(first["distributions"])
+    second_inventory = _as_objects(second["distributions"])
     if drift == "missing-mke":
         first_inventory.pop(0)
         first["download_bytes"] = 7
     elif drift == "duplicate-mke":
         duplicate = copy.deepcopy(first_inventory[0])
-        assert isinstance(duplicate, dict)
+        duplicate = _as_object(duplicate)
         duplicate["filename"] = "multimodal_knowledge_engine-0.1.2-py3-none-any.whl"
         first_inventory.append(duplicate)
         first["download_bytes"] = 29
     elif drift == "cross-filename":
-        assert isinstance(second_inventory[0], dict)
         second_inventory[0]["filename"] = (
             "multimodal_knowledge_engine-0.1.2-py3-none-any.whl"
         )
     elif drift == "cross-digest":
-        assert isinstance(second_inventory[0], dict)
         second_inventory[0]["sha256"] = "c" * 64
     else:
-        cells = first["cells"]
-        assert isinstance(cells, list) and isinstance(cells[0], dict)
-        versions = cells[0]["package_versions"]
-        assert isinstance(versions, dict)
+        cells = _as_objects(first["cells"])
+        versions = _as_object(cells[0]["package_versions"])
         versions["multimodal-knowledge-engine"] = "0.1.2"
 
     with pytest.raises(ValueError, match="receipt"):
@@ -191,11 +208,8 @@ def test_receipt_validator_rejects_mke_authority_drift(drift: str) -> None:
 def test_receipt_rejects_invalid_tag_mke_like_distribution() -> None:
     compatibility = _module()
     receipt = _receipt()
-    candidates = receipt["candidates"]
-    assert isinstance(candidates, list) and isinstance(candidates[0], dict)
-    candidate = candidates[0]
-    inventory = candidate["distributions"]
-    assert isinstance(inventory, list)
+    candidate = _as_objects(receipt["candidates"])[0]
+    inventory = _as_objects(candidate["distributions"])
     rogue = {
         "filename": (
             "multimodal_knowledge_engine-0.1.1-"
@@ -204,8 +218,8 @@ def test_receipt_rejects_invalid_tag_mke_like_distribution() -> None:
         "sha256": "d" * 64,
         "bytes": 13,
     }
-    inventory.append(rogue)
-    candidate["download_bytes"] = sum(item["bytes"] for item in inventory)
+    inventory.append(cast(JsonObject, rogue))
+    candidate["download_bytes"] = sum(cast(int, item["bytes"]) for item in inventory)
 
     with pytest.raises(ValueError, match="receipt"):
         compatibility.validate_receipt(receipt)
@@ -423,7 +437,7 @@ def test_prepared_wheelhouse_rebind_rejects_source_mutation_during_copy(
     new_wheel = tmp_path / "multimodal_knowledge_engine-0.1.2-py3-none-any.whl"
     _write_mke_wheel(new_wheel, "0.1.2")
     target = retained / "ppocrv6-medium-cpu-spike-v1/third_party_0-1.0-py3-none-any.whl"
-    original = compatibility._copy_regular_wheel
+    original = compatibility._copy_regular_wheel  # pyright: ignore[reportPrivateUsage]
     mutated = False
 
     def mutate_after_copy(source: Path, output: Path):
@@ -456,7 +470,11 @@ def test_prepared_wheelhouse_rebind_rejects_path_replacement_before_open(
     original_open = compatibility.os.open
     replaced = False
 
-    def replace_before_open(path, flags, mode=0o777):
+    def replace_before_open(
+        path: str | os.PathLike[str],
+        flags: int,
+        mode: int = 0o777,
+    ) -> int:
         nonlocal replaced
         if Path(path) == target and flags & os.O_WRONLY == 0 and not replaced:
             replacement = target.with_name(".replacement.whl")
@@ -664,12 +682,8 @@ def test_receipt_validator_requires_closed_public_sixteen_cell_evidence() -> Non
     with pytest.raises(ValueError, match="receipt"):
         compatibility.validate_receipt(extra)
     missing = copy.deepcopy(receipt)
-    candidates = missing["candidates"]
-    assert isinstance(candidates, list)
-    candidate = candidates[0]
-    assert isinstance(candidate, dict)
-    cells = candidate["cells"]
-    assert isinstance(cells, list)
+    candidate = _as_objects(missing["candidates"])[0]
+    cells = _as_list(candidate["cells"])
     cells.pop()
     with pytest.raises(ValueError, match="receipt"):
         compatibility.validate_receipt(missing)
@@ -678,17 +692,14 @@ def test_receipt_validator_requires_closed_public_sixteen_cell_evidence() -> Non
 def test_receipt_validator_rejects_drifted_pins_and_failed_cell_contract() -> None:
     compatibility = _module()
     drifted = _receipt()
-    candidates = drifted["candidates"]
-    assert isinstance(candidates, list) and isinstance(candidates[0], dict)
+    candidates = _as_objects(drifted["candidates"])
     candidates[0]["pins"] = ["paddleocr==3.7.1", "paddlepaddle==3.3.1"]
     with pytest.raises(ValueError, match="receipt"):
         compatibility.validate_receipt(drifted)
 
     failed = _receipt()
-    failed_candidates = failed["candidates"]
-    assert isinstance(failed_candidates, list) and isinstance(failed_candidates[0], dict)
-    cells = failed_candidates[0]["cells"]
-    assert isinstance(cells, list) and isinstance(cells[0], dict)
+    failed_candidates = _as_objects(failed["candidates"])
+    cells = _as_objects(failed_candidates[0]["cells"])
     cells[0]["result"] = "resolver_failed"
     cells[0]["failure_code"] = None
     cells[0]["package_versions"] = {}
@@ -699,8 +710,7 @@ def test_receipt_validator_rejects_drifted_pins_and_failed_cell_contract() -> No
 def test_receipt_validator_rejects_download_byte_drift() -> None:
     compatibility = _module()
     receipt = _receipt()
-    candidates = receipt["candidates"]
-    assert isinstance(candidates, list) and isinstance(candidates[0], dict)
+    candidates = _as_objects(receipt["candidates"])
     candidates[0]["download_bytes"] = 19
 
     with pytest.raises(ValueError, match="receipt"):
@@ -710,8 +720,7 @@ def test_receipt_validator_rejects_download_byte_drift() -> None:
 def test_receipt_validator_rejects_empty_successful_inventory() -> None:
     compatibility = _module()
     receipt = _receipt()
-    candidates = receipt["candidates"]
-    assert isinstance(candidates, list) and isinstance(candidates[0], dict)
+    candidates = _as_objects(receipt["candidates"])
     candidates[0]["distributions"] = []
     candidates[0]["download_bytes"] = 0
 
@@ -737,18 +746,19 @@ def test_all_resolver_failed_candidate_emits_mke_only_valid_receipt(
     wheelhouse = tmp_path / "wheelhouse"
     wheelhouse.mkdir()
 
-    compatibility._bind_candidate_mke_wheel(wheel, wheelhouse, seed=True)
+    compatibility._bind_candidate_mke_wheel(  # pyright: ignore[reportPrivateUsage]
+        wheel, wheelhouse, seed=True
+    )
 
-    distributions = compatibility._distribution_receipts(wheelhouse)
+    distributions = compatibility._distribution_receipts(  # pyright: ignore[reportPrivateUsage]
+        wheelhouse
+    )
     digest = hashlib.sha256(wheel.read_bytes()).hexdigest()
     receipt = _receipt()
     receipt["mke_wheel_sha256"] = digest
-    candidates = receipt["candidates"]
-    assert isinstance(candidates, list)
+    candidates = _as_objects(receipt["candidates"])
     for candidate in candidates:
-        assert isinstance(candidate, dict)
-        inventory = candidate["distributions"]
-        assert isinstance(inventory, list)
+        inventory = _as_objects(candidate["distributions"])
         mke = next(
             item
             for item in inventory
@@ -756,15 +766,14 @@ def test_all_resolver_failed_candidate_emits_mke_only_valid_receipt(
         )
         mke["sha256"] = digest
         mke["bytes"] = wheel.stat().st_size
-        candidate["download_bytes"] = sum(item["bytes"] for item in inventory)
+        candidate["download_bytes"] = sum(
+            cast(int, item["bytes"]) for item in inventory
+        )
     failed = candidates[0]
-    assert isinstance(failed, dict)
     failed["distributions"] = distributions
     failed["download_bytes"] = wheel.stat().st_size
-    cells = failed["cells"]
-    assert isinstance(cells, list)
+    cells = _as_objects(failed["cells"])
     for cell in cells:
-        assert isinstance(cell, dict)
         cell["result"] = "resolver_failed"
         cell["failure_code"] = "resolver_unavailable"
         cell["package_versions"] = {}
@@ -794,7 +803,9 @@ def test_candidate_mke_seed_rejects_collision_without_overwrite(tmp_path: Path) 
     collision.write_bytes(b"drifted")
 
     with pytest.raises(compatibility.CompatibilityError) as error:
-        compatibility._bind_candidate_mke_wheel(wheel, wheelhouse, seed=True)
+        compatibility._bind_candidate_mke_wheel(  # pyright: ignore[reportPrivateUsage]
+            wheel, wheelhouse, seed=True
+        )
 
     assert error.value.code == "distribution_identity_drift"
     assert collision.read_bytes() == b"drifted"
@@ -810,13 +821,15 @@ def test_prepared_wheelhouse_missing_mke_identity_fails_without_write(
     wheelhouse.mkdir()
 
     with pytest.raises(compatibility.CompatibilityError) as error:
-        compatibility._bind_candidate_mke_wheel(wheel, wheelhouse, seed=False)
+        compatibility._bind_candidate_mke_wheel(  # pyright: ignore[reportPrivateUsage]
+            wheel, wheelhouse, seed=False
+        )
 
     assert error.value.code == "prepared_wheelhouses_invalid"
     assert tuple(wheelhouse.iterdir()) == ()
 
 
-def _controller_inputs(tmp_path: Path):
+def _controller_inputs(tmp_path: Path) -> tuple[Any, Path, Path, Path, Path]:
     compatibility = _module()
     repository = tmp_path / "repository"
     repository.mkdir()
@@ -830,7 +843,11 @@ def _controller_inputs(tmp_path: Path):
     return compatibility, repository, wheel, python312, python313
 
 
-def _fake_controller_command(compatibility, command, **_kwargs):
+def _fake_controller_command(
+    compatibility: Any,
+    command: Sequence[str],
+    **_kwargs: object,
+) -> Any:
     if "-I" in command:
         minor = "3.12" if str(command[0]).endswith("python312") else "3.13"
         version = minor + (".13" if minor == "3.12" else ".12")
@@ -893,15 +910,22 @@ def test_controller_emits_valid_negative_when_all_resolvers_fail(
 ) -> None:
     compatibility, repository, wheel, python312, python313 = _controller_inputs(tmp_path)
     output = repository / "benchmarks/ocr/candidate-environments.json"
+
+    def fake_run(command: Sequence[str], **kwargs: object) -> Any:
+        return _fake_controller_command(compatibility, command, **kwargs)
+
+    def fail_offline(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("resolver-failed cells must not run offline replay")
+
     monkeypatch.setattr(
         compatibility,
         "run_bounded",
-        lambda command, **kwargs: _fake_controller_command(compatibility, command, **kwargs),
+        fake_run,
     )
     monkeypatch.setattr(
         compatibility,
         "_run_offline_cell",
-        lambda *_args, **_kwargs: pytest.fail("resolver-failed cells must not run offline replay"),
+        fail_offline,
     )
 
     receipt = compatibility.run_package_matrix(
@@ -918,8 +942,8 @@ def test_controller_emits_valid_negative_when_all_resolvers_fail(
 
     digest = hashlib.sha256(wheel.read_bytes()).hexdigest()
     assert receipt["mke_wheel_sha256"] == digest
-    candidates = receipt["candidates"]
-    assert isinstance(candidates, list) and len(candidates) == 2
+    candidates = _as_objects(receipt["candidates"])
+    assert len(candidates) == 2
     for candidate in candidates:
         assert candidate["distributions"] == [
             {
@@ -929,7 +953,7 @@ def test_controller_emits_valid_negative_when_all_resolvers_fail(
             }
         ]
         assert candidate["download_bytes"] == wheel.stat().st_size
-        cells = candidate["cells"]
+        cells = _as_objects(candidate["cells"])
         assert len(cells) == 8
         assert {cell["result"] for cell in cells} == {"resolver_failed"}
         assert {cell["failure_code"] for cell in cells} == {"resolver_unavailable"}
@@ -953,10 +977,14 @@ def test_controller_rejects_prepared_mke_identity_without_mutating_evidence(
         first_candidate = next(iter(compatibility.CANDIDATES))
         (prepared / first_candidate / wheel.name).write_bytes(b"drifted")
     before = _tree_snapshot(prepared)
+
+    def fake_run(command: Sequence[str], **kwargs: object) -> Any:
+        return _fake_controller_command(compatibility, command, **kwargs)
+
     monkeypatch.setattr(
         compatibility,
         "run_bounded",
-        lambda command, **kwargs: _fake_controller_command(compatibility, command, **kwargs),
+        fake_run,
     )
 
     with pytest.raises(compatibility.CompatibilityError) as error:
@@ -1050,7 +1078,7 @@ def test_installed_identity_accepts_venv_interpreter_symlink(tmp_path: Path) -> 
     base_executable.write_text("", encoding="utf-8")
     executable.symlink_to(base_executable)
 
-    assert compatibility._valid_installed_identity(
+    assert compatibility._valid_installed_identity(  # pyright: ignore[reportPrivateUsage]
         {
             "mke_file": str(module),
             "sys_executable": str(executable),
@@ -1106,13 +1134,12 @@ def test_committed_receipt_is_canonical_closed_and_frozen() -> None:
         frozen_sha256="d2232fcbd6775a9f03fa3d2a77b181987b5cfa43c9fdc1efcb48f08f01553d2a",
     )
 
-    candidates = receipt["candidates"]
-    assert isinstance(candidates, list)
+    candidates = _as_objects(receipt["candidates"])
     assert {candidate["candidate"] for candidate in candidates} == {
         "paddleocr-vl-1.6-cpu-spike-v1",
         "ppocrv6-medium-cpu-spike-v1",
     }
-    cells = [cell for candidate in candidates for cell in candidate["cells"]]
+    cells = [cell for candidate in candidates for cell in _as_objects(candidate["cells"])]
     assert len(cells) == 16
     assert {cell["result"] for cell in cells} == {"passed"}
     assert {cell["python"] for cell in cells} == {"3.12.13", "3.13.12"}
@@ -1147,13 +1174,19 @@ def test_no_dependency_files_are_modified() -> None:
         assert (root / relative).read_bytes() == committed
 
 
-def _model_metadata(artifact, *, revision=None, license_name=None):
+def _model_metadata(
+    artifact: Any,
+    *,
+    revision: str | None = None,
+    license_name: str | None = None,
+) -> JsonObject:
     return {
         "repository": artifact.repository,
         "revision": revision or artifact.revision,
         "license": license_name or artifact.license,
         "files": [
-            {"path": path, "bytes": size, "sha256": digest} for path, size, digest in artifact.files
+            {"path": path, "bytes": size, "sha256": digest}
+            for path, size, digest in artifact.files
         ],
     }
 
@@ -1220,11 +1253,14 @@ def test_model_metadata_drift_fails_closed(mutation: str) -> None:
     elif mutation == "license":
         metadata["license"] = "unknown"
     elif mutation == "inventory":
-        metadata["files"].append({"path": "unexpected.bin", "bytes": 1, "sha256": "f" * 64})
+        _as_objects(metadata["files"]).append(
+            {"path": "unexpected.bin", "bytes": 1, "sha256": "f" * 64}
+        )
     elif mutation == "bytes":
-        metadata["files"][0]["bytes"] += 1
+        file_receipt = _as_objects(metadata["files"])[0]
+        file_receipt["bytes"] = cast(int, file_receipt["bytes"]) + 1
     else:
-        metadata["files"][0]["sha256"] = "f" * 64
+        _as_objects(metadata["files"])[0]["sha256"] = "f" * 64
 
     with pytest.raises(compatibility.CompatibilityError) as error:
         compatibility.validate_model_metadata(artifact, metadata)
@@ -1257,7 +1293,11 @@ def test_model_prepare_rejects_unsafe_or_incomplete_downloads(
         files=(("model.bin", 4, hashlib.sha256(b"xxxx").hexdigest()),),
     )
 
-    def downloader(_artifact, file_receipt, destination):
+    def downloader(
+        _artifact: Any,
+        file_receipt: tuple[str, int, str],
+        destination: Path,
+    ) -> None:
         if failure == "traversal":
             raise compatibility.CompatibilityError("model_inventory_invalid")
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -1286,7 +1326,7 @@ def test_model_prepare_rejects_unsafe_or_incomplete_downloads(
                 output=tmp_path / "receipt.json",
                 allow_model_download=True,
             ),
-            metadata_loader=lambda value: _model_metadata(value),
+            metadata_loader=_model_metadata,
             downloader=downloader,
         )
 
@@ -1314,7 +1354,11 @@ def test_model_prepare_publishes_content_addressed_public_receipt(
     )
     monkeypatch.setattr(compatibility, "MODEL_ARTIFACTS", (artifact,))
 
-    def downloader(_artifact, _file_receipt, destination):
+    def downloader(
+        _artifact: Any,
+        _file_receipt: tuple[str, int, str],
+        destination: Path,
+    ) -> None:
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(b"model-bytes")
 
@@ -1327,7 +1371,7 @@ def test_model_prepare_publishes_content_addressed_public_receipt(
             output=output,
             allow_model_download=True,
         ),
-        metadata_loader=lambda value: _model_metadata(value),
+        metadata_loader=_model_metadata,
         downloader=downloader,
     )
 
@@ -1363,7 +1407,7 @@ def test_model_prepare_rejects_replacement_after_validation_before_publication(
         files=(("model.bin", len(original), digest),),
     )
     monkeypatch.setattr(compatibility, "MODEL_ARTIFACTS", (artifact,))
-    real_seal = compatibility._make_model_tree_read_only
+    real_seal = compatibility._make_model_tree_read_only  # pyright: ignore[reportPrivateUsage]
     replaced = False
 
     def replace_before_seal(root: Path) -> None:
@@ -1377,7 +1421,11 @@ def test_model_prepare_rejects_replacement_after_validation_before_publication(
 
     monkeypatch.setattr(compatibility, "_make_model_tree_read_only", replace_before_seal)
 
-    def downloader(_artifact, _file_receipt, destination):
+    def downloader(
+        _artifact: Any,
+        _file_receipt: tuple[str, int, str],
+        destination: Path,
+    ) -> None:
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(original)
 
@@ -1391,7 +1439,7 @@ def test_model_prepare_rejects_replacement_after_validation_before_publication(
                 output=output,
                 allow_model_download=True,
             ),
-            metadata_loader=lambda value: _model_metadata(value),
+            metadata_loader=_model_metadata,
             downloader=downloader,
         )
 
@@ -1416,8 +1464,8 @@ def test_model_tree_rejects_same_size_replacement_between_identity_and_receipt_h
     replaced = False
 
     class RacingDigest:
-        def __init__(self, *args, **kwargs) -> None:
-            self._digest = real_sha256(*args, **kwargs)
+        def __init__(self, data: bytes = b"", *, usedforsecurity: bool = True) -> None:
+            self._digest = real_sha256(data, usedforsecurity=usedforsecurity)
 
         def update(self, value: bytes) -> None:
             self._digest.update(value)
@@ -1435,7 +1483,9 @@ def test_model_tree_rejects_same_size_replacement_between_identity_and_receipt_h
     monkeypatch.setattr(compatibility.hashlib, "sha256", RacingDigest)
 
     with pytest.raises(compatibility.CompatibilityError, match="model_artifact_invalid"):
-        compatibility._validated_model_tree(tmp_path, expected)
+        compatibility._validated_model_tree(  # pyright: ignore[reportPrivateUsage]
+            tmp_path, expected
+        )
 
     assert replaced is True
     assert path.read_bytes() == replacement
@@ -1771,13 +1821,18 @@ def test_provider_startup_controller_binds_exact_package_evidence(
     observed_source = source / "src/mke/evaluation/fixtures/paddleocr-vl-1.6-observed.json"
     observed = observed_source.read_text(encoding="utf-8")
     (observed_root / observed_source.name).write_text(observed, encoding="utf-8")
-    package = json.loads((source / "benchmarks/ocr/candidate-environments.json").read_bytes())
-    mke_authority = compatibility._receipt_mke_authority(package)
+    package = _as_object(
+        json.loads((source / "benchmarks/ocr/candidate-environments.json").read_bytes())
+    )
+    package_candidates = _as_objects(package["candidates"])
+    mke_authority = compatibility._receipt_mke_authority(  # pyright: ignore[reportPrivateUsage]
+        package
+    )
     wheel = tmp_path / mke_authority.filename
     wheel.write_bytes(b"current reviewed MKE wheel")
     wheel_digest = hashlib.sha256(wheel.read_bytes()).hexdigest()
     package["mke_wheel_sha256"] = wheel_digest
-    for candidate in package["candidates"]:
+    for candidate in package_candidates:
         candidate["distributions"] = [
             {
                 "filename": wheel.name,
@@ -1809,17 +1864,28 @@ def test_provider_startup_controller_binds_exact_package_evidence(
     apple.write_text("binary", encoding="utf-8")
     python = tmp_path / "python3.13"
     python.write_text("binary", encoding="utf-8")
-    monkeypatch.setattr(compatibility, "_revalidate_sealed_model_tree", lambda *_args: None)
+    def skip_model_revalidation(*_args: object) -> None:
+        return None
+
+    monkeypatch.setattr(
+        compatibility, "_revalidate_sealed_model_tree", skip_model_revalidation
+    )
     calls: list[tuple[tuple[str, ...], dict[str, str]]] = []
     expected_cell = next(
         cell
-        for candidate in package["candidates"]
+        for candidate in package_candidates
         if candidate["candidate"] == "paddleocr-vl-1.6-cpu-spike-v1"
-        for cell in candidate["cells"]
+        for cell in _as_objects(candidate["cells"])
         if cell["python"] == "3.13.12" and cell["surface"] == "base"
     )
+    expected_packages = cast(dict[str, str], expected_cell["package_versions"])
 
-    def fake_run(command, *, env, **_kwargs):
+    def fake_run(
+        command: Sequence[str],
+        *,
+        env: Mapping[str, str],
+        **_kwargs: object,
+    ) -> Any:
         command = tuple(command)
         calls.append((command, dict(env)))
         if command[1:3] == ("-m", "venv"):
@@ -1848,16 +1914,16 @@ def test_provider_startup_controller_binds_exact_package_evidence(
                 "vendor_fixture_sha256": hashlib.sha256(observed.encode()).hexdigest(),
                 "vendor_fixture_text": observed,
                 "package_versions": (
-                    {**expected_cell["package_versions"], "paddleocr": "3.6.0"}
+                    {**expected_packages, "paddleocr": "3.6.0"}
                     if wheelhouse_drift == "installed-drift"
-                    else expected_cell["package_versions"]
+                    else expected_packages
                 ),
             }
             return compatibility.CommandResult(0, json.dumps(payload).encode(), b"")
         if "platform.python_version" in command[-1]:
             payload = {"executable": str(python), "version": "3.13.12", "minor": "3.13"}
             return compatibility.CommandResult(0, json.dumps(payload).encode(), b"")
-        if command[-8] == compatibility._INSTALLED_PROVIDER_STARTUP_PROOF:
+        if command[-8] == compatibility._INSTALLED_PROVIDER_STARTUP_PROOF:  # pyright: ignore[reportPrivateUsage]
             text_digest = hashlib.sha256(
                 b"Aurora station uses amber seals for verified cargo."
             ).hexdigest()
@@ -1899,11 +1965,15 @@ def test_provider_startup_controller_binds_exact_package_evidence(
         staging_root=tmp_path / "startup",
         output=benchmark_root / "provider-startup.json",
     )
+    replaced = False
     if wheelhouse_drift == "replaced":
         original_open = compatibility.os.open
-        replaced = False
 
-        def replace_before_open(path, flags, mode=0o777):
+        def replace_before_open(
+            path: str | os.PathLike[str],
+            flags: int,
+            mode: int = 0o777,
+        ) -> int:
             nonlocal replaced
             target = wheelhouse / wheel.name
             if Path(path) == target and not replaced:
@@ -1987,12 +2057,16 @@ def test_provider_startup_controller_binds_exact_package_evidence(
                 raise OSError("synthetic receipt replace failure")
             original_replace(source_path, destination_path)
 
-        def fail_temporary_unlink(path: Path, *args, **kwargs) -> None:
+        def fail_temporary_unlink(
+            path: Path,
+            *,
+            missing_ok: bool = False,
+        ) -> None:
             nonlocal temporary_unlink_attempted
             if path == temporary:
                 temporary_unlink_attempted = True
                 raise OSError("synthetic temporary unlink failure")
-            original_unlink(path, *args, **kwargs)
+            original_unlink(path, missing_ok=missing_ok)
 
         original_rmtree = compatibility.shutil.rmtree
 
@@ -2024,19 +2098,22 @@ def test_provider_startup_controller_binds_exact_package_evidence(
     receipt = compatibility.run_provider_startup(config)
 
     compatibility.validate_provider_startup_authority(repository, receipt)
-    assert receipt["runtime"]["mke_wheel_sha256"] == wheel_digest
-    assert receipt["runtime"]["module_origin"] == "installed-environment"
-    assert receipt["runtime"]["candidate"] == "paddleocr-vl-1.6-cpu-spike-v1"
-    assert receipt["runtime"]["surface"] == "base"
-    assert receipt["runtime"]["python"] == "3.13.12"
-    assert receipt["runtime"]["wheelhouse_sha256"] == compatibility.canonical_sha256(
-        package["candidates"][1]["distributions"]
+    runtime = _as_object(receipt["runtime"])
+    assert runtime["mke_wheel_sha256"] == wheel_digest
+    assert runtime["module_origin"] == "installed-environment"
+    assert runtime["candidate"] == "paddleocr-vl-1.6-cpu-spike-v1"
+    assert runtime["surface"] == "base"
+    assert runtime["python"] == "3.13.12"
+    assert runtime["wheelhouse_sha256"] == compatibility.canonical_sha256(
+        package_candidates[1]["distributions"]
     )
-    assert receipt["runtime"]["installed_packages_sha256"] == compatibility.canonical_sha256(
-        expected_cell["package_versions"]
+    assert runtime["installed_packages_sha256"] == compatibility.canonical_sha256(
+        expected_packages
     )
-    assert receipt["providers"][1]["vendor_artifacts"] is None
-    assert receipt["observed_vendor_fixture"]["provenance"] == (
+    providers = _as_objects(receipt["providers"])
+    assert providers[1]["vendor_artifacts"] is None
+    observed_fixture = _as_object(receipt["observed_vendor_fixture"])
+    assert observed_fixture["provenance"] == (
         "retained-authorized-observation"
     )
     assert (benchmark_root / "provider-startup.json").read_bytes() == (
@@ -2047,7 +2124,7 @@ def test_provider_startup_controller_binds_exact_package_evidence(
     proof_commands = [
         command
         for command, _ in calls
-        if compatibility._INSTALLED_PROVIDER_STARTUP_PROOF in command
+        if compatibility._INSTALLED_PROVIDER_STARTUP_PROOF in command  # pyright: ignore[reportPrivateUsage]
     ]
     assert len(proof_commands) == 1
     assert proof_commands[0][0].endswith("/venv/bin/python")
@@ -2098,7 +2175,7 @@ def test_provider_startup_controller_fixture_accepts_self_consistent_receipt_ver
 
 def test_provider_runtime_doctor_matches_package_cell_import_boundary() -> None:
     compatibility = _module()
-    program = compatibility._PROVIDER_RUNTIME_DOCTOR
+    program = compatibility._PROVIDER_RUNTIME_DOCTOR  # pyright: ignore[reportPrivateUsage]
 
     paddle_import = program.index('importlib.import_module("paddle")')
     paddleocr_import = program.index('importlib.import_module("paddleocr")')

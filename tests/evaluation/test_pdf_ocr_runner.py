@@ -7,8 +7,10 @@ import math
 import os
 import subprocess
 import zipfile
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -44,6 +46,50 @@ SCORECARD_SHA256 = "b84720bd33999ad333e3ac5105b7abd996ab910b3c9cd458f6c43e66fa70
 PACKAGE_RECEIPT = Path("benchmarks/ocr/candidate-environments.json")
 MODEL_RECEIPT = Path("benchmarks/ocr/model-artifacts.json")
 STARTUP_RECEIPT = Path("benchmarks/ocr/provider-startup.json")
+JsonObject = dict[str, object]
+JsonMutation = Callable[[JsonObject], object | None]
+
+
+def _as_object(value: object) -> JsonObject:
+    assert isinstance(value, dict)
+    return cast(JsonObject, value)
+
+
+def _as_objects(value: object) -> list[JsonObject]:
+    items = _as_list(value)
+    assert all(isinstance(item, dict) for item in items)
+    return cast(list[JsonObject], items)
+
+
+def _as_list(value: object) -> list[object]:
+    assert isinstance(value, list)
+    return cast(list[object], value)
+
+
+def _candidate(payload: JsonObject, index: int) -> JsonObject:
+    return _as_objects(payload["candidates"])[index]
+
+
+def _binding(payload: JsonObject, index: int) -> JsonObject:
+    return _as_objects(payload["extractor_identities"])[index]
+
+
+def _nested(mapping: JsonObject, *keys: str) -> JsonObject:
+    current = mapping
+    for key in keys:
+        current = _as_object(current[key])
+    return current
+
+
+def _completed_doctor(
+    doctor: JsonObject,
+) -> Callable[..., subprocess.CompletedProcess[bytes]]:
+    def run(
+        argv: tuple[str, ...], **_kwargs: object
+    ) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.CompletedProcess(argv, 0, json.dumps(doctor).encode(), b"")
+
+    return run
 
 
 def _identity() -> dict[str, object]:
@@ -218,7 +264,11 @@ def _authority_shaped_config(tmp_path: Path) -> Phase0RunnerConfig:
             CandidateRunConfig(
                 provider="apple-vision-local-v1",
                 command=ProviderCommand(
-                    argv=(*sandbox, runner._APPLE_EXECUTABLE_PLACEHOLDER, *common),
+                    argv=(
+                        *sandbox,
+                        runner._APPLE_EXECUTABLE_PLACEHOLDER,  # pyright: ignore[reportPrivateUsage]
+                        *common,
+                    ),
                     provider="apple-vision-local-v1",
                     profile="phase0-200dpi-plain-text-v1",
                     timeout_seconds=180,
@@ -285,20 +335,26 @@ def _path_metadata(path: Path) -> tuple[int, int, int, int, int, int]:
 def _fail_after_authority_root_creation(
     monkeypatch: pytest.MonkeyPatch, captured_roots: list[Path]
 ) -> None:
-    monkeypatch.setattr(runner, "_run_network_canary", lambda _python: None)
-    monkeypatch.setattr(
-        runner,
-        "_remove_call_owned_mke_bytecode",
-        lambda _prefix, _owned_parent: None,
-    )
-    monkeypatch.setattr(
-        runner,
-        "_validate_installed_runtime",
-        lambda runtime_python, _authority, _home: runtime_python.parent.parent,
-    )
-    monkeypatch.setattr(runner, "_validate_model_root", lambda _components, _receipt: None)
+    def accept_canary(_python: Path) -> None:
+        return None
 
-    def fail_compile(authority_root: Path) -> runner._BoundAppleChild:
+    def accept_bytecode(_prefix: Path, _owned_parent: Path) -> None:
+        return None
+
+    def accept_runtime(runtime_python: Path, _authority: object, _home: Path) -> Path:
+        return runtime_python.parent.parent
+
+    def accept_models(_components: object, _receipt: object) -> None:
+        return None
+
+    monkeypatch.setattr(runner, "_run_network_canary", accept_canary)
+    monkeypatch.setattr(runner, "_remove_call_owned_mke_bytecode", accept_bytecode)
+    monkeypatch.setattr(runner, "_validate_installed_runtime", accept_runtime)
+    monkeypatch.setattr(runner, "_validate_model_root", accept_models)
+
+    def fail_compile(
+        authority_root: Path,
+    ) -> runner._BoundAppleChild:  # pyright: ignore[reportPrivateUsage]
         captured_roots.append(authority_root)
         raise ValueError("controlled post-creation failure")
 
@@ -310,9 +366,11 @@ def _prepare_until_controlled_failure(
 ) -> list[Path]:
     captured_roots: list[Path] = []
     _fail_after_authority_root_creation(monkeypatch, captured_roots)
-    authority = runner._load_runner_authority(config)
+    authority = runner._load_runner_authority(config)  # pyright: ignore[reportPrivateUsage]
     with pytest.raises(runner.Phase0RunnerError, match="current_run_authority_invalid"):
-        runner._prepare_current_run_authority(config, authority)
+        runner._prepare_current_run_authority(  # pyright: ignore[reportPrivateUsage]
+            config, authority
+        )
     return captured_roots
 
 
@@ -397,7 +455,9 @@ def test_current_authority_cleanup_rejects_symlink_replacement_without_following
     owned_path = tmp_path / ".pdf-ocr-current-authority-owned"
     owned_path.mkdir()
     metadata = owned_path.lstat()
-    owned = runner._OwnedAuthorityRoot(owned_path, metadata.st_dev, metadata.st_ino)
+    owned = runner._OwnedAuthorityRoot(  # pyright: ignore[reportPrivateUsage]
+        owned_path, metadata.st_dev, metadata.st_ino
+    )
     original = tmp_path / "displaced-owned-root"
     os.replace(owned_path, original)
     target = tmp_path / "operator-target"
@@ -409,7 +469,7 @@ def test_current_authority_cleanup_rejects_symlink_replacement_without_following
     before_target = (_path_metadata(target), _path_metadata(sentinel), sentinel.read_bytes())
 
     with pytest.raises(runner.Phase0RunnerError, match="cleanup_failed"):
-        runner._cleanup_authority_root(owned)
+        runner._cleanup_authority_root(owned)  # pyright: ignore[reportPrivateUsage]
 
     assert original.is_dir()
     assert owned_path.is_symlink()
@@ -427,7 +487,9 @@ def test_current_authority_cleanup_rejects_directory_replacement(
     owned_path = tmp_path / ".pdf-ocr-current-authority-owned"
     owned_path.mkdir()
     metadata = owned_path.lstat()
-    owned = runner._OwnedAuthorityRoot(owned_path, metadata.st_dev, metadata.st_ino)
+    owned = runner._OwnedAuthorityRoot(  # pyright: ignore[reportPrivateUsage]
+        owned_path, metadata.st_dev, metadata.st_ino
+    )
     original = tmp_path / "displaced-owned-root"
     os.replace(owned_path, original)
     replacement = owned_path
@@ -437,7 +499,7 @@ def test_current_authority_cleanup_rejects_directory_replacement(
     before = (_path_metadata(replacement), _path_metadata(sentinel), sentinel.read_bytes())
 
     with pytest.raises(runner.Phase0RunnerError, match="cleanup_failed"):
-        runner._cleanup_authority_root(owned)
+        runner._cleanup_authority_root(owned)  # pyright: ignore[reportPrivateUsage]
 
     assert original.is_dir()
     assert (_path_metadata(replacement), _path_metadata(sentinel), sentinel.read_bytes()) == before
@@ -450,9 +512,11 @@ def test_current_authority_cleanup_revalidates_after_descriptor_content_removal(
     owned_path.mkdir()
     (owned_path / "owned-state").write_bytes(b"call-owned\n")
     metadata = owned_path.lstat()
-    owned = runner._OwnedAuthorityRoot(owned_path, metadata.st_dev, metadata.st_ino)
+    owned = runner._OwnedAuthorityRoot(  # pyright: ignore[reportPrivateUsage]
+        owned_path, metadata.st_dev, metadata.st_ino
+    )
     displaced = tmp_path / "displaced-owned-root"
-    real_remove_contents = runner._remove_owned_authority_contents
+    real_remove_contents = runner._remove_owned_authority_contents  # pyright: ignore[reportPrivateUsage]
 
     def swap_after_content_removal(descriptor: int) -> None:
         real_remove_contents(descriptor)
@@ -463,7 +527,7 @@ def test_current_authority_cleanup_revalidates_after_descriptor_content_removal(
     monkeypatch.setattr(runner, "_remove_owned_authority_contents", swap_after_content_removal)
 
     with pytest.raises(runner.Phase0RunnerError, match="cleanup_failed"):
-        runner._cleanup_authority_root(owned)
+        runner._cleanup_authority_root(owned)  # pyright: ignore[reportPrivateUsage]
 
     assert displaced.is_dir()
     assert (owned_path / "operator-owned-sentinel").read_bytes() == b"operator replacement\n"
@@ -478,7 +542,9 @@ def test_current_authority_final_removal_is_bound_to_owned_inode(
     owned_path.mkdir()
     (owned_path / "owned-state").write_bytes(b"call-owned\n")
     metadata = owned_path.lstat()
-    owned = runner._OwnedAuthorityRoot(owned_path, metadata.st_dev, metadata.st_ino)
+    owned = runner._OwnedAuthorityRoot(  # pyright: ignore[reportPrivateUsage]
+        owned_path, metadata.st_dev, metadata.st_ino
+    )
     displaced = tmp_path / "displaced-owned-root"
     replacement_metadata: list[tuple[int, int, int, int, int, int]] = []
     real_rmdir = runner.os.rmdir
@@ -498,7 +564,7 @@ def test_current_authority_final_removal_is_bound_to_owned_inode(
     monkeypatch.setattr(runner.os, "rmdir", swap_at_final_removal)
 
     with pytest.raises(runner.Phase0RunnerError, match="cleanup_failed"):
-        runner._cleanup_authority_root(owned)
+        runner._cleanup_authority_root(owned)  # pyright: ignore[reportPrivateUsage]
 
     assert swapped
     assert _path_metadata(owned_path) == replacement_metadata[0]
@@ -513,21 +579,34 @@ def test_current_authority_cleanup_failure_blocks_scorecard_publication(
     owned_path = tmp_path / ".pdf-ocr-current-authority-owned"
     owned_path.mkdir()
     metadata = owned_path.lstat()
-    owned = runner._OwnedAuthorityRoot(owned_path, metadata.st_dev, metadata.st_ino)
+    owned = runner._OwnedAuthorityRoot(  # pyright: ignore[reportPrivateUsage]
+        owned_path, metadata.st_dev, metadata.st_ino
+    )
     apple_path = owned_path / "apple-vision-child"
     apple_path.write_bytes(b"compiled child")
     apple_path.chmod(0o500)
-    apple = runner._bind_apple_child(apple_path)
-    monkeypatch.setattr(runner, "_load_controller_inputs", lambda _config: (object(), object()))
+    apple = runner._bind_apple_child(apple_path)  # pyright: ignore[reportPrivateUsage]
+    def load_inputs(_config: Phase0RunnerConfig) -> tuple[object, object]:
+        return object(), object()
+
+    def prepare_authority(
+        _config: Phase0RunnerConfig, _authority: object
+    ) -> tuple[Phase0RunnerConfig, object, object]:
+        return _config, apple, owned
+
+    def evaluate_scorecard(*_args: object, **_kwargs: object) -> JsonObject:
+        return _scorecard()
+
+    monkeypatch.setattr(runner, "_load_controller_inputs", load_inputs)
     monkeypatch.setattr(
         runner,
         "_prepare_current_run_authority",
-        lambda _config, _authority: (_config, apple, owned),
+        prepare_authority,
     )
     monkeypatch.setattr(
         runner,
         "_evaluate_phase0_scorecard",
-        lambda *_args, **_kwargs: _scorecard(),
+        evaluate_scorecard,
     )
     def fail_authority_cleanup(_descriptor: int) -> None:
         raise OSError("controlled authority cleanup failure")
@@ -559,10 +638,10 @@ def test_public_authority_entrypoint_rejects_fake_provider_and_rss_injection(
     config = _controller_config(tmp_path)
 
     with pytest.raises(TypeError):
-        run_phase0_scorecard(  # type: ignore[call-arg]
+        run_phase0_scorecard(
             config,
-            provider_runner=_fake_provider,
-            peak_rss_reader=lambda: 1024,
+            provider_runner=_fake_provider,  # pyright: ignore[reportCallIssue]
+            peak_rss_reader=lambda: 1024,  # pyright: ignore[reportCallIssue]
         )
 
     assert not config.output.exists()
@@ -645,7 +724,10 @@ def test_installed_runtime_doctor_timeout_is_stable(
     def timeout(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[bytes]:
         raise subprocess.TimeoutExpired("runtime-doctor", 120)
 
-    monkeypatch.setattr(runner, "_run_network_canary", lambda _python: None)
+    def accept_canary(_python: Path) -> None:
+        return None
+
+    monkeypatch.setattr(runner, "_run_network_canary", accept_canary)
     monkeypatch.setattr(runner.subprocess, "run", timeout)
 
     with pytest.raises(runner.Phase0RunnerError, match="current_run_authority_invalid"):
@@ -660,8 +742,16 @@ def _runtime_authority_fixture(
     *,
     create_wheel: bool,
     installed_drift: str | None = None,
-) -> tuple[runner._RunnerAuthority, Path, Path, Path, dict[str, object]]:
-    authority = runner._load_runner_authority(_controller_config(tmp_path))
+) -> tuple[
+    runner._RunnerAuthority,  # pyright: ignore[reportPrivateUsage]
+    Path,
+    Path,
+    Path,
+    dict[str, object],
+]:
+    authority = runner._load_runner_authority(  # pyright: ignore[reportPrivateUsage]
+        _controller_config(tmp_path)
+    )
     prefix = tmp_path / "provider-env"
     runtime_python = prefix / "bin/python"
     runtime_python.parent.mkdir(parents=True)
@@ -683,16 +773,16 @@ def _runtime_authority_fixture(
             "../../../bin/mke-transcribe-faster-whisper": b"#!/bin/sh\n",
         }
         record_lines = [
-            f"mke/__init__.py,{runner._record_hash(module_bytes)},{len(module_bytes)}",
+            f"mke/__init__.py,{runner._record_hash(module_bytes)},{len(module_bytes)}",  # pyright: ignore[reportPrivateUsage]
             "mke/__pycache__/__init__.cpython-313.pyc,,",
             "multimodal_knowledge_engine-0.1.2.dist-info/RECORD,,",
             *[
                 "multimodal_knowledge_engine-0.1.2.dist-info/"
-                f"{name},{runner._record_hash(value)},{len(value)}"
+                f"{name},{runner._record_hash(value)},{len(value)}"  # pyright: ignore[reportPrivateUsage]
                 for name, value in extras.items()
             ],
             *[
-                f"{name},{runner._record_hash(value)},{len(value)}"
+                f"{name},{runner._record_hash(value)},{len(value)}"  # pyright: ignore[reportPrivateUsage]
                 for name, value in console_scripts.items()
             ],
         ]
@@ -723,7 +813,7 @@ def _runtime_authority_fixture(
             mke_wheel_bytes=len(encoded),
             package_bytes={**authority.package_bytes, "apple-vision-local-v1": len(encoded)},
         )
-    doctor = {
+    doctor: dict[str, object] = {
         "python": "3.13.12",
         "mke_version": "0.1.2",
         "mke_file": str(module),
@@ -759,7 +849,7 @@ def test_apple_authority_rejects_arbitrary_prebuilt_executable(tmp_path: Path) -
     )
 
     with pytest.raises(ValueError, match="Apple Vision child must be controller-compiled"):
-        runner._validate_command_shapes(commands)
+        runner._validate_command_shapes(commands)  # pyright: ignore[reportPrivateUsage]
 
 
 def test_installed_runtime_rejects_nonexistent_module_and_wheel(
@@ -773,15 +863,15 @@ def test_installed_runtime_rejects_nonexistent_module_and_wheel(
     monkeypatch.setattr(
         runner.subprocess,
         "run",
-        lambda *_args, **_kwargs: subprocess.CompletedProcess(
-            _args[0], 0, json.dumps(doctor).encode(), b""
-        ),
+        _completed_doctor(doctor),
     )
     home = tmp_path / "authority-home"
     home.mkdir()
 
     with pytest.raises(ValueError, match="installed MKE wheel identity drifted"):
-        runner._validate_installed_runtime(runtime_python, authority, home)
+        runner._validate_installed_runtime(  # pyright: ignore[reportPrivateUsage]
+            runtime_python, authority, home
+        )
 
 
 def test_installed_runtime_rejects_receipt_claim_over_drifted_wheel_bytes(
@@ -796,15 +886,15 @@ def test_installed_runtime_rejects_receipt_claim_over_drifted_wheel_bytes(
     monkeypatch.setattr(
         runner.subprocess,
         "run",
-        lambda *_args, **_kwargs: subprocess.CompletedProcess(
-            _args[0], 0, json.dumps(doctor).encode(), b""
-        ),
+        _completed_doctor(doctor),
     )
     home = tmp_path / "authority-home"
     home.mkdir()
 
     with pytest.raises(ValueError, match="installed MKE wheel identity drifted"):
-        runner._validate_installed_runtime(runtime_python, authority, home)
+        runner._validate_installed_runtime(  # pyright: ignore[reportPrivateUsage]
+            runtime_python, authority, home
+        )
 
 
 @pytest.mark.parametrize("installed_drift", ["module", "record"])
@@ -817,15 +907,15 @@ def test_installed_runtime_rejects_installed_wheel_file_drift(
     monkeypatch.setattr(
         runner.subprocess,
         "run",
-        lambda *_args, **_kwargs: subprocess.CompletedProcess(
-            _args[0], 0, json.dumps(doctor).encode(), b""
-        ),
+        _completed_doctor(doctor),
     )
     home = tmp_path / "authority-home"
     home.mkdir()
 
     with pytest.raises(ValueError, match="installed MKE files drifted"):
-        runner._validate_installed_runtime(runtime_python, authority, home)
+        runner._validate_installed_runtime(  # pyright: ignore[reportPrivateUsage]
+            runtime_python, authority, home
+        )
 
 
 def test_installed_runtime_doctor_uses_the_provider_sandbox(
@@ -844,9 +934,11 @@ def test_installed_runtime_doctor_uses_the_provider_sandbox(
     home = tmp_path / "authority-home"
     home.mkdir()
 
-    runner._validate_installed_runtime(runtime_python, authority, home)
+    runner._validate_installed_runtime(  # pyright: ignore[reportPrivateUsage]
+        runtime_python, authority, home
+    )
 
-    assert calls[0][:3] == runner._SANDBOX_PREFIX
+    assert calls[0][:3] == runner._SANDBOX_PREFIX  # pyright: ignore[reportPrivateUsage]
     assert calls[0][4:7] == ("-I", "-B", "-c")
 
 
@@ -859,7 +951,9 @@ def test_call_owned_runtime_removes_installed_mke_bytecode(tmp_path: Path) -> No
     source = package / "runtime.py"
     source.write_bytes(b"tracked wheel source")
 
-    runner._remove_call_owned_mke_bytecode(prefix, tmp_path)
+    runner._remove_call_owned_mke_bytecode(  # pyright: ignore[reportPrivateUsage]
+        prefix, tmp_path
+    )
 
     assert source.read_bytes() == b"tracked wheel source"
     assert not bytecode.exists()
@@ -889,21 +983,23 @@ def test_swift_source_replacement_during_compile_fails_closed(
     authority_root.mkdir()
 
     with pytest.raises(ValueError, match="Apple Vision source identity drifted"):
-        runner._compile_controller_apple_child(authority_root)
+        runner._compile_controller_apple_child(  # pyright: ignore[reportPrivateUsage]
+            authority_root
+        )
 
 
 def test_compiled_apple_child_replacement_fails_closed(tmp_path: Path) -> None:
     child = tmp_path / "apple-vision-child"
     child.write_bytes(b"compiled-child")
     child.chmod(0o500)
-    binding = runner._bind_apple_child(child)
+    binding = runner._bind_apple_child(child)  # pyright: ignore[reportPrivateUsage]
     replacement = tmp_path / "replacement"
     replacement.write_bytes(b"replaced-child")
     replacement.chmod(0o500)
     os.replace(replacement, child)
 
     with pytest.raises(ValueError, match="Apple Vision child identity drifted"):
-        runner._revalidate_apple_child(binding)
+        runner._revalidate_apple_child(binding)  # pyright: ignore[reportPrivateUsage]
 
 
 def test_tracked_controller_runs_candidates_serially_with_common_render_and_atomic_output(
@@ -922,7 +1018,7 @@ def test_tracked_controller_runs_candidates_serially_with_common_render_and_atom
         calls.append((command.provider, image_path.parent.name, page_number))
         return _fake_provider(command, **kwargs)  # type: ignore[arg-type]
 
-    payload = runner._run_phase0_scorecard_for_test(
+    payload = runner._run_phase0_scorecard_for_test(  # pyright: ignore[reportPrivateUsage]
         config,
         provider_runner=provider,
         peak_rss_reader=lambda: 1024,
@@ -934,7 +1030,9 @@ def test_tracked_controller_runs_candidates_serially_with_common_render_and_atom
         "selected_profile": "phase0-200dpi-plain-text-v1",
     }
     assert [item[0] for item in calls] == [
-        provider for provider in runner._PROVIDERS for _ in range(4)
+        provider
+        for provider in runner._PROVIDERS  # pyright: ignore[reportPrivateUsage]
+        for _ in range(4)
     ]
     assert len({(item[1], item[2]) for item in calls}) == 4
     assert not config.output.exists()
@@ -958,13 +1056,18 @@ def test_tracked_controller_records_unavailable_and_failure_without_fabricated_m
             )
         return _fake_provider(command, **kwargs)  # type: ignore[arg-type]
 
-    payload = runner._run_phase0_scorecard_for_test(
+    payload = runner._run_phase0_scorecard_for_test(  # pyright: ignore[reportPrivateUsage]
         config,
         provider_runner=provider,
         peak_rss_reader=lambda: 1024,
     )
 
-    outcomes = {item["outcome"]["provider"]: item["outcome"] for item in payload["candidates"]}
+    outcomes: dict[str, JsonObject] = {}
+    for item in _as_objects(payload["candidates"]):
+        outcome = _as_object(item["outcome"])
+        provider_id = outcome["provider"]
+        assert isinstance(provider_id, str)
+        outcomes[provider_id] = outcome
     unavailable_outcome = outcomes["apple-vision-local-v1"]
     assert unavailable_outcome["status"] == "unavailable"
     assert unavailable_outcome["failure_codes"] == ["provider_unavailable"]
@@ -972,12 +1075,17 @@ def test_tracked_controller_records_unavailable_and_failure_without_fabricated_m
     failed = outcomes["paddleocr-vl-1.6-cpu-spike-v1"]
     assert failed["status"] == "failed"
     assert failed["failure_codes"] == ["pdf_ocr_process_failed"]
-    assert payload["decision"]["selected_provider"] == "ppocrv6-medium-cpu-spike-v1"
+    assert _as_object(payload["decision"])["selected_provider"] == (
+        "ppocrv6-medium-cpu-spike-v1"
+    )
 
 
 def test_tracked_controller_emits_deterministic_valid_negative_no_go(tmp_path: Path) -> None:
-    config = _controller_config(tmp_path, unavailable=frozenset(runner._PROVIDERS))
-    payload = runner._run_phase0_scorecard_for_test(
+    config = _controller_config(
+        tmp_path,
+        unavailable=frozenset(runner._PROVIDERS),  # pyright: ignore[reportPrivateUsage]
+    )
+    payload = runner._run_phase0_scorecard_for_test(  # pyright: ignore[reportPrivateUsage]
         config, provider_runner=_fake_provider, peak_rss_reader=lambda: 1024
     )
     assert payload["decision"] == {
@@ -1012,11 +1120,11 @@ def test_tracked_controller_preserves_prior_output_when_cleanup_fails(
     def fail_owned_cleanup(path: Path, *args: object, **kwargs: object) -> None:
         if Path(path) == config.workspace:
             raise OSError("controlled cleanup failure")
-        real_rmtree(path, *args, **kwargs)
+        real_rmtree(path)
 
     monkeypatch.setattr(runner.shutil, "rmtree", fail_owned_cleanup)
     with pytest.raises(runner.Phase0RunnerError, match="cleanup_failed"):
-        runner._run_phase0_scorecard_for_test(
+        runner._run_phase0_scorecard_for_test(  # pyright: ignore[reportPrivateUsage]
             config, provider_runner=_fake_provider, peak_rss_reader=lambda: 1024
         )
     assert config.output.read_bytes() == b"prior authority\n"
@@ -1033,7 +1141,9 @@ def test_tracked_controller_preserves_prior_output_when_atomic_replace_fails(
 
     monkeypatch.setattr(runner.os, "replace", fail_replace)
     with pytest.raises(runner.Phase0RunnerError, match="scorecard_publication_failed"):
-        runner._publish_scorecard(config.output, canonical_scorecard_bytes(_scorecard()))
+        runner._publish_scorecard(  # pyright: ignore[reportPrivateUsage]
+            config.output, canonical_scorecard_bytes(_scorecard())
+        )
     assert config.output.read_bytes() == b"prior authority\n"
     assert not config.workspace.exists()
     assert not list(tmp_path.glob(".phase0-scorecard.json.*.tmp"))
@@ -1050,12 +1160,12 @@ def test_tracked_controller_cleans_owned_state_after_provider_failure(tmp_path: 
             provider=command.provider,
         )
 
-    payload = runner._run_phase0_scorecard_for_test(
+    payload = runner._run_phase0_scorecard_for_test(  # pyright: ignore[reportPrivateUsage]
         config,
         provider_runner=fail_provider,
         peak_rss_reader=lambda: 1024,
     )
-    assert payload["decision"]["status"] == "no_go"
+    assert _as_object(payload["decision"])["status"] == "no_go"
     assert not config.workspace.exists()
 
 
@@ -1085,30 +1195,59 @@ def test_extractor_identity_is_closed_and_byte_deterministic() -> None:
     )
 
 
+def _identity_add_extra(value: JsonObject) -> None:
+    value.update({"extra": True})
+
+
+def _identity_remove_model(value: JsonObject) -> object:
+    return value.pop("model")
+
+
+def _identity_reverse_fixtures(value: JsonObject) -> None:
+    _as_list(value["fixtures"]).reverse()
+
+
+def _identity_duplicate_fixture(value: JsonObject) -> None:
+    fixtures = _as_list(value["fixtures"])
+    fixtures.append(copy.deepcopy(fixtures[0]))
+
+
+def _identity_reverse_render_pages(value: JsonObject) -> None:
+    _as_list(_nested(value, "render")["pages"]).reverse()
+
+
+def _identity_set_boolean_limit(value: JsonObject) -> None:
+    _nested(value, "router", "policy").update({"max_pages": True})
+
+
+def _identity_set_nonfinite_ratio(value: JsonObject) -> None:
+    _nested(value, "router", "policy").update(
+        {
+            "ocr_min_image_coverage": {
+                "numerator": math.nan,
+                "denominator": 1,
+            }
+        }
+    )
+
+
 @pytest.mark.parametrize(
     "mutation",
     [
-        lambda value: value.update({"extra": True}),
-        lambda value: value.pop("model"),
-        lambda value: value["fixtures"].reverse(),  # type: ignore[union-attr]
-        lambda value: value["fixtures"].append(copy.deepcopy(value["fixtures"][0])),  # type: ignore[index,union-attr]
-        lambda value: value["render"]["pages"].reverse(),  # type: ignore[index,union-attr]
-        lambda value: value["router"]["policy"].update(  # type: ignore[index,union-attr]
-            {"max_pages": True}
-        ),
-        lambda value: value["router"]["policy"].update(  # type: ignore[index,union-attr]
-            {
-                "ocr_min_image_coverage": {
-                    "numerator": math.nan,
-                    "denominator": 1,
-                }
-            }
-        ),
+        _identity_add_extra,
+        _identity_remove_model,
+        _identity_reverse_fixtures,
+        _identity_duplicate_fixture,
+        _identity_reverse_render_pages,
+        _identity_set_boolean_limit,
+        _identity_set_nonfinite_ratio,
     ],
 )
-def test_extractor_identity_rejects_schema_order_and_type_drift(mutation: object) -> None:
+def test_extractor_identity_rejects_schema_order_and_type_drift(
+    mutation: JsonMutation,
+) -> None:
     payload = _identity()
-    mutation(payload)  # type: ignore[operator]
+    mutation(payload)
     with pytest.raises(ExtractorIdentityError):
         validate_extractor_identity(payload)
 
@@ -1339,33 +1478,58 @@ def test_scorecard_serialization_is_stable_finite_and_public_neutral() -> None:
     assert canonical_scorecard_bytes(json.loads(encoded)) == encoded
 
 
+def _scorecard_add_extra(value: JsonObject) -> None:
+    value.update({"extra": True})
+
+
+def _scorecard_drift_receipt(value: JsonObject) -> None:
+    _nested(value, "receipts").update({"package_sha256": "bad"})
+
+
+def _scorecard_duplicate_candidate(value: JsonObject) -> None:
+    candidates = _as_list(value["candidates"])
+    candidates.append(copy.deepcopy(candidates[0]))
+
+
+def _scorecard_drift_fingerprint(value: JsonObject) -> None:
+    _binding(value, 0).update({"fingerprint": "pdf-ocr-eval-v1:" + "f" * 64})
+
+
+def _scorecard_set_boolean_measurement(value: JsonObject) -> None:
+    _nested(_candidate(value, 0), "outcome").update({"elapsed_ms": True})
+
+
+def _scorecard_reverse_page_results(value: JsonObject) -> None:
+    _as_list(_candidate(value, 0)["page_results"]).reverse()
+
+
+def _scorecard_force_no_go(value: JsonObject) -> None:
+    value.update(
+        {
+            "decision": {
+                "status": "no_go",
+                "selected_provider": None,
+                "selected_profile": None,
+            }
+        }
+    )
+
+
 @pytest.mark.parametrize(
     "mutation",
     [
-        lambda value: value.update({"extra": True}),
-        lambda value: value["receipts"].update({"package_sha256": "bad"}),  # type: ignore[union-attr]
-        lambda value: value["candidates"].append(copy.deepcopy(value["candidates"][0])),  # type: ignore[index,union-attr]
-        lambda value: value["extractor_identities"][0].update(  # type: ignore[index,union-attr]
-            {"fingerprint": "pdf-ocr-eval-v1:" + "f" * 64}
-        ),
-        lambda value: value["candidates"][0]["outcome"].update(  # type: ignore[index,union-attr]
-            {"elapsed_ms": True}
-        ),
-        lambda value: value["candidates"][0]["page_results"].reverse(),  # type: ignore[index,union-attr]
-        lambda value: value.update(
-            {
-                "decision": {
-                    "status": "no_go",
-                    "selected_provider": None,
-                    "selected_profile": None,
-                }
-            }
-        ),
+        _scorecard_add_extra,
+        _scorecard_drift_receipt,
+        _scorecard_duplicate_candidate,
+        _scorecard_drift_fingerprint,
+        _scorecard_set_boolean_measurement,
+        _scorecard_reverse_page_results,
+        _scorecard_force_no_go,
     ],
 )
-def test_scorecard_schema_is_closed_and_cross_bound(mutation: object) -> None:
+def test_scorecard_schema_is_closed_and_cross_bound(mutation: JsonMutation) -> None:
     payload = _scorecard()
-    mutation(payload)  # type: ignore[operator]
+    mutation(payload)
     with pytest.raises(ValueError):
         validate_scorecard(payload)
 
@@ -1384,7 +1548,7 @@ def test_scorecard_schema_is_closed_and_cross_bound(mutation: object) -> None:
 )
 def test_passed_candidate_requires_every_complete_measurement(measurement: str) -> None:
     payload = _scorecard()
-    selected = payload["candidates"][2]["outcome"]  # type: ignore[index]
+    selected = _nested(_candidate(payload, 2), "outcome")
     selected[measurement] = None
     with pytest.raises(ValueError):
         validate_scorecard(payload)
@@ -1403,7 +1567,7 @@ def test_passed_candidate_requires_every_complete_measurement(measurement: str) 
 )
 def test_passed_candidate_rejects_boolean_numeric_measurements(measurement: str) -> None:
     payload = _scorecard()
-    payload["candidates"][2]["outcome"][measurement] = True  # type: ignore[index]
+    _nested(_candidate(payload, 2), "outcome")[measurement] = True
     with pytest.raises(ValueError):
         validate_scorecard(payload)
 
@@ -1411,7 +1575,8 @@ def test_passed_candidate_rejects_boolean_numeric_measurements(measurement: str)
 @pytest.mark.parametrize("status", ["failed", "unavailable"])
 def test_nonpassing_candidate_may_preserve_unknown_measurements(status: str) -> None:
     payload = _scorecard()
-    outcome = payload["candidates"][0]["outcome"]  # type: ignore[index]
+    candidate = _candidate(payload, 0)
+    outcome = _nested(candidate, "outcome")
     outcome.update(
         {
             "status": status,
@@ -1425,23 +1590,24 @@ def test_nonpassing_candidate_may_preserve_unknown_measurements(status: str) -> 
             "failure_codes": [f"provider_{status}"],
         }
     )
-    payload["candidates"][0]["page_results"] = []  # type: ignore[index]
-    payload["candidates"][0]["publication_evidence_pages"] = []  # type: ignore[index]
+    candidate["page_results"] = []
+    candidate["publication_evidence_pages"] = []
     validate_scorecard(payload)
 
 
 def test_scorecard_rejects_top_level_protocol_authority_drift() -> None:
     payload = _scorecard()
-    payload["protocol"]["sha256"] = "f" * 64  # type: ignore[index]
+    _nested(payload, "protocol")["sha256"] = "f" * 64
     with pytest.raises(ValueError):
         validate_scorecard(payload)
 
 
 def test_scorecard_rejects_identity_protocol_authority_drift() -> None:
     payload = _scorecard()
-    binding = payload["extractor_identities"][1]  # type: ignore[index]
-    binding["payload"]["protocol"]["sha256"] = "f" * 64
-    binding["fingerprint"] = extractor_fingerprint(binding["payload"])
+    binding = _binding(payload, 1)
+    identity = _nested(binding, "payload")
+    _nested(identity, "protocol")["sha256"] = "f" * 64
+    binding["fingerprint"] = extractor_fingerprint(identity)
     with pytest.raises(ValueError):
         validate_scorecard(payload)
 
@@ -1449,12 +1615,15 @@ def test_scorecard_rejects_identity_protocol_authority_drift() -> None:
 @pytest.mark.parametrize("authority", ["fixtures", "render"])
 def test_scorecard_rejects_cross_provider_comparison_identity_drift(authority: str) -> None:
     payload = _scorecard()
-    binding = payload["extractor_identities"][1]  # type: ignore[index]
+    binding = _binding(payload, 1)
+    identity = _nested(binding, "payload")
     if authority == "fixtures":
-        binding["payload"]["fixtures"][0]["source_sha256"] = "f" * 64
+        fixtures = _as_objects(identity["fixtures"])
+        fixtures[0]["source_sha256"] = "f" * 64
     else:
-        binding["payload"]["render"]["pages"][0]["image_sha256"] = "f" * 64
-    binding["fingerprint"] = extractor_fingerprint(binding["payload"])
+        pages = _as_objects(_nested(identity, "render")["pages"])
+        pages[0]["image_sha256"] = "f" * 64
+    binding["fingerprint"] = extractor_fingerprint(identity)
     with pytest.raises(ValueError):
         validate_scorecard(payload)
 
@@ -1462,8 +1631,8 @@ def test_scorecard_rejects_cross_provider_comparison_identity_drift(authority: s
 @pytest.mark.parametrize("mutation", ["blank", "missing", "extra"])
 def test_scorecard_rejects_publication_page_inventory_drift(mutation: str) -> None:
     payload = _scorecard()
-    for candidate in payload["candidates"]:  # type: ignore[union-attr]
-        pages = candidate["publication_evidence_pages"]
+    for candidate in _as_objects(payload["candidates"]):
+        pages = _as_list(candidate["publication_evidence_pages"])
         if mutation == "blank":
             pages[-1] = {"document_id": "routing-adversarial", "page_number": 1}
         elif mutation == "missing":
@@ -1476,16 +1645,18 @@ def test_scorecard_rejects_publication_page_inventory_drift(mutation: str) -> No
 
 def test_scorecard_rejects_internal_receipt_leaf_drift() -> None:
     payload = _scorecard()
-    binding = payload["extractor_identities"][1]  # type: ignore[index]
-    binding["payload"]["package"]["receipt_sha256"] = "f" * 64
-    binding["fingerprint"] = extractor_fingerprint(binding["payload"])
+    binding = _binding(payload, 1)
+    identity = _nested(binding, "payload")
+    _nested(identity, "package")["receipt_sha256"] = "f" * 64
+    binding["fingerprint"] = extractor_fingerprint(identity)
     with pytest.raises(ValueError):
         validate_scorecard(payload)
 
 
 def test_scorecard_rejects_candidate_page_render_identity_drift() -> None:
     payload = _scorecard()
-    payload["candidates"][1]["page_results"][0]["image_sha256"] = "f" * 64  # type: ignore[index]
+    pages = _as_objects(_candidate(payload, 1)["page_results"])
+    pages[0]["image_sha256"] = "f" * 64
     with pytest.raises(ValueError):
         validate_scorecard(payload)
 
@@ -1505,20 +1676,20 @@ def test_scorecard_rejects_candidate_page_render_identity_drift() -> None:
 def test_scorecard_rejects_non_neutral_profile_values(unsafe: str) -> None:
     payload = _scorecard()
     for binding, candidate in zip(
-        payload["extractor_identities"],
-        payload["candidates"],
-        strict=True,  # type: ignore[arg-type]
+        _as_objects(payload["extractor_identities"]),
+        _as_objects(payload["candidates"]),
+        strict=True,
     ):
-        binding["payload"]["provider"]["profile"] = unsafe
-        candidate["outcome"]["profile"] = unsafe
-    payload["decision"]["selected_profile"] = unsafe  # type: ignore[index]
+        _nested(binding, "payload", "provider")["profile"] = unsafe
+        _nested(candidate, "outcome")["profile"] = unsafe
+    _nested(payload, "decision")["selected_profile"] = unsafe
     with pytest.raises(ValueError):
         canonical_scorecard_bytes(payload)
 
 
 def test_committed_scorecard_is_canonical_closed_and_frozen() -> None:
     encoded = SCORECARD_PATH.read_bytes()
-    payload = json.loads(encoded)
+    payload = cast(JsonObject, json.loads(encoded))
     validate_scorecard(payload)
     assert canonical_scorecard_bytes(payload) == encoded
     assert hashlib.sha256(encoded).hexdigest() == SCORECARD_SHA256
@@ -1535,26 +1706,40 @@ def test_committed_scorecard_is_canonical_closed_and_frozen() -> None:
     assert payload["receipts"] == {
         key: hashlib.sha256(path.read_bytes()).hexdigest() for key, path in receipt_paths.items()
     }
-    startup = json.loads(receipt_paths["provider_startup_sha256"].read_bytes())
-    model = json.loads(receipt_paths["model_sha256"].read_bytes())
-    for binding in payload["extractor_identities"]:
-        identity = binding["payload"]
-        assert identity["package"]["receipt_sha256"] == startup["package_receipt_sha256"]
-        assert identity["package"]["mke_wheel_sha256"] == startup["runtime"]["mke_wheel_sha256"]
+    startup = cast(
+        JsonObject,
+        json.loads(receipt_paths["provider_startup_sha256"].read_bytes()),
+    )
+    model = cast(JsonObject, json.loads(receipt_paths["model_sha256"].read_bytes()))
+    startup_runtime = _nested(startup, "runtime")
+    for binding in _as_objects(payload["extractor_identities"]):
+        identity = _nested(binding, "payload")
+        package = _nested(identity, "package")
+        model_identity = _nested(identity, "model")
+        assert package["receipt_sha256"] == startup["package_receipt_sha256"]
+        assert package["mke_wheel_sha256"] == startup_runtime["mke_wheel_sha256"]
         assert (
-            identity["package"]["installed_packages_sha256"]
-            == startup["runtime"]["installed_packages_sha256"]
+            package["installed_packages_sha256"]
+            == startup_runtime["installed_packages_sha256"]
         )
-        assert identity["model"]["receipt_sha256"] == startup["model_receipt_sha256"]
-        assert identity["model"]["tree_sha256"] == model["tree_sha256"]
+        assert model_identity["receipt_sha256"] == startup["model_receipt_sha256"]
+        assert model_identity["tree_sha256"] == model["tree_sha256"]
 
 
 def _leaf_paths(value: object, path: tuple[object, ...] = ()) -> list[tuple[object, ...]]:
     if isinstance(value, dict):
-        return [leaf for key, item in value.items() for leaf in _leaf_paths(item, (*path, key))]
-    if isinstance(value, list):
+        mapping = cast(dict[object, object], value)
         return [
-            leaf for index, item in enumerate(value) for leaf in _leaf_paths(item, (*path, index))
+            leaf
+            for key, item in mapping.items()
+            for leaf in _leaf_paths(item, (*path, key))
+        ]
+    if isinstance(value, list):
+        items = cast(list[object], value)
+        return [
+            leaf
+            for index, item in enumerate(items)
+            for leaf in _leaf_paths(item, (*path, index))
         ]
     return [path]
 
@@ -1562,10 +1747,12 @@ def _leaf_paths(value: object, path: tuple[object, ...] = ()) -> list[tuple[obje
 def _mapping_paths(value: object, path: tuple[object, ...] = ()) -> list[tuple[object, ...]]:
     paths = [path] if isinstance(value, dict) else []
     if isinstance(value, dict):
-        for key, item in value.items():
+        mapping = cast(dict[object, object], value)
+        for key, item in mapping.items():
             paths.extend(_mapping_paths(item, (*path, key)))
     elif isinstance(value, list):
-        for index, item in enumerate(value):
+        items = cast(list[object], value)
+        for index, item in enumerate(items):
             paths.extend(_mapping_paths(item, (*path, index)))
     return paths
 
@@ -1573,6 +1760,11 @@ def _mapping_paths(value: object, path: tuple[object, ...] = ()) -> list[tuple[o
 def _at_path(value: object, path: tuple[object, ...]) -> dict[object, object]:
     current = value
     for part in path:
-        current = current[part]  # type: ignore[index]
+        if isinstance(current, dict):
+            current = cast(dict[object, object], current)[part]
+        else:
+            assert isinstance(current, list)
+            assert isinstance(part, int)
+            current = cast(list[object], current)[part]
     assert isinstance(current, dict)
-    return current
+    return cast(dict[object, object], current)

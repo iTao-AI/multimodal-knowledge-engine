@@ -4,7 +4,7 @@ import math
 import os
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import fitz  # pyright: ignore[reportMissingTypeStubs]
 import pytest
@@ -170,7 +170,10 @@ def test_encrypted_pdf_fails_closed(tmp_path: Path) -> None:
         document.new_page().insert_text((72, 72), "encrypted")
         document.save(
             path,
-            encryption=fitz.PDF_ENCRYPT_AES_256,
+            encryption=cast(
+                int,
+                fitz.PDF_ENCRYPT_AES_256,  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+            ),
             owner_pw="owner",
             user_pw="user",
         )
@@ -202,7 +205,7 @@ def test_source_replacement_between_identity_check_and_open_is_rejected(
     _write_pdf(replacement, 1, text="replacement source differs")
     original_open = fitz.open
 
-    def replacing_open(*args: object, **kwargs: object) -> Any:
+    def replacing_open(*args: Any, **kwargs: Any) -> Any:
         shutil.copyfile(replacement, path)
         return original_open(*args, **kwargs)
 

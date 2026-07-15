@@ -50,6 +50,17 @@ before exposing a public capability.
 - The internal candidate uses installed `publish_and_verify` with protocol expected truth and does
   not call `run_phase0_scorecard`.
 
+## Strict Pyright Closure
+
+A post-acceptance PR-gate review found that bare `uv run pyright` passed on main but reported 368
+errors on the Phase 0 branch. The errors were confined to the four OCR test files added or modified
+by this work; the earlier description of them as pre-existing baseline failures was incorrect. The
+local closure commit `test(ocr): close strict typing gate` adds typed JSON narrowing and monkeypatch
+helpers, exact private-test-seam suppressions, and fixes for real call, index, and narrowing issues
+without changing test assertions or evidence bytes. Fresh bare Pyright now reports `0 errors, 0
+warnings, 0 informations`; Ruff passed, the four-file OCR suite passed with `292 passed, 5
+warnings`, and full pytest passed with `2006 passed, 5 skipped, 5 warnings`.
+
 ## Claim Boundary
 
 This acceptance clears only production planning. It does not authorize production OCR, a public

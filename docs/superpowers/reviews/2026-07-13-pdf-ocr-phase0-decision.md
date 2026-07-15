@@ -87,9 +87,9 @@ Fresh local verification recorded:
 - `UV_OFFLINE=1 uv run pytest -q`: `2006 passed, 5 skipped, 5 warnings`.
 - `uv run ruff check .`: passed.
 - Focused Pyright for the Task 6 script and tests: `0 errors, 0 warnings`.
-- Full `uv run pyright` reported the same pre-existing `368 errors, 0 warnings` in both the named
-  worktree and a neutral detached worktree at
-  `f29730eb4433d08a9a0d00bb5a86584a577dd469`; no Task 6 file was present in the neutral result.
+- A subsequent strict-typing closure correctly attributed the branch-only 368-error result to the
+  four Phase 0 OCR test files rather than to the main baseline. Bare `uv run pyright` now passes
+  with `0 errors, 0 warnings, 0 informations` under the repository's strict configuration.
 - `UV_OFFLINE=1 uv build --wheel`: passed and produced the wheel identity above.
 - `UV_OFFLINE=1 uv run mke proof run`: 8/8 cases passed.
 - `UV_OFFLINE=1 uv run mke demo --verify`: passed.
@@ -103,4 +103,6 @@ Fresh local verification recorded:
 Evidence is limited to macOS, cache-only local execution and a small synthetic single-page-focused
 corpus. The adapter is prose-only and does not establish table, formula, image, or layout fidelity.
 There is no real-user corpus result, hosted OCR comparison, AutoDL comparison, general OCR quality
-claim, approved numeric threshold, production capability, runtime promotion, or release authority.
+claim, approved production numeric threshold, production capability, runtime promotion, or release
+authority. The provisional synthetic-protocol budgets above remain accepted only for regression
+and planning.
