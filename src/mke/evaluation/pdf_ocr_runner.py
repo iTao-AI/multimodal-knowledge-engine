@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import base64
+import csv
 import hashlib
+import io
 import json
 import os
 import re
@@ -12,8 +15,10 @@ import stat
 import subprocess
 import threading
 import time
+import urllib.parse
+import zipfile
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal, cast
 
@@ -86,6 +91,9 @@ _SANDBOX_PREFIX = (
     "-p",
     "(version 1)(allow default)(deny network*)",
 )
+_APPLE_EXECUTABLE_PLACEHOLDER = "{controller_compiled_apple_vision}"
+_APPLE_SWIFT_SOURCE = Path(__file__).resolve().parents[3] / "scripts/pdf_ocr_apple_vision.swift"
+_APPLE_SWIFT_SOURCE_SHA256 = "6d0cba035372974dcc82d6e397930061c8da969b62c373d73203292e874d4424"
 _COMMON_PROVIDER_ARGUMENTS = (
     "--input",
     "{input}",
@@ -127,6 +135,7 @@ print(json.dumps({
     "sys_prefix": sys.prefix,
     "sys_base_prefix": sys.base_prefix,
     "isolated": sys.flags.isolated == 1,
+    "dont_write_bytecode": sys.dont_write_bytecode,
     "pythonpath_present": "PYTHONPATH" in os.environ,
     "package_versions": versions,
     "direct_url": direct_url,
@@ -294,7 +303,16 @@ class _RunnerAuthority:
     model_bytes: dict[str, int]
     package_versions: dict[str, str]
     mke_wheel_filename: str
+    mke_wheel_bytes: int
     model_receipt: dict[str, object]
+
+
+@dataclass(frozen=True)
+class _BoundAppleChild:
+    path: Path
+    size: int
+    sha256: str
+    identity: tuple[int, int, int, int, int]
 
 
 class _ProcessTreeRssMonitor:
@@ -706,14 +724,21 @@ def run_phase0_scorecard(
 ) -> dict[str, object]:
     """Run the closed Phase 0 comparison and atomically publish canonical evidence."""
     protocol, authority = _load_controller_inputs(config)
-    _validate_current_run_authority(config, authority)
-    payload = _evaluate_phase0_scorecard(
-        config,
-        protocol,
-        authority,
-        provider_runner=run_provider,
-        peak_rss_reader=None,
-    )
+    prepared, apple_binding, authority_root = _prepare_current_run_authority(config, authority)
+
+    def bound_provider(command: ProviderCommand, **kwargs: object) -> OcrEvalPageResult:
+        return _run_bound_provider(command, apple_binding, **kwargs)
+
+    try:
+        payload = _evaluate_phase0_scorecard(
+            prepared,
+            protocol,
+            authority,
+            provider_runner=bound_provider,
+            peak_rss_reader=None,
+        )
+    finally:
+        _cleanup_authority_root(authority_root)
     _publish_scorecard(config.output, canonical_scorecard_bytes(payload))
     return payload
 
@@ -862,9 +887,10 @@ def _validate_runner_config(config: Phase0RunnerConfig) -> None:
         raise Phase0RunnerError("scorecard_output_invalid")
 
 
-def _validate_current_run_authority(
+def _prepare_current_run_authority(
     config: Phase0RunnerConfig, authority: _RunnerAuthority
-) -> None:
+) -> tuple[Phase0RunnerConfig, _BoundAppleChild, Path]:
+    authority_root = config.workspace.parent / ".pdf-ocr-current-authority"
     try:
         commands = {
             item.provider: item.command
@@ -873,24 +899,32 @@ def _validate_current_run_authority(
         }
         if not commands:
             raise ValueError("no available candidate command")
-        runtime_python, apple_executable, components = _validate_command_shapes(commands)
+        runtime_python, components = _validate_command_shapes(commands)
         _run_network_canary(runtime_python)
-        authority_home = config.workspace.parent / ".pdf-ocr-current-authority"
-        authority_home.mkdir(mode=0o700, exist_ok=False)
-        try:
-            runtime_prefix = _validate_installed_runtime(
-                runtime_python, authority, authority_home
-            )
-        finally:
-            try:
-                shutil.rmtree(authority_home)
-            except OSError as error:
-                raise Phase0RunnerError("cleanup_failed") from error
-            if authority_home.exists():
-                raise Phase0RunnerError("cleanup_failed")
-        _validate_apple_executable(apple_executable, runtime_prefix, config.workspace.parent)
+        authority_root.mkdir(mode=0o700, exist_ok=False)
+        authority_home = authority_root / "home"
+        authority_home.mkdir(mode=0o700)
+        _remove_call_owned_mke_bytecode(runtime_python.parent.parent, config.workspace.parent)
+        runtime_prefix = _validate_installed_runtime(runtime_python, authority, authority_home)
+        if runtime_prefix.parent.resolve() != config.workspace.parent.resolve():
+            raise ValueError("installed runtime is not call-owned")
         _validate_model_root(components, authority.model_receipt)
+        apple_binding = _compile_controller_apple_child(authority_root)
+        candidates = list(config.candidates)
+        apple_index = next(
+            index
+            for index, item in enumerate(candidates)
+            if item.provider == "apple-vision-local-v1"
+        )
+        apple = candidates[apple_index]
+        assert apple.command is not None
+        argv = list(apple.command.argv)
+        argv[3] = str(apple_binding.path)
+        candidates[apple_index] = replace(apple, command=replace(apple.command, argv=tuple(argv)))
+        authority_root.chmod(0o500)
+        return replace(config, candidates=tuple(candidates)), apple_binding, authority_root
     except Phase0RunnerError:
+        _cleanup_authority_root(authority_root)
         raise
     except (
         KeyError,
@@ -900,12 +934,25 @@ def _validate_current_run_authority(
         ValueError,
         json.JSONDecodeError,
     ) as error:
+        _cleanup_authority_root(authority_root)
         raise Phase0RunnerError("current_run_authority_invalid") from error
+
+
+def _cleanup_authority_root(authority_root: Path) -> None:
+    if not authority_root.exists():
+        return
+    try:
+        authority_root.chmod(0o700)
+        shutil.rmtree(authority_root)
+    except OSError as error:
+        raise Phase0RunnerError("cleanup_failed") from error
+    if authority_root.exists():
+        raise Phase0RunnerError("cleanup_failed")
 
 
 def _validate_command_shapes(
     commands: Mapping[str, ProviderCommand],
-) -> tuple[Path, Path, dict[str, Path]]:
+) -> tuple[Path, dict[str, Path]]:
     expected_available = set(_PROVIDERS)
     if set(commands) != expected_available:
         raise ValueError("all reviewed candidates must be available")
@@ -917,7 +964,8 @@ def _validate_command_shapes(
     _validate_command_limits(ppocr, timeout=600.0)
     if apple.argv[:3] != _SANDBOX_PREFIX or apple.argv[4:] != _COMMON_PROVIDER_ARGUMENTS:
         raise ValueError("Apple Vision command is not closed")
-    apple_executable = Path(apple.argv[3])
+    if apple.argv[3] != _APPLE_EXECUTABLE_PLACEHOLDER:
+        raise ValueError("Apple Vision child must be controller-compiled")
     runtime_python, vl_components = _validate_paddle_command(
         vl,
         module="mke.evaluation.pdf_ocr_paddle_vl",
@@ -932,7 +980,7 @@ def _validate_command_shapes(
     )
     if runtime_python != ppocr_python:
         raise ValueError("Paddle candidates do not share one installed runtime")
-    return runtime_python, apple_executable, {**vl_components, **ppocr_components}
+    return runtime_python, {**vl_components, **ppocr_components}
 
 
 def _validate_command_limits(command: ProviderCommand, *, timeout: float) -> None:
@@ -954,15 +1002,15 @@ def _validate_paddle_command(
     component_names: tuple[str, str],
 ) -> tuple[Path, dict[str, Path]]:
     argv = command.argv
-    if len(argv) != 17 or argv[:3] != _SANDBOX_PREFIX:
+    if len(argv) != 18 or argv[:3] != _SANDBOX_PREFIX:
         raise ValueError("Paddle command is not closed")
-    if argv[4:7] != ("-I", "-m", module) or argv[7:13] != _COMMON_PROVIDER_ARGUMENTS:
+    if argv[4:8] != ("-I", "-B", "-m", module) or argv[8:14] != _COMMON_PROVIDER_ARGUMENTS:
         raise ValueError("Paddle module authority is invalid")
-    if argv[13] != model_arguments[0] or argv[15] != model_arguments[1]:
+    if argv[14] != model_arguments[0] or argv[16] != model_arguments[1]:
         raise ValueError("Paddle model arguments are invalid")
     components = {
-        component_names[0]: Path(argv[14]),
-        component_names[1]: Path(argv[16]),
+        component_names[0]: Path(argv[15]),
+        component_names[1]: Path(argv[17]),
     }
     if any(
         not path.name.startswith(f"{component}-")
@@ -975,7 +1023,7 @@ def _validate_paddle_command(
 def _run_network_canary(runtime_python: Path) -> None:
     try:
         result = subprocess.run(
-            (*_SANDBOX_PREFIX, str(runtime_python), "-I", "-c", _NETWORK_CANARY),
+            (*_SANDBOX_PREFIX, str(runtime_python), "-I", "-B", "-c", _NETWORK_CANARY),
             stdin=subprocess.DEVNULL,
             capture_output=True,
             check=False,
@@ -997,7 +1045,7 @@ def _validate_installed_runtime(
     if not runtime_python.exists() or runtime_python.is_dir():
         raise ValueError("installed Python is unavailable")
     result = subprocess.run(
-        (str(runtime_python), "-I", "-c", _RUNTIME_DOCTOR),
+        (*_SANDBOX_PREFIX, str(runtime_python), "-I", "-B", "-c", _RUNTIME_DOCTOR),
         stdin=subprocess.DEVNULL,
         capture_output=True,
         check=False,
@@ -1009,6 +1057,7 @@ def _validate_installed_runtime(
             "PADDLE_PDX_CACHE_HOME": str(authority_home / "paddlex"),
             "HF_HUB_OFFLINE": "1",
             "TRANSFORMERS_OFFLINE": "1",
+            "PYTHONDONTWRITEBYTECODE": "1",
         },
     )
     if result.returncode != 0 or len(result.stdout) > 8 * 1024 * 1024:
@@ -1024,6 +1073,7 @@ def _validate_installed_runtime(
             "sys_prefix",
             "sys_base_prefix",
             "isolated",
+            "dont_write_bytecode",
             "pythonpath_present",
             "package_versions",
             "direct_url",
@@ -1038,6 +1088,7 @@ def _validate_installed_runtime(
         doctor["python"] != "3.13.12"
         or doctor["mke_version"] != "0.1.2"
         or doctor["isolated"] is not True
+        or doctor["dont_write_bytecode"] is not True
         or doctor["pythonpath_present"] is not False
         or package_versions != authority.package_versions
         or _canonical_sha256(package_versions) != authority.installed_packages_sha256
@@ -1058,28 +1109,254 @@ def _validate_installed_runtime(
     archive = _closed(direct_url["archive_info"], {"hash", "hashes"}, "wheel archive")
     hashes = _closed(archive["hashes"], {"sha256"}, "wheel archive hashes")
     url = cast(str, direct_url["url"])
+    parsed = urllib.parse.urlparse(url)
     if (
         archive["hash"] != f"sha256={authority.mke_wheel_sha256}"
         or hashes["sha256"] != authority.mke_wheel_sha256
-        or not url.startswith("file://")
-        or Path(url.removeprefix("file://")).name != authority.mke_wheel_filename
+        or parsed.scheme != "file"
+        or parsed.netloc not in {"", "localhost"}
+        or parsed.query
+        or parsed.fragment
     ):
         raise ValueError("installed MKE wheel identity drifted")
+    wheel = Path(urllib.parse.unquote(parsed.path))
+    if wheel.name != authority.mke_wheel_filename:
+        raise ValueError("installed MKE wheel identity drifted")
+    try:
+        wheel_bytes = _read_bound_regular_bytes(
+            wheel, authority.mke_wheel_bytes, authority.mke_wheel_sha256
+        )
+    except (OSError, ValueError) as error:
+        raise ValueError("installed MKE wheel identity drifted") from error
+    _validate_installed_mke_files(prefix, module, wheel_bytes)
     return prefix
 
 
-def _validate_apple_executable(executable: Path, runtime_prefix: Path, owned_parent: Path) -> None:
-    metadata = executable.lstat()
+def _compile_controller_apple_child(authority_root: Path) -> _BoundAppleChild:
+    source_metadata = _APPLE_SWIFT_SOURCE.lstat()
+    source_bytes = _read_bound_regular_bytes(
+        _APPLE_SWIFT_SOURCE,
+        source_metadata.st_size,
+        _APPLE_SWIFT_SOURCE_SHA256,
+    )
+    source_copy = authority_root / "pdf_ocr_apple_vision.swift"
+    child = authority_root / "apple-vision-child"
+    _write_owned_file(source_copy, source_bytes)
+    source_binding = _bind_regular_file(source_copy)
+    result = subprocess.run(
+        ("/usr/bin/xcrun", "swiftc", str(source_copy), "-o", str(child)),
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        check=False,
+        timeout=120.0,
+        env={"PATH": "/usr/bin:/bin", "HOME": str(authority_root), "TMPDIR": str(authority_root)},
+    )
+    if result.returncode != 0 or len(result.stdout) > 64 * 1024 or len(result.stderr) > 256 * 1024:
+        raise ValueError("Apple Vision child compilation failed")
+    try:
+        _revalidate_bound_file(source_binding, "Apple Vision source identity drifted")
+        child.chmod(0o500)
+        binding = _bind_apple_child(child)
+        source_copy.chmod(0o400)
+        return binding
+    except OSError as error:
+        raise ValueError("Apple Vision child identity drifted") from error
+
+
+def _bind_regular_file(path: Path) -> _BoundAppleChild:
+    metadata = path.lstat()
+    digest = _read_bound_regular_file(path, metadata.st_size, None)
+    return _BoundAppleChild(path, metadata.st_size, digest, _file_identity(metadata))
+
+
+def _bind_apple_child(path: Path) -> _BoundAppleChild:
+    metadata = path.lstat()
     if (
-        executable.is_symlink()
+        path.is_symlink()
         or not stat.S_ISREG(metadata.st_mode)
         or metadata.st_mode & 0o111 == 0
-        or executable.name != "apple-vision-child"
-        or executable.parent.resolve() != owned_parent.resolve()
-        or runtime_prefix.parent.resolve() != owned_parent.resolve()
+        or path.name != "apple-vision-child"
     ):
-        raise ValueError("Apple Vision child identity is invalid")
-    _read_bound_regular_file(executable, metadata.st_size, None)
+        raise ValueError("Apple Vision child identity drifted")
+    return _bind_regular_file(path)
+
+
+def _revalidate_bound_file(binding: _BoundAppleChild, message: str) -> None:
+    metadata = binding.path.lstat()
+    if _file_identity(metadata) != binding.identity:
+        raise ValueError(message)
+    try:
+        _read_bound_regular_file(binding.path, binding.size, binding.sha256)
+    except (OSError, ValueError) as error:
+        raise ValueError(message) from error
+
+
+def _revalidate_apple_child(binding: _BoundAppleChild) -> None:
+    _revalidate_bound_file(binding, "Apple Vision child identity drifted")
+
+
+def _run_bound_provider(
+    command: ProviderCommand,
+    apple_binding: _BoundAppleChild,
+    **kwargs: object,
+) -> OcrEvalPageResult:
+    if command.provider == "apple-vision-local-v1":
+        if Path(command.argv[3]) != apple_binding.path:
+            raise PdfOcrProviderError(
+                problem="provider_command_invalid",
+                cause="Apple Vision child identity drifted",
+                next_step="rerun the closed Phase 0 controller",
+                provider=command.provider,
+            )
+        try:
+            _revalidate_apple_child(apple_binding)
+        except ValueError as error:
+            raise PdfOcrProviderError(
+                problem="provider_command_invalid",
+                cause="Apple Vision child identity drifted",
+                next_step="rerun the closed Phase 0 controller",
+                provider=command.provider,
+            ) from error
+    result = run_provider(command, **kwargs)  # type: ignore[arg-type]
+    if command.provider == "apple-vision-local-v1":
+        try:
+            _revalidate_apple_child(apple_binding)
+        except ValueError as error:
+            raise PdfOcrProviderError(
+                problem="provider_command_invalid",
+                cause="Apple Vision child identity drifted",
+                next_step="rerun the closed Phase 0 controller",
+                provider=command.provider,
+            ) from error
+    return result
+
+
+def _validate_installed_mke_files(prefix: Path, module: Path, wheel_bytes: bytes) -> None:
+    try:
+        with zipfile.ZipFile(io.BytesIO(wheel_bytes)) as archive:
+            names = archive.namelist()
+            if len(names) != len(set(names)):
+                raise ValueError("installed MKE wheel inventory is invalid")
+            package_names = sorted(
+                name
+                for name in names
+                if name.startswith("mke/") and not name.endswith("/")
+            )
+            record_names = [name for name in names if name.endswith(".dist-info/RECORD")]
+            if not package_names or len(record_names) != 1:
+                raise ValueError("installed MKE wheel inventory is invalid")
+            file_names = sorted(name for name in names if not name.endswith("/"))
+            expected = {name: archive.read(name) for name in file_names if name != record_names[0]}
+    except (KeyError, OSError, zipfile.BadZipFile) as error:
+        raise ValueError("installed MKE wheel identity drifted") from error
+    site_packages = prefix / "lib/python3.13/site-packages"
+    expected_module = site_packages / "mke/__init__.py"
+    if module != expected_module.resolve() or not module.exists():
+        raise ValueError("installed MKE module is invalid")
+    observed_package_names = sorted(
+        path.relative_to(site_packages).as_posix()
+        for path in (site_packages / "mke").rglob("*")
+        if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc"
+    )
+    if observed_package_names != package_names:
+        raise ValueError("installed MKE files drifted")
+    for name, encoded in expected.items():
+        installed = site_packages / name
+        try:
+            digest = hashlib.sha256(encoded).hexdigest()
+            _read_bound_regular_file(installed, len(encoded), digest)
+        except (OSError, ValueError) as error:
+            raise ValueError("installed MKE files drifted") from error
+    _validate_installed_record(site_packages, record_names[0], expected)
+
+
+def _record_hash(encoded: bytes) -> str:
+    digest = base64.urlsafe_b64encode(hashlib.sha256(encoded).digest()).rstrip(b"=")
+    return f"sha256={digest.decode('ascii')}"
+
+
+def _validate_installed_record(
+    site_packages: Path, record_name: str, expected: Mapping[str, bytes]
+) -> None:
+    record_path = site_packages / record_name
+    try:
+        record_metadata = record_path.lstat()
+        encoded = _read_bound_regular_bytes(record_path, record_metadata.st_size, None)
+        rows = list(csv.reader(io.StringIO(encoded.decode("utf-8"), newline="")))
+    except (OSError, UnicodeError, ValueError, csv.Error) as error:
+        raise ValueError("installed MKE files drifted") from error
+    if any(len(row) != 3 for row in rows):
+        raise ValueError("installed MKE files drifted")
+    entries = {row[0]: (row[1], row[2]) for row in rows}
+    if len(entries) != len(rows) or entries.get(record_name) != ("", ""):
+        raise ValueError("installed MKE files drifted")
+    for name, value in expected.items():
+        if entries.get(name) != (_record_hash(value), str(len(value))):
+            raise ValueError("installed MKE files drifted")
+    dist_info = record_name.removesuffix("RECORD")
+    allowed_extras = {
+        f"{dist_info}INSTALLER",
+        f"{dist_info}REQUESTED",
+        f"{dist_info}direct_url.json",
+    }
+    console_scripts = {
+        "../../../bin/mke",
+        "../../../bin/mke-transcribe-faster-whisper",
+    }
+    expected_pyc = {
+        str(Path(name).parent / "__pycache__" / f"{Path(name).stem}.cpython-313.pyc")
+        for name in expected
+        if name.startswith("mke/") and name.endswith(".py")
+    }
+    extras = set(entries) - set(expected) - {record_name}
+    if extras != allowed_extras | console_scripts | expected_pyc:
+        raise ValueError("installed MKE files drifted")
+    for name in allowed_extras:
+        path = site_packages / name
+        try:
+            metadata = path.lstat()
+            content = _read_bound_regular_bytes(path, metadata.st_size, None)
+        except (OSError, ValueError) as error:
+            raise ValueError("installed MKE files drifted") from error
+        if entries[name] != (_record_hash(content), str(len(content))):
+            raise ValueError("installed MKE files drifted")
+    for name in expected_pyc:
+        if (site_packages / name).exists() or entries[name] != ("", ""):
+            raise ValueError("installed MKE files drifted")
+    prefix = site_packages.parents[2]
+    for name in console_scripts:
+        path = (site_packages / name).resolve()
+        if not _within(path, prefix):
+            raise ValueError("installed MKE files drifted")
+        try:
+            metadata = path.lstat()
+            content = _read_bound_regular_bytes(path, metadata.st_size, None)
+        except (OSError, ValueError) as error:
+            raise ValueError("installed MKE files drifted") from error
+        if entries[name] != (_record_hash(content), str(len(content))):
+            raise ValueError("installed MKE files drifted")
+
+
+def _remove_call_owned_mke_bytecode(prefix: Path, owned_parent: Path) -> None:
+    if prefix.parent.resolve() != owned_parent.resolve() or prefix.is_symlink():
+        raise ValueError("installed runtime is not call-owned")
+    package = prefix / "lib/python3.13/site-packages/mke"
+    metadata = package.lstat()
+    if package.is_symlink() or not stat.S_ISDIR(metadata.st_mode):
+        raise ValueError("installed MKE module is invalid")
+    caches = sorted(
+        (path for path in package.rglob("__pycache__") if path.is_dir()),
+        key=lambda path: len(path.parts),
+        reverse=True,
+    )
+    for cache in caches:
+        if cache.is_symlink():
+            raise ValueError("installed MKE bytecode inventory is invalid")
+        for entry in cache.iterdir():
+            metadata = entry.lstat()
+            if entry.is_symlink() or not stat.S_ISREG(metadata.st_mode) or entry.suffix != ".pyc":
+                raise ValueError("installed MKE bytecode inventory is invalid")
+        shutil.rmtree(cache)
 
 
 def _validate_model_root(
@@ -1192,6 +1469,46 @@ def _read_bound_regular_file(path: Path, expected_size: int, expected_sha256: st
         ):
             raise ValueError("regular file identity drifted")
         return observed
+    finally:
+        os.close(descriptor)
+
+
+def _read_bound_regular_bytes(
+    path: Path, expected_size: int, expected_sha256: str | None
+) -> bytes:
+    inventory = path.lstat()
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(path, flags)
+    try:
+        opened = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or opened.st_size != expected_size
+            or _file_identity(opened) != _file_identity(inventory)
+        ):
+            raise ValueError("regular file identity drifted")
+        chunks: list[bytes] = []
+        actual = 0
+        digest = hashlib.sha256()
+        while True:
+            chunk = os.read(descriptor, min(1024 * 1024, expected_size - actual + 1))
+            if not chunk:
+                break
+            actual += len(chunk)
+            if actual > expected_size:
+                raise ValueError("regular file grew")
+            digest.update(chunk)
+            chunks.append(chunk)
+        after_descriptor = os.fstat(descriptor)
+        after_path = path.lstat()
+        if (
+            actual != expected_size
+            or (expected_sha256 is not None and digest.hexdigest() != expected_sha256)
+            or _file_identity(after_descriptor) != _file_identity(inventory)
+            or _file_identity(after_path) != _file_identity(inventory)
+        ):
+            raise ValueError("regular file identity drifted")
+        return b"".join(chunks)
     finally:
         os.close(descriptor)
 
@@ -1376,6 +1693,7 @@ def _load_runner_authority(config: Phase0RunnerConfig) -> _RunnerAuthority:
         model_bytes=model_bytes,
         package_versions=package_versions,
         mke_wheel_filename=wheel_filename,
+        mke_wheel_bytes=wheel_bytes,
         model_receipt=model,
     )
 

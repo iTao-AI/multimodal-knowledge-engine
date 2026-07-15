@@ -4,7 +4,9 @@ import copy
 import hashlib
 import json
 import math
+import os
 import subprocess
+import zipfile
 from dataclasses import replace
 from pathlib import Path
 
@@ -38,7 +40,7 @@ from mke.evaluation.pdf_ocr_runner import (
 PROTOCOL_PATH = Path("tests/fixtures/pdf-ocr-phase0-v1/protocol.json")
 SCORECARD_PATH = Path("benchmarks/ocr/phase0-scorecard.json")
 SHA = "a" * 64
-SCORECARD_SHA256 = "c8145d1cdfa30e23bf67900baf74c2bcab30c5b47796de9433a7dc342f6194c2"
+SCORECARD_SHA256 = "34d2bc48114418965003656bb4a1266388ec15c3bdd59c52609462f9614de29e"
 PACKAGE_RECEIPT = Path("benchmarks/ocr/candidate-environments.json")
 MODEL_RECEIPT = Path("benchmarks/ocr/model-artifacts.json")
 STARTUP_RECEIPT = Path("benchmarks/ocr/provider-startup.json")
@@ -195,9 +197,6 @@ def _authority_shaped_config(tmp_path: Path) -> Phase0RunnerConfig:
     runtime_python = tmp_path / "runtime" / "bin" / "python"
     runtime_python.parent.mkdir(parents=True)
     runtime_python.write_bytes(b"python")
-    apple = tmp_path / "apple" / "pdf-ocr-apple-vision"
-    apple.parent.mkdir()
-    apple.write_bytes(b"swift-child")
     model_root = tmp_path / "models"
     components = {
         "layout": model_root / "PP-DocLayoutV3-authority",
@@ -219,7 +218,7 @@ def _authority_shaped_config(tmp_path: Path) -> Phase0RunnerConfig:
             CandidateRunConfig(
                 provider="apple-vision-local-v1",
                 command=ProviderCommand(
-                    argv=(*sandbox, str(apple), *common),
+                    argv=(*sandbox, runner._APPLE_EXECUTABLE_PLACEHOLDER, *common),
                     provider="apple-vision-local-v1",
                     profile="phase0-200dpi-plain-text-v1",
                     timeout_seconds=180,
@@ -232,6 +231,7 @@ def _authority_shaped_config(tmp_path: Path) -> Phase0RunnerConfig:
                         *sandbox,
                         str(runtime_python),
                         "-I",
+                        "-B",
                         "-m",
                         "mke.evaluation.pdf_ocr_paddle_vl",
                         *common,
@@ -252,6 +252,7 @@ def _authority_shaped_config(tmp_path: Path) -> Phase0RunnerConfig:
                         *sandbox,
                         str(runtime_python),
                         "-I",
+                        "-B",
                         "-m",
                         "mke.evaluation.pdf_ocr_ppocrv6",
                         *common,
@@ -314,7 +315,7 @@ def test_public_authority_rejects_wrong_provider_module_before_owned_writes(
     command = candidates[index].command
     assert command is not None
     argv = list(command.argv)
-    argv[6] = replacement
+    argv[argv.index("-m") + 1] = replacement
     candidates[index] = replace(candidates[index], command=replace(command, argv=tuple(argv)))
     config = replace(config, candidates=tuple(candidates))
 
@@ -382,6 +383,257 @@ def test_installed_runtime_doctor_timeout_is_stable(
 
     assert not config.output.exists()
     assert not config.workspace.exists()
+
+
+def _runtime_authority_fixture(
+    tmp_path: Path,
+    *,
+    create_wheel: bool,
+    installed_drift: str | None = None,
+) -> tuple[runner._RunnerAuthority, Path, Path, Path, dict[str, object]]:
+    authority = runner._load_runner_authority(_controller_config(tmp_path))
+    prefix = tmp_path / "provider-env"
+    runtime_python = prefix / "bin/python"
+    runtime_python.parent.mkdir(parents=True)
+    runtime_python.write_bytes(b"python")
+    site_packages = prefix / "lib/python3.13/site-packages"
+    module = site_packages / "mke/__init__.py"
+    record = site_packages / "multimodal_knowledge_engine-0.1.2.dist-info/RECORD"
+    wheel = tmp_path / authority.mke_wheel_filename
+    if create_wheel:
+        wheel.parent.mkdir(exist_ok=True)
+        module_bytes = b'__version__ = "0.1.2"\n'
+        extras = {
+            "INSTALLER": b"pip\n",
+            "REQUESTED": b"",
+            "direct_url.json": b"{}\n",
+        }
+        console_scripts = {
+            "../../../bin/mke": b"#!/bin/sh\n",
+            "../../../bin/mke-transcribe-faster-whisper": b"#!/bin/sh\n",
+        }
+        record_lines = [
+            f"mke/__init__.py,{runner._record_hash(module_bytes)},{len(module_bytes)}",
+            "mke/__pycache__/__init__.cpython-313.pyc,,",
+            "multimodal_knowledge_engine-0.1.2.dist-info/RECORD,,",
+            *[
+                "multimodal_knowledge_engine-0.1.2.dist-info/"
+                f"{name},{runner._record_hash(value)},{len(value)}"
+                for name, value in extras.items()
+            ],
+            *[
+                f"{name},{runner._record_hash(value)},{len(value)}"
+                for name, value in console_scripts.items()
+            ],
+        ]
+        record_bytes = ("\n".join(record_lines) + "\n").encode()
+        with zipfile.ZipFile(wheel, "w") as archive:
+            archive.writestr("mke/__init__.py", module_bytes)
+            archive.writestr(
+                "multimodal_knowledge_engine-0.1.2.dist-info/RECORD", record_bytes
+            )
+        module.parent.mkdir(parents=True)
+        record.parent.mkdir(parents=True)
+        module.write_bytes(
+            b"x" * len(module_bytes) if installed_drift == "module" else module_bytes
+        )
+        record.write_bytes(
+            b"x" * len(record_bytes) if installed_drift == "record" else record_bytes
+        )
+        for name, value in extras.items():
+            (record.parent / name).write_bytes(value)
+        for name, value in console_scripts.items():
+            path = (site_packages / name).resolve()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(value)
+        encoded = wheel.read_bytes()
+        authority = replace(
+            authority,
+            mke_wheel_sha256=hashlib.sha256(encoded).hexdigest(),
+            mke_wheel_bytes=len(encoded),
+            package_bytes={**authority.package_bytes, "apple-vision-local-v1": len(encoded)},
+        )
+    doctor = {
+        "python": "3.13.12",
+        "mke_version": "0.1.2",
+        "mke_file": str(module),
+        "sys_executable": str(runtime_python),
+        "sys_prefix": str(prefix),
+        "sys_base_prefix": str(tmp_path / "base-python"),
+        "isolated": True,
+        "dont_write_bytecode": True,
+        "pythonpath_present": False,
+        "package_versions": authority.package_versions,
+        "direct_url": {
+            "archive_info": {
+                "hash": f"sha256={authority.mke_wheel_sha256}",
+                "hashes": {"sha256": authority.mke_wheel_sha256},
+            },
+            "url": wheel.as_uri(),
+        },
+    }
+    return authority, runtime_python, module, wheel, doctor
+
+
+def test_apple_authority_rejects_arbitrary_prebuilt_executable(tmp_path: Path) -> None:
+    child = tmp_path / "apple-vision-child"
+    child.write_bytes(b"#!/bin/sh\nexit 0\n")
+    child.chmod(0o500)
+    config = _authority_shaped_config(tmp_path)
+    commands = {
+        item.provider: item.command for item in config.candidates if item.command is not None
+    }
+    apple = commands["apple-vision-local-v1"]
+    commands["apple-vision-local-v1"] = replace(
+        apple, argv=(*apple.argv[:3], str(child), *apple.argv[4:])
+    )
+
+    with pytest.raises(ValueError, match="Apple Vision child must be controller-compiled"):
+        runner._validate_command_shapes(commands)
+
+
+def test_installed_runtime_rejects_nonexistent_module_and_wheel(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    authority, runtime_python, module, wheel, doctor = _runtime_authority_fixture(
+        tmp_path, create_wheel=False
+    )
+    assert not module.exists()
+    assert not wheel.exists()
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            _args[0], 0, json.dumps(doctor).encode(), b""
+        ),
+    )
+    home = tmp_path / "authority-home"
+    home.mkdir()
+
+    with pytest.raises(ValueError, match="installed MKE wheel identity drifted"):
+        runner._validate_installed_runtime(runtime_python, authority, home)
+
+
+def test_installed_runtime_rejects_receipt_claim_over_drifted_wheel_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    authority, runtime_python, module, wheel, doctor = _runtime_authority_fixture(
+        tmp_path, create_wheel=False
+    )
+    wheel.write_bytes(b"x" * authority.package_bytes["apple-vision-local-v1"])
+    module.parent.mkdir(parents=True)
+    module.write_bytes(b'__version__ = "0.1.2"\n')
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            _args[0], 0, json.dumps(doctor).encode(), b""
+        ),
+    )
+    home = tmp_path / "authority-home"
+    home.mkdir()
+
+    with pytest.raises(ValueError, match="installed MKE wheel identity drifted"):
+        runner._validate_installed_runtime(runtime_python, authority, home)
+
+
+@pytest.mark.parametrize("installed_drift", ["module", "record"])
+def test_installed_runtime_rejects_installed_wheel_file_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, installed_drift: str
+) -> None:
+    authority, runtime_python, _module, _wheel, doctor = _runtime_authority_fixture(
+        tmp_path, create_wheel=True, installed_drift=installed_drift
+    )
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            _args[0], 0, json.dumps(doctor).encode(), b""
+        ),
+    )
+    home = tmp_path / "authority-home"
+    home.mkdir()
+
+    with pytest.raises(ValueError, match="installed MKE files drifted"):
+        runner._validate_installed_runtime(runtime_python, authority, home)
+
+
+def test_installed_runtime_doctor_uses_the_provider_sandbox(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    authority, runtime_python, _module, _wheel, doctor = _runtime_authority_fixture(
+        tmp_path, create_wheel=True
+    )
+    calls: list[tuple[str, ...]] = []
+
+    def doctor_run(argv: tuple[str, ...], **_kwargs: object) -> subprocess.CompletedProcess[bytes]:
+        calls.append(argv)
+        return subprocess.CompletedProcess(argv, 0, json.dumps(doctor).encode(), b"")
+
+    monkeypatch.setattr(runner.subprocess, "run", doctor_run)
+    home = tmp_path / "authority-home"
+    home.mkdir()
+
+    runner._validate_installed_runtime(runtime_python, authority, home)
+
+    assert calls[0][:3] == runner._SANDBOX_PREFIX
+    assert calls[0][4:7] == ("-I", "-B", "-c")
+
+
+def test_call_owned_runtime_removes_installed_mke_bytecode(tmp_path: Path) -> None:
+    prefix = tmp_path / "provider-env"
+    package = prefix / "lib/python3.13/site-packages/mke"
+    bytecode = package / "__pycache__/runtime.cpython-313.pyc"
+    bytecode.parent.mkdir(parents=True)
+    bytecode.write_bytes(b"caller-asserted bytecode")
+    source = package / "runtime.py"
+    source.write_bytes(b"tracked wheel source")
+
+    runner._remove_call_owned_mke_bytecode(prefix, tmp_path)
+
+    assert source.read_bytes() == b"tracked wheel source"
+    assert not bytecode.exists()
+    assert not bytecode.parent.exists()
+
+
+def test_swift_source_replacement_during_compile_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "tracked.swift"
+    source.write_bytes(b"tracked swift source")
+    monkeypatch.setattr(runner, "_APPLE_SWIFT_SOURCE", source)
+    monkeypatch.setattr(
+        runner, "_APPLE_SWIFT_SOURCE_SHA256", hashlib.sha256(source.read_bytes()).hexdigest()
+    )
+
+    def replace_source(
+        argv: tuple[str, ...], **_kwargs: object
+    ) -> subprocess.CompletedProcess[bytes]:
+        Path(argv[2]).write_bytes(b"replaced swift source")
+        Path(argv[4]).write_bytes(b"compiled-child")
+        Path(argv[4]).chmod(0o500)
+        return subprocess.CompletedProcess(argv, 0, b"", b"")
+
+    monkeypatch.setattr(runner.subprocess, "run", replace_source)
+    authority_root = tmp_path / "authority"
+    authority_root.mkdir()
+
+    with pytest.raises(ValueError, match="Apple Vision source identity drifted"):
+        runner._compile_controller_apple_child(authority_root)
+
+
+def test_compiled_apple_child_replacement_fails_closed(tmp_path: Path) -> None:
+    child = tmp_path / "apple-vision-child"
+    child.write_bytes(b"compiled-child")
+    child.chmod(0o500)
+    binding = runner._bind_apple_child(child)
+    replacement = tmp_path / "replacement"
+    replacement.write_bytes(b"replaced-child")
+    replacement.chmod(0o500)
+    os.replace(replacement, child)
+
+    with pytest.raises(ValueError, match="Apple Vision child identity drifted"):
+        runner._revalidate_apple_child(binding)
 
 
 def test_tracked_controller_runs_candidates_serially_with_common_render_and_atomic_output(
