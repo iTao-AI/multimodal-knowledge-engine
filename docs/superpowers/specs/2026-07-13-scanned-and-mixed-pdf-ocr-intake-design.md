@@ -1,7 +1,8 @@
 # Scanned and Mixed PDF OCR Intake Design
 
-Status: approved design amended for resumption planning. Phase 0 Tasks 1-4 and their review
-remediation are complete; Tasks 4R, 5A, 5B, 5C, and 6 have not started.
+Status: approved design with Phase 0 viability accepted for production planning. The accepted
+Phase 0 result does not authorize production OCR, a public flag, runtime promotion, release, or
+deployment.
 
 Planning baseline: `337d9a42105a1a6769f3e0ae21bb28c59282da48`.
 
@@ -71,7 +72,18 @@ The viability spike succeeds only when all of the following hold on the approved
 - model size, installation size, cold start, per-page time, peak RSS, temporary storage, and text
   volume remain inside a measured and documented local envelope;
 - model code and weights have documented source, version, digest, and license status;
-- an installed MKE wheel completes OCR ingest, Search, Ask, and portable EvidenceRef proof.
+- composed evidence binds real OCR evaluation and scorecard authority to its reviewed installed
+  wheel, then independently proves installed-wheel scorecard validation, Publication replay,
+  Search, Ask, and portable EvidenceRef consumption.
+
+The accepted Phase 0 evidence uses two explicit wheel authorities. The Task 4R package/startup and
+Task 5B scorecard OCR evidence binds MKE wheel SHA-256
+`6f499710dce8f4ac3e23ac0513c0020a8367f83b38755d43f6ffc4fb49056218`. The Task 6 installed
+consumer and product replay binds MKE wheel SHA-256
+`e17ed9ce1f374eb10a5e006f56d34c50bacc35f497d32654faf40459fa0316b1`. The Task 6 replay uses the
+closed protocol truth; it does not rerun OCR providers or generate the scorecard. This composed
+evidence is sufficient for Phase 0 production planning. A final installed-wheel real OCR ingest
+remains mandatory before exposing a production OCR capability or public flag.
 
 The production route is killed or deferred if any of the following hold:
 
@@ -627,8 +639,9 @@ Each candidate is measured on the same corpus for:
 - license and artifact provenance;
 - preparation, doctor, cache, upgrade, rollback, and error-recovery UX.
 
-Numeric acceptance thresholds are recorded only after real measurements. Vendor marketing numbers
-are not used as project evidence.
+Numeric acceptance thresholds are recorded only after real measurements. Phase 0 numeric ceilings
+are accepted solely as provisional regression and planning budgets for the closed synthetic
+protocol, not as production SLAs. Vendor marketing numbers are not used as project evidence.
 
 ### Required test matrix
 

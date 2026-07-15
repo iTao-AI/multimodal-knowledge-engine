@@ -2,8 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-Status: implemented and locally verified; provider, limit, and production-plan authority remains
-pending review. Tasks 1-3 and their review remediation are complete. Task 4 Steps 1-6 are
+Status: implemented, verified, and accepted as a Phase 0 `GO` for separate production planning.
+This acceptance does not authorize production OCR, a public flag, runtime promotion, release, or
+deployment. Tasks 1-3 and their review remediation are complete. Task 4 Steps 1-6 are
 complete as a bounded compatibility checkpoint. The pinned model roots were prepared and real
 startup evidence was recorded. A bounded Task 4 amendment now accepts only the observed pinned
 PaddleOCR-VL direct-top-level prose envelope and binds startup evidence to the package, model,
@@ -19,9 +20,10 @@ been completed and accepted at `97e2cb1c67f2ef3a5cd8fc936e697034c0b79ed0`, compl
 repair commit `fecb732c5950855897219609b9ea0f63e7d75fa6` are accepted. Task 5B was subsequently
 completed and accepted at reviewed HEAD
 `d74cbe4181df69e198bbbb881d672c83e2b1437c`. Task 5C was completed and accepted at reviewed HEAD
-`5d857766770639a0cf25fa77fe044a060f60ead6`. Task 6 is complete as a local installed-wheel proof
-and proposed decision record. It does not authorize production OCR, provider promotion, numeric
-limits, release, or deployment.
+`5d857766770639a0cf25fa77fe044a060f60ead6`. Task 6 is complete and accepted as a composed local
+installed-wheel proof. The selected planning baseline is
+`ppocrv6-medium-cpu-spike-v1` with profile `phase0-200dpi-plain-text-v1`; numeric ceilings remain
+provisional closed-protocol regression and planning budgets rather than production SLAs.
 
 **Goal:** Produce reproducible valid-positive or valid-negative evidence for local scanned/mixed-PDF OCR before adding a production runtime contract.
 
@@ -746,7 +748,8 @@ was completed and accepted with no findings at
 completed and accepted at `fecb732c5950855897219609b9ea0f63e7d75fa6`. Task 5B was subsequently
 completed and accepted at `d74cbe4181df69e198bbbb881d672c83e2b1437c`; only Task 5C is cleared
 for a later independent dispatch. Task 5C was subsequently completed and accepted at
-`5d857766770639a0cf25fa77fe044a060f60ead6`; Task 6 is now the active local closeout proof.
+`5d857766770639a0cf25fa77fe044a060f60ead6`. Task 6 was subsequently completed and accepted as
+the composed local closeout proof described below.
 
 The pre-reconciliation package and startup receipts bound an MKE 0.1.1 wheel and remain historical
 evidence. Task 4R-A removed the compatibility controller's former fixed 0.1.1 wheel filename and
@@ -1607,16 +1610,21 @@ Stop with a clean local branch. Do not add a production OCR extra, public flag, 
 release change, push, PR, merge, tag, model artifact, or deployment. A valid-positive result returns
 to the authority window for provider/limit freeze and a separate production implementation plan.
 
-Local Task 6 verification used one exact installed wheel,
+The accepted result composes two explicit wheel authorities. Task 4R package/startup and Task 5B
+scorecard OCR evidence bind MKE wheel SHA-256
+`6f499710dce8f4ac3e23ac0513c0020a8367f83b38755d43f6ffc4fb49056218`. Task 6 built and reused
 `multimodal_knowledge_engine-0.1.2-py3-none-any.whl` (`294392` bytes, SHA-256
-`e17ed9ce1f374eb10a5e006f56d34c50bacc35f497d32654faf40459fa0316b1`), for both installed Phase
-0 Publication validation and the official MCP SDK consumer. The aggregate proof passed with
-blocked network egress, exact Search/Ask portable page EvidenceRef validation, and confirmed
-call-owned cleanup. Focused Task 6 tests passed with `19 passed`; full pytest passed with
+`e17ed9ce1f374eb10a5e006f56d34c50bacc35f497d32654faf40459fa0316b1`) for installed scorecard
+validation, disposable Publication replay from the closed protocol truth, and the official MCP SDK
+Search/Ask/EvidenceRef consumer. Task 6 did not rerun OCR providers or generate the scorecard. The
+aggregate replay passed with blocked network egress, exact portable page EvidenceRef validation,
+and confirmed call-owned cleanup. Focused Task 6 tests passed with `19 passed`; full pytest passed with
 `2006 passed, 5 skipped, 5 warnings`; Ruff, product proof, demo, provenance proofs, release audit,
 and diff checks passed. Full Pyright reports the same pre-existing `368 errors` in both this
 worktree and a neutral detached worktree at
 `f29730eb4433d08a9a0d00bb5a86584a577dd469`; focused Task 6 Pyright passed with `0 errors`.
-The proposed `GO` and all provider, resource, dependency, and numeric limits remain pending
-authority acceptance. See
+The Phase 0 `GO`, selected provider, and selected profile are accepted only as the baseline for a
+separate production plan. Numeric ceilings remain provisional closed-protocol budgets. A final
+installed-wheel real OCR ingest and a representative corpus remain mandatory before any public OCR
+capability. See
 `docs/superpowers/reviews/2026-07-13-pdf-ocr-phase0-decision.md`.
