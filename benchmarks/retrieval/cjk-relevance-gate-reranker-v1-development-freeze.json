@@ -4,7 +4,7 @@
     "candidate_revision": 1
   },
   "candidate_status": "completed",
-  "dense_artifact_sha256": "adb50c8081df3559953eec1fbe626a4fbf98b436a9de5006133080a3432b41f3",
+  "dense_artifact_sha256": "46f80dbdbfbc143487e2d16e51e183c580df649e1755338123367991a88853b0",
   "development_status": "passed",
   "diagnostics": {
     "allowed_count": 48,
@@ -971,8 +971,8 @@
       "value": 0.5
     }
   },
-  "protocol_sha256": "4d069f7e3962492e6a95cf105ec3b5b9e747d0669be846f0b6948e546671da01",
-  "rrf_artifact_sha256": "62266ec81391c9e92a8ea15745b5df71169e6a09cf440da2b8720cd1829e91f3",
+  "protocol_sha256": "bcff0212ae35ae96f833e0a791d84ad73451468e96b860b12533f7707964526a",
+  "rrf_artifact_sha256": "8c2b3122fb731672c219bafbfb91d134bb7557e4a748e503ff736039995cb8fa",
   "runtime_promotion_status": "not_evaluated",
   "schema_version": "mke.relevance_gate_development_freeze.v1",
   "selected_profile": "strict-constraint"

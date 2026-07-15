@@ -48,7 +48,7 @@
     "integrity_claim": "adjudication_record_integrity"
   },
   "source_identity": {
-    "sha256": "f711699904a4b3247058e6e6c2e5b059eab4b6f4f32aa0d52a6cfa687405570c",
+    "sha256": "d2078237d411852398ca6762467575a98d2949b5681f277ca68a8e98ac9d6ef6",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -152,8 +152,8 @@
       },
       {
         "path": "src/mke/domain/__init__.py",
-        "bytes": 15437,
-        "sha256": "a2f67096cc28d29c66ed881b290d6040558dfe25aeca76139cab710d4280c943"
+        "bytes": 15903,
+        "sha256": "9f7d8c0c580ef313150a4818f0e9f06da6decf9e16f2cedc849618ce0d02bb84"
       },
       {
         "path": "src/mke/embeddings/__init__.py",
@@ -314,6 +314,36 @@
         "path": "src/mke/evaluation/numeric_comparison.py",
         "bytes": 36269,
         "sha256": "341306d6f7ef89eed0e06418e1f6a0ac2fdc6480b3f843a272a85a3ccc58d4bc"
+      },
+      {
+        "path": "src/mke/evaluation/pdf_ocr_paddle_vl.py",
+        "bytes": 16366,
+        "sha256": "722ec3f93a5a92cf81c7f9dc32bc1ca58f246217921fbab10f0446c3cd8266de"
+      },
+      {
+        "path": "src/mke/evaluation/pdf_ocr_ppocrv6.py",
+        "bytes": 6193,
+        "sha256": "a9f03e8275204c9d7e411cd5a968e4c04f8aa069573ab6a698387815ba01a364"
+      },
+      {
+        "path": "src/mke/evaluation/pdf_ocr_protocol.py",
+        "bytes": 13246,
+        "sha256": "8ea231cb6cfadff4f5ab7168e81f8a00e52e7275f2d41510954d61b3c73c50cb"
+      },
+      {
+        "path": "src/mke/evaluation/pdf_ocr_provider.py",
+        "bytes": 18479,
+        "sha256": "b69d05ffae61800a9612fb4fc59bcacf41c5cd48117ad0ee1cbbed7443583d43"
+      },
+      {
+        "path": "src/mke/evaluation/pdf_ocr_router.py",
+        "bytes": 17568,
+        "sha256": "1e673dfeeb1642e0897332630880aa33a97bba2911b94c1de8046b38f0b5838d"
+      },
+      {
+        "path": "src/mke/evaluation/pdf_ocr_runner.py",
+        "bytes": 104128,
+        "sha256": "30aa45759f0ca80408b893a6a5ed73f6c83a93dc0f9df2a7df05f62a9773d4d8"
       },
       {
         "path": "src/mke/evaluation/relevance_gate_artifact.py",
