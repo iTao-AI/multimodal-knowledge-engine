@@ -2,7 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-Status: in progress. Tasks 1-3 and their review remediation are complete. Task 4 Steps 1-6 are
+Status: implemented and locally verified; provider, limit, and production-plan authority remains
+pending review. Tasks 1-3 and their review remediation are complete. Task 4 Steps 1-6 are
 complete as a bounded compatibility checkpoint. The pinned model roots were prepared and real
 startup evidence was recorded. A bounded Task 4 amendment now accepts only the observed pinned
 PaddleOCR-VL direct-top-level prose envelope and binds startup evidence to the package, model,
@@ -18,8 +19,9 @@ been completed and accepted at `97e2cb1c67f2ef3a5cd8fc936e697034c0b79ed0`, compl
 repair commit `fecb732c5950855897219609b9ea0f63e7d75fa6` are accepted. Task 5B was subsequently
 completed and accepted at reviewed HEAD
 `d74cbe4181df69e198bbbb881d672c83e2b1437c`. Task 5C was completed and accepted at reviewed HEAD
-`5d857766770639a0cf25fa77fe044a060f60ead6`. Task 6 is cleared only for a later independent
-dispatch and has not started.
+`5d857766770639a0cf25fa77fe044a060f60ead6`. Task 6 is complete as a local installed-wheel proof
+and proposed decision record. It does not authorize production OCR, provider promotion, numeric
+limits, release, or deployment.
 
 **Goal:** Produce reproducible valid-positive or valid-negative evidence for local scanned/mixed-PDF OCR before adding a production runtime contract.
 
@@ -743,7 +745,8 @@ was completed and accepted with no findings at
 `97e2cb1c67f2ef3a5cd8fc936e697034c0b79ed0`. Task 4R is accepted. Task 5A was subsequently
 completed and accepted at `fecb732c5950855897219609b9ea0f63e7d75fa6`. Task 5B was subsequently
 completed and accepted at `d74cbe4181df69e198bbbb881d672c83e2b1437c`; only Task 5C is cleared
-for a later independent dispatch, and Task 5C and later work have not started.
+for a later independent dispatch. Task 5C was subsequently completed and accepted at
+`5d857766770639a0cf25fa77fe044a060f60ead6`; Task 6 is now the active local closeout proof.
 
 The pre-reconciliation package and startup receipts bound an MKE 0.1.1 wheel and remain historical
 evidence. Task 4R-A removed the compatibility controller's former fixed 0.1.1 wheel filename and
@@ -1489,7 +1492,7 @@ may be claimed. Task 5C is complete; Task 6 may begin only through its independe
   official MCP Python SDK already locked by the project.
 - Produces: one exact aggregate JSON proof plus a public-neutral GO/NO-GO review record.
 
-- [ ] **Step 1: Write failing installed-wheel controller tests**
+- [x] **Step 1: Write failing installed-wheel controller tests**
 
 Require a controller that:
 
@@ -1518,7 +1521,7 @@ EXPECTED = {
 }
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q tests/scripts/test_pdf_ocr_phase0_consumer.py
@@ -1526,7 +1529,7 @@ UV_OFFLINE=1 uv run pytest -q tests/scripts/test_pdf_ocr_phase0_consumer.py
 
 Expected: controller and stable failure mapping are absent.
 
-- [ ] **Step 3: Implement and run the installed-wheel proof**
+- [x] **Step 3: Implement and run the installed-wheel proof**
 
 The outer controller owns temporary roots and final cleanup. The installed consumer owns only MCP
 tool discovery/calls and exact payload validation. Model preparation is never performed by the
@@ -1545,7 +1548,7 @@ Expected stdout is byte-equivalent to stable sorted JSON for `EXPECTED` plus exa
 and Python-version proof fields defined by the tests. If the scorecard is `no_go`, run the tested
 negative proof instead and require `status="no_go"` with no selected provider or product claim.
 
-- [ ] **Step 4: Run the complete repository verification**
+- [x] **Step 4: Run the complete repository verification**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q
@@ -1564,7 +1567,7 @@ Do not classify an unrelated failure from a named worktree as baseline without r
 the same committed candidate in a neutral detached worktree. Any forbidden production-surface diff
 or unclassified failure blocks completion.
 
-- [ ] **Step 5: Write the public-neutral decision record**
+- [x] **Step 5: Write the public-neutral decision record**
 
 The review must include:
 
@@ -1583,7 +1586,7 @@ The review must include:
 The planning/review window, not the implementation worker, accepts or rejects proposed provider,
 thresholds, resource limits, dependency constraints, and production-plan authorization.
 
-- [ ] **Step 6: Mark this plan implemented, commit, and stop**
+- [x] **Step 6: Mark this plan implemented, commit, and stop**
 
 After all accepted checks, mark completed checkboxes and set an `Implemented/verified` status with
 the final commit and exact test counts. For `no_go`, mark the plan complete when the negative proof
@@ -1603,3 +1606,17 @@ git commit -m "docs(ocr): close phase zero viability proof"
 Stop with a clean local branch. Do not add a production OCR extra, public flag, runtime contract,
 release change, push, PR, merge, tag, model artifact, or deployment. A valid-positive result returns
 to the authority window for provider/limit freeze and a separate production implementation plan.
+
+Local Task 6 verification used one exact installed wheel,
+`multimodal_knowledge_engine-0.1.2-py3-none-any.whl` (`294392` bytes, SHA-256
+`e17ed9ce1f374eb10a5e006f56d34c50bacc35f497d32654faf40459fa0316b1`), for both installed Phase
+0 Publication validation and the official MCP SDK consumer. The aggregate proof passed with
+blocked network egress, exact Search/Ask portable page EvidenceRef validation, and confirmed
+call-owned cleanup. Focused Task 6 tests passed with `19 passed`; full pytest passed with
+`2006 passed, 5 skipped, 5 warnings`; Ruff, product proof, demo, provenance proofs, release audit,
+and diff checks passed. Full Pyright reports the same pre-existing `368 errors` in both this
+worktree and a neutral detached worktree at
+`f29730eb4433d08a9a0d00bb5a86584a577dd469`; focused Task 6 Pyright passed with `0 errors`.
+The proposed `GO` and all provider, resource, dependency, and numeric limits remain pending
+authority acceptance. See
+`docs/superpowers/reviews/2026-07-13-pdf-ocr-phase0-decision.md`.
