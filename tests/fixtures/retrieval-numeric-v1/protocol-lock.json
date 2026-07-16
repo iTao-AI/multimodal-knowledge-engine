@@ -96,7 +96,7 @@
       },
       {
         "path": "src/mke/adapters/sqlite/__init__.py",
-        "sha256": "53ff9238d8c46f14484bfc55d5118cf2785dd1c1543f70acef6cea4e592fa69e"
+        "sha256": "9d8fbb09ad69f0846f56a42aabcc6e67130e62e2e8f404b44fc70b3d0877ecfb"
       },
       {
         "path": "src/mke/adapters/video/__init__.py",

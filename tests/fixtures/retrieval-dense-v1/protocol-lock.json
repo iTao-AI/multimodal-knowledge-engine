@@ -49,7 +49,7 @@
     "e3b_artifact": {
       "bytes": 196145,
       "path": "benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json",
-      "sha256": "26ae640f4566f86e3e84f47c14cc380e2c749250cc1628b75d2f5571d63bf9ec"
+      "sha256": "19d60ca41dce18cfc25e43c721e250948335447be7195c0d1944c9c53575b4bb"
     },
     "qrel_adjudication": {
       "bytes": 341947,
