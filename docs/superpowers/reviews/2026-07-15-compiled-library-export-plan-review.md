@@ -1,6 +1,6 @@
 # Compiled Library Export v1 Plan Engineering Review
 
-Status: `TASK 8 COLLECTION AMENDMENT ACCEPTED / CLEARED FOR STEP 5-6`
+Status: `TASK 8 EVALUATION IDENTITY AMENDMENT ACCEPTED / CLEARED FOR TASK 8R + STEP 5`
 
 Date: 2026-07-15
 
@@ -280,6 +280,9 @@ All review-derived amendments are already folded into the written plans:
 - [x] **T13 (P1)** — pytest collection identity — keep both approved `test_library_export.py`
   paths and add only empty `tests/application/__init__.py` and `tests/domain/__init__.py` package
   markers; do not rename tests or change repository-wide import mode.
+- [x] **T14 (P1)** — evaluation provenance — after product code stabilizes, rebind the existing
+  E1-E3-E identity chain once through the supported transaction and detached-mirror workflow;
+  permit no retrieval semantic or verdict change.
 
 ## Task 3 Targeted Authority Re-review
 
@@ -333,13 +336,56 @@ An independent repository-external archive simulation added both empty markers a
 
 Verdict: `ACCEPTED / CLEARED FOR TASK 8 STEP 5-6`.
 
+## Task 8 Evaluation Identity Amendment
+
+At `68ba721af0c52f0520185deb3c348fdecba2f99b`, the package-marker correction allowed the bare
+suite to collect 2,271 tests. Execution then reported `90 failed, 2167 passed, 5 skipped,
+5 warnings, 9 errors`. Independent focused replay reproduced all 99 problems in 2.03 seconds and
+found no non-identity failure:
+
+| Chain | Outcomes | Verified cause |
+|---|---:|---|
+| E1 canonical baseline | 12 failures | exact `src/mke/**/*.py` inventory changed from 89 to 94 files and four existing files changed identity |
+| E2 numeric | 48 failures | protocol still binds the pre-feature SQLite/application bytes |
+| Hybrid RRF | 15 failures + 9 errors | protocol still binds the pre-feature `src/mke/cli.py`; errors occur during fixture setup |
+| Relevance Gate | 15 failures | protocol still binds the pre-feature `src/mke/cli.py` |
+
+Four stale-cache nodes that appeared unrelated were rerun separately and produced 13 passing
+tests. The blocker is therefore the repository's legitimate provenance fence, not an export defect
+and not ignorable baseline noise.
+
+The original exclusion of evaluation-artifact edits conflicts with the repository's own complete
+source/dependency binding. The accepted bounded amendment is:
+
+- reuse the existing journaled `artifact_refresh` transaction for E1-E3-B;
+- reuse the proven call-owned rebinder plus detached validation mirror for E3-C/D/E;
+- cap changes at the existing 21-path maximum allowlist and prefer the actual validator-proven
+  subset;
+- require all seven canonical validators and normalized semantic equality through E3-E;
+- reject changes to corpus, fixtures, queries, qrels, observations, ordered results, metrics,
+  thresholds, gates, diagnostics, candidate/profile, status, or verdict;
+- do not modify retrieval/evaluation implementation, weaken validators, rerun a model, re-observe a
+  holdout, or classify the failures as unchanged baseline;
+- commit the identity-only closure, then rerun the remaining Task 8 Step 5 gates and fresh
+  same-wheel proof on that new committed HEAD.
+
+Architecture: no new component or product contract. Code quality: reuse established repository
+machinery rather than creating another mutator. Tests: the 99 failures are the RED provenance
+evidence; artifact regression, seven validators, semantic equality, and bare full pytest are the
+GREEN gates. Performance: model-free, cache/offline evaluation only; no model acquisition or
+inference is authorized.
+
+Verdict: `ACCEPTED / CLEARED FOR TASK 8R + TASK 8 STEP 5`. Step 6 remains owned by the independent
+planning/review authority.
+
 ## Completion Summary
 
 - Step 0 Scope Challenge: scope reduced to two sequential PRs without reducing the end state.
 - Architecture Review: 4 issues found, all folded into the plans.
 - Code Quality Review: 2 issues found, all folded into the plans.
 - Live-Code Authority Review: 6 contradictions found across preflight and Task 3, all folded into
-  the design and core plan; one later pytest collection identity gap was folded into the core plan.
+  the design and core plan; later pytest collection and evaluation-provenance gaps were folded into
+  the core plan without expanding product behavior.
 - Test Review: diagram produced, 0 remaining gaps.
 - Performance Review: 0 issues found.
 - NOT in scope: written.
@@ -356,10 +402,11 @@ Verdict: `ACCEPTED / CLEARED FOR TASK 8 STEP 5-6`.
 Explicit product and plan approval was received on 2026-07-15, and the initial mechanical landing
 was accepted at `10bbee5b2aea5fd0fd4c9631e31b786606a9b00a`. The preflight amendment landed at
 `3bb2cfb1b3c71547156b0d564a5b3ad8a28cdeda`. Task 3 is accepted at
-`652e5360f27dacd27140cda438e374e226ccd304`. Tasks 4-7 and Task 8 documentation are now implemented
-through `03a8393ab2d0fefb126ae6c4ebdd7d96a4e21770`. Mechanically replace only the public core plan and
-plan review with these exact bytes, verify byte equality and scope, and commit that docs-only sync.
-Then add and commit the two empty test package markers, rerun Task 8 Step 5 on that committed HEAD,
-and stop at Step 6 for the single authoritative pre-PR review. Earlier stops remain mandatory only
-for a concrete architecture conflict, scope expansion, external side effect, or a same-finding
+`652e5360f27dacd27140cda438e374e226ccd304`. Tasks 4-7, Task 8 documentation, and the package-marker
+correction are now implemented through `68ba721af0c52f0520185deb3c348fdecba2f99b`. Mechanically
+replace only the public core plan and plan review with these exact bytes, verify byte equality and
+scope, and commit that docs-only sync. Then complete Task 8R within its identity-only allowlist,
+resume the remaining Step 5 gates on that committed HEAD, and stop at Step 6 for the single
+authoritative pre-PR review. Earlier stops remain mandatory for semantic drift, a different or
+larger changed set, a concrete architecture conflict, external side effect, or a same-finding
 repair that has failed twice.

@@ -1,10 +1,11 @@
 # Compiled Library Export v1 Implementation Plan
 
-Status: Tasks 1-7 and Task 8 documentation are implemented through
-`03a8393ab2d0fefb126ae6c4ebdd7d96a4e21770`. Task 8 Step 5 exposed one pytest collection-only
-scope gap. The accepted amendment adds two empty test package markers, reruns the complete
-final-candidate gates on the new committed HEAD, and then stops at Task 8 Step 6 for authoritative
-pre-PR review.
+Status: Tasks 1-7, Task 8 documentation, and the pytest package-marker correction are implemented
+through `68ba721af0c52f0520185deb3c348fdecba2f99b`. Bare full-suite execution then proved that all
+90 failures and 9 errors come from the repository's frozen E1-E3-E provenance graph. The accepted
+Task 8R amendment performs one identity-only refresh with normalized semantics unchanged, resumes
+the complete final-candidate gates on the resulting committed HEAD, and then stops at Task 8
+Step 6 for authoritative pre-PR review.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use
@@ -80,6 +81,11 @@ closed public response validation, Pytest, Ruff, Pyright, Hatch/uv, and GitHub A
   `PublicError.payload()`, MCP schemas, the frozen consumer source-pack fixture, existing CLI/MCP
   responses, Search/Ask, ingest, retrieval, evaluation artifacts, OCR evidence, and release
   identity remain compatible.
+- The feature may refresh the existing E1-E3-E evaluation provenance graph exactly once after all
+  product code stabilizes. This permits only validator-proven source, scope, dependency, path,
+  byte, SHA-256, and state-receipt identity changes within the Task 8R allowlist. It does not permit
+  retrieval implementation, corpus, query, qrel, observation, result, metric, threshold, gate,
+  diagnostic, candidate/profile, status, or verdict changes.
 - All public text and repository records are public-neutral. Never include private paths, local hub
   identities, private workflow or motivation, hostnames, timestamps, tokens, raw diagnostics, or
   operator data.
@@ -153,6 +159,8 @@ closed public response validation, Pytest, Ruff, Pyright, Hatch/uv, and GitHub A
    If the approved `tests/application/test_library_export.py` and
    `tests/domain/test_library_export.py` collide during collection, add only the two empty package
    markers listed above. This is a test-collection correction, not a product or package surface.
+   If full-suite execution then reports only frozen E1-E3-E source/dependency identity drift caused
+   by the stabilized production diff, complete Task 8R before resuming the remaining Step 5 gates.
 4. Findings return to the implementation window for evidence-backed repair and targeted re-review.
    After the accepted review closure commit, rerun the generic installed-wheel proof and full gates
    on the final committed candidate with no later tracked write.
@@ -1363,6 +1371,97 @@ git add tests/application/__init__.py tests/domain/__init__.py
 git diff --cached --check
 git commit -m "test(export): isolate pytest module names"
 ```
+
+#### Task 8R: Refresh the frozen E1-E3-E provenance graph once
+
+The bare suite at `68ba721af0c52f0520185deb3c348fdecba2f99b` collected successfully and then
+reported `90 failed, 2167 passed, 5 skipped, 5 warnings, 9 errors`. Focused last-failed replay
+proved that all 99 problems are exact source/dependency identity drift: E1 has 12 failures, E2 has
+48, Hybrid RRF has 15 failures plus 9 setup errors, and Relevance Gate has 15 failures. No
+Compiled Library Export behavior failure remains in that set.
+
+Reuse the already accepted identity-only procedure in
+`docs/superpowers/plans/2026-07-13-pdf-ocr-phase0-viability-implementation.md` Task 5C and
+`docs/superpowers/plans/2026-07-14-v0-1-2-release-closeout-implementation.md` Task 4. The maximum
+conditional allowlist is exactly these 21 paths; a smaller validator-proven subset is allowed, but
+any different or larger set is an authority hard stop:
+
+- `benchmarks/retrieval/retrieval-eval-v1-baseline.json`
+- `tests/fixtures/retrieval-numeric-v1/protocol-lock.json`
+- `benchmarks/retrieval/numeric-grouping-v1-comparison.json`
+- `benchmarks/retrieval/retrieval-chinese-v1-baseline.json`
+- `benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json`
+- `tests/fixtures/retrieval-dense-v1/protocol-lock.json`
+- `benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-development-freeze.json`
+- `benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-holdout-receipt.json`
+- `benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json`
+- `tests/fixtures/retrieval-hybrid-rrf-v1/protocol-lock.json`
+- `benchmarks/retrieval/cjk-active-scan-qwen3-rrf-v1-development-freeze.json`
+- `benchmarks/retrieval/cjk-active-scan-qwen3-rrf-v1-comparison.json`
+- `tests/fixtures/retrieval-relevance-gate-v1/protocol-lock.json`
+- `benchmarks/retrieval/cjk-relevance-gate-reranker-v1-development-freeze.json`
+- `benchmarks/retrieval/cjk-relevance-gate-reranker-v1-holdout-receipt.json`
+- `benchmarks/retrieval/cjk-relevance-gate-reranker-v1-comparison.json`
+- `docs/how-to/evaluate-dense-retrieval.md`
+- `docs/how-to/evaluate-hybrid-rrf-retrieval.md`
+- `docs/how-to/evaluate-relevance-gate-reranker.md`
+- `tests/evaluation/test_relevance_gate_protocol.py`
+- `tests/evaluation/test_relevance_gate_workflow.py`
+
+- [ ] **Task 8R Step 1: Freeze the committed reference and generate fresh observations**
+
+Set `task8r_start="$(git rev-parse HEAD)"` before any artifact write and create one call-owned
+evidence directory. Generate E2 from an exclusive hidden copy of the numeric protocol after
+`numeric_comparison refresh-scope`, then generate E1, E3-A, and E3-B in the proven Task 5C order.
+The hidden protocol must be removed by an ownership-bounded trap. Run
+`tests/evaluation/test_artifact_refresh.py` before any canonical write.
+
+- [ ] **Task 8R Step 2: Prove every pre-refresh failure is identity-only**
+
+Run all seven canonical validators in dependency order against the checked-in graph and fresh
+observations. Continue only if each failure is source/scope/dependency identity drift caused by the
+current feature diff. Any semantic or environment failure stops the task.
+
+- [ ] **Task 8R Step 3: Refresh E1 through E3-B with the supported transaction**
+
+Invoke `python -m mke.evaluation.artifact_refresh` with the four fresh observations. On any failure,
+run only its supported `recover --repository .` command and stop. Do not modify the helper, copy a
+partial staged set, or hand-edit its five targets.
+
+- [ ] **Task 8R Step 4: Rebind downstream identities in a detached validation mirror**
+
+Use a call-owned untracked rebinder and record its SHA-256. Generate all E3-C/D/E candidate bytes
+before applying any, overlay the complete proposed graph into a detached mirror rooted at
+`task8r_start`, and run all builders and seven validators against that mirror. Require exact
+candidate/mirror byte equality and normalized before/after semantic equality for every E1-E3-E
+layer. Do not run a model or re-observe a holdout.
+
+- [ ] **Task 8R Step 5: Apply with exact backup and recovery**
+
+Before feature-worktree application, capture exact bytes, digests, and path descriptors for every
+conditional downstream path. Apply only mirror-validated bytes with per-file atomic replacement in
+dependency order. Any failure restores every touched path and verifies exact restoration; never
+publish or commit a partial graph.
+
+- [ ] **Task 8R Step 6: Validate and commit only the identity closure**
+
+Run the complete artifact regression suite and all seven canonical validators against the real
+worktree. Require normalized equality of observations, ordered results, metrics, thresholds, gates,
+diagnostics, selected candidate/profile, status, and verdict. Stage only the exact validator-proven
+subset of the 21-path allowlist and commit:
+
+```bash
+git diff --check
+git add -- <exact-validator-proven-paths>
+git diff --cached --check
+git commit -m "test(eval): refresh compiled export identities"
+```
+
+Report `task8r_start`, the rebinder SHA-256, exact changed paths, seven-validator results, and the
+semantic before/after result. Do not modify any `src/mke/evaluation/**` implementation or test to
+make the refresh pass.
+
+After Task 8R is committed, resume Step 5 below from a clean worktree.
 
 Then run the full command set from Step 8, including a fresh generic same-wheel Python 3.12/3.13
 proof, on the new committed implementation/docs candidate. The Task 7 wheel digest is historical
