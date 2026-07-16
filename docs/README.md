@@ -33,10 +33,16 @@ do not change Search, Ask, MCP, owner startup, Publication, ingestion, or runtim
 - [CLI Reference](./reference/cli.md)
 - [Enable Bounded CJK Retrieval](./how-to/enable-cjk-retrieval.md)
 - [Use Local Transcription](./how-to/use-local-transcription.md)
+- [Export A Compiled Library](./how-to/export-compiled-library.md)
+- [Run The Compiled Library Export Proof](./how-to/run-compiled-library-export-proof.md)
 
 The architecture guide is the shortest path to the Evidence lifecycle, active Publication
 semantics, SQLite domain truth, rebuildable retrieval projections, and the shared CLI/MCP
 application contract.
+
+The compiled Library guides document the read-only export command, exact portable schemas,
+transactional manifest-last publication, and generic installed-wheel consumer proof. LLM Wiki
+compatibility remains a separate deferred acceptance check rather than a current capability claim.
 
 ## Architecture And Evaluation
 

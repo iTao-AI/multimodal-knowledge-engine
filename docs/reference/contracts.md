@@ -196,3 +196,40 @@ Cancellation and shutdown terminate registered adapter children and wait for Run
 Evidence locator payload shape.
 
 HTTP, CLI, MCP, and the workspace must use the same application services and project-owned DTOs.
+
+## Compiled Library Export V1
+
+`mke library export` has a closed `mke.compiled_library_export_response.v1` interface. Success has
+exactly `schema_version`, `ok`, `library_id`, `source_count`, `evidence_count`, and
+`manifest_sha256`. Failure has exactly `schema_version`, `ok`, `problem`, `cause`,
+`active_publication_impact`, and `next_step`; the impact is always `unchanged`.
+
+A committed export contains exactly these paths:
+
+```text
+export-manifest.json
+sources/<content-sha256>.md
+evidence/<content-sha256>.jsonl
+```
+
+`export-manifest.json` is canonical UTF-8 JSON using schema
+`mke.compiled_library_export.v1`. Its closed top level contains `schema_version`,
+`evidence_schema="mke.evidence_ref.v1"`, `markdown_format="mke.compiled_markdown.v1"`, the exact
+`mke.active_publication_observation.v1` `observation`, and sorted `sources`. Each source entry binds
+the Source, active Publication revision, published Run, RunManifest extractor/stages, content
+fingerprint, media type, display name, Evidence count, relative content paths, and exact SHA-256
+digests. The manifest has no time or random export identity.
+
+Each non-empty Evidence JSONL line is canonical JSON conforming exactly to
+`mke.evidence_ref.v1`. It carries Evidence, Source, Publication, and Run IDs; content fingerprint;
+Publication revision; exact text; and a page or timestamp locator. Records are sorted by locator
+and Evidence ID. JSONL EvidenceRef records remain the machine authority.
+
+Each Source Markdown file conforms to `mke.compiled_markdown.v1`, with fixed front-matter order,
+renderer-owned locator headings and anchors, and exact Evidence text. Markdown is a readable
+derivative. Consumers must not infer authoritative identity from Markdown or allow untrusted
+display names and Evidence text to create metadata.
+
+All JSON and JSONL objects are closed. Readers must reject unknown schema versions, unknown fields,
+inventory drift, digest drift, path traversal, link/device entries, count drift, ownership drift,
+or a missing/invalid final manifest.

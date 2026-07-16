@@ -495,3 +495,22 @@ def validate_manifest(manifest: RunManifest, evidence: list[CandidateEvidence]) 
             )
         if not item.text.strip():
             raise ManifestValidationError("Evidence text must not be empty")
+
+
+from .library_export import (  # noqa: E402
+    DEFAULT_EXPORT_LIMITS,
+    CompiledEvidenceSnapshot,
+    CompiledLibrarySnapshot,
+    CompiledSourceSnapshot,
+    ExportLimits,
+    LibraryExportDataError,
+)
+
+_LIBRARY_EXPORT_CONTRACTS = (
+    DEFAULT_EXPORT_LIMITS,
+    CompiledEvidenceSnapshot,
+    CompiledLibrarySnapshot,
+    CompiledSourceSnapshot,
+    ExportLimits,
+    LibraryExportDataError,
+)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import sqlite3
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -219,6 +220,40 @@ def test_build_engine_closes_engine_when_owner_recovery_fails(
         build_engine(runtime)
 
     assert len(closed) == 1
+
+
+def test_normal_engine_and_runtime_owner_startup_remain_compatible(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db_path = tmp_path / "mke.sqlite"
+    direct = KnowledgeEngine(db_path)
+    direct.close()
+
+    assert db_path.exists()
+    connection = sqlite3.connect(db_path)
+    try:
+        assert connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'publications'"
+        ).fetchone() == ("publications",)
+    finally:
+        connection.close()
+
+    recovery_calls = 0
+    original_recovery = KnowledgeEngine.recover_unfinished_runs
+
+    def observe_recovery(engine: KnowledgeEngine) -> None:
+        nonlocal recovery_calls
+        recovery_calls += 1
+        original_recovery(engine)
+
+    monkeypatch.setattr(KnowledgeEngine, "recover_unfinished_runs", observe_recovery)
+    runtime = RuntimeConfig(db_path, owner_state=OwnerRuntimeState())
+    first = build_engine(runtime)
+    first.close()
+    second = build_engine(runtime)
+    second.close()
+
+    assert recovery_calls == 1
 
 
 def test_build_engine_accepts_current_policy_for_rollback(tmp_path: Path) -> None:

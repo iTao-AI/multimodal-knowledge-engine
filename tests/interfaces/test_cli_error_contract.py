@@ -10,10 +10,41 @@ from mke.adapters.sqlite import SQLiteStore
 from mke.application import KnowledgeEngine, VideoIngestError
 from mke.cli import main
 from mke.interfaces.public_errors import (
+    _ALLOWLISTED_CAUSES,  # pyright: ignore[reportPrivateUsage]
     PublicError,
     public_error_from_cause,
     render_public_error_line,
 )
+
+
+def test_shared_public_error_payload_and_allowlist_remain_unextended() -> None:
+    payload = PublicError("problem", "cause", "next_step").payload()
+    assert set(payload) == {
+        "ok", "problem", "cause", "active_publication_impact", "next_step"
+    }
+    assert "schema_version" not in payload
+    assert {
+        "local Library has no active Publications",
+        "active Publication provenance graph is invalid",
+        "local Library database is unavailable or incompatible",
+        "output directory must not already exist",
+        "output parent is invalid",
+        "active Library exceeds v1 export limits",
+    }.isdisjoint(_ALLOWLISTED_CAUSES)
+
+
+def test_library_export_error_model_rejects_unrelated_shared_cause() -> None:
+    from pydantic import ValidationError
+
+    from mke.interfaces.library_export import LibraryExportErrorV1
+
+    with pytest.raises(ValidationError):
+        LibraryExportErrorV1(
+            ok=False,
+            problem="library_export_failed",
+            cause="question must not be empty",
+            next_step="retry_library_export",
+        )
 
 
 @pytest.mark.parametrize(

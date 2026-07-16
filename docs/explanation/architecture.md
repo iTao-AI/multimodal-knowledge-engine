@@ -286,3 +286,23 @@ src/mke/
 ```
 
 The domain and application layers must not depend on FastAPI, database implementations, model SDKs, LangChain, or LlamaIndex.
+
+## Read-only Compiled Library Export
+
+The read-only compiled Library export is a command-specific composition over the same domain
+authority. It opens the existing SQLite database without migration or unfinished-Run recovery and
+captures the complete active Publication graph in one SQLite transaction. Count and aggregate
+UTF-8 budgets are checked before all Evidence text is materialized. The immutable snapshot then
+flows through project-owned DTOs to a filesystem publisher; the renderer never receives a SQLite
+connection, cursor, row, or database path.
+
+The publisher creates one new child output directory and writes one Source at a time. Content
+files are written, closed, re-read, and digest-checked before it publishes the manifest as the
+final commit marker. A directory without a valid `export-manifest.json` is incomplete. Catchable
+failures clean up only entries whose call-owned identity can be proven, and no export path mutates
+SQLite or active Publication state.
+
+The snapshot does not read original Source files. SQLite owns active Publication facts;
+`mke.evidence_ref.v1` JSONL owns portable provenance. Markdown remains derivative, and EvidenceRef
+JSONL remains authoritative for Source, Run, Publication, revision, fingerprint, locator, and
+Evidence text. A downstream compiler cannot replace that authority.

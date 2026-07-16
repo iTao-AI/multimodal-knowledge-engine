@@ -75,6 +75,7 @@ from mke.evaluation.relevance_gate_workflow import (
     run_relevance_gate_holdout,
 )
 from mke.evaluation.report import RetrievalEvaluationReport
+from mke.interfaces.library_export import run_library_export
 from mke.interfaces.mcp_contract import McpRuntimeConfig, transcript_intake_report_payload
 from mke.interfaces.mcp_server import run_mcp_server
 from mke.interfaces.public_errors import public_error_from_cause, render_public_error_line
@@ -137,6 +138,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     ask = subcommands.add_parser("ask")
     ask.add_argument("question", nargs="+")
+
+    library = subcommands.add_parser("library")
+    library_commands = library.add_subparsers(dest="library_command", required=True)
+    library_export = library_commands.add_parser("export")
+    library_export.add_argument("--output", required=True)
+    library_export.add_argument("--json", action="store_true", dest="json_output")
 
     retrieval_admin = subcommands.add_parser("retrieval")
     retrieval_subcommands = retrieval_admin.add_subparsers(
@@ -361,6 +368,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     add_embedding_runtime_arguments(embedding_doctor)
 
     args = parser.parse_args(argv)
+    if args.command == "library" and args.library_command == "export":
+        if _raw_option_present(raw_argv, "--retrieval-query-policy"):
+            parser.error("library export does not support --retrieval-query-policy")
+        if _raw_option_present(raw_argv, "--retrieval-strategy"):
+            parser.error("library export does not support --retrieval-strategy")
+        return run_library_export(
+            args.db,
+            args.output,
+            json_output=args.json_output,
+        )
     if args.command == "eval" and any(
         item == "--db" or item.startswith("--db=") for item in raw_argv
     ):

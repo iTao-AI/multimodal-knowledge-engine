@@ -51,6 +51,33 @@ Exit codes:
 
 Expected duration: a few seconds on a local development machine.
 
+## Compiled Library Export
+
+```text
+mke --db <library.sqlite3> library export --output <new-child-directory> [--json]
+```
+
+`--output` is required and names one new direct child of the current working directory. The target
+must not exist. The command opens the selected database through the dedicated read-only export
+composition; it does not migrate the database, recover Runs, mutate active Publications, or accept
+`--retrieval-query-policy` or `--retrieval-strategy`.
+
+Human success output is exactly one line:
+
+```text
+library_export=passed library_id=local source_count=<count> evidence_count=<count> manifest_sha256=<sha256>
+```
+
+`--json` emits one closed `mke.compiled_library_export_response.v1` object. Success contains exactly
+`schema_version`, `ok=true`, `library_id="local"`, positive `source_count`, positive
+`evidence_count`, and the lowercase 64-hex `manifest_sha256`. Failure contains exactly
+`schema_version`, `ok=false`, `problem`, allowlisted `cause`,
+`active_publication_impact="unchanged"`, and `next_step`. Exit code `0` means the manifest and all
+referenced files revalidated; exit code `1` is a stable export failure; invalid CLI usage exits `2`.
+
+The output tree and schema details are in [Public Contracts](./contracts.md). Operational steps are
+in [Export A Compiled Library](../how-to/export-compiled-library.md).
+
 ## Retrieval Evaluation
 
 ```bash

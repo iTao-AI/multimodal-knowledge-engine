@@ -27,6 +27,7 @@ from mke.domain import (
     AskResult,
     AskSnapshot,
     CandidateEvidence,
+    CompiledLibrarySnapshot,
     FailurePoint,
     IngestResult,
     ManifestValidationError,
@@ -123,22 +124,35 @@ class KnowledgeEngine:
         retrieval_strategy: RetrievalStrategy | None = None,
         search_observer: Callable[[int], None] | None = None,
         recover_unfinished_runs: bool = True,
+        _store: SQLiteStore | None = None,
     ) -> None:
         selected_strategy = _normalize_retrieval_strategy(
             retrieval_strategy,
             query_policy=query_policy,
         )
-        self._store = SQLiteStore(
-            db_path,
-            query_policy=query_policy,
-            retrieval_strategy=selected_strategy,
-            search_observer=search_observer,
+        self._store = (
+            SQLiteStore(
+                db_path,
+                query_policy=query_policy,
+                retrieval_strategy=selected_strategy,
+                search_observer=search_observer,
+            )
+            if _store is None
+            else _store
         )
         self._retrieval_strategy: RetrievalStrategy = selected_strategy
         self._pdf_extractor = pdf_extractor or PyMuPDFPdfExtractor()
         self._transcript_provider = transcript_provider or SidecarTranscriptProvider()
         if recover_unfinished_runs:
             self.recover_unfinished_runs()
+
+    @classmethod
+    def open_read_only_export(cls, db_path: Path) -> KnowledgeEngine:
+        return cls(
+            db_path,
+            _store=SQLiteStore.open_read_only_export(db_path),
+            recover_unfinished_runs=False,
+        )
 
     def close(self) -> None:
         self._store.close()
@@ -189,6 +203,9 @@ class KnowledgeEngine:
 
     def observe_active_publications(self) -> ActivePublicationObservation:
         return self._store.observe_active_publications()
+
+    def compiled_library_snapshot(self) -> CompiledLibrarySnapshot:
+        return self._store.compiled_library_snapshot()
 
     def search_provenance_snapshot(
         self, query: str, limit: int | None = None
@@ -562,3 +579,22 @@ def _sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(_SHA256_CHUNK_BYTES), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+from .library_export import (  # noqa: E402
+    LibraryExportResult,
+    RenderedSourceEntry,
+    canonical_json_line,
+    render_compiled_markdown,
+    render_evidence_jsonl,
+    render_export_manifest,
+)
+
+_LIBRARY_EXPORT_RENDERERS = (
+    LibraryExportResult,
+    RenderedSourceEntry,
+    canonical_json_line,
+    render_compiled_markdown,
+    render_evidence_jsonl,
+    render_export_manifest,
+)

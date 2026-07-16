@@ -226,6 +226,23 @@ adapter、LangChain、LlamaIndex、LangGraph、Milvus、Redis、pgvector、bundl
 可选 local transcription 和 embedding 路径仍是显式 operator action。它们不是 core proof、demo、
 CLI ingest、MCP execution 或 consumer smoke 的要求。
 
+## Compiled Library Export
+
+当前 main candidate 新增确定性的只读 `mke library export` 命令。它把每个 active Publication
+写为可移植 Markdown，并写出对应的 `mke.evidence_ref.v1` JSONL sidecar。Markdown 是便于阅读的
+derivative；JSONL record 仍是精确 page 或 timestamp provenance 的 machine authority。导出包含
+active Publication text 和 provenance，不包含原始 Source bytes，也不重建 layout。
+
+> MKE can deterministically export active Publications as portable Markdown with exact page or
+> timestamp Evidence provenance, validated through an installed-wheel external consumer proof.
+
+此能力等待后续独立 release decision；它不改变 `v0.1.2` package 或 release identity。LLM Wiki
+compatibility 延后到单独的 isolated proof。OCR Phase 0 只记录固定 synthetic corpus 上的有界本地
+viability evidence，不是 production OCR。
+
+参见 [Export A Compiled Library](./docs/how-to/export-compiled-library.md) 和
+[Run The Compiled Library Export Proof](./docs/how-to/run-compiled-library-export-proof.md)。
+
 ## 文档
 
 - [Release notes](./docs/releases/v0.1.2.md)
@@ -243,6 +260,8 @@ CLI ingest、MCP execution 或 consumer smoke 的要求。
 - [Evaluate The Dense Retrieval Candidate](./docs/how-to/evaluate-dense-retrieval.md)
 - [Evaluate The Hybrid RRF Retrieval Candidate](./docs/how-to/evaluate-hybrid-rrf-retrieval.md)
 - [Evaluate The Relevance Gate Reranker Candidate](./docs/how-to/evaluate-relevance-gate-reranker.md)
+- [Export A Compiled Library](./docs/how-to/export-compiled-library.md)
+- [Run The Compiled Library Export Proof](./docs/how-to/run-compiled-library-export-proof.md)
 
 长期架构决策在 [docs/decisions/](./docs/decisions/)。已批准的实施历史在
 [docs/superpowers/](./docs/superpowers/)。

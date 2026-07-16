@@ -234,6 +234,25 @@ hosted multi-tenant coordination.
 Optional local transcription and embedding paths remain explicit operator actions. They are not
 required for the core proof, demo, CLI ingest, MCP execution, or consumer smoke.
 
+## Compiled Library Export
+
+The current main candidate adds a deterministic, read-only `mke library export` command. It writes
+every active Publication to portable Markdown and a matching `mke.evidence_ref.v1` JSONL sidecar.
+The Markdown is a readable derivative; the JSONL records remain the machine authority for exact
+page or timestamp provenance. The export contains active Publication text and provenance; it does
+not reconstruct source layout and excludes original Source bytes.
+
+> MKE can deterministically export active Publications as portable Markdown with exact page or
+> timestamp Evidence provenance, validated through an installed-wheel external consumer proof.
+
+This capability is intended for a later release decision; it does not change the `v0.1.2` package
+or release identity. LLM Wiki compatibility remains deferred to a separate isolated proof. OCR
+Phase 0 records bounded local viability evidence on a fixed synthetic corpus; it is not production
+OCR.
+
+See [Export A Compiled Library](./docs/how-to/export-compiled-library.md) and
+[Run The Compiled Library Export Proof](./docs/how-to/run-compiled-library-export-proof.md).
+
 ## Documentation
 
 - [Release notes](./docs/releases/v0.1.2.md)
@@ -251,6 +270,8 @@ required for the core proof, demo, CLI ingest, MCP execution, or consumer smoke.
 - [Evaluate The Dense Retrieval Candidate](./docs/how-to/evaluate-dense-retrieval.md)
 - [Evaluate The Hybrid RRF Retrieval Candidate](./docs/how-to/evaluate-hybrid-rrf-retrieval.md)
 - [Evaluate The Relevance Gate Reranker Candidate](./docs/how-to/evaluate-relevance-gate-reranker.md)
+- [Export A Compiled Library](./docs/how-to/export-compiled-library.md)
+- [Run The Compiled Library Export Proof](./docs/how-to/run-compiled-library-export-proof.md)
 
 Long-lived architecture decisions are in [docs/decisions/](./docs/decisions/). Approved
 implementation history is in [docs/superpowers/](./docs/superpowers/).
