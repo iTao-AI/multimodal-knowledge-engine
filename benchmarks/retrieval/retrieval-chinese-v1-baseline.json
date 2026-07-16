@@ -48,7 +48,7 @@
     "integrity_claim": "adjudication_record_integrity"
   },
   "source_identity": {
-    "sha256": "d2078237d411852398ca6762467575a98d2949b5681f277ca68a8e98ac9d6ef6",
+    "sha256": "142688b26bdd5502d0c0a9d59f73148fd62cee75523a44919d38696e9e50c658",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -66,6 +66,16 @@
         "sha256": "7d220b4fd101729703913ac0a001e2b6e78ca00081d96dc025f2c0912eac7821"
       },
       {
+        "path": "src/mke/adapters/filesystem/__init__.py",
+        "bytes": 236,
+        "sha256": "71d8ae4c48f635d73ae69d1b030e090f956dd30eb3361cd4a664c9364d7e2b69"
+      },
+      {
+        "path": "src/mke/adapters/filesystem/library_export.py",
+        "bytes": 15998,
+        "sha256": "a480027999217a483f5aa6d7250b447b44bc2961f6338ccfa38898542804b9d5"
+      },
+      {
         "path": "src/mke/adapters/pdf/__init__.py",
         "bytes": 246,
         "sha256": "1f4abf24d36ceeb788ef260e4cb484827e3a7395fa7213cc203e587a6ff7b42a"
@@ -77,8 +87,8 @@
       },
       {
         "path": "src/mke/adapters/sqlite/__init__.py",
-        "bytes": 49540,
-        "sha256": "c40941a9494932abb2d9ec89967b799a433aa2cfa4f6e2a9b2235636132cb334"
+        "bytes": 64148,
+        "sha256": "53ff9238d8c46f14484bfc55d5118cf2785dd1c1543f70acef6cea4e592fa69e"
       },
       {
         "path": "src/mke/adapters/vector/__init__.py",
@@ -142,18 +152,28 @@
       },
       {
         "path": "src/mke/application/__init__.py",
-        "bytes": 21052,
-        "sha256": "28d6e84e262b08cd63623f33c8a700c85be9659e3f6cdddf75f7e9410869d55b"
+        "bytes": 21992,
+        "sha256": "ca940547a7520b040d46bd85abf02685900dc610f38212a65c1caeb9106499b3"
+      },
+      {
+        "path": "src/mke/application/library_export.py",
+        "bytes": 8171,
+        "sha256": "cf8c6ac820b92b00e706b2a917bbbdf104e444694e717b81909707f7e91e890e"
       },
       {
         "path": "src/mke/cli.py",
-        "bytes": 72001,
-        "sha256": "59013a0a3853e41fe3f4aefa8fd48c01b5426d69948d71659644abc7c44271fa"
+        "bytes": 72903,
+        "sha256": "d02505e4bd00e1cf5be95a12dbd091c63972e1fa2753a035ab811a24033c59fb"
       },
       {
         "path": "src/mke/domain/__init__.py",
-        "bytes": 15903,
-        "sha256": "9f7d8c0c580ef313150a4818f0e9f06da6decf9e16f2cedc849618ce0d02bb84"
+        "bytes": 16304,
+        "sha256": "06de813d170006511426b6d9b8ae4ba811e2a5d84b5213cab1f689c73d9fdf23"
+      },
+      {
+        "path": "src/mke/domain/library_export.py",
+        "bytes": 8899,
+        "sha256": "2d6758e54f516f382899cb317f5b807ee4eb2621f26bda07b1bee68d2358dab6"
       },
       {
         "path": "src/mke/embeddings/__init__.py",
@@ -389,6 +409,11 @@
         "path": "src/mke/interfaces/__init__.py",
         "bytes": 60,
         "sha256": "d9fa04c3715bae8e02f008cefe27678b945bfe2ea828a786868025c04ad5a7cc"
+      },
+      {
+        "path": "src/mke/interfaces/library_export.py",
+        "bytes": 7113,
+        "sha256": "980f5a6dc1d17a04279cc5af632ab3de81700e3a23f325c68813a3e65280e717"
       },
       {
         "path": "src/mke/interfaces/mcp_contract.py",

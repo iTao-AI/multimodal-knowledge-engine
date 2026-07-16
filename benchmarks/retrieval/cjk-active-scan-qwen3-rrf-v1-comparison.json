@@ -10,7 +10,7 @@
       "candidate_revision": 1
     },
     "current_runtime_semantic_digest": "sha256:b32dc4a1479cb3ea8e0ebedf2c27b04a10a6d91eee96e0cd0308bcf921e97959",
-    "dense_artifact_sha256": "46f80dbdbfbc143487e2d16e51e183c580df649e1755338123367991a88853b0",
+    "dense_artifact_sha256": "589635ef9ff89c9ed5445d02dcfabe52e60ad0a4fb04284d1450132ea81442d8",
     "development_status": "valid_negative",
     "diagnostics": {
       "both_arm_recovery_count": 10,
@@ -2767,7 +2767,7 @@
         }
       }
     },
-    "protocol_sha256": "a8325bf94c0faed41282e0153c4a5a48ac0236f67a3763cc72f169f6286de447",
+    "protocol_sha256": "0a4d485da5f7fd99be1829303aa2e43d09cf69364135a179f791a66a94420a0f",
     "results": [
       {
         "category": "chinese_exact_lexical",
@@ -3962,7 +3962,7 @@
   "schema_version": "mke.hybrid_rrf_comparison_artifact.v1",
   "segmentation_status": "eligible",
   "state": {
-    "development_freeze_sha256": "bded3e9faa1b001d505ad007cdef342c5764d27cf82c134ef2d4a671300291c2",
+    "development_freeze_sha256": "b7b94b2f790b392bca4e5330f423d05d35be43ca4296afe4a4c1e870e7267db3",
     "holdout_receipt_sha256": null
   }
 }

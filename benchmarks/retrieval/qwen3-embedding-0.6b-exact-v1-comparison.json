@@ -10,11 +10,11 @@
     "arms": [
       {
         "arm_id": "e3a-historical-fts5-baseline",
-        "semantic_digest": "ede2ad11217c77dee1c99e143ce26c46ce674404739699783f6e32d0b31d8cef"
+        "semantic_digest": "d1b8285d0f0fd3ffdca4825a0724b85d93b5d9c893791a56be9ab7faf2a8073a"
       },
       {
         "arm_id": "cjk-trigram-overlap-v1",
-        "semantic_digest": "a4bbb2d477a915b4efa0bf9ecf5f179347a3b30e1cadb1471c359d25801a0b27"
+        "semantic_digest": "26ae640f4566f86e3e84f47c14cc380e2c749250cc1628b75d2f5571d63bf9ec"
       },
       {
         "arm_id": "cjk-active-scan-overlap-v1",
@@ -4339,14 +4339,14 @@
   },
   "historical_arms": {
     "e3a": {
-      "bytes": 117029,
+      "bytes": 117943,
       "path": "benchmarks/retrieval/retrieval-chinese-v1-baseline.json",
-      "sha256": "ede2ad11217c77dee1c99e143ce26c46ce674404739699783f6e32d0b31d8cef"
+      "sha256": "d1b8285d0f0fd3ffdca4825a0724b85d93b5d9c893791a56be9ab7faf2a8073a"
     },
     "e3b": {
       "bytes": 196145,
       "path": "benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json",
-      "sha256": "a4bbb2d477a915b4efa0bf9ecf5f179347a3b30e1cadb1471c359d25801a0b27"
+      "sha256": "26ae640f4566f86e3e84f47c14cc380e2c749250cc1628b75d2f5571d63bf9ec"
     }
   },
   "holdout_candidate": {
@@ -9493,7 +9493,7 @@
   "protocol": {
     "bytes": 5127,
     "path": "tests/fixtures/retrieval-dense-v1/protocol-lock.json",
-    "sha256": "d342324669db8e83d0a6fa8e389647ad2ccb3efe94110ace304344955decbbd5"
+    "sha256": "8b11fd071afb5ea4ad73317bd9146a6cb2351bfdb9f8ba5f7098fa3f84eb3241"
   },
   "schema_version": "mke.dense_comparison_artifact.v1",
   "source": {
@@ -9514,9 +9514,9 @@
         "sha256": "7371e0219dd654705dd7df0bf4211eee48eff8779e1c04810ea1bb4a704d6b3b"
       },
       {
-        "bytes": 72001,
+        "bytes": 72903,
         "path": "src/mke/cli.py",
-        "sha256": "59013a0a3853e41fe3f4aefa8fd48c01b5426d69948d71659644abc7c44271fa"
+        "sha256": "d02505e4bd00e1cf5be95a12dbd091c63972e1fa2753a035ab811a24033c59fb"
       },
       {
         "bytes": 28723,
@@ -9564,11 +9564,11 @@
         "sha256": "1c838b1464be9426c67887bfe5e0ff082d5a81d0addaf6addb4e7b7317c3627b"
       }
     ],
-    "sha256": "sha256:5d5c6fdbf29897a2eb79d260761d5f898248cfd7719fb59a3d9c0fada29c851b"
+    "sha256": "sha256:7006513f44344521d339f7f85b81713e9c5a3b6d0a79aa20cd852b8b16c541f3"
   },
   "state": {
-    "development_freeze_sha256": "dfeb129f8956a9fa8a5e7f66fe843df799a1c209073e917f34f41a9e7d6e8f00",
-    "holdout_receipt_sha256": "624286d4414f7f836c93c16a36449be225cbb0eec19b21b11ec438810f45a2b3"
+    "development_freeze_sha256": "5172e09e81e507d555074343891c7f20acecf7236c11b7421b69eb519f0fcce0",
+    "holdout_receipt_sha256": "f2d46b29f9389f32bf3370ba46eb4c6f3cd671f85d95307cce062150af25d699"
   },
   "threshold_report": {
     "candidate_status": "not_evaluated",
