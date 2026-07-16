@@ -761,9 +761,9 @@ def test_workflow_has_repository_scope_and_one_bounded_non_matrix_job() -> None:
     assert "--retained-export" not in workflow
 
 
-def test_primary_ci_python_job_has_twenty_minute_verification_budget() -> None:
+def test_primary_ci_python_job_uses_platform_default_verification_budget() -> None:
     job = _primary_ci_python_job()
-    assert re.findall(r"(?m)^    timeout-minutes: ([0-9]+)$", job) == ["20"]
+    assert re.findall(r"(?m)^    timeout-minutes:", job) == []
 
 
 def test_workflow_uses_only_pinned_actions_and_both_explicit_interpreters() -> None:
