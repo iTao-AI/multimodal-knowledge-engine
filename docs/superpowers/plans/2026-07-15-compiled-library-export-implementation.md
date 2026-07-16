@@ -1,11 +1,11 @@
 # Compiled Library Export v1 Implementation Plan
 
-Status: Tasks 1-7, Task 8 documentation, and the pytest package-marker correction are implemented
-through `68ba721af0c52f0520185deb3c348fdecba2f99b`. Bare full-suite execution then proved that all
-90 failures and 9 errors come from the repository's frozen E1-E3-E provenance graph. The accepted
-Task 8R amendment performs one identity-only refresh with normalized semantics unchanged, resumes
-the complete final-candidate gates on the resulting committed HEAD, and then stops at Task 8
-Step 6 for authoritative pre-PR review.
+Status: Tasks 1-7 and Task 8 Steps 1-6, including the P1 resolution and Task 8R Steps 1-6 identity
+closure, were accepted by authoritative targeted re-review at reviewed HEAD
+`a8d4bfd5d31d34b04b7d64993bcf8e0cd4096e19`. Task 8 Step 7 is completed by this documentation
+closure commit, which records that accepted result. Task 8 Step 8 final committed-candidate
+verification remains pending on the documentation-closure committed HEAD. Task 8 Step 9 remains
+the pending external-action gate. LLM Wiki compatibility has not started.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use
@@ -19,10 +19,12 @@ after this core PR is merged.
 **Architecture:** A command-specific read-only `KnowledgeEngine` composition opens the existing
 SQLite database with `mode=ro` and `PRAGMA query_only=ON`, obtains one bounded immutable snapshot,
 and closes the transaction before rendering. Project-owned domain DTOs carry that snapshot into a
-canonical renderer and a descriptor-bound filesystem publisher; `export-manifest.json` is the
-final fallible artifact operation and the commit marker. CLI presentation is a thin interface
-adapter, while the installed-wheel consumer remains an independent downstream validator rather
-than a new MKE runtime dependency.
+canonical renderer and a descriptor-bound filesystem publisher; the `export-manifest.json` rename
+is the final artifact mutation and commit-marker mutation. Before success, the publisher performs
+a final exact inventory, reopens and revalidates the committed manifest and every referenced
+content file, and revalidates target identity. CLI presentation is a thin interface adapter, while
+the installed-wheel consumer remains an independent downstream validator rather than a new MKE
+runtime dependency.
 
 **Tech Stack:** Python 3.12/3.13, stdlib `sqlite3`, PEP 249 transaction control, stdlib
 `dataclasses`, `json`, `hashlib`, descriptor-relative `os` filesystem operations, Pydantic v2 for
@@ -71,8 +73,10 @@ closed public response validation, Pytest, Ruff, Pyright, Hatch/uv, and GitHub A
 - Process one Source at a time during rendering. Do not duplicate the complete export in memory.
 - Exact tree is `export-manifest.json`, `sources/<sha256>.md`, and
   `evidence/<sha256>.jsonl`; no other committed entry is allowed.
-- `export-manifest.json` publication is the final production operation and the only commit marker.
-  All fallible close, digest, inventory, temporary-manifest, and ownership checks complete first.
+- The `export-manifest.json` rename is the final artifact mutation and the only commit-marker
+  mutation. After the rename, success still requires a final exact inventory, descriptor-relative
+  revalidation of the committed manifest and every referenced content file, and target identity
+  revalidation.
 - JSON is strict UTF-8, sorted-key, compact-separator canonical JSON with one trailing LF.
 - Evidence sidecars contain exact closed `mke.evidence_ref.v1` objects; Markdown is a derivative,
   not provenance authority.
@@ -107,7 +111,7 @@ closed public response validation, Pytest, Ruff, Pyright, Hatch/uv, and GitHub A
   and small immutable rendered-entry/result DTOs.
 - Create `src/mke/adapters/filesystem/__init__.py` and
   `src/mke/adapters/filesystem/library_export.py`: descriptor-bound target creation, file writes,
-  manifest-last publication, revalidation, and ownership-safe cleanup.
+  manifest commit-marker rename, final committed-tree revalidation, and ownership-safe cleanup.
 - Create `src/mke/interfaces/library_export.py`: closed success/error response models, exception to
   stable public-error mapping, and human/JSON rendering.
 - Modify `src/mke/cli.py`: parser and thin command-specific composition before normal runtime
@@ -641,7 +645,7 @@ errors, and the five-query, comma-joined, and exact before/after WAL contracts r
   - `render_export_manifest(snapshot, entries) -> bytes`
   - `LibraryExportResult(library_id, source_count, evidence_count, manifest_sha256)`
 
-- [ ] **Step 1: Write RED exact-byte golden tests**
+- [x] **Step 1: Write RED exact-byte golden tests**
 
 For one page and one timestamp Source, freeze the complete expected UTF-8 bytes for JSONL,
 Markdown, and manifest. Validate every JSONL line through `EvidenceRefV1.model_validate_json()`,
@@ -663,7 +667,7 @@ assert jsonl == (
 Use a readable assembled literal if Ruff rejects one long expression; the expected bytes must stay
 independent of the production serializer.
 
-- [ ] **Step 2: Write RED determinism and untrusted-content tests**
+- [x] **Step 2: Write RED determinism and untrusted-content tests**
 
 Assert:
 
@@ -677,14 +681,14 @@ Assert:
   `<a id="mke-evidence-EVIDENCE_ID"></a>`; and
 - any EvidenceRef or source-entry field drift fails before bytes are returned.
 
-- [ ] **Step 3: Write RED per-file boundary tests**
+- [x] **Step 3: Write RED per-file boundary tests**
 
 Monkeypatch only the module's private rendered-byte limit to a small value. Assert a Markdown and
 JSONL byte sequence exactly equal to the limit passes and one byte above raises
 `LibraryExportDataError(reason="too_large")`. Assert the production constant imported from
 `DEFAULT_EXPORT_LIMITS` remains exactly 64 MiB.
 
-- [ ] **Step 4: Run renderer tests to verify RED**
+- [x] **Step 4: Run renderer tests to verify RED**
 
 Run:
 
@@ -694,7 +698,7 @@ UV_OFFLINE=1 uv run pytest -q tests/application/test_library_export.py -k 'rende
 
 Expected: RED because `mke.application.library_export` does not exist.
 
-- [ ] **Step 5: Implement canonical one-Source-at-a-time renderers**
+- [x] **Step 5: Implement canonical one-Source-at-a-time renderers**
 
 Use this exact canonical helper:
 
@@ -738,7 +742,7 @@ uses the already-validated snapshot order and the exact relative POSIX paths der
 lowercase digest. Store only `RenderedSourceEntry` metadata after each Source render; do not retain
 all Source file bytes.
 
-- [ ] **Step 6: Run Task 4 GREEN and schema compatibility**
+- [x] **Step 6: Run Task 4 GREEN and schema compatibility**
 
 Run:
 
@@ -755,7 +759,7 @@ UV_OFFLINE=1 uv run pyright src/mke/application/library_export.py \
 
 Expected: exact bytes and schema oracle tests pass; no existing EvidenceRef behavior changes.
 
-- [ ] **Step 7: Commit Task 4**
+- [x] **Step 7: Commit Task 4**
 
 ```bash
 git add src/mke/application/library_export.py src/mke/application/__init__.py \
@@ -785,14 +789,14 @@ git commit -m "feat(export): render compiled library artifacts"
   - Module-private helpers isolate bounded descriptor operations for focused monkeypatching in
     unit tests; no filesystem test seam is exposed through the product or installed proof.
 
-- [ ] **Step 1: Write RED output-name and collision tests**
+- [x] **Step 1: Write RED output-name and collision tests**
 
 Accept one ordinary child name such as `compiled-library`. Reject `""`, `.`, `..`, absolute POSIX
 and Windows forms, `/`, `\\`, nested, traversal, NUL, and names whose parent resolution involves a
 symbolic link. Test pre-existing regular file, directory, and symlink targets. Assert every
 rejection preserves the existing entry byte/inode/metadata identity and creates no sibling file.
 
-- [ ] **Step 2: Write RED exact-tree and manifest-last tests**
+- [x] **Step 2: Write RED exact-tree, manifest-commit, and final-revalidation tests**
 
 For a two-Source snapshot assert the only committed paths are:
 
@@ -805,13 +809,15 @@ sources/<digest-b>.md
 ```
 
 Use focused spies on module-private write/revalidation helpers to assert all content files close
-and revalidate, then exact inventory validation runs, then the temporary manifest is written,
-closed, and re-read. Only after every fallible check and descriptor close succeeds may the final
-rename publish `export-manifest.json`; the rename is the last production operation. The test then
-independently reopens every file, compares byte count/SHA with the manifest, and rejects any
-temporary or unexpected entry.
+and revalidate, then exact inventory and referenced-content validation run, then the temporary
+manifest is written, closed, and re-read. The final rename publishes `export-manifest.json` as the
+last artifact mutation and commit-marker mutation. After the rename, rebind temporary-manifest
+ownership to the final path, validate the exact committed inventory, reopen the committed manifest
+and every referenced content file with descriptor-relative no-follow operations, validate
+path/descriptor identity, type, byte count, and SHA-256, and revalidate target identity before
+success.
 
-- [ ] **Step 3: Write RED ownership, replacement, and cleanup failure tests**
+- [x] **Step 3: Write RED ownership, replacement, and cleanup failure tests**
 
 Inject these real local-operation failures one at a time:
 
@@ -820,14 +826,16 @@ Inject these real local-operation failures one at a time:
 - target or recorded child replacement before cleanup; and
 - cleanup unlink/rmdir failure.
 
-For catchable failures before manifest publication, assert the call-owned tree disappears only
-when every recorded `(st_dev, st_ino, file_type)` still matches. If the target or a recorded child
-is replaced before cleanup, assert operator-owned replacement bytes survive and the result is
-`OutputPublicationError("cleanup_failed")`. No test may use recursive path-based
-`shutil.rmtree()`. Exhaustive same-account inode replacement at every internal micro-step is not a
-core-PR blocker.
+For catchable failures before success, including failures in the post-rename committed-tree
+revalidation, assert the call-owned tree disappears only when every recorded
+`(st_dev, st_ino, file_type)` still matches. If the target or a recorded child is replaced before
+cleanup, assert operator-owned replacement bytes survive and the result is
+`OutputPublicationError("cleanup_failed")`. Same-inode, same-size digest drift remains call-owned,
+returns `OutputPublicationError("write_failed")`, and removes the call-owned tree. No test may use
+recursive path-based `shutil.rmtree()`. Exhaustive same-account inode replacement at every internal
+micro-step is not a core-PR blocker.
 
-- [ ] **Step 4: Run filesystem tests to verify RED**
+- [x] **Step 4: Run filesystem tests to verify RED**
 
 Run:
 
@@ -837,7 +845,7 @@ UV_OFFLINE=1 uv run pytest -q tests/adapters/test_library_export_filesystem.py
 
 Expected: collection fails because the filesystem publisher is absent.
 
-- [ ] **Step 5: Implement bound-directory operations**
+- [x] **Step 5: Implement bound-directory operations**
 
 The publisher uses small module-private helpers around descriptor-relative operations and
 `follow_symlinks=False`/`O_NOFOLLOW` where available:
@@ -864,7 +872,7 @@ bounded re-read, and descriptor `fstat` identity checks. Record identity at crea
 `.export-manifest.json.tmp` because the target is a new call-owned directory; it must not remain in
 the success inventory.
 
-- [ ] **Step 6: Implement identity-bound reverse cleanup**
+- [x] **Step 6: Implement identity-bound reverse cleanup**
 
 Cleanup walks only the recorded expected inventory in reverse order. Before each unlink/rmdir,
 compare `lstat` identity and file type to the recorded value; never follow a symlink and never
@@ -872,7 +880,7 @@ discover additional paths to delete. After child removal, verify the target iden
 `rmdir(output_name, dir_fd=parent_fd)`. Any mismatch or removal error becomes `cleanup_failed`; do
 not mask it with the originating write error and do not delete ambiguous state.
 
-- [ ] **Step 7: Run Task 5 GREEN and repeat the race slice**
+- [x] **Step 7: Run Task 5 GREEN and repeat the race slice**
 
 Run:
 
@@ -884,10 +892,11 @@ UV_OFFLINE=1 uv run pyright src/mke/adapters/filesystem \
   tests/adapters/test_library_export_filesystem.py
 ```
 
-Expected: all tests pass; committed output has no post-manifest fallible operation and cleanup is
-limited to the identity-bound owned tree.
+Expected: all tests pass; committed output passes the post-rename exact inventory, committed
+manifest, referenced-content, and target-identity revalidations, and cleanup is limited to the
+identity-bound owned tree.
 
-- [ ] **Step 8: Commit Task 5**
+- [x] **Step 8: Commit Task 5**
 
 ```bash
 git add src/mke/adapters/filesystem/__init__.py \
@@ -918,7 +927,7 @@ git commit -m "feat(export): publish compiled library safely"
   - `run_library_export(db_path, output_name, *, json_output, parent=Path(".")) -> int`
   - exact public parser `library export --output NAME [--json]`.
 
-- [ ] **Step 1: Write RED parser and success response tests**
+- [x] **Step 1: Write RED parser and success response tests**
 
 Ingest the normal PDF and sidecar video through existing commands, then run:
 
@@ -949,7 +958,7 @@ format, extractor, provider, MCP, or arbitrary parent option. Parameterize both 
 `--option=value` forms of `--retrieval-query-policy` and `--retrieval-strategy`; all four must exit
 through `argparse` with code 2 before runtime construction. `--db` remains accepted.
 
-- [ ] **Step 2: Write RED exact failure matrix and redaction tests**
+- [x] **Step 2: Write RED exact failure matrix and redaction tests**
 
 Parameterize the design table and require closed response keys:
 
@@ -968,7 +977,7 @@ Every failure has `schema_version`, `ok=false`, and
 `active_publication_impact="unchanged"`. Assert no absolute path, database/output name, Source text,
 hostname, timestamp, temporary name, exception class, or stack trace appears.
 
-- [ ] **Step 3: Write RED read-only composition and compatibility tests**
+- [x] **Step 3: Write RED read-only composition and compatibility tests**
 
 Monkeypatch `build_engine()` and owner recovery to fail if the `library export` branch reaches them.
 Assert the command uses `KnowledgeEngine.open_read_only_export()` and closes it on success/failure.
@@ -978,7 +987,7 @@ schemas remain byte-identical and contain no `library_export` tool. Assert exist
 export causes remain absent from shared `_ALLOWLISTED_CAUSES`, and the committed consumer
 source-pack fixture remains exactly equal to the live MCP producer.
 
-- [ ] **Step 4: Run CLI tests to verify RED**
+- [x] **Step 4: Run CLI tests to verify RED**
 
 Run:
 
@@ -993,7 +1002,7 @@ UV_OFFLINE=1 uv run pytest -q \
 Expected: RED because the parser and command-local interface models are absent. Existing shared
 MCP/consumer contract tests remain GREEN and must not be changed to manufacture RED.
 
-- [ ] **Step 5: Implement the interface serializer and error mapping**
+- [x] **Step 5: Implement the interface serializer and error mapping**
 
 Define strict frozen models with `ConfigDict(extra="forbid", frozen=True, strict=True)`. Define a
 private command-local frozenset containing exactly the six non-redacted causes from the table plus
@@ -1015,7 +1024,7 @@ Validate that payload through `LibraryExportErrorV1` before rendering. Map only 
 and approved reasons; unknown exceptions use `library_export_failed` plus the redacted cause. Add
 a regression proving an unrelated shared cause is rejected by the export response model.
 
-- [ ] **Step 6: Add the thin CLI branch before normal runtime construction**
+- [x] **Step 6: Add the thin CLI branch before normal runtime construction**
 
 Add nested parsers after `ask` and handle `args.command == "library"` before
 `runtime_config_from_args()`/`build_engine()`:
@@ -1042,7 +1051,7 @@ The execution function opens the read-only engine, obtains the snapshot before t
 publishes under `Path(".")`, validates the response, prints once, and closes the engine in `finally`.
 No normal retrieval/runtime configuration is consulted.
 
-- [ ] **Step 7: Run Task 6 GREEN and CLI/MCP regressions**
+- [x] **Step 7: Run Task 6 GREEN and CLI/MCP regressions**
 
 Run:
 
@@ -1065,7 +1074,7 @@ UV_OFFLINE=1 uv run pyright src/mke/interfaces src/mke/cli.py \
 
 Expected: all selected tests pass; MCP snapshots and shared errors are unchanged.
 
-- [ ] **Step 8: Commit Task 6**
+- [x] **Step 8: Commit Task 6**
 
 ```bash
 git add src/mke/interfaces/library_export.py src/mke/cli.py \
@@ -1095,7 +1104,7 @@ git commit -m "feat(cli): export compiled library"
 - `compiled_library_export_consumer.py` uses only the Python standard library, never imports `mke`,
   never reads SQLite, and never invokes Search/Ask.
 
-- [ ] **Step 1: Write RED standalone-consumer schema and drift tests**
+- [x] **Step 1: Write RED standalone-consumer schema and drift tests**
 
 Build a synthetic export tree directly in the test and require the consumer to validate:
 
@@ -1131,7 +1140,7 @@ The script envelope adds only
 `schema_version="mke.compiled_library_export_consumer.v1"`. Failures emit exact
 `{"status":"failed","code":<allowlisted-token>}` with no raw exception or path.
 
-- [ ] **Step 2: Run consumer tests to verify RED**
+- [x] **Step 2: Run consumer tests to verify RED**
 
 Run:
 
@@ -1141,7 +1150,7 @@ UV_OFFLINE=1 uv run pytest -q tests/scripts/test_compiled_library_export_consume
 
 Expected: RED because the consumer script is absent.
 
-- [ ] **Step 3: Implement the standard-library consumer**
+- [x] **Step 3: Implement the standard-library consumer**
 
 Use bounded descriptor reads, `lstat`/`fstat` identity checks, strict UTF-8, stdlib JSON with
 duplicate-key rejection, regex/typed scalar validation, and explicit key-set equality. Never use
@@ -1161,7 +1170,7 @@ python scripts/compiled_library_export_consumer.py \
 The `--source` values are controller-owned proof inputs, not MKE product arguments. Bound each
 input by regular-file descriptor and hash it independently.
 
-- [ ] **Step 4: Write RED controller tests for one wheel, two interpreters, and real commands**
+- [x] **Step 4: Write RED controller tests for one wheel, two interpreters, and real commands**
 
 Test the controller's exact sequence with bounded fake command results first, then one local real
 slice:
@@ -1186,7 +1195,7 @@ failure injection remains fully covered in Task 5 at the adapter boundary.
 Assert the two interpreter results share one `proof_input_wheel_sha256`. Do not require
 cross-database export bytes to match because lifecycle IDs are independently generated.
 
-- [ ] **Step 5: Run controller tests to verify RED**
+- [x] **Step 5: Run controller tests to verify RED**
 
 Run:
 
@@ -1196,7 +1205,7 @@ UV_OFFLINE=1 uv run pytest -q tests/scripts/test_compiled_library_export_proof.p
 
 Expected: RED because the proof controller is absent.
 
-- [ ] **Step 6: Implement bounded controller orchestration**
+- [x] **Step 6: Implement bounded controller orchestration**
 
 Reuse the already-reviewed process/environment/candidate helpers from
 `scripts/consumer_source_pack_proof.py` by importing them from the repository script path; do not
@@ -1219,7 +1228,7 @@ in CI. When present locally, require a new target, descriptor-copy only the alre
 export plus a canonical receipt with schemas/counts/wheel digest, and transfer cleanup ownership to
 the caller only after full revalidation.
 
-- [ ] **Step 7: Add one bounded non-matrix GitHub workflow**
+- [x] **Step 7: Add one bounded non-matrix GitHub workflow**
 
 Mirror the existing consumer proof's pinned actions and online-prewarm/offline-proof split:
 
@@ -1235,7 +1244,7 @@ Add workflow structure tests that reject a sibling job, missing interpreter, unp
 online proof, upload, or write permission. Do not modify `.github/workflows/ci.yml` or the existing
 consumer source-pack workflow.
 
-- [ ] **Step 8: Run Task 7 GREEN locally**
+- [x] **Step 8: Run Task 7 GREEN locally**
 
 Resolve real Python 3.12 and 3.13 interpreter paths already installed on the host, then run:
 
@@ -1259,7 +1268,7 @@ Before the real proof, record the exact interpreter commands in the execution re
 interpreter or the offline locked cache is unavailable, stop as an environment blocker; do not
 download, relax offline mode, substitute the same interpreter twice, or claim the proof passed.
 
-- [ ] **Step 9: Commit Task 7**
+- [x] **Step 9: Commit Task 7**
 
 ```bash
 git add scripts/compiled_library_export_consumer.py \
@@ -1298,16 +1307,17 @@ git commit -m "proof(export): verify installed library portability"
   - no LLM Wiki compatibility claim before the follow-up PR;
   - no release identity, dependency, workflow, or runtime expansion.
 
-- [ ] **Step 1: Write RED documentation and overclaim tests**
+- [x] **Step 1: Write RED documentation and overclaim tests**
 
 Require English/Chinese README discoverability, CLI/reference exact schemas, how-to commands,
 Markdown-versus-EvidenceRef authority, count/byte budgets, read-only DB behavior, manifest-last
-semantics, original-Source exclusion, and the explicitly deferred LLM Wiki compatibility boundary.
+mutation plus post-commit revalidation semantics, original-Source exclusion, and the explicitly
+deferred LLM Wiki compatibility boundary.
 Extend release presentation tests so they reject claims of production OCR, reconstructed layout,
 verified LLM Wiki compatibility, hosted integration, real-user adoption, or released v0.1.3 before
 the separate compatibility and release operations.
 
-- [ ] **Step 2: Run documentation tests to verify RED**
+- [x] **Step 2: Run documentation tests to verify RED**
 
 Run:
 
@@ -1319,7 +1329,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: RED because the documents and bounded audit rules are absent.
 
-- [ ] **Step 3: Write the public documentation without changing release identity**
+- [x] **Step 3: Write the public documentation without changing release identity**
 
 Document the feature as verified on the current main candidate and intended for a later release
 decision; keep package version and `docs/releases/v0.1.2.md` unchanged. Include these exact claim
@@ -1331,7 +1341,7 @@ boundaries:
 State separately that OCR Phase 0 is bounded local viability evidence on a fixed synthetic corpus
 and is not production OCR. Do not create v0.1.3 release notes, bump versions, tag, or publish.
 
-- [ ] **Step 4: Commit the core documentation before authority review**
+- [x] **Step 4: Commit the core documentation before authority review**
 
 Commit the documentation before running acceptance:
 
@@ -1349,7 +1359,7 @@ git commit -m "docs(export): document compiled library contract"
 Run the focused documentation tests and presentation audit again after the commit. This commit must
 not change package version or any Task 1–7 product/proof file.
 
-- [ ] **Step 5: Run preliminary final-candidate verification**
+- [x] **Step 5: Run preliminary final-candidate verification**
 
 Preserve the observed RED evidence that bare full-suite collection imported both approved files as
 top-level `test_library_export`. Add exactly two zero-byte files:
@@ -1408,7 +1418,7 @@ any different or larger set is an authority hard stop:
 - `tests/evaluation/test_relevance_gate_protocol.py`
 - `tests/evaluation/test_relevance_gate_workflow.py`
 
-- [ ] **Task 8R Step 1: Freeze the committed reference and generate fresh observations**
+- [x] **Task 8R Step 1: Freeze the committed reference and generate fresh observations**
 
 Set `task8r_start="$(git rev-parse HEAD)"` before any artifact write and create one call-owned
 evidence directory. Generate E2 from an exclusive hidden copy of the numeric protocol after
@@ -1416,19 +1426,19 @@ evidence directory. Generate E2 from an exclusive hidden copy of the numeric pro
 The hidden protocol must be removed by an ownership-bounded trap. Run
 `tests/evaluation/test_artifact_refresh.py` before any canonical write.
 
-- [ ] **Task 8R Step 2: Prove every pre-refresh failure is identity-only**
+- [x] **Task 8R Step 2: Prove every pre-refresh failure is identity-only**
 
 Run all seven canonical validators in dependency order against the checked-in graph and fresh
 observations. Continue only if each failure is source/scope/dependency identity drift caused by the
 current feature diff. Any semantic or environment failure stops the task.
 
-- [ ] **Task 8R Step 3: Refresh E1 through E3-B with the supported transaction**
+- [x] **Task 8R Step 3: Refresh E1 through E3-B with the supported transaction**
 
 Invoke `python -m mke.evaluation.artifact_refresh` with the four fresh observations. On any failure,
 run only its supported `recover --repository .` command and stop. Do not modify the helper, copy a
 partial staged set, or hand-edit its five targets.
 
-- [ ] **Task 8R Step 4: Rebind downstream identities in a detached validation mirror**
+- [x] **Task 8R Step 4: Rebind downstream identities in a detached validation mirror**
 
 Use a call-owned untracked rebinder and record its SHA-256. Generate all E3-C/D/E candidate bytes
 before applying any, overlay the complete proposed graph into a detached mirror rooted at
@@ -1436,14 +1446,14 @@ before applying any, overlay the complete proposed graph into a detached mirror 
 candidate/mirror byte equality and normalized before/after semantic equality for every E1-E3-E
 layer. Do not run a model or re-observe a holdout.
 
-- [ ] **Task 8R Step 5: Apply with exact backup and recovery**
+- [x] **Task 8R Step 5: Apply with exact backup and recovery**
 
 Before feature-worktree application, capture exact bytes, digests, and path descriptors for every
 conditional downstream path. Apply only mirror-validated bytes with per-file atomic replacement in
 dependency order. Any failure restores every touched path and verifies exact restoration; never
 publish or commit a partial graph.
 
-- [ ] **Task 8R Step 6: Validate and commit only the identity closure**
+- [x] **Task 8R Step 6: Validate and commit only the identity closure**
 
 Run the complete artifact regression suite and all seven canonical validators against the real
 worktree. Require normalized equality of observations, ordered results, metrics, thresholds, gates,
@@ -1469,7 +1479,7 @@ evidence after these tracked commits and must not be reused as final authority. 
 the freshly built wheel digest, proof aggregate, changed-file audit, and clean worktree. Do not use
 `--retained-export`; retained output belongs to the follow-up compatibility PR.
 
-- [ ] **Step 6: Hard stop for authoritative pre-PR review**
+- [x] **Step 6: Hard stop for authoritative pre-PR review**
 
 The planning/review authority reviews the actual branch diff against the public spec, this core
 plan, ADRs, and command
@@ -1477,7 +1487,7 @@ evidence. The implementation worker does not run a second broad review. Findings
 evidence-backed repair and targeted re-review; low-impact theoretical hardening outside the bounded
 local threat model is recorded as a follow-up rather than becoming an unbounded blocker.
 
-- [ ] **Step 7: Commit accepted core review closure**
+- [x] **Step 7: Commit accepted core review closure**
 
 After findings are closed, update only checkboxes for completed steps and persist actual diff
 range, verification commands, wheel digest, generic proof aggregate, and claim boundary. Do not
