@@ -44,6 +44,22 @@ def _job(workflow: str | None = None) -> str:
     return sections[1]
 
 
+def _primary_ci_python_job() -> str:
+    workflow = CI_WORKFLOW.read_text(encoding="utf-8")
+    sections = workflow.split("\njobs:\n", maxsplit=1)
+    assert len(sections) == 2
+    names = re.findall(r"(?m)^  ([a-zA-Z0-9_-]+):\n", sections[1])
+    assert names == ["embedding-extra", "python"]
+    matches = list(
+        re.finditer(
+            r"(?ms)^  python:\n(?P<body>.*?)(?=^  [a-zA-Z0-9_-]+:\n|\Z)",
+            sections[1],
+        )
+    )
+    assert len(matches) == 1
+    return matches[0].group(0)
+
+
 def test_controller_reuses_reviewed_process_helpers_without_copying_controller() -> None:
     source = SCRIPT.read_text(encoding="utf-8")
     assert "from consumer_source_pack_proof import" in source
@@ -743,6 +759,11 @@ def test_workflow_has_repository_scope_and_one_bounded_non_matrix_job() -> None:
     assert "upload-artifact" not in workflow
     assert "write" not in workflow
     assert "--retained-export" not in workflow
+
+
+def test_primary_ci_python_job_has_twenty_minute_verification_budget() -> None:
+    job = _primary_ci_python_job()
+    assert re.findall(r"(?m)^    timeout-minutes: ([0-9]+)$", job) == ["20"]
 
 
 def test_workflow_uses_only_pinned_actions_and_both_explicit_interpreters() -> None:
