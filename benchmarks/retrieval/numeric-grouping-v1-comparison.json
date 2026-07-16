@@ -41,7 +41,7 @@
     "revision": 1
   },
   "source": {
-    "sha256": "1e2e08be053c4e66586a48303c5abe689c0f3a76d6b9b039a609965899e2fb51",
+    "sha256": "058a1ef0dec8e0a9ee4b8657d6b8d2446c7e61761a95ae2e2ca81afdc2e0ecbd",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -65,8 +65,8 @@
       },
       {
         "path": "src/mke/adapters/filesystem/library_export.py",
-        "bytes": 17054,
-        "sha256": "46412cc7855891b21b39d3d36ca1103d3a89cfda4f3c06287eaf3d32b47b670d"
+        "bytes": 20536,
+        "sha256": "663075398b5580a22033d98776583ccce40981ee423b5f338509d3227830ec3b"
       },
       {
         "path": "src/mke/adapters/pdf/__init__.py",

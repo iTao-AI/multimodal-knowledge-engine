@@ -4,7 +4,7 @@
     "candidate_revision": 1
   },
   "current_runtime_semantic_digest": "sha256:b32dc4a1479cb3ea8e0ebedf2c27b04a10a6d91eee96e0cd0308bcf921e97959",
-  "dense_artifact_sha256": "3e14f011ab6fb5605d1fcf0834f7734ba4a3ef2c5d398bc80a6a94f0b93b1e4f",
+  "dense_artifact_sha256": "4a06724a32f877e270e5328317c12be2129dab41c25c7e810e5568563bcbecf0",
   "development_status": "valid_negative",
   "diagnostics": {
     "both_arm_recovery_count": 10,
@@ -2761,7 +2761,7 @@
       }
     }
   },
-  "protocol_sha256": "d97f3ad178d21a66d4f77e4a3be5d4e850f42e7d22bce0e914b16ade8d0ec9a4",
+  "protocol_sha256": "397f8ff69dfadd299f0b15ddb3e6b735e507673730e6687eecc500ceec48b513",
   "runtime_promotion_status": "not_evaluated",
   "schema_version": "mke.hybrid_rrf_development_freeze.v1"
 }
