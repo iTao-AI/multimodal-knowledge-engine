@@ -46,11 +46,11 @@ Development diagnostics:
 Canonical identities:
 
 - Development freeze SHA-256:
-  `b149b7ddf6fbf7b961d3767f5dfcfbe34f8c10d9cd3ef03263cdfa0ecb87bd17`
+  `86b9932bd66ad1a2afe723626218463c6e4dafc96cde3e5a980f89fa6c98bdf7`
 - Comparison artifact SHA-256:
-  `1f42b9ccce03f485f5b9a6c427b099bc747687090b25f3454f2b4717af499ce0`
+  `5b35a53bd9f6812e2bae45538199638e4e17c911730e37d755634886cdb02035`
 - Canonical E3-C dense artifact SHA-256:
-  `c101cd940cf64db463bf99a3d57d156bd39e8423e5fd80a1c5468003d74bc35f`
+  `1cf8bf6ca82b3461443424fab662cf19496beeff705fd955bfbc5c517e539e4d`
 - Current runtime semantic digest:
   `sha256:b32dc4a1479cb3ea8e0ebedf2c27b04a10a6d91eee96e0cd0308bcf921e97959`
 
