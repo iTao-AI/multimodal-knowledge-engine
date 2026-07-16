@@ -406,7 +406,11 @@ def _prove_interpreter(
     interpreter: Path,
     index: int,
 ) -> InterpreterResult:
-    if not interpreter.is_file() or interpreter.is_symlink() or not os.access(interpreter, os.X_OK):
+    try:
+        resolved_interpreter = interpreter.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise ControllerError("environment_create_failed") from exc
+    if not resolved_interpreter.is_file() or not os.access(resolved_interpreter, os.X_OK):
         raise ControllerError("environment_create_failed")
     environment = root / f"venv-{index}"
     workspace = root / f"workspace-{index}"
@@ -417,7 +421,14 @@ def _prove_interpreter(
     mke = environment / ("Scripts/mke.exe" if os.name == "nt" else "bin/mke")
     _command(
         "environment_create_failed",
-        ["uv", "venv", str(environment), "--python", str(interpreter), "--no-python-downloads"],
+        [
+            "uv",
+            "venv",
+            str(environment),
+            "--python",
+            str(resolved_interpreter),
+            "--no-python-downloads",
+        ],
         cwd=root,
         env=env,
         config=config,

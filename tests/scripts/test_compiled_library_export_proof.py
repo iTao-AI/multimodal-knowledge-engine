@@ -470,6 +470,79 @@ def test_run_proof_builds_one_candidate_and_checks_identity_invariants(
     assert not owned.exists()
 
 
+def test_prove_interpreter_accepts_executable_symlink_and_passes_resolved_target_to_uv(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    proof = _load()
+    authority = sys.modules["consumer_source_pack_proof"]
+    root = tmp_path / "owned"
+    root.mkdir()
+    target = tmp_path / "python-real"
+    target.write_text("#!/bin/sh\n")
+    target.chmod(0o755)
+    interpreter = tmp_path / "python"
+    interpreter.symlink_to(target)
+    commands: list[list[str]] = []
+
+    def fake_run(
+        command: Sequence[str],
+        *,
+        cwd: Path,
+        env: Mapping[str, str],
+        timeout_seconds: float,
+        max_stdout_bytes: int,
+        max_stderr_bytes: int,
+    ) -> object:
+        del cwd, env, timeout_seconds, max_stdout_bytes, max_stderr_bytes
+        argv = list(command)
+        commands.append(argv)
+        return authority.CommandResult(0 if argv[:2] == ["uv", "venv"] else 1, b"", b"")
+
+    monkeypatch.setattr(proof, "run_bounded", fake_run)
+    config = proof.ProofConfig(ROOT, (interpreter, interpreter), 10, 1024, 1024)
+    with pytest.raises(proof.ControllerError, match="install_failed"):
+        proof._prove_interpreter(config, root, tmp_path / "candidate.whl", interpreter, 0)
+    assert commands[0] == [
+        "uv",
+        "venv",
+        str(root / "venv-0"),
+        "--python",
+        str(target.resolve(strict=True)),
+        "--no-python-downloads",
+    ]
+
+
+@pytest.mark.parametrize(
+    "invalid_kind", ["missing", "dangling", "directory", "non-executable"]
+)
+def test_prove_interpreter_rejects_invalid_resolved_targets_before_uv(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, invalid_kind: str
+) -> None:
+    proof = _load()
+    interpreter = tmp_path / "python"
+    if invalid_kind == "dangling":
+        interpreter.symlink_to(tmp_path / "missing-target")
+    elif invalid_kind == "directory":
+        target = tmp_path / "python-directory"
+        target.mkdir()
+        interpreter.symlink_to(target)
+    elif invalid_kind == "non-executable":
+        target = tmp_path / "python-non-executable"
+        target.write_text("#!/bin/sh\n")
+        target.chmod(0o644)
+        interpreter.symlink_to(target)
+
+    def unexpected_run(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("uv must not run for an invalid interpreter target")
+
+    monkeypatch.setattr(proof, "run_bounded", unexpected_run)
+    root = tmp_path / "owned"
+    root.mkdir()
+    config = proof.ProofConfig(ROOT, (interpreter, interpreter), 10, 1024, 1024)
+    with pytest.raises(proof.ControllerError, match="environment_create_failed"):
+        proof._prove_interpreter(config, root, tmp_path / "candidate.whl", interpreter, 0)
+
+
 def test_tree_digest_real_slice_is_copy_stable_and_drift_sensitive(tmp_path: Path) -> None:
     proof = _load()
     first = tmp_path / "first"
