@@ -27,6 +27,7 @@ from mke.domain import (
     AskResult,
     AskSnapshot,
     CandidateEvidence,
+    CompiledLibrarySnapshot,
     FailurePoint,
     IngestResult,
     ManifestValidationError,
@@ -202,6 +203,9 @@ class KnowledgeEngine:
 
     def observe_active_publications(self) -> ActivePublicationObservation:
         return self._store.observe_active_publications()
+
+    def compiled_library_snapshot(self) -> CompiledLibrarySnapshot:
+        return self._store.compiled_library_snapshot()
 
     def search_provenance_snapshot(
         self, query: str, limit: int | None = None

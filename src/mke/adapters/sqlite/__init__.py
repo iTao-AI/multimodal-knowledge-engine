@@ -11,10 +11,15 @@ from typing import TYPE_CHECKING, Self
 from uuid import uuid4
 
 from mke.domain import (
+    DEFAULT_EXPORT_LIMITS,
     ActivationResult,
     ActiveEvidenceRef,
     ActivePublicationObservation,
     CandidateEvidence,
+    CompiledEvidenceSnapshot,
+    CompiledLibrarySnapshot,
+    CompiledSourceSnapshot,
+    ExportLimits,
     FailurePoint,
     LibraryExportDataError,
     ManifestValidationError,
@@ -1024,34 +1029,67 @@ class SQLiteStore:
             raise
 
     def _observe_active_publications(self) -> ActivePublicationObservation:
+        observation, _ = self._read_and_validate_active_publication_rows()
+        return observation
+
+    def _read_and_validate_active_publication_rows(
+        self,
+    ) -> tuple[ActivePublicationObservation, list[sqlite3.Row]]:
+        library_error = "implicit local Library ownership is invalid"
+        graph_error = "active Publication provenance graph is invalid"
         libraries = self._connection.execute(
             "SELECT library_id, name FROM libraries ORDER BY library_id"
         ).fetchall()
         if not libraries:
-            return ActivePublicationObservation("local", "empty", 0, 0, 0)
+            return ActivePublicationObservation("local", "empty", 0, 0, 0), []
+        for library in libraries:
+            self._require_sqlite_text(library["library_id"], library_error)
+            self._require_sqlite_text(library["name"], library_error)
         if len(libraries) != 1 or libraries[0]["name"] != "default":
-            raise ManifestValidationError("implicit local Library ownership is invalid")
-        library_id = str(libraries[0]["library_id"])
-        source_count = int(
-            self._connection.execute(
-                "SELECT COUNT(*) FROM sources WHERE library_id = ?", (library_id,)
-            ).fetchone()[0]
+            raise ManifestValidationError(library_error)
+        library_id = self._require_sqlite_text(libraries[0]["library_id"], library_error)
+        source_counts = self._connection.execute(
+            """
+            SELECT COUNT(*) AS source_count,
+                   COALESCE(SUM(CASE WHEN library_id = ? THEN 1 ELSE 0 END), 0)
+                     AS owned_source_count,
+                   COALESCE(SUM(
+                     CASE WHEN active_publication_id IS NOT NULL THEN 1 ELSE 0 END
+                   ), 0)
+                     AS active_pointer_count
+            FROM sources
+            """,
+            (library_id,),
+        ).fetchone()
+        assert source_counts is not None
+        source_count = self._require_sqlite_int(
+            source_counts["source_count"], library_error
         )
+        owned_source_count = self._require_sqlite_int(
+            source_counts["owned_source_count"], library_error
+        )
+        active_pointer_count = self._require_sqlite_int(
+            source_counts["active_pointer_count"], graph_error
+        )
+        if owned_source_count != source_count:
+            raise ManifestValidationError(library_error)
         rows = self._connection.execute(
             """
             SELECT sources.source_id, sources.library_id, sources.active_publication_id,
-                   sources.active_revision, assets.sha256 AS source_sha256,
+                   sources.active_revision, sources.display_name,
+                   assets.sha256 AS source_sha256, assets.media_type,
                    publications.publication_id, publications.source_id AS publication_source_id,
                    publications.run_id, publications.revision,
                    runs.source_id AS run_source_id, runs.state,
                    run_manifests.asset_sha256 AS manifest_sha256,
                    run_manifests.evidence_count AS manifest_evidence_count,
+                   run_manifests.required_stages, run_manifests.extractor_fingerprint,
                    COUNT(evidence.evidence_id) AS evidence_count,
                    SUM(CASE WHEN evidence.source_id = sources.source_id
                                   AND evidence.run_id = publications.run_id THEN 0 ELSE 1 END)
                        AS evidence_mismatch_count
             FROM sources
-            JOIN assets ON assets.asset_id = sources.asset_id
+            LEFT JOIN assets ON assets.asset_id = sources.asset_id
             LEFT JOIN publications
               ON publications.publication_id = sources.active_publication_id
             LEFT JOIN runs ON runs.run_id = publications.run_id
@@ -1064,9 +1102,36 @@ class SQLiteStore:
             ,
             (library_id,),
         ).fetchall()
+        if active_pointer_count != len(rows):
+            raise ManifestValidationError(graph_error)
         active_evidence_count = 0
         for row in rows:
-            evidence_count = int(row["evidence_count"])
+            for field in (
+                "source_id",
+                "library_id",
+                "active_publication_id",
+                "display_name",
+                "source_sha256",
+                "media_type",
+                "publication_id",
+                "publication_source_id",
+                "run_id",
+                "run_source_id",
+                "state",
+                "manifest_sha256",
+                "required_stages",
+                "extractor_fingerprint",
+            ):
+                self._require_sqlite_text(row[field], graph_error)
+            for field in (
+                "active_revision",
+                "revision",
+                "manifest_evidence_count",
+                "evidence_count",
+                "evidence_mismatch_count",
+            ):
+                self._require_sqlite_int(row[field], graph_error)
+            evidence_count = self._require_sqlite_int(row["evidence_count"], graph_error)
             valid = (
                 row["library_id"] == library_id
                 and row["active_publication_id"] == row["publication_id"]
@@ -1076,11 +1141,11 @@ class SQLiteStore:
                 and row["active_revision"] == row["revision"]
                 and row["manifest_evidence_count"] == evidence_count
                 and row["manifest_sha256"] == row["source_sha256"]
-                and int(row["evidence_mismatch_count"] or 0) == 0
+                and row["evidence_mismatch_count"] == 0
                 and evidence_count > 0
             )
             if not valid:
-                raise ManifestValidationError("active Publication provenance graph is invalid")
+                raise ManifestValidationError(graph_error)
             active_evidence_count += evidence_count
         active_publication_count = len(rows)
         if source_count == 0:
@@ -1091,7 +1156,199 @@ class SQLiteStore:
             state = "active"
         return ActivePublicationObservation(
             "local", state, source_count, active_publication_count, active_evidence_count
+        ), rows
+
+    def compiled_library_snapshot(
+        self, *, limits: ExportLimits = DEFAULT_EXPORT_LIMITS
+    ) -> CompiledLibrarySnapshot:
+        try:
+            observation, active_rows = self._read_and_validate_active_publication_rows()
+            if observation.state != "active":
+                raise LibraryExportDataError("empty")
+            if len(active_rows) > limits.max_active_publications:
+                raise LibraryExportDataError("too_large")
+            self._validate_export_metadata(active_rows)
+            evidence_count, evidence_utf8_bytes = self._preflight_export_evidence()
+            if evidence_count > limits.max_active_evidence or (
+                evidence_utf8_bytes > limits.max_evidence_utf8_bytes
+            ):
+                raise LibraryExportDataError("too_large")
+            evidence_rows = self._read_export_evidence_rows()
+            snapshot = self._build_compiled_library_snapshot(
+                observation, active_rows, evidence_rows
+            )
+            self._connection.commit()
+            return snapshot
+        except LibraryExportDataError:
+            self._connection.rollback()
+            raise
+        except ManifestValidationError as exc:
+            self._connection.rollback()
+            raise LibraryExportDataError("provenance") from exc
+        except Exception:
+            self._connection.rollback()
+            raise
+
+    def _validate_export_metadata(self, active_rows: list[sqlite3.Row]) -> None:
+        fingerprints: set[str] = set()
+        for row in active_rows:
+            if row["media_type"] not in {"application/pdf", "video/mp4"}:
+                raise LibraryExportDataError("provenance")
+            self._parse_export_required_stages(row["required_stages"])
+            fingerprint = self._require_sqlite_text(
+                row["source_sha256"], "active Publication provenance graph is invalid"
+            )
+            if fingerprint in fingerprints:
+                raise LibraryExportDataError("provenance")
+            fingerprints.add(fingerprint)
+
+    def _preflight_export_evidence(self) -> tuple[int, int]:
+        row = self._connection.execute(
+            """
+            SELECT COUNT(*) AS evidence_count,
+                   COALESCE(SUM(length(CAST(text AS BLOB))), 0)
+                     AS evidence_utf8_bytes
+            FROM sources
+            JOIN publications
+              ON publications.publication_id = sources.active_publication_id
+            JOIN evidence ON evidence.run_id = publications.run_id
+            """
+        ).fetchone()
+        assert row is not None
+        error = "active Publication provenance graph is invalid"
+        return (
+            self._require_sqlite_int(row["evidence_count"], error),
+            self._require_sqlite_int(row["evidence_utf8_bytes"], error),
         )
+
+    def _read_export_evidence_rows(self) -> list[sqlite3.Row]:
+        rows = self._connection.execute(
+            """
+            SELECT evidence.evidence_id, evidence.source_id, evidence.run_id,
+                   evidence.locator_kind, evidence.locator_start,
+                   evidence.locator_end, evidence.text,
+                   publications.publication_id, publications.revision,
+                   assets.sha256 AS source_sha256
+            FROM evidence
+            JOIN publications ON publications.run_id = evidence.run_id
+            JOIN sources
+              ON sources.source_id = evidence.source_id
+             AND sources.active_publication_id = publications.publication_id
+            JOIN assets ON assets.asset_id = sources.asset_id
+            ORDER BY evidence.source_id, evidence.locator_kind,
+                     evidence.locator_start, evidence.locator_end, evidence.evidence_id
+            """
+        ).fetchall()
+        error = "active Publication provenance graph is invalid"
+        for row in rows:
+            for field in (
+                "evidence_id",
+                "source_id",
+                "run_id",
+                "locator_kind",
+                "text",
+                "publication_id",
+                "source_sha256",
+            ):
+                self._require_sqlite_text(row[field], error)
+            for field in ("locator_start", "locator_end", "revision"):
+                self._require_sqlite_int(row[field], error)
+        return rows
+
+    def _build_compiled_library_snapshot(
+        self,
+        observation: ActivePublicationObservation,
+        active_rows: list[sqlite3.Row],
+        evidence_rows: list[sqlite3.Row],
+    ) -> CompiledLibrarySnapshot:
+        evidence_by_run: dict[str, list[sqlite3.Row]] = {}
+        for evidence_row in evidence_rows:
+            run_id = self._require_sqlite_text(
+                evidence_row["run_id"], "active Publication provenance graph is invalid"
+            )
+            evidence_by_run.setdefault(run_id, []).append(evidence_row)
+        sources: list[CompiledSourceSnapshot] = []
+        for row in active_rows:
+            error = "active Publication provenance graph is invalid"
+            run_id = self._require_sqlite_text(row["run_id"], error)
+            source_sha256 = self._require_sqlite_text(row["source_sha256"], error)
+            content_fingerprint = f"sha256:{source_sha256}"
+            publication_id = self._require_sqlite_text(row["publication_id"], error)
+            publication_revision = self._require_sqlite_int(row["revision"], error)
+            evidence = tuple(
+                CompiledEvidenceSnapshot(
+                    evidence_id=self._require_sqlite_text(
+                        evidence_row["evidence_id"], error
+                    ),
+                    source_id=self._require_sqlite_text(
+                        evidence_row["source_id"], error
+                    ),
+                    content_fingerprint=content_fingerprint,
+                    publication_id=publication_id,
+                    publication_revision=publication_revision,
+                    run_id=run_id,
+                    locator_kind=self._require_sqlite_text(  # type: ignore[arg-type]
+                        evidence_row["locator_kind"], error
+                    ),
+                    locator_start=self._require_sqlite_int(
+                        evidence_row["locator_start"], error
+                    ),
+                    locator_end=self._require_sqlite_int(
+                        evidence_row["locator_end"], error
+                    ),
+                    text=self._require_sqlite_text(evidence_row["text"], error),
+                )
+                for evidence_row in evidence_by_run.get(run_id, [])
+            )
+            sources.append(
+                CompiledSourceSnapshot(
+                    source_id=self._require_sqlite_text(row["source_id"], error),
+                    display_name=self._require_sqlite_text(row["display_name"], error),
+                    content_fingerprint=content_fingerprint,
+                    media_type=self._require_sqlite_text(  # type: ignore[arg-type]
+                        row["media_type"], error
+                    ),
+                    publication_id=publication_id,
+                    publication_revision=publication_revision,
+                    run_id=run_id,
+                    extractor_fingerprint=self._require_sqlite_text(
+                        row["extractor_fingerprint"], error
+                    ),
+                    required_stages=self._parse_export_required_stages(
+                        row["required_stages"]
+                    ),
+                    evidence=evidence,
+                )
+            )
+        return CompiledLibrarySnapshot(
+            observation,
+            tuple(sorted(sources, key=lambda item: (item.content_fingerprint, item.source_id))),
+        )
+
+    @staticmethod
+    def _require_sqlite_text(value: object, error: str) -> str:
+        if type(value) is not str:
+            raise ManifestValidationError(error)
+        return value
+
+    @staticmethod
+    def _require_sqlite_int(value: object, error: str) -> int:
+        if type(value) is not int:
+            raise ManifestValidationError(error)
+        return value
+
+    @staticmethod
+    def _parse_export_required_stages(value: object) -> tuple[str, ...]:
+        if type(value) is not str or not value or any(
+            marker in value for marker in ('[', ']', '"')
+        ):
+            raise LibraryExportDataError("provenance")
+        stages = tuple(value.split(","))
+        if any(not stage or stage != stage.strip() for stage in stages):
+            raise LibraryExportDataError("provenance")
+        if stages != tuple(sorted(stages)) or len(stages) != len(set(stages)):
+            raise LibraryExportDataError("provenance")
+        return stages
 
     def search_provenance_snapshot(
         self, query: str, limit: int | None = None
