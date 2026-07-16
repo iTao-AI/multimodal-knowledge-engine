@@ -6,6 +6,8 @@ import pytest
 
 from scripts.release_presentation_audit import audit_release_presentation
 
+ROOT = Path(__file__).resolve().parents[2]
+
 
 def test_audit_targets_v0_1_2_release_identity() -> None:
     from scripts import release_presentation_audit as audit
@@ -825,6 +827,51 @@ def test_compiled_library_safe_marker_does_not_mask_another_overclaim(
     )
 
     assert "compiled_library_overclaim" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "does not claim reconstructed layout, hosted integration, real-user adoption",
+        "does not validate production OCR, reconstructed layout, hosted integration, adoption",
+    ],
+)
+def test_compiled_library_shared_negative_scope_is_not_an_overclaim(
+    tmp_path: Path, claim: str
+) -> None:
+    _write_release_tree(tmp_path)
+    (tmp_path / "README.md").write_text(
+        (tmp_path / "README.md").read_text(encoding="utf-8") + f"\n{claim}\n",
+        encoding="utf-8",
+    )
+
+    assert "compiled_library_overclaim" not in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "provides production OCR; it is not production OCR",
+        "provides production OCR. It is not production OCR.",
+        "provides production OCR, but it is not production OCR",
+        "verified LLM Wiki compatibility. It does not verify LLM Wiki compatibility.",
+    ],
+)
+def test_compiled_library_same_claim_contradiction_remains_an_overclaim(
+    tmp_path: Path, claim: str
+) -> None:
+    _write_release_tree(tmp_path)
+    (tmp_path / "README.md").write_text(
+        (tmp_path / "README.md").read_text(encoding="utf-8")
+        + f"\n{claim}\n",
+        encoding="utf-8",
+    )
+
+    assert "compiled_library_overclaim" in _rules(tmp_path)
+
+
+def test_release_presentation_audit_accepts_current_repository() -> None:
+    assert audit_release_presentation(ROOT) == []
 
 
 @pytest.mark.parametrize(

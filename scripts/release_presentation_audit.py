@@ -417,53 +417,54 @@ def _line_overclaims_compiled_library(line: str) -> bool:
         (
             r"\bproduction ocr\b",
             (
-                "not production ocr",
-                "production ocr remains excluded",
-                "不是 production ocr",
+                r"\b(?:is |are )?not\b.*\bproduction ocr\b",
+                r"\bdoes not (?:claim|validate|provide|support)\b.*\bproduction ocr\b",
+                r"\bproduction ocr remains excluded\b",
+                r"\b不是 production ocr\b",
             ),
         ),
         (
             r"\b(?:reconstructs?|reconstructed|recovers?|recovered) (?:the )?(?:source )?layout\b",
             (
-                "does not reconstruct",
-                "not reconstruct",
-                "not reconstructed",
-                "does not claim reconstructed",
-                "不重建 layout",
+                r"\b(?:is |are )?not\b.*\b"
+                r"(?:reconstruct(?:ed)?|recover(?:ed)?) (?:source )?layout\b",
+                r"\bdoes not (?:claim|validate|provide|reconstruct|recover)\b.*\b"
+                r"(?:reconstruct(?:ed)?|recover(?:ed)?) (?:source )?layout\b",
+                r"\b不重建 layout\b",
             ),
         ),
         (
             r"\b(?:verified|proven|supports?) llm wiki compatibility\b",
             (
-                "not verified llm wiki",
-                "llm wiki compatibility remains deferred",
-                "does not verify llm wiki compatibility",
+                r"\bnot (?:verified|proven) llm wiki compatibility\b",
+                r"\bdoes not (?:verify|prove|support) llm wiki compatibility\b",
+                r"\bllm wiki compatibility remains deferred\b",
             ),
         ),
         (
             r"\bhosted integration\b",
             (
-                "no hosted integration",
-                "does not claim hosted integration",
-                "does not prove hosted integration",
+                r"\bno hosted integration\b",
+                r"\bdoes not (?:claim|validate|prove|provide|support)\b.*\bhosted integration\b",
             ),
         ),
         (
             r"\breal-user adoption\b",
             (
-                "no real-user adoption",
-                "does not claim real-user adoption",
-                "does not prove real-user adoption",
+                r"\bno real-user adoption\b",
+                r"\bdoes not (?:claim|validate|prove|provide|support)\b.*\breal-user adoption\b",
             ),
         ),
         (
             r"\bv0\.1\.3\b.*\b(?:released|published|available)\b",
-            ("does not release v0.1.3", "v0.1.3 is not released"),
+            (r"\bdoes not release v0\.1\.3\b", r"\bv0\.1\.3 is not released\b"),
         ),
     )
+    clauses = re.split(r"(?:[;!?]+|\.\s+|,\s+but\s+)", lowered)
     return any(
-        re.search(pattern, lowered) is not None
-        and not any(marker in lowered for marker in safe_markers)
+        re.search(pattern, clause) is not None
+        and not any(re.search(marker, clause) for marker in safe_markers)
+        for clause in clauses
         for pattern, safe_markers in claims
     )
 
@@ -474,8 +475,15 @@ def _audit_compiled_library_claim_boundary(
     violations: list[Violation] = []
     for file_name in files:
         text = _read_text(root, file_name)
+        previous = ""
         for line_number, line in enumerate(text.splitlines(), start=1):
-            if _line_overclaims_compiled_library(line):
+            wrapped_negative = re.search(
+                r"\b(?:does not(?: \w+)?|not)$", previous.strip().lower()
+            )
+            context = f"{previous} {line}" if wrapped_negative is not None else line
+            if _line_overclaims_compiled_library(line) and _line_overclaims_compiled_library(
+                context
+            ):
                 violations.append(
                     Violation(
                         file=file_name,
@@ -483,6 +491,7 @@ def _audit_compiled_library_claim_boundary(
                         message=f"line {line_number} exceeds the compiled Library claim boundary",
                     )
                 )
+            previous = line
     return violations
 
 
