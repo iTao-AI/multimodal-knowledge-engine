@@ -116,7 +116,7 @@ hard stop.
 
 **Files:** current version and smoke identity group above.
 
-- [ ] **Step 1: Write current-version RED tests**
+- [x] **Step 1: Write current-version RED tests**
 
 Update only current-identity assertions to expect `0.1.3`:
 
@@ -136,7 +136,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected RED: failures are version-identity mismatches against `0.1.2`, not unrelated behavior.
 
-- [ ] **Step 2: Bump package and smoke identity minimally**
+- [x] **Step 2: Bump package and smoke identity minimally**
 
 Set `0.1.3` in `pyproject.toml`, `src/mke/__init__.py`, and
 `scripts/release_consumer_smoke.py`. Refresh the lock offline:
@@ -148,7 +148,7 @@ UV_OFFLINE=1 uv lock --offline
 Inspect `uv.lock` structurally. Only the root `multimodal-knowledge-engine` version may change;
 dependency names, versions, sources, markers, hashes, and extras must remain equal.
 
-- [ ] **Step 3: Run Task 1 GREEN and build identity checks**
+- [x] **Step 3: Run Task 1 GREEN and build identity checks**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -167,7 +167,7 @@ assert tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["ver
 PY
 ```
 
-- [ ] **Step 4: Commit Task 1**
+- [x] **Step 4: Commit Task 1**
 
 Stage only the seven Task 1 files and commit:
 
@@ -181,7 +181,7 @@ Do not include generated `dist/` artifacts.
 
 **Files:** release presentation contract group above.
 
-- [ ] **Step 1: Add RED tests for the current release surfaces**
+- [x] **Step 1: Add RED tests for the current release surfaces**
 
 Update the presentation-audit fixtures to model `0.1.3` and add exact negative cases proving the
 audit rejects:
@@ -213,7 +213,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected RED: current docs still describe `v0.1.2` and the compiled export as unreleased.
 
-- [ ] **Step 2: Update the audit implementation**
+- [x] **Step 2: Update the audit implementation**
 
 Set the current expected version to `0.1.3`. Separate current release files from historical release
 records. `docs/releases/v0.1.3.md` is current; `docs/releases/v0.1.2.md` remains a historical record.
@@ -229,7 +229,7 @@ Add closed positive requirements for:
 
 Do not make audit success depend on private paths, timestamps, external consumers, or model caches.
 
-- [ ] **Step 3: Run focused audit tests GREEN and expected-negative audit**
+- [x] **Step 3: Run focused audit tests GREEN and expected-negative audit**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -243,7 +243,7 @@ UV_OFFLINE=1 uv run python scripts/release_presentation_audit.py --root .
 The live audit is expected to fail at this point only on Task 3 documentation gaps and must emit
 valid stable JSON. Record its exact violations.
 
-- [ ] **Step 4: Commit Task 2**
+- [x] **Step 4: Commit Task 2**
 
 ```bash
 git commit -m "test(release): define v0.1.3 presentation contract"
@@ -253,7 +253,7 @@ git commit -m "test(release): define v0.1.3 presentation contract"
 
 **Files:** current release documentation group above.
 
-- [ ] **Step 1: Classify every `0.1.2` occurrence before editing**
+- [x] **Step 1: Classify every `0.1.2` occurrence before editing**
 
 ```bash
 rg -n "0\\.1\\.2|v0\\.1\\.2|later release decision|current main candidate|does not release v0\\.1\\.3" \
@@ -269,7 +269,7 @@ Classify each occurrence as one of:
 
 No global replacement is allowed.
 
-- [ ] **Step 2: Create `docs/releases/v0.1.3.md`**
+- [x] **Step 2: Create `docs/releases/v0.1.3.md`**
 
 Use these sections:
 
@@ -284,7 +284,7 @@ PP-OCRv6 medium is only the selected production-planning baseline, PaddleOCR-VL 
 comparison candidate, numeric measurements are closed-protocol observations, and no production OCR
 or LLM Wiki compatibility is released.
 
-- [ ] **Step 3: Update README, docs index, changelog, and how-to guides**
+- [x] **Step 3: Update README, docs index, changelog, and how-to guides**
 
 Required presentation:
 
@@ -304,7 +304,7 @@ Required presentation:
 - current deployment-proof command examples in the CJK, numeric, Chinese, dense, and CLI guides:
   use the `0.1.3` wheel while leaving their recorded observations and decisions unchanged.
 
-- [ ] **Step 4: Run documentation and presentation gates GREEN**
+- [x] **Step 4: Run documentation and presentation gates GREEN**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -318,7 +318,7 @@ UV_OFFLINE=1 uv run python scripts/release_presentation_audit.py --root .
 
 Expected audit result: exactly `{"status":"ok","violations":[]}` modulo canonical JSON spacing.
 
-- [ ] **Step 5: Run public-neutral and unsupported-claim scans**
+- [x] **Step 5: Run public-neutral and unsupported-claim scans**
 
 Scan the complete branch diff for private paths, credentials, timestamps presented as future facts,
 candidate output directories, source text, raw diagnostics, production OCR claims, verified LLM
@@ -331,7 +331,7 @@ git diff --exit-code 5d707cfcc98da8ce76d31238c14158cd78b03803..HEAD -- \
   docs/releases/v0.1.2.md
 ```
 
-- [ ] **Step 6: Commit Task 3**
+- [x] **Step 6: Commit Task 3**
 
 ```bash
 git commit -m "docs(release): prepare v0.1.3 candidate"
@@ -341,7 +341,7 @@ git commit -m "docs(release): prepare v0.1.3 candidate"
 
 **Files:** only the established 21-path maximum conditional closure.
 
-- [ ] **Step 1: Freeze the starting commit and observations**
+- [x] **Step 1: Freeze the starting commit and observations**
 
 Use the exact Task 4 transaction and observation order from the completed `v0.1.2` plan, replacing
 only the hidden protocol filename with `.protocol-lock.v0.1.3-observation.json`. In particular,
@@ -350,13 +350,13 @@ refresh the call-owned E2 protocol scope before generating the E2 observation.
 Generate fresh E1, E2, E3-A, and E3-B observations in a call-owned temporary directory and require
 their integrity assertions before any artifact write.
 
-- [ ] **Step 2: Run all seven canonical validators before writing**
+- [x] **Step 2: Run all seven canonical validators before writing**
 
 Run the exact E1, E2, E3-A, E3-B, E3-C, E3-D, and E3-E validator commands recorded in the completed
 `v0.1.2` plan against the real worktree. If all pass, record `identity_refresh=not_required` and skip
 to Step 6. Continue only for source/scope/dependency identity mismatch caused by this branch.
 
-- [ ] **Step 3: Refresh E1 through E3-B atomically when required**
+- [x] **Step 3: Refresh E1 through E3-B atomically when required**
 
 Use only:
 
@@ -372,7 +372,7 @@ uv run python -m mke.evaluation.artifact_refresh \
 On failure, run only
 `UV_OFFLINE=1 uv run python -m mke.evaluation.artifact_refresh recover --repository .`, then stop.
 
-- [ ] **Step 4: Rebind downstream identities in a detached validation mirror**
+- [x] **Step 4: Rebind downstream identities in a detached validation mirror**
 
 Use a call-owned untracked rebinder and the same deterministic builders, 21-path maximum allowlist,
 descriptor/backup contract, and full-graph detached validation mirror defined in the completed
@@ -382,7 +382,7 @@ Before/after normalized semantic projections must be equal for every layer. Reje
 observations, ordered results, metrics, thresholds, gates, diagnostics, profile, candidate, status,
 verdict, corpus, query, qrels, or fixture content.
 
-- [ ] **Step 5: Prove OCR evidence bytes are unchanged**
+- [x] **Step 5: Prove OCR evidence bytes are unchanged**
 
 Record before and after SHA-256 for:
 
@@ -405,12 +405,12 @@ git diff --exit-code 5d707cfcc98da8ce76d31238c14158cd78b03803..HEAD -- \
   benchmarks/ocr/phase0-scorecard.json
 ```
 
-- [ ] **Step 6: Run artifact regression and all validators GREEN**
+- [x] **Step 6: Run artifact regression and all validators GREEN**
 
 Run the exact artifact regression suite and seven validator commands from the completed `v0.1.2`
 plan. Optional model replay is not required and must not trigger a package or model download.
 
-- [ ] **Step 7: Commit only the validator-proven subset**
+- [x] **Step 7: Commit only the validator-proven subset**
 
 If no files changed, do not create an empty commit. Otherwise stage only exact proven paths:
 
