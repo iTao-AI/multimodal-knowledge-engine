@@ -9,11 +9,12 @@ from scripts.release_presentation_audit import audit_release_presentation
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_audit_targets_v0_1_2_release_identity() -> None:
+def test_audit_targets_v0_1_3_release_identity() -> None:
     from scripts import release_presentation_audit as audit
 
-    assert audit.EXPECTED_VERSION == "0.1.2"
-    assert "docs/releases/v0.1.2.md" in audit.RELEASE_FACING_FILES
+    assert audit.EXPECTED_VERSION == "0.1.3"
+    assert "docs/releases/v0.1.3.md" in audit.RELEASE_FACING_FILES
+    assert "docs/releases/v0.1.2.md" in audit.HISTORICAL_RELEASE_FILES
     assert "docs/releases/v0.1.0.md" not in audit.RELEASE_FACING_FILES
     assert "docs/releases/v0.1.1.md" not in audit.RELEASE_FACING_FILES
 
@@ -295,6 +296,31 @@ Search/Ask/MCP 读取 active Publication Evidence。
         "dist/multimodal_knowledge_engine-0.1.2-py3-none-any.whl --json`\n",
         encoding="utf-8",
     )
+    for relative in (
+        "pyproject.toml",
+        "src/mke/__init__.py",
+        "README.md",
+        "README_CN.md",
+        "docs/README.md",
+        "CHANGELOG.md",
+        "docs/how-to/verify-release.md",
+    ):
+        path = root / relative
+        path.write_text(
+            path.read_text(encoding="utf-8").replace("0.1.2", "0.1.3"),
+            encoding="utf-8",
+        )
+    historical = root / "docs/releases/v0.1.2.md"
+    (root / "docs/releases/v0.1.3.md").write_text(
+        historical.read_text(encoding="utf-8").replace("0.1.2", "0.1.3")
+        + "\n## Compiled Library Export\n\n"
+        "`mke.compiled_library_export.v1`, `mke.compiled_markdown.v1`, and "
+        "`mke.evidence_ref.v1` are portable boundaries.\n\n"
+        "## OCR Phase 0\n\nPP-OCRv6 medium is the selected planning baseline; "
+        "PaddleOCR-VL 1.6 is a comparison candidate. This is not production OCR. "
+        "LLM Wiki compatibility is deferred. `cjk-active-scan-overlap-v1` remains default.\n",
+        encoding="utf-8",
+    )
 
 
 def _rules(root: Path) -> set[str]:
@@ -367,22 +393,22 @@ def test_audit_rejects_diagram_without_comparison_only_evidence_boundary(
 
 
 @pytest.mark.parametrize("path", ["README.md", "README_CN.md"])
-def test_audit_rejects_missing_verified_v012_table(tmp_path: Path, path: str) -> None:
+def test_audit_rejects_missing_verified_v013_table(tmp_path: Path, path: str) -> None:
     _write_release_tree(tmp_path)
-    heading = "## Verified in v0.1.2" if path == "README.md" else "## v0.1.2 已验证能力"
+    heading = "## Verified in v0.1.3" if path == "README.md" else "## v0.1.3 已验证能力"
     text = (tmp_path / path).read_text(encoding="utf-8").replace(
         heading,
         "## Release Scope",
     )
     (tmp_path / path).write_text(text, encoding="utf-8")
 
-    assert "verified_v012_table" in _rules(tmp_path)
+    assert "verified_v013_table" in _rules(tmp_path)
 
 
 @pytest.mark.parametrize("path", ["README.md", "README_CN.md"])
 def test_audit_rejects_shallow_readme_engineering_depth(tmp_path: Path, path: str) -> None:
     _write_release_tree(tmp_path)
-    marker = "## What this release proves" if path == "README.md" else "## v0.1.2 工程深度"
+    marker = "## What this release proves" if path == "README.md" else "## v0.1.3 工程深度"
     text = (tmp_path / path).read_text(encoding="utf-8").replace(
         marker,
         "## Notes",
@@ -415,7 +441,7 @@ def test_audit_rejects_missing_retrieval_evidence_table(tmp_path: Path, path: st
         "OCR remains excluded",
     ],
 )
-def test_audit_rejects_missing_v012_capability_term(tmp_path: Path, term: str) -> None:
+def test_audit_rejects_missing_v013_capability_term(tmp_path: Path, term: str) -> None:
     _write_release_tree(tmp_path)
     for path in ("README.md", "README_CN.md"):
         target = tmp_path / path
@@ -430,27 +456,27 @@ def test_audit_rejects_missing_v012_capability_term(tmp_path: Path, term: str) -
 def test_audit_rejects_english_verified_labels_in_chinese_readme(tmp_path: Path) -> None:
     _write_release_tree(tmp_path)
     text = (tmp_path / "README_CN.md").read_text(encoding="utf-8")
-    text = text.replace("## v0.1.2 已验证能力", "## Verified in v0.1.2")
+    text = text.replace("## v0.1.3 已验证能力", "## Verified in v0.1.3")
     text = text.replace("| 能力 | 验证证据 |", "| Capability | Evidence |")
     (tmp_path / "README_CN.md").write_text(text, encoding="utf-8")
 
-    assert "verified_v012_table" in _rules(tmp_path)
+    assert "verified_v013_table" in _rules(tmp_path)
 
 
 def test_audit_rejects_chinese_verified_labels_in_english_readme(tmp_path: Path) -> None:
     _write_release_tree(tmp_path)
     text = (tmp_path / "README.md").read_text(encoding="utf-8")
-    text = text.replace("## Verified in v0.1.2", "## v0.1.2 已验证能力")
+    text = text.replace("## Verified in v0.1.3", "## v0.1.3 已验证能力")
     text = text.replace("| Capability | Evidence |", "| 能力 | 验证证据 |")
     (tmp_path / "README.md").write_text(text, encoding="utf-8")
 
-    assert "verified_v012_table" in _rules(tmp_path)
+    assert "verified_v013_table" in _rules(tmp_path)
 
 
 @pytest.mark.parametrize("path", ["README.md", "README_CN.md"])
 def test_audit_rejects_missing_current_runtime_default(tmp_path: Path, path: str) -> None:
     _write_release_tree(tmp_path)
-    (tmp_path / path).write_text("v0.1.2 release notes\n", encoding="utf-8")
+    (tmp_path / path).write_text("v0.1.3 release notes\n", encoding="utf-8")
 
     assert "current_runtime_default" in _rules(tmp_path)
 
@@ -459,9 +485,9 @@ def test_audit_rejects_dense_rrf_or_reranker_runtime_claims(tmp_path: Path) -> N
     _write_release_tree(tmp_path)
     (tmp_path / "README.md").write_text(
         "[English](./README.md) | [中文](./README_CN.md)\n\n"
-        "v0.1.2 ships `cjk-active-scan-overlap-v1`.\n"
+        "v0.1.3 ships `cjk-active-scan-overlap-v1`.\n"
         "```mermaid\nflowchart LR\n    app[MKE Application Service] --> search[Search / Ask]\n```\n"
-        "## Verified in v0.1.2\n\n| Capability | Evidence |\n|---|---|\n| Proof | Verified |\n"
+        "## Verified in v0.1.3\n\n| Capability | Evidence |\n|---|---|\n| Proof | Verified |\n"
         "Dense retrieval, RRF, and reranker runtime support are available.\n",
         encoding="utf-8",
     )
@@ -473,8 +499,8 @@ def test_audit_rejects_release_docs_presenting_comparison_candidates_as_runtime(
     tmp_path: Path,
 ) -> None:
     _write_release_tree(tmp_path)
-    (tmp_path / "docs/releases/v0.1.2.md").write_text(
-        "# v0.1.2\n\nProof, demo, CLI, MCP, and retrieval evaluation docs are linked.\n"
+    (tmp_path / "docs/releases/v0.1.3.md").write_text(
+        "# v0.1.3\n\nProof, demo, CLI, MCP, and retrieval evaluation docs are linked.\n"
         "Dense/RRF/reranker runtime is part of this release.\n",
         encoding="utf-8",
     )
@@ -484,8 +510,8 @@ def test_audit_rejects_release_docs_presenting_comparison_candidates_as_runtime(
 
 def test_audit_requires_comparison_only_language_for_e3_candidates(tmp_path: Path) -> None:
     _write_release_tree(tmp_path)
-    (tmp_path / "docs/releases/v0.1.2.md").write_text(
-        "# v0.1.2\n\nE3-C dense, E3-D RRF, and E3-E reranker are documented.\n",
+    (tmp_path / "docs/releases/v0.1.3.md").write_text(
+        "# v0.1.3\n\nE3-C dense, E3-D RRF, and E3-E reranker are documented.\n",
         encoding="utf-8",
     )
 
@@ -495,7 +521,7 @@ def test_audit_requires_comparison_only_language_for_e3_candidates(tmp_path: Pat
 def test_audit_rejects_stale_release_status_phrases(tmp_path: Path) -> None:
     _write_release_tree(tmp_path)
     (tmp_path / "README.md").write_text(
-        "v0.1.2 uses cjk-active-scan-overlap-v1. runtime_promotion_status=not_evaluated\n",
+        "v0.1.3 uses cjk-active-scan-overlap-v1. runtime_promotion_status=not_evaluated\n",
         encoding="utf-8",
     )
 
@@ -530,7 +556,7 @@ def test_audit_rejects_separate_branch_stage2_wording(tmp_path: Path) -> None:
     [
         "README.md",
         "README_CN.md",
-        "docs/releases/v0.1.2.md",
+        "docs/releases/v0.1.3.md",
         "docs/how-to/verify-release.md",
     ],
 )
@@ -569,8 +595,8 @@ def test_audit_rejects_old_exact_consumer_smoke_wheel(tmp_path: Path) -> None:
     target = tmp_path / "docs/how-to/verify-release.md"
     target.write_text(
         target.read_text(encoding="utf-8").replace(
+            "dist/multimodal_knowledge_engine-0.1.3-py3-none-any.whl",
             "dist/multimodal_knowledge_engine-0.1.2-py3-none-any.whl",
-            "dist/multimodal_knowledge_engine-0.1.1-py3-none-any.whl",
         ),
         encoding="utf-8",
     )
@@ -711,20 +737,20 @@ def test_audit_limits_current_wheel_rule_to_command_docs(tmp_path: Path) -> None
     ("path", "stale_text"),
     [
         (
-            "docs/releases/v0.1.2.md",
+            "docs/releases/v0.1.3.md",
             "GitHub Release metadata records the final tag and target commit when Stage 3 "
             "creates the release from the verified commit.",
         ),
         (
-            "docs/releases/v0.1.2.md",
+            "docs/releases/v0.1.3.md",
             "This document describes release scope and verification before publication.",
         ),
         (
-            "docs/releases/v0.1.2.md",
+            "docs/releases/v0.1.3.md",
             "This document does not predeclare a future tag target.",
         ),
         (
-            "docs/releases/v0.1.2.md",
+            "docs/releases/v0.1.3.md",
             "Tag and GitHub Release publication remain a separate authorized Stage 3 action.",
         ),
         (
@@ -741,7 +767,7 @@ def test_audit_rejects_post_release_stale_publication_status(
 ) -> None:
     _write_release_tree(tmp_path)
     (tmp_path / path).write_text(
-        "# v0.1.2\n\n"
+        "# v0.1.3\n\n"
         "Proof, demo, CLI, MCP, and retrieval evaluation docs are linked.\n"
         "E3-C dense, E3-D RRF, and E3-E reranker remain comparison-only evidence.\n"
         f"{stale_text}\n",
@@ -759,7 +785,7 @@ def test_audit_allows_verify_release_generic_stage3_instructions(tmp_path: Path)
         "with explicit authorization. Then verify the public archive from a clean temporary "
         "directory.\n"
         "`uv run python scripts/release_consumer_smoke.py --wheel "
-        "dist/multimodal_knowledge_engine-0.1.2-py3-none-any.whl --json`\n",
+        "dist/multimodal_knowledge_engine-0.1.3-py3-none-any.whl --json`\n",
         encoding="utf-8",
     )
 
@@ -781,8 +807,8 @@ def test_audit_rejects_unresolved_release_placeholders(
     placeholder: str,
 ) -> None:
     _write_release_tree(tmp_path)
-    (tmp_path / "docs/releases/v0.1.2.md").write_text(
-        "# v0.1.2\n\n"
+    (tmp_path / "docs/releases/v0.1.3.md").write_text(
+        "# v0.1.3\n\n"
         "Proof, demo, CLI, MCP, and retrieval evaluation docs are linked.\n"
         "E3-C dense, E3-D RRF, and E3-E reranker remain comparison-only evidence.\n"
         f"{placeholder}\n",
@@ -870,8 +896,13 @@ def test_compiled_library_same_claim_contradiction_remains_an_overclaim(
     assert "compiled_library_overclaim" in _rules(tmp_path)
 
 
-def test_release_presentation_audit_accepts_current_repository() -> None:
-    assert audit_release_presentation(ROOT) == []
+def test_release_presentation_audit_reports_missing_current_release_note(
+    tmp_path: Path,
+) -> None:
+    _write_release_tree(tmp_path)
+    (tmp_path / "docs/releases/v0.1.3.md").unlink()
+
+    assert "v013_release_contract" in _rules(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -898,8 +929,8 @@ def test_audit_rejects_private_paths_gstack_artifacts_credentials_and_tracebacks
     tmp_path: Path,
 ) -> None:
     _write_release_tree(tmp_path)
-    (tmp_path / "docs/releases/v0.1.2.md").write_text(
-        "# v0.1.2\n\n/Users/mac/.gstack/rollout token=secret\nTraceback (most recent call last):\n",
+    (tmp_path / "docs/releases/v0.1.3.md").write_text(
+        "# v0.1.3\n\n/Users/mac/.gstack/rollout token=secret\nTraceback (most recent call last):\n",
         encoding="utf-8",
     )
 

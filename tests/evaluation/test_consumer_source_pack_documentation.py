@@ -112,7 +112,7 @@ def documentation_violations(how_to: str, readme: str, docs_index: str) -> list[
     if len(docs_navigation) != 1:
         violations.append("docs_navigation")
 
-    gate = "a `v0.1.2` release-candidate verification gate"
+    gate = "a `v0.1.3` release-candidate verification gate"
     if gate not in normalized(how_to).lower():
         violations.append("how_to_release_candidate_gate")
     if any(gate not in normalized(paragraph).lower() for paragraph in readme_navigation):
@@ -130,8 +130,8 @@ def documentation_violations(how_to: str, readme: str, docs_index: str) -> list[
         )
     ).lower()
     for label, required in (
-        ("release_candidate_gate", "`v0.1.2` release-candidate verification gate"),
-        ("final_wheel_boundary", "not the final tagged `v0.1.2` release wheel"),
+        ("release_candidate_gate", "`v0.1.3` release-candidate verification gate"),
+        ("final_wheel_boundary", "not the final tagged `v0.1.3` release wheel"),
         ("release_asset_boundary", "not a github release asset"),
         ("pypi_boundary", "not a pypi artifact"),
         ("deployment_boundary", "not a deployment"),
@@ -140,8 +140,8 @@ def documentation_violations(how_to: str, readme: str, docs_index: str) -> list[
         if required not in scoped_text:
             violations.append(label)
     for allowed_boundary in (
-        "`v0.1.2` release-candidate verification gate",
-        "not the final tagged `v0.1.2` release wheel",
+        "`v0.1.3` release-candidate verification gate",
+        "not the final tagged `v0.1.3` release wheel",
         "not a github release asset",
         "not a release or pypi artifact",
         "not a pypi artifact",
@@ -174,14 +174,14 @@ def _add_failure_code(text: str) -> str:
 
 def _claim_final_release_wheel(text: str) -> str:
     return text.replace(
-        "not the final tagged `v0.1.2` Release wheel",
-        "the final tagged `v0.1.2` Release wheel",
+        "not the final tagged `v0.1.3` Release wheel",
+        "the final tagged `v0.1.3` Release wheel",
     )
 
 
 def _remove_release_candidate_gate(text: str) -> str:
     return text.replace(
-        "a `v0.1.2` release-candidate verification gate",
+        "a `v0.1.3` release-candidate verification gate",
         "an optional local check",
     )
 
@@ -343,8 +343,8 @@ def test_consumer_source_pack_docs_preserve_release_candidate_boundary() -> None
     )
 
     for required_boundary in (
-        "a `v0.1.2` release-candidate verification gate",
-        "not the final tagged `v0.1.2` Release wheel",
+        "a `v0.1.3` release-candidate verification gate",
+        "not the final tagged `v0.1.3` Release wheel",
         "not a GitHub Release asset",
         "not a PyPI artifact",
         "not a deployment",
@@ -395,7 +395,7 @@ def test_current_documentation_contract_has_no_violations() -> None:
 @pytest.mark.parametrize(
     ("surface", "claim"),
     (
-        (README, "This is the final tagged `v0.1.2` Release wheel."),
+        (README, "This is the final tagged `v0.1.3` Release wheel."),
         (DOCS_INDEX, "This is a PyPI artifact."),
     ),
     ids=("readme-final-wheel", "docs-index-pypi"),
@@ -403,7 +403,7 @@ def test_current_documentation_contract_has_no_violations() -> None:
 def test_navigation_contract_rejects_affirmative_claims(surface: Path, claim: str) -> None:
     original = surface.read_text(encoding="utf-8")
     mutated = re.sub(
-        r"as a `v0\.1\.2` release-candidate\s+verification\s+gate\.",
+        r"as a `v0\.1\.3` release-candidate\s+verification\s+gate\.",
         claim,
         original,
     )
