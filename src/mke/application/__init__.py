@@ -579,3 +579,22 @@ def _sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(_SHA256_CHUNK_BYTES), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+from .library_export import (  # noqa: E402
+    LibraryExportResult,
+    RenderedSourceEntry,
+    canonical_json_line,
+    render_compiled_markdown,
+    render_evidence_jsonl,
+    render_export_manifest,
+)
+
+_LIBRARY_EXPORT_RENDERERS = (
+    LibraryExportResult,
+    RenderedSourceEntry,
+    canonical_json_line,
+    render_compiled_markdown,
+    render_evidence_jsonl,
+    render_export_manifest,
+)
