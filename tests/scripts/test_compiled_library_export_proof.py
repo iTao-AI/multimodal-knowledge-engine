@@ -766,6 +766,18 @@ def test_primary_ci_python_job_uses_platform_default_verification_budget() -> No
     assert re.findall(r"(?m)^    timeout-minutes:", job) == []
 
 
+def test_primary_ci_python_job_exposes_stalled_test_diagnostics() -> None:
+    job = _primary_ci_python_job()
+    assert "name: Run full test suite with live diagnostics" in job
+    assert 'PYTHONFAULTHANDLER: "1"' in job
+    assert 'PYTHONUNBUFFERED: "1"' in job
+    assert "uv run pytest -vv --tb=short" in job
+    assert "--durations=50 --durations-min=1.0" in job
+    assert "-o faulthandler_timeout=120" in job
+    assert "-o faulthandler_exit_on_timeout=true" in job
+    assert "--maxfail" not in job
+
+
 def test_workflow_uses_only_pinned_actions_and_both_explicit_interpreters() -> None:
     job = _job()
     checkout = "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0"

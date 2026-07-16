@@ -216,7 +216,11 @@ def test_source_rejects_unsupported_media_type_and_revision() -> None:
         )
 
 
-@pytest.mark.parametrize("text", ["", " \t\n", "x" * 1_000_001])
+@pytest.mark.parametrize(
+    "text",
+    ["", " \t\n", "x" * 1_000_001],
+    ids=["empty", "blank", "over-max"],
+)
 def test_evidence_rejects_blank_or_overlong_text(text: str) -> None:
     assert_reason("provenance", lambda: replace(evidence_snapshot(), text=text))
 

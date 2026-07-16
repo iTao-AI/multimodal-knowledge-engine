@@ -463,6 +463,13 @@ def test_render_rejects_evidence_and_manifest_entry_drift() -> None:
         ("text", "x" * 1_000_001),
         ("text", "\ud800"),
     ],
+    ids=[
+        "invalid-evidence-id",
+        "locator-drift",
+        "bool-revision",
+        "overlong-text",
+        "invalid-utf8",
+    ],
 )
 def test_render_recursively_revalidates_each_evidence_field(
     renderer: Callable[[CompiledSourceSnapshot], bytes],

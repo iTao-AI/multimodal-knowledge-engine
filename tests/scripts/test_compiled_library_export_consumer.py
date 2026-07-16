@@ -368,7 +368,11 @@ def test_consumer_rejects_display_name_domain_bounds(
     _assert_closed_failure(_run(export, sources), tmp_path)
 
 
-@pytest.mark.parametrize("text", ["", " \t\n", "x" * 1_000_001])
+@pytest.mark.parametrize(
+    "text",
+    ["", " \t\n", "x" * 1_000_001],
+    ids=["empty", "blank", "over-max"],
+)
 def test_consumer_rejects_evidence_text_domain_bounds(tmp_path: Path, text: str) -> None:
     export, sources = _tree(tmp_path)
     manifest = _manifest(export)

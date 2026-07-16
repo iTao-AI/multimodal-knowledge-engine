@@ -89,7 +89,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: uv sync --locked
-      - run: uv run pytest -q
+      - name: Run full test suite with live diagnostics
+        env:
+          PYTHONFAULTHANDLER: "1"
+          PYTHONUNBUFFERED: "1"
+        run: >-
+          uv run pytest -vv --tb=short
+          --durations=50 --durations-min=1.0
+          -o faulthandler_timeout=120
+          -o faulthandler_exit_on_timeout=true
       - run: uv run ruff check .
       - run: uv run pyright
       - name: Run retrieval evaluation baseline
