@@ -1,7 +1,7 @@
 # Compiled Library Export v1 Implementation Plan
 
-Status: approved for mechanical landing on 2026-07-15; core implementation begins only after the
-landed docs diff receives authority review and a separate implementation dispatch.
+Status: mechanically landed and authority-reviewed; the live code-authority preflight amendment
+was accepted on 2026-07-16 and must land mechanically before core implementation resumes.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use
@@ -51,6 +51,9 @@ closed public response validation, Pytest, Ruff, Pyright, Hatch/uv, and GitHub A
   decision authority.
 - Public command is exactly:
   `mke --db <database> library export --output <new-directory> [--json]`.
+- `--db` is the only accepted global runtime option for this command. Explicitly reject
+  `--retrieval-query-policy` and `--retrieval-strategy`, including `--option=value` forms, before
+  any runtime composition.
 - `--output` accepts one child-directory component under the bound process working directory.
   Reject empty, `.`, `..`, absolute, slash-containing, backslash-containing, NUL-containing, nested,
   traversal, and symbolic-link-parent forms. Never merge into or replace an existing target.
@@ -69,8 +72,11 @@ closed public response validation, Pytest, Ruff, Pyright, Hatch/uv, and GitHub A
 - JSON is strict UTF-8, sorted-key, compact-separator canonical JSON with one trailing LF.
 - Evidence sidecars contain exact closed `mke.evidence_ref.v1` objects; Markdown is a derivative,
   not provenance authority.
-- Shared `PublicError.payload()`, existing CLI/MCP responses, Search/Ask, ingest, retrieval,
-  evaluation artifacts, OCR evidence, and release identity remain compatible.
+- The six non-redacted export causes are a closed command-local set in
+  `mke.interfaces.library_export`. Do not add them to shared `_ALLOWLISTED_CAUSES`; shared
+  `PublicError.payload()`, MCP schemas, the frozen consumer source-pack fixture, existing CLI/MCP
+  responses, Search/Ask, ingest, retrieval, evaluation artifacts, OCR evidence, and release
+  identity remain compatible.
 - All public text and repository records are public-neutral. Never include private paths, local hub
   identities, private workflow or motivation, hostnames, timestamps, tokens, raw diagnostics, or
   operator data.
@@ -95,10 +101,11 @@ closed public response validation, Pytest, Ruff, Pyright, Hatch/uv, and GitHub A
   manifest-last publication, revalidation, and ownership-safe cleanup.
 - Create `src/mke/interfaces/library_export.py`: closed success/error response models, exception to
   stable public-error mapping, and human/JSON rendering.
-- Modify `src/mke/interfaces/public_errors.py`: add only the six approved safe causes; do not change
-  `PublicError.payload()`.
 - Modify `src/mke/cli.py`: parser and thin command-specific composition before normal runtime
   construction.
+- Regression only, no planned edit: `src/mke/interfaces/public_errors.py`,
+  `src/mke/interfaces/mcp_schemas.py`, and
+  `tests/fixtures/consumer-source-pack-v1/mcp-tool-schemas.json`.
 
 ### Tests and proof
 
@@ -107,6 +114,8 @@ closed public response validation, Pytest, Ruff, Pyright, Hatch/uv, and GitHub A
 - Create `tests/application/test_library_export.py`.
 - Create `tests/adapters/test_library_export_filesystem.py`.
 - Create `tests/interfaces/test_cli_library_export.py`.
+- Regression only, no planned edit:
+  `tests/interfaces/test_consumer_source_pack_contract_fixture.py`.
 - Create `scripts/compiled_library_export_consumer.py` and
   `scripts/compiled_library_export_proof.py`.
 - Create `tests/scripts/test_compiled_library_export_consumer.py` and
@@ -128,8 +137,10 @@ closed public response validation, Pytest, Ruff, Pyright, Hatch/uv, and GitHub A
 
 ## Execution And Review Gates
 
-1. Mechanically land the approved spec, core plan, compatibility follow-up plan, and plan-review
-   document in an isolated worktree; commit them before implementation.
+1. The approved spec, core plan, compatibility follow-up plan, and plan-review document were
+   mechanically landed at `10bbee5b2aea5fd0fd4c9631e31b786606a9b00a`. Before implementation,
+   mechanically land the accepted 2026-07-16 preflight amendment to the design, core plan, and
+   plan review as a separate docs-only commit and pass exact authority review.
 2. Complete Tasks 1–7 sequentially with one local commit per task and near-field review after each.
 3. Complete Task 8 core documentation and preliminary final verification, then hard stop for the
    authoritative pre-PR diff review.
@@ -839,11 +850,13 @@ git commit -m "feat(export): publish compiled library safely"
 
 **Files:**
 - Create: `src/mke/interfaces/library_export.py`
-- Modify: `src/mke/interfaces/public_errors.py`
 - Modify: `src/mke/cli.py`
 - Create: `tests/interfaces/test_cli_library_export.py`
 - Modify: `tests/interfaces/test_cli_error_contract.py`
 - Modify: `tests/interfaces/test_mcp_contract.py`
+- Regression only, no planned edit: `src/mke/interfaces/public_errors.py`
+- Regression only, no planned edit:
+  `tests/interfaces/test_consumer_source_pack_contract_fixture.py`
 
 **Interfaces:**
 - Consumes: Task 2 read-only engine, Task 3 snapshot, Task 5 publisher/result, and existing
@@ -881,7 +894,9 @@ library_export=passed library_id=local source_count=2 evidence_count=3 manifest_
 ```
 
 Assert parser help contains the new nested command and accepts no library ID, Source selector,
-format, extractor, provider, MCP, or arbitrary parent option.
+format, extractor, provider, MCP, or arbitrary parent option. Parameterize both separated and
+`--option=value` forms of `--retrieval-query-policy` and `--retrieval-strategy`; all four must exit
+through `argparse` with code 2 before runtime construction. `--db` remains accepted.
 
 - [ ] **Step 2: Write RED exact failure matrix and redaction tests**
 
@@ -908,7 +923,9 @@ Monkeypatch `build_engine()` and owner recovery to fail if the `library export` 
 Assert the command uses `KnowledgeEngine.open_read_only_export()` and closes it on success/failure.
 Snapshot active-state rows before and after every case. Assert the MCP tool inventory and generated
 schemas remain byte-identical and contain no `library_export` tool. Assert existing
-`PublicError.payload()` tests retain the old field set without `schema_version`.
+`PublicError.payload()` tests retain the old field set without `schema_version`. Assert all six
+export causes remain absent from shared `_ALLOWLISTED_CAUSES`, and the committed consumer
+source-pack fixture remains exactly equal to the live MCP producer.
 
 - [ ] **Step 4: Run CLI tests to verify RED**
 
@@ -918,17 +935,22 @@ Run:
 UV_OFFLINE=1 uv run pytest -q \
   tests/interfaces/test_cli_library_export.py \
   tests/interfaces/test_cli_error_contract.py \
-  tests/interfaces/test_mcp_contract.py
+  tests/interfaces/test_mcp_contract.py \
+  tests/interfaces/test_consumer_source_pack_contract_fixture.py
 ```
 
-Expected: RED because parser, interface models, and approved causes are absent.
+Expected: RED because the parser and command-local interface models are absent. Existing shared
+MCP/consumer contract tests remain GREEN and must not be changed to manufacture RED.
 
 - [ ] **Step 5: Implement the interface serializer and error mapping**
 
-Define strict frozen models with `ConfigDict(extra="forbid", frozen=True, strict=True)`. Add only
-the six non-redacted causes from the table to `_ALLOWLISTED_CAUSES`; the existing redacted cause
-already covers generic/cleanup failures. Build a command-specific failure payload without changing
-the shared model:
+Define strict frozen models with `ConfigDict(extra="forbid", frozen=True, strict=True)`. Define a
+private command-local frozenset containing exactly the six non-redacted causes from the table plus
+a local constant holding the exact redacted literal. `LibraryExportErrorV1` rejects every cause
+outside those seven values; it does not call `is_public_error_cause()` and does not import or
+modify `_ALLOWLISTED_CAUSES`. Construct `PublicError` directly for typed export failures so its
+payload shape is reused, and use the exact redacted cause for unknown/cleanup failures. Build the
+command-specific failure payload without changing the shared model:
 
 ```python
 def library_export_error_payload(error: PublicError) -> dict[str, object]:
@@ -939,7 +961,8 @@ def library_export_error_payload(error: PublicError) -> dict[str, object]:
 ```
 
 Validate that payload through `LibraryExportErrorV1` before rendering. Map only typed exceptions
-and approved reasons; unknown exceptions use `library_export_failed` plus the redacted cause.
+and approved reasons; unknown exceptions use `library_export_failed` plus the redacted cause. Add
+a regression proving an unrelated shared cause is rejected by the export response model.
 
 - [ ] **Step 6: Add the thin CLI branch before normal runtime construction**
 
@@ -952,6 +975,16 @@ library_commands = library.add_subparsers(dest="library_command", required=True)
 library_export = library_commands.add_parser("export")
 library_export.add_argument("--output", required=True)
 library_export.add_argument("--json", action="store_true", dest="json_output")
+```
+
+Immediately after parsing and before the existing retrieval option conflict/runtime logic, reject
+both raw global retrieval options when `args.command == "library"` and
+`args.library_command == "export"`. Reuse `_raw_option_present()` so separated and equals forms are
+covered. Use these stable parser errors:
+
+```text
+library export does not support --retrieval-query-policy
+library export does not support --retrieval-strategy
 ```
 
 The execution function opens the read-only engine, obtains the snapshot before target creation,
@@ -971,9 +1004,10 @@ UV_OFFLINE=1 uv run pytest -q \
   tests/interfaces/test_cli_ask.py \
   tests/interfaces/test_cli_retrieval.py \
   tests/interfaces/test_mcp_contract.py \
-  tests/interfaces/test_mcp_legacy_schema_snapshot.py
+  tests/interfaces/test_mcp_legacy_schema_snapshot.py \
+  tests/interfaces/test_consumer_source_pack_contract_fixture.py
 UV_OFFLINE=1 uv run ruff check src/mke/interfaces/library_export.py \
-  src/mke/interfaces/public_errors.py src/mke/cli.py tests/interfaces/test_cli_library_export.py
+  src/mke/cli.py tests/interfaces/test_cli_library_export.py
 UV_OFFLINE=1 uv run pyright src/mke/interfaces src/mke/cli.py \
   tests/interfaces/test_cli_library_export.py
 ```
@@ -983,8 +1017,8 @@ Expected: all selected tests pass; MCP snapshots and shared errors are unchanged
 - [ ] **Step 8: Commit Task 6**
 
 ```bash
-git add src/mke/interfaces/library_export.py src/mke/interfaces/public_errors.py \
-  src/mke/cli.py tests/interfaces/test_cli_library_export.py \
+git add src/mke/interfaces/library_export.py src/mke/cli.py \
+  tests/interfaces/test_cli_library_export.py \
   tests/interfaces/test_cli_error_contract.py tests/interfaces/test_mcp_contract.py
 git diff --cached --check
 git commit -m "feat(cli): export compiled library"
@@ -1342,6 +1376,8 @@ deploy, or start Selective OCR Intake without the corresponding separate authori
   LLM Wiki remains a later local acceptance check, never a CI/runtime dependency.
 - Claim boundary: implementation does not itself release v0.1.3 or claim production OCR, layout
   recovery, hosted use, adoption, or business impact.
+- Contract isolation: export causes remain command-local, the consumer source-pack/MCP safe-cause
+  fixture stays byte-identical, and retrieval runtime overrides are rejected by the export parser.
 - Placeholder scan: this plan contains no unfinished design decision; angle-bracket strings in
   examples denote runtime-computed values, not missing implementation content.
 
@@ -1352,10 +1388,11 @@ deploy, or start Selective OCR Intake without the corresponding separate authori
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | not run | Product direction was approved through the preceding brainstorming/spec process. |
 | Codex Review | `/codex review` | Independent second opinion | 0 | not run | No unresolved architecture disagreement required an outside voice. |
 | Eng Review | `/plan-eng-review` | Architecture & tests | 1 | CLEAR | 6 issues found, 0 critical gaps, all folded into the two plans. |
+| Live Code Preflight | authority review | Shared error/parser authority | 1 | CLEAR | 2 contradictions found and folded into the design and core plan before Task 1. |
 | Design Review | `/plan-design-review` | UI/UX gaps | 0 | not applicable | No UI surface. |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | not run | CLI flow is covered by the engineering review and exact contract tests. |
 
-**VERDICT:** ENG + PRODUCT APPROVAL CLEARED — ready for mechanical landing; implementation remains
-behind the landed-doc review gate.
+**VERDICT:** ENG + PRODUCT APPROVAL CLEARED — ready for the mechanical preflight amendment landing;
+implementation remains behind the amended-doc review gate.
 
 NO UNRESOLVED DECISIONS

@@ -1,6 +1,7 @@
 # Compiled Library Export v1 Design
 
-Status: approved and engineering-reviewed for two-PR implementation planning on 2026-07-15.
+Status: approved and engineering-reviewed for two-PR implementation planning on 2026-07-15;
+amended after live code-authority preflight on 2026-07-16.
 
 Engineering self-review: completed; no unresolved architecture decisions.
 
@@ -158,13 +159,15 @@ mke --db <database> library export --output <new-directory>
 mke --db <database> library export --output <new-directory> --json
 ```
 
-`--db` retains the existing global CLI semantics. `--output` is required and accepts exactly one
-normalized child-directory name under the process working directory. Absolute paths, separators,
-empty names, `.`, `..`, symbolic-link parents, and traversal are rejected. An operator exports to
-a different parent by changing the working directory before invoking MKE. The target must not
-exist as a file, directory, or symbolic link. The command never merges into or replaces an
-existing directory. This keeps the public contract inside an operator-selected root instead of
-adding an arbitrary filesystem-output capability.
+`--db` retains the existing global CLI semantics. The command explicitly rejects the global
+`--retrieval-query-policy` and `--retrieval-strategy` options, including `--option=value` forms;
+they are retrieval runtime controls and are not part of this closed export surface. `--output`
+is required and accepts exactly one normalized child-directory name under the process working
+directory. Absolute paths, separators, empty names, `.`, `..`, symbolic-link parents, and
+traversal are rejected. An operator exports to a different parent by changing the working
+directory before invoking MKE. The target must not exist as a file, directory, or symbolic link.
+The command never merges into or replaces an existing directory. This keeps the public contract
+inside an operator-selected root instead of adding an arbitrary filesystem-output capability.
 
 The command operates only on the implicit local Library. v1 does not accept a library ID,
 Publication ID, query, Source selector, output format selector, or extractor option.
@@ -212,9 +215,13 @@ path. A missing, incompatible, or migration-stale database fails closed with a s
 error. This is a command-specific composition choice; existing CLI and MCP owner startup behavior
 does not change.
 
-The command-specific serializer may add `schema_version` around the existing public error fields,
-but it must not change the shared `PublicError.payload()` shape or any existing CLI or MCP error
-contract.
+The command-specific serializer may add `schema_version` around the existing public error fields.
+Its six non-redacted export causes are a closed command-local set owned by
+`mke.interfaces.library_export`; they must not be added to the shared `_ALLOWLISTED_CAUSES`, MCP
+schemas, or the frozen consumer source-pack fixture. Known export failures may reuse the
+`PublicError` value shape, but command-local validation accepts only those six causes plus the
+existing exact redacted literal. It must not change the shared `PublicError.payload()` shape or any
+existing CLI or MCP error contract.
 
 ## Export Tree
 
@@ -509,6 +516,10 @@ requires these outcomes:
 All failures include `active_publication_impact="unchanged"`. Raw SQLite errors, absolute paths,
 temporary names, host details, source text, and stack traces must not cross the public CLI
 boundary.
+
+The six non-redacted table causes are allowlisted only for
+`mke.compiled_library_export_response.v1`. They are intentionally absent from the shared MCP/CLI
+cause allowlist; the two redacted rows reuse the exact existing redacted literal by value.
 
 ## Failure Modes
 

@@ -1,6 +1,6 @@
 # Compiled Library Export v1 Plan Engineering Review
 
-Status: `ACCEPTED / CLEARED FOR MECHANICAL LANDING`
+Status: `PREFLIGHT AMENDMENT ACCEPTED / CLEARED FOR MECHANICAL AMENDMENT LANDING`
 
 Date: 2026-07-15
 
@@ -19,13 +19,18 @@ architecture, code organization, test paths, failure handling, and performance.
 
 ## Verdict
 
-The plan is engineering-complete after six amendments. The end state remains unchanged: MKE gains
+The plan is engineering-complete after eight amendments. The end state remains unchanged: MKE gains
 a deterministic complete active-Library export, an independent installed-wheel consumer proof,
 and a later isolated LLM Wiki compatibility claim. Delivery is now split into two PRs so the core
 runtime contract does not share a candidate or review gate with downstream wiki evidence.
 
-No unresolved architecture decision remains. Implementation still requires explicit user approval
-and a new isolated execution window.
+No unresolved architecture decision remains. Product authority and the isolated execution window
+already exist; implementation remains paused only until the mechanical amendment landing receives
+exact authority review and a resumption dispatch.
+
+The mechanically landed documents were verified byte-for-byte at commit `10bbee5b2aea5fd0fd4c9631e31b786606a9b00a`.
+Before Task 1, live-code preflight found two contract contradictions. Both are resolved below; the
+three amended documents must land and receive a byte/scope review before implementation resumes.
 
 ## Step 0: Scope Challenge
 
@@ -120,6 +125,35 @@ Pyright, demo, and product proofs. PR 1 still runs the complete repository gate.
 
 No DRY-motivated refactor of the existing source-pack proof is added. Importing its reviewed helper
 surface is a smaller and safer change than restructuring an already-shipped proof in this feature.
+
+## Pre-Implementation Live-Code Authority Review
+
+### P1. Planned export causes expanded the frozen MCP/consumer contract
+
+Severity: P1. Confidence: 10/10.
+
+Live code confirms `_ALLOWLISTED_CAUSES` is consumed by MCP response validation and copied in full
+into the exact consumer source-pack fixture. None of the six planned export causes exists in that
+fixture. Adding them would contradict both the no-MCP-change boundary and byte-identical consumer
+contract requirement.
+
+Resolution: the six non-redacted export causes move to a closed command-local set in
+`mke.interfaces.library_export`. `LibraryExportErrorV1` accepts only those six plus the exact
+redacted literal. Typed export failures may reuse the `PublicError` value/payload shape without
+changing the shared factory or allowlist. Shared `public_errors.py`, MCP schemas, and the consumer
+fixture are regression-only and must remain unchanged.
+
+### P2. Global retrieval options leaked into the closed export parser surface
+
+Severity: P2. Confidence: 10/10.
+
+The current parser defines `--retrieval-query-policy` and `--retrieval-strategy` globally, so both
+would be accepted before `library export` unless explicitly guarded. That conflicts with the
+closed command contract and the rule that export does not consult retrieval runtime configuration.
+
+Resolution: preserve global `--db`, but reject both retrieval options, including equals forms,
+for `library export` before runtime construction. RED/GREEN parser tests bind both options and the
+consumer source-pack contract test proves the shared MCP surface remains unchanged.
 
 ## Test Review
 
@@ -228,12 +262,16 @@ All review-derived amendments are already folded into the written plans:
 - [x] **T4 (P1)** — publication — make manifest rename the final production operation.
 - [x] **T5 (P3)** — test scope — remove unchanged MCP schema test from staged files.
 - [x] **T6 (P2)** — verification — right-size the docs/evidence follow-up gates.
+- [x] **T7 (P1)** — public errors — keep export causes command-local and preserve the frozen
+  MCP/consumer cause contract.
+- [x] **T8 (P2)** — CLI — reject global retrieval runtime overrides on the closed export command.
 
 ## Completion Summary
 
 - Step 0 Scope Challenge: scope reduced to two sequential PRs without reducing the end state.
 - Architecture Review: 4 issues found, all folded into the plans.
 - Code Quality Review: 2 issues found, all folded into the plans.
+- Live-Code Authority Review: 2 contradictions found, both folded into the design and core plan.
 - Test Review: diagram produced, 0 remaining gaps.
 - Performance Review: 0 issues found.
 - NOT in scope: written.
@@ -247,7 +285,8 @@ All review-derived amendments are already folded into the written plans:
 
 ## Final Gate
 
-Explicit product and plan approval was received on 2026-07-15. The first task lands the approved
-public-neutral spec, both plans, and this review mechanically in an isolated MKE worktree; it does
-not start implementation until the landed docs diff is reviewed and a separate implementation
-dispatch is issued.
+Explicit product and plan approval was received on 2026-07-15, and the initial mechanical landing
+was accepted at `10bbee5b2aea5fd0fd4c9631e31b786606a9b00a`. The 2026-07-16 preflight amendment is now
+authority-approved. Mechanically replace only the public design, core plan, and plan review with
+the amended bytes, commit them, and stop. Core implementation resumes only after that exact diff
+receives authority review and a separate resumption dispatch.
