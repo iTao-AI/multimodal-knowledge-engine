@@ -1,6 +1,6 @@
 # Compiled Library Export v1 Plan Engineering Review
 
-Status: `PREFLIGHT AMENDMENT ACCEPTED / CLEARED FOR MECHANICAL AMENDMENT LANDING`
+Status: `TASK 3 ACCEPTED / CLEARED FOR BATCHED TASKS 4-8`
 
 Date: 2026-07-15
 
@@ -19,14 +19,15 @@ architecture, code organization, test paths, failure handling, and performance.
 
 ## Verdict
 
-The plan is engineering-complete after eight amendments. The end state remains unchanged: MKE gains
+The plan is engineering-complete after ten amendments. The end state remains unchanged: MKE gains
 a deterministic complete active-Library export, an independent installed-wheel consumer proof,
 and a later isolated LLM Wiki compatibility claim. Delivery is now split into two PRs so the core
 runtime contract does not share a candidate or review gate with downstream wiki evidence.
 
 No unresolved architecture decision remains. Product authority and the isolated execution window
-already exist; implementation remains paused only until the mechanical amendment landing receives
-exact authority review and a resumption dispatch.
+already exist. Tasks 1-3 passed their task-scoped reviews. The public plan/review bytes must be
+mechanically synchronized first; exact byte/scope verification then clears the same execution turn
+to continue Tasks 4-8 without an intermediate authority round trip.
 
 The mechanically landed documents were verified byte-for-byte at commit `10bbee5b2aea5fd0fd4c9631e31b786606a9b00a`.
 Before Task 1, live-code preflight found two contract contradictions. Both are resolved below; the
@@ -265,13 +266,52 @@ All review-derived amendments are already folded into the written plans:
 - [x] **T7 (P1)** — public errors — keep export causes command-local and preserve the frozen
   MCP/consumer cause contract.
 - [x] **T8 (P2)** — CLI — reject global retrieval runtime overrides on the closed export command.
+- [x] **T9 (P1)** — persistence compatibility — preserve the established comma-joined
+  `required_stages` writer and make export strictly validate that representation without migration,
+  JSON fallback, or dual-format persistence.
+- [x] **T10 (P2)** — concurrency proof — mutate both metadata and Evidence in one WAL transaction
+  and require the raced result to equal one complete independently captured before/after DTO.
+- [x] **T11 (P1)** — snapshot completeness — retain every active-pointer Source through metadata
+  lookup, bind an independent active-pointer count to graph-row count, and fail closed on a missing
+  asset edge instead of silently omitting a Publication.
+- [x] **T12 (P1)** — SQLite type authority — validate exact runtime storage classes before DTO
+  construction; never use Python `str()`/`int()` coercion to fabricate valid text or numeric fields
+  from BLOB/TEXT/REAL drift.
+
+## Task 3 Targeted Authority Re-review
+
+Reviewed amended commit: `6ed93852951ea80564df002aca8a5c6e992df2dd` on parent `81278b2`.
+
+- The normal manifest writer is again exactly `",".join(manifest.required_stages)`.
+- Export accepts only the strict current comma-joined representation; JSON, empty-token,
+  whitespace, duplicate, and unsorted drift fail closed without migration or dual-format reads.
+- The WAL test changes valid Source metadata and Evidence in one transaction, independently
+  captures complete before/after DTOs, and rejects every mixed result by exact DTO equality.
+- Task 3 remains one commit and changes only its four approved implementation/test paths.
+- Fresh local gates passed, but executable adversarial probes independently reproduced two P1s:
+  deleting an active Source's referenced asset silently reduced the export, and BLOB display/text
+  values were converted to printable Python representations and accepted as content.
+
+Second repaired commit: `652e5360f27dacd27140cda438e374e226ccd304`, still one Task 3
+commit on parent `81278b2`.
+
+- Missing active asset edges now remain visible to the graph validator and fail closed; an
+  independent active-pointer count is bound to metadata-row count.
+- Every selected SQLite authority field is exact-type checked before DTO construction; BLOB text,
+  locator, and revision drift no longer survives Python coercion.
+- Independent authority probes for the two original P1s passed; the final combined focused and
+  adjacent slice reported 55 passing tests, Ruff clean, and Pyright at 0 errors.
+
+Verdict: `ACCEPTED`. No Critical, Important, or Minor Task 3 finding remains. The exact public docs
+sync may be followed immediately by batched Tasks 4-8; no separate docs hard stop is required.
 
 ## Completion Summary
 
 - Step 0 Scope Challenge: scope reduced to two sequential PRs without reducing the end state.
 - Architecture Review: 4 issues found, all folded into the plans.
 - Code Quality Review: 2 issues found, all folded into the plans.
-- Live-Code Authority Review: 2 contradictions found, both folded into the design and core plan.
+- Live-Code Authority Review: 6 contradictions found across preflight and Task 3, all folded into
+  the design and core plan.
 - Test Review: diagram produced, 0 remaining gaps.
 - Performance Review: 0 issues found.
 - NOT in scope: written.
@@ -286,7 +326,10 @@ All review-derived amendments are already folded into the written plans:
 ## Final Gate
 
 Explicit product and plan approval was received on 2026-07-15, and the initial mechanical landing
-was accepted at `10bbee5b2aea5fd0fd4c9631e31b786606a9b00a`. The 2026-07-16 preflight amendment is now
-authority-approved. Mechanically replace only the public design, core plan, and plan review with
-the amended bytes, commit them, and stop. Core implementation resumes only after that exact diff
-receives authority review and a separate resumption dispatch.
+was accepted at `10bbee5b2aea5fd0fd4c9631e31b786606a9b00a`. The preflight amendment landed at
+`3bb2cfb1b3c71547156b0d564a5b3ad8a28cdeda`. Task 3 is accepted at
+`652e5360f27dacd27140cda438e374e226ccd304`. Mechanically replace only the public core plan and plan
+review with these exact bytes, verify byte equality and scope, and commit that docs-only sync.
+Without another authority stop, continue Tasks 4-8 sequentially and stop at Task 8 Step 6 for the
+single authoritative pre-PR review. Earlier stops remain mandatory only for a concrete architecture
+conflict, scope expansion, external side effect, or a same-finding repair that has failed twice.

@@ -1,7 +1,8 @@
 # Compiled Library Export v1 Implementation Plan
 
-Status: mechanically landed and authority-reviewed; the live code-authority preflight amendment
-was accepted on 2026-07-16 and must land mechanically before core implementation resumes.
+Status: Tasks 1-3 are implemented and authority-accepted. After the exact public plan/review bytes
+are mechanically synchronized, Tasks 4-8 may proceed as one continuous execution batch through the
+Task 8 pre-PR authority hard stop.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use
@@ -174,7 +175,7 @@ closed public response validation, Pytest, Ruff, Pyright, Hatch/uv, and GitHub A
   - `CompiledSourceSnapshot`
   - `CompiledLibrarySnapshot`
 
-- [ ] **Step 1: Write RED tests for the accepted snapshot and budgets**
+- [x] **Step 1: Write RED tests for the accepted snapshot and budgets**
 
 Create helpers with repository-valid 32-hex IDs and assert one page Source plus one timestamp
 Source forms an immutable, sorted `CompiledLibrarySnapshot`. Assert the exact four default limits,
@@ -199,7 +200,7 @@ def test_compiled_library_snapshot_accepts_page_and_timestamp_sources() -> None:
     assert DEFAULT_EXPORT_LIMITS == ExportLimits(4096, 65536, 134217728, 67108864)
 ```
 
-- [ ] **Step 2: Write RED rejection matrices**
+- [x] **Step 2: Write RED rejection matrices**
 
 Parameterize exact failures for invalid ID prefixes/length/case, non-lowercase fingerprint,
 display name length/control/U+2028/U+2029, unsupported media type, non-positive revision, blank or
@@ -208,7 +209,7 @@ duplicate stage, unsorted Evidence, cross-Source identity drift, duplicate finge
 Sources, observation count drift, empty/no-active observation, and each over-limit value. Assert
 `LibraryExportDataError.reason` is exactly `empty`, `provenance`, or `too_large`.
 
-- [ ] **Step 3: Run the domain tests to verify RED**
+- [x] **Step 3: Run the domain tests to verify RED**
 
 Run:
 
@@ -218,7 +219,7 @@ UV_OFFLINE=1 uv run pytest -q tests/domain/test_library_export.py
 
 Expected: collection fails because `mke.domain.library_export` does not exist.
 
-- [ ] **Step 4: Implement the strict DTOs and reuse manifest authority**
+- [x] **Step 4: Implement the strict DTOs and reuse manifest authority**
 
 Use frozen dataclasses and these exact field shapes:
 
@@ -266,7 +267,7 @@ lowercase hex), validate the exact content fingerprint, and reconstruct a `RunMa
 fail closed. Translate internal validation failures to `LibraryExportDataError("provenance")` while
 retaining no Source text in the exception message.
 
-- [ ] **Step 5: Run domain GREEN and adjacent provenance tests**
+- [x] **Step 5: Run domain GREEN and adjacent provenance tests**
 
 Run:
 
@@ -280,7 +281,7 @@ UV_OFFLINE=1 uv run pyright src/mke/domain tests/domain/test_library_export.py
 
 Expected: all selected tests pass and Pyright reports 0 errors.
 
-- [ ] **Step 6: Commit Task 1**
+- [x] **Step 6: Commit Task 1**
 
 ```bash
 git add src/mke/domain/library_export.py src/mke/domain/__init__.py \
@@ -288,6 +289,9 @@ git add src/mke/domain/library_export.py src/mke/domain/__init__.py \
 git diff --cached --check
 git commit -m "feat(export): define compiled library snapshot"
 ```
+
+Accepted at `0f1316a` after task-scoped review; the focused domain and adjacent provenance slice
+reported 95 passing tests, with Ruff clean and Pyright at 0 errors.
 
 ### Task 2: Add non-mutating SQLite export startup
 
@@ -304,7 +308,7 @@ git commit -m "feat(export): define compiled library snapshot"
   - `KnowledgeEngine.open_read_only_export(db_path: Path) -> KnowledgeEngine`
   - the existing normal constructors remain byte-for-behavior compatible.
 
-- [ ] **Step 1: Write RED startup tests against missing, stale, and live databases**
+- [x] **Step 1: Write RED startup tests against missing, stale, and live databases**
 
 Cover all of these assertions:
 
@@ -333,7 +337,7 @@ valid database. Prove startup fails on the former, leaves both database files by
 does not recover or change the unfinished Run. Monkeypatch `migrate()`, `_probe_fts5()`, and normal
 owner recovery to raise if called.
 
-- [ ] **Step 2: Run startup tests to verify RED**
+- [x] **Step 2: Run startup tests to verify RED**
 
 Run:
 
@@ -345,7 +349,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: RED because both `open_read_only_export()` entry points are absent.
 
-- [ ] **Step 3: Implement the command-specific connection path**
+- [x] **Step 3: Implement the command-specific connection path**
 
 Keep the normal constructor path unchanged. Add a private construction mode called only by the
 classmethod. The read-only path must execute this sequence and no owner-startup work:
@@ -380,14 +384,14 @@ def open_read_only_export(cls, db_path: Path) -> KnowledgeEngine:
 The `_store` parameter is keyword-only and private by name; when absent, existing construction is
 identical. It is not added to CLI, MCP, or runtime configuration.
 
-- [ ] **Step 4: Add compatibility guards for normal owner startup**
+- [x] **Step 4: Add compatibility guards for normal owner startup**
 
 Assert normal `KnowledgeEngine(tmp_path / "new.sqlite")` still creates/migrates the database and
 normal `build_engine()` still performs owner-scoped recovery once. Assert the read-only classmethod
 does neither. The MCP contract fixture and current parser surface must remain unchanged at this
 task.
 
-- [ ] **Step 5: Run Task 2 GREEN**
+- [x] **Step 5: Run Task 2 GREEN**
 
 Run:
 
@@ -405,7 +409,7 @@ UV_OFFLINE=1 uv run pyright src/mke/adapters/sqlite src/mke/application \
 
 Expected: all selected tests pass; Ruff and Pyright report no errors.
 
-- [ ] **Step 6: Commit Task 2**
+- [x] **Step 6: Commit Task 2**
 
 ```bash
 git add src/mke/adapters/sqlite/__init__.py src/mke/application/__init__.py \
@@ -413,6 +417,9 @@ git add src/mke/adapters/sqlite/__init__.py src/mke/application/__init__.py \
 git diff --cached --check
 git commit -m "feat(export): open library database read only"
 ```
+
+Accepted at `81278b2` after task-scoped review; the focused startup/runtime slice reported 64
+passing tests, with Ruff clean and Pyright at 0 errors.
 
 ### Task 3: Read one bounded active-Publication snapshot
 
@@ -432,7 +439,7 @@ git commit -m "feat(export): open library database read only"
 - The `limits` seam exists for bounded unit tests only; the public application method always uses
   `DEFAULT_EXPORT_LIMITS`.
 
-- [ ] **Step 1: Write RED tests for complete page/timestamp snapshot content**
+- [x] **Step 1: Write RED tests for complete page/timestamp snapshot content**
 
 Create one normal PDF Publication, one sidecar-video Publication, and one inactive Source through
 the current application lifecycle. Reopen through `KnowledgeEngine.open_read_only_export()` and
@@ -446,12 +453,15 @@ assert:
 - the original Source bytes are never opened by the export reader (rename the fixture copy after
   ingest, then read successfully from SQLite).
 
-- [ ] **Step 2: Write RED graph-corruption and limit matrices**
+- [x] **Step 2: Write RED graph-corruption and limit matrices**
 
-Mutate a copied database one case at a time for library ownership, active pointer, Publication
-Source, Run Source/state, revision, manifest asset/count/stages/extractor, Evidence Source/Run,
-locator, duplicate content fingerprint, and unsupported media type. Every case must raise
-`LibraryExportDataError(reason="provenance")`, roll back, and leave all active rows unchanged.
+Mutate a copied database one case at a time for library ownership, active pointer, a missing asset
+edge on an active Source, Publication Source, Run Source/state, revision, manifest
+asset/count/stages/extractor, Evidence Source/Run, locator, duplicate content fingerprint, and
+unsupported media type. Also inject SQLite runtime storage-class drift that would otherwise survive
+Python coercion: at minimum BLOB `display_name`, BLOB Evidence `text`, and BLOB integer-like
+locator/revision values. Every case must raise `LibraryExportDataError(reason="provenance")`, roll
+back, and leave all active rows unchanged.
 
 Use small injected `ExportLimits` values to prove exact equality passes and one-above fails for:
 
@@ -467,7 +477,7 @@ ExportLimits(
 The aggregate byte assertion must use non-ASCII text so character count cannot masquerade as UTF-8
 byte count. The committed default-limit assertion remains in Task 1.
 
-- [ ] **Step 3: Write RED fixed-query and concurrent-snapshot tests**
+- [x] **Step 3: Write RED fixed-query and concurrent-snapshot tests**
 
 Capture SQLite trace statements for one Source and several Sources. Ignore `PRAGMA` and transaction
 statements; require exactly five data `SELECT`s in both cases:
@@ -478,11 +488,15 @@ statements; require exactly five data `SELECT`s in both cases:
 4. aggregate active Evidence count plus `SUM(length(CAST(text AS BLOB)))` preflight; and
 5. all active Evidence rows.
 
-Monkeypatch the private Evidence-row read helper to let a second WAL connection publish or corrupt
-after preflight but before the fifth query. Assert the returned snapshot is entirely before-change
-or entirely after-change, never mixed. Do not add a production observer/callback parameter.
+Monkeypatch the private Evidence-row read helper to let a second WAL connection atomically update
+both active-Publication metadata and Evidence text after preflight but before the fifth query.
+Capture a complete valid `CompiledLibrarySnapshot` before that transaction and another complete
+valid snapshot from a fresh read-only connection after it commits. Assert the raced read is exactly
+equal to one of those two full DTOs, never a field-wise or row-wise mixture. The metadata mutation
+must preserve a valid graph; changing a Source display name is sufficient. Do not add a production
+observer/callback parameter.
 
-- [ ] **Step 4: Run Task 3 tests to verify RED**
+- [x] **Step 4: Run Task 3 tests to verify RED**
 
 Run:
 
@@ -494,7 +508,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: failures because `compiled_library_snapshot()` is absent.
 
-- [ ] **Step 5: Extract common active-graph validation and implement the five-query reader**
+- [x] **Step 5: Extract common active-graph validation and implement the five-query reader**
 
 Refactor the current `_observe_active_publications()` only enough to share the same metadata query
 and row validator with export. Preserve existing observation results and error text. The export
@@ -528,10 +542,26 @@ def compiled_library_snapshot(
 
 Do not issue `BEGIN`; use the connection's existing PEP 249 transaction. The metadata rows include
 `display_name`, `media_type`, required stages, extractor fingerprint, and exact graph ownership.
-Parse `required_stages` as strict JSON list-of-strings and reject malformed, duplicate, or unsorted
-values through the Task 1 DTO. Build all Evidence only after preflight succeeds.
+Query 2 must count every Source with a non-null active pointer, and the metadata query must retain
+an active Source whose asset edge is missing (use a left join); require the active-pointer count to
+equal the validated graph-row count so an inner join can never silently reduce the export.
 
-- [ ] **Step 6: Add the application delegation and prove read-only state**
+Before constructing domain DTOs, validate the exact SQLite runtime storage class for every selected
+authority field: text/ID/digest/media/stage/fingerprint fields must be Python `str`, and
+count/revision/locator fields must be Python `int`. Do not use `str()` or `int()` to repair BLOB,
+TEXT-number, REAL, or other storage-class drift. Translate drift to
+`LibraryExportDataError("provenance")` without leaking row contents.
+
+Preserve the established `run_manifests.required_stages` writer exactly as
+`",".join(manifest.required_stages)`; export must not introduce a database migration, a JSON writer,
+or dual-format persistence. Parse only that existing comma-joined representation and fail closed
+unless it is a string containing a non-empty, duplicate-free, lexicographically sorted sequence of
+non-empty stage tokens. Reject empty tokens, leading/trailing whitespace, duplicates, unsorted
+values, JSON-shaped values, and repair-by-trimming. Pass the parsed tuple to the Task 1 manifest DTO
+and `validate_manifest()` for semantic stage authority. Build all Evidence only after preflight
+succeeds.
+
+- [x] **Step 6: Add the application delegation and prove read-only state**
 
 Add only:
 
@@ -543,7 +573,7 @@ def compiled_library_snapshot(self) -> CompiledLibrarySnapshot:
 In the application test, hash or query the active graph immediately before and after success and
 each failure. Assert exact equality and `PRAGMA query_only == 1` through the private test handle.
 
-- [ ] **Step 7: Run Task 3 GREEN and adjacent provenance regression**
+- [x] **Step 7: Run Task 3 GREEN and adjacent provenance regression**
 
 Run:
 
@@ -562,7 +592,7 @@ UV_OFFLINE=1 uv run pyright src/mke/adapters/sqlite src/mke/application \
 
 Expected: all tests pass, fixed-query assertions hold, Ruff/Pyright report no errors.
 
-- [ ] **Step 8: Commit Task 3**
+- [x] **Step 8: Commit Task 3**
 
 ```bash
 git add src/mke/adapters/sqlite/__init__.py src/mke/application/__init__.py \
@@ -570,6 +600,11 @@ git add src/mke/adapters/sqlite/__init__.py src/mke/application/__init__.py \
 git diff --cached --check
 git commit -m "feat(export): snapshot active publications"
 ```
+
+Accepted at amended commit `652e5360f27dacd27140cda438e374e226ccd304` on parent `81278b2`.
+The final bounded authority verification reproduced and closed missing-asset partial export plus
+BLOB text/numeric coercion; 55 focused/adjacent tests passed, Ruff passed, Pyright reported 0
+errors, and the five-query, comma-joined, and exact before/after WAL contracts remained intact.
 
 ### Task 4: Render canonical Evidence sidecars, Markdown, and manifest
 
