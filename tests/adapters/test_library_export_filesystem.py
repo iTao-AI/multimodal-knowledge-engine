@@ -90,6 +90,12 @@ def _identity(path: Path) -> tuple[int, int, int, int, int]:
     )
 
 
+def _write_same_size_drift(path: Path) -> None:
+    original = path.read_bytes()
+    assert original
+    path.write_bytes(bytes((original[0] ^ 1,)) + original[1:])
+
+
 def _assert_error(reason: str, call: Callable[[], object]) -> None:
     with pytest.raises(OutputPublicationError) as exc_info:
         call()
@@ -234,12 +240,13 @@ def test_publishes_exact_tree_and_manifest_is_independently_verifiable(
             assert sha256(content).hexdigest() == source[digest_key]
 
 
-def test_manifest_rename_is_last_production_operation(
+def test_manifest_rename_is_last_mutation_before_final_revalidation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     events: list[str] = []
     real_write = publisher._write_content_file  # pyright: ignore[reportPrivateUsage]
     real_inventory = publisher._validate_exact_inventory  # pyright: ignore[reportPrivateUsage]
+    real_revalidate_owned = publisher._revalidate_owned_files  # pyright: ignore[reportPrivateUsage]
     real_manifest = publisher._write_manifest_temp  # pyright: ignore[reportPrivateUsage]
     real_publish = publisher._publish_manifest  # pyright: ignore[reportPrivateUsage]
 
@@ -258,6 +265,11 @@ def test_manifest_rename_is_last_production_operation(
         events.append("manifest_closed_reread")
         return result
 
+    def revalidate_owned(*args: object, **kwargs: object) -> object:
+        result = real_revalidate_owned(*args, **kwargs)  # pyright: ignore[reportArgumentType]
+        events.append("referenced_files_revalidated")
+        return result
+
     def publish(*args: object, **kwargs: object) -> object:
         result = real_publish(*args, **kwargs)  # pyright: ignore[reportArgumentType]
         events.append("manifest_renamed")
@@ -265,6 +277,7 @@ def test_manifest_rename_is_last_production_operation(
 
     monkeypatch.setattr(publisher, "_write_content_file", write)
     monkeypatch.setattr(publisher, "_validate_exact_inventory", inventory)
+    monkeypatch.setattr(publisher, "_revalidate_owned_files", revalidate_owned)
     monkeypatch.setattr(publisher, "_write_manifest_temp", manifest)
     monkeypatch.setattr(publisher, "_publish_manifest", publish)
 
@@ -276,9 +289,123 @@ def test_manifest_rename_is_last_production_operation(
         "content_closed_revalidated",
         "content_closed_revalidated",
         "exact_inventory",
+        "referenced_files_revalidated",
         "manifest_closed_reread",
         "manifest_renamed",
+        "exact_inventory",
+        "referenced_files_revalidated",
     ]
+
+
+def test_content_replacement_after_inventory_before_manifest_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real_inventory = publisher._validate_exact_inventory  # pyright: ignore[reportPrivateUsage]
+    replacement = tmp_path / "compiled-library" / "sources" / f"{'a' * 64}.md"
+    replacement_identity: tuple[int, int, int, int, int] | None = None
+
+    def replace_after_inventory(target_fd: int, expected: set[str]) -> None:
+        nonlocal replacement_identity
+        real_inventory(target_fd, expected)
+        replacement.unlink()
+        replacement.write_bytes(b"operator-owned replacement")
+        replacement_identity = _identity(replacement)
+
+    monkeypatch.setattr(
+        publisher, "_validate_exact_inventory", replace_after_inventory
+    )
+
+    _assert_error(
+        "cleanup_failed",
+        lambda: publish_compiled_library(
+            _snapshot(), output_name="compiled-library", parent=tmp_path
+        ),
+    )
+
+    assert replacement.read_bytes() == b"operator-owned replacement"
+    assert _identity(replacement) == replacement_identity
+    assert not (tmp_path / "compiled-library/export-manifest.json").exists()
+    assert {
+        str(path.relative_to(tmp_path / "compiled-library"))
+        for path in (tmp_path / "compiled-library").rglob("*")
+        if path.is_file()
+    } == {f"sources/{'a' * 64}.md"}
+
+
+@pytest.mark.parametrize("mutation", ["replacement", "digest_drift"])
+def test_content_mutation_after_manifest_commit_before_success_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mutation: str
+) -> None:
+    real_publish = publisher._publish_manifest  # pyright: ignore[reportPrivateUsage]
+    content = tmp_path / "compiled-library" / "sources" / f"{'a' * 64}.md"
+    replacement_identity: tuple[int, int, int, int, int] | None = None
+
+    def mutate_after_commit(target_fd: int) -> None:
+        nonlocal replacement_identity
+        real_publish(target_fd)
+        if mutation == "replacement":
+            content.unlink()
+            content.write_bytes(b"operator-owned replacement")
+        else:
+            _write_same_size_drift(content)
+        replacement_identity = _identity(content)
+
+    monkeypatch.setattr(publisher, "_publish_manifest", mutate_after_commit)
+
+    _assert_error(
+        "cleanup_failed" if mutation == "replacement" else "write_failed",
+        lambda: publish_compiled_library(
+            _snapshot(), output_name="compiled-library", parent=tmp_path
+        ),
+    )
+
+    target = tmp_path / "compiled-library"
+    if mutation == "replacement":
+        assert content.read_bytes() == b"operator-owned replacement"
+        assert _identity(content) == replacement_identity
+        assert not (target / "export-manifest.json").exists()
+    else:
+        assert not target.exists()
+
+
+@pytest.mark.parametrize("mutation", ["replacement", "digest_drift"])
+def test_manifest_mutation_after_commit_before_success_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mutation: str
+) -> None:
+    real_publish = publisher._publish_manifest  # pyright: ignore[reportPrivateUsage]
+    manifest = tmp_path / "compiled-library/export-manifest.json"
+    replacement_identity: tuple[int, int, int, int, int] | None = None
+
+    def mutate_after_commit(target_fd: int) -> None:
+        nonlocal replacement_identity
+        real_publish(target_fd)
+        if mutation == "replacement":
+            manifest.unlink()
+            manifest.write_bytes(b"operator-owned replacement")
+        else:
+            _write_same_size_drift(manifest)
+        replacement_identity = _identity(manifest)
+
+    monkeypatch.setattr(publisher, "_publish_manifest", mutate_after_commit)
+
+    _assert_error(
+        "cleanup_failed" if mutation == "replacement" else "write_failed",
+        lambda: publish_compiled_library(
+            _snapshot(), output_name="compiled-library", parent=tmp_path
+        ),
+    )
+
+    target = tmp_path / "compiled-library"
+    if mutation == "replacement":
+        assert manifest.read_bytes() == b"operator-owned replacement"
+        assert _identity(manifest) == replacement_identity
+        assert {
+            str(path.relative_to(target))
+            for path in target.rglob("*")
+            if path.is_file()
+        } == {"export-manifest.json"}
+    else:
+        assert not target.exists()
 
 
 def test_renders_writes_and_discards_each_source_before_rendering_the_next(

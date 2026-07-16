@@ -25,6 +25,7 @@ _DIRECTORY_FLAGS = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
 _FILE_FLAGS = (
     os.O_RDWR | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
 )
+_FILE_READ_FLAGS = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
 _READ_CHUNK_BYTES = 64 * 1024
 _INVALID_PARENT_ERRNOS = frozenset(
     {
@@ -65,6 +66,8 @@ class _Identity:
 class _OwnedEntry:
     parts: tuple[str, ...]
     identity: _Identity
+    expected_size: int | None = None
+    expected_sha256: bytes | None = None
 
 
 def _identity(value: os.stat_result) -> _Identity:
@@ -191,18 +194,79 @@ def _create_write_file(
     data: bytes,
     parts: tuple[str, ...],
     owned: list[_OwnedEntry],
-) -> None:
+) -> _OwnedEntry:
     fd = os.open(name, _FILE_FLAGS, 0o600, dir_fd=directory_fd)
     identity = _identity(os.fstat(fd))
     if identity.file_type != stat.S_IFREG:
         _safe_close(fd)
         raise OSError(errno.EINVAL, "created entry is not a regular file")
-    owned.append(_OwnedEntry(parts, identity))
+    entry = _OwnedEntry(parts, identity, len(data), sha256(data).digest())
+    owned.append(entry)
     try:
         _write_all(fd, data)
         _revalidate_file(fd, data, identity)
     finally:
         _close_fd(fd)
+    return entry
+
+
+def _revalidate_file_at(
+    directory_fd: int,
+    name: str,
+    entry: _OwnedEntry,
+) -> None:
+    if (
+        entry.identity.file_type != stat.S_IFREG
+        or entry.expected_size is None
+        or entry.expected_sha256 is None
+    ):
+        raise OSError(errno.EINVAL, "owned file metadata is incomplete")
+    path_before = _lstat(name, directory_fd)
+    if not _same_identity(path_before, entry.identity):
+        raise OSError(errno.ESTALE, "owned file path identity changed")
+    fd: int | None = None
+    try:
+        fd = os.open(name, _FILE_READ_FLAGS, dir_fd=directory_fd)
+        descriptor_before = os.fstat(fd)
+        path_bound = _lstat(name, directory_fd)
+        if (
+            not _same_identity(descriptor_before, entry.identity)
+            or not _same_identity(path_bound, entry.identity)
+            or stat.S_IFMT(descriptor_before.st_mode) != stat.S_IFREG
+            or descriptor_before.st_size != entry.expected_size
+            or path_bound.st_size != entry.expected_size
+        ):
+            raise OSError(errno.ESTALE, "owned file identity or size changed")
+        actual = _read_bounded(fd, entry.expected_size)
+        descriptor_after = os.fstat(fd)
+        path_after = _lstat(name, directory_fd)
+        if (
+            len(actual) != entry.expected_size
+            or sha256(actual).digest() != entry.expected_sha256
+            or not _same_identity(descriptor_after, entry.identity)
+            or not _same_identity(path_after, entry.identity)
+            or descriptor_after.st_size != entry.expected_size
+            or path_after.st_size != entry.expected_size
+        ):
+            raise OSError(errno.EIO, "owned file content changed")
+    finally:
+        if fd is not None:
+            _close_fd(fd)
+
+
+def _revalidate_owned_file(target_fd: int, entry: _OwnedEntry) -> None:
+    directory_fd, close_directory = _open_relative_parent(target_fd, entry.parts)
+    try:
+        _revalidate_file_at(directory_fd, entry.parts[-1], entry)
+    finally:
+        if close_directory:
+            _close_fd(directory_fd)
+
+
+def _revalidate_owned_files(target_fd: int, owned: list[_OwnedEntry]) -> None:
+    for entry in owned:
+        if entry.identity.file_type == stat.S_IFREG:
+            _revalidate_owned_file(target_fd, entry)
 
 
 def _write_content_file(
@@ -212,7 +276,8 @@ def _write_content_file(
     parts: tuple[str, ...],
     owned: list[_OwnedEntry],
 ) -> None:
-    _create_write_file(directory_fd, name, data, parts, owned)
+    entry = _create_write_file(directory_fd, name, data, parts, owned)
+    _revalidate_file_at(directory_fd, name, entry)
 
 
 def _inventory(directory_fd: int) -> set[str]:
@@ -242,14 +307,16 @@ def _validate_exact_inventory(target_fd: int, expected: set[str]) -> None:
 
 def _write_manifest_temp(
     target_fd: int, manifest: bytes, owned: list[_OwnedEntry]
-) -> None:
-    _create_write_file(
+) -> _OwnedEntry:
+    entry = _create_write_file(
         target_fd,
         _TEMP_MANIFEST_NAME,
         manifest,
         (_TEMP_MANIFEST_NAME,),
         owned,
     )
+    _revalidate_file_at(target_fd, _TEMP_MANIFEST_NAME, entry)
+    return entry
 
 
 def _publish_manifest(target_fd: int) -> None:
@@ -259,6 +326,22 @@ def _publish_manifest(target_fd: int) -> None:
         src_dir_fd=target_fd,
         dst_dir_fd=target_fd,
     )
+
+
+def _rebind_published_manifest(
+    owned: list[_OwnedEntry], manifest_entry: _OwnedEntry
+) -> _OwnedEntry:
+    published = _OwnedEntry(
+        (_MANIFEST_NAME,),
+        manifest_entry.identity,
+        manifest_entry.expected_size,
+        manifest_entry.expected_sha256,
+    )
+    for index, entry in enumerate(owned):
+        if entry is manifest_entry:
+            owned[index] = published
+            return published
+    raise OSError(errno.ESTALE, "temporary manifest ownership was lost")
 
 
 def _revalidate_target(
@@ -461,6 +544,7 @@ def publish_compiled_library(
         _close_fd(evidence_fd)
         evidence_fd = None
         _validate_exact_inventory(target_fd, expected)
+        _revalidate_owned_files(target_fd, owned)
         manifest = render_export_manifest(snapshot, entries)
         result = LibraryExportResult(
             library_id=snapshot.observation.library_id,
@@ -468,9 +552,13 @@ def publish_compiled_library(
             evidence_count=evidence_count,
             manifest_sha256=sha256(manifest).hexdigest(),
         )
-        _write_manifest_temp(target_fd, manifest, owned)
+        manifest_entry = _write_manifest_temp(target_fd, manifest, owned)
         _revalidate_target(parent_fd, output_name, target_fd, target_identity)
         _publish_manifest(target_fd)
+        _rebind_published_manifest(owned, manifest_entry)
+        _validate_exact_inventory(target_fd, expected | {_MANIFEST_NAME})
+        _revalidate_owned_files(target_fd, owned)
+        _revalidate_target(parent_fd, output_name, target_fd, target_identity)
         return result
     except LibraryExportDataError as exc:
         if not target_created:
