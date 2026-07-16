@@ -660,6 +660,31 @@ def test_audit_rejects_contradictory_affirmative_downstream_claims(
     assert "downstream_candidate_boundary" in _rules(tmp_path)
 
 
+@pytest.mark.parametrize(
+    "overclaim",
+    [
+        "MKE provides production OCR.",
+        "MKE reconstructs source layout.",
+        "MKE has verified LLM Wiki compatibility.",
+        "MKE provides hosted integration.",
+        "MKE has real-user adoption.",
+        "MKE v0.1.3 has been released.",
+    ],
+)
+def test_audit_rejects_compiled_library_release_overclaims(
+    tmp_path: Path,
+    overclaim: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "README.md"
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{overclaim}\n",
+        encoding="utf-8",
+    )
+
+    assert "compiled_library_overclaim" in _rules(tmp_path)
+
+
 def test_verify_release_does_not_mix_four_stage_workflow_with_stale_three_check_claim() -> None:
     text = Path("docs/how-to/verify-release.md").read_text(encoding="utf-8")
 

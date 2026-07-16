@@ -403,6 +403,60 @@ def _audit_comparison_boundary(root: Path, files: Iterable[str]) -> list[Violati
     return violations
 
 
+def _line_overclaims_compiled_library(line: str) -> bool:
+    lowered = " ".join(line.lower().split())
+    safe_markers = (
+        "not production ocr",
+        "production ocr remains excluded",
+        "不是 production ocr",
+        "does not reconstruct",
+        "not reconstruct",
+        "not reconstructed",
+        "does not claim reconstructed",
+        "不重建 layout",
+        "not verified llm wiki",
+        "llm wiki compatibility remains deferred",
+        "does not verify llm wiki compatibility",
+        "no hosted integration",
+        "does not claim hosted integration",
+        "does not prove hosted integration",
+        "no real-user adoption",
+        "does not claim real-user adoption",
+        "does not prove real-user adoption",
+        "does not release v0.1.3",
+        "v0.1.3 is not released",
+    )
+    if any(marker in lowered for marker in safe_markers):
+        return False
+    patterns = (
+        r"\bproduction ocr\b",
+        r"\b(?:reconstructs?|reconstructed|recovers?|recovered) (?:the )?(?:source )?layout\b",
+        r"\b(?:verified|proven|supports?) llm wiki compatibility\b",
+        r"\bhosted integration\b",
+        r"\breal-user adoption\b",
+        r"\bv0\.1\.3\b.*\b(?:released|published|available)\b",
+    )
+    return any(re.search(pattern, lowered) for pattern in patterns)
+
+
+def _audit_compiled_library_claim_boundary(
+    root: Path, files: Iterable[str]
+) -> list[Violation]:
+    violations: list[Violation] = []
+    for file_name in files:
+        text = _read_text(root, file_name)
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            if _line_overclaims_compiled_library(line):
+                violations.append(
+                    Violation(
+                        file=file_name,
+                        rule="compiled_library_overclaim",
+                        message=f"line {line_number} exceeds the compiled Library claim boundary",
+                    )
+                )
+    return violations
+
+
 def _audit_release_notes_links(root: Path) -> list[Violation]:
     required_terms = (
         "proof",
@@ -596,6 +650,7 @@ def audit_release_presentation(root: Path) -> list[Violation]:
     violations.extend(_audit_runtime_default(root))
     violations.extend(_audit_readme_presentation(root))
     violations.extend(_audit_comparison_boundary(root, release_files))
+    violations.extend(_audit_compiled_library_claim_boundary(root, release_files))
     violations.extend(_audit_release_notes_links(root))
     violations.extend(_audit_stale_status(root, release_files))
     violations.extend(
