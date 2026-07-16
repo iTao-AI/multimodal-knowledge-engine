@@ -100,6 +100,122 @@ UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
   --python "$(command -v python3.13)" \
   --candidate-output "${candidate_output}" \
   --json
+
+candidate_validation="${candidate_parent}/validated-candidate.json"
+UV_OFFLINE=1 uv run python - "${candidate_output}" "${candidate_validation}" <<'PY'
+import hashlib
+import json
+import os
+import pathlib
+import re
+import stat
+import subprocess
+import sys
+import tomllib
+
+root = pathlib.Path(sys.argv[1])
+output = pathlib.Path(sys.argv[2])
+assert root.is_dir() and not root.is_symlink()
+entries = list(os.scandir(root))
+assert len(entries) == 2
+assert all(not entry.is_symlink() and entry.is_file(follow_symlinks=False) for entry in entries)
+
+receipt_name = "candidate-artifact-receipt.json"
+expected_wheel_name = "multimodal_knowledge_engine-0.1.3-py3-none-any.whl"
+assert {entry.name for entry in entries} == {receipt_name, expected_wheel_name}
+receipt_bytes = (root / receipt_name).read_bytes()
+receipt = json.loads(receipt_bytes)
+assert isinstance(receipt, dict)
+expected_keys = {
+    "schema_version", "repository", "source_commit", "package_name", "package_version",
+    "wheel_filename", "wheel_bytes", "wheel_sha256", "requires_python",
+    "consumer_proof_schema", "consumer_proof_status", "proof_input_wheel_sha256",
+    "receipt_sha256",
+}
+assert set(receipt) == expected_keys
+canonical_receipt = json.dumps(
+    receipt, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False
+).encode("utf-8") + b"\n"
+assert receipt_bytes == canonical_receipt
+
+project = tomllib.loads(pathlib.Path("pyproject.toml").read_text(encoding="utf-8"))["project"]
+head = subprocess.run(
+    ["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True
+).stdout.strip()
+assert receipt["schema_version"] == "mke.candidate_artifact_receipt.v1"
+assert receipt["repository"] == "iTao-AI/multimodal-knowledge-engine"
+assert receipt["source_commit"] == head
+assert receipt["package_name"] == project["name"] == "multimodal-knowledge-engine"
+assert receipt["package_version"] == project["version"] == "0.1.3"
+assert receipt["requires_python"] == project["requires-python"]
+assert receipt["wheel_filename"] == expected_wheel_name
+assert receipt["consumer_proof_schema"] == "mke.consumer_source_pack_proof.v1"
+assert receipt["consumer_proof_status"] == "passed"
+
+wheel_path = root / expected_wheel_name
+flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+descriptor = os.open(wheel_path, flags)
+try:
+    before = os.fstat(descriptor)
+    assert stat.S_ISREG(before.st_mode)
+    wheel_bytes = bytearray()
+    while chunk := os.read(descriptor, 1024 * 1024):
+        wheel_bytes.extend(chunk)
+finally:
+    os.close(descriptor)
+after = os.stat(wheel_path, follow_symlinks=False)
+assert stat.S_ISREG(after.st_mode)
+assert (before.st_dev, before.st_ino, before.st_size) == (
+    after.st_dev, after.st_ino, after.st_size
+)
+wheel_sha256 = hashlib.sha256(wheel_bytes).hexdigest()
+assert isinstance(receipt["wheel_bytes"], int) and not isinstance(receipt["wheel_bytes"], bool)
+assert receipt["wheel_bytes"] == len(wheel_bytes) == after.st_size
+assert re.fullmatch(r"[0-9a-f]{64}", receipt["wheel_sha256"])
+assert receipt["wheel_sha256"] == receipt["proof_input_wheel_sha256"] == wheel_sha256
+
+without_digest = {key: value for key, value in receipt.items() if key != "receipt_sha256"}
+canonical_without_digest = json.dumps(
+    without_digest, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False
+).encode("utf-8")
+assert receipt["receipt_sha256"] == hashlib.sha256(canonical_without_digest).hexdigest()
+output.write_text(
+    json.dumps(
+        {"candidate_wheel": str(wheel_path), "wheel_sha256": wheel_sha256},
+        sort_keys=True,
+        separators=(",", ":"),
+    ) + "\n",
+    encoding="utf-8",
+)
+PY
+
+candidate_wheel="$(python3 - "${candidate_validation}" <<'PY'
+import json, pathlib, sys
+print(json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))["candidate_wheel"])
+PY
+)"
+UV_OFFLINE=1 uv run python scripts/release_consumer_smoke.py \
+  --wheel "${candidate_wheel}" --json
+
+UV_OFFLINE=1 uv run python scripts/compiled_library_export_proof.py \
+  --python "$(command -v python3.12)" \
+  --python "$(command -v python3.13)" \
+  --json > "${candidate_parent}/compiled-export-proof.json"
+
+UV_OFFLINE=1 uv run python - \
+  "${candidate_validation}" "${candidate_parent}/compiled-export-proof.json" <<'PY'
+import json
+import pathlib
+import sys
+
+validated = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+proof = json.loads(pathlib.Path(sys.argv[2]).read_text(encoding="utf-8"))
+assert proof["schema_version"] == "mke.compiled_library_export_proof.v1"
+assert proof["status"] == "passed"
+assert proof["interpreter_count"] == 2
+assert proof["proof_input_wheel_sha256"] == validated["wheel_sha256"]
+print("compiled_export_candidate_digest=matched")
+PY
 ```
 
 The consumer smoke should:
@@ -127,6 +243,12 @@ publishes exactly that wheel plus `candidate-artifact-receipt.json`. Locate the 
 receipt-bound wheel. Filename or version equality with the `dist/` wheel is insufficient; the
 receipt's exact wheel SHA-256 is authoritative.
 
+The independent candidate validator above binds the canonical receipt, committed source identity,
+package metadata, descriptor-read wheel bytes, size, and SHA-256 before either installed smoke or
+Compiled Library Export proof is accepted. The compiled proof must pass on Python 3.12 and 3.13,
+and its `proof_input_wheel_sha256` must exactly equal the independently validated candidate wheel
+SHA-256.
+
 ## Stage 3 Final Main Gate
 
 After the final release-candidate PR merges, check out the resulting `main` commit and rerun every
@@ -149,7 +271,34 @@ uv sync --locked
 uv run mke proof run
 uv run mke demo --verify
 UV_OFFLINE=1 uv run python scripts/local_knowledge_proof.py
+UV_OFFLINE=1 uv run python scripts/evidence_provenance_proof.py
 ```
+
+Run a real Compiled Library Export and the standalone standard-library consumer against the public
+proof fixtures:
+
+```bash
+archive_root="${PWD}"
+runtime="$(mktemp -d)"
+cp tests/fixtures/local-knowledge-v1/operations-guide.pdf "${runtime}/operations-guide.pdf"
+cp tests/fixtures/video/spoken-evidence.mp4 "${runtime}/spoken-evidence.mp4"
+cp tests/fixtures/video/short-audio.mp4.mke-transcript.json \
+  "${runtime}/spoken-evidence.mp4.mke-transcript.json"
+cd "${runtime}"
+uv run --project "${archive_root}" mke --db library.sqlite ingest operations-guide.pdf --json
+uv run --project "${archive_root}" mke --db library.sqlite ingest spoken-evidence.mp4 --json
+uv run --project "${archive_root}" mke --db library.sqlite library export \
+  --output compiled-library --json
+uv run --project "${archive_root}" python \
+  "${archive_root}/scripts/compiled_library_export_consumer.py" \
+  --export compiled-library \
+  --source "operations-guide=${runtime}/operations-guide.pdf" \
+  --source "spoken-evidence=${runtime}/spoken-evidence.mp4" \
+  --json
+```
+
+Require `status="passed"`, exact portable schemas, two sources, and three Evidence records. Remove
+only the call-owned archive and runtime directories after recording their identities.
 
 Record the tag object SHA, target commit, publication timestamp, archive filename, archive SHA-256,
 and smoke result in a separate durable release closeout after those facts exist.

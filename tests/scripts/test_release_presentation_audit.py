@@ -692,10 +692,19 @@ def test_audit_rejects_contradictory_affirmative_downstream_claims(
     "overclaim",
     [
         "MKE provides production OCR.",
+        "PaddleOCR-VL 1.6 is the promoted default provider.",
+        "MKE ships a public OCR runtime.",
+        "MKE provides general OCR quality.",
         "MKE reconstructs source layout.",
         "MKE has verified LLM Wiki compatibility.",
         "MKE provides hosted integration.",
         "MKE has real-user adoption.",
+        "The GitHub Release includes extra assets.",
+        "MKE is deployed in production.",
+        "MKE has production adoption.",
+        "MKE delivers business impact.",
+        "MKE is published on PyPI.",
+        "MKE is available from the package registry.",
         "MKE v0.1.3 has been released.",
     ],
 )
@@ -877,6 +886,27 @@ def test_compiled_library_shared_negative_scope_is_not_an_overclaim(
 @pytest.mark.parametrize(
     "claim",
     [
+        "PaddleOCR-VL 1.6 is not the promoted default provider.",
+        "MKE does not ship a public OCR runtime or claim general OCR quality.",
+        "The GitHub Release has zero extra assets.",
+        "MKE is not deployed in production and does not claim production adoption or "
+        "business impact.",
+        "PyPI and other package registries are not published.",
+    ],
+)
+def test_release_boundary_negations_are_not_overclaims(tmp_path: Path, claim: str) -> None:
+    _write_release_tree(tmp_path)
+    (tmp_path / "README.md").write_text(
+        (tmp_path / "README.md").read_text(encoding="utf-8") + f"\n{claim}\n",
+        encoding="utf-8",
+    )
+
+    assert "compiled_library_overclaim" not in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
         "provides production OCR; it is not production OCR",
         "provides production OCR. It is not production OCR.",
         "provides production OCR, but it is not production OCR",
@@ -903,6 +933,38 @@ def test_release_presentation_audit_reports_missing_current_release_note(
     (tmp_path / "docs/releases/v0.1.3.md").unlink()
 
     assert "v013_release_contract" in _rules(tmp_path)
+
+
+def test_release_presentation_audit_accepts_current_repository() -> None:
+    assert audit_release_presentation(ROOT) == []
+
+
+def test_verify_release_co_binds_compiled_export_proof_to_validated_candidate() -> None:
+    text = Path("docs/how-to/verify-release.md").read_text(encoding="utf-8")
+
+    assert "candidate_validation=" in text
+    assert "scripts/compiled_library_export_proof.py" in text
+    assert 'compiled-export-proof.json' in text
+    assert 'proof["proof_input_wheel_sha256"] == validated["wheel_sha256"]' in text
+    assert "The independent candidate validator" in text
+
+
+def test_verify_release_archive_smoke_covers_provenance_and_compiled_export() -> None:
+    text = Path("docs/how-to/verify-release.md").read_text(encoding="utf-8")
+
+    for command in (
+        "scripts/evidence_provenance_proof.py",
+        "mke --db library.sqlite ingest operations-guide.pdf --json",
+        "mke --db library.sqlite ingest spoken-evidence.mp4 --json",
+        "mke --db library.sqlite library export",
+        "scripts/compiled_library_export_consumer.py",
+    ):
+        assert command in text
+    expected_result = (
+        'Require `status="passed"`, exact portable schemas, two sources, and three '
+        "Evidence records."
+    )
+    assert expected_result in text
 
 
 @pytest.mark.parametrize(

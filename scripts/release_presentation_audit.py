@@ -416,6 +416,29 @@ def _line_overclaims_compiled_library(line: str) -> bool:
     lowered = " ".join(line.lower().split())
     claims = (
         (
+            r"\bpaddleocr-vl 1\.6\b.*\b(?:promoted|default) provider\b",
+            (
+                r"\bnot\b.*\bpaddleocr-vl 1\.6\b.*\b(?:promoted|default) provider\b",
+                r"\bpaddleocr-vl 1\.6\b.*\bnot\b.*\b(?:promoted|default) provider\b",
+            ),
+        ),
+        (
+            r"\bpublic ocr runtime\b",
+            (
+                r"\b(?:no|not a) public ocr runtime\b",
+                r"\bnot\b.*\bpublic ocr runtime\b",
+                r"\bdoes not (?:claim|provide|ship|support)\b.*\bpublic ocr runtime\b",
+            ),
+        ),
+        (
+            r"\bgeneral ocr quality\b",
+            (
+                r"\b(?:no|not) general ocr quality\b",
+                r"\bdoes not\b.*\bgeneral ocr quality\b",
+                r"\bdoes not (?:claim|provide|validate|prove|support)\b.*\bgeneral ocr quality\b",
+            ),
+        ),
+        (
             r"\bproduction ocr\b",
             (
                 r"\b(?:is |are )?not\b.*\bproduction ocr\b",
@@ -457,6 +480,52 @@ def _line_overclaims_compiled_library(line: str) -> bool:
             ),
         ),
         (
+            r"\bgithub release\b.*\b(?:includes?|contains?|ships?|uploads?)\b.*\bextra assets?\b",
+            (
+                r"\b(?:no|zero) extra assets?\b",
+                r"\bdoes not (?:include|contain|ship|upload)\b.*\bextra assets?\b",
+            ),
+        ),
+        (
+            r"\bdeployed in production\b",
+            (
+                r"\bnot deployed in production\b",
+                r"\bdoes not (?:claim|validate|prove)\b.*\bdeployed in production\b",
+            ),
+        ),
+        (
+            r"\bproduction adoption\b",
+            (
+                r"\bno production adoption\b",
+                r"\bdoes not (?:claim|validate|prove|provide|support)\b.*\bproduction adoption\b",
+                r"\bproduction adoption\b.*\b(?:claim|claims)? ?(?:remain )?excluded\b",
+            ),
+        ),
+        (
+            r"\bbusiness[- ]impact\b",
+            (
+                r"\bno business[- ]impact\b",
+                r"\bdoes not (?:claim|validate|prove|provide|deliver|support)\b.*\b"
+                r"business[- ]impact\b",
+                r"\bbusiness[- ]impact claims remain excluded\b",
+            ),
+        ),
+        (
+            r"\b(?:pypi|package registr(?:y|ies))\b.*\b(?:published|available)\b",
+            (
+                r"\b(?:pypi|package registr(?:y|ies))\b.*\bnot (?:published|available)\b",
+                r"\bno (?:pypi|package registry) publication\b",
+                r"\b(?:pypi|package registry) publication remains (?:excluded|deferred)\b",
+            ),
+        ),
+        (
+            r"\b(?:published|available)\b.*\b(?:on|from) (?:pypi|the package registry)\b",
+            (
+                r"\bnot (?:published|available)\b.*\b(?:on|from) "
+                r"(?:pypi|the package registry)\b",
+            ),
+        ),
+        (
             r"\bv0\.1\.3\b.*\b(?:released|published|available)\b",
             (r"\bdoes not release v0\.1\.3\b", r"\bv0\.1\.3 is not released\b"),
         ),
@@ -476,12 +545,14 @@ def _audit_compiled_library_claim_boundary(
     violations: list[Violation] = []
     for file_name in files:
         text = _read_text(root, file_name)
-        previous = ""
-        for line_number, line in enumerate(text.splitlines(), start=1):
-            wrapped_negative = re.search(
-                r"\b(?:does not(?: \w+)?|not)$", previous.strip().lower()
-            )
-            context = f"{previous} {line}" if wrapped_negative is not None else line
+        lines = text.splitlines()
+        for index, line in enumerate(lines):
+            context_parts = [line]
+            if index > 0 and not re.search(r"[.!?;]$", lines[index - 1].strip()):
+                context_parts.insert(0, lines[index - 1])
+            if index + 1 < len(lines) and not re.search(r"[.!?;]$", line.strip()):
+                context_parts.append(lines[index + 1])
+            context = " ".join(context_parts)
             if _line_overclaims_compiled_library(line) and _line_overclaims_compiled_library(
                 context
             ):
@@ -489,10 +560,9 @@ def _audit_compiled_library_claim_boundary(
                     Violation(
                         file=file_name,
                         rule="compiled_library_overclaim",
-                        message=f"line {line_number} exceeds the compiled Library claim boundary",
+                        message=f"line {index + 1} exceeds the compiled Library claim boundary",
                     )
                 )
-            previous = line
     return violations
 
 

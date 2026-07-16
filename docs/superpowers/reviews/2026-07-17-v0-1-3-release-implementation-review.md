@@ -1,6 +1,6 @@
 # v0.1.3 Release Closeout Implementation Review
 
-Status: `PENDING AUTHORITATIVE REVIEW`
+Status: `PENDING TARGETED AUTHORITY RE-REVIEW`
 
 Date: 2026-07-17
 
@@ -96,3 +96,25 @@ The four frozen OCR evidence files remain byte-identical to the approved baselin
 Complete repository gates and exact candidate receipt/wheel/proof co-binding remain Task 5 work and
 must be reported before authoritative review. No tag, GitHub Release, PyPI publication, deployment,
 production OCR, or verified LLM Wiki compatibility claim exists.
+
+## Authoritative Review Repair
+
+The first authoritative review found two bounded release-closeout blockers:
+
+1. the presentation audit accepted affirmative claims outside the approved OCR, deployment,
+   adoption, impact, registry-publication, and GitHub Release asset boundaries; and
+2. the public release-verification guide did not co-bind the Compiled Library Export proof to the
+   independently validated candidate wheel, or include the complete archive Evidence-provenance
+   and standalone Compiled Library Export smoke.
+
+The repair adds mutation coverage for each prohibited affirmative claim, explicit negation-aware
+PyPI and package-registry checks, and a live-checkout acceptance test alongside the existing
+missing-release-note regression. The public guide now includes a closed canonical candidate
+validator, exact compiled-proof digest equality, Evidence provenance proof, and a real archive
+`mke library export` plus standalone consumer smoke. Legitimate negative boundary statements
+remain accepted.
+
+These tracked changes invalidate the earlier Task 5 candidate receipt, wheel, installed smoke, and
+compiled-proof output. None is reused or presented as current evidence. A fresh candidate may be
+created only after targeted authority re-review, under the later plan gate. Task 6, Task 7, tag,
+GitHub Release, PyPI publication, and deployment have not started.
