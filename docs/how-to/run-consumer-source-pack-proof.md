@@ -3,7 +3,7 @@
 This how-to runs a source-built proof against the current source checkout. The controller builds
 the current source checkout once, installs that same wheel into two fresh environments for Python
 3.12 and Python 3.13, and runs a copied standalone client through the official MCP SDK. This
-source-built proof is a `v0.1.2` release-candidate verification gate.
+source-built proof is a `v0.1.3` release-candidate verification gate.
 
 ## Prerequisites
 
@@ -116,7 +116,7 @@ environment values, and exception messages are not included.
 
 ## What This Does Not Prove
 
-This source-built wheel is not the final tagged `v0.1.2` Release wheel, not a GitHub Release asset,
+This source-built wheel is not the final tagged `v0.1.3` Release wheel, not a GitHub Release asset,
 not a PyPI artifact, not a deployment, and not proof of production adoption. Candidate output is
 local release-gate evidence, not publication. The proof also does not establish installation from
 an empty machine, network-independent cache provisioning, or OS-level isolation.

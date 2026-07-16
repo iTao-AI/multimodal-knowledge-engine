@@ -22,6 +22,6 @@ This is an installed-wheel external consumer proof. The standalone consumer impo
 and does not read SQLite. The command uses temporary workspaces and removes them before exit; do
 not use `--retained-export` for the generic core proof.
 
-The proof does not verify LLM Wiki compatibility and does not release v0.1.3. It does not validate
+The proof does not verify LLM Wiki compatibility; running the proof does not publish a release. It does not validate
 production OCR, reconstructed layout, hosted integration, adoption, or business impact. LLM Wiki
 acceptance and any release operation remain separate gated work.

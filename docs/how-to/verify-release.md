@@ -77,7 +77,8 @@ git diff --check origin/main...HEAD
 ```
 
 The presentation audit checks that package version identity, README posture, release notes,
-downstream candidate boundaries, and comparison-only retrieval wording agree on `v0.1.2`.
+Compiled Library Export, OCR Phase 0 boundaries, and comparison-only retrieval wording agree on
+`v0.1.3`.
 
 ## Stage 2 Clean Candidate Verification
 
@@ -90,10 +91,10 @@ Run:
 ```bash
 UV_OFFLINE=1 uv build
 uv run python scripts/release_consumer_smoke.py \
-  --wheel dist/multimodal_knowledge_engine-0.1.2-py3-none-any.whl --json
+  --wheel dist/multimodal_knowledge_engine-0.1.3-py3-none-any.whl --json
 
 candidate_parent="$(mktemp -d)"
-candidate_output="${candidate_parent}/mke-v0.1.2-candidate"
+candidate_output="${candidate_parent}/mke-v0.1.3-candidate"
 UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
   --python "$(command -v python3.12)" \
   --python "$(command -v python3.13)" \
@@ -107,7 +108,7 @@ The consumer smoke should:
 - install the wheel into a fresh temporary environment outside the repository;
 - clear source-tree import state such as `PYTHONPATH`, `PYTHONHOME`, and `VIRTUAL_ENV`;
 - verify `mke.__file__` resolves inside installed site-packages, not `src/mke`;
-- verify installed `mke.__version__` and package metadata both equal `0.1.2`;
+- verify installed `mke.__version__` and package metadata both equal `0.1.3`;
 - run `mke proof run`;
 - run `mke demo --verify`;
 - run a lightweight CLI Search/Ask path;
@@ -141,9 +142,9 @@ authorization. Then verify the public archive from a clean temporary directory:
 ```bash
 archive_dir="$(mktemp -d)"
 cd "$archive_dir"
-gh release download v0.1.2 --repo iTao-AI/multimodal-knowledge-engine --archive=tar.gz
-tar -xzf multimodal-knowledge-engine-0.1.2.tar.gz
-cd multimodal-knowledge-engine-0.1.2
+gh release download v0.1.3 --repo iTao-AI/multimodal-knowledge-engine --archive=tar.gz
+tar -xzf multimodal-knowledge-engine-0.1.3.tar.gz
+cd multimodal-knowledge-engine-0.1.3
 uv sync --locked
 uv run mke proof run
 uv run mke demo --verify

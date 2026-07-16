@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.1.3] - 2026-07-17
+
+### Added
+
+- Read-only Compiled Library Export for active Publications with canonical
+  `mke.compiled_library_export.v1`, readable `mke.compiled_markdown.v1`, and authoritative
+  `mke.evidence_ref.v1` JSONL output.
+- Generic installed-wheel Compiled Library Export proof for Python 3.12 and Python 3.13.
+
+### Verified
+
+- Descriptor-bound manifest-last publication, exact digest revalidation, identity-bound cleanup,
+  read-only SQLite snapshots, and an independent standard-library consumer.
+- PDF OCR Phase 0 records bounded closed-protocol planning evidence: PP-OCRv6 medium is the
+  selected production-planning baseline and PaddleOCR-VL 1.6 is a comparison candidate.
+- `cjk-active-scan-overlap-v1` remains the runtime default.
+- Dense, RRF, and reranker artifacts remain comparison-only evidence.
+
+### Not included
+
+- Production OCR remains excluded. LLM Wiki compatibility remains deferred.
+- Retrieval runtime promotion, HTTP/UI/service adapters, hosted deployment, and PyPI publication
+  are excluded. The release does not reconstruct source layout.
+
 ## [0.1.2] - 2026-07-14
 
 ### Added
