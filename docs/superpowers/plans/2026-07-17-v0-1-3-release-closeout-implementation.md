@@ -369,7 +369,8 @@ uv run python -m mke.evaluation.artifact_refresh \
   --e3b-observed "${evidence_dir}/e3b.json"
 ```
 
-On failure, run only `python -m mke.evaluation.artifact_refresh recover --repository .`, then stop.
+On failure, run only
+`UV_OFFLINE=1 uv run python -m mke.evaluation.artifact_refresh recover --repository .`, then stop.
 
 - [ ] **Step 4: Rebind downstream identities in a detached validation mirror**
 
@@ -478,19 +479,133 @@ UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
   --json
 ```
 
-Require exactly one wheel and one receipt. Parse the receipt; do not use a glob-selected `dist/`
-wheel as authority.
+Require exactly one wheel and one receipt. Independently validate the candidate directory and
+receipt before using either as authority; do not use a glob-selected `dist/` wheel or an
+unvalidated receipt field.
+
+Use a call-owned validator and write its result outside the repository:
+
+```bash
+candidate_validation="${candidate_parent}/validated-candidate.json"
+UV_OFFLINE=1 uv run python - "${candidate_output}" "${candidate_validation}" <<'PY'
+import hashlib
+import json
+import os
+import pathlib
+import re
+import stat
+import subprocess
+import sys
+import tomllib
+
+root = pathlib.Path(sys.argv[1])
+output = pathlib.Path(sys.argv[2])
+assert root.is_dir() and not root.is_symlink()
+entries = list(os.scandir(root))
+assert len(entries) == 2
+assert all(not entry.is_symlink() and entry.is_file(follow_symlinks=False) for entry in entries)
+
+receipt_name = "candidate-artifact-receipt.json"
+assert receipt_name in {entry.name for entry in entries}
+receipt_path = root / receipt_name
+receipt_bytes = receipt_path.read_bytes()
+receipt = json.loads(receipt_bytes)
+assert isinstance(receipt, dict)
+expected_keys = {
+    "schema_version",
+    "repository",
+    "source_commit",
+    "package_name",
+    "package_version",
+    "wheel_filename",
+    "wheel_bytes",
+    "wheel_sha256",
+    "requires_python",
+    "consumer_proof_schema",
+    "consumer_proof_status",
+    "proof_input_wheel_sha256",
+    "receipt_sha256",
+}
+assert set(receipt) == expected_keys
+canonical_receipt = json.dumps(
+    receipt, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False
+).encode("utf-8") + b"\n"
+assert receipt_bytes == canonical_receipt
+
+project = tomllib.loads(pathlib.Path("pyproject.toml").read_text(encoding="utf-8"))["project"]
+head = subprocess.run(
+    ["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True
+).stdout.strip()
+expected_wheel_name = "multimodal_knowledge_engine-0.1.3-py3-none-any.whl"
+assert {entry.name for entry in entries} == {receipt_name, expected_wheel_name}
+assert receipt["schema_version"] == "mke.candidate_artifact_receipt.v1"
+assert receipt["repository"] == "iTao-AI/multimodal-knowledge-engine"
+assert receipt["source_commit"] == head
+assert receipt["package_name"] == "multimodal-knowledge-engine"
+assert receipt["package_version"] == "0.1.3"
+assert receipt["requires_python"] == project["requires-python"]
+assert project["name"] == "multimodal-knowledge-engine"
+assert project["version"] == "0.1.3"
+assert receipt["wheel_filename"] == expected_wheel_name
+assert receipt["consumer_proof_schema"] == "mke.consumer_source_pack_proof.v1"
+assert receipt["consumer_proof_status"] == "passed"
+
+wheel_path = root / expected_wheel_name
+flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+descriptor = os.open(wheel_path, flags)
+try:
+    before = os.fstat(descriptor)
+    assert stat.S_ISREG(before.st_mode)
+    wheel_bytes = bytearray()
+    while chunk := os.read(descriptor, 1024 * 1024):
+        wheel_bytes.extend(chunk)
+finally:
+    os.close(descriptor)
+after = os.stat(wheel_path, follow_symlinks=False)
+assert stat.S_ISREG(after.st_mode)
+assert (before.st_dev, before.st_ino, before.st_size) == (
+    after.st_dev,
+    after.st_ino,
+    after.st_size,
+)
+wheel_sha256 = hashlib.sha256(wheel_bytes).hexdigest()
+assert isinstance(receipt["wheel_bytes"], int) and not isinstance(receipt["wheel_bytes"], bool)
+assert receipt["wheel_bytes"] == len(wheel_bytes) == after.st_size
+assert re.fullmatch(r"[0-9a-f]{64}", receipt["wheel_sha256"])
+assert receipt["wheel_sha256"] == wheel_sha256
+assert receipt["proof_input_wheel_sha256"] == wheel_sha256
+
+without_digest = {key: value for key, value in receipt.items() if key != "receipt_sha256"}
+canonical_without_digest = json.dumps(
+    without_digest, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False
+).encode("utf-8")
+assert receipt["receipt_sha256"] == hashlib.sha256(canonical_without_digest).hexdigest()
+
+validated = {"candidate_wheel": str(wheel_path), "wheel_sha256": wheel_sha256}
+output.write_text(
+    json.dumps(validated, sort_keys=True, separators=(",", ":")) + "\n",
+    encoding="utf-8",
+)
+PY
+```
+
+This validation must reject symlinks, non-regular files, extra/trailing directory entries,
+non-canonical receipt bytes, unknown or missing receipt keys, and any source/package/wheel/digest
+drift.
 
 - [ ] **Step 5: Smoke the exact receipt-bound wheel**
 
 ```bash
-candidate_wheel="$(python3 - "${candidate_output}" <<'PY'
+candidate_wheel="$(python3 - "${candidate_validation}" <<'PY'
 import json, pathlib, sys
-root = pathlib.Path(sys.argv[1])
-receipt = json.loads((root / "candidate-artifact-receipt.json").read_text())
-path = root / receipt["wheel_filename"]
-assert path.is_file()
-print(path)
+validated = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+print(validated["candidate_wheel"])
+PY
+)"
+candidate_wheel_sha256="$(python3 - "${candidate_validation}" <<'PY'
+import json, pathlib, sys
+validated = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+print(validated["wheel_sha256"])
 PY
 )"
 UV_OFFLINE=1 uv run python scripts/release_consumer_smoke.py \
@@ -511,8 +626,9 @@ Require:
 - schema `mke.compiled_library_export_proof.v1`;
 - `status="passed"`;
 - interpreter count `2`; and
-- `proof_input_wheel_sha256` exactly equals both `wheel_sha256` and
-  `proof_input_wheel_sha256` in the candidate receipt.
+- `proof_input_wheel_sha256` exactly equals `candidate_wheel_sha256` from the independent
+  candidate validator. The validator has already proved both receipt digest fields equal that
+  descriptor-read wheel digest.
 
 - [ ] **Step 7: Hard stop for authoritative actual-diff review**
 
@@ -566,9 +682,12 @@ the final HEAD. It is sequential and uses a low-complexity mechanical Git/GitHub
 
 - [ ] **Step 1: Push and open a Draft release-candidate PR**
 
-PR body sections: `Summary`, `Scope`, `Verification`, `Claim boundaries`, and `Publication plan`.
-Bind the body to exact final HEAD, wheel/receipt/compiled proof digests, full test count, and frozen
-OCR hashes. Do not upload candidate artifacts.
+PR body sections must include the repository-required `Summary`, `Completion`, `Verification`,
+`Risk / Impact`, and `Documentation impact`. Optional sections `Scope`, `Claim boundaries`, and
+`Publication plan` may follow. Bind the body to exact final HEAD, wheel/receipt/compiled proof
+digests, full test count, and frozen OCR hashes. Do not upload candidate artifacts. After creating
+or updating the PR, read the body back and require it to be non-empty and to contain every mandatory
+section exactly once.
 
 - [ ] **Step 2: Require exact-head CI and platform gates**
 
