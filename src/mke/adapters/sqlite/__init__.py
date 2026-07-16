@@ -16,6 +16,7 @@ from mke.domain import (
     ActivePublicationObservation,
     CandidateEvidence,
     FailurePoint,
+    LibraryExportDataError,
     ManifestValidationError,
     PdfIntakeReport,
     RunEvent,
@@ -62,6 +63,52 @@ if TYPE_CHECKING:
 
 _BUSY_TIMEOUT_MS = 5000
 
+_EXPORT_SCHEMA: dict[str, dict[str, tuple[str, int, int]]] = {
+    "libraries": {
+        "library_id": ("TEXT", 0, 1),
+    },
+    "assets": {
+        "asset_id": ("TEXT", 0, 1),
+        "sha256": ("TEXT", 1, 0),
+        "media_type": ("TEXT", 1, 0),
+    },
+    "sources": {
+        "source_id": ("TEXT", 0, 1),
+        "library_id": ("TEXT", 1, 0),
+        "asset_id": ("TEXT", 1, 0),
+        "display_name": ("TEXT", 1, 0),
+        "active_publication_id": ("TEXT", 0, 0),
+        "active_revision": ("INTEGER", 1, 0),
+    },
+    "runs": {
+        "run_id": ("TEXT", 0, 1),
+        "source_id": ("TEXT", 1, 0),
+        "state": ("TEXT", 1, 0),
+    },
+    "run_manifests": {
+        "run_id": ("TEXT", 0, 1),
+        "evidence_count": ("INTEGER", 1, 0),
+        "required_stages": ("TEXT", 1, 0),
+        "extractor_fingerprint": ("TEXT", 1, 0),
+        "asset_sha256": ("TEXT", 1, 0),
+    },
+    "evidence": {
+        "evidence_id": ("TEXT", 0, 1),
+        "run_id": ("TEXT", 1, 0),
+        "source_id": ("TEXT", 1, 0),
+        "locator_kind": ("TEXT", 1, 0),
+        "locator_start": ("INTEGER", 1, 0),
+        "locator_end": ("INTEGER", 1, 0),
+        "text": ("TEXT", 1, 0),
+    },
+    "publications": {
+        "publication_id": ("TEXT", 0, 1),
+        "source_id": ("TEXT", 1, 0),
+        "run_id": ("TEXT", 1, 0),
+        "revision": ("INTEGER", 1, 0),
+    },
+}
+
 
 def _new_id(prefix: str) -> str:
     return f"{prefix}_{uuid4().hex}"
@@ -81,6 +128,7 @@ class SQLiteStore:
         query_policy: RetrievalQueryPolicy | None = None,
         retrieval_strategy: RetrievalStrategy | None = None,
         search_observer: Callable[[int], None] | None = None,
+        _read_only_export: bool = False,
     ) -> None:
         self.db_path = db_path
         if retrieval_strategy is None:
@@ -96,11 +144,54 @@ class SQLiteStore:
             descriptor.base_query_policy
         )
         self._search_observer = search_observer
+        if _read_only_export:
+            self._open_read_only_export()
+            return
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._connection = sqlite3.connect(self.db_path)
         self._connection.row_factory = sqlite3.Row
         self._configure()
         self.migrate()
+
+    @classmethod
+    def open_read_only_export(cls, db_path: Path) -> SQLiteStore:
+        return cls(db_path, _read_only_export=True)
+
+    def _open_read_only_export(self) -> None:
+        uri = self.db_path.absolute().as_uri() + "?mode=ro"
+        connection = sqlite3.connect(uri, uri=True, autocommit=False)
+        try:
+            connection.row_factory = sqlite3.Row
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute(f"PRAGMA busy_timeout = {_BUSY_TIMEOUT_MS}")
+            connection.execute("PRAGMA query_only = ON")
+            self._connection = connection
+            self._validate_export_schema()
+        except Exception:
+            connection.close()
+            raise
+
+    def _validate_export_schema(self) -> None:
+        query_only = self._connection.execute("PRAGMA query_only").fetchone()
+        encoding = self._connection.execute("PRAGMA encoding").fetchone()
+        if query_only is None or query_only[0] != 1 or encoding is None or encoding[0] != "UTF-8":
+            raise LibraryExportDataError("provenance")
+        for table, expected_columns in _EXPORT_SCHEMA.items():
+            actual_columns = {
+                str(row["name"]): (
+                    str(row["type"]).upper(),
+                    int(row["notnull"]),
+                    int(row["pk"]),
+                )
+                for row in self._connection.execute(
+                    f"PRAGMA table_xinfo({table})"
+                ).fetchall()
+            }
+            if any(
+                actual_columns.get(column) != expected
+                for column, expected in expected_columns.items()
+            ):
+                raise LibraryExportDataError("provenance")
 
     def __enter__(self) -> Self:
         return self
