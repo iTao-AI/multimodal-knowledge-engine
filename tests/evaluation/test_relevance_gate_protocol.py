@@ -42,12 +42,12 @@ def test_protocol_freezes_candidate_inputs_and_profile_catalog() -> None:
     assert inputs["dense_artifact"] == {
         "path": "benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json",
         "bytes": 403821,
-            "sha256": "1cf8bf6ca82b3461443424fab662cf19496beeff705fd955bfbc5c517e539e4d",
+            "sha256": "8282cdd2764fb9bb3aeac02260043c262d359c628c88dd8293885a8e21cd550e",
     }
     assert inputs["rrf_artifact"] == {
         "path": "benchmarks/retrieval/cjk-active-scan-qwen3-rrf-v1-comparison.json",
         "bytes": 117521,
-            "sha256": "5b35a53bd9f6812e2bae45538199638e4e17c911730e37d755634886cdb02035",
+            "sha256": "8d0db52522f56c32f504b980cec684e5fe199100c689c9749061c41494b2f196",
     }
     assert inputs["chinese_protocol"]["sha256"] == (
         "00f72934018a52b5b5f5591fba119050882aee9b782e5dac199702b0cf995944"
