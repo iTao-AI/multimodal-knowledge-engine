@@ -4,6 +4,7 @@ import errno
 import json
 import os
 import stat
+import tempfile
 from collections.abc import Callable
 from hashlib import sha256
 from pathlib import Path
@@ -94,6 +95,47 @@ def _write_same_size_drift(path: Path) -> None:
     original = path.read_bytes()
     assert original
     path.write_bytes(bytes((original[0] ^ 1,)) + original[1:])
+
+
+def _replace_with_identity_distinct_file(
+    path: Path, contents: bytes
+) -> tuple[int, int, int, int, int]:
+    original_identity = _identity(path)
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            dir=path.parent,
+            prefix=f".{path.name}.replacement-",
+            delete=False,
+        ) as temporary:
+            temporary.write(contents)
+            temporary_path = Path(temporary.name)
+        replacement_identity = _identity(temporary_path)
+        assert replacement_identity[:3] != original_identity[:3]
+        os.replace(temporary_path, path)
+        temporary_path = None
+        assert _identity(path) == replacement_identity
+        return replacement_identity
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+
+def test_identity_distinct_replacement_keeps_no_temporary_sibling(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "owned.md"
+    target.write_bytes(b"call-owned")
+    original_identity = _identity(target)
+
+    replacement_identity = _replace_with_identity_distinct_file(
+        target, b"operator-owned replacement"
+    )
+
+    assert replacement_identity[:3] != original_identity[:3]
+    assert _identity(target) == replacement_identity
+    assert target.read_bytes() == b"operator-owned replacement"
+    assert {entry.name for entry in tmp_path.iterdir()} == {"owned.md"}
 
 
 def _assert_error(reason: str, call: Callable[[], object]) -> None:
@@ -307,9 +349,9 @@ def test_content_replacement_after_inventory_before_manifest_fails_closed(
     def replace_after_inventory(target_fd: int, expected: set[str]) -> None:
         nonlocal replacement_identity
         real_inventory(target_fd, expected)
-        replacement.unlink()
-        replacement.write_bytes(b"operator-owned replacement")
-        replacement_identity = _identity(replacement)
+        replacement_identity = _replace_with_identity_distinct_file(
+            replacement, b"operator-owned replacement"
+        )
 
     monkeypatch.setattr(
         publisher, "_validate_exact_inventory", replace_after_inventory
@@ -344,11 +386,12 @@ def test_content_mutation_after_manifest_commit_before_success_fails_closed(
         nonlocal replacement_identity
         real_publish(target_fd)
         if mutation == "replacement":
-            content.unlink()
-            content.write_bytes(b"operator-owned replacement")
+            replacement_identity = _replace_with_identity_distinct_file(
+                content, b"operator-owned replacement"
+            )
         else:
             _write_same_size_drift(content)
-        replacement_identity = _identity(content)
+            replacement_identity = _identity(content)
 
     monkeypatch.setattr(publisher, "_publish_manifest", mutate_after_commit)
 
@@ -380,11 +423,12 @@ def test_manifest_mutation_after_commit_before_success_fails_closed(
         nonlocal replacement_identity
         real_publish(target_fd)
         if mutation == "replacement":
-            manifest.unlink()
-            manifest.write_bytes(b"operator-owned replacement")
+            replacement_identity = _replace_with_identity_distinct_file(
+                manifest, b"operator-owned replacement"
+            )
         else:
             _write_same_size_drift(manifest)
-        replacement_identity = _identity(manifest)
+            replacement_identity = _identity(manifest)
 
     monkeypatch.setattr(publisher, "_publish_manifest", mutate_after_commit)
 
@@ -695,8 +739,7 @@ def test_replaced_child_survives_identity_bound_cleanup(
 ) -> None:
     def replace_child(_target_fd: int, _expected: set[str]) -> None:
         child = tmp_path / "compiled-library" / "sources" / f"{'a' * 64}.md"
-        child.unlink()
-        child.write_bytes(b"operator-owned replacement")
+        _replace_with_identity_distinct_file(child, b"operator-owned replacement")
         raise OSError("force cleanup")
 
     monkeypatch.setattr(publisher, "_validate_exact_inventory", replace_child)
