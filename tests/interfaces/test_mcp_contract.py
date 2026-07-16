@@ -256,6 +256,16 @@ def test_mcp_search_and_ask_tool_schemas_have_no_request_time_strategy(
         assert '"strategy"' not in schema
 
 
+def test_mcp_inventory_does_not_expose_library_export(tmp_path: Path) -> None:
+    server = build_mcp_server(_config(tmp_path, PDF_FIXTURES))
+    tools = asyncio.run(server.list_tools())
+    rendered = json.dumps(
+        {tool.name: {"input": tool.inputSchema, "output": tool.outputSchema} for tool in tools},
+        sort_keys=True,
+    )
+    assert "library_export" not in rendered
+
+
 def test_mcp_video_failure_does_not_leak_provider_diagnostics(tmp_path: Path) -> None:
     video = tmp_path / "bad.mp4"
     video.write_bytes(b"fake mp4 bytes")
