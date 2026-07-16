@@ -1,8 +1,10 @@
 # Compiled Library Export v1 Implementation Plan
 
-Status: Tasks 1-3 are implemented and authority-accepted. After the exact public plan/review bytes
-are mechanically synchronized, Tasks 4-8 may proceed as one continuous execution batch through the
-Task 8 pre-PR authority hard stop.
+Status: Tasks 1-7 and Task 8 documentation are implemented through
+`03a8393ab2d0fefb126ae6c4ebdd7d96a4e21770`. Task 8 Step 5 exposed one pytest collection-only
+scope gap. The accepted amendment adds two empty test package markers, reruns the complete
+final-candidate gates on the new committed HEAD, and then stops at Task 8 Step 6 for authoritative
+pre-PR review.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use
@@ -110,6 +112,9 @@ closed public response validation, Pytest, Ruff, Pyright, Hatch/uv, and GitHub A
 
 ### Tests and proof
 
+- Create empty `tests/application/__init__.py` and `tests/domain/__init__.py` package markers so
+  their approved same-basename test modules have distinct import identities. Do not rename either
+  test or change global pytest import configuration.
 - Create `tests/domain/test_library_export.py`.
 - Create `tests/adapters/test_sqlite_library_export.py`.
 - Create `tests/application/test_library_export.py`.
@@ -145,6 +150,9 @@ closed public response validation, Pytest, Ruff, Pyright, Hatch/uv, and GitHub A
 2. Complete Tasks 1–7 sequentially with one local commit per task and near-field review after each.
 3. Complete Task 8 core documentation and preliminary final verification, then hard stop for the
    authoritative pre-PR diff review.
+   If the approved `tests/application/test_library_export.py` and
+   `tests/domain/test_library_export.py` collide during collection, add only the two empty package
+   markers listed above. This is a test-collection correction, not a product or package surface.
 4. Findings return to the implementation window for evidence-backed repair and targeted re-review.
    After the accepted review closure commit, rerun the generic installed-wheel proof and full gates
    on the final committed candidate with no later tracked write.
@@ -1258,6 +1266,8 @@ git commit -m "proof(export): verify installed library portability"
 ### Task 8: Document the core contract and close verification
 
 **Files:**
+- Create: `tests/application/__init__.py` (empty package marker)
+- Create: `tests/domain/__init__.py` (empty package marker)
 - Modify: `README.md`
 - Modify: `README_CN.md`
 - Modify: `docs/README.md`
@@ -1333,10 +1343,32 @@ not change package version or any Task 1–7 product/proof file.
 
 - [ ] **Step 5: Run preliminary final-candidate verification**
 
-Run the full command set from Step 8, including the generic same-wheel Python 3.12/3.13 proof, on
-the committed implementation/docs candidate. Record full counts, wheel digest, proof aggregate,
-changed-file audit, and clean worktree. Do not use `--retained-export`; retained output belongs to
-the follow-up compatibility PR.
+Preserve the observed RED evidence that bare full-suite collection imported both approved files as
+top-level `test_library_export`. Add exactly two zero-byte files:
+
+```text
+tests/application/__init__.py
+tests/domain/__init__.py
+```
+
+Do not rename either approved test file, add other package markers, or change `pyproject.toml` /
+pytest import mode. Verify both files are empty, collection reaches the test suite, and commit this
+bounded correction:
+
+```bash
+test ! -s tests/application/__init__.py
+test ! -s tests/domain/__init__.py
+UV_OFFLINE=1 uv run pytest -q --collect-only
+git add tests/application/__init__.py tests/domain/__init__.py
+git diff --cached --check
+git commit -m "test(export): isolate pytest module names"
+```
+
+Then run the full command set from Step 8, including a fresh generic same-wheel Python 3.12/3.13
+proof, on the new committed implementation/docs candidate. The Task 7 wheel digest is historical
+evidence after these tracked commits and must not be reused as final authority. Record full counts,
+the freshly built wheel digest, proof aggregate, changed-file audit, and clean worktree. Do not use
+`--retained-export`; retained output belongs to the follow-up compatibility PR.
 
 - [ ] **Step 6: Hard stop for authoritative pre-PR review**
 

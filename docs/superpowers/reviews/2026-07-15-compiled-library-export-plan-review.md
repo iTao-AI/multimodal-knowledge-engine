@@ -1,6 +1,6 @@
 # Compiled Library Export v1 Plan Engineering Review
 
-Status: `TASK 3 ACCEPTED / CLEARED FOR BATCHED TASKS 4-8`
+Status: `TASK 8 COLLECTION AMENDMENT ACCEPTED / CLEARED FOR STEP 5-6`
 
 Date: 2026-07-15
 
@@ -277,6 +277,9 @@ All review-derived amendments are already folded into the written plans:
 - [x] **T12 (P1)** — SQLite type authority — validate exact runtime storage classes before DTO
   construction; never use Python `str()`/`int()` coercion to fabricate valid text or numeric fields
   from BLOB/TEXT/REAL drift.
+- [x] **T13 (P1)** — pytest collection identity — keep both approved `test_library_export.py`
+  paths and add only empty `tests/application/__init__.py` and `tests/domain/__init__.py` package
+  markers; do not rename tests or change repository-wide import mode.
 
 ## Task 3 Targeted Authority Re-review
 
@@ -305,13 +308,38 @@ commit on parent `81278b2`.
 Verdict: `ACCEPTED`. No Critical, Important, or Minor Task 3 finding remains. The exact public docs
 sync may be followed immediately by batched Tasks 4-8; no separate docs hard stop is required.
 
+## Task 8 Collection Amendment
+
+At `03a8393ab2d0fefb126ae6c4ebdd7d96a4e21770`, the first bare full-suite command stopped during
+collection because `tests/application/test_library_export.py` and
+`tests/domain/test_library_export.py` were both imported as top-level `test_library_export`.
+This is a real acceptance blocker because no full-suite result exists, but it does not change the
+Compiled Library Export contract.
+
+The repository already uses empty package markers to isolate same-basename tests under other test
+subdirectories. The bounded resolution is therefore accepted:
+
+- add only zero-byte `tests/application/__init__.py` and `tests/domain/__init__.py`;
+- preserve both plan-approved test filenames and their existing references;
+- do not change `pyproject.toml`, pytest import mode, production packages, or runtime behavior;
+- commit the marker correction before rerunning collection and the complete Step 5 gates;
+- rebuild the installed-wheel proof on the resulting committed HEAD rather than reusing the Task 7
+  candidate digest;
+- hard stop after Step 5 evidence so the planning/review authority can perform Step 6.
+
+An independent repository-external archive simulation added both empty markers and collected the
+73 focused tests successfully. The modules resolved as `tests.application.test_library_export` and
+`tests.domain.test_library_export`; wheel packaging remains limited to `src/mke`.
+
+Verdict: `ACCEPTED / CLEARED FOR TASK 8 STEP 5-6`.
+
 ## Completion Summary
 
 - Step 0 Scope Challenge: scope reduced to two sequential PRs without reducing the end state.
 - Architecture Review: 4 issues found, all folded into the plans.
 - Code Quality Review: 2 issues found, all folded into the plans.
 - Live-Code Authority Review: 6 contradictions found across preflight and Task 3, all folded into
-  the design and core plan.
+  the design and core plan; one later pytest collection identity gap was folded into the core plan.
 - Test Review: diagram produced, 0 remaining gaps.
 - Performance Review: 0 issues found.
 - NOT in scope: written.
@@ -328,8 +356,10 @@ sync may be followed immediately by batched Tasks 4-8; no separate docs hard sto
 Explicit product and plan approval was received on 2026-07-15, and the initial mechanical landing
 was accepted at `10bbee5b2aea5fd0fd4c9631e31b786606a9b00a`. The preflight amendment landed at
 `3bb2cfb1b3c71547156b0d564a5b3ad8a28cdeda`. Task 3 is accepted at
-`652e5360f27dacd27140cda438e374e226ccd304`. Mechanically replace only the public core plan and plan
-review with these exact bytes, verify byte equality and scope, and commit that docs-only sync.
-Without another authority stop, continue Tasks 4-8 sequentially and stop at Task 8 Step 6 for the
-single authoritative pre-PR review. Earlier stops remain mandatory only for a concrete architecture
-conflict, scope expansion, external side effect, or a same-finding repair that has failed twice.
+`652e5360f27dacd27140cda438e374e226ccd304`. Tasks 4-7 and Task 8 documentation are now implemented
+through `03a8393ab2d0fefb126ae6c4ebdd7d96a4e21770`. Mechanically replace only the public core plan and
+plan review with these exact bytes, verify byte equality and scope, and commit that docs-only sync.
+Then add and commit the two empty test package markers, rerun Task 8 Step 5 on that committed HEAD,
+and stop at Step 6 for the single authoritative pre-PR review. Earlier stops remain mandatory only
+for a concrete architecture conflict, scope expansion, external side effect, or a same-finding
+repair that has failed twice.
