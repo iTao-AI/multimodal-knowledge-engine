@@ -21,6 +21,14 @@ RELEASE_FACING_FILES = (
     "docs/releases/v0.1.2.md",
     "docs/how-to/verify-release.md",
 )
+COMPILED_LIBRARY_CLAIM_FILES = (
+    *RELEASE_FACING_FILES,
+    "docs/explanation/architecture.md",
+    "docs/how-to/export-compiled-library.md",
+    "docs/how-to/run-compiled-library-export-proof.md",
+    "docs/reference/cli.md",
+    "docs/reference/contracts.md",
+)
 ENTRY_POINT_FILES = (
     "README.md",
     "README_CN.md",
@@ -405,38 +413,59 @@ def _audit_comparison_boundary(root: Path, files: Iterable[str]) -> list[Violati
 
 def _line_overclaims_compiled_library(line: str) -> bool:
     lowered = " ".join(line.lower().split())
-    safe_markers = (
-        "not production ocr",
-        "production ocr remains excluded",
-        "不是 production ocr",
-        "does not reconstruct",
-        "not reconstruct",
-        "not reconstructed",
-        "does not claim reconstructed",
-        "不重建 layout",
-        "not verified llm wiki",
-        "llm wiki compatibility remains deferred",
-        "does not verify llm wiki compatibility",
-        "no hosted integration",
-        "does not claim hosted integration",
-        "does not prove hosted integration",
-        "no real-user adoption",
-        "does not claim real-user adoption",
-        "does not prove real-user adoption",
-        "does not release v0.1.3",
-        "v0.1.3 is not released",
+    claims = (
+        (
+            r"\bproduction ocr\b",
+            (
+                "not production ocr",
+                "production ocr remains excluded",
+                "不是 production ocr",
+            ),
+        ),
+        (
+            r"\b(?:reconstructs?|reconstructed|recovers?|recovered) (?:the )?(?:source )?layout\b",
+            (
+                "does not reconstruct",
+                "not reconstruct",
+                "not reconstructed",
+                "does not claim reconstructed",
+                "不重建 layout",
+            ),
+        ),
+        (
+            r"\b(?:verified|proven|supports?) llm wiki compatibility\b",
+            (
+                "not verified llm wiki",
+                "llm wiki compatibility remains deferred",
+                "does not verify llm wiki compatibility",
+            ),
+        ),
+        (
+            r"\bhosted integration\b",
+            (
+                "no hosted integration",
+                "does not claim hosted integration",
+                "does not prove hosted integration",
+            ),
+        ),
+        (
+            r"\breal-user adoption\b",
+            (
+                "no real-user adoption",
+                "does not claim real-user adoption",
+                "does not prove real-user adoption",
+            ),
+        ),
+        (
+            r"\bv0\.1\.3\b.*\b(?:released|published|available)\b",
+            ("does not release v0.1.3", "v0.1.3 is not released"),
+        ),
     )
-    if any(marker in lowered for marker in safe_markers):
-        return False
-    patterns = (
-        r"\bproduction ocr\b",
-        r"\b(?:reconstructs?|reconstructed|recovers?|recovered) (?:the )?(?:source )?layout\b",
-        r"\b(?:verified|proven|supports?) llm wiki compatibility\b",
-        r"\bhosted integration\b",
-        r"\breal-user adoption\b",
-        r"\bv0\.1\.3\b.*\b(?:released|published|available)\b",
+    return any(
+        re.search(pattern, lowered) is not None
+        and not any(marker in lowered for marker in safe_markers)
+        for pattern, safe_markers in claims
     )
-    return any(re.search(pattern, lowered) for pattern in patterns)
 
 
 def _audit_compiled_library_claim_boundary(
@@ -650,7 +679,9 @@ def audit_release_presentation(root: Path) -> list[Violation]:
     violations.extend(_audit_runtime_default(root))
     violations.extend(_audit_readme_presentation(root))
     violations.extend(_audit_comparison_boundary(root, release_files))
-    violations.extend(_audit_compiled_library_claim_boundary(root, release_files))
+    violations.extend(
+        _audit_compiled_library_claim_boundary(root, COMPILED_LIBRARY_CLAIM_FILES)
+    )
     violations.extend(_audit_release_notes_links(root))
     violations.extend(_audit_stale_status(root, release_files))
     violations.extend(

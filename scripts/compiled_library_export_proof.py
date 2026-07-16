@@ -58,6 +58,25 @@ _CONSUMER_SUCCESS = {
     "source_count": 2,
     "status": "passed",
 }
+_PRODUCER_FAILURES = {
+    "target_exists": {
+        "schema_version": "mke.compiled_library_export_response.v1",
+        "ok": False,
+        "problem": "output_path_invalid",
+        "cause": "output directory must not already exist",
+        "active_publication_impact": "unchanged",
+        "next_step": "choose_new_output_directory",
+    },
+    "provenance": {
+        "schema_version": "mke.compiled_library_export_response.v1",
+        "ok": False,
+        "problem": "library_export_invalid",
+        "cause": "active Publication provenance graph is invalid",
+        "active_publication_impact": "unchanged",
+        "next_step": "repair_local_library",
+    },
+}
+_CONSUMER_FAILURE = {"status": "failed", "code": "export_invalid"}
 
 
 class ControllerError(RuntimeError):
@@ -277,6 +296,47 @@ def _payload(stdout: bytes, code: str) -> dict[str, object]:
     return cast(dict[str, object], value)
 
 
+def _producer_export_payload(
+    stdout: bytes, *, expected_failure: str | None
+) -> dict[str, object]:
+    payload = _payload(stdout, "producer_failed")
+    if expected_failure is not None:
+        expected = _PRODUCER_FAILURES.get(expected_failure)
+        if expected is None or payload != expected:
+            raise ControllerError("producer_failed")
+        return payload
+    if (
+        set(payload)
+        != {
+            "schema_version",
+            "ok",
+            "library_id",
+            "source_count",
+            "evidence_count",
+            "manifest_sha256",
+        }
+        or payload.get("schema_version") != "mke.compiled_library_export_response.v1"
+        or payload.get("ok") is not True
+        or payload.get("library_id") != "local"
+        or type(payload.get("source_count")) is not int
+        or payload.get("source_count") != 2
+        or type(payload.get("evidence_count")) is not int
+        or payload.get("evidence_count") != 3
+        or type(payload.get("manifest_sha256")) is not str
+        or _SHA256.fullmatch(cast(str, payload["manifest_sha256"])) is None
+    ):
+        raise ControllerError("producer_failed")
+    return payload
+
+
+def _consumer_payload(stdout: bytes, *, success: bool) -> dict[str, object]:
+    payload = _payload(stdout, "consumer_failed")
+    expected = _CONSUMER_SUCCESS if success else _CONSUMER_FAILURE
+    if payload != expected:
+        raise ControllerError("consumer_failed")
+    return payload
+
+
 def _consumer_command(
     config: ProofConfig,
     python: Path,
@@ -306,12 +366,7 @@ def _consumer_command(
         config=config,
         success=success,
     )
-    payload = _payload(stdout, "consumer_failed")
-    if success and payload != _CONSUMER_SUCCESS:
-        raise ControllerError("consumer_failed")
-    if not success and set(payload) != {"status", "code"}:
-        raise ControllerError("consumer_failed")
-    return payload
+    return _consumer_payload(stdout, success=success)
 
 
 def _copy_fixture(source: Path, target: Path) -> None:
@@ -453,17 +508,23 @@ def _prove_interpreter(
         )
     exports: list[Path] = []
 
-    def export(name: str, database_path: Path = database, *, success: bool = True) -> Path:
+    def export(
+        name: str,
+        database_path: Path = database,
+        *,
+        expected_failure: str | None = None,
+    ) -> Path:
         target = workspace / name
-        _command(
+        stdout, _ = _command(
             "producer_failed",
             [str(mke), "--db", str(database_path), "library", "export", "--output", name, "--json"],
             cwd=workspace,
             env=env,
             config=config,
-            success=success,
+            success=expected_failure is None,
         )
-        if success:
+        _producer_export_payload(stdout, expected_failure=expected_failure)
+        if expected_failure is None:
             exports.append(target)
         return target
 
@@ -477,14 +538,14 @@ def _prove_interpreter(
     _consumer_command(config, python, consumer, portable, pdf, video, env, success=True)
 
     before = _manifest_identity(first)
-    export("export-first", success=False)
+    export("export-first", expected_failure="target_exists")
     after_existing = export("state-after-existing")
     if _manifest_identity(after_existing) != before:
         raise ControllerError("producer_failed")
     corrupted = workspace / "corrupted.sqlite"
     shutil.copyfile(database, corrupted)
     _corrupt_database_provenance(corrupted)
-    export("corrupted-output", corrupted, success=False)
+    export("corrupted-output", corrupted, expected_failure="provenance")
     after_corrupt = export("state-after-corrupt")
     if _manifest_identity(after_corrupt) != before:
         raise ControllerError("producer_failed")
@@ -614,7 +675,7 @@ def _publish_retained(config: ProofConfig, root: Path, aggregate: Mapping[str, o
 
 
 def run_proof(config: ProofConfig) -> dict[str, object]:
-    if len(config.python_interpreters) != 2:
+    if os.environ.get("UV_OFFLINE") != "1" or len(config.python_interpreters) != 2:
         raise ControllerError("proof_failed")
     paths = tuple(path.resolve() for path in config.python_interpreters)
     if paths[0] == paths[1]:

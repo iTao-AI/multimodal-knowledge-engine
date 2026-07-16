@@ -148,6 +148,107 @@ def test_aggregate_is_closed_and_requires_one_digest_for_two_interpreters() -> N
 
 
 @pytest.mark.parametrize(
+    ("expected_failure", "stdout"),
+    [
+        ("target_exists", b""),
+        ("target_exists", b"Traceback: crashed\n"),
+        ("target_exists", b'{"ok":false}\n'),
+        (
+            "target_exists",
+            b'{"active_publication_impact":"unchanged","cause":"output directory must not '
+            b'already exist","next_step":"choose_new_output_directory","ok":false,'
+            b'"problem":"wrong_problem","schema_version":'
+            b'"mke.compiled_library_export_response.v1"}\n',
+        ),
+        (
+            "provenance",
+            b'{"active_publication_impact":"unchanged","cause":"active Publication provenance '
+            b'graph is invalid","extra":true,"next_step":"repair_local_library","ok":false,'
+            b'"problem":"library_export_invalid","schema_version":'
+            b'"mke.compiled_library_export_response.v1"}\n',
+        ),
+    ],
+)
+def test_producer_negative_requires_exact_closed_public_payload(
+    expected_failure: str, stdout: bytes
+) -> None:
+    proof = _load()
+    with pytest.raises(proof.ControllerError, match="producer_failed"):
+        proof._producer_export_payload(stdout, expected_failure=expected_failure)
+
+
+@pytest.mark.parametrize(
+    "stdout",
+    [
+        b"",
+        b"Traceback: crashed\n",
+        b'{"code":"export_invalid","status":"passed"}\n',
+        b'{"code":"wrong","status":"failed"}\n',
+        b'{"code":"export_invalid","extra":true,"status":"failed"}\n',
+    ],
+)
+def test_consumer_negative_requires_exact_closed_failure_payload(stdout: bytes) -> None:
+    proof = _load()
+    with pytest.raises(proof.ControllerError, match="consumer_failed"):
+        proof._consumer_payload(stdout, success=False)
+
+
+@pytest.mark.parametrize("offline", [None, "0", "true"])
+def test_run_proof_requires_explicit_offline_authority(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    offline: str | None,
+) -> None:
+    proof = _load()
+    if offline is None:
+        monkeypatch.delenv("UV_OFFLINE", raising=False)
+    else:
+        monkeypatch.setenv("UV_OFFLINE", offline)
+    monkeypatch.setattr(
+        proof.tempfile,
+        "mkdtemp",
+        lambda **_kwargs: pytest.fail("proof allocated state before offline validation"),
+    )
+    config = proof.ProofConfig(
+        tmp_path, (Path("/python3.12"), Path("/python3.13")), 10, 100, 100
+    )
+    with pytest.raises(proof.ControllerError, match="proof_failed"):
+        proof.run_proof(config)
+
+
+@pytest.mark.parametrize("cleanup_behavior", ["raises", "leaves_root"])
+def test_run_proof_reports_root_cleanup_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    cleanup_behavior: str,
+) -> None:
+    proof = _load()
+    root = tmp_path / "owned"
+    root.mkdir()
+    monkeypatch.setenv("UV_OFFLINE", "1")
+    monkeypatch.setattr(proof.tempfile, "mkdtemp", lambda **_kwargs: str(root))
+
+    def fail_build(*_args: object) -> tuple[Path, str]:
+        raise proof.ControllerError("proof_failed")
+
+    monkeypatch.setattr(proof, "_build_candidate", fail_build)
+    if cleanup_behavior == "raises":
+
+        def fail_cleanup(_path: Path) -> None:
+            raise OSError("simulated cleanup failure")
+
+        monkeypatch.setattr(proof.shutil, "rmtree", fail_cleanup)
+    else:
+        monkeypatch.setattr(proof.shutil, "rmtree", lambda _path: None)
+
+    config = proof.ProofConfig(
+        tmp_path, (Path("/python3.12"), Path("/python3.13")), 10, 100, 100
+    )
+    with pytest.raises(proof.ControllerError, match="cleanup_failed"):
+        proof.run_proof(config)
+
+
+@pytest.mark.parametrize(
     "drift_target", [None, "state-after-existing", "state-after-corrupt"]
 )
 def test_run_proof_builds_one_candidate_and_checks_identity_invariants(
@@ -283,8 +384,24 @@ def test_run_proof_builds_one_candidate_and_checks_identity_invariants(
             target = cwd / name
             if target.exists() or name == "corrupted-output":
                 returncode = 1
+                failure = (
+                    proof._PRODUCER_FAILURES["provenance"]
+                    if name == "corrupted-output"
+                    else proof._PRODUCER_FAILURES["target_exists"]
+                )
+                stdout = proof.canonical_json(failure)
             else:
                 export_tree(target)
+                stdout = proof.canonical_json(
+                    {
+                        "schema_version": "mke.compiled_library_export_response.v1",
+                        "ok": True,
+                        "library_id": "local",
+                        "source_count": 2,
+                        "evidence_count": 3,
+                        "manifest_sha256": "a" * 64,
+                    }
+                )
         elif Path(argv[1]).name == "compiled_library_export_consumer.py":
             index = int(Path(argv[0]).parents[1].name.rsplit("-", 1)[1])
             target = Path(argv[argv.index("--export") + 1])

@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from pytest import CaptureFixture, MonkeyPatch
 
+import mke.application.library_export as library_renderer
 import mke.cli
 import mke.interfaces.library_export as library_export
 from mke.adapters.filesystem import OutputPublicationError
@@ -97,6 +98,33 @@ def test_library_export_success_close_failure_replaces_success_before_print(
         ),
         forbidden=(str(tmp_path), "CloseError", "Traceback", "RuntimeError", '"ok":true'),
     )
+    assert not (tmp_path / "close-failed").exists()
+
+
+def test_library_export_real_render_limit_uses_too_large_contract_and_cleans_target(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    capsys: CaptureFixture[str],
+) -> None:
+    db_path = tmp_path / "mke.sqlite"
+    _ingest_library(db_path, capsys)
+    monkeypatch.setattr(library_renderer, "_MAX_RENDERED_FILE_BYTES", 1)
+
+    assert (
+        library_export.run_library_export(
+            db_path, "render-too-large", json_output=True, parent=tmp_path
+        )
+        == 1
+    )
+    _assert_closed_error(
+        capsys.readouterr().out,
+        (
+            "library_export_too_large",
+            "active Library exceeds v1 export limits",
+            "reduce_active_library_or_use_later_export_version",
+        ),
+    )
+    assert not (tmp_path / "render-too-large").exists()
 
 
 def test_library_export_typed_failure_close_failure_is_one_redacted_output(
@@ -469,6 +497,40 @@ def test_library_export_missing_database_is_stable_and_runtime_is_not_built(
     }
     assert not (tmp_path / "missing.sqlite").exists()
     assert not (Path.cwd() / "out").exists()
+
+
+def test_library_export_schema_missing_library_name_is_database_incompatible(
+    tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "mke.sqlite"
+    _ingest_library(db_path, capsys)
+    connection = sqlite3.connect(db_path)
+    connection.executescript(
+        """
+        PRAGMA foreign_keys = OFF;
+        CREATE TABLE libraries_replacement (library_id TEXT PRIMARY KEY);
+        INSERT INTO libraries_replacement SELECT library_id FROM libraries;
+        DROP TABLE libraries;
+        ALTER TABLE libraries_replacement RENAME TO libraries;
+        """
+    )
+    connection.close()
+
+    assert (
+        library_export.run_library_export(
+            db_path, "out", json_output=True, parent=tmp_path
+        )
+        == 1
+    )
+    _assert_closed_error(
+        capsys.readouterr().out,
+        (
+            "library_export_invalid",
+            "local Library database is unavailable or incompatible",
+            "open_current_library_database",
+        ),
+    )
+    assert not (tmp_path / "out").exists()
 
 
 def test_library_export_real_no_active_failure_preserves_active_state(

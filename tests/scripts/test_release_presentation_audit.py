@@ -808,6 +808,45 @@ def test_audit_rejects_non_neutral_public_positioning(
     assert "public_boundary" in _rules(tmp_path)
 
 
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "verified LLM Wiki compatibility, but does not release v0.1.3",
+        "production OCR; LLM Wiki compatibility remains deferred",
+    ],
+)
+def test_compiled_library_safe_marker_does_not_mask_another_overclaim(
+    tmp_path: Path, claim: str
+) -> None:
+    _write_release_tree(tmp_path)
+    (tmp_path / "README.md").write_text(
+        (tmp_path / "README.md").read_text(encoding="utf-8") + f"\n{claim}\n",
+        encoding="utf-8",
+    )
+
+    assert "compiled_library_overclaim" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "docs/how-to/export-compiled-library.md",
+        "docs/how-to/run-compiled-library-export-proof.md",
+        "docs/reference/cli.md",
+        "docs/reference/contracts.md",
+    ],
+)
+def test_compiled_library_claim_audit_covers_feature_public_docs(
+    tmp_path: Path, relative: str
+) -> None:
+    _write_release_tree(tmp_path)
+    path = tmp_path / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("# Feature\n\nverified LLM Wiki compatibility\n", encoding="utf-8")
+
+    assert "compiled_library_overclaim" in _rules(tmp_path)
+
+
 def test_audit_rejects_private_paths_gstack_artifacts_credentials_and_tracebacks(
     tmp_path: Path,
 ) -> None:

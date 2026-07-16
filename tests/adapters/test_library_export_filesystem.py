@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import json
 import os
 import stat
@@ -376,6 +377,33 @@ def test_post_mkdir_lstat_failure_never_reports_untracked_parent_invalid(
     )
     target = tmp_path / "compiled-library"
     assert not target.exists() or list(target.iterdir()) == []
+
+
+@pytest.mark.parametrize("error_number", [errno.ENOSPC, errno.EDQUOT, errno.EIO])
+def test_initial_target_storage_failure_is_not_misreported_as_invalid_parent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, error_number: int
+) -> None:
+    real_mkdir = publisher.os.mkdir
+
+    def fail_target_mkdir(
+        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> None:
+        if path == "compiled-library":
+            raise OSError(error_number, "injected storage failure")
+        real_mkdir(path, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(publisher.os, "mkdir", fail_target_mkdir)
+
+    _assert_error(
+        "write_failed",
+        lambda: publish_compiled_library(
+            _snapshot(), output_name="compiled-library", parent=tmp_path
+        ),
+    )
+    assert not (tmp_path / "compiled-library").exists()
 
 
 @pytest.mark.parametrize("failure", ["short_write", "write_oserror", "digest"])

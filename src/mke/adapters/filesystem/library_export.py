@@ -17,7 +17,7 @@ from mke.application.library_export import (
     render_evidence_jsonl,
     render_export_manifest,
 )
-from mke.domain import CompiledLibrarySnapshot
+from mke.domain import CompiledLibrarySnapshot, LibraryExportDataError
 
 _MANIFEST_NAME = "export-manifest.json"
 _TEMP_MANIFEST_NAME = ".export-manifest.json.tmp"
@@ -26,6 +26,18 @@ _FILE_FLAGS = (
     os.O_RDWR | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
 )
 _READ_CHUNK_BYTES = 64 * 1024
+_INVALID_PARENT_ERRNOS = frozenset(
+    {
+        errno.EACCES,
+        errno.EINVAL,
+        errno.ELOOP,
+        errno.ENAMETOOLONG,
+        errno.ENOENT,
+        errno.ENOTDIR,
+        errno.EPERM,
+        errno.EROFS,
+    }
+)
 
 OutputPublicationReason = Literal[
     "target_exists", "parent_invalid", "write_failed", "cleanup_failed"
@@ -374,6 +386,13 @@ def publish_compiled_library(
             os.mkdir(output_name, mode=0o700, dir_fd=parent_fd)
         except FileExistsError as exc:
             raise OutputPublicationError("target_exists") from exc
+        except OSError as exc:
+            reason: OutputPublicationReason = (
+                "parent_invalid"
+                if exc.errno in _INVALID_PARENT_ERRNOS
+                else "write_failed"
+            )
+            raise OutputPublicationError(reason) from exc
         target_created = True
         target_value = _lstat(output_name, parent_fd)
         target_identity = _identity(target_value)
@@ -453,6 +472,19 @@ def publish_compiled_library(
         _revalidate_target(parent_fd, output_name, target_fd, target_identity)
         _publish_manifest(target_fd)
         return result
+    except LibraryExportDataError as exc:
+        if not target_created:
+            raise
+        if target_identity is None:
+            raise OutputPublicationError("cleanup_failed") from exc
+        cleaned = (
+            _cleanup(parent_fd, target_fd, output_name, target_identity, owned)
+            if target_fd is not None
+            else _cleanup_target_only(parent_fd, output_name, target_identity)
+        )
+        if not cleaned:
+            raise OutputPublicationError("cleanup_failed") from exc
+        raise
     except OutputPublicationError as exc:
         if not target_created:
             raise

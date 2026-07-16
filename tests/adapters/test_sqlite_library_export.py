@@ -153,6 +153,30 @@ def test_read_only_export_rejects_incompatible_schema_without_mutation(
     assert db_path.read_bytes() == before
 
 
+def test_read_only_export_rejects_schema_missing_library_name_without_mutation(
+    tmp_path: Path,
+) -> None:
+    db_path = populated_database(tmp_path)
+    connection = sqlite3.connect(db_path)
+    connection.executescript(
+        """
+        PRAGMA foreign_keys = OFF;
+        CREATE TABLE libraries_replacement (library_id TEXT PRIMARY KEY);
+        INSERT INTO libraries_replacement SELECT library_id FROM libraries;
+        DROP TABLE libraries;
+        ALTER TABLE libraries_replacement RENAME TO libraries;
+        """
+    )
+    connection.close()
+    before = db_path.read_bytes()
+
+    with pytest.raises(LibraryExportDataError) as exc_info:
+        SQLiteStore.open_read_only_export(db_path)
+
+    assert exc_info.value.reason == "provenance"
+    assert db_path.read_bytes() == before
+
+
 def test_read_only_export_does_not_recover_unfinished_run(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -155,42 +155,15 @@ def run_library_export(
         return 1
 
     close_error: Exception | None = None
+    snapshot = None
+    response: LibraryExportSuccessV1 | LibraryExportErrorV1 | None = None
+    exit_code = 1
     try:
-        try:
-            snapshot = engine.compiled_library_snapshot()
-        except LibraryExportDataError as error:
-            response: LibraryExportSuccessV1 | LibraryExportErrorV1 = _error_model(
-                _snapshot_error(error)
-            )
-            exit_code = 1
-        except Exception:
-            response = _redacted_failure()
-            exit_code = 1
-        else:
-            try:
-                result = publish_compiled_library(
-                    snapshot,
-                    output_name=output_name,
-                    parent=parent,
-                )
-                response = LibraryExportSuccessV1.model_validate(
-                    {
-                        "library_id": result.library_id,
-                        "source_count": result.source_count,
-                        "evidence_count": result.evidence_count,
-                        "manifest_sha256": result.manifest_sha256,
-                    }
-                )
-                exit_code = 0
-            except OutputPublicationError as error:
-                response = _error_model(_publication_error(error))
-                exit_code = 1
-            except Exception:
-                response = _redacted_failure()
-                exit_code = 1
+        snapshot = engine.compiled_library_snapshot()
+    except LibraryExportDataError as error:
+        response = _error_model(_snapshot_error(error))
     except Exception:
         response = _redacted_failure()
-        exit_code = 1
     finally:
         try:
             engine.close()
@@ -199,7 +172,29 @@ def run_library_export(
 
     if close_error is not None:
         response = _redacted_failure()
-        exit_code = 1
+    elif snapshot is not None:
+        try:
+            result = publish_compiled_library(
+                snapshot,
+                output_name=output_name,
+                parent=parent,
+            )
+            response = LibraryExportSuccessV1.model_validate(
+                {
+                    "library_id": result.library_id,
+                    "source_count": result.source_count,
+                    "evidence_count": result.evidence_count,
+                    "manifest_sha256": result.manifest_sha256,
+                }
+            )
+            exit_code = 0
+        except LibraryExportDataError as error:
+            response = _error_model(_snapshot_error(error))
+        except OutputPublicationError as error:
+            response = _error_model(_publication_error(error))
+        except Exception:
+            response = _redacted_failure()
 
+    assert response is not None
     print(_render_response(response, json_output=json_output))
     return exit_code

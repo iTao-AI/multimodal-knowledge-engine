@@ -71,6 +71,7 @@ _BUSY_TIMEOUT_MS = 5000
 _EXPORT_SCHEMA: dict[str, dict[str, tuple[str, int, int]]] = {
     "libraries": {
         "library_id": ("TEXT", 0, 1),
+        "name": ("TEXT", 1, 0),
     },
     "assets": {
         "asset_id": ("TEXT", 0, 1),
@@ -1045,7 +1046,10 @@ class SQLiteStore:
         for library in libraries:
             self._require_sqlite_text(library["library_id"], library_error)
             self._require_sqlite_text(library["name"], library_error)
-        if len(libraries) != 1 or libraries[0]["name"] != "default":
+        if (
+            len(libraries) != 1
+            or libraries[0]["name"] != "default"
+        ):
             raise ManifestValidationError(library_error)
         library_id = self._require_sqlite_text(libraries[0]["library_id"], library_error)
         source_counts = self._connection.execute(
