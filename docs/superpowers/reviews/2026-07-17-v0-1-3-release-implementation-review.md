@@ -1,14 +1,15 @@
 # v0.1.3 Release Closeout Implementation Review
 
-Status: `ACCEPTED / CLEARED FOR RELEASE-CANDIDATE PR`
+Status: `ACCEPTED / RELEASED / POST-RELEASE DOCS PENDING REVIEW`
 
 Date: 2026-07-17
 
 ## Scope
 
-This review records the local release candidate through Tasks 1–4 of the approved v0.1.3
-closeout plan. It covers package identity, the release presentation contract, current release
-documentation, and the identity-only retrieval provenance closure. Publication has not started.
+At the original pre-publication candidate-review checkpoint, this review recorded the local release
+candidate through Tasks 1–4 of the approved v0.1.3 closeout plan. That checkpoint covered package
+identity, the release presentation contract, current release documentation, and the identity-only
+retrieval provenance closure. Publication had not started at that checkpoint.
 
 Starting commit: `c9dda6b78337f5ba89bb1a68da03368302947b16`.
 
@@ -98,8 +99,8 @@ The four frozen OCR evidence files remain byte-identical to the approved baselin
 - Seven canonical retrieval validators: passed.
 - `git diff --check`, exact changed-file audits, and public-neutral scans: passed.
 
-No tag, GitHub Release, PyPI publication, deployment, production OCR, or verified LLM Wiki
-compatibility claim exists.
+At that candidate-review checkpoint, no tag, GitHub Release, PyPI publication, deployment,
+production OCR, or verified LLM Wiki compatibility claim existed.
 
 ## Authoritative Review Repair
 
@@ -142,7 +143,41 @@ wrapped-claim residual are closed. No finding remains.
 
 Verdict: `ACCEPTED / CLEARED FOR RELEASE-CANDIDATE PR`.
 
-The review-closure commit invalidates all earlier candidate wheel, receipt, installed-smoke, and
-compiled-proof evidence. The complete candidate authority must be rebuilt from the clean closure
-commit before any PR action. Task 7, tag, GitHub Release, PyPI publication, and deployment have not
-started.
+The review-closure commit invalidated all earlier candidate wheel, receipt, installed-smoke, and
+compiled-proof evidence. The complete candidate authority was rebuilt from clean commit
+`57133fcdb7e3c49582028aa02b51e2b1e32c5378` before PR action.
+
+## Final Candidate And Publication
+
+PR #73 preserved reviewed head `57133fcdb7e3c49582028aa02b51e2b1e32c5378`. Its required Python
+3.12/3.13, embedding-extra, source-pack, compiled-export, and CodeQL checks passed before the PR was
+squash-merged. Merge commit `86b8a2d85631f5e94afa49186909ac62ffd54a15` has parent
+`5d707cfcc98da8ce76d31238c14158cd78b03803`; its tree
+`88862bf57464e4eb630eb938a573d5188e3feed6` exactly equals the reviewed feature tree.
+
+Fresh exact-main verification produced:
+
+- full pytest: `2345 passed, 5 skipped, 5 warnings`;
+- Ruff: passed; Pyright: 0 errors; build: passed;
+- product proof: 8/8; demo, local-knowledge, Evidence-provenance, and presentation audit: passed;
+- artifact regression: `191 passed, 5 warnings`; all seven canonical validators: passed;
+- candidate wheel `multimodal_knowledge_engine-0.1.3-py3-none-any.whl`, `309326` bytes, SHA-256
+  `50bccd685957c1b21e9b45d066060f0a89dd7f4e71e6f86b3546ce3ea4a2b036`;
+- canonical receipt digest `b6527b462c1f76907c46477c30fff1202dfc44ba3c8cea17cb633072c9a1accc`,
+  receipt file SHA-256 `fac2dc1b1166712944268e389beef1cd27e740ce32b4f4fa6ffad1808434e4f6`,
+  and `source_commit=86b8a2d85631f5e94afa49186909ac62ffd54a15`;
+- receipt-bound installed smoke: passed; and
+- compiled-export proof: passed with two interpreters and exact wheel-digest equality.
+
+The post-merge workflows for the exact merge SHA passed. Annotated tag object
+`447ebdf7416b6c6e25c8f6d2017d1ef48b465c0f` peels to the merge commit. The public, latest-at-
+publication, non-draft, non-prerelease GitHub Release was published at `2026-07-17T02:10:45Z`
+with zero extra assets.
+
+The public archive `multimodal-knowledge-engine-0.1.3.tar.gz` is `3691525` bytes with SHA-256
+`a8f0a595f6f039628feb2a9d3e13237b37b000aa311e1b7b7b013e0e8303496e`. Locked archive smoke
+passed product proof 8/8, demo, local-knowledge, Evidence provenance, and a real Compiled Library
+Export accepted by the standalone consumer with two sources and three Evidence records.
+
+No package registry publication, deployment, production OCR, verified LLM Wiki compatibility,
+runtime promotion, adoption, or business-impact claim was made.

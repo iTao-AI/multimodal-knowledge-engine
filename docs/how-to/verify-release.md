@@ -13,6 +13,32 @@ identity and archive-smoke evidence. The current four-stage workflow adds an exa
 receipt and a separate final-main gate; those newer requirements are not retroactively attributed
 to the earlier releases.
 
+## Completed v0.1.3 Release Record
+
+- Release-candidate PR: <https://github.com/iTao-AI/multimodal-knowledge-engine/pull/73>
+- Squash merge commit: `86b8a2d85631f5e94afa49186909ac62ffd54a15`
+- Reviewed feature tree and merge tree: `88862bf57464e4eb630eb938a573d5188e3feed6`
+- Tag: `v0.1.3`
+- Annotated tag object SHA: `447ebdf7416b6c6e25c8f6d2017d1ef48b465c0f`
+- Tag target commit: `86b8a2d85631f5e94afa49186909ac62ffd54a15`
+- GitHub Release: <https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.3>
+- Published: `2026-07-17T02:10:45Z` by `iTao-AI`
+- Release state: latest at publication, non-draft, non-prerelease, with zero extra assets
+- Release archive: `multimodal-knowledge-engine-0.1.3.tar.gz`
+- Release archive bytes: `3691525`
+- Release archive SHA-256:
+  `a8f0a595f6f039628feb2a9d3e13237b37b000aa311e1b7b7b013e0e8303496e`
+- Exact-main candidate wheel: `multimodal_knowledge_engine-0.1.3-py3-none-any.whl`, `309326`
+  bytes, SHA-256 `50bccd685957c1b21e9b45d066060f0a89dd7f4e71e6f86b3546ce3ea4a2b036`.
+- Exact-main candidate receipt canonical digest:
+  `b6527b462c1f76907c46477c30fff1202dfc44ba3c8cea17cb633072c9a1accc`; receipt file
+  SHA-256: `fac2dc1b1166712944268e389beef1cd27e740ce32b4f4fa6ffad1808434e4f6`.
+- Post-release archive smoke: locked sync, product proof `8/8`, demo `result=passed`, local
+  knowledge proof `status=passed`, Evidence provenance proof `status=passed`, and a real Compiled
+  Library Export accepted by the standalone consumer with two sources and three Evidence records.
+- PyPI and other package registries: not published.
+- Deployment: not performed.
+
 ## Completed v0.1.2 Release Record
 
 - Tag: `v0.1.2`
@@ -300,5 +326,6 @@ uv run --project "${archive_root}" python \
 Require `status="passed"`, exact portable schemas, two sources, and three Evidence records. Remove
 only the call-owned archive and runtime directories after recording their identities.
 
-Record the tag object SHA, target commit, publication timestamp, archive filename, archive SHA-256,
-and smoke result in a separate durable release closeout after those facts exist.
+The completed `v0.1.3` record above is the durable result of this procedure. Future releases must
+record their own tag object SHA, target commit, publication timestamp, archive filename, archive
+SHA-256, and smoke result after those facts exist.
