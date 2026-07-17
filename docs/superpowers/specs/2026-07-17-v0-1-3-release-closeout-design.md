@@ -1,6 +1,6 @@
 # v0.1.3 Release Closeout Design
 
-Status: released and public-archive verified; docs-only post-release closeout pending review.
+Status: released, public-archive verified, and post-release closeout complete.
 
 Date: 2026-07-17
 
@@ -297,6 +297,17 @@ The release is complete only when:
 - durable post-release documentation records actual, not anticipated, publication facts; and
 - task-owned clean branches/worktrees are safely reconciled without touching unrelated evidence
   worktrees or operator-owned external caches.
+
+## Completed Post-Release Closure
+
+Docs-only PR #74 recorded the final publication history and was squash-merged as
+`adedca22e3e3c66cd4873723452b745f69138ac7`. Its reviewed docs tree and merge tree were both
+`481901f19f62b8a52172691f4cb490ee100957d3`.
+
+The annotated `v0.1.3` tag and GitHub Release remained unchanged by that docs merge. After the
+exact merged docs state and retained release identities were verified, task-owned cleanup removed
+only the clean release and post-release closeout branches/worktrees. Unrelated evidence worktrees
+and external package/model evidence remained outside that cleanup.
 
 ## Publication Boundary
 

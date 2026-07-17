@@ -1,6 +1,6 @@
 # v0.1.3 Post-Release Closeout
 
-Status: `PUBLISHED / ARCHIVE VERIFIED / DOCS CLOSURE PENDING REVIEW`
+Status: `PUBLISHED / ARCHIVE VERIFIED / DOCS CLOSURE COMPLETE`
 
 Date: 2026-07-17
 
@@ -80,13 +80,26 @@ The archive contained no candidate artifact files, actual private identity paths
 secret material. Call-owned archive and runtime directories were removed after identities and
 results were recorded.
 
-## Boundaries And Remaining Gate
+## Docs Closure And Cleanup
+
+Docs-only PR #74 used reviewed head `dd18e2285acee80368e513c81bf36fb119f5ec5a` and was
+squash-merged as `adedca22e3e3c66cd4873723452b745f69138ac7` with parent
+`86b8a2d85631f5e94afa49186909ac62ffd54a15`. The reviewed docs tree and merge tree were exactly
+`481901f19f62b8a52172691f4cb490ee100957d3`. Its exact-head documentation and configured platform
+checks passed before merge.
+
+The annotated tag and GitHub Release remained unchanged by the docs-only merge. After the merged
+docs state, clean primary worktree, tag identity, and public Release identity were reverified,
+task-owned cleanup removed the clean release and post-release closeout worktrees/local branches.
+The matching remote branches and task-owned open PRs were absent. Unrelated worktrees and external
+package/model evidence were retained.
+
+## Boundaries
 
 This release does not publish to PyPI or another registry, deploy a service, add production OCR,
 promote a retrieval or OCR runtime, verify LLM Wiki compatibility, or claim adoption or business
 impact. PDF OCR remains Phase 0 planning evidence: PP-OCRv6 medium is the production-planning
 baseline and PaddleOCR-VL 1.6 remains a comparison candidate.
 
-This docs-only closeout commit is pending an actual-diff review. Its branch is intentionally not
-pushed, and task-owned worktrees and branches remain intact until a separately authorized cleanup
-gate.
+No PyPI or other registry publication, deployment, production OCR, verified LLM Wiki
+compatibility, adoption, or business-impact claim was added during docs closure or cleanup.

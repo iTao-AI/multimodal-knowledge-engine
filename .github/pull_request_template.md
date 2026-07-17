@@ -4,12 +4,12 @@ Describe the final result and core changes.
 
 ## Completion
 
-- [ ] Requested behavior is complete.
-- [ ] Acceptance criteria are verified.
+- Summarize completed acceptance facts with ordinary bullets.
+- Add checkbox items only for real pending gates that affect merge readiness.
 
 ## Verification
 
-- [ ] Ran `command`
+- `command` — actual result
 
 ## Documentation Impact
 

@@ -1,6 +1,6 @@
 # v0.1.3 Release Closeout Implementation Review
 
-Status: `ACCEPTED / RELEASED / POST-RELEASE DOCS PENDING REVIEW`
+Status: `ACCEPTED / RELEASED / POST-RELEASE CLOSED`
 
 Date: 2026-07-17
 
@@ -181,3 +181,16 @@ Export accepted by the standalone consumer with two sources and three Evidence r
 
 No package registry publication, deployment, production OCR, verified LLM Wiki compatibility,
 runtime promotion, adoption, or business-impact claim was made.
+
+## Docs Closure And Cleanup
+
+Docs-only PR #74 preserved reviewed head `dd18e2285acee80368e513c81bf36fb119f5ec5a` and passed its
+exact-head checks before squash merge. Merge `adedca22e3e3c66cd4873723452b745f69138ac7` has parent
+`86b8a2d85631f5e94afa49186909ac62ffd54a15`; its merge tree
+`481901f19f62b8a52172691f4cb490ee100957d3` exactly equals the reviewed docs tree.
+
+The docs merge changed no runtime, release artifact, tag, or GitHub Release state. The annotated
+tag and GitHub Release remained unchanged. After those identities and clean `main` were verified,
+task-owned cleanup removed the clean v0.1.3 release and post-release closeout worktrees and local
+branches. Their remote branches were absent, task-owned open PR count was zero, and unrelated
+worktrees and external package/model evidence were retained.

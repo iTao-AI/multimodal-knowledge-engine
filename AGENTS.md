@@ -87,6 +87,19 @@ Use GStack and Superpowers when they match the task:
 
 Do not require a second-model review for every change. Recommend an independent second view only for major architecture decisions, high-risk cross-module changes, important milestones, or unresolved uncertainty.
 
+### Phase Ownership And Parallel Work
+
+- Use one primary controller per phase. GStack owns a review or shipping phase when its selected
+  controller is active; Superpowers owns a planning, implementation, debugging, or verification
+  phase when its selected controller is active. Do not run competing full-branch controllers over
+  the same mutable worktree.
+- Delegate only when there are at least two independent lanes with clear file ownership and
+  independent verification. Do not parallelize changes that share contracts, artifacts, or an
+  ordered dependency chain merely to increase activity.
+- The parent Agent owns shared contracts, integration, full verification, and the single terminal
+  report. Subagents return bounded evidence to the parent; they do not publish competing completion
+  claims or mutate the same files concurrently.
+
 ## Low-Friction Execution
 
 - Complete safe, discoverable workflow steps proactively instead of asking the user to remember them.
@@ -128,6 +141,16 @@ Superpowers specs and plans are implementation history. Long-lived architecture 
 - Use an isolated worktree for implementation plans or changes that should not share state with the current checkout.
 - Do not start feature implementation from a branch whose bootstrap or prerequisite PR is still unmerged.
 - At task completion, report the branch and PR, actual verification results, documentation impact, remaining risks, and any deferred Issue.
+
+### Terminal Handoff
+
+- Use `READY` when the requested local or hosted gate is complete, `WAITING` when an external gate
+  is still running, and `BLOCKED` when a concrete failed authority or ownership gate prevents safe
+  progress.
+- A waiting handoff records the exact external state and the next gate. Do not keep polling
+  unchanged hosted state; resume only after a bounded wait or a new event.
+- One phase produces one terminal report from its primary controller. Intermediate worker reports
+  are evidence inputs, not additional terminal handoffs.
 
 ## TDD And Verification
 
@@ -174,6 +197,17 @@ If the audit would commit, push, update a PR body, or require a version decision
 - Keep each PR independently reviewable and verifiable. Avoid phase-sized PRs containing unrelated capabilities.
 - Stage only intentional files. Never use `git add -A` or `git add .`.
 - Do not push, create a PR, merge, release, or publish without explicit user authorization.
+- Query the actual pull request and checks for hosted state. Local workflow YAML is not hosted-state
+  authority and must not be used alone to claim that checks exist, passed, or are required.
+- After creating or updating a PR, read back the persisted title, body, base, head, and draft state.
+  Use ordinary bullets for completed facts. Add checkboxes only for real pending gates whose
+  completion affects merge readiness.
+- Before merge, bind review evidence and successful checks to the same reviewed HEAD and checks
+  head. For a squash merge, verify that the reviewed tree equals the merge tree; commit-SHA
+  inequality alone is expected and is not tree evidence.
+- Cleanup is a separate ownership gate. Remove only a task-owned branch or worktree that is clean,
+  inactive, and whose results are retained by merged history or another explicit authority. Never
+  infer ownership from a familiar name, and never clean unrelated worktrees, caches, or evidence.
 
 ## Issues
 

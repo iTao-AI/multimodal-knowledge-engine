@@ -9,4 +9,5 @@ Before contributing:
 3. Update affected documentation in the same pull request.
 4. Record actual verification results and remaining risks in the pull request.
 
-See [docs/how-to/contribute.md](./docs/how-to/contribute.md) for the repository workflow and verified commands.
+See [docs/how-to/contribute.md](./docs/how-to/contribute.md) for the executable, risk-based
+worktree, verification, PR, merge, and safe-cleanup workflow.

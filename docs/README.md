@@ -72,6 +72,7 @@ features.
 | `reference/` | Exact public contracts, configuration, and commands |
 | `explanation/` | Architecture and domain reasoning |
 | `decisions/` | Long-lived accepted architecture decisions |
+| [`superpowers/`](./superpowers/README.md) | Public-neutral implementation history and artifact storage |
 | `superpowers/specs/` | Approved public-neutral designs |
 | `superpowers/plans/` | Executable implementation plans |
 | `superpowers/reviews/` | Durable public-neutral plan and PR review reports |
@@ -90,12 +91,13 @@ private planning notes do not belong in this repository.
 - [ADR-0007](./decisions/0007-numeric-grouping-query-policy.md) promotes the bounded numeric grouping query policy and defines rollback.
 - [ADR-0008](./decisions/0008-cjk-active-scan-retrieval-strategy.md) defines `cjk-active-scan-overlap-v1`.
 - [ADR-0009](./decisions/0009-versioned-evidence-provenance-contract.md) defines the additive strict Evidence provenance read contract.
+- [ADR-0010](./decisions/0010-pdf-ocr-evaluation-manifest-fingerprint.md) defines the evaluation-only PDF OCR manifest fingerprint and its non-production boundary.
 
 ## Implementation History
 
-Superpowers docs are public-neutral implementation history. They are useful for audits and future
-planning, but release readers should start from release notes, how-to guides, reference docs, and
-ADRs.
+[Superpowers Workspace](./superpowers/README.md) records public-neutral implementation history. It
+is useful for audits and future planning, but release readers should start from release notes,
+how-to guides, reference docs, and ADRs.
 
 - [v0.1.0 Release Readiness Design](./superpowers/specs/2026-07-02-v0-1-0-release-readiness-design.md)
 - [v0.1.0 Release Readiness Implementation Plan](./superpowers/plans/2026-07-02-v0-1-0-release-readiness-implementation.md)
@@ -104,7 +106,7 @@ ADRs.
 - [Local Dense Retrieval Candidate Implementation Review](./superpowers/reviews/2026-06-28-local-dense-retrieval-candidate-review.md)
 - [CJK Lexical Dense RRF Fusion Implementation Review](./superpowers/reviews/2026-06-30-cjk-lexical-dense-rrf-fusion-review.md)
 - [CJK Relevance Gate Reranker Implementation Review](./superpowers/reviews/2026-06-30-cjk-relevance-gate-reranker-review.md)
-- [MKE Candidate Artifact Receipt Prerequisite Implementation Plan](./superpowers/plans/2026-07-13-candidate-artifact-receipt-implementation.md) — approved; local implementation and verification complete, with the post-merge operational gate pending.
+- [MKE Candidate Artifact Receipt Prerequisite Implementation Plan](./superpowers/plans/2026-07-13-candidate-artifact-receipt-implementation.md) — completed historical implementation record; the v0.1.3 exact-main and public-archive release gates were completed without publishing the candidate artifact.
 
 ## Development Verification
 
