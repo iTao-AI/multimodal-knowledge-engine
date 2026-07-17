@@ -722,6 +722,84 @@ def test_audit_rejects_compiled_library_release_overclaims(
     assert "compiled_library_overclaim" in _rules(tmp_path)
 
 
+@pytest.mark.parametrize(
+    "wrapped_overclaim",
+    [
+        "PaddleOCR-VL 1.6 is the promoted\ndefault provider.",
+        "MKE ships a public\nOCR runtime.",
+        "The GitHub Release includes\nextra assets.",
+        "MKE is available from\nPyPI.",
+        "MKE is deployed in\nproduction.",
+        "MKE has production\nadoption.",
+        "MKE delivers business\nimpact.",
+    ],
+)
+def test_audit_rejects_wrapped_release_overclaims_once(
+    tmp_path: Path,
+    wrapped_overclaim: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "README.md"
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{wrapped_overclaim}\n",
+        encoding="utf-8",
+    )
+
+    violations = [
+        violation
+        for violation in audit_release_presentation(tmp_path)
+        if violation.rule == "compiled_library_overclaim"
+    ]
+    assert len(violations) == 1
+
+
+@pytest.mark.parametrize(
+    "wrapped_negative",
+    [
+        "PaddleOCR-VL 1.6 is not the promoted\ndefault provider.",
+        "MKE does not ship a public\nOCR runtime.",
+        "The GitHub Release does not include\nextra assets.",
+        "MKE is not available from\nPyPI.",
+        "MKE is not deployed in\nproduction and does not claim production adoption or "
+        "business impact.",
+    ],
+)
+def test_audit_accepts_wrapped_release_negations(
+    tmp_path: Path,
+    wrapped_negative: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "README.md"
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{wrapped_negative}\n",
+        encoding="utf-8",
+    )
+
+    assert "compiled_library_overclaim" not in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "separated_text",
+    [
+        "MKE ships a public\n\nOCR runtime.",
+        "PaddleOCR-VL 1.6 is the promoted\n\n> default provider.",
+        "- The GitHub Release includes\n- extra assets.",
+    ],
+)
+def test_audit_does_not_join_distinct_markdown_blocks(
+    tmp_path: Path,
+    separated_text: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "README.md"
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{separated_text}\n",
+        encoding="utf-8",
+    )
+
+    assert "compiled_library_overclaim" not in _rules(tmp_path)
+
+
 def test_verify_release_does_not_mix_four_stage_workflow_with_stale_three_check_claim() -> None:
     text = Path("docs/how-to/verify-release.md").read_text(encoding="utf-8")
 

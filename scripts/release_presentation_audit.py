@@ -539,28 +539,58 @@ def _line_overclaims_compiled_library(line: str) -> bool:
     )
 
 
+def _markdown_claim_contexts(text: str) -> list[tuple[int, str]]:
+    contexts: list[tuple[int, str]] = []
+    paragraph: list[str] = []
+    paragraph_start = 0
+    fenced = False
+
+    def flush() -> None:
+        nonlocal paragraph, paragraph_start
+        if paragraph:
+            contexts.append((paragraph_start, " ".join(paragraph)))
+            paragraph = []
+            paragraph_start = 0
+
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        stripped = line.strip()
+        if stripped.startswith(("```", "~~~")):
+            flush()
+            fenced = not fenced
+            continue
+        if fenced:
+            if stripped:
+                contexts.append((line_number, line))
+            continue
+        if not stripped:
+            flush()
+            continue
+        if re.match(r"^(?:#{1,6}\s|\||>)", stripped):
+            flush()
+            contexts.append((line_number, line))
+            continue
+        if re.match(r"^(?:[-+*]|\d+[.)])\s", stripped):
+            flush()
+        if not paragraph:
+            paragraph_start = line_number
+        paragraph.append(line)
+    flush()
+    return contexts
+
+
 def _audit_compiled_library_claim_boundary(
     root: Path, files: Iterable[str]
 ) -> list[Violation]:
     violations: list[Violation] = []
     for file_name in files:
         text = _read_text(root, file_name)
-        lines = text.splitlines()
-        for index, line in enumerate(lines):
-            context_parts = [line]
-            if index > 0 and not re.search(r"[.!?;]$", lines[index - 1].strip()):
-                context_parts.insert(0, lines[index - 1])
-            if index + 1 < len(lines) and not re.search(r"[.!?;]$", line.strip()):
-                context_parts.append(lines[index + 1])
-            context = " ".join(context_parts)
-            if _line_overclaims_compiled_library(line) and _line_overclaims_compiled_library(
-                context
-            ):
+        for line_number, context in _markdown_claim_contexts(text):
+            if _line_overclaims_compiled_library(context):
                 violations.append(
                     Violation(
                         file=file_name,
                         rule="compiled_library_overclaim",
-                        message=f"line {index + 1} exceeds the compiled Library claim boundary",
+                        message=f"line {line_number} exceeds the compiled Library claim boundary",
                     )
                 )
     return violations
