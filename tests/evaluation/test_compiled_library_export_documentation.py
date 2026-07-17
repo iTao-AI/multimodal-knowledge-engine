@@ -81,7 +81,7 @@ def test_export_proof_how_to_is_generic_installed_wheel_evidence_only() -> None:
         '--python "$PYTHON312" --python "$PYTHON313" --json',
         "installed-wheel external consumer proof",
         "does not verify LLM Wiki compatibility",
-        "does not release v0.1.3",
+        "running the proof does not publish a release",
     ):
         assert term in text
 
