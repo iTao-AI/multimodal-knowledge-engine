@@ -5,7 +5,8 @@
 > `superpowers:systematic-debugging` for failures, and
 > `superpowers:verification-before-completion` before every completion claim.
 
-Status: approved plan pending mechanical landing and implementation dispatch.
+Status: Tasks 1–5 and Task 6 Steps 1–4 are complete. Task 6 final candidate verification remains
+pending on the clean review-closure commit; Task 7 has not started.
 
 **Goal:** Publish `v0.1.3` with Compiled Library Export as the primary capability and PDF OCR
 Phase 0 as accurately bounded evaluation evidence, while preserving runtime semantics and proving
@@ -422,7 +423,7 @@ Report the rebinder SHA-256, exact changed set, and per-layer semantic equality.
 
 ## Task 5: Finalize Durable Candidate State And Stop For Authority Review
 
-- [ ] **Step 1: Create the implementation review record in pending state**
+- [x] **Step 1: Create the implementation review record in pending state**
 
 Create `docs/superpowers/reviews/2026-07-17-v0-1-3-release-implementation-review.md` with:
 
@@ -437,13 +438,13 @@ Create `docs/superpowers/reviews/2026-07-17-v0-1-3-release-implementation-review
 Update this plan only for Tasks 1 through 4 facts. Do not pre-complete proof, PR, merge, tag, or
 publication steps.
 
-- [ ] **Step 2: Commit the durable pre-review state**
+- [x] **Step 2: Commit the durable pre-review state**
 
 ```bash
 git commit -m "docs(release): record v0.1.3 candidate state"
 ```
 
-- [ ] **Step 3: Run complete repository gates from the clean commit**
+- [x] **Step 3: Run complete repository gates from the clean commit**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q
@@ -458,7 +459,7 @@ UV_OFFLINE=1 uv run python scripts/release_presentation_audit.py --root .
 git diff --check
 ```
 
-- [ ] **Step 4: Generate exactly one pre-review candidate evidence set**
+- [x] **Step 4: Generate exactly one pre-review candidate evidence set**
 
 Validate explicit interpreters first:
 
@@ -593,7 +594,7 @@ This validation must reject symlinks, non-regular files, extra/trailing director
 non-canonical receipt bytes, unknown or missing receipt keys, and any source/package/wheel/digest
 drift.
 
-- [ ] **Step 5: Smoke the exact receipt-bound wheel**
+- [x] **Step 5: Smoke the exact receipt-bound wheel**
 
 ```bash
 candidate_wheel="$(python3 - "${candidate_validation}" <<'PY'
@@ -612,7 +613,7 @@ UV_OFFLINE=1 uv run python scripts/release_consumer_smoke.py \
   --wheel "${candidate_wheel}" --json
 ```
 
-- [ ] **Step 6: Run compiled-export proof and co-bind the digest**
+- [x] **Step 6: Run compiled-export proof and co-bind the digest**
 
 ```bash
 UV_OFFLINE=1 uv run python scripts/compiled_library_export_proof.py \
@@ -630,7 +631,7 @@ Require:
   candidate validator. The validator has already proved both receipt digest fields equal that
   descriptor-read wheel digest.
 
-- [ ] **Step 7: Hard stop for authoritative actual-diff review**
+- [x] **Step 7: Hard stop for authoritative actual-diff review**
 
 Report final HEAD, commit series, exact diff, full gates, receipt/wheel/source commit/digests,
 compiled proof digest equality, OCR frozen hashes, and remaining boundaries. Do not push or create a
@@ -640,22 +641,22 @@ PR. Preserve call-owned candidate evidence for review.
 
 This task starts only after findings return from the authoritative actual-diff review.
 
-- [ ] **Step 1: Verify each finding before editing**
+- [x] **Step 1: Verify each finding before editing**
 
 Use `superpowers:receiving-code-review`. Reproduce the finding on the real authority path. If a
 finding is not reproducible or no longer release-blocking, document why rather than expanding scope.
 
-- [ ] **Step 2: Repair with targeted TDD and rerun affected gates**
+- [x] **Step 2: Repair with targeted TDD and rerun affected gates**
 
 Keep each fix bounded. Any change to version, docs, audit, workflow, or source identity may require
 another evaluation identity closure. Do not weaken tests, validators, or claim boundaries.
 
-- [ ] **Step 3: Update the implementation review to accepted state**
+- [x] **Step 3: Update the implementation review to accepted state**
 
 Record exact reviewed HEAD, findings and resolutions, targeted re-review, and verdict
 `ACCEPTED / CLEARED FOR RELEASE-CANDIDATE PR`. Complete only facts that already exist.
 
-- [ ] **Step 4: Commit the review closure**
+- [x] **Step 4: Commit the review closure**
 
 ```bash
 git commit -m "docs(release): accept v0.1.3 candidate review"

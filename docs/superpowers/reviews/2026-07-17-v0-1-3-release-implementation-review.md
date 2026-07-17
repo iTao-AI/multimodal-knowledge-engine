@@ -1,6 +1,6 @@
 # v0.1.3 Release Closeout Implementation Review
 
-Status: `PENDING TARGETED AUTHORITY RE-REVIEW`
+Status: `ACCEPTED / CLEARED FOR RELEASE-CANDIDATE PR`
 
 Date: 2026-07-17
 
@@ -18,6 +18,11 @@ Implemented commits:
 2. `a1d715b` — `test(release): define v0.1.3 presentation contract`
 3. `e989bdc` — `docs(release): prepare v0.1.3 candidate`
 4. `22e8bce` — `test(eval): refresh v0.1.3 release identities`
+5. `85bd56e` — `docs(release): record v0.1.3 candidate state`
+6. `402ef15` — `fix(release): close presentation review gaps`
+7. `fbb429b` — `fix(release): audit wrapped presentation claims`
+
+Reviewed HEAD: `fbb429bfa53d5faab395c3f493c2a7fa25eedc32`.
 
 ## Package And Lock Identity
 
@@ -93,9 +98,8 @@ The four frozen OCR evidence files remain byte-identical to the approved baselin
 - Seven canonical retrieval validators: passed.
 - `git diff --check`, exact changed-file audits, and public-neutral scans: passed.
 
-Complete repository gates and exact candidate receipt/wheel/proof co-binding remain Task 5 work and
-must be reported before authoritative review. No tag, GitHub Release, PyPI publication, deployment,
-production OCR, or verified LLM Wiki compatibility claim exists.
+No tag, GitHub Release, PyPI publication, deployment, production OCR, or verified LLM Wiki
+compatibility claim exists.
 
 ## Authoritative Review Repair
 
@@ -115,6 +119,30 @@ validator, exact compiled-proof digest equality, Evidence provenance proof, and 
 remain accepted.
 
 These tracked changes invalidate the earlier Task 5 candidate receipt, wheel, installed smoke, and
-compiled-proof output. None is reused or presented as current evidence. A fresh candidate may be
-created only after targeted authority re-review, under the later plan gate. Task 6, Task 7, tag,
-GitHub Release, PyPI publication, and deployment have not started.
+compiled-proof output. None is reused or presented as current evidence.
+
+## Wrapped-Claim Residual And Resolution
+
+The first repair still evaluated a physical Markdown line before its neighboring context. An
+affirmative claim whose key phrase crossed an ordinary soft line break could therefore remain
+undetected. Commit `fbb429bfa53d5faab395c3f493c2a7fa25eedc32` replaced that path with one
+logical-paragraph evaluation, with explicit boundaries for blank lines, fenced blocks, headings,
+tables, blockquotes, and distinct list items.
+
+Mutation coverage now rejects wrapped provider promotion, public OCR runtime, extra GitHub Release
+assets, package-registry publication, deployment, production adoption, and business impact exactly
+once. Wrapped legitimate negations remain accepted, distinct Markdown blocks are not combined, and
+the live repository audit remains clean.
+
+## Targeted Authority Re-review
+
+Targeted authority re-review of reviewed HEAD
+`fbb429bfa53d5faab395c3f493c2a7fa25eedc32` returned `CLEAN`. The two initial findings and the
+wrapped-claim residual are closed. No finding remains.
+
+Verdict: `ACCEPTED / CLEARED FOR RELEASE-CANDIDATE PR`.
+
+The review-closure commit invalidates all earlier candidate wheel, receipt, installed-smoke, and
+compiled-proof evidence. The complete candidate authority must be rebuilt from the clean closure
+commit before any PR action. Task 7, tag, GitHub Release, PyPI publication, and deployment have not
+started.
