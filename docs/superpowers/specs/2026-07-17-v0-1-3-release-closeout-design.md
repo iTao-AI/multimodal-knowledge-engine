@@ -1,19 +1,20 @@
 # v0.1.3 Release Closeout Design
 
-Status: approved for implementation and publication, subject to every gate in this design.
+Status: released and public-archive verified; docs-only post-release closeout pending review.
 
 Date: 2026-07-17
 
 ## Context
 
-The current `main` line already contains two reviewed and merged increments after `v0.1.2`:
+At design approval, the `main` line already contained two reviewed and merged increments after
+`v0.1.2`:
 
 1. PDF OCR Phase 0 viability evidence over a fixed public-safe synthetic corpus; and
 2. deterministic Compiled Library Export with an installed-wheel external consumer proof.
 
-The package identity remains `0.1.2`, so neither increment is represented by a published version.
-This release advances the small-version line by `0.0.1` to `v0.1.3`. It does not introduce a new
-runtime architecture, hosted service, or dependency family.
+The package identity remained `0.1.2`, so neither increment was represented by a published version
+at that starting point. The approved release advanced the small-version line by `0.0.1` to
+`v0.1.3`. It did not introduce a new runtime architecture, hosted service, or dependency family.
 
 ## Release Decision
 

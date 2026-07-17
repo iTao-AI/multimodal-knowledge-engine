@@ -5,8 +5,8 @@
 > `superpowers:systematic-debugging` for failures, and
 > `superpowers:verification-before-completion` before every completion claim.
 
-Status: Tasks 1–5 and Task 6 Steps 1–4 are complete. Task 6 final candidate verification remains
-pending on the clean review-closure commit; Task 7 has not started.
+Status: Tasks 1–6 and Task 7 Steps 1–6 are complete. The docs-only post-release closeout is
+prepared locally for review; its PR/merge and safe task-owned cleanup remain pending.
 
 **Goal:** Publish `v0.1.3` with Compiled Library Export as the primary capability and PDF OCR
 Phase 0 as accurately bounded evaluation evidence, while preserving runtime semantics and proving
@@ -664,14 +664,14 @@ git commit -m "docs(release): accept v0.1.3 candidate review"
 
 This tracked commit invalidates Task 5 candidate evidence.
 
-- [ ] **Step 5: Re-run the entire Task 5 gate from scratch**
+- [x] **Step 5: Re-run the entire Task 5 gate from scratch**
 
 From the clean closure commit, rerun full pytest, Ruff, Pyright, build, product proof, demo, local
 knowledge proof, Evidence provenance proof, presentation audit, all required retrieval validators,
 source-pack candidate output, exact receipt-bound installed smoke, compiled-export proof, and digest
 co-binding. Reuse no branch artifact, receipt, log, or temporary worktree.
 
-- [ ] **Step 6: Stop with a clean final local branch**
+- [x] **Step 6: Stop with a clean final local branch**
 
 Do not write checkboxes after the final proof. Report the final evidence externally; post-release
 closeout will durably record it.
@@ -681,7 +681,7 @@ closeout will durably record it.
 Task 7 is executed by explicit follow-up after the authoritative review owner binds the review to
 the final HEAD. It is sequential and uses a low-complexity mechanical Git/GitHub pass.
 
-- [ ] **Step 1: Push and open a Draft release-candidate PR**
+- [x] **Step 1: Push and open a Draft release-candidate PR**
 
 PR body sections must include the repository-required `Summary`, `Completion`, `Verification`,
 `Risk / Impact`, and `Documentation impact`. Optional sections `Scope`, `Claim boundaries`, and
@@ -690,18 +690,18 @@ digests, full test count, and frozen OCR hashes. Do not upload candidate artifac
 or updating the PR, read the body back and require it to be non-empty and to contain every mandatory
 section exactly once.
 
-- [ ] **Step 2: Require exact-head CI and platform gates**
+- [x] **Step 2: Require exact-head CI and platform gates**
 
 Require the PR head to equal the last reviewed HEAD. Require CI Python 3.12/3.13, embedding extras,
 consumer source-pack proof, compiled Library export proof, configured CodeQL, mergeability, and
 platform review state to be successful. Any new commit requires targeted re-review.
 
-- [ ] **Step 3: Ready and squash merge**
+- [x] **Step 3: Ready and squash merge**
 
 Verify base `main`, then mark Ready and squash merge. Record PR, merge SHA, parents, merged feature
 tree, and reviewed-head tree equality.
 
-- [ ] **Step 4: Run the exact merged-main gate**
+- [x] **Step 4: Run the exact merged-main gate**
 
 Fast-forward the primary worktree safely. Require:
 
@@ -712,7 +712,7 @@ HEAD == main == origin/main == exact merge SHA
 Rerun every Task 6 Step 5 gate from scratch and generate a new candidate receipt bound to the exact
 merge SHA. Verify post-merge GitHub workflows for that SHA. Do not tag until all pass.
 
-- [ ] **Step 5: Create and publish `v0.1.3`**
+- [x] **Step 5: Create and publish `v0.1.3`**
 
 Check that no conflicting tag or Release exists. Then:
 
@@ -729,7 +729,7 @@ gh release create v0.1.3 \
 Verify annotated tag object, peeled target, non-draft/non-prerelease/latest state, publication time,
 and zero extra assets.
 
-- [ ] **Step 6: Verify the public source archive**
+- [x] **Step 6: Verify the public source archive**
 
 In a clean call-owned directory:
 
