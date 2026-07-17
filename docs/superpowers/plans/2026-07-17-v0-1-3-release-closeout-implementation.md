@@ -5,8 +5,8 @@
 > `superpowers:systematic-debugging` for failures, and
 > `superpowers:verification-before-completion` before every completion claim.
 
-Status: Tasks 1–6 and Task 7 Steps 1–6 are complete. The docs-only post-release closeout is
-prepared locally for review; its PR/merge and safe task-owned cleanup remain pending.
+Status: Complete. Tasks 1–6 and all Task 7 steps finished with the v0.1.3 publication,
+public-archive verification, docs-only closeout merge, and safe task-owned cleanup recorded.
 
 **Goal:** Publish `v0.1.3` with Compiled Library Export as the primary capability and PDF OCR
 Phase 0 as accurately bounded evaluation evidence, while preserving runtime semantics and proving
@@ -774,7 +774,7 @@ uv run --project "${OLDPWD}" python \
 Require `status="passed"`, exact portable schemas, two sources, and three Evidence records. Remove
 only call-owned archive/runtime directories after recording identities.
 
-- [ ] **Step 7: Land docs-only post-release closeout**
+- [x] **Step 7: Land docs-only post-release closeout**
 
 Create a separate docs-only branch from current `main`. Update only:
 
@@ -788,11 +788,21 @@ Run documentation tests, presentation audit, public-neutral scan, and exact chan
 Create a docs-only PR, require its checks, squash merge, and verify that the published tag target is
 unchanged.
 
-- [ ] **Step 8: Perform safe task-owned cleanup**
+Completed through docs-only PR #74. Reviewed head
+`dd18e2285acee80368e513c81bf36fb119f5ec5a` and squash merge
+`adedca22e3e3c66cd4873723452b745f69138ac7` share reviewed docs tree and merge tree
+`481901f19f62b8a52172691f4cb490ee100957d3`. The annotated tag and GitHub Release remained
+unchanged.
+
+- [x] **Step 8: Perform safe task-owned cleanup**
 
 Only after all required checks and retained-authority proofs pass, remove task-owned clean release
 and closeout worktrees/local branches, observe remote branch state, prune stale worktree metadata,
 and leave unrelated worktrees and external package/model evidence untouched.
+
+Cleanup completed after the docs merge and immutable release checks. The two task-owned release
+worktrees and local branches were removed, their remote branches were absent, and unrelated
+worktrees and external evidence were retained.
 
 ## Completion Boundary
 
