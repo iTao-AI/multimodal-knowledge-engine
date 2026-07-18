@@ -614,11 +614,17 @@ def _cleanup_process_group(
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             break
-        if process.poll() is None:
+        try:
+            process_running = process.poll() is None
+        except OSError as error:
+            raise ReceiptError("bounded_cleanup_incomplete") from error
+        if process_running:
             try:
                 process.wait(timeout=min(0.01, remaining))
             except subprocess.TimeoutExpired:
                 pass
+            except OSError as error:
+                raise ReceiptError("bounded_cleanup_incomplete") from error
         else:
             time.sleep(min(0.01, remaining))
         group_absent = _process_group_absent(process.pid)
@@ -629,7 +635,7 @@ def _cleanup_process_group(
             raise ReceiptError("bounded_cleanup_incomplete")
     try:
         process.wait(timeout=max(grace_seconds, 0.1))
-    except subprocess.TimeoutExpired as error:
+    except (subprocess.TimeoutExpired, OSError) as error:
         raise ReceiptError("bounded_cleanup_incomplete") from error
     deadline = time.monotonic() + max(grace_seconds, 0.1)
     group_absent = _process_group_absent(process.pid)
@@ -822,7 +828,10 @@ def _run_bounded(
                         else "bounded_stderr_exceeded"
                     )
                     raise ReceiptError(code)
-        returncode = process.wait(timeout=profile.term_grace_seconds)
+        try:
+            returncode = process.wait(timeout=profile.term_grace_seconds)
+        except (subprocess.TimeoutExpired, OSError) as error:
+            raise ReceiptError("bounded_supervision_failed") from error
         cleanup = _cleanup_process_group(
             process, grace_seconds=profile.term_grace_seconds, terminate=False
         )
@@ -839,6 +848,22 @@ def _run_bounded(
                 cleanup=cleanup,
             )
         return BoundedRunResult(returncode, stdout, stderr, supervision)
+    except OSError as cause:
+        error = ReceiptError("bounded_supervision_failed")
+        cleanup = _cleanup_after_supervision_failure(
+            process,
+            grace_seconds=profile.term_grace_seconds,
+        )
+        if profile.footprint_bytes is not None:
+            error.details = _supervision_receipt(
+                profile=profile,
+                baseline=baseline,
+                budget=budget,
+                observed_max=observed_max,
+                outcome="supervision_failed",
+                cleanup=cleanup,
+            )
+        raise error from cause
     except ReceiptError as error:
         cleanup = _cleanup_after_supervision_failure(
             process,

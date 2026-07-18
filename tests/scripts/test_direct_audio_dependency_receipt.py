@@ -1664,6 +1664,59 @@ def test_signal_failure_retries_cleanup_and_preserves_supervision_receipt(
     assert cast(dict[str, bool], details["cleanup"])["process_group_absent"] is True
 
 
+@pytest.mark.parametrize("operation", ["poll", "wait"])
+def test_process_reap_failure_retries_cleanup_and_preserves_supervision_receipt(
+    monkeypatch: pytest.MonkeyPatch, operation: str
+) -> None:
+    receipt = _module()
+
+    class Sampler:
+        identity = "leader-identity"
+        calls = 0
+
+        def sample(self) -> int:
+            self.calls += 1
+            if self.calls > 1:
+                raise receipt.ReceiptError("footprint_sampling_failed")
+            return 1024
+
+    original = getattr(receipt.subprocess.Popen, operation)
+    calls = 0
+
+    def fail_once(process: object, *args: object, **kwargs: object) -> object:
+        nonlocal calls
+        calls += 1
+        fail_at = 2 if operation == "poll" else 1
+        if calls == fail_at:
+            raise ChildProcessError("reap failed")
+        return original(process, *args, **kwargs)
+
+    monkeypatch.setattr(receipt, "_DarwinFootprintSampler", lambda _pid: Sampler())
+    monkeypatch.setattr(receipt.subprocess.Popen, operation, fail_once)
+    group_probes = iter([False, True, True, True])
+    monkeypatch.setattr(receipt, "_process_group_absent", lambda _pid: next(group_probes))
+    profile = receipt.BoundedProfile(
+        wall_seconds=5.0,
+        stdout_bytes=4096,
+        stderr_bytes=4096,
+        footprint_bytes=64 * 1024 * 1024,
+        poll_seconds=0.01,
+        term_grace_seconds=0.2,
+    )
+
+    with pytest.raises(receipt.ReceiptError, match="footprint_sampling_failed") as raised:
+        receipt._run_bounded(  # pyright: ignore[reportPrivateUsage]
+            [sys.executable, "-I", "-B", "-c", "import time;time.sleep(5)"],
+            env={},
+            cwd=None,
+            profile=profile,
+        )
+
+    details = cast(dict[str, object], raised.value.details)
+    assert details["budget_outcome"] == "supervision_failed"
+    assert cast(dict[str, bool], details["cleanup"])["process_group_absent"] is True
+
+
 def test_selector_registration_failure_has_supervision_and_cleanup_receipt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
