@@ -88,7 +88,7 @@
       },
       {
         "path": "uv.lock",
-        "sha256": "0ce4bacafd0cfeb9b195eaaabaf811f46f62882fa159e31994cf2ab9f02537ab"
+        "sha256": "31be8fe6302a844634306eea2ec6e891540e8006e45ece9f8cd6db7b53d308a1"
       },
       {
         "path": "src/mke/adapters/pdf/__init__.py",

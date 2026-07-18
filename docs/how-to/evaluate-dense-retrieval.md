@@ -39,9 +39,9 @@ Artifact identities:
 
 - Comparison artifact:
   `benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json`
-- Artifact SHA-256: `8282cdd2764fb9bb3aeac02260043c262d359c628c88dd8293885a8e21cd550e`
-- Development freeze SHA-256: `2f5b328b412bf0c848b8e11562b560bb0fec0d3e7ca44a426e134e2d4470cdc7`
-- Holdout receipt SHA-256: `ba2e5275e6e870d6f47f308393878e678b86d31cd9cf9916e71f956c7e23b9f7`
+- Artifact SHA-256: `58b314769f9260aca1fd6946e02c95de618953ba0fff016d25b108ade5227ce4`
+- Development freeze SHA-256: `327dfd7ecd565864f778ae9afd8ba0cb9454cfa7a8ff57f131e56801bfe47f0f`
+- Holdout receipt SHA-256: `2be1f475e226076bc567a7f11ee63a10ee6c0111ca447f70e77e45529413ccab`
 - Current runtime semantic digest: `sha256:b32dc4a1479cb3ea8e0ebedf2c27b04a10a6d91eee96e0cd0308bcf921e97959`
 
 This result is not a production-quality or statistical-significance claim. The corpus is small,
