@@ -316,10 +316,65 @@ actual linked or bundled FFmpeg components with available platform binary toolin
 platform mechanism required to impose a child memory ceiling and process-group cleanup before
 native parsing is considered supported.
 
-The controller derives the canonical wheelhouse manifest itself: reject symlinks, subdirectories,
-non-regular files, duplicate normalized distribution/version identities, and unexpected file
-types; then record every sorted canonical filename, version, byte count, and SHA-256. Freeze this
-derivation in tests so PR C can recompute the same manifest from a different absolute root.
+The controller derives the canonical wheelhouse manifest itself and identifies every wheel by its
+full canonical filename, parsed distribution/version/build and compatibility tags, byte count, and
+SHA-256. Do not globally deduplicate by normalized distribution/version: wheels for the same locked
+version may coexist when their interpreter/platform tags are disjoint, and one universal wheel may
+serve multiple cells while appearing only once in the inventory.
+
+For each supported Python/platform cell, project the lock-derived required distributions/versions
+and require each one to resolve to exactly one compatible manifest entry. Missing,
+ambiguous/overlapping compatible candidates, wrong version or tag, unsupported or surplus input,
+duplicate canonical filename, invalid wheel filename, symlink, subdirectory, non-regular or
+unrelated file, and identity drift all fail closed. Freeze deterministic sorted derivation and
+per-cell resolution in tests so PR C can recompute the same manifest from a different absolute
+root. Tests include legal cp312/cp313 wheels for one distribution/version, a universal wheel reused
+by both cells, ambiguous compatible pairs, missing wheel, wrong tag/version, surplus input,
+duplicate filename, and before/after identity drift.
+
+The controller's ordinary-pip subprocess is the offline installation authority; an outer
+`UV_OFFLINE=1` is not. Freeze the real argv and environment path in tests. The exact install argv
+includes `--isolated`, `--disable-pip-version-check`, `--no-input`, `--no-index`, one
+descriptor-validated local `--find-links`, `--only-binary=:all:`, `--require-hashes`, the canonical
+lock-derived root requirements, and the accepted constraints. Run it only inside a call-owned
+environment/home/cache/temp root with a platform null pip-config authority and an explicit
+environment allowlist. Remove index URL, extra-index, proxy, credential, user-site, interactive,
+and inherited pip configuration inputs. Missing wheels or resolution drift fail with a stable
+closed result; pip cannot reach an index, use a user/global config, consume an undeclared cache, or
+fall back to a source build. Controller tests must intercept the actual subprocess argv/environment
+and prove index/config/build isolation rather than treating `UV_OFFLINE` as nested-pip authority.
+
+Freeze the subprocess shape before implementation:
+
+```python
+pip_argv = [
+    cell_python,
+    "-I",
+    "-m",
+    "pip",
+    "--isolated",
+    "--disable-pip-version-check",
+    "--no-input",
+    "install",
+    "--no-index",
+    "--find-links",
+    validated_wheelhouse_uri,
+    "--only-binary=:all:",
+    "--no-cache-dir",
+    "--require-hashes",
+    "--constraint",
+    validated_constraints_path,
+    "--requirement",
+    validated_root_requirements_path,
+]
+```
+
+The subprocess environment is built from an empty mapping. Add only the supported-cell minimum
+needed to execute the approved interpreter plus call-owned `HOME` and `TMPDIR`; bind
+`PIP_CONFIG_FILE` to the platform null device. Do not copy `PIP_*`, `HTTP_PROXY`, `HTTPS_PROXY`,
+`ALL_PROXY`, `NO_PROXY`, credential, user-site, or index variables from the controller. The
+wheelhouse URI, constraints, and root-requirement files are descriptor-validated, canonical local
+inputs whose bytes/digests are already bound before this argv is constructed.
 
 The closed public-safe receipt records only external distribution filenames/versions/digests,
 Python/platform labels, PyAV wheel/runtime identity, binary components, verified license and notice
@@ -333,8 +388,9 @@ Freeze this acquisition-independent authority matrix in RED tests before collect
 | Authority | Required evidence | Classification |
 |---|---|---|
 | external constraints | canonical bytes, SHA-256, source `uv.lock` external-distribution projection, supported marker cells | missing distribution/hash or marker drift is `failed` |
-| wheelhouse manifest | exact canonical filename/version/bytes/SHA-256 inventory with no missing or extra wheel | substitution, omission, or surplus input is `failed` |
-| external wheel | canonical filename, version, bytes, SHA-256, supported Python/platform cell | mismatch or missing is `failed` |
+| wheelhouse manifest | one sorted full-filename/parsed-tags/bytes/SHA-256 inventory; disjoint tagged wheels may share distribution/version and a universal wheel is recorded once | invalid/duplicate filename, symlink/nested/non-regular/unrelated input, identity drift, or surplus input is `failed` |
+| external wheel per cell | exactly one compatible wheel for every lock-derived distribution/version in each supported Python/platform cell | missing, ambiguous/overlapping, wrong-version, or wrong-tag resolution is `failed` |
+| nested pip | exact isolated `--no-index`/validated-local-`--find-links`/binary-only/hashed argv plus sanitized config-free environment | index/proxy/config/cache inheritance, source build, network attempt, or resolution drift is `failed` |
 | PyAV runtime | installed distribution identity plus extension and linked/bundled component inventory from the platform tool recorded in the receipt | `unknown` or `unobservable` is `license_evidence_incomplete` |
 | component license | verified component identity, SPDX-style identifier when supported, source reference, license-text digest | inferred metadata or unresolved identity is `license_evidence_incomplete` |
 | required notice | component owner, notice source, canonical notice digest | missing or unresolved is `license_evidence_incomplete` |
@@ -347,11 +403,16 @@ evidence sources. Unsupported tooling is a failed cell, not a reason to omit the
 - [ ] **Step 6: Stop for acquisition authority, then generate the PR A receipt**
 
 Before any real package or fixture-generation input is acquired, report the exact missing inputs,
-source, expected disk impact, and cleanup ownership and obtain separate authorization. If all inputs
-are already present, generation remains offline:
+source, expected disk impact, and cleanup ownership and obtain separate authorization. Input
+preflight uses an already existing and explicitly approved CPython controller executable. Resolve it
+to a regular executable, bind its SHA-256, `sys.implementation.name`, exact version, and platform
+identity, and fail closed when any declared identity is missing or mismatched. The public-safe JSON
+records those identity values but not the local executable path.
 
 ```bash
-UV_OFFLINE=1 uv run python scripts/direct_audio_dependency_receipt.py \
+/usr/bin/env -i PATH=/usr/bin:/bin \
+  "$RECEIPT_CONTROLLER_PYTHON" -I -B \
+  scripts/direct_audio_dependency_receipt.py \
   --check-inputs \
   --python "$PYTHON312" \
   --python "$PYTHON313" \
@@ -362,11 +423,21 @@ UV_OFFLINE=1 uv run python scripts/direct_audio_dependency_receipt.py \
 ```
 
 This read-only preflight reports a closed sorted list of missing, extra, substituted, or invalid
-inputs and performs no install, fixture generation, or output write. Use it to prepare the separate
-acquisition dispatch without trial and error.
+inputs. Its preflight import path is stdlib-only and descriptor-reads only declared interpreters,
+constraints, wheelhouse entries, fixture paths, and the controller script. It performs no install,
+fixture generation, output or temporary write, bytecode creation, environment/venv synchronization,
+or cache mutation. It must not invoke `uv run`, pip, or any network-capable resolver. Tests snapshot
+the worktree plus declared environment/cache roots before and after the real preflight path and
+require byte identity, no `.venv`, lock/cache mutation, or temporary residue. Use this output to
+prepare the separate acquisition dispatch without trial and error.
+
+Only after that independent acquisition authorization may the receipt controller create call-owned
+environments and invoke the frozen nested-pip boundary from Step 5:
 
 ```bash
-UV_OFFLINE=1 uv run python scripts/direct_audio_dependency_receipt.py \
+/usr/bin/env -i PATH=/usr/bin:/bin \
+  "$RECEIPT_CONTROLLER_PYTHON" -I -B \
+  scripts/direct_audio_dependency_receipt.py \
   --python "$PYTHON312" \
   --python "$PYTHON313" \
   --wheelhouse "$TRANSCRIPTION_WHEELHOUSE" \
@@ -376,8 +447,10 @@ UV_OFFLINE=1 uv run python scripts/direct_audio_dependency_receipt.py \
 ```
 
 Require `status=passed`, two exact interpreter/platform cells, canonical constraints and wheelhouse
-manifest digests, `pip_check=passed`, three fixture decodes per cell, proved child-containment
-mechanisms, complete linked/bundled component inventory, and complete license/notice evidence.
+manifest digests, exactly one compatible wheel per required distribution/version/cell,
+`pip_check=passed`, the frozen nested-pip argv/environment evidence, three fixture decodes per cell,
+proved child-containment mechanisms, complete linked/bundled component inventory, and complete
+license/notice evidence.
 The receipt digest must be independently reproducible from canonical bytes. It is refreshed only
 when the external dependency set or constraints, prepared wheelhouse, PyAV wheel, validation
 platform, containment authority, or fixture authority changes.
@@ -1646,15 +1719,17 @@ receipt but does not regenerate or reinterpret its license evidence.
 
 - [ ] **Step 1: Write controller RED tests with fake subprocess boundaries**
 
-Cover exact two interpreters, same wheel, receipt binding, isolated venvs, ordinary pip install,
-descriptor-verified offline wheelhouse and lock-derived constraints binding, installed-module
+Cover exact two interpreters, same wheel, receipt binding, isolated venvs, the accepted PR A
+nested-pip argv/environment contract, descriptor-verified per-cell wheel compatibility and
+lock-derived constraints binding, installed-module
 identity, no `PYTHONPATH`, no repository import, model tree descriptor validation,
 network canary, three-format Python/CLI calls, one real stdio MCP call plan, Search/Ask,
 Publication/EvidenceRef, v2 export/consumer/copy, output limits, child timeout/process cleanup,
 atomic receipt write, failure codes, and call-owned cleanup.
 
 Add explicit negatives for swapped constraints, marker drift, a missing or extra wheel, a
-same-name/different-digest wheel, and any mismatch between Task 9 inputs and the accepted PR A
+same-name/different-digest wheel, an ambiguous compatible pair, wrong tags, inherited pip
+config/index/proxy/build inputs, and any mismatch between Task 9 inputs and the accepted PR A
 constraints/wheelhouse-manifest cells.
 
 ```python
@@ -1706,10 +1781,12 @@ parent wait, descendant cleanup, and a call-owned environment/home/cache/temp ro
 For each environment:
 
 1. verify the dependency receipt, fresh MKE wheel, and lock-derived constraints through descriptor
-   reads; independently derive the wheelhouse's sorted no-symlink
-   filename/version/bytes/SHA-256 manifest and require exact equality with the accepted PR A cells;
-2. create a fresh venv and ordinary-pip install `wheel[transcription]` only from those prepared
-   offline inputs;
+   reads; independently derive the wheelhouse's sorted full-filename/parsed-tags/bytes/SHA-256
+   manifest, resolve exactly one compatible wheel per required distribution/version/cell, and
+   require exact equality with the accepted PR A cells;
+2. create a fresh venv and install `wheel[transcription]` only through the accepted PR A nested-pip
+   argv/environment authority: isolated and config-free, `--no-index`, one validated local
+   `--find-links`, binary-only hashed roots/constraints, and no proxy/index/cache/build fallback;
 3. run `pip check` and compare the complete installed distribution map;
 4. prove imported `mke` comes from that venv and installed files match wheel bytes/RECORD;
 5. verify the exact model inventory, revision, file sizes, SHA-256 values, aggregate tree digest,
@@ -2199,6 +2276,10 @@ deployment, and post-release docs remain separately authorized actions.
 - Reviewed committed revision: `c150c3c3c49990265cb756ef45a3669cd683714c`.
 - Review mode: one fresh full plan review of the amended revision; no competing whole-plan review
   chain was layered onto it.
+- Targeted repair: a later actual-diff authority review of
+  `bf4fc6107ca3afeb7f84da773a2ca0f2ef72d062` identified three P1 executability gaps on the single
+  PR A offline-input surface. They were repaired and targeted-re-reviewed without rerunning CEO,
+  Engineering, Developer Experience, or the full Autoplan chain.
 - CEO review: clean after nine accepted product-boundary and proof amendments; dual-voice consensus
   confirmed all nine.
 - Design review: skipped because this plan adds no graphical or browser UI.
@@ -2346,6 +2427,9 @@ DX implementation checklist:
 | 16 | Add tested Python/CLI/MCP examples and migration table | Make all entry surfaces and v1/v2 operator choices explicit | Task 10 |
 | 17 | Run one real-ASR proof only at terminal candidate identity | Preserve truth while avoiding repeated release-grade gates | Task 9, Task 10 |
 | 18 | Commit candidate before review and result after review | Bind findings to an exact HEAD without post-proof writes | Task 10 Steps 6-10 |
+| 19 | Resolve wheelhouse authority per Python/platform cell | Permit disjoint tagged wheels and universal reuse without ambiguous compatibility | Task 1 Steps 5-6 |
+| 20 | Make nested pip self-contained and offline | Outer `UV_OFFLINE` cannot constrain ordinary pip subprocesses | Task 1 Step 5, Task 9 Steps 1-4 |
+| 21 | Invoke acquisition preflight with a direct stdlib-only interpreter | Prevent `uv run` from creating or synchronizing an environment before authorization | Task 1 Step 6 |
 
 ### Implementation Tasks Aggregated From Review
 

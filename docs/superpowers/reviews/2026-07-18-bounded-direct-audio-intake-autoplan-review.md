@@ -11,6 +11,11 @@ The review covered product boundaries, implementation architecture, engineering 
 developer experience, verification layering, and review/terminal-proof sequencing. It did not
 review implementation code because implementation has not started.
 
+A later actual-diff authority review of
+`bf4fc6107ca3afeb7f84da773a2ca0f2ef72d062` found three P1 executability gaps on the shared PR A
+offline-input authority. This record now includes the bounded targeted repair and targeted
+re-review. The CEO, Engineering, Developer Experience, and full Autoplan phases were not rerun.
+
 ## Verdict
 
 `CLEARED FOR STAGED IMPLEMENTATION; PR A REQUIRES SEPARATE DISPATCH`
@@ -21,6 +26,8 @@ review implementation code because implementation has not started.
   amendments.
 - Developer-experience review: clean after accepted onboarding, example, recovery, migration, and
   review-sequencing amendments.
+- Targeted PR A offline-input re-review: clean after closing wheel compatibility, nested-pip
+  isolation, and acquisition-preflight execution findings.
 
 No unresolved product or architecture decision remains in the plan. The review introduced no new
 dependency direction or external side effect.
@@ -49,6 +56,26 @@ dependency direction or external side effect.
    reassess repeated findings before entering an assurance loop.
 10. Commit the candidate before whole-branch review, persist the returned review result afterward,
     and forbid tracked writes after terminal wheel/proof generation.
+11. Identify prepared wheels by full canonical filename, bytes, digest, and parsed tags; resolve
+    exactly one compatible wheel per lock-derived distribution/version and Python/platform cell,
+    while allowing disjoint tagged wheels and one recorded universal wheel to serve multiple cells.
+12. Freeze ordinary pip's own offline subprocess boundary with isolated config, sanitized
+    environment, `--no-index`, validated local `--find-links`, binary-only hashed inputs, and no
+    index/proxy/cache/source-build fallback.
+13. Run the acquisition preflight directly under an existing approved stdlib-only controller
+    interpreter with isolated/no-bytecode flags, descriptor-only reads, public-safe JSON, and
+    verified no-write identity across worktree, environment, and cache roots.
+
+## Targeted Repair Closure
+
+| Finding | Resolution | Targeted result |
+|---|---|---|
+| Shared wheelhouse rejected valid same-version cp312/cp313 wheels | Manifest identity is full filename/bytes/SHA-256/parsed tags; compatibility is resolved exactly once per supported cell; disjoint wheels and universal reuse are explicit | Closed |
+| Outer offline flag did not constrain ordinary pip | Real nested-pip argv/environment is frozen and tested with no index, config, proxy, cache, or source-build fallback | Closed |
+| Read-only preflight used an environment-creating launcher | Preflight uses a direct approved stdlib-only interpreter, never `uv run`, and proves before/after no-write identity | Closed |
+
+The repair changes no product boundary, dependency direction, PR staging, Export v2 authority,
+release boundary, or external-side-effect authorization.
 
 ## Prerequisites And Non-Claims
 

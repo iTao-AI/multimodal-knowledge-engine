@@ -623,6 +623,34 @@ wheel. Ordinary later product or documentation commits therefore do not invalida
 only when an external dependency or constraints, prepared wheelhouse, PyAV wheel, platform,
 containment mechanism, or fixture authority changes.
 
+The canonical wheelhouse inventory identifies each wheel by its full canonical filename, byte
+count, SHA-256, and parsed compatibility tags. It does not globally deduplicate by normalized
+distribution/version: disjoint Python or platform wheels for the same locked version may coexist,
+and one universal wheel may satisfy more than one supported cell while appearing once in the
+inventory. For every supported Python/platform cell, each lock-derived required
+distribution/version must resolve to exactly one compatible wheel. Missing, ambiguous or
+overlapping compatible candidates, wrong version/tag, unsupported or surplus input, duplicate
+canonical filename, invalid wheel filename, symlink, nested/non-regular/unrelated file, or identity
+drift fails closed.
+
+Ordinary pip is offline only through its own frozen subprocess authority, not through an outer
+`UV_OFFLINE` setting. Each install runs in a call-owned isolated environment with an empty
+configuration surface and sanitized variables, disables version checks and prompts, and passes
+`--no-index`, one descriptor-validated local `--find-links`, `--only-binary=:all:`, and exact
+lock-derived hashed roots/constraints. Index and proxy credentials, user/global pip configuration,
+source builds, implicit cache inputs, and fallback resolution are excluded. A missing wheel or any
+resolution drift is a stable failed cell and cannot trigger network access, index fallback, or a
+local build.
+
+The acquisition preflight is a distinct stdlib-only path invoked directly with an already existing,
+explicitly approved controller interpreter under isolated/no-bytecode flags. It records the
+interpreter implementation, exact version, platform identity, resolved executable digest, and
+command without publishing its local path. A missing or invalid interpreter fails closed. The
+preflight only descriptor-reads declared inputs and emits public-safe JSON; it does not use
+`uv run`, synchronize or create an environment, install a package, write an output, mutate a cache,
+or leave a temporary artifact. Receipt generation remains a separately authorized later action and
+uses the same frozen nested-pip boundary.
+
 Any unresolved license, notice, fixture redistribution, or binary-component obligation is a
 no-go hard stop: PR A cannot be accepted and PR B cannot begin. Acquisition of packages, wheels,
 models, or external artifacts remains separately authorized and is not implied by this design.
@@ -678,7 +706,9 @@ Required CI remains model-free and offline. It must cover:
 
 Using the same MKE wheel in fresh Python 3.12 and 3.13 environments:
 
-- install the locked transcription extra with ordinary pip semantics;
+- install the locked transcription extra through the accepted PR A nested-pip subprocess authority,
+  including isolated config, sanitized environment, `--no-index`, validated local `--find-links`,
+  binary-only hashed inputs, and no index/proxy/build fallback;
 - require exact accepted PR A constraints and wheelhouse-manifest digests, then run `pip check`,
   package identity, dependency inventory, and wheel-byte validation;
 - inspect/decode the three committed formats offline through the installed PyAV boundary;
