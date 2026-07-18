@@ -1916,12 +1916,84 @@ def test_supervision_failure_is_closed_with_cleanup_receipt(
     assert cleanup["process_group_absent"] is True
 
 
+_FIXTURE_AUTHORITY_DOCUMENT_SHA256 = (
+    "533bc8a47ba89aeb86de0e7b944da2f1a3f1de8a5ba062b861a3aef854a87ccb"
+)
+_FIXTURE_SOURCE_SHA256 = "2e62303fbc08223d326b6faa3699bbbfdf0e0fca335101bdb7265b4988d11cb4"
+_FIXTURE_IDENTITIES = {
+    "direct-audio.m4a": (
+        24_880,
+        "cd7307b22b74de4fef8bda87582be791528c65d6546e4abdf42128070980e260",
+        {
+            "codec": "aac",
+            "compatible_brands": "M4A isomiso2",
+            "container_tokens": ["3g2", "3gp", "m4a", "mj2", "mov", "mp4"],
+            "duration_us": 3_630_000,
+            "layout": "mono",
+            "major_brand": "M4A ",
+            "media_type": "audio/mp4",
+            "profile": "LC",
+            "sample_rate": 16_000,
+            "stream_count": 1,
+        },
+    ),
+    "direct-audio.mp3": (
+        22_509,
+        "cc10ce7b07ae0ea8434b690383bb7ef0a43f7af66aec474d410e5a9612158631",
+        {
+            "codec": "mp3float",
+            "container_tokens": ["mp3"],
+            "duration_us": 3_630_000,
+            "layout": "mono",
+            "media_type": "audio/mpeg",
+            "profile": "normalized-mpeg-layer-iii",
+            "sample_rate": 16_000,
+            "stream_count": 1,
+        },
+    ),
+    "direct-audio.wav": (
+        116_238,
+        "ec82eefefc5a6ccbbfc757864fc94bffd250bf185b03fc0404568063c8f993ac",
+        {
+            "codec": "pcm_s16le",
+            "container_tokens": ["wav"],
+            "duration_us": 3_630_000,
+            "layout": "mono",
+            "media_type": "audio/wav",
+            "profile": "pcm-s16le",
+            "sample_rate": 16_000,
+            "stream_count": 1,
+        },
+    ),
+}
+
+
+def _canonical_digest(value: object) -> str:
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":")).encode("ascii")
+    ).hexdigest()
+
+
+def _generation_preflight_digest(evidence: dict[str, object]) -> str:
+    projection = {
+        "fixtures": sorted(
+            cast(list[dict[str, object]], evidence["fixtures"]),
+            key=lambda item: cast(str, item["filename"]),
+        ),
+        "wheel_inventory": sorted(
+            cast(list[dict[str, object]], evidence["wheel_inventory"]),
+            key=lambda item: cast(str, item["filename"]),
+        ),
+    }
+    return _canonical_digest(projection)
+
+
 def _complete_generation_evidence() -> dict[str, object]:
     digest = "a" * 64
     digest_313 = "c" * 64
-    return {
-        "preflight_observed_digest": "b" * 64,
-        "generation_preflight_observed_digest": "b" * 64,
+    evidence: dict[str, object] = {
+        "preflight_observed_digest": "",
+        "generation_preflight_observed_digest": "",
         "external_binary_redistribution": "not_performed",
         "redistribution_authority": "not_claimed",
         "wheel_inventory": [
@@ -1987,20 +2059,23 @@ def _complete_generation_evidence() -> dict[str, object]:
         "fixtures": [
             {
                 "filename": name,
-                "sha256": digest,
+                "sha256": fixture_sha256,
                 "redistribution": "permitted",
                 "artifact_scope": "repository_distributed",
-                "bytes": 16,
-                "source": "generated-test-fixture",
-                "recipe_sha256": digest,
-                "license": "CC0-1.0",
-                "source_sha256": digest,
+                "bytes": fixture_bytes,
+                "source": "repository-authored-synthetic-speech",
+                "recipe_sha256": _FIXTURE_AUTHORITY_DOCUMENT_SHA256,
+                "license": "Flite",
+                "license_evidence_sha256": _FIXTURE_AUTHORITY_DOCUMENT_SHA256,
+                "source_sha256": _FIXTURE_SOURCE_SHA256,
                 "required_notice": "included",
+                "notice_evidence_sha256": _FIXTURE_AUTHORITY_DOCUMENT_SHA256,
                 "redistribution_basis": "documented_source_license_and_recipe",
-                "redistribution_evidence_sha256": digest,
-                "profile_sha256": digest,
+                "redistribution_evidence_sha256": _FIXTURE_AUTHORITY_DOCUMENT_SHA256,
+                "profile_sha256": _canonical_digest(profile),
+                "authority_document_sha256": _FIXTURE_AUTHORITY_DOCUMENT_SHA256,
             }
-            for name in ("direct-audio.m4a", "direct-audio.mp3", "direct-audio.wav")
+            for name, (fixture_bytes, fixture_sha256, profile) in _FIXTURE_IDENTITIES.items()
         ],
         "unresolved_transitive_binary_items": [
             {
@@ -2013,6 +2088,10 @@ def _complete_generation_evidence() -> dict[str, object]:
             }
         ],
     }
+    preflight_digest = _generation_preflight_digest(evidence)
+    evidence["preflight_observed_digest"] = preflight_digest
+    evidence["generation_preflight_observed_digest"] = preflight_digest
+    return evidence
 
 
 def test_local_optional_use_allows_recorded_unresolved_transitive_items() -> None:
@@ -2022,6 +2101,87 @@ def test_local_optional_use_allows_recorded_unresolved_transitive_items() -> Non
         "external_binary_redistribution": "not_performed",
         "redistribution_authority": "not_claimed",
         "status": "passed",
+    }
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "duplicate_fixture",
+        "duplicate_direct_component",
+        "duplicate_direct_component_name",
+        "duplicate_unresolved_transitive",
+        "duplicate_unresolved_transitive_name",
+        "duplicate_linked_component",
+        "linked_bundled_overlap",
+        "absolute_direct_source_reference",
+        "hostname_ffmpeg_source_reference",
+        "absolute_fixture_source_reference",
+        "fixture_bytes_drift",
+        "fixture_sha256_drift",
+        "fixture_profile_drift",
+        "fixture_license_evidence_drift",
+        "fixture_notice_evidence_drift",
+        "fixture_authority_document_drift",
+        "arbitrary_preflight_digest",
+    ],
+)
+def test_generation_evidence_rejects_noncanonical_inventory_mutations(mutation: str) -> None:
+    receipt = _module()
+    evidence = _complete_generation_evidence()
+    fixtures = cast(list[dict[str, object]], evidence["fixtures"])
+    direct = cast(list[dict[str, object]], evidence["direct_components"])
+    unresolved = cast(list[dict[str, object]], evidence["unresolved_transitive_binary_items"])
+    pyav = cast(dict[str, object], evidence["pyav"])
+    ffmpeg = cast(dict[str, object], evidence["ffmpeg_runtime"])
+    if mutation == "duplicate_fixture":
+        fixtures.append(dict(fixtures[0]))
+    elif mutation == "duplicate_direct_component":
+        direct.append(dict(direct[0]))
+    elif mutation == "duplicate_direct_component_name":
+        duplicate = dict(direct[0])
+        duplicate["version"] = "62"
+        direct.append(duplicate)
+    elif mutation == "duplicate_unresolved_transitive":
+        unresolved.append(dict(unresolved[0]))
+    elif mutation == "duplicate_unresolved_transitive_name":
+        duplicate = dict(unresolved[0])
+        duplicate["version"] = "2"
+        duplicate["identity_sha256"] = "d" * 64
+        unresolved.append(duplicate)
+    elif mutation == "duplicate_linked_component":
+        cast(list[str], pyav["linked_components"]).append("libavcodec")
+    elif mutation == "linked_bundled_overlap":
+        cast(list[str], pyav["bundled_components"]).append("libavcodec")
+    elif mutation == "absolute_direct_source_reference":
+        direct[0]["source_reference"] = "/Users/operator/private-evidence"
+    elif mutation == "hostname_ffmpeg_source_reference":
+        ffmpeg["source_reference"] = "build-host.internal"
+    elif mutation == "absolute_fixture_source_reference":
+        fixtures[0]["source"] = "/private/local/generated-audio"
+    elif mutation == "fixture_bytes_drift":
+        fixtures[0]["bytes"] = cast(int, fixtures[0]["bytes"]) + 1
+    elif mutation == "fixture_sha256_drift":
+        fixtures[0]["sha256"] = "d" * 64
+    elif mutation == "fixture_profile_drift":
+        fixtures[0]["profile_sha256"] = "e" * 64
+    elif mutation == "fixture_license_evidence_drift":
+        fixtures[0]["license_evidence_sha256"] = "e" * 64
+    elif mutation == "fixture_notice_evidence_drift":
+        fixtures[0]["notice_evidence_sha256"] = "e" * 64
+    elif mutation == "fixture_authority_document_drift":
+        fixtures[0]["authority_document_sha256"] = "e" * 64
+    else:
+        evidence["preflight_observed_digest"] = "f" * 64
+        evidence["generation_preflight_observed_digest"] = "f" * 64
+    if mutation != "arbitrary_preflight_digest":
+        preflight_digest = _generation_preflight_digest(evidence)
+        evidence["preflight_observed_digest"] = preflight_digest
+        evidence["generation_preflight_observed_digest"] = preflight_digest
+
+    assert receipt.validate_generation_evidence(evidence) == {
+        "failure": "generation_evidence_invalid",
+        "status": "failed",
     }
 
 

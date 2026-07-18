@@ -32,7 +32,43 @@ _DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 _DIST = re.compile(r"[a-z0-9]+(?:_[a-z0-9]+)*\Z")
 _VERSION = re.compile(r"[0-9][a-z0-9]*(?:[._+][a-z0-9]+)*\Z")
 _TAG = re.compile(r"[a-z0-9_]+(?:\.[a-z0-9_]+)*\Z")
+_PUBLIC_REFERENCE = re.compile(r"[a-z0-9]+(?:[-_][a-z0-9]+)*\Z")
 _FIXTURES = ("direct-audio.m4a", "direct-audio.mp3", "direct-audio.wav")
+_FIXTURE_AUTHORITY_DOCUMENT_SHA256 = (
+    "533bc8a47ba89aeb86de0e7b944da2f1a3f1de8a5ba062b861a3aef854a87ccb"
+)
+_FIXTURE_SOURCE_SHA256 = "2e62303fbc08223d326b6faa3699bbbfdf0e0fca335101bdb7265b4988d11cb4"
+
+
+def _canonical_digest(value: object) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+            allow_nan=False,
+        ).encode("ascii")
+    ).hexdigest()
+
+
+_FIXTURE_AUTHORITY = {
+    "direct-audio.m4a": {
+        "bytes": 24_880,
+        "sha256": "cd7307b22b74de4fef8bda87582be791528c65d6546e4abdf42128070980e260",
+        "profile_sha256": "70d2c652b5dd0317bda6d718b17ea8b205c557f79d9f923fd130a29a03626014",
+    },
+    "direct-audio.mp3": {
+        "bytes": 22_509,
+        "sha256": "cc10ce7b07ae0ea8434b690383bb7ef0a43f7af66aec474d410e5a9612158631",
+        "profile_sha256": "75193a2111794a0d0c2b35d2dbf69498eed959161a48c2434812564cbc4dc3b1",
+    },
+    "direct-audio.wav": {
+        "bytes": 116_238,
+        "sha256": "ec82eefefc5a6ccbbfc757864fc94bffd250bf185b03fc0404568063c8f993ac",
+        "profile_sha256": "49e792c43526bb7ef609de4ca013aea070fb882a643cc1a20b4a9bb77d0e073d",
+    },
+}
 
 
 class ReceiptError(ValueError):
@@ -1493,6 +1529,29 @@ def _resolved_text(value: object) -> bool:
     )
 
 
+def _public_reference(value: object) -> bool:
+    return (
+        _resolved_text(value)
+        and isinstance(value, str)
+        and _PUBLIC_REFERENCE.fullmatch(value) is not None
+    )
+
+
+def _generation_preflight_digest(
+    wheels: list[dict[str, object]], fixtures: list[dict[str, object]]
+) -> str | None:
+    if any(not isinstance(item.get("filename"), str) for item in [*wheels, *fixtures]):
+        return None
+    projection = {
+        "fixtures": sorted(fixtures, key=lambda item: cast(str, item["filename"])),
+        "wheel_inventory": sorted(wheels, key=lambda item: cast(str, item["filename"])),
+    }
+    try:
+        return _canonical_digest(projection)
+    except (TypeError, ValueError, UnicodeEncodeError):
+        return None
+
+
 def _exact_mapping(value: object, keys: set[str]) -> dict[str, object] | None:
     if not isinstance(value, dict):
         return None
@@ -1545,9 +1604,6 @@ def validate_generation_evidence(evidence: Mapping[str, object]) -> dict[str, st
     valid = (
         evidence["external_binary_redistribution"] == "not_performed"
         and evidence["redistribution_authority"] == "not_claimed"
-        and _digest_value(evidence["preflight_observed_digest"])
-        and evidence["preflight_observed_digest"]
-        == evidence["generation_preflight_observed_digest"]
     )
     wheels = _inventory_rows(
         evidence["wheel_inventory"],
@@ -1631,6 +1687,10 @@ def validate_generation_evidence(evidence: Mapping[str, object]) -> dict[str, st
                 not isinstance(item["filename"], str) or not _digest_value(item["sha256"])
                 for item in extensions
             )
+            or len({item["filename"] for item in extensions}) != len(extensions)
+            or len(set(linked_value)) != len(linked_value)
+            or len(set(bundled_value)) != len(bundled_value)
+            or not set(linked_value).isdisjoint(bundled_value)
         ):
             valid = False
         else:
@@ -1662,9 +1722,9 @@ def validate_generation_evidence(evidence: Mapping[str, object]) -> dict[str, st
             valid
             and ffmpeg_row["artifact_scope"] == "local_runtime_only"
             and all(
-                _resolved_text(ffmpeg_row[key])
-                for key in ("license", "configuration", "source_reference")
+                _resolved_text(ffmpeg_row[key]) for key in ("license", "configuration")
             )
+            and _public_reference(ffmpeg_row["source_reference"])
             and _digest_value(ffmpeg_row["sha256"])
             and _digest_value(ffmpeg_row["license_text_sha256"])
         )
@@ -1688,9 +1748,10 @@ def validate_generation_evidence(evidence: Mapping[str, object]) -> dict[str, st
         valid = (
             valid
             and direct_names == linked | bundled
+            and len(direct_names) == len(direct)
             and all(
                 all(_resolved_text(item[key]) for key in ("name", "version", "license"))
-                and _resolved_text(item["source_reference"])
+                and _public_reference(item["source_reference"])
                 and _digest_value(item["evidence_sha256"])
                 and _digest_value(item["license_text_sha256"])
                 and item["artifact_scope"] == "local_runtime_only"
@@ -1709,11 +1770,14 @@ def validate_generation_evidence(evidence: Mapping[str, object]) -> dict[str, st
             "source",
             "recipe_sha256",
             "license",
+            "license_evidence_sha256",
             "source_sha256",
             "required_notice",
+            "notice_evidence_sha256",
             "redistribution_basis",
             "redistribution_evidence_sha256",
             "profile_sha256",
+            "authority_document_sha256",
         },
     )
     if fixtures is None:
@@ -1722,23 +1786,41 @@ def validate_generation_evidence(evidence: Mapping[str, object]) -> dict[str, st
         valid = (
             valid
             and {item["filename"] for item in fixtures} == set(_FIXTURES)
+            and len(fixtures) == len(_FIXTURES)
             and all(
                 item["redistribution"] == "permitted"
                 and item["artifact_scope"] == "repository_distributed"
-                and _digest_value(item["sha256"])
-                and isinstance(item["bytes"], int)
-                and not isinstance(item["bytes"], bool)
-                and item["bytes"] > 0
-                and _resolved_text(item["source"])
-                and _digest_value(item["recipe_sha256"])
-                and _resolved_text(item["license"])
-                and _digest_value(item["source_sha256"])
+                and item["bytes"]
+                == _FIXTURE_AUTHORITY[cast(str, item["filename"])]["bytes"]
+                and item["sha256"]
+                == _FIXTURE_AUTHORITY[cast(str, item["filename"])]["sha256"]
+                and item["profile_sha256"]
+                == _FIXTURE_AUTHORITY[cast(str, item["filename"])]["profile_sha256"]
+                and _public_reference(item["source"])
+                and item["source"] == "repository-authored-synthetic-speech"
+                and item["recipe_sha256"] == _FIXTURE_AUTHORITY_DOCUMENT_SHA256
+                and item["license"] == "Flite"
+                and item["license_evidence_sha256"] == _FIXTURE_AUTHORITY_DOCUMENT_SHA256
+                and item["source_sha256"] == _FIXTURE_SOURCE_SHA256
                 and item["required_notice"] == "included"
+                and item["notice_evidence_sha256"] == _FIXTURE_AUTHORITY_DOCUMENT_SHA256
                 and item["redistribution_basis"] == "documented_source_license_and_recipe"
-                and _digest_value(item["redistribution_evidence_sha256"])
-                and _digest_value(item["profile_sha256"])
+                and item["redistribution_evidence_sha256"]
+                == _FIXTURE_AUTHORITY_DOCUMENT_SHA256
+                and item["authority_document_sha256"]
+                == _FIXTURE_AUTHORITY_DOCUMENT_SHA256
                 for item in fixtures
             )
+        )
+    if wheels is None or fixtures is None:
+        valid = False
+    else:
+        expected_preflight_digest = _generation_preflight_digest(wheels, fixtures)
+        valid = (
+            valid
+            and expected_preflight_digest is not None
+            and evidence["preflight_observed_digest"] == expected_preflight_digest
+            and evidence["generation_preflight_observed_digest"] == expected_preflight_digest
         )
     unresolved = evidence["unresolved_transitive_binary_items"]
     unresolved_keys = {
@@ -1759,16 +1841,16 @@ def validate_generation_evidence(evidence: Mapping[str, object]) -> dict[str, st
                 break
             unresolved_rows.append(row)
     if unresolved_rows is None or any(
-        not isinstance(item["name"], str)
-        or not item["name"]
-        or not isinstance(item["version"], str)
-        or not item["version"]
+        not _resolved_text(item["name"])
+        or not _resolved_text(item["version"])
         or not _digest_value(item["identity_sha256"])
         or item["redistribution_clearance"] != "unresolved"
         or item["local_use_restriction"] != "none_observed"
         or item["artifact_scope"] != "local_runtime_only"
         for item in unresolved_rows
     ):
+        valid = False
+    elif len({item["name"] for item in unresolved_rows}) != len(unresolved_rows):
         valid = False
     if not valid:
         return {"failure": "generation_evidence_invalid", "status": "failed"}
