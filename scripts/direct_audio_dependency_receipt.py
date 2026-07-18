@@ -157,6 +157,13 @@ class PipInputAuthority:
 
 
 @dataclass(frozen=True)
+class VenvAuthority:
+    directories: tuple[tuple[str, tuple[int, ...]], ...]
+    executable: ExecutableSnapshot
+    configuration: FileAuthority
+
+
+@dataclass(frozen=True)
 class BoundedProfile:
     wall_seconds: float
     stdout_bytes: int
@@ -1314,6 +1321,74 @@ def _venv_python(path: Path, runtime_root: Path) -> ExecutableSnapshot:
     return _snapshot_executable(path)
 
 
+def _snapshot_venv_authority(
+    *,
+    venv: Path,
+    executable: Path,
+    call_root: Path,
+    cell: Cell,
+) -> VenvAuthority:
+    python_lib = venv / "lib" / f"python{cell.version}"
+    expected_directories = (
+        ("venv", venv),
+        ("bin", venv / "bin"),
+        ("lib", venv / "lib"),
+        ("python-lib", python_lib),
+        ("site-packages", python_lib / "site-packages"),
+    )
+    if venv.parent != call_root or executable != venv / "bin" / f"python{cell.version}":
+        raise ReceiptError("pip_venv_invalid")
+    try:
+        resolved_call_root = call_root.resolve(strict=True)
+        directories: list[tuple[str, tuple[int, ...]]] = []
+        for label, path in expected_directories:
+            resolved = _validated_directory(path, code="pip_venv_invalid")
+            resolved.relative_to(resolved_call_root)
+            directories.append((label, _directory_authority(path, code="pip_venv_invalid")[:3]))
+        configuration, value = _file_authority(venv / "pyvenv.cfg")
+        executable_authority = _venv_python(executable, resolved_call_root)
+        text = value.decode("utf-8", errors="strict")
+    except ReceiptError as error:
+        raise ReceiptError("pip_venv_invalid") from error
+    except (OSError, UnicodeDecodeError, ValueError) as error:
+        raise ReceiptError("pip_venv_invalid") from error
+    fields: dict[str, str] = {}
+    for line in text.splitlines():
+        key, separator, field_value = line.partition("=")
+        normalized_key = key.strip().lower()
+        normalized_value = field_value.strip()
+        if not separator or not normalized_key or not normalized_value or normalized_key in fields:
+            raise ReceiptError("pip_venv_invalid")
+        fields[normalized_key] = normalized_value
+    if (
+        fields.get("include-system-site-packages", "").lower() != "false"
+        or re.fullmatch(rf"{re.escape(cell.version)}\.\d+", fields.get("version", "")) is None
+    ):
+        raise ReceiptError("pip_venv_invalid")
+    return VenvAuthority(tuple(directories), executable_authority, configuration)
+
+
+def _validate_venv_authority(
+    expected: VenvAuthority,
+    *,
+    venv: Path,
+    executable: Path,
+    call_root: Path,
+    cell: Cell,
+) -> None:
+    try:
+        observed = _snapshot_venv_authority(
+            venv=venv,
+            executable=executable,
+            call_root=call_root,
+            cell=cell,
+        )
+    except ReceiptError as error:
+        raise ReceiptError("pip_venv_identity_drift") from error
+    if observed != expected:
+        raise ReceiptError("pip_venv_identity_drift")
+
+
 def run_nested_pip_install(
     *,
     python: Path,
@@ -1400,13 +1475,25 @@ def run_nested_pip_install(
         if creation.returncode != 0 or creation.stderr:
             raise ReceiptError("pip_venv_creation_failed")
         venv_executable = venv / "bin" / f"python{cell.version}"
-        venv_before = _venv_python(venv_executable, validated_runtime)
+        venv_before = _snapshot_venv_authority(
+            venv=venv,
+            executable=venv_executable,
+            call_root=call_root,
+            cell=cell,
+        )
         venv_interpreter, _, pip_executable = _probe_target_interpreter(venv_executable, cell)
         if (
             venv_interpreter != dict(preflight_interpreter)
-            or pip_executable != venv_before.resolved
+            or pip_executable != venv_before.executable.resolved
         ):
             raise ReceiptError("pip_venv_identity_drift")
+        _validate_venv_authority(
+            venv_before,
+            venv=venv,
+            executable=venv_executable,
+            call_root=call_root,
+            cell=cell,
+        )
         environment = {
             "HOME": str(home),
             "TMPDIR": str(temp),
@@ -1455,8 +1542,13 @@ def run_nested_pip_install(
             root_requirements_sha256=root_requirements_sha256,
             code="pip_staging_identity_drift",
         )
-        if _venv_python(venv_executable, validated_runtime) != venv_before:
-            raise ReceiptError("pip_venv_identity_drift")
+        _validate_venv_authority(
+            venv_before,
+            venv=venv,
+            executable=venv_executable,
+            call_root=call_root,
+            cell=cell,
+        )
         pip_check = _run_bounded(
             [
                 str(venv_executable),
@@ -1494,8 +1586,13 @@ def run_nested_pip_install(
             root_requirements_sha256=root_requirements_sha256,
             code="pip_staging_identity_drift",
         )
-        if _venv_python(venv_executable, validated_runtime) != venv_before:
-            raise ReceiptError("pip_venv_identity_drift")
+        _validate_venv_authority(
+            venv_before,
+            venv=venv,
+            executable=venv_executable,
+            call_root=call_root,
+            cell=cell,
+        )
         final_interpreter = _snapshot_executable(python)
         if (
             final_interpreter.identity != preflight_file_identity

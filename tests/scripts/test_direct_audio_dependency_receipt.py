@@ -582,6 +582,7 @@ def _install_fake_nested_pip_runtime(
     case: dict[str, object],
     *,
     venv_alias: bool = False,
+    site_packages_alias: Path | None = None,
     install_mutation: object | None = None,
 ) -> list[dict[str, object]]:
     receipt = _module()
@@ -604,6 +605,17 @@ def _install_fake_nested_pip_runtime(
             else:
                 target.write_bytes(python.read_bytes())
                 target.chmod(0o700)
+            python_lib = venv / "lib" / "python3.12"
+            python_lib.mkdir(parents=True)
+            site_packages = python_lib / "site-packages"
+            if site_packages_alias is None:
+                site_packages.mkdir()
+            else:
+                site_packages.symlink_to(site_packages_alias, target_is_directory=True)
+            (venv / "pyvenv.cfg").write_text(
+                "include-system-site-packages = false\nversion = 3.12.9\n",
+                encoding="utf-8",
+            )
         elif "install" in argv and callable(install_mutation):
             install_mutation(argv)
         return receipt.BoundedRunResult(0, b"", b"", None)
@@ -711,6 +723,56 @@ def test_nested_pip_rejects_venv_alias_to_operator_interpreter(
     assert len(calls) == 1
     assert list(cast(Path, case["runtime_root"]).iterdir()) == []
     assert cast(Path, case["python"]).read_bytes() == b"approved-python"
+
+
+def test_nested_pip_rejects_site_packages_alias_before_install(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = _nested_pip_case(tmp_path)
+    operator_site = tmp_path / "operator-site-packages"
+    operator_site.mkdir()
+    marker = operator_site / "operator-owned.txt"
+    marker.write_text("unchanged", encoding="utf-8")
+    calls = _install_fake_nested_pip_runtime(
+        monkeypatch,
+        case,
+        site_packages_alias=operator_site,
+    )
+
+    with pytest.raises(_module().ReceiptError, match="^pip_venv_invalid$"):
+        _run_nested_case(case)
+
+    assert len(calls) == 1
+    assert marker.read_text(encoding="utf-8") == "unchanged"
+    assert list(cast(Path, case["runtime_root"]).iterdir()) == []
+
+
+def test_nested_pip_rejects_site_packages_retarget_after_install(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = _nested_pip_case(tmp_path)
+    operator_site = tmp_path / "operator-site-packages"
+    operator_site.mkdir()
+    marker = operator_site / "operator-owned.txt"
+    marker.write_text("unchanged", encoding="utf-8")
+
+    def retarget_site_packages(argv: list[str]) -> None:
+        venv = Path(argv[0]).parent.parent
+        site_packages = venv / "lib" / "python3.12" / "site-packages"
+        site_packages.rmdir()
+        site_packages.symlink_to(operator_site, target_is_directory=True)
+
+    _install_fake_nested_pip_runtime(
+        monkeypatch,
+        case,
+        install_mutation=retarget_site_packages,
+    )
+
+    with pytest.raises(_module().ReceiptError, match="^pip_venv_identity_drift$"):
+        _run_nested_case(case)
+
+    assert marker.read_text(encoding="utf-8") == "unchanged"
+    assert list(cast(Path, case["runtime_root"]).iterdir()) == []
 
 
 def test_nested_pip_rejects_venv_retarget_after_install(
