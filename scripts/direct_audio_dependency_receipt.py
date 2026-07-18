@@ -41,6 +41,9 @@ _FFMPEG_FLAG = re.compile(
     r"(?:--(?:enable|disable)-[a-z0-9]+(?:-[a-z0-9]+)*|"
     r"--[a-z0-9]+(?:-[a-z0-9]+)*=[a-z0-9_+,-]+)\Z"
 )
+_FFMPEG_LICENSE = re.compile(
+    r"(?:LGPL|GPL) version [0-9]+(?:\.[0-9]+)*(?: or later)?\Z"
+)
 _FIXTURES = ("direct-audio.m4a", "direct-audio.mp3", "direct-audio.wav")
 _FIXTURE_AUTHORITY_DOCUMENT_SHA256 = (
     "533bc8a47ba89aeb86de0e7b944da2f1a3f1de8a5ba062b861a3aef854a87ccb"
@@ -1579,6 +1582,10 @@ def _ffmpeg_configuration(value: object) -> bool:
     )
 
 
+def _ffmpeg_license(value: object) -> bool:
+    return isinstance(value, str) and _FFMPEG_LICENSE.fullmatch(value) is not None
+
+
 def _exact_mapping(value: object, keys: set[str]) -> dict[str, object] | None:
     if not isinstance(value, dict):
         return None
@@ -1957,7 +1964,7 @@ def validate_generation_evidence(
         valid = (
             valid
             and ffmpeg_row["artifact_scope"] == "local_runtime_only"
-            and _resolved_text(ffmpeg_row["license"])
+            and _ffmpeg_license(ffmpeg_row["license"])
             and _ffmpeg_configuration(ffmpeg_row["configuration"])
             and _digest_value(ffmpeg_row["configuration_sha256"])
             and _public_reference(ffmpeg_row["source_reference"])

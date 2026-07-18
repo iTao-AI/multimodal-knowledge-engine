@@ -2277,6 +2277,8 @@ def test_generation_evidence_requires_full_passed_preflight_authority(mutation: 
         "private_unresolved_name",
         "hostname_unresolved_version",
         "private_ffmpeg_configuration",
+        "private_ffmpeg_license",
+        "hostname_ffmpeg_license",
         "invalid_ffmpeg_configuration_digest",
         "duplicate_ffmpeg_configuration_token",
         "noncanonical_ffmpeg_configuration_order",
@@ -2304,6 +2306,10 @@ def test_generation_evidence_rejects_private_or_noncanonical_field_grammar(
         unresolved[0]["version"] = "build-host.internal"
     elif mutation == "private_ffmpeg_configuration":
         ffmpeg["configuration"] = "--prefix=/Users/operator/private/build"
+    elif mutation == "private_ffmpeg_license":
+        ffmpeg["license"] = "/Users/operator/private/LICENSE"
+    elif mutation == "hostname_ffmpeg_license":
+        ffmpeg["license"] = "build-host.internal"
     elif mutation == "invalid_ffmpeg_configuration_digest":
         ffmpeg["configuration_sha256"] = "invalid"
     elif mutation == "duplicate_ffmpeg_configuration_token":
