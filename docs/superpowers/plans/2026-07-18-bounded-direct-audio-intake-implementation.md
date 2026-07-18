@@ -244,7 +244,7 @@ separately authorized release-closeout PR
   inventory/direct-evidence, non-redistribution, fixture, executable-probe, and supported-platform
   supervisor receipt used as the hard PR B entry gate.
 
-- [ ] **Step 1: Write fixture-absence RED tests before generating media**
+- [x] **Step 1: Write fixture-absence RED tests before generating media**
 
 ```python
 @pytest.mark.parametrize(
@@ -268,7 +268,7 @@ def test_direct_audio_fixture_inventory(name: str, expected_media_type: str) -> 
 PR A does not amend legacy product, MCP, or export contract tests; those remain read-only baseline
 authority for later stages.
 
-- [ ] **Step 2: Run RED tests**
+- [x] **Step 2: Run RED tests**
 
 Run:
 
@@ -281,7 +281,7 @@ UV_OFFLINE=1 uv run pytest -q \
 Expected: fixture and dependency-receipt cases fail because the files, controller, and canonical
 receipt do not exist.
 
-- [ ] **Step 3: Generate the three fixtures outside the repository**
+- [x] **Step 3: Generate the three fixtures outside the repository**
 
 Use one repository-authored sentence, a redistribution-safe synthetic speech source with an
 explicit redistribution basis, and a pinned local `ffmpeg` binary only as a fixture-generation tool.
@@ -306,7 +306,7 @@ The README must contain the source text or signal recipe, synthesizer/source lic
 redistribution basis, exact command, tool version, byte size, SHA-256, duration, stream count,
 channel count, sample rate, container, codec, and AAC profile. Do not commit the intermediate source.
 
-- [ ] **Step 4: Make fixture and compatibility tests GREEN**
+- [x] **Step 4: Make fixture and compatibility tests GREEN**
 
 Inspect the committed bytes with PyAV inside the test body. Skip only when the transcription extra
 is absent and `MKE_REQUIRE_TRANSCRIPTION_EXTRA` is not `1`; fail when that variable is `1` and PyAV
@@ -321,6 +321,15 @@ UV_OFFLINE=1 MKE_REQUIRE_TRANSCRIPTION_EXTRA=1 uv run pytest -q \
 ```
 
 Expected: PASS with exactly three fixture identities.
+
+> **Pre-acquisition checkpoint (2026-07-18):** Commit
+> `a19743992f73d8c03e543344227abadd4c3cb6fb` retains the fixture RED/GREEN work,
+> the redistribution-safe generation record, and the three immutable fixture identities. A fresh
+> required-extra fixture run passed `8` tests. The acquisition-independent Step 5 controller and
+> validator remain partial; targeted authority repair commit
+> `f49fbb231bb24b7ec180a54ef9f3dc9246402b68` passed all `180` receipt-controller tests. No package
+> acquisition, call-owned package environment, or canonical dependency receipt was generated.
+> Step 5 remains unchecked, and Steps 6-7 remain pending their explicit gates.
 
 - [ ] **Step 5: Implement the external dependency/license receipt and validator**
 

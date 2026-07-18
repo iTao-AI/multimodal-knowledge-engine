@@ -115,3 +115,29 @@ superseded only as described here.
 The staged plan remains `CLEARED FOR STAGED IMPLEMENTATION; PR A REQUIRES SEPARATE DISPATCH` under
 this amended authority. No unrelated plan checkbox is completed, and no implementation or external
 side effect is authorized by this record.
+
+## Targeted PR A Authority Repair Checkpoint
+
+An executable-path review of candidate `c9a3e39bbda3bfa8a7a1f39098d282b952e004d8`
+requested bounded repair before acquisition. Commit
+`f49fbb231bb24b7ec180a54ef9f3dc9246402b68` now provides the local model-free repair evidence:
+
+- the generation validator binds canonical receipt bytes, the live controller-script digest,
+  production-parsed wheel filenames and tags, exact supported-cell interpreter semantics, per-cell
+  installed/import/decode evidence, frozen nested-pip authority, and the controlled-allocator
+  supervisor cleanup record;
+- the nested-pip boundary uses the approved interpreter only for identity and call-owned venv
+  creation, copies all inputs into exclusive call-owned staging, validates source and stage
+  identities before and after execution, and treats venv drift or cleanup failure as terminal;
+- the lock projection retains URL basename, digest, size, and compatibility-tag authority, while
+  fixture preflight binds the exact `README.md` plus three-binary inventory and rejects root or file
+  identity drift; and
+- marker evaluation, spawn failures, malformed lock structures, CLI argument failures, and
+  unexpected controller failures terminate at closed public-safe error codes.
+
+The repair preserved real RED evidence for forged generation authority, nested-pip ownership and
+TOCTOU drift, lock/fixture provenance, and public error leakage. The resulting focused controller
+suite passed `180` tests, and the required-extra fixture suite passed `8` tests. This checkpoint is
+not Task 1 acceptance: Step 5 remains partial, no real package environment or canonical dependency
+receipt exists, Steps 6-7 remain open, and acquisition still requires separate authorization and a
+targeted authority re-review.
