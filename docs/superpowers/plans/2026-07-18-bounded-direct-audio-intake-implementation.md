@@ -2,10 +2,10 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-Status: approved implementation-plan source pending mechanical public landing and one full
-`autoplan` review. This document does not authorize implementation or external side effects.
+Status: authority-amended staged implementation plan pending one full `autoplan` review. This
+document does not authorize PR A, implementation, acquisition, or external side effects.
 
-**Goal:** Add bounded local MP3, WAV, and M4A ingestion that publishes timestamp Evidence through the existing Run/Publication authority and exports complete mixed Libraries through an explicit Compiled Library Export v2 contract.
+**Goal:** Add bounded local MP3, WAV, and M4A intake for voice notes and clips or excerpts from meetings, interviews, lectures, and downloaded spoken material; publish timestamp Evidence through the existing Run/Publication authority; and export complete mixed Libraries through an explicit Compiled Library Export v2 contract.
 
 **Architecture:** Introduce a project-owned audio protocol and immutable media snapshot without reinterpreting the historical video contract. Reuse the owner-configured cache-only faster-whisper runtime behind a separate audio child protocol, route Python/CLI/MCP through one `KnowledgeEngine.ingest_file()` dispatcher, and add an explicit export v2 while preserving v1 bytes and consumers. Required CI stays model-free; package, binary, license, installed-wheel, and real cache-only provider evidence remain explicit later gates.
 
@@ -14,7 +14,9 @@ Status: approved implementation-plan source pending mechanical public landing an
 ## Global Constraints
 
 - Planning baseline is `6dfc1882a78f23023e26018df7ec1d60adcd8e3e`; execution must first reconcile the approved spec and plan onto current `main` without silently carrying stale assumptions.
-- Implementation starts only from the accepted merge of the independent LLM Wiki compatibility plan, unless an explicit authority amendment changes that order. Do not concurrently edit its README/export documentation surfaces.
+- Delivery uses ordered PR A, PR B, and PR C gates. PR A may run in parallel with the independent
+  LLM Wiki compatibility docs/evidence PR. PR B waits for accepted/merged PR A but need not wait for
+  LLM Wiki. PR C waits for accepted/merged PR A, PR B, and LLM Wiki compatibility evidence.
 - Dependabot PR #76 and other dependency maintenance remain independent; do not merge their lockfile or workflow changes into this feature.
 - This source is approved for mechanical landing and full-plan review only. It does not authorize implementation, dependency or model acquisition, push, PR, merge, tag, release, registry publication, deployment, or operator-data ingestion.
 - Supported inputs are `.mp3` as `audio/mpeg` with MPEG Layer III, `.wav` as `audio/wav` with signed 16-bit little-endian PCM, and `.m4a` as `audio/mp4` with AAC-LC.
@@ -31,12 +33,24 @@ Status: approved implementation-plan source pending mechanical public landing an
 - Do not expand the shared `_ALLOWLISTED_CAUSES` or the frozen read-tool/source-pack fixture. Direct-audio failure serialization is operation-local.
 - Existing PDF and MP4 behavior, read-only MCP schemas, EvidenceRef v1, Search/Ask DTOs, retrieval runtime, and transcript reports remain compatible.
 - `mke.compiled_library_export.v1`, `mke.compiled_markdown.v1`, `mke.compiled_library_export_response.v1`, their exact default behavior, and the existing standalone consumer remain unchanged.
-- Add only explicit `v2` export contracts. `library export` without `--format-version` remains v1; v1 fails closed when an active audio Source makes the Library incomplete; `--format-version v2` exports the complete active PDF, comparison-only PDF OCR, video, and audio Library.
+- Add only explicit `v2` export contracts. `library export` without `--format-version` remains v1;
+  v1 fails closed when an active audio Source makes the Library incomplete; `--format-version v2`
+  exports the complete active PDF, comparison-only PDF OCR, video, and audio Library. The exact v2
+  closed shape is not frozen until PR C reads the accepted LLM Wiki v1 compatibility evidence and
+  completes the bounded schema reconciliation checkpoint.
 - Required CI is offline and model-free. Real ASR runs only against an already prepared exact local model revision and must prove network denial.
 - Synthetic fixtures must be redistribution-safe, committed with generation recipe, license/provenance, byte size, SHA-256, and exact media profile. No private recording or operator material enters Git.
-- Before acceptance, audit the exact installed PyAV wheel, bundled FFmpeg libraries, licenses, notices, and redistribution boundary; do not infer binary licensing from Python package metadata alone.
+- PR A must audit the exact locked external dependency set, installed PyAV wheel, linked or bundled
+  FFmpeg components, licenses, notices, fixture identities, redistribution boundary, and validation
+  platform. Any unresolved obligation is a no-go hard stop before PR B.
+- The PR A receipt does not bind MKE source or an MKE wheel. Refresh it only when an external
+  dependency, PyAV wheel, platform, or fixture authority changes. PR C separately binds its fresh
+  final MKE wheel to the accepted PR A receipt digest, installed package set, and prepared model tree.
 - Numeric ceilings observed on the fixed proof corpus are evidence, not a production SLA or cross-platform performance claim.
-- One feature branch/PR owns Tasks 1-10. A v0.1.4 version/tag/release closeout is a separate plan and separate authorization after feature acceptance.
+- PR A owns Task 1, PR B owns Tasks 2-4, and PR C owns Tasks 5-10. A v0.1.4
+  version/tag/Release/archive-smoke closeout is a separate post-merge PR and separate authorization.
+- Full-length meetings, interviews, lectures, long-audio workers, chunking, resume, and streaming
+  remain non-goals. Do not raise the 15-minute or 100-MiB limits.
 
 ---
 
@@ -52,8 +66,8 @@ Status: approved implementation-plan source pending mechanical public landing an
    manual plan-review chain on the same revision.
 4. Persist only durable, public-neutral accepted amendments in the plan and, if useful, one review
    record under `docs/superpowers/reviews/`; do not commit raw GStack artifacts.
-5. Stop for explicit implementation dispatch after the reviewed plan is marked
-   `CLEARED FOR IMPLEMENTATION`.
+5. Stop for a separate PR A dispatch after the reviewed plan is marked
+   `CLEARED FOR STAGED IMPLEMENTATION; PR A REQUIRES SEPARATE DISPATCH`.
 
 ## Planned File Structure
 
@@ -135,34 +149,56 @@ Status: approved implementation-plan source pending mechanical public landing an
 
 ## Execution Topology
 
-The implementation controller may fan out independent lanes only after shared Task 3 contracts are committed:
+The implementation is staged through three independently reviewed PRs. A later stage cannot use a
+draft or unmerged predecessor as authority:
 
 ```text
-Task 1 -> Task 2 -> Task 3
-                       |
-                       +--> Lane A: Task 4 runtime/provider
-                       +--> Lane B: Task 7 export-v2 domain/consumer preparation
-                       |
-                       +--> integration owner: Task 5 -> Task 6 -> finish Task 7
-                                                    |
-                                                    v
-                                              Task 8 -> Task 9 -> Task 10
+PR A: Task 1 feasibility + dependency/license receipt
+  | accepted and merged
+  v
+PR B: Task 2 -> Task 3 -> Task 4 internal foundation
+  | accepted and merged
+  +-----------------------------+
+                                | PR A and LLM Wiki compatibility may overlap
+LLM Wiki compatibility --------+ accepted and merged
+                                v
+PR C: schema reconciliation -> Task 5 -> Task 6 -> Task 7 -> Task 8 -> Task 9 -> Task 10
+  | accepted and merged
+  v
+separately authorized release-closeout PR
 ```
 
-- Lane A owns `src/mke/adapters/audio/**`, its adapter tests, and narrowly required private shared
-  faster-whisper helpers.
-- Lane B owns export domain/application/consumer files and export tests; it must not synthesize an
-  audio Publication contract that differs from Tasks 2-5.
-- The integration owner alone edits `src/mke/application/__init__.py`, `src/mke/runtime.py`,
-  `src/mke/cli.py`, `src/mke/interfaces/mcp_contract.py`, shared docs, and frozen identity artifacts.
-- If file ownership overlaps or a lane depends on an uncommitted interface, serialize it. Parallel
-  execution is an optimization, not an authority to duplicate contracts or skip review.
-- Each Task ends with task-scoped spec review, quality review, focused tests, and one local commit.
-  The integration owner performs lane integration and full verification.
+- PR A must not modify `src/mke`, dependencies, lockfiles, workflows, README, export schemas, export
+  documentation, runtime, CLI/MCP, or product claims. It may overlap only with the independent LLM
+  Wiki docs/evidence PR because their tracked file sets are disjoint.
+- PR B may modify internal domain, adapter, storage, and model-free test surfaces. It must not add
+  the canonical dispatcher, runtime composition that exposes audio, CLI/MCP routing, Export v2,
+  public capability docs, real-provider proof, or release proof.
+- PR C has one integration owner for application activation, runtime composition, CLI/MCP, Export
+  v2, shared docs, proof, workflow, and conditional evaluation identities. Shared contracts and
+  terminal verification remain serialized.
+- Each Task ends with task-scoped review, focused verification, and an intentional local commit.
+  Each PR ends with the stage-specific verification below; no task reruns a release-grade terminal
+  proof merely because a smaller tracked change landed.
+
+## Verification Layers
+
+- **PR A:** fixture identity, redistribution, license/notice, linked-or-bundled component inventory,
+  receipt validation, focused tests, necessary static checks, and normal CI. No real model proof.
+- **PR B:** focused TDD, adjacent video compatibility, full Pytest, Ruff, Pyright, build, and one
+  terminal mechanical evaluation-identity closure only when that PR's actual source identity
+  triggers it. No release-grade candidate receipt or real model proof.
+- **PR C:** fresh installed wheel, real cache-only ASR, Python/CLI/MCP/Search/Ask/EvidenceRef,
+  reconciled Export v2 consumer, network denial, all canonical validators, whole-branch review, and
+  terminal proof on the reviewed HEAD.
+- Do not repeat the PR A license receipt or full retrieval gates after every task. Preserve final
+  authenticity while avoiding circular proof refreshes. If the same finding remains open after two
+  or three evidence-backed repairs, first reassess whether it is still a blocker or should become a
+  documented limitation or follow-up.
 
 ---
 
-### Task 1: Freeze Legacy Compatibility And Add Synthetic Audio Fixtures
+### Task 1 (PR A): Prove Direct-Audio Feasibility, Fixtures, And License Authority
 
 **Files:**
 - Create: `tests/fixtures/audio/README.md`
@@ -170,13 +206,16 @@ Task 1 -> Task 2 -> Task 3
 - Create: `tests/fixtures/audio/direct-audio.wav`
 - Create: `tests/fixtures/audio/direct-audio.m4a`
 - Create: `tests/adapters/test_audio_fixtures.py`
-- Modify: `tests/domain/test_transcript_contracts.py`
-- Modify: `tests/interfaces/test_mcp_server.py`
-- Modify: `tests/scripts/test_compiled_library_export_consumer.py`
+- Create: `scripts/direct_audio_dependency_receipt.py`
+- Create: `tests/scripts/test_direct_audio_dependency_receipt.py`
+- Create: `benchmarks/audio/dependency-artifacts.json`
+- Create: `docs/reference/direct-audio-dependency-and-license-evidence.md`
 
 **Interfaces:**
-- Consumes: current v0.1.3 video transcript, MCP path-only tool, export v1, and consumer contracts.
-- Produces: three immutable fixture identities and executable compatibility guards used by every later task.
+- Consumes: the exact locked external dependency set, prepared offline wheel inputs, supported
+  Python/platform cells, and redistribution-safe synthetic fixture source.
+- Produces: three immutable fixture identities plus one canonical external dependency, binary,
+  license, notice, fixture, and platform receipt used as the hard PR B entry gate.
 
 - [ ] **Step 1: Write fixture-absence RED tests before generating media**
 
@@ -199,9 +238,8 @@ def test_direct_audio_fixture_inventory(name: str, expected_media_type: str) -> 
     assert hashlib.sha256(path.read_bytes()).hexdigest() == receipt.sha256
 ```
 
-Also freeze the exact legacy MCP `ingest_file` input schema as `{"path"}`, the shared safe-cause
-fixture, `mke.video_transcript.v1`, and the v1 consumer's accepted media types before production
-code changes.
+PR A does not amend legacy product, MCP, or export contract tests; those remain read-only baseline
+authority for later stages.
 
 - [ ] **Step 2: Run RED tests**
 
@@ -210,13 +248,11 @@ Run:
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
   tests/adapters/test_audio_fixtures.py \
-  tests/domain/test_transcript_contracts.py \
-  tests/interfaces/test_mcp_server.py \
-  tests/scripts/test_compiled_library_export_consumer.py
+  tests/scripts/test_direct_audio_dependency_receipt.py
 ```
 
-Expected: fixture cases fail because the three files and receipt inventory do not exist; all legacy
-compatibility assertions pass.
+Expected: fixture and dependency-receipt cases fail because the files, controller, and canonical
+receipt do not exist.
 
 - [ ] **Step 3: Generate the three fixtures outside the repository**
 
@@ -254,30 +290,78 @@ Run:
 
 ```bash
 UV_OFFLINE=1 MKE_REQUIRE_TRANSCRIPTION_EXTRA=1 uv run pytest -q \
-  tests/adapters/test_audio_fixtures.py \
-  tests/domain/test_transcript_contracts.py \
-  tests/interfaces/test_mcp_server.py \
-  tests/scripts/test_compiled_library_export_consumer.py
+  tests/adapters/test_audio_fixtures.py
 ```
 
-Expected: PASS with exactly three fixture identities and unchanged legacy contracts.
+Expected: PASS with exactly three fixture identities.
 
-- [ ] **Step 5: Review and commit Task 1**
+- [ ] **Step 5: Implement the external dependency/license receipt and validator**
+
+The controller accepts explicit Python 3.12 and 3.13 interpreters, prepared offline wheel inputs
+for the exact locked transcription dependency set, the fixture root, and an output path. It does
+not build, accept, identify, or install an MKE wheel. Each supported cell uses ordinary pip
+semantics under the lock-derived external constraints, runs `pip check`, imports the installed
+external modules in isolation, decodes all three fixtures through installed PyAV, and inventories
+the actual linked or bundled FFmpeg components with available platform binary tooling.
+
+The closed public-safe receipt records only external distribution filenames/versions/digests,
+Python/platform labels, PyAV wheel/runtime identity, binary components, verified license and notice
+identities, and fixture profiles. It rejects paths, hostnames, timestamps, environment dumps,
+tokens, unknown fields, incomplete components, or inferred redistribution permission. Any unknown
+or unresolved license, notice, or fixture obligation yields `license_evidence_incomplete` and a
+failed PR A gate.
+
+- [ ] **Step 6: Stop for acquisition authority, then generate the PR A receipt**
+
+Before any real package or fixture-generation input is acquired, report the exact missing inputs,
+source, expected disk impact, and cleanup ownership and obtain separate authorization. If all inputs
+are already present, generation remains offline:
+
+```bash
+UV_OFFLINE=1 uv run python scripts/direct_audio_dependency_receipt.py \
+  --python "$PYTHON312" \
+  --python "$PYTHON313" \
+  --wheelhouse "$TRANSCRIPTION_WHEELHOUSE" \
+  --fixture-root tests/fixtures/audio \
+  --output benchmarks/audio/dependency-artifacts.json
+```
+
+Require `status=passed`, two exact interpreter/platform cells, `pip_check=passed`, three fixture
+decodes per cell, complete linked/bundled component inventory, and complete license/notice evidence.
+The receipt digest must be independently reproducible from canonical bytes. It is refreshed only
+when the external dependency set, PyAV wheel, validation platform, or fixture authority changes.
+
+- [ ] **Step 7: Write the durable evidence reference and close PR A**
+
+`docs/reference/direct-audio-dependency-and-license-evidence.md` records the receipt schema,
+validated external boundary, component/license/notice sources and digests, fixture redistribution
+basis, proof platforms, unresolved-obligation rule, and explicit non-claim that package metadata
+alone proves binary redistribution. It contains no product capability claim, local path, or MKE
+wheel identity.
 
 ```bash
 git diff --check
+UV_OFFLINE=1 uv run pytest -q \
+  tests/adapters/test_audio_fixtures.py \
+  tests/scripts/test_direct_audio_dependency_receipt.py
+UV_OFFLINE=1 uv run ruff check scripts/direct_audio_dependency_receipt.py \
+  tests/adapters/test_audio_fixtures.py tests/scripts/test_direct_audio_dependency_receipt.py
 git add tests/fixtures/audio tests/adapters/test_audio_fixtures.py \
-  tests/domain/test_transcript_contracts.py tests/interfaces/test_mcp_server.py \
-  tests/scripts/test_compiled_library_export_consumer.py
-git commit -m "test(audio): add bounded synthetic fixtures"
+  scripts/direct_audio_dependency_receipt.py \
+  tests/scripts/test_direct_audio_dependency_receipt.py \
+  benchmarks/audio/dependency-artifacts.json \
+  docs/reference/direct-audio-dependency-and-license-evidence.md
+git commit -m "proof(audio): establish feasibility and license evidence"
 ```
 
-Task review must reject any personal recording, missing redistribution basis, profile ambiguity,
-legacy schema drift, or v1 consumer expansion.
+PR A review must verify exact scope and reject any `src/mke`, dependency, lockfile, workflow,
+README/export surface, public runtime, CLI/MCP, Export schema, product claim, personal recording,
+missing redistribution basis, profile ambiguity, or unresolved binary/license/notice obligation.
+PR B cannot begin until this PR is accepted and merged.
 
 ---
 
-### Task 2: Add Project-Owned Audio Domain And Wire Contracts
+### Task 2 (PR B): Add Project-Owned Audio Domain And Wire Contracts
 
 **Files:**
 - Create: `src/mke/adapters/audio/__init__.py`
@@ -426,7 +510,7 @@ git commit -m "feat(audio): define direct audio contracts"
 
 ---
 
-### Task 3: Bind Immutable Input, Audio Inspection, And Asset Media Authority
+### Task 3 (PR B): Bind Immutable Input, Audio Inspection, And Asset Media Authority
 
 **Files:**
 - Create: `src/mke/adapters/audio/inspection.py`
@@ -602,7 +686,7 @@ cleanup owns only the copied inode.
 
 ---
 
-### Task 4: Add The First-Party Cache-Only Audio Runtime And Provider
+### Task 4 (PR B): Add The Internal Cache-Only Audio Child And Provider
 
 **Files:**
 - Create: `src/mke/adapters/audio/faster_whisper_cli.py`
@@ -610,13 +694,13 @@ cleanup owns only the copied inode.
 - Modify: `src/mke/adapters/audio/__init__.py`
 - Modify: `src/mke/adapters/video/faster_whisper.py`
 - Modify: `src/mke/adapters/video/providers.py`
-- Modify: `src/mke/runtime.py`
 - Modify: `tests/adapters/test_local_command_transcript_provider.py`
-- Modify: `tests/runtime/test_runtime_composition.py`
 
 **Interfaces:**
 - Consumes: Task 2 audio schema/fingerprint, Task 3 `AudioSourceSnapshot` and inspected `AudioMediaInfo`, existing `FasterWhisperTranscriptionConfig` and `ActiveProcessController`.
-- Produces: package-owned `python -I -B -m mke.adapters.audio.faster_whisper_cli` child and an audio `TranscriptProvider` composition that returns `AudioTranscriptExtractionResult`.
+- Produces: an internal package-owned `python -I -B -m mke.adapters.audio.faster_whisper_cli`
+  child and an uncomposed audio provider adapter that returns `AudioTranscriptExtractionResult`.
+  No owner/runtime composition exposes this behavior in PR B.
 
 - [ ] **Step 1: Write child/provider RED tests**
 
@@ -646,11 +730,10 @@ does not independently accept a different path or download policy.
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
   tests/adapters/test_faster_whisper_audio_cli.py \
-  tests/adapters/test_local_command_transcript_provider.py \
-  tests/runtime/test_runtime_composition.py
+  tests/adapters/test_local_command_transcript_provider.py
 ```
 
-Expected: missing audio child/provider/composition symbols; all existing video cases pass.
+Expected: missing internal audio child/provider symbols; all existing video cases pass.
 
 - [ ] **Step 3: Extract only identical private faster-whisper helpers**
 
@@ -703,9 +786,9 @@ AUDIO_EXIT_ERRORS: dict[int, tuple[str, str]] = {
 Unknown nonzero exits map to redacted `audio_ingest_failed`; raw stderr, argv, cache paths, model
 paths, exception text, and tracebacks never enter public payloads.
 
-- [ ] **Step 5: Compose the package-owned audio provider**
+- [ ] **Step 5: Keep the package-owned provider internal**
 
-`runtime.py` must use the current interpreter and module, not PATH discovery:
+The internal adapter command uses the current interpreter and module, not PATH discovery:
 
 ```python
 audio_command = (
@@ -717,10 +800,11 @@ audio_command = (
 )
 ```
 
-The default sidecar owner provides no audio provider. The faster-whisper owner supplies audio and
-video providers bound to the same `FasterWhisperTranscriptionConfig`, operation controller,
-timeout, and bounded capture. The module invocation above is the sole new child entry point; do not
-add a second console script. `pyproject.toml`, dependencies, and `uv.lock` remain unchanged.
+PR B does not edit `runtime.py` or install this adapter into an owner-visible composition root. It
+proves that a future PR C composition can bind the existing `FasterWhisperTranscriptionConfig`,
+operation controller, timeout, and bounded capture without changing video behavior. The module
+invocation above is the sole internal child entry point; do not add a console script.
+`pyproject.toml`, dependencies, and `uv.lock` remain unchanged.
 
 - [ ] **Step 6: Run GREEN and process cleanup repetitions**
 
@@ -728,13 +812,12 @@ add a second console script. `pyproject.toml`, dependencies, and `uv.lock` remai
 UV_OFFLINE=1 uv run pytest -q \
   tests/adapters/test_faster_whisper_audio_cli.py \
   tests/adapters/test_local_command_transcript_provider.py \
-  tests/runtime/test_runtime_composition.py \
   tests/adapters/test_faster_whisper_cli.py
 for run in 1 2 3 4 5; do
   UV_OFFLINE=1 uv run pytest -q tests/adapters/test_faster_whisper_audio_cli.py \
     -k 'timeout or cancellation or descendant or registration'
 done
-UV_OFFLINE=1 uv run ruff check src/mke/adapters/audio src/mke/adapters/video src/mke/runtime.py tests/adapters tests/runtime
+UV_OFFLINE=1 uv run ruff check src/mke/adapters/audio src/mke/adapters/video tests/adapters
 UV_OFFLINE=1 uv run pyright
 ```
 
@@ -745,30 +828,32 @@ Expected: all pass with no descendant, reader thread, temp file, or operation re
 ```bash
 git diff --check
 git add src/mke/adapters/audio src/mke/adapters/video/faster_whisper.py \
-  src/mke/adapters/video/providers.py src/mke/runtime.py \
+  src/mke/adapters/video/providers.py \
   tests/adapters/test_faster_whisper_audio_cli.py \
-  tests/adapters/test_local_command_transcript_provider.py \
-  tests/runtime/test_runtime_composition.py
-git commit -m "feat(audio): add cache-only audio runtime"
+  tests/adapters/test_local_command_transcript_provider.py
+git commit -m "feat(audio): add internal cache-only audio provider"
 ```
 
-Task review must inspect the real public composition path, not only injected fake commands.
+Task review must prove the internal child/provider boundary and video compatibility. Public owner
+composition remains intentionally absent and is verified in PR C.
 
 ---
 
-### Task 5: Publish Direct Audio Through The Existing Lifecycle And Canonical Dispatcher
+### Task 5 (PR C): Activate Direct Audio Through The Existing Lifecycle And Canonical Dispatcher
 
 **Files:**
 - Create: `tests/application/test_audio_publication.py`
 - Modify: `src/mke/application/__init__.py`
 - Modify: `src/mke/adapters/sqlite/__init__.py`
+- Modify: `src/mke/runtime.py`
 - Modify: `tests/adapters/test_sqlite_transcript_intake_report.py`
 - Modify: `tests/application/test_pdf_publication.py`
 - Modify: `tests/application/test_video_publication.py`
 - Modify: `tests/application/test_video_provider_injection.py`
+- Modify: `tests/runtime/test_runtime_composition.py`
 
 **Interfaces:**
-- Consumes: Task 3 immutable snapshot/media authority and Task 4 audio provider.
+- Consumes: accepted/merged PR B immutable snapshot/media authority and internal audio provider.
 - Produces: `AudioIngestError`, `IngestDispatchError`, `KnowledgeEngine.ingest_audio()`, canonical `KnowledgeEngine.ingest_file()`, audio Run/Publication lifecycle, and active timestamp Evidence.
 
 - [ ] **Step 1: Write lifecycle and dispatcher RED tests**
@@ -814,6 +899,11 @@ UV_OFFLINE=1 uv run pytest -q \
 Expected: missing audio ingest/dispatcher and audio activation behavior.
 
 - [ ] **Step 3: Add the canonical application surface**
+
+First compose the accepted internal audio provider at the owner boundary only for the existing
+faster-whisper owner. The default sidecar owner continues to reject direct audio before Source or
+Run creation. Bind the current interpreter, existing owner configuration, operation controller,
+timeout, and bounded capture; add no request-time controls or public child command.
 
 ```python
 class AudioIngestError(ValueError):
@@ -902,7 +992,8 @@ UV_OFFLINE=1 uv run pytest -q \
   tests/adapters/test_sqlite_transcript_intake_report.py \
   tests/application/test_pdf_publication.py \
   tests/application/test_video_publication.py \
-  tests/application/test_video_provider_injection.py
+  tests/application/test_video_provider_injection.py \
+  tests/runtime/test_runtime_composition.py
 for run in 1 2 3 4 5; do
   UV_OFFLINE=1 uv run pytest -q tests/application/test_audio_publication.py \
     -k 'superseded or cancellation or cleanup or rollback or concurrent'
@@ -917,17 +1008,17 @@ Expected: all pass; active Publication changes only on complete success.
 
 ```bash
 git diff --check
-git add src/mke/application/__init__.py src/mke/adapters/sqlite/__init__.py \
+git add src/mke/application/__init__.py src/mke/adapters/sqlite/__init__.py src/mke/runtime.py \
   tests/application/test_audio_publication.py \
   tests/adapters/test_sqlite_transcript_intake_report.py \
   tests/application/test_pdf_publication.py tests/application/test_video_publication.py \
-  tests/application/test_video_provider_injection.py
+  tests/application/test_video_provider_injection.py tests/runtime/test_runtime_composition.py
 git commit -m "feat(audio): publish direct audio evidence"
 ```
 
 ---
 
-### Task 6: Route CLI And stdio MCP Through The Canonical Dispatcher
+### Task 6 (PR C): Route CLI And stdio MCP Through The Canonical Dispatcher
 
 **Files:**
 - Create: `tests/interfaces/test_cli_audio.py`
@@ -1053,7 +1144,7 @@ git commit -m "feat(audio): route direct audio interfaces"
 
 ---
 
-### Task 7: Add Explicit Compiled Library Export v2 And Independent Consumer
+### Task 7 (PR C): Reconcile And Add Explicit Compiled Library Export v2
 
 **Files:**
 - Create: `scripts/compiled_library_export_consumer_v2.py`
@@ -1074,13 +1165,29 @@ git commit -m "feat(audio): route direct audio interfaces"
 - Modify: `tests/scripts/test_compiled_library_export_proof.py`
 
 **Interfaces:**
-- Consumes: active PDF/OCR/video/audio snapshot from Tasks 2-5.
+- Consumes: accepted LLM Wiki v1 compatibility evidence and the active PDF/OCR/video/audio snapshot
+  from accepted PR B plus Tasks 5-6.
 - Produces: explicit v2 manifest/Markdown/response, default v1 compatibility, v2 standalone consumer, and same-wheel v2 proof.
 
-- [ ] **Step 1: Freeze v1 bytes and write v2 RED tests**
+- [ ] **Step 0: Complete the bounded v2 schema reconciliation checkpoint**
+
+Read the accepted LLM Wiki compatibility plan and review, the exact v1 manifest/Markdown/consumer
+contracts it exercised, and the current v1 implementation. Record in the PR C implementation
+review which v1 fields and Markdown boundaries the real downstream workflow consumed, which exact
+v1 bytes remain frozen, and the smallest additive v2 field/media/stage changes needed to represent
+every active audio Source. LLM Wiki remains an external downstream view, not an MKE dependency,
+runtime component, schema owner, or Evidence authority.
+
+Only after this checkpoint may the implementation freeze exact v2 manifest, Markdown, response,
+and consumer shapes in tests. If real evidence requires a non-additive authority change, product-
+specific adapter, new dependency direction, or broader consumer contract, stop for design authority.
+
+- [ ] **Step 1: Freeze v1 bytes and write reconciled v2 RED tests**
 
 Build committed in-memory/golden snapshots for a v1-compatible PDF/video Library and a v2 mixed
 Library containing PDF text, current comparison-only PDF OCR, video, MP3, WAV, and M4A Sources.
+The exact v2 expected keys and Markdown fields come from Step 0, not from pre-evidence examples in
+this planning document.
 
 ```python
 def test_default_export_remains_exact_v1(tmp_path: Path, v1_store: SQLiteStore) -> None:
@@ -1112,7 +1219,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: v2 symbols/flag/consumer are missing; v1 golden passes until the explicit audio snapshot case.
 
-- [ ] **Step 3: Add closed version-selected domain models**
+- [ ] **Step 3: Add the reconciled closed version-selected domain models**
 
 Use a typed selector instead of weakening v1 literals:
 
@@ -1130,9 +1237,10 @@ def validate_compiled_source(source: CompiledSourceSnapshot, *, format_version: 
 ```
 
 Do not expand the existing v1 parser/consumer accepted schema. New v2 domain validation accepts
-the exact source matrix from the design, including current `pdf-ocr-eval-v1:[0-9a-f]{64}` rows.
+the exact reconciled source matrix, including current comparison-only
+`pdf-ocr-eval-v1:[0-9a-f]{64}` rows when the live v1 contract still accepts them.
 
-- [ ] **Step 4: Implement explicit deterministic v2 rendering and response**
+- [ ] **Step 4: Implement explicit deterministic reconciled v2 rendering and response**
 
 `export_library(store, output, format_version=format_version)` chooses constants from this closed map:
 
@@ -1142,23 +1250,10 @@ _MARKDOWN_FORMATS = {"v1": "mke.compiled_markdown.v1", "v2": "mke.compiled_markd
 _RESPONSE_SCHEMAS = {"v1": "mke.compiled_library_export_response.v1", "v2": "mke.compiled_library_export_response.v2"}
 ```
 
-The closed v2 success value contains exactly:
-
-```python
-class LibraryExportSuccessV2(TypedDict):
-    evidence_count: int
-    export_schema: Literal["mke.compiled_library_export.v2"]
-    library_id: str
-    manifest_sha256: str
-    markdown_format: Literal["mke.compiled_markdown.v2"]
-    ok: Literal[True]
-    schema_version: Literal["mke.compiled_library_export_response.v2"]
-    source_count: int
-```
-
-The closed v2 failure value contains exactly `ok=False`, `schema_version`, `problem`, `cause`,
-`active_publication_impact`, and `next_step`. It never includes an output/database path, Source
-content, hostname, timestamp, temporary path, or raw diagnostic.
+The closed v2 success and failure values contain exactly the fields frozen by Step 0 RED tests.
+They preserve the v1 safety and determinism properties, identify the exact v2 manifest and Markdown
+versions, and never include an output/database path, Source content, hostname, timestamp, temporary
+path, or raw diagnostic.
 
 V2 preserves deterministic order, normalized POSIX relative paths, canonical JSON separators,
 content fingerprints, exact active Publication/revision/Run/manifest ownership, EvidenceRef v1, and
@@ -1230,24 +1325,22 @@ Task review must separately approve v1 byte compatibility and v2 completeness.
 
 ---
 
-### Task 8: Add Model-Free Product Proof And Dependency/Binary Evidence
+### Task 8 (PR C): Add Model-Free Product Proof And Required CI Coverage
 
 **Files:**
 - Create: `src/mke/proof/direct_audio.py`
 - Create: `tests/proof/test_direct_audio.py`
-- Create: `scripts/direct_audio_dependency_receipt.py`
-- Create: `tests/scripts/test_direct_audio_dependency_receipt.py`
-- Create: `benchmarks/audio/dependency-artifacts.json`
 - Modify: `src/mke/proof/__init__.py`
 - Modify: `src/mke/cli.py`
 - Modify: `tests/interfaces/test_cli_proof.py`
 - Modify: `.github/workflows/ci.yml` only if the existing transcription-extra matrix does not execute the required model-free slice.
 
 **Interfaces:**
-- Consumes: Tasks 1-7 fixtures, canonical ingest, Publication/Search/Ask, export v2, and independent v2 consumer.
-- Produces: deterministic model-free direct-audio proof and canonical installed dependency/binary/license receipt authority.
+- Consumes: accepted PR A fixtures/receipt plus Tasks 5-7 canonical ingest,
+  Publication/Search/Ask, reconciled export v2, and independent v2 consumer.
+- Produces: deterministic model-free direct-audio product proof and bounded required CI coverage.
 
-- [ ] **Step 1: Write model-free proof and receipt RED tests**
+- [ ] **Step 1: Write model-free product-proof RED tests**
 
 The proof injects a project-owned fake audio provider at the application port but exercises the
 real snapshot, inspection, Run/Publication, Search/Ask, EvidenceRef, export v2, consumer, and
@@ -1270,20 +1363,15 @@ def test_direct_audio_proof_covers_all_formats_and_product_path(tmp_path: Path) 
     assert report.cleanup is True
 ```
 
-Receipt tests must reject package set, wheel filename, bytes, digest, installed distribution,
-PyAV-linked library, FFmpeg component, license, notice, Python version, or platform drift. They also
-reject paths, hostnames, timestamps, tokens, environment dumps, and unknown fields.
-
 - [ ] **Step 2: Run RED tests**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
   tests/proof/test_direct_audio.py \
-  tests/interfaces/test_cli_proof.py \
-  tests/scripts/test_direct_audio_dependency_receipt.py
+  tests/interfaces/test_cli_proof.py
 ```
 
-Expected: missing proof and receipt modules.
+Expected: missing product-proof module and CLI contract.
 
 - [ ] **Step 3: Implement the deterministic proof report**
 
@@ -1310,110 +1398,45 @@ class DirectAudioProofReport:
 uses a temporary database/export root outside the repository. It must not alter `mke proof run`,
 `mke demo --verify`, local-knowledge proof, Evidence-provenance proof, or consumer source-pack proof.
 
-- [ ] **Step 4: Implement canonical dependency evidence generation and validation**
-
-`direct_audio_dependency_receipt.py` receives explicit Python 3.12 and 3.13 interpreters, one
-freshly built MKE wheel, prepared offline wheelhouses for the locked transcription extra, and an
-output path. For each interpreter it creates a call-owned venv, installs with ordinary pip
-semantics under locked constraints, runs `pip check`, imports the installed modules in isolated
-mode, decodes all three fixtures with installed PyAV, inventories exact distributions, and records
-the MKE wheel and installed package-set identities.
-
-The PyAV binary audit must inspect the installed extension and its linked/bundled media libraries
-using the platform's available binary tooling. The committed receipt contains only canonical
-filenames, versions, byte counts, SHA-256 values, library/component identities, SPDX-style license
-identifiers where verified, required notice digests, fixture identities, Python versions, and
-platform/architecture labels. Unknown or unresolved transitive licensing yields
-`license_evidence_incomplete`; it cannot be recorded as success.
-
-Stable top-level receipt type:
-
-```python
-class DependencyArtifactsReceipt(TypedDict):
-    schema_version: Literal["mke.direct_audio_dependency_artifacts.v1"]
-    status: Literal["passed", "failed"]
-    python_versions: list[Literal["3.12", "3.13"]]
-    mke_wheel: WheelIdentity
-    cells: list[DependencyCell]
-    binary_libraries: list[BinaryLibraryIdentity]
-    licenses: list[LicenseIdentity]
-    notices: list[NoticeIdentity]
-    fixture_profiles: list[FixtureProfileIdentity]
-```
-
-`WheelIdentity` requires a filename accepted by the strict project parser for
-`multimodal_knowledge_engine-` plus one safe PEP 440 version and `-py3-none-any.whl`, a positive
-measured byte count, and a 64-character lowercase SHA-256. The committed
-receipt contains actual values generated from the reviewed candidate; it never contains example
-sentinels.
-
-- [ ] **Step 5: Run model-free GREEN and prepare package-only evidence gate**
+- [ ] **Step 4: Run model-free GREEN**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
   tests/proof/test_direct_audio.py \
   tests/interfaces/test_cli_proof.py \
-  tests/scripts/test_direct_audio_dependency_receipt.py \
   tests/adapters/test_audio_fixtures.py \
   tests/scripts/test_compiled_library_export_consumer_v2.py
-UV_OFFLINE=1 uv run ruff check src/mke/proof scripts/direct_audio_dependency_receipt.py \
-  tests/proof tests/scripts/test_direct_audio_dependency_receipt.py
+UV_OFFLINE=1 uv run ruff check src/mke/proof tests/proof tests/interfaces/test_cli_proof.py
 UV_OFFLINE=1 uv run pyright
 ```
 
 Expected: all model-free tests pass.
 
-Before the first real package-only receipt generation, report exact interpreters, wheelhouse roots,
-expected temporary disk use, and cleanup ownership. If required wheels are not already available
-offline, stop for package acquisition authorization. Do not silently connect to an index.
-
-- [ ] **Step 6: Generate the package/binary/license checkpoint evidence**
-
-Run only after the package-only gate is authorized and inputs are present:
-
-```bash
-UV_OFFLINE=1 uv run python scripts/direct_audio_dependency_receipt.py \
-  --python "$PYTHON312" \
-  --python "$PYTHON313" \
-  --mke-wheel "$MKE_WHEEL" \
-  --wheelhouse "$TRANSCRIPTION_WHEELHOUSE" \
-  --fixture-root tests/fixtures/audio \
-  --output benchmarks/audio/dependency-artifacts.json
-```
-
-Expected: `status=passed`, 2 interpreter cells, exact same MKE wheel digest, `pip_check=passed`,
-three decoded fixtures per cell, and complete binary/license/notice evidence. Descriptor-read and
-canonical-byte validators must independently reproduce the receipt digest. This is a Task 8
-checkpoint receipt; later tracked code or documentation changes invalidate its wheel authority.
-Task 10 must refresh it on the final tracked candidate. The receipt binds exact wheel and package
-bytes but does not claim that a later source commit is equivalent without a fresh deterministic
-wheel comparison.
-
-- [ ] **Step 7: Bind required CI without model downloads**
+- [ ] **Step 5: Bind required CI without model downloads**
 
 Prefer the existing Python 3.12/3.13 transcription-extra jobs. Add exact tests for fixture decode,
-fake-model audio child, model-free proof, receipt validator, `pip check`, empty-cache doctor, and
-network denial. Modify `.github/workflows/ci.yml` only if these commands are not already executed.
+fake-model audio child, model-free proof, accepted PR A receipt validator, `pip check`, empty-cache
+doctor, and network denial. Modify `.github/workflows/ci.yml` only if these commands are not already
+executed.
 Do not add a model download, hosted cache mutation, system FFmpeg requirement, or arbitrary short
 job timeout.
 
-- [ ] **Step 8: Review and commit Task 8**
+- [ ] **Step 6: Review and commit Task 8**
 
 ```bash
 git diff --check
 git add src/mke/proof/direct_audio.py src/mke/proof/__init__.py src/mke/cli.py \
-  scripts/direct_audio_dependency_receipt.py benchmarks/audio/dependency-artifacts.json \
   tests/proof/test_direct_audio.py tests/interfaces/test_cli_proof.py \
-  tests/scripts/test_direct_audio_dependency_receipt.py .github/workflows/ci.yml
-git commit -m "proof(audio): verify direct audio dependencies"
+  .github/workflows/ci.yml
+git commit -m "proof(audio): add model-free direct audio proof"
 ```
 
-Omit `.github/workflows/ci.yml` from staging when unchanged. Task review must classify unresolved
-license/notice evidence as a release blocker, not a documentation detail.
+Omit `.github/workflows/ci.yml` from staging when unchanged. This Task validates the accepted PR A
+receipt but does not regenerate or reinterpret its license evidence.
 
 ---
 
-### Task 9: Prove The Fresh Installed Wheel With Real Cache-Only ASR
+### Task 9 (PR C): Prove The Fresh Installed Wheel With Real Cache-Only ASR
 
 **Files:**
 - Create: `scripts/direct_audio_deployment_proof.py`
@@ -1423,7 +1446,8 @@ license/notice evidence as a release blocker, not a documentation detail.
 - Modify: `docs/how-to/run-direct-audio-proof.md` only after the proof schema is fixed in tests.
 
 **Interfaces:**
-- Consumes: one fresh MKE wheel, Task 8 receipt, exact prepared model tree, three fixtures, installed CLI/MCP, export v2 consumer.
+- Consumes: one fresh MKE wheel, accepted PR A dependency/license receipt digest, exact prepared
+  model tree, three fixtures, installed CLI/MCP, and the reconciled export v2 consumer.
 - Produces: `mke.direct_audio_deployment_proof.v1` aggregate bound to wheel, package set, model tree, fixtures, Publications, Evidence, export, consumer, network denial, and cleanup.
 
 - [ ] **Step 1: Write controller RED tests with fake subprocess boundaries**
@@ -1581,13 +1605,13 @@ Do not commit model weights, caches, venvs, wheelhouses, candidate wheels, datab
 
 ---
 
-### Task 10: Document The Contract, Close Conditional Identity, And Run Final Gates
+### Task 10 (PR C): Document The Contract, Close Conditional Identity, And Run Final Gates
 
 **Files:**
 - Create: `docs/decisions/0011-bounded-direct-audio-intake.md`
 - Create: `docs/how-to/use-direct-audio.md`
 - Create: `docs/how-to/run-direct-audio-proof.md` if not created in Task 9
-- Create: `docs/reference/direct-audio-dependency-and-license-evidence.md`
+- Modify: `docs/reference/direct-audio-dependency-and-license-evidence.md`
 - Create: `tests/evaluation/test_direct_audio_documentation.py`
 - Create: `docs/superpowers/reviews/2026-07-18-bounded-direct-audio-intake-implementation-review.md`
 - Modify: `README.md`
@@ -1612,12 +1636,14 @@ Do not commit model weights, caches, venvs, wheelhouses, candidate wheels, datab
 
 - [ ] **Step 1: Write documentation and overclaim RED tests**
 
-The contract test requires bounded MP3/WAV-PCM/M4A-AAC, 15 minutes, 100 MiB, owner-configured
-cache-only faster-whisper, explicit preparation, timestamp EvidenceRef, atomic Publication,
-Python/CLI/MCP, default v1/explicit v2, independent consumer, and real proof boundaries.
+The contract test requires bounded MP3/WAV-PCM/M4A-AAC, 15 minutes, 100 MiB, voice notes and clips
+or excerpts rather than full-length meeting/interview/lecture support, owner-configured cache-only
+faster-whisper, explicit preparation, timestamp EvidenceRef, atomic Publication, Python/CLI/MCP,
+default v1/explicit reconciled v2, independent consumer, and real proof boundaries.
 
-Presentation tests reject affirmative claims for arbitrary codecs, long audio, diarization,
-streaming, microphone capture, implicit download, cloud/hosted fallback, automatic LLM Wiki sync,
+Presentation tests reject affirmative claims for arbitrary codecs, full-length meetings,
+interviews or lectures, long audio, chunking, resume, streaming, diarization, microphone capture,
+implicit download, cloud/hosted fallback, automatic LLM Wiki sync,
 cross-platform coverage, transcript accuracy, SLA, deployment, adoption, business impact, PyPI, or
 official OpenAI integration. Wrapped Markdown paragraphs and legitimate negated boundary statements
 must be tested.
@@ -1645,12 +1671,13 @@ must say the feature is an accepted candidate or development capability, not a r
 LLM Wiki may be named only as an independently verified downstream compatibility target after that
 proof merges; it remains outside MKE runtime and Evidence authority.
 
-`docs/reference/direct-audio-dependency-and-license-evidence.md` must name the exact receipt schema,
+Update the PR A `docs/reference/direct-audio-dependency-and-license-evidence.md` only with PR C's
+distinct model and final installed-proof bindings. Preserve its exact external receipt schema,
 PyAV wheel/runtime boundary, linked or bundled FFmpeg component inventory, verified license and
-notice sources/digests, model card/revision/license, fixture redistribution basis, supported proof
-platforms, unresolved obligations, and the rule that any unresolved notice is a release blocker.
-It must not copy local paths, environment dumps, or infer redistribution permission from package
-metadata alone.
+notice sources/digests, fixture redistribution basis, supported proof platforms, and unresolved-
+obligation hard-stop rule. Do not rewrite or refresh PR A license evidence merely because MKE
+source/docs changed. It must not copy local paths, environment dumps, or infer redistribution
+permission from package metadata alone.
 
 - [ ] **Step 4: Make docs and audit GREEN**
 
@@ -1717,46 +1744,29 @@ git commit -m "test(eval): refresh direct audio identities"
 The execution report must list every path before staging and prove it belongs to the approved
 validator-generated closure.
 
-- [ ] **Step 7: Refresh the final wheel-bound receipt after every tracked product/docs change**
+- [ ] **Step 7: Build the final MKE wheel and bind the terminal proof inputs**
 
-After Tasks 1-10 implementation, documentation, plan/review status, and any identity closure are
-committed, build a fresh wheel from `pre_receipt_head` and regenerate
-`benchmarks/audio/dependency-artifacts.json` using the exact Task 8 command. Review the receipt diff;
-only measured identity, binary, license, notice, and fixture evidence may change. Commit that exact
-file separately:
+After PR C implementation, documentation, plan/review status, and any conditional identity closure
+are committed, require the accepted PR A dependency/license receipt and recompute its canonical
+digest without changing its bytes. Build one fresh final MKE wheel from the exact candidate HEAD.
+The terminal proof input record binds this wheel digest, the accepted PR A receipt digest, the
+actual installed package-set digest, the prepared model-tree digest, and fixture identities.
 
 ```bash
-pre_receipt_head="$(git rev-parse HEAD)"
 evidence_root="$(mktemp -d)"
 mkdir -p "$evidence_root/dist"
 UV_OFFLINE=1 uv build --out-dir "$evidence_root/dist"
 MKE_WHEEL="$(find "$evidence_root/dist" -maxdepth 1 -type f \
   -name 'multimodal_knowledge_engine-*.whl' -print)"
 test -f "$MKE_WHEEL"
-pre_receipt_wheel_sha256="$(shasum -a 256 "$MKE_WHEEL" | awk '{print $1}')"
-UV_OFFLINE=1 uv run python scripts/direct_audio_dependency_receipt.py \
-  --python "$PYTHON312" \
-  --python "$PYTHON313" \
-  --mke-wheel "$MKE_WHEEL" \
-  --wheelhouse "$TRANSCRIPTION_WHEELHOUSE" \
-  --fixture-root tests/fixtures/audio \
-  --output benchmarks/audio/dependency-artifacts.json
-git add benchmarks/audio/dependency-artifacts.json
-git commit -m "proof(audio): bind final dependency artifacts"
-mkdir -p "$evidence_root/post-receipt-dist"
-UV_OFFLINE=1 uv build --out-dir "$evidence_root/post-receipt-dist"
-POST_RECEIPT_MKE_WHEEL="$(find "$evidence_root/post-receipt-dist" -maxdepth 1 -type f \
-  -name 'multimodal_knowledge_engine-*.whl' -print)"
-test -f "$POST_RECEIPT_MKE_WHEEL"
-post_receipt_wheel_sha256="$(shasum -a 256 "$POST_RECEIPT_MKE_WHEEL" | awk '{print $1}')"
-test "$pre_receipt_wheel_sha256" = "$post_receipt_wheel_sha256"
-MKE_WHEEL="$POST_RECEIPT_MKE_WHEEL"
+MKE_WHEEL_SHA256="$(shasum -a 256 "$MKE_WHEEL" | awk '{print $1}')"
+PR_A_RECEIPT_SHA256="$(shasum -a 256 benchmarks/audio/dependency-artifacts.json | awk '{print $1}')"
 ```
 
-Rebuild the wheel at the new receipt commit. Because `benchmarks/` is outside the wheel package,
-require the pre-receipt and post-receipt wheel bytes and SHA-256 to be identical. Validate the
-committed receipt against the post-receipt wheel. If the digest changes, the packaging assumption is
-false: stop, do not loop or hand-edit the receipt.
+Do not regenerate the PR A receipt unless an external dependency, PyAV wheel, validation platform,
+or fixture authority changed. Such a change invalidates the staged premise and returns to PR A;
+it is not repaired inside PR C. Later tracked PR C changes require a fresh MKE wheel and terminal
+proof, but not a circular rerun of the complete external license analysis.
 
 - [ ] **Step 8: Run final actual-diff review and bounded fix loop**
 
@@ -1898,8 +1908,9 @@ predicted here.
 - [ ] **Step 10: Stop without a post-proof tracked write**
 
 All implementation-plan/review status text must already be committed before Step 7. Do not update a
-checkbox or review file after the terminal wheel/receipt/proof sequence. A later tracked change
-invalidates the evidence and requires Steps 7-9 again.
+checkbox or review file after the final MKE wheel/terminal-proof sequence. A later tracked change
+invalidates the MKE wheel and terminal proof and requires Steps 7-9 again; it does not invalidate
+the PR A receipt unless one of that receipt's external authority inputs changed.
 
 Stop with a clean local branch/worktree, exact commit series, changed-file inventory, diff stat,
 test/build/proof identities, license evidence, residual boundaries, and next authorization. Do not
@@ -1923,9 +1934,9 @@ of this cleanup.
 | Python/CLI/MCP canonical routing | 5, 6, 9 | One dispatcher and exact path-only MCP contract |
 | Legacy video/PDF/read-tool compatibility | 1-7 | Existing suites and frozen fixtures unchanged |
 | Export v1 compatibility | 7 | Default/explicit v1 golden bytes and legacy consumer |
-| Complete Export v2 | 7, 9 | Mixed Library, repeated tree equality, v2 consumer and copy proof |
-| Python 3.12/3.13 package authority | 8, 9 | Same wheel, ordinary pip, `pip check`, installed identity |
-| Binary/license/notice authority | 8 | Exact PyAV-linked inventory and complete notice receipt |
+| Complete Export v2 | 7, 9 | LLM Wiki evidence reconciliation, mixed Library, repeated tree equality, v2 consumer and copy proof |
+| Python 3.12/3.13 package authority | 1, 9 | PR A external cells plus final same-wheel ordinary-pip installed identity |
+| Binary/license/notice authority | 1 | Exact PyAV-linked inventory and complete notice receipt before PR B |
 | Real local product proof | 9 | Three formats, MCP, EvidenceRef, export v2, network denial, cleanup |
 | Honest public claims | 10 | ADR/docs contracts and presentation audit |
 | Retrieval evaluation non-regression | 10 | Seven validators and semantic equality when identity refresh is needed |

@@ -1,8 +1,8 @@
 # Bounded Direct Audio Intake Design
 
-Status: written design approved on 2026-07-18 for implementation planning and mechanical public
-landing. This document does not authorize implementation, dependency or model acquisition, public
-claims, version publication, or deployment.
+Status: authority-amended written design approved on 2026-07-18 for staged implementation
+planning and full plan review. This document does not authorize implementation, dependency or
+model acquisition, public claims, version publication, or deployment.
 
 Planning baseline: `6dfc1882a78f23023e26018df7ec1d60adcd8e3e`.
 
@@ -52,8 +52,8 @@ consumer projections, not the product's primary authority or a newly promoted RA
 - The existing `faster-whisper` stack already accepts audio paths and emits timestamped segments.
 - MKE already owns cache-only model preparation, exact revision readiness, bounded subprocesses,
   timestamp Evidence, transcript reports, installed-wheel proof patterns, and external consumers.
-- Audio-only input is common in personal and small-team knowledge workflows: interviews, lectures,
-  voice notes, meetings recorded without video, and downloaded spoken material.
+- Audio-only input is common in personal and small-team knowledge workflows: voice notes and
+  bounded clips or excerpts from meetings, interviews, lectures, and downloaded spoken material.
 - The feature completes the public PDF + audio + video compiler story before selective OCR, while
   keeping runtime and dependency growth small.
 - The work is independently useful for local Agent consumption and produces a stronger engineering
@@ -108,7 +108,10 @@ This stage does not add:
 
 - diarization, speaker identity, speaker count, or speaker-attributed Evidence;
 - streaming, live microphone capture, partial transcript publication, or incremental Evidence;
-- long-audio chunk workers, background queues, resumable jobs, or files beyond the fixed limits;
+- full-length meetings, interviews, lectures, or other long-form recordings beyond the fixed
+  limits;
+- long-audio workers, chunking, background queues, resume, streaming, or files beyond the fixed
+  limits;
 - arbitrary WAV/M4A codecs, arbitrary containers, playlists, subtitle tracks, or media conversion;
 - GPU scheduling, multi-device orchestration, CUDA support claims, or cross-platform performance
   claims;
@@ -199,7 +202,7 @@ Doctor remains read-only and does not open a Library database or create a Run.
 ```bash
 HF_HUB_OFFLINE=1 uv run mke \
   --db .tmp/mke.sqlite \
-  ingest interview.m4a \
+  ingest interview-excerpt.m4a \
   --transcript-provider faster-whisper \
   --model-cache "$MKE_MODEL_CACHE" \
   --json
@@ -484,8 +487,10 @@ exception, model-host detail, hostname, token, or raw media metadata.
 
 ## Compiled Library Export v2
 
-Direct audio cannot be silently added to the closed v1 manifest or Markdown enum. This design adds
-three new closed contracts:
+Direct audio cannot be silently added to the closed v1 manifest or Markdown enum. The capability
+direction is approved: v1 remains byte-compatible, v1 fails closed rather than silently omitting
+an active audio Source, and an explicit v2 represents the complete mixed Library. The intended
+version family is:
 
 - `mke.compiled_library_export.v2`;
 - `mke.compiled_markdown.v2`;
@@ -493,26 +498,19 @@ three new closed contracts:
 
 `mke.evidence_ref.v1` and `mke.active_publication_observation.v1` remain unchanged.
 
-The v2 success response is closed and has this exact shape:
+The exact v2 closed response shape, manifest and Markdown fields, source matrix, and independent
+consumer invariants are intentionally not frozen by this design alone. They must be reconciled
+against accepted downstream evidence from the separate LLM Wiki v1 compatibility work before PR C
+implements them. This sequencing prevents a speculative schema from becoming authority before a
+real consumer has exercised v1, while preserving the approved requirement that a mixed Library
+must never lose an audio Source silently.
 
-```json
-{
-  "evidence_count": 7,
-  "export_schema": "mke.compiled_library_export.v2",
-  "library_id": "local",
-  "manifest_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-  "markdown_format": "mke.compiled_markdown.v2",
-  "ok": true,
-  "schema_version": "mke.compiled_library_export_response.v2",
-  "source_count": 3
-}
-```
-
-The v2 failure response retains the existing bounded `ok`, `problem`, `cause`,
-`active_publication_impact`, and `next_step` fields under
-`mke.compiled_library_export_response.v2`; it contains no output path, database path, Source
-content, hostname, timestamp, temporary path, or raw diagnostic. The illustrative counts and digest
-above are shape values, not frozen fixture identities.
+At the start of PR C, the implementation controller must read the accepted LLM Wiki compatibility
+review and perform one bounded schema reconciliation checkpoint. The checkpoint records which v1
+fields and Markdown boundaries the downstream proof actually consumed, which remain unchanged in
+v2, and which additive v2 fields are necessary for audio completeness. Only a closed shape backed
+by that evidence may be implemented and frozen. Any requested shape change beyond additive audio
+completeness returns to design authority.
 
 ### Compatibility behavior
 
@@ -522,16 +520,17 @@ above are shape values, not frozen fixture identities.
 - v1 fails closed when the complete active snapshot contains any media type it cannot represent;
   it never omits an audio Publication or adjusts counts.
 - `--format-version v2` exports the complete active PDF/video/audio snapshot.
-- The v2 response identifies the exact manifest and Markdown schema versions.
+- The reconciled v2 response identifies the exact manifest and Markdown schema versions.
 - Existing v1 validators, golden bytes, proof, workflow, and standalone consumer remain valid.
-- A new independent v2 consumer accepts only the v2 media/stage/fingerprint matrix and rejects v1,
+- A new independent v2 consumer accepts only the reconciled closed v2 contract and rejects v1,
   unknown versions, unknown MIME values, or mixed invalid authority.
 
 ### v2 source semantics
 
-The v2 manifest retains the exact v1 top-level and source-entry fields and budgets, changes only
-the top-level schema and Markdown-format literals to v2, and expands the closed media/stage
-authority:
+The candidate v2 semantics retain v1 provenance authority, deterministic ordering, count and byte
+budgets, and the exact active-Publication completeness rule. The reconciliation checkpoint decides
+the final closed top-level, source-entry, and Markdown field sets. At minimum, the implemented v2
+must represent this media/stage authority without weakening current v1 acceptance:
 
 | Media type | Locator | Required stages | Extractor family |
 |---|---|---|---|
@@ -542,23 +541,27 @@ authority:
 | `audio/wav` | timestamp_ms | audio_transcription + candidate_evidence | audio faster-whisper fingerprint |
 | `audio/mp4` | timestamp_ms | audio_transcription + candidate_evidence | audio faster-whisper fingerprint |
 
-Markdown v2 keeps deterministic metadata ordering and page/timestamp headings. Audio Evidence uses
-the existing `## Timestamp START-END ms` representation. No raw media bytes or transcript report
-are copied into the export.
+The candidate Markdown v2 direction keeps deterministic metadata ordering and page/timestamp
+headings. Whether the exact v1 field list is reused or additively amended is decided only by the
+checkpoint. Audio Evidence continues to use an unambiguous timestamp boundary, and no raw media
+bytes or transcript report are copied into the export.
 
 The comparison-only PDF OCR row preserves the exact validation surface that v1 already accepts; it
 does not promote Phase 0 OCR into production. Any later production OCR fingerprint or stage is a
-closed-contract amendment and cannot be admitted to v2 implicitly.
+closed-contract amendment and cannot be admitted to v2 implicitly. LLM Wiki remains an external
+downstream view, never an MKE dependency, runtime component, or Evidence authority.
 
-## Dependency, Binary And License Boundary
+## Dependency, Binary, Fixture, And License Boundary
 
 No new Python dependency is approved. The implementation reuses the locked `[transcription]`
 surface, currently including faster-whisper, PyAV, CTranslate2, and huggingface-hub.
 
-Before the feature can be accepted for v0.1.4:
+PR A is a feasibility gate before any direct-audio foundation or activation work. It must establish:
 
 - ordinary-pip resolution and import must pass for supported Python 3.12 and 3.13 environments;
-- exact candidate wheels and installed distributions must be recorded in a public-safe receipt;
+- exact locked external dependency versions, PyAV wheel bytes, installed distributions, validation
+  platform, linked or bundled FFmpeg components, and fixture identities must be recorded in a
+  public-safe dependency/license receipt;
 - the three audio profiles must be decoded by the installed PyAV wheel, not inferred from package
   metadata;
 - source-build or system-FFmpeg installation is not claimed unless separately proved;
@@ -567,12 +570,26 @@ Before the feature can be accepted for v0.1.4:
 - FFmpeg and other bundled libraries, enabled components, licenses, and required notices must be
   documented from the exact wheel/runtime evidence rather than treating the PyAV package's
   BSD-3-Clause metadata as the complete binary distribution license;
+- fixture source, generation, redistribution permission, notices, exact bytes, and profile authority
+  must be complete;
 - model source, exact revision, model-card license, model tree digest, and cache-only authority must
-  remain documented; and
+  remain documented for the later PR C proof; and
 - no model weights or operator cache files enter Git, sdist, wheel, or Release assets.
 
-A license or notice gap is a release blocker. It does not invalidate model-free contract work, but
-v0.1.4 must not publish the direct-audio capability until the distribution boundary is clear.
+The PR A receipt binds the external dependency set, PyAV wheel/runtime, linked or bundled FFmpeg
+components, licenses, notices, fixture identities, and validation platform. It does not bind an MKE
+source commit or MKE wheel. Ordinary later product or documentation commits therefore do not
+invalidate it. Refresh it only when an external dependency, PyAV wheel, platform, or fixture
+authority changes.
+
+Any unresolved license, notice, fixture redistribution, or binary-component obligation is a
+no-go hard stop: PR A cannot be accepted and PR B cannot begin. Acquisition of packages, wheels,
+models, or external artifacts remains separately authorized and is not implied by this design.
+
+PR C owns a distinct terminal installed proof. That proof binds a fresh final MKE wheel, the
+accepted PR A receipt digest, the actual installed package set, and the prepared model tree. It
+does not regenerate the complete PR A license analysis merely because tracked MKE source or docs
+changed.
 
 ## Fixtures
 
@@ -665,7 +682,7 @@ Add `docs/decisions/0011-bounded-direct-audio-intake.md`. It authorizes bounded 
 supersedes only the earlier audio-only deferral. Historical ADRs remain unchanged as records of
 their original scope.
 
-The feature PR evaluates and updates at least:
+PR C evaluates and updates at least:
 
 - `README.md` and `README_CN.md`;
 - architecture explanation and documentation index;
@@ -678,29 +695,52 @@ The feature PR evaluates and updates at least:
 - presentation-audit rules that reject arbitrary codec, long-audio, automatic download, cloud,
   cross-platform, performance, deployment, adoption, and SLA overclaims.
 
-The post-release LLM Wiki compatibility evidence may be referenced as a downstream consumer proof
-only after its independent plan succeeds. LLM Wiki remains outside MKE runtime and Evidence
-authority.
+The accepted LLM Wiki compatibility evidence may be referenced as a downstream consumer proof only
+after its independent plan succeeds. LLM Wiki remains outside MKE runtime and Evidence authority.
 
-## Delivery Shape
+## Staged Delivery Shape
 
-The preferred delivery is:
+Implementation is divided into three ordered PRs plus a separately authorized release closeout.
+Each PR is independently reviewable and must satisfy its own exit gate.
 
-1. merge the independent LLM Wiki compatibility docs/evidence PR;
-2. implement direct audio as one coherent feature PR with one integration owner coordinating
-   bounded internal lanes for contracts/storage/export, provider/fixtures/proof, and
-   interfaces/docs;
-3. perform one pre-PR whole-branch authority review and targeted fix loop;
-4. merge only after exact-head CI and consumer proofs pass; and
-5. run a separate v0.1.4 release-closeout PR and publication authorization.
+### PR A — Direct-audio feasibility and license evidence
 
-The feature PR is intentionally one product slice. Splitting it into public half-capabilities would
-either leave an unconsumable domain contract or expose audio without export/proof authority. The
-execution plan may serialize shared-file integration even when independent test/provider/docs work
-runs in parallel.
+PR A contains only redistribution-safe synthetic fixtures, exact package/PyAV wheel and linked or
+bundled FFmpeg component inventory, license/notice/fixture-provenance receipt generation and
+validation, focused tests, and necessary public-neutral reference evidence. It does not modify
+`src/mke`, add a public runtime, CLI/MCP route, Export schema, or product capability claim.
 
-LLM Wiki compatibility and direct-audio implementation must not write the same README/export docs
-concurrently. Direct audio starts from the accepted compatibility merge baseline.
+PR A may proceed in parallel with the independent LLM Wiki compatibility docs/evidence PR because
+it does not write README or export shared surfaces. Any unresolved license, notice, fixture
+redistribution, or binary-component obligation produces a no-go hard stop. No dependency, wheel,
+model, fixture, or other external-artifact acquisition is authorized by this stage.
+
+### PR B — Internal direct-audio foundation
+
+PR B starts only after PR A is accepted and merged. It owns project-defined audio domain and wire
+contracts, descriptor-bound immutable snapshotting, strict profile inspection, Asset media-type
+authority, the cache-only audio child/provider, internal adapter/storage contracts, necessary video
+compatibility regressions, and model-free tests.
+
+PR B does not activate an application user journey. It adds no canonical public dispatcher,
+CLI/MCP audio route, Export v2, public capability documentation or claim, real-provider proof, or
+release proof. Runtime composition that would expose direct audio publicly moves to PR C. PR B need
+not wait for LLM Wiki compatibility because it neither freezes Export v2 nor edits README/export
+documentation, but it cannot run in parallel with PR A or bypass the license gate.
+
+### PR C — Public activation, Export v2, and terminal proof
+
+PR C starts only after PR A, PR B, and the independent LLM Wiki compatibility docs/evidence PR are
+all accepted and merged. It owns the application lifecycle, canonical
+`KnowledgeEngine.ingest_file` dispatcher, CLI/stdio MCP audio route, operation-local errors, the
+bounded Export v2 reconciliation checkpoint and implementation, independent consumer, model-free
+product proof, same-wheel installed proof, real cache-only provider proof, CI, ADR and public docs,
+presentation audit, conditional evaluation identity closure, whole-branch review, and terminal
+verification.
+
+After PR C merges, a separate release-closeout PR and separate authorization own the v0.1.4
+version, tag, GitHub Release, archive smoke, registry publication, deployment, and post-release
+claims.
 
 ## Success Criteria
 
@@ -745,16 +785,19 @@ existing video, export, or Evidence contracts.
 
 ## Claim Boundary
 
-After successful feature merge and v0.1.4 publication, MKE may claim:
+After successful PR C merge and separately authorized v0.1.4 publication, MKE may claim:
 
-> Bounded local MP3, WAV/PCM, and M4A/AAC files can be transcribed through an explicitly prepared,
-> cache-only faster-whisper runtime into timestamped active Evidence, then consumed through
-> Python, CLI, stdio MCP, Search/Ask, and a versioned deterministic Compiled Library Export.
+> Bounded local voice notes and clips or excerpts from meetings, interviews, lectures, and other
+> downloaded spoken material, when encoded as the supported MP3, WAV/PCM, or M4A/AAC profiles, can
+> be transcribed through an explicitly prepared, cache-only faster-whisper runtime into timestamped
+> active Evidence, then consumed through Python, CLI, stdio MCP, Search/Ask, and a versioned
+> deterministic Compiled Library Export.
 
 It may not claim:
 
 - arbitrary audio/container/codec support;
-- diarization, streaming, long-audio processing, cloud fallback, or implicit model download;
+- full-length meeting, interview, or lecture processing, diarization, chunking, resume, streaming,
+  long-audio workers, cloud fallback, or implicit model download;
 - exact transcript quality, general language coverage, production SLA, or all-platform support;
 - hosted deployment, enterprise adoption, real-user impact, or OpenAI/LLM Wiki official
   integration; or
@@ -780,7 +823,9 @@ and reviewed repository diff.
 
 ## Open Decision Status
 
-There are no unresolved product or architecture choices in this approved written design. It may
-advance to implementation planning and mechanical public landing, but not implementation. Any later
-change to formats, limits, provider authority, export versioning, license boundary, public surface,
-or non-goals requires an explicit design amendment before implementation.
+There are no unresolved product or architecture choices in this authority-amended written design.
+The exact Export v2 closed shape is deliberately delegated to the bounded PR C reconciliation
+checkpoint and is not an open invitation to expand scope. This document may advance to full plan
+review, but it does not dispatch PR A or authorize implementation. Any later change to formats,
+limits, provider authority, export direction, license boundary, public surface, or non-goals
+requires an explicit design amendment before implementation.
