@@ -849,7 +849,6 @@ def run_nested_pip_install(
     preflight_interpreter: Mapping[str, object],
     preflight_file_identity: tuple[int, ...],
 ) -> None:
-    _read_regular(python)
     constraints_value = _read_regular(constraints)
     requirements_value = _read_regular(root_requirements)
     if (
@@ -867,14 +866,16 @@ def run_nested_pip_install(
     validated_home = _validated_owned_directory(home, validated_runtime)
     validated_temp = _validated_owned_directory(temp, validated_runtime)
     validated_cwd = _validated_owned_directory(cwd, validated_runtime)
-    generation_interpreter, generation_file_identity = _probe_target_interpreter(python, cell)
+    generation_interpreter, generation_file_identity, generation_executable = (
+        _probe_target_interpreter(python, cell)
+    )
     if (
         generation_interpreter != dict(preflight_interpreter)
         or generation_file_identity != preflight_file_identity
     ):
         raise ReceiptError("pip_interpreter_identity_drift")
     argv = [
-        str(python),
+        str(generation_executable),
         "-I",
         "-m",
         "pip",
@@ -1044,6 +1045,7 @@ def _snapshot_interpreter_executable(path: Path) -> ExecutableSnapshot:
         declared_before.st_mode,
         declared_before.st_size,
         declared_before.st_mtime_ns,
+        declared_before.st_ctime_ns,
     )
     if declared_identity != (
         declared_after.st_dev,
@@ -1051,6 +1053,7 @@ def _snapshot_interpreter_executable(path: Path) -> ExecutableSnapshot:
         declared_after.st_mode,
         declared_after.st_size,
         declared_after.st_mtime_ns,
+        declared_after.st_ctime_ns,
     ):
         raise ReceiptError("interpreter_identity_drift")
     target_identity = (
@@ -1059,6 +1062,7 @@ def _snapshot_interpreter_executable(path: Path) -> ExecutableSnapshot:
         target.st_mode,
         target.st_size,
         target.st_mtime_ns,
+        target.st_ctime_ns,
     )
     if target_identity != (
         target_after.st_dev,
@@ -1066,6 +1070,7 @@ def _snapshot_interpreter_executable(path: Path) -> ExecutableSnapshot:
         target_after.st_mode,
         target_after.st_size,
         target_after.st_mtime_ns,
+        target_after.st_ctime_ns,
     ):
         raise ReceiptError("interpreter_identity_drift")
     return ExecutableSnapshot(
@@ -1080,7 +1085,9 @@ def _snapshot_executable(path: Path) -> ExecutableSnapshot:
     return _snapshot_interpreter_executable(path)
 
 
-def _probe_target_interpreter(path: Path, cell: Cell) -> tuple[dict[str, object], tuple[int, ...]]:
+def _probe_target_interpreter(
+    path: Path, cell: Cell
+) -> tuple[dict[str, object], tuple[int, ...], Path]:
     before = _snapshot_executable(path)
     result = _run_bounded(
         [str(before.resolved), "-I", "-B", "-c", _INTERPRETER_PROBE_SOURCE],
@@ -1167,6 +1174,7 @@ def _probe_target_interpreter(path: Path, cell: Cell) -> tuple[dict[str, object]
             "executable_sha256": before.sha256,
         },
         before.identity,
+        before.resolved,
     )
 
 
@@ -1281,7 +1289,9 @@ def check_inputs(
         if index >= len(cells):
             continue
         try:
-            identity, observed_file_identity = _probe_target_interpreter(python, cells[index])
+            identity, observed_file_identity, _ = _probe_target_interpreter(
+                python, cells[index]
+            )
         except ReceiptError as error:
             issues.append(_issue(str(error), label))
         else:

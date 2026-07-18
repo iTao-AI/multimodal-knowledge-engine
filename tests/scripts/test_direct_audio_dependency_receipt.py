@@ -437,6 +437,7 @@ def test_nested_pip_boundary_uses_exact_argv_and_empty_allowlisted_environment(
         lambda path, cell: (
             probe_calls.append((path, cell)) or preflight_public,
             preflight_file_identity,
+            python.resolve(),
         ),
     )
     monkeypatch.setenv("PIP_INDEX_URL", "https://credential.invalid/simple")
@@ -459,7 +460,7 @@ def test_nested_pip_boundary_uses_exact_argv_and_empty_allowlisted_environment(
     )
 
     expected = [
-        str(python),
+        str(python.resolve()),
         "-I",
         "-m",
         "pip",
@@ -493,6 +494,70 @@ def test_nested_pip_boundary_uses_exact_argv_and_empty_allowlisted_environment(
     assert profile.wall_seconds == 300.0
     assert profile.stdout_bytes == 64 * 1024
     assert profile.stderr_bytes == 64 * 1024
+
+
+def test_nested_pip_uses_probe_bound_target_after_declared_alias_retarget(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    receipt = _module()
+    first = tmp_path / "python-first"
+    second = tmp_path / "python-second"
+    first.write_bytes(b"first")
+    second.write_bytes(b"second")
+    first.chmod(0o700)
+    second.chmod(0o700)
+    python = tmp_path / "python"
+    python.symlink_to(first)
+    wheelhouse = tmp_path / "wheelhouse"
+    wheelhouse.mkdir()
+    _wheel(wheelhouse, "demo-1.0-py3-none-any.whl")
+    constraints = tmp_path / "constraints.txt"
+    constraints.write_bytes(b"demo==1 --hash=sha256:" + b"a" * 64 + b"\n")
+    runtime_root = tmp_path / "runtime"
+    runtime_root.mkdir()
+    home = runtime_root / "home"
+    temp = runtime_root / "tmp"
+    cwd = runtime_root / "cwd"
+    home.mkdir()
+    temp.mkdir()
+    cwd.mkdir()
+    manifest = receipt.build_wheelhouse_manifest(wheelhouse)
+    public = {"label": "python-3.12", "executable_sha256": "a" * 64}
+    identity = (1, 2, 3)
+    captured: dict[str, object] = {}
+
+    def probe(_path: Path, _cell: object):
+        python.unlink()
+        python.symlink_to(second)
+        return public, identity, first.resolve()
+
+    def intercept(argv: list[str], **_kwargs: object) -> SimpleNamespace:
+        captured["argv"] = argv
+        return SimpleNamespace(returncode=0, stdout=b"", stderr=b"", supervision=None)
+
+    monkeypatch.setattr(receipt, "_probe_target_interpreter", probe)
+    monkeypatch.setattr(receipt, "_run_bounded", intercept)
+
+    receipt.run_nested_pip_install(
+        python=python,
+        wheelhouse=wheelhouse,
+        constraints=constraints,
+        root_requirements=constraints,
+        expected_manifest=manifest,
+        constraints_sha256=hashlib.sha256(constraints.read_bytes()).hexdigest(),
+        root_requirements_sha256=hashlib.sha256(constraints.read_bytes()).hexdigest(),
+        runtime_root=runtime_root,
+        home=home,
+        temp=temp,
+        cwd=cwd,
+        cell=_cells()[0],
+        preflight_interpreter=public,
+        preflight_file_identity=identity,
+    )
+
+    argv = cast(list[str], captured["argv"])
+    assert argv[0] == str(first.resolve())
+    assert argv[0] != str(python)
 
 
 def test_nested_pip_rejects_symlink_wheelhouse_and_non_call_owned_cwd(
@@ -880,6 +945,7 @@ def test_interpreter_targets_have_explicit_labels_and_distinct_file_identity(
                 "executable_sha256": snapshot.sha256,
             },
             snapshot.identity,
+            snapshot.resolved,
         ),
     )
 
@@ -916,9 +982,9 @@ def test_interpreter_aliases_to_one_target_cannot_masquerade_as_two_cells(
     fixtures = tmp_path / "fixtures"
     fixtures.mkdir()
 
-    def probe(path: Path, cell: Any) -> tuple[dict[str, object], tuple[int, ...]]:
+    def probe(path: Path, cell: Any) -> tuple[dict[str, object], tuple[int, ...], Path]:
         snapshot = receipt._snapshot_executable(path)  # pyright: ignore[reportPrivateUsage]
-        return {"label": f"python-{cell.version}"}, snapshot.identity
+        return {"label": f"python-{cell.version}"}, snapshot.identity, snapshot.resolved
 
     monkeypatch.setattr(receipt, "_probe_target_interpreter", probe)
 
@@ -1110,7 +1176,7 @@ def test_target_interpreter_probe_uses_only_fixed_isolated_bounded_command(
 
     monkeypatch.setattr(receipt, "_run_bounded", intercept)
 
-    public, file_identity = receipt._probe_target_interpreter(  # pyright: ignore[reportPrivateUsage]
+    public, file_identity, resolved = receipt._probe_target_interpreter(  # pyright: ignore[reportPrivateUsage]
         target, _cells()[0]
     )
 
@@ -1131,10 +1197,85 @@ def test_target_interpreter_probe_uses_only_fixed_isolated_bounded_command(
     assert public["python_version"] == "3.12.9"
     assert public["executable_sha256"] == hashlib.sha256(b"fixed target bytes").hexdigest()
     assert file_identity
+    assert resolved == target.resolve()
     rendered = json.dumps(public, sort_keys=True)
     assert str(tmp_path) not in rendered
     assert "st_dev" not in rendered
     assert "st_ino" not in rendered
+    assert "ctime" not in rendered
+
+
+def test_target_interpreter_probe_accepts_executable_symlink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    receipt = _module()
+    target = tmp_path / "python-target"
+    target.write_bytes(b"fixed target bytes")
+    target.chmod(0o700)
+    declared = tmp_path / "python3.12"
+    declared.symlink_to(target)
+    captured: dict[str, object] = {}
+
+    def intercept(argv: list[str], **_kwargs: object) -> SimpleNamespace:
+        captured["argv"] = argv
+        return SimpleNamespace(
+            returncode=0,
+            stdout=_canonical_probe_output(_target_probe_payload("3.12")),
+            stderr=b"",
+            supervision=None,
+        )
+
+    monkeypatch.setattr(receipt, "_run_bounded", intercept)
+
+    public, identity, resolved = receipt._probe_target_interpreter(  # pyright: ignore[reportPrivateUsage]
+        declared, _cells()[0]
+    )
+
+    assert cast(list[str], captured["argv"])[0] == str(target.resolve())
+    assert resolved == target.resolve()
+    assert identity
+    assert public["executable_sha256"] == hashlib.sha256(b"fixed target bytes").hexdigest()
+
+
+@pytest.mark.parametrize("drifted_path", ["declared", "target"])
+def test_target_interpreter_snapshot_detects_ctime_only_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, drifted_path: str
+) -> None:
+    receipt = _module()
+    target = tmp_path / "python-target"
+    target.write_bytes(b"python")
+    target.chmod(0o700)
+    declared = tmp_path / "python3.12"
+    declared.symlink_to(target)
+    original_lstat = Path.lstat
+    calls = {declared: 0, target: 0}
+
+    def drifting_lstat(path: Path):
+        observed = original_lstat(path)
+        if path in calls:
+            calls[path] += 1
+            selected = declared if drifted_path == "declared" else target
+            if path == selected and calls[path] == 2:
+                values = {
+                    name: getattr(observed, name)
+                    for name in (
+                        "st_dev",
+                        "st_ino",
+                        "st_mode",
+                        "st_size",
+                        "st_mtime_ns",
+                        "st_ctime_ns",
+                    )
+                }
+                values["st_ctime_ns"] += 1
+                return SimpleNamespace(**values)
+        return observed
+
+    monkeypatch.setattr(receipt, "_read_regular", lambda _path: b"python")
+    monkeypatch.setattr(Path, "lstat", drifting_lstat)
+
+    with pytest.raises(receipt.ReceiptError, match="interpreter_identity_drift"):
+        receipt._snapshot_interpreter_executable(declared)  # pyright: ignore[reportPrivateUsage]
 
 
 @pytest.mark.parametrize("kind", ["dangling", "directory", "non_executable"])
@@ -1348,7 +1489,7 @@ def test_target_interpreter_accepts_compatible_arm64_sysconfig_floor(
         ),
     )
 
-    public, _ = receipt._probe_target_interpreter(target, _cells()[1])  # pyright: ignore[reportPrivateUsage]
+    public, _, _ = receipt._probe_target_interpreter(target, _cells()[1])  # pyright: ignore[reportPrivateUsage]
 
     assert public["sysconfig_platform"] == "macosx-12.1-arm64"
     assert public["pointer_bits"] == 64
