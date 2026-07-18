@@ -1209,32 +1209,53 @@ def _owned_directory_identity(path: Path) -> tuple[int, ...]:
     return (observed.st_dev, observed.st_ino, observed.st_mode)
 
 
-def _revalidate_owned_tree(path: Path, identity: tuple[int, ...], descriptor: int) -> None:
+def _owned_tree_path_matches(path: Path, identity: tuple[int, ...]) -> bool:
+    try:
+        observed = path.lstat()
+    except OSError:
+        return False
+    return (
+        stat.S_ISDIR(observed.st_mode)
+        and (observed.st_dev, observed.st_ino, observed.st_mode) == identity
+    )
+
+
+def _revalidate_owned_tree_descriptor(identity: tuple[int, ...], descriptor: int) -> None:
     opened = os.fstat(descriptor)
-    observed = path.lstat()
     if (
         not stat.S_ISDIR(opened.st_mode)
-        or not stat.S_ISDIR(observed.st_mode)
         or (opened.st_dev, opened.st_ino, opened.st_mode) != identity
-        or (observed.st_dev, observed.st_ino, observed.st_mode) != identity
     ):
         raise ReceiptError("pip_cleanup_failed")
 
 
-def _open_owned_tree(path: Path, identity: tuple[int, ...]) -> int:
+def _revalidate_owned_tree(path: Path, identity: tuple[int, ...], descriptor: int) -> None:
+    _revalidate_owned_tree_descriptor(identity, descriptor)
+    if not _owned_tree_path_matches(path, identity):
+        raise ReceiptError("pip_cleanup_failed")
+
+
+def _open_owned_tree(path: Path, identity: tuple[int, ...]) -> tuple[int, bool]:
     descriptor: int | None = None
     try:
-        if _owned_directory_identity(path) != identity:
-            raise ReceiptError("pip_cleanup_failed")
         flags = (
             os.O_RDONLY
             | getattr(os, "O_CLOEXEC", 0)
             | getattr(os, "O_DIRECTORY", 0)
             | getattr(os, "O_NOFOLLOW", 0)
         )
+        if sys.platform == "darwin":
+            path_matches = _owned_tree_path_matches(path, identity)
+            identity_path = Path("/.vol") / str(identity[0]) / str(identity[1])
+            descriptor = os.open(identity_path, flags)
+            _revalidate_owned_tree_descriptor(identity, descriptor)
+            path_matches = path_matches and _owned_tree_path_matches(path, identity)
+            return descriptor, path_matches
+        if _owned_directory_identity(path) != identity:
+            raise ReceiptError("pip_cleanup_failed")
         descriptor = os.open(path, flags)
         _revalidate_owned_tree(path, identity, descriptor)
-        return descriptor
+        return descriptor, True
     except ReceiptError:
         if descriptor is not None:
             os.close(descriptor)
@@ -1256,7 +1277,9 @@ def _remove_owned_tree_contents(descriptor: int) -> None:
         raise OSError("call-owned cleanup was incomplete")
 
 
-def _remove_owned_tree_entry(path: Path, identity: tuple[int, ...], parent_descriptor: int) -> None:
+def _remove_owned_tree_entry(
+    path: Path, identity: tuple[int, ...], parent_descriptor: int | None
+) -> None:
     if sys.platform == "darwin":
         identity_path = Path("/.vol") / str(identity[0]) / str(identity[1])
         observed = identity_path.lstat()
@@ -1267,6 +1290,8 @@ def _remove_owned_tree_entry(path: Path, identity: tuple[int, ...], parent_descr
             raise ReceiptError("pip_cleanup_failed")
         os.rmdir(identity_path)
         return
+    if parent_descriptor is None:
+        raise ReceiptError("pip_cleanup_failed")
     os.rmdir(path.name, dir_fd=parent_descriptor)
 
 
@@ -1379,21 +1404,29 @@ def _validate_pip_inputs(
 
 
 def _cleanup_owned_tree(path: Path, identity: tuple[int, ...]) -> None:
-    descriptor = _open_owned_tree(path, identity)
+    descriptor, path_matches = _open_owned_tree(path, identity)
+    path_drifted = not path_matches
     parent_descriptor: int | None = None
     try:
         os.fchmod(descriptor, 0o700)
-        _revalidate_owned_tree(path, identity, descriptor)
-        _remove_owned_tree_contents(descriptor)
-        _revalidate_owned_tree(path, identity, descriptor)
-        parent_flags = (
-            os.O_RDONLY
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_DIRECTORY", 0)
-            | getattr(os, "O_NOFOLLOW", 0)
-        )
-        parent_descriptor = os.open(path.parent, parent_flags)
-        _revalidate_owned_tree(path, identity, descriptor)
+        if sys.platform == "darwin":
+            _revalidate_owned_tree_descriptor(identity, descriptor)
+            path_drifted |= not _owned_tree_path_matches(path, identity)
+            _remove_owned_tree_contents(descriptor)
+            _revalidate_owned_tree_descriptor(identity, descriptor)
+            path_drifted |= not _owned_tree_path_matches(path, identity)
+        else:
+            _revalidate_owned_tree(path, identity, descriptor)
+            _remove_owned_tree_contents(descriptor)
+            _revalidate_owned_tree(path, identity, descriptor)
+            parent_flags = (
+                os.O_RDONLY
+                | getattr(os, "O_CLOEXEC", 0)
+                | getattr(os, "O_DIRECTORY", 0)
+                | getattr(os, "O_NOFOLLOW", 0)
+            )
+            parent_descriptor = os.open(path.parent, parent_flags)
+            _revalidate_owned_tree(path, identity, descriptor)
         _remove_owned_tree_entry(path, identity, parent_descriptor)
     except ReceiptError:
         raise
@@ -1406,6 +1439,8 @@ def _cleanup_owned_tree(path: Path, identity: tuple[int, ...]) -> None:
     try:
         path.lstat()
     except FileNotFoundError:
+        if path_drifted:
+            raise ReceiptError("pip_cleanup_failed") from None
         return
     except OSError as error:
         raise ReceiptError("pip_cleanup_failed") from error

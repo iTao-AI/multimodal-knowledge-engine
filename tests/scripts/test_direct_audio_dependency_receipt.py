@@ -914,6 +914,54 @@ def test_nested_pip_cleanup_failure_is_terminal_and_preserves_operator_python(
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="Darwin inode-addressed cleanup contract")
+def test_nested_pip_cleanup_opens_and_removes_original_inode_after_path_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    receipt = _module()
+    call_root = tmp_path / "direct-audio-pip-owned"
+    call_root.mkdir()
+    call_root.chmod(0o700)
+    (call_root / "venv").mkdir()
+    (call_root / "venv" / "owned-python").write_text("owned", encoding="utf-8")
+    (call_root / "stage").mkdir()
+    (call_root / "stage" / "owned-wheel").write_bytes(b"owned")
+    identity = receipt._owned_directory_identity(call_root)  # pyright: ignore[reportPrivateUsage]
+    displaced = tmp_path / "displaced-owned-root"
+    real_open = os.open
+    raced = False
+
+    def racing_open(
+        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        nonlocal raced
+        rendered = os.fsdecode(path)
+        if not raced and (rendered == os.fspath(call_root) or rendered.startswith("/.vol/")):
+            os.replace(call_root, displaced)
+            call_root.mkdir()
+            (call_root / "operator-owned-sentinel").write_text("preserve", encoding="utf-8")
+            raced = True
+        if dir_fd is None:
+            return real_open(path, flags, mode)
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(receipt.os, "open", racing_open)
+
+    with pytest.raises(receipt.ReceiptError, match="^pip_cleanup_failed$"):
+        receipt._cleanup_owned_tree(  # pyright: ignore[reportPrivateUsage]
+            call_root,
+            identity,
+        )
+
+    assert raced is True
+    assert (call_root / "operator-owned-sentinel").read_text(encoding="utf-8") == "preserve"
+    assert not displaced.exists()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Darwin inode-addressed cleanup contract")
 def test_nested_pip_cleanup_removes_owned_inode_and_preserves_path_replacement(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
