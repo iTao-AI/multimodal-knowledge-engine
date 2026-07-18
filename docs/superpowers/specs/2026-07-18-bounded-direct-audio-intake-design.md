@@ -169,6 +169,19 @@ does not transcode it into the profile.
 
 ## User Journey
 
+### Verify the deterministic product path first
+
+Run the model-free proof before preparing a real model or ingesting operator material:
+
+```bash
+UV_OFFLINE=1 uv run mke proof direct-audio --json
+```
+
+This one-command path uses committed redistribution-safe fixtures and a deterministic provider to
+exercise inspection, Publication, Search/Ask, timestamp Evidence, Export v2, the independent
+consumer, and cleanup. It neither constructs a real ASR model nor permits a download. Passing it
+proves the product wiring, not transcript quality or readiness of the operator's model cache.
+
 ### Prepare once
 
 The existing explicit preparation command remains the only download-capable path:
@@ -225,7 +238,9 @@ uv run mke --db .tmp/mke.sqlite library export \
   --json
 ```
 
-The current command without `--format-version` remains v1 for backward compatibility.
+The current command without `--format-version` remains v1 for backward compatibility. The first
+real-input path is therefore explicit and sequential: model-free proof, separately authorized
+preparation when needed, read-only doctor, bounded ingest, Search/Ask, and explicit v2 export.
 
 ## Canonical Dispatch
 
@@ -247,12 +262,13 @@ Python, CLI, and MCP.
 The MCP tool inventory and input schema remain unchanged. `ingest_file` still accepts only `path`;
 provider/model/cache/device/language/download controls remain owner startup configuration.
 
-The interface must preserve the operator's original path spelling until final-component symlink
-rejection. Today MCP resolves the path before dispatch; the implementation must instead perform
-`lstat`/no-follow validation on the unresolved candidate, reject a symlinked final component,
-resolve only for allowed-root containment, and pass the validated path/descriptor authority to the
-shared snapshot boundary. A dispatcher that receives only an already resolved `Path` is
-insufficient because it has lost the symlink identity that this contract must reject.
+The interface must preserve the operator's original path spelling through final-component symlink
+rejection and public presentation. Today MCP resolves the path before dispatch; the implementation
+must first perform `lstat` on the unresolved candidate, reject a symlinked final component, then
+resolve and prove allowed-root containment. All later I/O receives the containment-validated
+resolved target plus bound identity, or an equivalent descriptor-backed authority; it must never
+reopen an unresolved parent path after containment. Parent-symlink retarget races must fail for
+audio, PDF, and video without reading outside the allowed root.
 
 ## Immutable Source And Canonical Media Identity
 
@@ -262,14 +278,19 @@ Before Source or Run creation:
 
 1. resolve the operator path under the existing interface authority;
 2. reject missing, empty, non-regular, symlinked, unsupported-suffix, and over-size input;
-3. require the faster-whisper owner and a successful read-only runtime readiness result;
-4. open with no-follow and capture file identity where supported;
-5. copy bounded bytes into a private call-owned snapshot using the same descriptor;
-6. compute SHA-256 and byte count from the copied stream;
-7. verify source identity after copy and atomically seal the private snapshot;
-8. inspect the snapshot with locked PyAV before constructing the model;
-9. map the validated semantic profile to the canonical MKE media type; and
-10. process and transcribe only the sealed snapshot.
+3. require the faster-whisper owner and a successful lightweight preflight that does not construct
+   a model;
+4. acquire the existing owner admission lease before any snapshot, child, or model work;
+5. open with no-follow and capture file identity where supported;
+6. copy bounded bytes into a private call-owned snapshot using the same descriptor;
+7. compute the copied snapshot SHA-256 and byte count, rewind the still-open source descriptor, and
+   require a second bounded full-read digest to match;
+8. require unchanged source device, inode, mode, size, `mtime_ns`, and `ctime_ns`, then atomically
+   seal the private snapshot;
+9. inspect the snapshot with locked PyAV inside a receipt-backed memory- and
+   process-group-bounded package-owned child before constructing the model;
+10. map the validated semantic profile to the canonical MKE media type; and
+11. process and transcribe only the sealed snapshot.
 
 The application validates the in-memory transcript, manifest, Evidence, and report before deleting
 the snapshot. Snapshot cleanup must succeed before candidate persistence and Publication
@@ -387,8 +408,12 @@ The runtime contract remains:
 - normal execution passes a resolved local model snapshot and `local_files_only=True`;
 - `HF_HUB_OFFLINE=1` and a network canary prove no runtime network access;
 - the segment generator is fully materialized before success;
-- model resolution, media inspection, transcription, stdout, stderr, time, cancellation, process
-  group, parent wait, and descendant cleanup remain bounded;
+- lightweight request preflight checks typed configuration, optional dependency availability,
+  static profile grammar, and prepared cache completeness without constructing `WhisperModel`;
+- request-time model construction occurs only after admission;
+- model resolution, media inspection, transcription, stdout, stderr, memory, time, cancellation,
+  process group, parent wait, and descendant cleanup remain bounded by the accepted PR A platform
+  cell; timeout and output caps alone are not native-parser memory containment;
 - no implicit cache location, fallback identifier, URL, token, or SDK exception enters public
   output.
 
@@ -401,15 +426,16 @@ numeric child protocol.
 The success path is:
 
 ```text
-path authority and owner readiness
+containment-validated path authority and lightweight owner preflight
+  -> acquire existing bounded owner admission lease
   -> immutable snapshot + SHA-256
-  -> audio-v1 profile inspection
+  -> bounded audio-v1 inspection child
   -> ensure Source with canonical media type
   -> create Run -> RUNNING
   -> cache-only child transcription
   -> strict audio protocol parse
   -> validate provenance, report, fingerprint and timestamp Evidence
-  -> clean call-owned snapshot
+  -> clean call-owned snapshot and release admission lease
   -> persist validated candidate
   -> atomic Publication + transcript report + active pointer + FTS + PUBLISHED
 ```
@@ -421,6 +447,7 @@ Publication transaction.
 Failure behavior:
 
 - a preflight or readiness failure creates no Source and no Run;
+- an admission rejection creates no snapshot, Source, Run, child, or model-factory call;
 - a post-Run adapter, schema, manifest, cancellation, storage, or cleanup failure produces a
   failed/interrupted Run with no active-Publication change;
 - a superseded Run remains superseded and cannot publish;
@@ -436,6 +463,8 @@ The stable problem categories are:
 - `input_path_rejected` for existing allowed-root and path-resolution failures;
 - `unsupported_media_type` for suffixes outside `.pdf`, `.mp4`, `.mp3`, `.wav`, `.m4a`;
 - `transcription_not_ready` for owner dependency/cache/profile readiness failure before Run;
+- `transcription_busy` when the existing bounded owner admission authority cannot accept another
+  direct-audio operation before snapshot/model work;
 - `audio_ingest_failed` for a routed direct-audio profile, extraction, validation, lifecycle, or
   storage failure.
 
@@ -459,6 +488,13 @@ The pre-Run public matrix is closed:
 | `transcription_not_ready` | `transcription model resolution failed` | `check_model_configuration` |
 | `transcription_not_ready` | `transcription device or compute profile is unsupported` | `check_model_configuration` |
 | `transcription_not_ready` | `direct audio requires faster-whisper owner` | `configure_faster_whisper_owner` |
+| `transcription_busy` | `direct audio owner capacity is busy` | `retry_when_owner_ready` |
+| `audio_ingest_failed` | `audio profile is unsupported` | `choose_supported_file` |
+| `audio_ingest_failed` | `audio input exceeds supported limits` | `choose_smaller_file` |
+| `audio_ingest_failed` | `audio source identity changed during intake` | `retry_with_stable_file` |
+| `audio_ingest_failed` | `audio inspection timed out` | `retry_with_supported_file` |
+| `audio_ingest_failed` | `audio inspection failed` | `choose_supported_file` |
+| `audio_ingest_failed` | `audio intake cleanup failed` | `check_server_logs` |
 
 All rows above omit `run_id`. Once a Run exists, the audio child maps every existing numeric exit
 code to `problem=audio_ingest_failed` with that Run ID:
@@ -560,8 +596,9 @@ PR A is a feasibility gate before any direct-audio foundation or activation work
 
 - ordinary-pip resolution and import must pass for supported Python 3.12 and 3.13 environments;
 - exact locked external dependency versions, PyAV wheel bytes, installed distributions, validation
-  platform, linked or bundled FFmpeg components, and fixture identities must be recorded in a
-  public-safe dependency/license receipt;
+  platform, canonical lock-derived external constraints and wheelhouse manifest, linked or bundled
+  FFmpeg components, and fixture identities must be recorded in a public-safe dependency/license
+  receipt;
 - the three audio profiles must be decoded by the installed PyAV wheel, not inferred from package
   metadata;
 - source-build or system-FFmpeg installation is not claimed unless separately proved;
@@ -572,15 +609,19 @@ PR A is a feasibility gate before any direct-audio foundation or activation work
   BSD-3-Clause metadata as the complete binary distribution license;
 - fixture source, generation, redistribution permission, notices, exact bytes, and profile authority
   must be complete;
+- each accepted platform cell must prove the exact child memory-ceiling and process-group cleanup
+  mechanisms used before native PyAV/FFmpeg parsing; an unavailable or unproved mechanism is an
+  unsupported/failed cell, not a timeout-only fallback;
 - model source, exact revision, model-card license, model tree digest, and cache-only authority must
   remain documented for the later PR C proof; and
 - no model weights or operator cache files enter Git, sdist, wheel, or Release assets.
 
-The PR A receipt binds the external dependency set, PyAV wheel/runtime, linked or bundled FFmpeg
-components, licenses, notices, fixture identities, and validation platform. It does not bind an MKE
-source commit or MKE wheel. Ordinary later product or documentation commits therefore do not
-invalidate it. Refresh it only when an external dependency, PyAV wheel, platform, or fixture
-authority changes.
+The PR A receipt binds the external dependency set, canonical constraints and wheelhouse manifest,
+PyAV wheel/runtime, linked or bundled FFmpeg components, licenses, notices, fixture identities,
+validation platform, and child-containment authority. It does not bind an MKE source commit or MKE
+wheel. Ordinary later product or documentation commits therefore do not invalidate it. Refresh it
+only when an external dependency or constraints, prepared wheelhouse, PyAV wheel, platform,
+containment mechanism, or fixture authority changes.
 
 Any unresolved license, notice, fixture redistribution, or binary-component obligation is a
 no-go hard stop: PR A cannot be accepted and PR B cannot begin. Acquisition of packages, wheels,
@@ -610,7 +651,8 @@ execution must not require a system `ffmpeg` command.
 Negative fixtures or in-memory mutations must cover wrong extension, corrupt header, unsupported
 WAV codec, non-AAC M4A, multiple audio streams, video stream, unknown/zero/over-limit duration,
 unsupported channel/sample-rate profile, empty transcript, invalid UTF-8, excessive output,
-segment drift, path replacement, and digest/media-type mismatch.
+segment drift, parent-symlink retarget, path replacement, same-inode same-size mutation during
+copy, and digest/media-type mismatch.
 
 ## Proof Strategy
 
@@ -621,6 +663,8 @@ Required CI remains model-free and offline. It must cover:
 - canonical dispatcher equality across Python, CLI, and MCP;
 - exact suffix/MIME/profile matrix and negative cases;
 - immutable snapshot, TOCTOU, cleanup, cancellation, and Asset media-type drift;
+- allowed-root parent-symlink retarget, same-inode same-size mutation, admission-before-model, and
+  receipt-backed native child memory/process-group containment;
 - audio DTO, wire schema, fingerprint, required stages, manifest, report, and timestamp Evidence;
 - Run/Publication atomicity, failure isolation, supersession, Search, Ask, and portable EvidenceRef;
 - existing PDF/video regression contracts;
@@ -635,7 +679,8 @@ Required CI remains model-free and offline. It must cover:
 Using the same MKE wheel in fresh Python 3.12 and 3.13 environments:
 
 - install the locked transcription extra with ordinary pip semantics;
-- run `pip check`, package identity, dependency inventory, and wheel-byte validation;
+- require exact accepted PR A constraints and wheelhouse-manifest digests, then run `pip check`,
+  package identity, dependency inventory, and wheel-byte validation;
 - inspect/decode the three committed formats offline through the installed PyAV boundary;
 - prove empty-cache doctor is `not_ready` and does not write an implicit cache or access network;
 - verify the package-owned audio child protocol with fake model execution; and
@@ -826,6 +871,7 @@ and reviewed repository diff.
 There are no unresolved product or architecture choices in this authority-amended written design.
 The exact Export v2 closed shape is deliberately delegated to the bounded PR C reconciliation
 checkpoint and is not an open invitation to expand scope. This document may advance to full plan
-review, but it does not dispatch PR A or authorize implementation. Any later change to formats,
-limits, provider authority, export direction, license boundary, public surface, or non-goals
-requires an explicit design amendment before implementation.
+review. The full plan review is complete and permits staged implementation only; it does not
+dispatch PR A or authorize implementation, acquisition, or external side effects. Any later change
+to formats, limits, provider authority, export direction, license boundary, public surface, or
+non-goals requires an explicit design amendment before implementation.

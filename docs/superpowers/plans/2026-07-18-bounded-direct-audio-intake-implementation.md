@@ -2,8 +2,10 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-Status: authority-amended staged implementation plan pending one full `autoplan` review. This
-document does not authorize PR A, implementation, acquisition, or external side effects.
+Status: CLEARED FOR STAGED IMPLEMENTATION; PR A REQUIRES SEPARATE DISPATCH
+
+This document does not itself authorize PR A, implementation, acquisition, or external side
+effects.
 
 **Goal:** Add bounded local MP3, WAV, and M4A intake for voice notes and clips or excerpts from meetings, interviews, lectures, and downloaded spoken material; publish timestamp Evidence through the existing Run/Publication authority; and export complete mixed Libraries through an explicit Compiled Library Export v2 contract.
 
@@ -40,12 +42,14 @@ document does not authorize PR A, implementation, acquisition, or external side 
   completes the bounded schema reconciliation checkpoint.
 - Required CI is offline and model-free. Real ASR runs only against an already prepared exact local model revision and must prove network denial.
 - Synthetic fixtures must be redistribution-safe, committed with generation recipe, license/provenance, byte size, SHA-256, and exact media profile. No private recording or operator material enters Git.
-- PR A must audit the exact locked external dependency set, installed PyAV wheel, linked or bundled
-  FFmpeg components, licenses, notices, fixture identities, redistribution boundary, and validation
-  platform. Any unresolved obligation is a no-go hard stop before PR B.
+- PR A must audit the exact locked external dependency set and constraints, canonical wheelhouse
+  manifest, installed PyAV wheel, linked or bundled FFmpeg components, licenses, notices, fixture
+  identities, redistribution boundary, validation platform, and native-child containment
+  authority. Any unresolved obligation or containment cell is a no-go hard stop before PR B.
 - The PR A receipt does not bind MKE source or an MKE wheel. Refresh it only when an external
-  dependency, PyAV wheel, platform, or fixture authority changes. PR C separately binds its fresh
-  final MKE wheel to the accepted PR A receipt digest, installed package set, and prepared model tree.
+  dependency or constraints, prepared wheelhouse, PyAV wheel, platform, containment mechanism, or
+  fixture authority changes. PR C separately binds its fresh final MKE wheel to the accepted PR A
+  receipt digest, installed package set, and prepared model tree.
 - Numeric ceilings observed on the fixed proof corpus are evidence, not a production SLA or cross-platform performance claim.
 - PR A owns Task 1, PR B owns Tasks 2-4, and PR C owns Tasks 5-10. A v0.1.4
   version/tag/Release/archive-smoke closeout is a separate post-merge PR and separate authorization.
@@ -76,7 +80,8 @@ document does not authorize PR A, implementation, acquisition, or external side 
 - `src/mke/adapters/audio/__init__.py`: exports the project-owned audio adapter surface.
 - `src/mke/adapters/audio/contracts.py`: canonical audio extractor identity and fingerprint.
 - `src/mke/adapters/audio/schema.py`: strict `mke.audio_transcript.v1` parser and serializer.
-- `src/mke/adapters/audio/inspection.py`: immutable descriptor-bound snapshot and PyAV audio-v1 inspection.
+- `src/mke/adapters/audio/inspection.py`: immutable descriptor-bound snapshot, pure profile normalization, and closed inspection DTOs.
+- `src/mke/adapters/audio/inspection_cli.py`: bounded package-owned PyAV audio-v1 inspection child.
 - `src/mke/adapters/audio/faster_whisper_cli.py`: first-party cache-only audio child protocol.
 - `tests/fixtures/audio/README.md`: fixture provenance, generation, checksums, and profiles.
 - `tests/fixtures/audio/direct-audio.mp3`: redistribution-safe synthetic MP3 fixture.
@@ -85,6 +90,7 @@ document does not authorize PR A, implementation, acquisition, or external side 
 - `tests/adapters/test_audio_fixtures.py`: exact fixture identity, profile, and provenance tests.
 - `tests/domain/test_audio_contracts.py`: audio DTO, fingerprint, manifest, and wire tests.
 - `tests/adapters/test_audio_inspection.py`: descriptor identity, profile, bounds, and cleanup tests.
+- `tests/adapters/test_audio_inspection_cli.py`: bounded native inspection child and containment tests.
 - `tests/adapters/test_faster_whisper_audio_cli.py`: first-party child protocol tests.
 - `tests/application/test_audio_publication.py`: audio lifecycle, rollback, concurrency, and dispatcher tests.
 - `tests/interfaces/test_cli_audio.py`: CLI routing, readiness, success, and public errors.
@@ -100,7 +106,7 @@ document does not authorize PR A, implementation, acquisition, or external side 
 - `docs/decisions/0011-bounded-direct-audio-intake.md`: accepted architecture and compatibility decision.
 - `docs/how-to/use-direct-audio.md`: operator preparation, doctor, ingest, consume, export, and recovery.
 - `docs/how-to/run-direct-audio-proof.md`: model-free and real proof boundaries.
-- `docs/reference/direct-audio-dependency-and-license-evidence.md`: exact PyAV/FFmpeg binary, license, notice, model, and fixture evidence boundary.
+- `docs/reference/direct-audio-dependency-and-license-evidence.md`: exact external dependency, PyAV/FFmpeg binary, license, notice, platform-containment, constraints, wheelhouse, and fixture evidence boundary.
 - `tests/evaluation/test_direct_audio_documentation.py`: documentation contract and claim-boundary tests.
 - `docs/superpowers/reviews/2026-07-18-bounded-direct-audio-intake-implementation-review.md`: final actual-diff review record.
 
@@ -111,6 +117,7 @@ document does not authorize PR A, implementation, acquisition, or external side 
 - `src/mke/adapters/sqlite/__init__.py`: digest/media-type authority, audio report activation, and export snapshot support.
 - `src/mke/adapters/video/faster_whisper.py`: extract only genuinely shared private model/transcription helpers; preserve video behavior.
 - `src/mke/adapters/video/providers.py`: preserve video provider; share only typed private runtime composition when required.
+- `src/mke/adapters/video/process.py`: add receipt-backed process-group and child resource containment without weakening existing cancellation.
 - `src/mke/runtime.py`: owner-selected audio provider composition and operation-local audio exit mapping.
 - `src/mke/cli.py`: canonical ingest routing, direct-audio presentation, proof command, and export format selector.
 - `src/mke/interfaces/mcp_contract.py`: path validation before resolution, canonical dispatcher, and operation-local error mapping.
@@ -130,6 +137,8 @@ document does not authorize PR A, implementation, acquisition, or external side 
 - `tests/interfaces/test_mcp_contract.py`: audio route and unchanged schema/error fixture tests.
 - `tests/interfaces/test_mcp_server.py`: exact path-only schema snapshot.
 - `tests/runtime/test_runtime_composition.py`: sidecar rejection and faster-whisper audio composition.
+- `tests/runtime/test_owner_runtime.py`: admission ordering and release behavior.
+- `tests/adapters/test_process_controller.py`: process-group, resource-limit, cancellation, and video compatibility regressions.
 - `tests/scripts/test_compiled_library_export_consumer.py`: legacy v1 consumer freeze only.
 - `tests/scripts/test_compiled_library_export_proof.py`: v1 regression and explicit v2 aggregate.
 - `src/mke/proof/__init__.py`: direct-audio proof export.
@@ -213,7 +222,8 @@ separately authorized release-closeout PR
 
 **Interfaces:**
 - Consumes: the exact locked external dependency set, prepared offline wheel inputs, supported
-  Python/platform cells, and redistribution-safe synthetic fixture source.
+  Python/platform cells, a canonical wheelhouse manifest, lock-derived external constraints, and
+  redistribution-safe synthetic fixture source.
 - Produces: three immutable fixture identities plus one canonical external dependency, binary,
   license, notice, fixture, and platform receipt used as the hard PR B entry gate.
 
@@ -297,12 +307,19 @@ Expected: PASS with exactly three fixture identities.
 
 - [ ] **Step 5: Implement the external dependency/license receipt and validator**
 
-The controller accepts explicit Python 3.12 and 3.13 interpreters, prepared offline wheel inputs
-for the exact locked transcription dependency set, the fixture root, and an output path. It does
-not build, accept, identify, or install an MKE wheel. Each supported cell uses ordinary pip
-semantics under the lock-derived external constraints, runs `pip check`, imports the installed
-external modules in isolation, decodes all three fixtures through installed PyAV, and inventories
-the actual linked or bundled FFmpeg components with available platform binary tooling.
+The controller accepts explicit Python 3.12 and 3.13 interpreters, a prepared-offline wheelhouse
+directory, lock-derived external constraints, the fixture root, and an output path. It
+does not build, accept, identify, or install an MKE wheel. Each supported cell uses ordinary pip
+semantics under those exact constraints and wheel inputs, runs `pip check`, imports the installed
+external modules in isolation, decodes all three fixtures through installed PyAV, inventories the
+actual linked or bundled FFmpeg components with available platform binary tooling, and proves the
+platform mechanism required to impose a child memory ceiling and process-group cleanup before
+native parsing is considered supported.
+
+The controller derives the canonical wheelhouse manifest itself: reject symlinks, subdirectories,
+non-regular files, duplicate normalized distribution/version identities, and unexpected file
+types; then record every sorted canonical filename, version, byte count, and SHA-256. Freeze this
+derivation in tests so PR C can recompute the same manifest from a different absolute root.
 
 The closed public-safe receipt records only external distribution filenames/versions/digests,
 Python/platform labels, PyAV wheel/runtime identity, binary components, verified license and notice
@@ -310,6 +327,22 @@ identities, and fixture profiles. It rejects paths, hostnames, timestamps, envir
 tokens, unknown fields, incomplete components, or inferred redistribution permission. Any unknown
 or unresolved license, notice, or fixture obligation yields `license_evidence_incomplete` and a
 failed PR A gate.
+
+Freeze this acquisition-independent authority matrix in RED tests before collecting real evidence:
+
+| Authority | Required evidence | Classification |
+|---|---|---|
+| external constraints | canonical bytes, SHA-256, source `uv.lock` external-distribution projection, supported marker cells | missing distribution/hash or marker drift is `failed` |
+| wheelhouse manifest | exact canonical filename/version/bytes/SHA-256 inventory with no missing or extra wheel | substitution, omission, or surplus input is `failed` |
+| external wheel | canonical filename, version, bytes, SHA-256, supported Python/platform cell | mismatch or missing is `failed` |
+| PyAV runtime | installed distribution identity plus extension and linked/bundled component inventory from the platform tool recorded in the receipt | `unknown` or `unobservable` is `license_evidence_incomplete` |
+| component license | verified component identity, SPDX-style identifier when supported, source reference, license-text digest | inferred metadata or unresolved identity is `license_evidence_incomplete` |
+| required notice | component owner, notice source, canonical notice digest | missing or unresolved is `license_evidence_incomplete` |
+| child containment | exact supported-platform memory-ceiling and process-group primitive plus a controlled probe | unavailable, bypassed, or unproved containment is `failed` |
+| fixture | source/recipe, redistribution basis, profile, bytes, SHA-256 | missing permission or identity is `license_evidence_incomplete` |
+
+Each supported platform cell freezes the exact inventory command/tool identity and its allowed
+evidence sources. Unsupported tooling is a failed cell, not a reason to omit the component.
 
 - [ ] **Step 6: Stop for acquisition authority, then generate the PR A receipt**
 
@@ -319,25 +352,44 @@ are already present, generation remains offline:
 
 ```bash
 UV_OFFLINE=1 uv run python scripts/direct_audio_dependency_receipt.py \
+  --check-inputs \
   --python "$PYTHON312" \
   --python "$PYTHON313" \
   --wheelhouse "$TRANSCRIPTION_WHEELHOUSE" \
+  --constraints "$TRANSCRIPTION_CONSTRAINTS" \
+  --fixture-root tests/fixtures/audio \
+  --json
+```
+
+This read-only preflight reports a closed sorted list of missing, extra, substituted, or invalid
+inputs and performs no install, fixture generation, or output write. Use it to prepare the separate
+acquisition dispatch without trial and error.
+
+```bash
+UV_OFFLINE=1 uv run python scripts/direct_audio_dependency_receipt.py \
+  --python "$PYTHON312" \
+  --python "$PYTHON313" \
+  --wheelhouse "$TRANSCRIPTION_WHEELHOUSE" \
+  --constraints "$TRANSCRIPTION_CONSTRAINTS" \
   --fixture-root tests/fixtures/audio \
   --output benchmarks/audio/dependency-artifacts.json
 ```
 
-Require `status=passed`, two exact interpreter/platform cells, `pip_check=passed`, three fixture
-decodes per cell, complete linked/bundled component inventory, and complete license/notice evidence.
+Require `status=passed`, two exact interpreter/platform cells, canonical constraints and wheelhouse
+manifest digests, `pip_check=passed`, three fixture decodes per cell, proved child-containment
+mechanisms, complete linked/bundled component inventory, and complete license/notice evidence.
 The receipt digest must be independently reproducible from canonical bytes. It is refreshed only
-when the external dependency set, PyAV wheel, validation platform, or fixture authority changes.
+when the external dependency set or constraints, prepared wheelhouse, PyAV wheel, validation
+platform, containment authority, or fixture authority changes.
 
 - [ ] **Step 7: Write the durable evidence reference and close PR A**
 
 `docs/reference/direct-audio-dependency-and-license-evidence.md` records the receipt schema,
 validated external boundary, component/license/notice sources and digests, fixture redistribution
-basis, proof platforms, unresolved-obligation rule, and explicit non-claim that package metadata
-alone proves binary redistribution. It contains no product capability claim, local path, or MKE
-wheel identity.
+basis, canonical external constraints and wheelhouse-manifest digests, proof platforms,
+child-containment authority, unresolved-obligation rule, and explicit non-claim that package
+metadata alone proves binary redistribution. It contains no product capability claim, local path,
+or MKE wheel identity.
 
 ```bash
 git diff --check
@@ -510,7 +562,7 @@ git commit -m "feat(audio): define direct audio contracts"
 
 ---
 
-### Task 3 (PR B): Bind Immutable Input, Audio Inspection, And Asset Media Authority
+### Task 3 (PR B): Bind Immutable Input, Inspection Protocol, And Asset Media Authority
 
 **Files:**
 - Create: `src/mke/adapters/audio/inspection.py`
@@ -523,8 +575,10 @@ git commit -m "feat(audio): define direct audio contracts"
 **Interfaces:**
 - Consumes: Task 1 fixtures and Task 2 `AudioMediaInfo`.
 - Produces: `AudioSourceSnapshot`, `snapshot_audio_source()`, `verify_source_path()`,
-  `verify_owned_path()`, `require_matching_identity()`, `inspect_audio_snapshot()`,
-  `_normalize_audio_profile()`, and digest/media-type conflict rejection used by Tasks 4-7.
+  `verify_owned_path()`, `require_matching_identity()`, a closed inspection request/result
+  protocol, pure `_normalize_audio_profile()`, and digest/media-type conflict rejection used by
+  Tasks 4-7. Task 3 does not run PyAV or expose an executable inspection provider; Task 4 owns all
+  native parsing. PR B never parses untrusted media in the owner process.
 
 - [ ] **Step 1: Write descriptor and SQLite authority RED tests**
 
@@ -547,8 +601,8 @@ def test_asset_digest_cannot_change_media_type(store: SQLiteStore) -> None:
 ```
 
 Also cover symlink file, symlink parent, non-regular file, empty input, growth, truncation,
-descriptor/path inode replacement before and after inspection, cleanup failure, output root overlap,
-and all invalid stream/profile/limit cases.
+same-inode same-size writes during copy, descriptor/path inode replacement before and after
+inspection, cleanup failure, output root overlap, and all invalid stream/profile/limit cases.
 
 - [ ] **Step 2: Run RED tests**
 
@@ -570,6 +624,8 @@ class FileIdentity:
     inode: int
     mode: int
     bytes: int
+    modified_ns: int
+    changed_ns: int
     sha256: str
 
 
@@ -593,45 +649,40 @@ or follows a replacement.
 2. open with `O_RDONLY | O_CLOEXEC` and `O_NOFOLLOW` where available;
 3. bind initial `lstat`, descriptor `fstat`, and post-open path identity;
 4. stream-copy with a bounded buffer from the same descriptor into an exclusive call-owned file;
-5. compute source and owned SHA-256 from descriptor reads, not a later path reopen;
-6. fsync, chmod read-only, atomically rename staging to a random sealed name inside a 0700 private
+5. compute the copied snapshot SHA-256 during the bounded stream copy, rewind the still-open source
+   descriptor, perform one bounded second full SHA-256 read, and require exact digest equality;
+6. require initial/final descriptor size, mode, inode, device, `mtime_ns`, and `ctime_ns` equality so
+   same-inode writes cannot hide behind an unchanged byte count;
+7. fsync, chmod read-only, atomically rename staging to a random sealed name inside a 0700 private
    root, and revalidate both descriptor identities and the original path;
-7. inspect/transcribe only a no-follow descriptor for `owned_path` while the controller owns its
+8. expose the sealed file to Task 4 only through a no-follow descriptor-bound request while the controller owns its
    lifecycle; and
-8. remove only call-owned inodes using no-follow identity checks, returning a stable cleanup error
+9. remove only call-owned inodes using no-follow identity checks, returning a stable cleanup error
    without deleting a replacement.
 
-- [ ] **Step 4: Inspect the exact owned descriptor bytes with PyAV**
+- [ ] **Step 4: Define pure profile normalization and a closed inspection protocol**
 
 ```python
-def inspect_audio_snapshot(
-    snapshot: AudioSourceSnapshot,
-    *,
-    expected_suffix: str,
-) -> AudioMediaInfo:
-    verify_owned_path(snapshot)
-    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
-    descriptor = os.open(snapshot.owned_path, flags)
-    try:
-        require_matching_identity(os.fstat(descriptor), snapshot.owned_identity)
-        with os.fdopen(os.dup(descriptor), "rb", closefd=True) as stream:
-            with av.open(stream, mode="r") as container:
-                media = _normalize_audio_profile(
-                    container,
-                    expected_suffix,
-                    snapshot.owned_identity.bytes,
-                )
-        require_matching_identity(os.fstat(descriptor), snapshot.owned_identity)
-    finally:
-        os.close(descriptor)
-    verify_owned_path(snapshot)
-    return media
+class AudioInspectionRequest(TypedDict):
+    path: str
+    expected_suffix: Literal[".mp3", ".wav", ".m4a"]
+    expected_sha256: str
+    expected_bytes: int
+
+
+class AudioInspectionResult(TypedDict):
+    schema_version: Literal["mke.audio_inspection.v1"]
+    media: AudioMediaInfoPayload
+    observed_sha256: str
+    observed_bytes: int
 ```
 
-The normalizer is closed over the approved token/profile table. Convert duration to integer
-milliseconds with an explicitly tested rounding rule; reject unknown duration, non-finite values,
-extra streams, aliases outside the frozen inventory, wrong AAC profile, unsupported channel/sample
-rate, and extension/profile mismatch. Revalidate `owned_path` after PyAV closes.
+The normalizer is a pure function over bounded observations and is closed over the approved
+token/profile table. Convert duration to integer milliseconds with an explicitly tested rounding
+rule; reject unknown duration, non-finite values, extra streams, aliases outside the frozen
+inventory, wrong AAC profile, unsupported channel/sample rate, and extension/profile mismatch.
+Task 4 owns the package child that performs `av.open()` and revalidates the sealed snapshot before
+and after parsing; the owner validates only the closed result.
 
 - [ ] **Step 5: Make digest/media-type reuse fail closed**
 
@@ -663,7 +714,8 @@ UV_OFFLINE=1 uv run pytest -q \
   tests/adapters/test_sqlite_transcript_intake_report.py \
   tests/application/test_video_publication.py
 for run in 1 2 3 4 5; do
-  UV_OFFLINE=1 uv run pytest -q tests/adapters/test_audio_inspection.py -k 'replacement or cleanup or identity'
+  UV_OFFLINE=1 uv run pytest -q tests/adapters/test_audio_inspection.py \
+    -k 'replacement or same_inode or cleanup or identity'
 done
 UV_OFFLINE=1 uv run ruff check src/mke/adapters/audio src/mke/adapters/sqlite tests/adapters
 UV_OFFLINE=1 uv run pyright
@@ -689,25 +741,34 @@ cleanup owns only the copied inode.
 ### Task 4 (PR B): Add The Internal Cache-Only Audio Child And Provider
 
 **Files:**
+- Create: `src/mke/adapters/audio/inspection_cli.py`
 - Create: `src/mke/adapters/audio/faster_whisper_cli.py`
+- Create: `tests/adapters/test_audio_inspection_cli.py`
 - Create: `tests/adapters/test_faster_whisper_audio_cli.py`
 - Modify: `src/mke/adapters/audio/__init__.py`
 - Modify: `src/mke/adapters/video/faster_whisper.py`
 - Modify: `src/mke/adapters/video/providers.py`
+- Modify: `src/mke/adapters/video/process.py`
 - Modify: `tests/adapters/test_local_command_transcript_provider.py`
+- Modify: `tests/adapters/test_process_controller.py`
 
 **Interfaces:**
 - Consumes: Task 2 audio schema/fingerprint, Task 3 `AudioSourceSnapshot` and inspected `AudioMediaInfo`, existing `FasterWhisperTranscriptionConfig` and `ActiveProcessController`.
-- Produces: an internal package-owned `python -I -B -m mke.adapters.audio.faster_whisper_cli`
-  child and an uncomposed audio provider adapter that returns `AudioTranscriptExtractionResult`.
-  No owner/runtime composition exposes this behavior in PR B.
+- Produces: internal package-owned bounded inspection and transcription children, a lightweight
+  non-model-constructing audio preflight, and uncomposed provider adapters. No owner/runtime
+  composition exposes this behavior in PR B.
 
 - [ ] **Step 1: Write child/provider RED tests**
 
-Cover exact argv, isolated interpreter flags, `shell=False`, owner config, cache-only environment,
+Cover both package children: exact argv, isolated interpreter flags, `shell=False`, owner config,
+cache-only environment,
 normalization, output cap, stderr cap, timeout, cancellation latch, process-group cleanup, model
 generator failure, empty transcript, media/profile mismatch, schema rejection, unknown exit, and
-video regression.
+video regression. The inspection child additionally covers corrupt/native-parser exit, parse
+timeout, a controlled over-limit allocator, receipt-backed RSS ceiling, signal/native crash,
+owner survival, before/after descriptor identity and digest checks, and closed results. Prove that
+lightweight audio preflight checks typed config, optional dependency presence, and exact prepared
+model-tree completeness without importing or constructing `WhisperModel`.
 
 ```python
 def test_audio_child_uses_closed_protocol_and_offline_environment(
@@ -729,11 +790,12 @@ does not independently accept a different path or download policy.
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
+  tests/adapters/test_audio_inspection_cli.py \
   tests/adapters/test_faster_whisper_audio_cli.py \
   tests/adapters/test_local_command_transcript_provider.py
 ```
 
-Expected: missing internal audio child/provider symbols; all existing video cases pass.
+Expected: missing internal inspection/transcription child and provider symbols; existing video cases pass.
 
 - [ ] **Step 3: Extract only identical private faster-whisper helpers**
 
@@ -763,9 +825,22 @@ project-owned public values.
 Do not change the public `mke.video_transcript.v1` serializer, video fingerprint, MP4 probe, video
 exit mapping, or video provider result type.
 
-- [ ] **Step 4: Implement the closed audio child**
+- [ ] **Step 4: Implement the two closed audio children**
 
-The child accepts only trusted owner argv assembled by `runtime.py`: immutable snapshot path,
+The inspection child accepts only the sealed snapshot path, expected identity/digest/bytes, suffix,
+and fixed inspection limits. It opens no-follow, binds the descriptor, runs PyAV/FFmpeg parsing in
+the bounded child process, revalidates descriptor/path identity and digest after parsing, and emits
+one closed `mke.audio_inspection.v1` result. A crash, signal, timeout, oversized output, malformed
+result, or identity drift fails before Source/Run creation and cannot terminate the owner process.
+
+Before importing PyAV, each child applies the exact memory ceiling and process-group primitive
+proved for its accepted PR A platform cell. The owner starts that process group explicitly and
+terminates/waits for the complete group on timeout, cancellation, output overflow, registration
+failure, or shutdown. An unproved or failed limit is a closed provider failure; timeout/output caps
+alone do not satisfy native-parser containment. Preserve existing video process behavior and prove
+its cancellation/cleanup tests unchanged.
+
+The transcription child accepts only trusted owner argv: immutable snapshot path,
 expected SHA-256, expected bytes, inspected media fields, and existing transcription owner fields.
 It writes one JSON object on stdout and no success text on stderr.
 
@@ -788,7 +863,7 @@ paths, exception text, and tracebacks never enter public payloads.
 
 - [ ] **Step 5: Keep the package-owned provider internal**
 
-The internal adapter command uses the current interpreter and module, not PATH discovery:
+The internal adapter commands use the current interpreter and modules, not PATH discovery:
 
 ```python
 audio_command = (
@@ -798,24 +873,36 @@ audio_command = (
     "-m",
     "mke.adapters.audio.faster_whisper_cli",
 )
+inspection_command = (
+    sys.executable,
+    "-I",
+    "-B",
+    "-m",
+    "mke.adapters.audio.inspection_cli",
+)
 ```
 
 PR B does not edit `runtime.py` or install this adapter into an owner-visible composition root. It
 proves that a future PR C composition can bind the existing `FasterWhisperTranscriptionConfig`,
-operation controller, timeout, and bounded capture without changing video behavior. The module
-invocation above is the sole internal child entry point; do not add a console script.
+operation controller, timeout, bounded capture, receipt-backed child containment, and lightweight
+preflight without changing video behavior. The module invocation above is the sole internal child
+entry point; do not add a console script.
 `pyproject.toml`, dependencies, and `uv.lock` remain unchanged.
 
 - [ ] **Step 6: Run GREEN and process cleanup repetitions**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
+  tests/adapters/test_audio_inspection_cli.py \
   tests/adapters/test_faster_whisper_audio_cli.py \
   tests/adapters/test_local_command_transcript_provider.py \
-  tests/adapters/test_faster_whisper_cli.py
+  tests/adapters/test_faster_whisper_cli.py \
+  tests/adapters/test_process_controller.py
 for run in 1 2 3 4 5; do
-  UV_OFFLINE=1 uv run pytest -q tests/adapters/test_faster_whisper_audio_cli.py \
-    -k 'timeout or cancellation or descendant or registration'
+  UV_OFFLINE=1 uv run pytest -q \
+    tests/adapters/test_audio_inspection_cli.py \
+    tests/adapters/test_faster_whisper_audio_cli.py \
+    -k 'memory or signal or timeout or cancellation or descendant or registration'
 done
 UV_OFFLINE=1 uv run ruff check src/mke/adapters/audio src/mke/adapters/video tests/adapters
 UV_OFFLINE=1 uv run pyright
@@ -828,14 +915,36 @@ Expected: all pass with no descendant, reader thread, temp file, or operation re
 ```bash
 git diff --check
 git add src/mke/adapters/audio src/mke/adapters/video/faster_whisper.py \
-  src/mke/adapters/video/providers.py \
+  src/mke/adapters/video/providers.py src/mke/adapters/video/process.py \
+  tests/adapters/test_audio_inspection_cli.py \
   tests/adapters/test_faster_whisper_audio_cli.py \
-  tests/adapters/test_local_command_transcript_provider.py
+  tests/adapters/test_local_command_transcript_provider.py \
+  tests/adapters/test_process_controller.py
 git commit -m "feat(audio): add internal cache-only audio provider"
 ```
 
 Task review must prove the internal child/provider boundary and video compatibility. Public owner
 composition remains intentionally absent and is verified in PR C.
+
+---
+
+## PR C Entry Gate: Reconcile Export v2 Before Public Activation
+
+Before Task 5, require accepted/merged PR A, accepted/merged PR B, and the accepted/merged LLM Wiki
+compatibility docs/evidence PR. Read the exact compatibility plan/review and the live v1
+manifest/Markdown/consumer implementation. Record in the PR C implementation review:
+
+- which v1 fields and Markdown boundaries the real downstream workflow consumed;
+- the exact v1 bytes and consumer behavior that remain frozen;
+- the smallest additive v2 media/stage/field delta required for complete audio representation;
+- the full version-selected authority path from CLI parser through interface, application, SQLite
+  snapshot DTO, renderer/publisher, response, proof, and independent consumer; and
+- the stable v1 mixed-Library failure plus actionable `--format-version v2` next step.
+
+LLM Wiki remains an external downstream view, not an MKE dependency, runtime component, schema
+owner, or Evidence authority. Only after this checkpoint may PR C freeze exact v2 tests. A
+non-additive authority change, product-specific adapter, new dependency direction, or broader
+consumer contract is a design hard stop.
 
 ---
 
@@ -851,6 +960,7 @@ composition remains intentionally absent and is verified in PR C.
 - Modify: `tests/application/test_video_publication.py`
 - Modify: `tests/application/test_video_provider_injection.py`
 - Modify: `tests/runtime/test_runtime_composition.py`
+- Modify: `tests/runtime/test_owner_runtime.py`
 
 **Interfaces:**
 - Consumes: accepted/merged PR B immutable snapshot/media authority and internal audio provider.
@@ -861,7 +971,9 @@ composition remains intentionally absent and is verified in PR C.
 Cover suffix dispatch, uppercase suffixes, unsupported suffix, sidecar-owner rejection before Source
 and Run, exact snapshot hash, Run states, candidate/manifest/report atomicity, Search/Ask,
 superseded race, failure/cancellation/cleanup rollback, prior Publication preservation, Source
-revision, report insertion failure, and PDF/video behavior.
+revision, report insertion failure, admission busy/overloaded behavior and lease release after every
+success/failure/cancellation path, zero model-factory calls when admission rejects, and PDF/video
+behavior.
 
 ```python
 @pytest.mark.parametrize(
@@ -900,10 +1012,14 @@ Expected: missing audio ingest/dispatcher and audio activation behavior.
 
 - [ ] **Step 3: Add the canonical application surface**
 
-First compose the accepted internal audio provider at the owner boundary only for the existing
+First compose the accepted internal inspection/transcription providers at the owner boundary only for the existing
 faster-whisper owner. The default sidecar owner continues to reject direct audio before Source or
 Run creation. Bind the current interpreter, existing owner configuration, operation controller,
-timeout, and bounded capture; add no request-time controls or public child command.
+timeout, bounded capture, accepted PR A containment cell, lightweight non-model-constructing audio
+preflight, and existing `RuntimeConfig.admission_controller`; add no request-time controls or public
+child command. Existing explicit `transcription doctor` and owner-startup diagnostics retain their
+meaning, but a direct-audio request must not invoke the full model-constructing doctor before
+admission.
 
 ```python
 class AudioIngestError(ValueError):
@@ -958,9 +1074,11 @@ The dispatcher does not resolve the path and does not accept MIME hints from cal
 
 ```text
 lstat/no-follow validation
-  -> owner/provider readiness
+  -> lightweight owner/provider preflight with no model construction
+  -> acquire existing bounded admission lease
   -> immutable call-owned snapshot
-  -> exact-byte SHA and audio-v1 inspection
+  -> bounded inspection child over sealed bytes
+  -> exact-byte SHA and audio-v1 result validation
   -> digest/media-type check and Source/Run creation
   -> cache-only child transcription of owned bytes
   -> strict audio payload + extractor identity validation
@@ -972,6 +1090,14 @@ lstat/no-follow validation
   -> one atomic Publication/FTS/report/published transaction
   -> return success
 ```
+
+The preflight may validate only typed owner configuration, optional dependency availability,
+static profile grammar, and prepared cache-tree completeness. Acquire admission before snapshot
+creation, child start, or any CTranslate2/`WhisperModel` construction. Full device/compute/model
+initialization occurs only inside the admitted transcription child. Release the lease on every
+return, exception, timeout, cancellation, and cleanup path. Capacity exhaustion is an
+operation-local pre-Run `transcription_busy` failure with no `run_id`, zero model-factory calls, and
+no snapshot; it does not alter PDF/video admission behavior or expose queue internals.
 
 If cleanup cannot prove removal of the call-owned snapshot, return a stable failure and do not
 publish. If a failure occurs after Run creation, mark only that Run failed or superseded and keep
@@ -993,7 +1119,7 @@ UV_OFFLINE=1 uv run pytest -q \
   tests/application/test_pdf_publication.py \
   tests/application/test_video_publication.py \
   tests/application/test_video_provider_injection.py \
-  tests/runtime/test_runtime_composition.py
+  tests/runtime/test_runtime_composition.py tests/runtime/test_owner_runtime.py
 for run in 1 2 3 4 5; do
   UV_OFFLINE=1 uv run pytest -q tests/application/test_audio_publication.py \
     -k 'superseded or cancellation or cleanup or rollback or concurrent'
@@ -1012,7 +1138,8 @@ git add src/mke/application/__init__.py src/mke/adapters/sqlite/__init__.py src/
   tests/application/test_audio_publication.py \
   tests/adapters/test_sqlite_transcript_intake_report.py \
   tests/application/test_pdf_publication.py tests/application/test_video_publication.py \
-  tests/application/test_video_provider_injection.py tests/runtime/test_runtime_composition.py
+  tests/application/test_video_provider_injection.py tests/runtime/test_runtime_composition.py \
+  tests/runtime/test_owner_runtime.py
 git commit -m "feat(audio): publish direct audio evidence"
 ```
 
@@ -1046,14 +1173,22 @@ def test_mcp_ingest_file_schema_remains_path_only(server: FastMCP) -> None:
 
 @pytest.mark.parametrize("suffix", [".mp3", ".wav", ".m4a", ".MP3", ".WAV", ".M4A"])
 def test_cli_ingest_routes_audio_to_application_dispatcher(suffix: str, cli: CliHarness) -> None:
-    result = cli.run("ingest", "fixture" + suffix, "--json")
+    result, calls = cli.run_with_engine_spy("ingest", "fixture" + suffix, "--json")
     assert result.exit_code == 0
-    assert result.json["media_type"] in {"audio/mpeg", "audio/wav", "audio/mp4"}
+    assert set(result.json) == {"ok", "run_id", "run_state", "evidence_count", "transcript_intake_report"}
+    assert calls == [("ingest_file", Path("fixture" + suffix))]
 ```
 
+Do not add `media_type` or another unversioned success field to the existing CLI envelope merely to
+test routing. Assert dispatch through the application spy/provider plus the existing success keys
+and transcript report.
+
 Add negatives for a symlink file, symlink parent escape, nonexistent path, directory, unsupported
-suffix, sidecar owner, dependency/cache/config readiness, audio child exits 20-50, unknown exit,
-unexpected exception, cancellation, and all forbidden request-time controls.
+suffix, parent-symlink retarget after containment, sidecar owner, dependency/cache/config readiness, admission overload, pre-Run profile
+rejection, source identity drift, inspection crash/timeout, snapshot cleanup failure, audio child
+exits 20-50, unknown exit, unexpected exception, cancellation, and all forbidden request-time
+controls. Run the retarget regression through audio, PDF, and video dispatch so the canonical
+dispatcher cannot weaken existing containment. Assert every pre-Run row omits `run_id`.
 
 - [ ] **Step 2: Run RED tests**
 
@@ -1071,11 +1206,14 @@ Expected: audio routes unsupported or bypass the canonical dispatcher; legacy sc
 
 - [ ] **Step 3: Validate MCP path identity before resolution**
 
-`mcp_contract.ingest_file()` must preserve the exact path-only schema but reject symlinks before
-calling `resolve(strict=True)`. Validate the unresolved candidate with `lstat`, ensure every allowed
-root comparison uses the resolved path, then pass the original validated `Path` into the canonical
-application dispatcher. A race at the application boundary is still caught by Task 3 snapshot
-identity checks.
+`mcp_contract.ingest_file()` must preserve the exact path-only schema but reject a symlinked final
+component before calling `resolve(strict=True)`. Keep the unresolved spelling only for this
+`lstat` check and public presentation. Resolve the allowed root and candidate, prove containment,
+bind the resolved target identity, and pass the containment-validated resolved `Path` (or an
+equivalent descriptor-backed authority) into the canonical application dispatcher. Never reopen
+the unresolved parent path after containment. Task 3 then binds that resolved target again while
+opening the snapshot descriptor. A parent-symlink retarget between containment and application
+open must fail without reading outside the allowed root.
 
 ```python
 candidate = Path(path)
@@ -1083,16 +1221,19 @@ stat_result = candidate.lstat()
 if stat.S_ISLNK(stat_result.st_mode):
     return _ingest_failure("input_path_rejected", "input path must not be a symlink", "choose_file_under_allowed_root")
 resolved = candidate.resolve(strict=True)
-if not stat.S_ISREG(resolved.stat().st_mode):
+resolved_stat = resolved.stat()
+if not stat.S_ISREG(resolved_stat.st_mode):
     return _ingest_failure("input_path_rejected", "input path must be a regular file", "choose_file_under_allowed_root")
+# After the resolved allowed-root containment check, dispatch `resolved` plus its bound identity.
 ```
 
 - [ ] **Step 4: Use command-local error mappings**
 
 CLI and MCP route success through `engine.ingest_file(candidate)`. Direct-audio failures serialize
 only these problems: `input_path_rejected`, `unsupported_media_type`, `transcription_not_ready`,
-and `audio_ingest_failed`, with the safe causes and next steps frozen in the design. Unknown errors
-use the existing redacted generic cause. Do not add the six audio causes to shared
+`transcription_busy`, and `audio_ingest_failed`, with the closed pre-Run/post-Run safe causes,
+next steps, and `run_id` presence frozen in the design. Unknown errors use the existing redacted
+generic cause. Do not add the audio causes to shared
 `_ALLOWLISTED_CAUSES` or the read-tool consumer fixture.
 
 - [ ] **Step 5: Preserve owner-only transcription controls**
@@ -1165,29 +1306,16 @@ git commit -m "feat(audio): route direct audio interfaces"
 - Modify: `tests/scripts/test_compiled_library_export_proof.py`
 
 **Interfaces:**
-- Consumes: accepted LLM Wiki v1 compatibility evidence and the active PDF/OCR/video/audio snapshot
+- Consumes: the completed PR C entry-gate reconciliation and active PDF/OCR/video/audio snapshot
   from accepted PR B plus Tasks 5-6.
 - Produces: explicit v2 manifest/Markdown/response, default v1 compatibility, v2 standalone consumer, and same-wheel v2 proof.
-
-- [ ] **Step 0: Complete the bounded v2 schema reconciliation checkpoint**
-
-Read the accepted LLM Wiki compatibility plan and review, the exact v1 manifest/Markdown/consumer
-contracts it exercised, and the current v1 implementation. Record in the PR C implementation
-review which v1 fields and Markdown boundaries the real downstream workflow consumed, which exact
-v1 bytes remain frozen, and the smallest additive v2 field/media/stage changes needed to represent
-every active audio Source. LLM Wiki remains an external downstream view, not an MKE dependency,
-runtime component, schema owner, or Evidence authority.
-
-Only after this checkpoint may the implementation freeze exact v2 manifest, Markdown, response,
-and consumer shapes in tests. If real evidence requires a non-additive authority change, product-
-specific adapter, new dependency direction, or broader consumer contract, stop for design authority.
 
 - [ ] **Step 1: Freeze v1 bytes and write reconciled v2 RED tests**
 
 Build committed in-memory/golden snapshots for a v1-compatible PDF/video Library and a v2 mixed
 Library containing PDF text, current comparison-only PDF OCR, video, MP3, WAV, and M4A Sources.
-The exact v2 expected keys and Markdown fields come from Step 0, not from pre-evidence examples in
-this planning document.
+The exact v2 expected keys and Markdown fields come from the PR C entry gate, not from pre-evidence
+examples in this planning document.
 
 ```python
 def test_default_export_remains_exact_v1(tmp_path: Path, v1_store: SQLiteStore) -> None:
@@ -1221,7 +1349,9 @@ Expected: v2 symbols/flag/consumer are missing; v1 golden passes until the expli
 
 - [ ] **Step 3: Add the reconciled closed version-selected domain models**
 
-Use a typed selector instead of weakening v1 literals:
+Preserve the current v1 `CompiledSourceSnapshot` and `CompiledLibrarySnapshot` accepted literals
+and validation byte-for-byte. Add separate closed v2 snapshot/source types, or an equivalently
+explicit version-discriminated type that cannot widen the v1 constructor. Use a typed selector:
 
 ```python
 ExportFormatVersion = Literal["v1", "v2"]
@@ -1240,6 +1370,23 @@ Do not expand the existing v1 parser/consumer accepted schema. New v2 domain val
 the exact reconciled source matrix, including current comparison-only
 `pdf-ocr-eval-v1:[0-9a-f]{64}` rows when the live v1 contract still accepts them.
 
+Carry `format_version` through the complete authority path:
+
+```text
+CLI --format-version
+  -> interfaces.library_export.run_library_export(format_version=...)
+  -> KnowledgeEngine.compiled_library_snapshot(format_version=...)
+  -> SQLiteStore.compiled_library_snapshot(format_version=...)
+  -> closed v1 or v2 snapshot DTO
+  -> version-selected renderer and descriptor-bound publisher
+  -> closed version-matched response and consumer
+```
+
+SQLite must detect a v1-incompatible active audio Source before constructing a v1 DTO and raise a
+typed `unsupported_active_media_type` result. The public v1 failure directs the operator to rerun
+the complete export with `--format-version v2`; it never reports generic provenance drift or omits
+the Source.
+
 - [ ] **Step 4: Implement explicit deterministic reconciled v2 rendering and response**
 
 `export_library(store, output, format_version=format_version)` chooses constants from this closed map:
@@ -1250,10 +1397,15 @@ _MARKDOWN_FORMATS = {"v1": "mke.compiled_markdown.v1", "v2": "mke.compiled_markd
 _RESPONSE_SCHEMAS = {"v1": "mke.compiled_library_export_response.v1", "v2": "mke.compiled_library_export_response.v2"}
 ```
 
-The closed v2 success and failure values contain exactly the fields frozen by Step 0 RED tests.
+The closed v2 success and failure values contain exactly the fields frozen by the PR C entry-gate
+reconciliation and Step 1 RED tests.
 They preserve the v1 safety and determinism properties, identify the exact v2 manifest and Markdown
 versions, and never include an output/database path, Source content, hostname, timestamp, temporary
 path, or raw diagnostic.
+
+Every layer above rejects an unknown version and proves that response, manifest, Markdown, and
+consumer versions match. No renderer-only switch is accepted: Task review must trace a mixed
+Library through the real CLI/interface/application/SQLite path.
 
 V2 preserves deterministic order, normalized POSIX relative paths, canonical JSON separators,
 content fingerprints, exact active Publication/revision/Run/manifest ownership, EvidenceRef v1, and
@@ -1281,7 +1433,9 @@ Stable success output:
 
 - [ ] **Step 6: Extend same-wheel proof without weakening v1 proof**
 
-The proof builds one wheel, installs it under explicit Python 3.12 and 3.13 interpreters, creates a
+The proof accepts either a call-owned wheel it builds for task verification or an explicit
+descriptor-verified `--mke-wheel` supplied by terminal verification. It installs the same wheel
+under explicit Python 3.12 and 3.13 interpreters, creates a
 mixed active Library through installed MKE, exports v2 twice, compares exact trees, invokes the
 standalone v2 consumer, and reports the same wheel digest. Existing v1 proof cases remain unchanged.
 
@@ -1346,6 +1500,18 @@ The proof injects a project-owned fake audio provider at the application port bu
 real snapshot, inspection, Run/Publication, Search/Ask, EvidenceRef, export v2, consumer, and
 cleanup paths. It must not construct a real model or call a network-capable resolver.
 
+Cover every closed proof failure code, exact code/next-step pairing, unknown-exception redaction,
+success-field absence, and stable JSON keys in RED tests before implementing the report.
+
+Generate one call-owned deterministic synthetic audio case at the exact 15-minute duration boundary
+and one exact 100-MiB byte-boundary mutation for model-free inspection/admission tests; neither is
+committed or passed through real ASR. Prove equality acceptance, over-bound rejection before model
+construction, bounded cleanup, and no active-Publication change. Generate these exact-boundary
+artifacts once per test session and reuse their immutable identities across focused cases; do not
+recreate 100-MiB inputs in each test or retry loop. The single terminal real-ASR proof continues to
+use the three small redistribution-safe fixtures; no performance SLA or second real provider run is
+added.
+
 ```python
 def test_direct_audio_proof_covers_all_formats_and_product_path(tmp_path: Path) -> None:
     report = run_direct_audio_proof(
@@ -1376,6 +1542,30 @@ Expected: missing product-proof module and CLI contract.
 - [ ] **Step 3: Implement the deterministic proof report**
 
 ```python
+DirectAudioProofFailureCode = Literal[
+    "fixture_invalid",
+    "snapshot_failed",
+    "inspection_failed",
+    "ingest_failed",
+    "publication_incomplete",
+    "evidence_mismatch",
+    "export_failed",
+    "consumer_failed",
+    "cleanup_failed",
+]
+
+DirectAudioProofNextStep = Literal[
+    "check_fixture_receipt",
+    "retry_with_stable_file",
+    "choose_supported_file",
+    "check_server_logs",
+    "retry_when_owner_ready",
+    "rerun_direct_audio_proof",
+    "rerun_export_v2",
+    "check_export_consumer",
+]
+
+
 @dataclass(frozen=True)
 class DirectAudioProofReport:
     schema_version: Literal["mke.direct_audio_proof.v1"]
@@ -1391,12 +1581,16 @@ class DirectAudioProofReport:
     consumer_status: Literal["passed", "failed"]
     network_access: Literal["not_used"]
     cleanup: bool
-    failure_code: str | None = None
+    failure_code: DirectAudioProofFailureCode | None = None
+    next_step: DirectAudioProofNextStep | None = None
 ```
 
 `mke proof direct-audio --json` emits exactly one closed object, returns 0 only for `passed`, and
 uses a temporary database/export root outside the repository. It must not alter `mke proof run`,
 `mke demo --verify`, local-knowledge proof, Evidence-provenance proof, or consumer source-pack proof.
+Freeze the exact failure-code-to-next-step map and require both fields to be absent on success and
+present/matched on failure. Unknown exceptions map to a closed redacted failure; no path, exception,
+stderr, or arbitrary string crosses the proof boundary.
 
 - [ ] **Step 4: Run model-free GREEN**
 
@@ -1436,7 +1630,7 @@ receipt but does not regenerate or reinterpret its license evidence.
 
 ---
 
-### Task 9 (PR C): Prove The Fresh Installed Wheel With Real Cache-Only ASR
+### Task 9 (PR C): Build The Fresh-Wheel Terminal Proof Controller
 
 **Files:**
 - Create: `scripts/direct_audio_deployment_proof.py`
@@ -1453,10 +1647,15 @@ receipt but does not regenerate or reinterpret its license evidence.
 - [ ] **Step 1: Write controller RED tests with fake subprocess boundaries**
 
 Cover exact two interpreters, same wheel, receipt binding, isolated venvs, ordinary pip install,
-installed-module identity, no `PYTHONPATH`, no repository import, model tree descriptor validation,
+descriptor-verified offline wheelhouse and lock-derived constraints binding, installed-module
+identity, no `PYTHONPATH`, no repository import, model tree descriptor validation,
 network canary, three-format Python/CLI calls, one real stdio MCP call plan, Search/Ask,
 Publication/EvidenceRef, v2 export/consumer/copy, output limits, child timeout/process cleanup,
 atomic receipt write, failure codes, and call-owned cleanup.
+
+Add explicit negatives for swapped constraints, marker drift, a missing or extra wheel, a
+same-name/different-digest wheel, and any mismatch between Task 9 inputs and the accepted PR A
+constraints/wheelhouse-manifest cells.
 
 ```python
 def test_controller_requires_same_wheel_for_both_interpreters(fake_runner: FakeRunner) -> None:
@@ -1490,6 +1689,8 @@ python scripts/direct_audio_deployment_proof.py
   --python "$PYTHON313"
   --mke-wheel "$MKE_WHEEL"
   --dependency-receipt benchmarks/audio/dependency-artifacts.json
+  --wheelhouse "$TRANSCRIPTION_WHEELHOUSE"
+  --constraints "$TRANSCRIPTION_CONSTRAINTS"
   --model-root "$MKE_MODEL_ROOT"
   --fixture-root tests/fixtures/audio
   --json
@@ -1504,8 +1705,11 @@ parent wait, descendant cleanup, and a call-owned environment/home/cache/temp ro
 
 For each environment:
 
-1. verify the dependency receipt and fresh wheel through descriptor reads;
-2. create a fresh venv and ordinary-pip install `wheel[transcription]` from prepared offline inputs;
+1. verify the dependency receipt, fresh MKE wheel, and lock-derived constraints through descriptor
+   reads; independently derive the wheelhouse's sorted no-symlink
+   filename/version/bytes/SHA-256 manifest and require exact equality with the accepted PR A cells;
+2. create a fresh venv and ordinary-pip install `wheel[transcription]` only from those prepared
+   offline inputs;
 3. run `pip check` and compare the complete installed distribution map;
 4. prove imported `mke` comes from that venv and installed files match wheel bytes/RECORD;
 5. verify the exact model inventory, revision, file sizes, SHA-256 values, aggregate tree digest,
@@ -1545,50 +1749,16 @@ UV_OFFLINE=1 uv run pyright
 
 Expected: all model-free controller tests pass and the historical video deployment proof remains valid.
 
-- [ ] **Step 7: Stop for real model-proof authorization**
+- [ ] **Step 7: Freeze the terminal proof authorization manifest without running real ASR**
 
-Report exact fresh wheel SHA-256, dependency receipt digest, prepared model identifier/revision/tree
-digest, interpreter versions, retained inputs, estimated temporary disk use, deny-network method,
-and cleanup ownership. If the exact model snapshot is absent, stop; do not download or repair it.
+The controller tests freeze the exact inputs that Task 10 must report before authorization: final
+MKE wheel SHA-256, PR A receipt digest, canonical wheelhouse-manifest and constraints digests,
+prepared model identifier,
+revision and tree digest, interpreter versions, retained inputs, estimated temporary disk use,
+deny-network method, and cleanup ownership. If any input is absent, Task 10 stops; nothing downloads
+or repairs it. Do not run a non-terminal real ASR checkpoint in this Task.
 
-- [ ] **Step 8: Run a real cache-only compatibility checkpoint**
-
-After authorization:
-
-```bash
-HF_HUB_OFFLINE=1 UV_OFFLINE=1 uv run python scripts/direct_audio_deployment_proof.py \
-  --python "$PYTHON312" \
-  --python "$PYTHON313" \
-  --mke-wheel "$MKE_WHEEL" \
-  --dependency-receipt benchmarks/audio/dependency-artifacts.json \
-  --model-root "$MKE_MODEL_ROOT" \
-  --fixture-root tests/fixtures/audio \
-  --json
-```
-
-Expected aggregate:
-
-```json
-{
-  "schema_version": "mke.direct_audio_deployment_proof.v1",
-  "status": "passed",
-  "interpreter_count": 2,
-  "media_types": ["audio/mpeg", "audio/wav", "audio/mp4"],
-  "evidence_schema": "mke.evidence_ref.v1",
-  "export_schema": "mke.compiled_library_export.v2",
-  "markdown_format": "mke.compiled_markdown.v2",
-  "network": "blocked",
-  "cleanup": true
-}
-```
-
-The real aggregate also contains actual wheel/package/model/fixture/export/consumer digests. It
-contains no local paths, hostnames, timestamps, environment dumps, transcript content, or raw errors.
-This checkpoint proves that the controller and product path can run before documentation and final
-review. It is not the terminal candidate authority and must be rerun in Task 10 after all tracked
-changes and the final dependency receipt are committed.
-
-- [ ] **Step 9: Review and commit Task 9**
+- [ ] **Step 8: Review and commit Task 9**
 
 The controller, tests, and proof-schema documentation are committed; raw proof output remains
 external evidence and volatile timings are not frozen as thresholds. Then:
@@ -1641,12 +1811,45 @@ or excerpts rather than full-length meeting/interview/lecture support, owner-con
 faster-whisper, explicit preparation, timestamp EvidenceRef, atomic Publication, Python/CLI/MCP,
 default v1/explicit reconciled v2, independent consumer, and real proof boundaries.
 
+Documentation tests require one copy-ready golden path for each supported entry surface:
+
+- Python: typed owner/runtime construction, `KnowledgeEngine.ingest_file()`, Search/Ask, and close;
+- CLI: prepare, doctor, ingest `interview-excerpt.m4a`, Search, Ask, and explicit v2 export; and
+- stdio MCP: owner startup flags plus the unchanged `{"path": "interview-excerpt.m4a"}` tool call.
+
+Freeze existing success keys, timestamp EvidenceRef v1, and explicit export version in examples;
+examples must not invent `media_type` or request-time model controls. Lead the onboarding path with
+the one-command offline model-free proof, then present one sequential source-checkout route through
+the first real Evidence before alternatives. State prerequisites and which separately authorized
+step may download, distinguish deterministic product-wiring proof from real ASR readiness, and give
+a checkpoint after proof, doctor, ingest, and export.
+
+Also require a complete public recovery table mapping every direct-audio problem/cause/`next_step`
+token and every model-free proof failure code to one copy-paste command or bounded operator action.
+MCP owner configuration changes explicitly require a controlled server restart; destructive cache
+repair, implicit download, and generic “check logs” without a bounded diagnostic command are not
+presented as automatic recovery.
+
+The export migration table must prove:
+
+- existing PDF/video automation and explicit v1 remain byte-identical;
+- an active audio Source makes default or explicit v1 fail with the exact command to rerun the
+  complete export as `--format-version v2`;
+- v1 and v2 consumers are intentionally distinct and never cross-consume; and
+- rollback preserves v1 by omitting/removing audio from the active snapshot, never by widening or
+  weakening the v1 validator.
+
 Presentation tests reject affirmative claims for arbitrary codecs, full-length meetings,
 interviews or lectures, long audio, chunking, resume, streaming, diarization, microphone capture,
 implicit download, cloud/hosted fallback, automatic LLM Wiki sync,
 cross-platform coverage, transcript accuracy, SLA, deployment, adoption, business impact, PyPI, or
 official OpenAI integration. Wrapped Markdown paragraphs and legitimate negated boundary statements
 must be tested.
+
+Also freeze the complete approved positive sentence from the design Claim Boundary as a passing
+fixture, plus unqualified `meetings`, `interviews`, and `lectures` claims as failing fixtures. The
+audit must distinguish bounded clips/excerpts from full-length support rather than banning the
+approved nouns mechanically.
 
 - [ ] **Step 2: Run documentation RED tests**
 
@@ -1671,13 +1874,19 @@ must say the feature is an accepted candidate or development capability, not a r
 LLM Wiki may be named only as an independently verified downstream compatibility target after that
 proof merges; it remains outside MKE runtime and Evidence authority.
 
+`docs/how-to/use-direct-audio.md` leads with the tested golden path and troubleshooting table;
+reference pages hold the full option/schema matrices. Record observed ready-owner-to-first-Evidence
+time and step count from the terminal proof as diagnostics only, excluding separately authorized
+model acquisition and making no SLA or cross-platform claim.
+
 Update the PR A `docs/reference/direct-audio-dependency-and-license-evidence.md` only with PR C's
 distinct model and final installed-proof bindings. Preserve its exact external receipt schema,
-PyAV wheel/runtime boundary, linked or bundled FFmpeg component inventory, verified license and
-notice sources/digests, fixture redistribution basis, supported proof platforms, and unresolved-
-obligation hard-stop rule. Do not rewrite or refresh PR A license evidence merely because MKE
-source/docs changed. It must not copy local paths, environment dumps, or infer redistribution
-permission from package metadata alone.
+constraints and wheelhouse-manifest digests, PyAV wheel/runtime boundary, linked or bundled FFmpeg
+component inventory, verified license and notice sources/digests, fixture redistribution basis,
+supported proof platforms, child-containment authority, and unresolved-obligation hard-stop rule.
+Do not rewrite or refresh PR A license evidence merely because MKE source/docs changed. It must not
+copy local paths, environment dumps, or infer redistribution permission from package metadata
+alone.
 
 - [ ] **Step 4: Make docs and audit GREEN**
 
@@ -1711,7 +1920,10 @@ Before refresh, capture exact allowed paths and semantic projections. After refr
 If the transaction fails, run only its documented recovery command, verify no partial diff, and
 stop for authority review. Do not hand-edit generated evaluation artifacts.
 
-- [ ] **Step 6: Commit docs and any proved identity-only closure separately**
+- [ ] **Step 6: Run the final actual-diff review and bounded fix loop**
+
+Commit the implementation/docs candidate before whole-branch review, without yet creating the
+durable implementation-review record or claiming a final review verdict:
 
 ```bash
 git diff --check
@@ -1723,10 +1935,8 @@ git add README.md README_CN.md docs/README.md \
   docs/tutorials/getting-started.md \
   docs/how-to/use-direct-audio.md docs/how-to/run-direct-audio-proof.md \
   docs/how-to/use-local-transcription.md docs/how-to/use-mke-mcp.md \
-  docs/how-to/export-compiled-library.md \
-  docs/how-to/verify-release.md \
+  docs/how-to/export-compiled-library.md docs/how-to/verify-release.md \
   docs/superpowers/plans/2026-07-18-bounded-direct-audio-intake-implementation.md \
-  docs/superpowers/reviews/2026-07-18-bounded-direct-audio-intake-implementation-review.md \
   scripts/release_presentation_audit.py tests/evaluation/test_direct_audio_documentation.py \
   tests/scripts/test_release_presentation_audit.py
 git commit -m "docs(audio): document bounded direct audio intake"
@@ -1734,23 +1944,59 @@ git commit -m "docs(audio): document bounded direct audio intake"
 
 If and only if the validator-proven identity transaction produced a non-empty approved diff,
 write its already audited exact path list to `$evidence_root/identity-paths.txt`, one repository
-relative path per line, and stage only that list:
+relative path per line, stage only that list, and commit it before review:
 
 ```bash
 git add --pathspec-from-file="$evidence_root/identity-paths.txt"
 git commit -m "test(eval): refresh direct audio identities"
 ```
 
-The execution report must list every path before staging and prove it belongs to the approved
-validator-generated closure.
+The execution report lists every identity path before staging and proves it belongs to the approved
+validator-generated closure. The implementation controller performs internal task reviews and
+integrates all lanes. An independent authority reviewer then runs one pre-PR whole-branch
+findings-only review of that exact committed candidate against the approved spec and plan,
+including the accepted PR A receipt and durable license document. Findings return to the
+implementation controller for
+`superpowers:receiving-code-review`, targeted repair, focused verification, full verification, and
+targeted authority re-review. Do not run repeated full review without a material diff.
 
-- [ ] **Step 7: Build the final MKE wheel and bind the terminal proof inputs**
+After two or three evidence-backed repairs of the same finding, first decide whether it remains a
+real release blocker or should become a known limitation/follow-up. Do not continue an assurance
+spiral solely because a theoretical race or unsupported platform can be imagined.
+
+Every substantive fix is committed and moves the candidate HEAD before targeted re-review. The
+reviewer returns an exact reviewed HEAD, verdict, findings, and verification identity outside the
+repository. Step 7 persists only that returned durable result. A substantive discrepancy in the
+record or status restarts this review step; a mechanical public-neutral transcription receives one
+targeted read-back, not another full whole-branch review.
+
+- [ ] **Step 7: Persist and commit the returned durable review result**
+
+After a clean verdict, write the exact reviewed HEAD, verdict, verification identity, durable
+public-neutral findings, and final plan status to the implementation review record and plan. Then
+stage only those two files:
+
+```bash
+git diff --check
+git add \
+  docs/superpowers/plans/2026-07-18-bounded-direct-audio-intake-implementation.md \
+  docs/superpowers/reviews/2026-07-18-bounded-direct-audio-intake-implementation-review.md
+git commit -m "docs(audio): record implementation review"
+```
+
+Read back both committed files and compare them with the returned review result. This mechanical
+targeted read-back does not rerun the whole review. Any substantive mismatch or new implementation
+change returns to Step 6. This review/status commit is the final planned tracked write before the
+terminal MKE wheel is built.
+
+- [ ] **Step 8: Build the final MKE wheel and bind the terminal proof inputs**
 
 After PR C implementation, documentation, plan/review status, and any conditional identity closure
 are committed, require the accepted PR A dependency/license receipt and recompute its canonical
 digest without changing its bytes. Build one fresh final MKE wheel from the exact candidate HEAD.
 The terminal proof input record binds this wheel digest, the accepted PR A receipt digest, the
-actual installed package-set digest, the prepared model-tree digest, and fixture identities.
+accepted constraints and wheelhouse-manifest digests, actual installed package-set digest, the
+prepared model-tree digest, and fixture identities.
 
 ```bash
 evidence_root="$(mktemp -d)"
@@ -1763,31 +2009,24 @@ MKE_WHEEL_SHA256="$(shasum -a 256 "$MKE_WHEEL" | awk '{print $1}')"
 PR_A_RECEIPT_SHA256="$(shasum -a 256 benchmarks/audio/dependency-artifacts.json | awk '{print $1}')"
 ```
 
-Do not regenerate the PR A receipt unless an external dependency, PyAV wheel, validation platform,
-or fixture authority changed. Such a change invalidates the staged premise and returns to PR A;
-it is not repaired inside PR C. Later tracked PR C changes require a fresh MKE wheel and terminal
-proof, but not a circular rerun of the complete external license analysis.
-
-- [ ] **Step 8: Run final actual-diff review and bounded fix loop**
-
-The implementation controller performs internal task reviews and integrates all lanes. An
-independent authority reviewer then runs one pre-PR whole-branch findings-only review against the
-approved spec and plan, including the final receipt and durable license document. Findings return
-to the implementation controller for `superpowers:receiving-code-review`, targeted repair, focused
-verification, full verification, and targeted authority re-review. Every tracked fix invalidates
-the terminal receipt and requires Step 7 again. Do not run repeated full review without a material
-diff.
-
-After two or three evidence-backed repairs of the same finding, first decide whether it remains a
-real release blocker or should become a known limitation/follow-up. Do not continue an assurance
-spiral solely because a theoretical race or unsupported platform can be imagined.
+Do not regenerate the PR A receipt unless an external dependency or constraints, prepared
+wheelhouse, PyAV wheel, validation platform, containment mechanism, or fixture authority changed.
+Such a change invalidates the staged premise and returns to PR A; it is not repaired inside PR C.
+Later tracked PR C changes require a fresh MKE wheel and terminal proof, but not a circular rerun of
+the complete external license analysis.
 
 - [ ] **Step 9: Run final repository and real-provider gates on the reviewed terminal HEAD**
 
-Generate fresh terminal observations after the final receipt commit and any review repair. The
+Generate fresh terminal observations after the final MKE wheel build and any review repair. The
 numeric observation must use an exclusive call-owned protocol copy whose scope is refreshed before
 the observation runs; an observation generated directly from the checked-in numeric protocol is
 not terminal authority.
+
+Before the single real-ASR execution, report the exact final MKE wheel SHA-256, PR A receipt digest,
+wheelhouse and lock-derived constraints digests, prepared model identifier/revision/tree digest,
+interpreter versions, retained inputs, estimated temporary disk use, deny-network method, and
+cleanup ownership, then stop for the separately required real-model-proof authorization. If the
+exact prepared inputs are absent, stop without download or repair.
 
 ```bash
 terminal_eval_dir="$(mktemp -d)"
@@ -1883,6 +2122,7 @@ UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py --json
 UV_OFFLINE=1 uv run python scripts/compiled_library_export_proof.py \
   --python "$PYTHON312" \
   --python "$PYTHON313" \
+  --mke-wheel "$MKE_WHEEL" \
   --json
 UV_OFFLINE=1 uv run mke proof direct-audio --json
 UV_OFFLINE=1 uv run python scripts/release_presentation_audit.py --json
@@ -1891,6 +2131,8 @@ HF_HUB_OFFLINE=1 UV_OFFLINE=1 uv run python scripts/direct_audio_deployment_proo
   --python "$PYTHON313" \
   --mke-wheel "$MKE_WHEEL" \
   --dependency-receipt benchmarks/audio/dependency-artifacts.json \
+  --wheelhouse "$TRANSCRIPTION_WHEELHOUSE" \
+  --constraints "$TRANSCRIPTION_CONSTRAINTS" \
   --model-root "$MKE_MODEL_ROOT" \
   --fixture-root tests/fixtures/audio \
   --json
@@ -1907,9 +2149,9 @@ predicted here.
 
 - [ ] **Step 10: Stop without a post-proof tracked write**
 
-All implementation-plan/review status text must already be committed before Step 7. Do not update a
+All implementation-plan/review status text must already be committed before Step 8. Do not update a
 checkbox or review file after the final MKE wheel/terminal-proof sequence. A later tracked change
-invalidates the MKE wheel and terminal proof and requires Steps 7-9 again; it does not invalidate
+invalidates the MKE wheel and terminal proof and requires Steps 8-9 again; it does not invalidate
 the PR A receipt unless one of that receipt's external authority inputs changed.
 
 Stop with a clean local branch/worktree, exact commit series, changed-file inventory, diff stat,
@@ -1947,3 +2189,178 @@ Completion of this plan produces a feature candidate, not v0.1.4 publication. Af
 exact-main hosted verification, write a separate release-closeout spec/plan bound to the actual
 merged scope. Version bump, candidate receipt, tag, GitHub Release, archive smoke, PyPI/registry,
 deployment, and post-release docs remain separately authorized actions.
+
+---
+
+## GSTACK REVIEW REPORT
+
+### Review Identity And Verdict
+
+- Reviewed committed revision: `c150c3c3c49990265cb756ef45a3669cd683714c`.
+- Review mode: one fresh full plan review of the amended revision; no competing whole-plan review
+  chain was layered onto it.
+- CEO review: clean after nine accepted product-boundary and proof amendments; dual-voice consensus
+  confirmed all nine.
+- Design review: skipped because this plan adds no graphical or browser UI.
+- Engineering review: clean after six accepted correctness and operability amendments; dual-voice
+  consensus confirmed all six.
+- Developer-experience review: initial `3.8/5`, clean after six accepted onboarding, schema, and
+  sequencing amendments; dual-voice consensus confirmed all six.
+- Final verdict: `CLEARED FOR STAGED IMPLEMENTATION; PR A REQUIRES SEPARATE DISPATCH`.
+
+### Plan Summary
+
+The plan delivers a closed direct-audio capability in three ordered implementation PRs. PR A proves
+external dependency, binary, license, fixture, wheelhouse, and native-child containment feasibility
+without changing runtime code. PR B builds only project-owned internal contracts, immutable intake,
+bounded children, storage authority, and model-free compatibility. PR C begins only after PR A,
+PR B, and the independent LLM Wiki compatibility evidence are accepted and merged; it activates the
+public application/CLI/MCP path, reconciles and freezes Export v2, proves the installed wheel and
+real cache-only provider, updates public docs, and runs terminal verification. Release publication
+remains a separate post-merge closeout.
+
+### Cross-Phase Themes
+
+1. Native media parsing is an explicit receipt-backed child boundary, not an owner-process or
+   timeout-only assumption.
+2. Immutable Source authority includes allowed-root containment, descriptor identity, a second
+   full digest, timestamp metadata, and cleanup before candidate persistence.
+3. Resource admission precedes snapshot, child, and model work; busy requests perform zero model
+   construction.
+4. Export v1 remains byte-compatible while v2 is reconciled with real downstream evidence before
+   its closed shape is frozen.
+5. License evidence is stable across ordinary MKE commits; terminal installed proof binds one fresh
+   MKE wheel to the accepted external receipt digest.
+6. Operator paths lead with a one-command model-free proof and closed, actionable recovery tokens.
+
+### Architecture And Data Flow
+
+```text
+PR A: locked external inputs -> canonical constraints/wheelhouse manifest
+     -> PyAV/FFmpeg component + license/notice inventory
+     -> fixture + containment receipt -> accept or hard stop
+
+PR B: unresolved operator path -> allowed-root/descriptor authority
+     -> immutable snapshot + second digest -> bounded inspection child
+     -> project-owned audio contracts + cache-only internal child
+     -> storage/model-free compatibility (no public activation)
+
+PR C: accepted LLM Wiki v1 evidence -> bounded Export v2 reconciliation
+     -> KnowledgeEngine.ingest_file -> CLI/MCP application lifecycle
+     -> Run -> validated Evidence -> atomic Publication -> Search/Ask
+     -> Export v2 -> independent consumer
+     -> fresh wheel + accepted PR A receipt + prepared model tree
+     -> one network-denied real-ASR terminal proof
+```
+
+### Test Plan Artifact
+
+| Layer | Primary evidence | Required negatives |
+|---|---|---|
+| PR A fixture and receipt | exact fixture identities; lock-derived constraints; canonical wheelhouse; installed PyAV/FFmpeg inventory; licenses/notices; containment probes | missing/extra/substituted wheel; unresolved component/notice; unsupported platform containment; redistribution ambiguity |
+| PR B domain and adapters | closed DTO/wire schemas; descriptor-bound snapshot; pure profile normalization; bounded inspection/transcription children; SQLite media authority | symlink and parent retarget; same-inode mutation; size/duration/profile limits; child crash/RSS/timeout; cleanup failure; video regression |
+| PR C application and interfaces | canonical dispatcher; Run/Publication atomicity; CLI/MCP schemas; Search/Ask/EvidenceRef; v1 compatibility; reconciled v2 consumer | busy-before-model; sidecar owner rejection; malformed child output; v1 mixed-Library omission; request-time controls; error leakage |
+| Required CI | model-free proof; fake provider; full pytest/Ruff/Pyright/build; canonical validators when identity actually changes | network resolver use; cache mutation; overclaiming docs; evaluation semantic drift |
+| Terminal proof | same fresh wheel on Python 3.12/3.13; accepted receipt digest; installed packages; prepared model tree; three formats; CLI/MCP/Search/Ask/export consumer; network denial | empty cache; wrong receipt/wheel/model/fixture digest; partial Publication; cleanup failure; any post-proof tracked write |
+
+Exact 15-minute and 100-MiB artifacts are generated once per model-free test session and reused.
+The only real-provider execution is the final authorized terminal proof.
+
+### Failure-Mode Registry
+
+| Failure mode | Closed authority |
+|---|---|
+| Unresolved license, notice, fixture, wheel, component, or containment evidence | PR A no-go; PR B cannot begin |
+| Parent symlink retarget or final-component symlink | containment-validated resolved target plus descriptor identity; cross-media regressions |
+| Same-inode, same-size mutation | second descriptor digest plus device/inode/mode/size/mtime/ctime equality |
+| Native parser memory/crash/descendant leak | receipt-backed child memory ceiling, process group, bounded output/time, owner-survival tests |
+| Busy owner still constructs model | lightweight no-model preflight, admission first, zero model-factory calls |
+| Partial or invalid transcript becomes searchable | validate before persistence; atomic Publication switch; failed Run isolation |
+| Mixed Library silently loses audio under v1 | default/explicit v1 fail closed; explicit reconciled v2 is complete |
+| Downstream assumptions freeze v2 prematurely | accepted LLM Wiki evidence and bounded reconciliation before PR C implementation |
+| Proof failure is unactionable or leaks internals | closed failure-code/next-step mapping and unknown-exception redaction |
+| Review record does not match reviewed candidate | candidate committed before review; mechanical read-back; substantive mismatch restarts review |
+| Repeated assurance loop | reassess blocker status after two or three evidence-backed repair attempts |
+
+### Developer Journey Map
+
+1. Run `UV_OFFLINE=1 uv run mke proof direct-audio --json` to verify deterministic product wiring
+   without a model or download.
+2. If real ASR is required and separately authorized, prepare the exact model revision once.
+3. Run read-only doctor and require the owner to report ready.
+4. Ingest a bounded excerpt such as `interview-excerpt.m4a` through Python, CLI, or unchanged
+   path-only stdio MCP.
+5. Search and Ask against timestamp `mke.evidence_ref.v1`.
+6. Export the complete mixed Library explicitly as v2 and run the distinct v2 consumer.
+7. Use the closed recovery table for any failure; restart MCP only when owner startup configuration
+   changes.
+
+### Developer Empathy And Time-To-Hello-World
+
+The first-success path separates deterministic product wiring from model readiness, so a developer
+can diagnose contracts before handling a large local model. The planning target is one offline
+command for the deterministic proof and no more than ten minutes after dependencies are already
+present; the real ready-owner-to-first-Evidence target is no more than fifteen minutes after the
+exact model is prepared. These are onboarding targets, not measured SLA claims. PR C records the
+actual command count and elapsed time as diagnostics only.
+
+| DX dimension | Review result |
+|---|---:|
+| Getting started | 4.8/5 |
+| API clarity | 4.8/5 |
+| Error actionability | 4.8/5 |
+| Documentation completeness | 4.8/5 |
+| Test discoverability | 4.8/5 |
+| Operational safety | 5.0/5 |
+| Compatibility/migration clarity | 4.8/5 |
+| Review and release sequencing | 4.8/5 |
+
+DX implementation checklist:
+
+- [ ] Lead public onboarding with the model-free proof, then the real-input sequence.
+- [ ] Keep tested Python, CLI, and stdio MCP examples copy-ready and contract-accurate.
+- [ ] Freeze every public problem and proof failure to one bounded recovery action.
+- [ ] Publish the explicit v1-to-v2 migration and rollback table.
+- [ ] Record first-Evidence diagnostics only from terminal proof; make no SLA claim.
+- [ ] Commit the reviewed candidate before whole-branch review and persist only the returned result.
+
+### Decision Audit Trail
+
+| # | Accepted decision | Rationale | Plan location |
+|---:|---|---|---|
+| 1 | Use voice notes and bounded clips/excerpts in claims | Prevent full-length use-case overstatement | Goal, docs tests, claim boundary |
+| 2 | Split delivery into PR A, PR B, PR C, then release closeout | Make license, internal foundation, public activation, and release independently gated | Global Constraints, Delivery Order |
+| 3 | Make PR A a hard license/redistribution/containment gate | Native binary feasibility must precede runtime work | Task 1 |
+| 4 | Bind PR A to external inputs rather than MKE commits | Avoid circular receipt refresh after normal source/docs changes | Task 1, Task 9 |
+| 5 | Reconcile Export v2 only after downstream v1 evidence | Preserve v1 compatibility and prevent speculative v2 freeze | Task 7 entry gate |
+| 6 | Put PyAV parsing in a bounded child | Contain native crashes, memory, descendants, and output | Tasks 3-4 |
+| 7 | Add exact constraints and canonical wheelhouse lineage | Make ordinary-pip and receipt reproduction deterministic | Task 1 |
+| 8 | Add no-write input preflight to PR A tooling | Expose missing/substituted inputs before acquisition authority | Task 1 |
+| 9 | Perform lightweight preflight and admission before model work | Busy or invalid requests must have zero model cost | Tasks 4-5 |
+| 10 | Preserve unresolved path spelling through symlink rejection | Keep public path semantics while proving resolved containment | Tasks 3, 6 |
+| 11 | Rehash the still-open descriptor and compare file timestamps | Close same-inode, same-size mutation gaps | Task 3 |
+| 12 | Reuse existing validation/admission authorities | Avoid competing runtime gates and duplicated behavior | Tasks 3-5 |
+| 13 | Freeze closed pre-Run and proof error maps | Keep CLI/MCP failures actionable and non-leaking | Tasks 6, 8, 10 |
+| 14 | Generate exact-bound test media once per session | Preserve limit proof without an expensive repeated-fixture loop | Task 8 |
+| 15 | Lead onboarding with model-free proof | Shorten contract diagnosis before model readiness | User Journey, Tasks 8, 10 |
+| 16 | Add tested Python/CLI/MCP examples and migration table | Make all entry surfaces and v1/v2 operator choices explicit | Task 10 |
+| 17 | Run one real-ASR proof only at terminal candidate identity | Preserve truth while avoiding repeated release-grade gates | Task 9, Task 10 |
+| 18 | Commit candidate before review and result after review | Bind findings to an exact HEAD without post-proof writes | Task 10 Steps 6-10 |
+
+### Implementation Tasks Aggregated From Review
+
+No additional review tasks remain. All accepted durable amendments are integrated into the staged
+task checklists above.
+
+### Remaining Prerequisites And Boundaries
+
+- PR A requires a separate dispatch and any package, wheel, fixture-generation, or model acquisition
+  requires separate authority.
+- PR B cannot begin until PR A is accepted and merged.
+- PR C cannot begin until PR A, PR B, and the independent LLM Wiki compatibility docs/evidence PR
+  are accepted and merged. No expected downstream compatibility result is recorded as fact.
+- The exact Export v2 shape remains intentionally unfrozen until the PR C reconciliation checkpoint.
+- No implementation, push, PR, merge, release, model proof, or external side effect is authorized by
+  this review.
+
+NO UNRESOLVED DECISIONS
