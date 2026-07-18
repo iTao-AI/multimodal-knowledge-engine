@@ -1451,7 +1451,7 @@ def test_bounded_runner_records_darwin_footprint_contract(
         "observed_max_bytes": 4096,
         "overshoot_bytes": 0,
         "budget_outcome": "within_budget",
-        "transient_overshoot_bound": "one_poll_interval",
+        "transient_overshoot_possible": True,
         "cleanup": {
             "sigterm_sent": False,
             "sigkill_sent": False,
@@ -1585,6 +1585,198 @@ def test_controlled_allocator_over_budget_returns_kill_and_wait_receipt(
     }
 
 
+def test_cleanup_waits_for_leader_exited_cooperative_descendant_before_sigkill(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    receipt = _module()
+    probe_calls = 0
+    signals: list[int] = []
+    process = SimpleNamespace(pid=43210, poll=lambda: 0, wait=lambda timeout: 0)
+
+    def process_group_absent(_pid: int) -> bool:
+        nonlocal probe_calls
+        probe_calls += 1
+        return probe_calls >= 4
+
+    monkeypatch.setattr(receipt, "_process_group_absent", process_group_absent)
+    monkeypatch.setattr(receipt.os, "killpg", lambda _pid, sig: signals.append(sig))
+    monkeypatch.setattr(receipt.time, "sleep", lambda _seconds: None)
+
+    cleanup = receipt._cleanup_process_group(  # pyright: ignore[reportPrivateUsage]
+        process,
+        grace_seconds=0.2,
+        terminate=True,
+    )
+
+    assert signals == [receipt.signal.SIGTERM]
+    assert cleanup["sigkill_sent"] is False
+    assert cleanup["process_group_absent"] is True
+
+
+def test_signal_failure_retries_cleanup_and_preserves_supervision_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    receipt = _module()
+
+    class Sampler:
+        identity = "leader-identity"
+        calls = 0
+
+        def sample(self) -> int:
+            self.calls += 1
+            if self.calls > 1:
+                raise receipt.ReceiptError("footprint_sampling_failed")
+            return 1024
+
+    original_killpg = receipt.os.killpg
+    term_calls = 0
+
+    def flaky_killpg(pid: int, sig: int) -> None:
+        nonlocal term_calls
+        if sig == receipt.signal.SIGTERM:
+            term_calls += 1
+            if term_calls == 1:
+                raise PermissionError("denied")
+        original_killpg(pid, sig)
+
+    monkeypatch.setattr(receipt, "_DarwinFootprintSampler", lambda _pid: Sampler())
+    monkeypatch.setattr(receipt.os, "killpg", flaky_killpg)
+    profile = receipt.BoundedProfile(
+        wall_seconds=5.0,
+        stdout_bytes=4096,
+        stderr_bytes=4096,
+        footprint_bytes=64 * 1024 * 1024,
+        poll_seconds=0.01,
+        term_grace_seconds=0.2,
+    )
+
+    with pytest.raises(receipt.ReceiptError, match="footprint_sampling_failed") as raised:
+        receipt._run_bounded(  # pyright: ignore[reportPrivateUsage]
+            [sys.executable, "-I", "-B", "-c", "import time;time.sleep(5)"],
+            env={},
+            cwd=None,
+            profile=profile,
+        )
+
+    assert term_calls == 2
+    details = cast(dict[str, object], raised.value.details)
+    assert details["budget_outcome"] == "supervision_failed"
+    assert cast(dict[str, bool], details["cleanup"])["process_group_absent"] is True
+
+
+def test_selector_registration_failure_has_supervision_and_cleanup_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    receipt = _module()
+
+    class Sampler:
+        identity = "leader-identity"
+
+        def sample(self) -> int:
+            return 1024
+
+    class FailingSelector:
+        def register(self, *_args: object) -> None:
+            raise OSError("registration failed")
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(receipt, "_DarwinFootprintSampler", lambda _pid: Sampler())
+    monkeypatch.setattr(receipt.selectors, "DefaultSelector", FailingSelector)
+    profile = receipt.BoundedProfile(
+        wall_seconds=5.0,
+        stdout_bytes=4096,
+        stderr_bytes=4096,
+        footprint_bytes=64 * 1024 * 1024,
+        term_grace_seconds=0.2,
+    )
+
+    with pytest.raises(receipt.ReceiptError, match="bounded_supervision_failed") as raised:
+        receipt._run_bounded(  # pyright: ignore[reportPrivateUsage]
+            [sys.executable, "-I", "-B", "-c", "import time;time.sleep(5)"],
+            env={},
+            cwd=None,
+            profile=profile,
+        )
+
+    details = cast(dict[str, object], raised.value.details)
+    assert details["budget_outcome"] == "supervision_failed"
+    assert cast(dict[str, bool], details["cleanup"])["process_group_absent"] is True
+
+
+def test_sampler_initialization_failure_has_supervision_and_cleanup_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    receipt = _module()
+
+    def fail_sampler(_pid: int) -> None:
+        raise receipt.ReceiptError("footprint_sampling_failed")
+
+    monkeypatch.setattr(receipt, "_DarwinFootprintSampler", fail_sampler)
+    profile = receipt.BoundedProfile(
+        wall_seconds=5.0,
+        stdout_bytes=4096,
+        stderr_bytes=4096,
+        footprint_bytes=64 * 1024 * 1024,
+        term_grace_seconds=0.2,
+    )
+
+    with pytest.raises(receipt.ReceiptError, match="footprint_sampling_failed") as raised:
+        receipt._run_bounded(  # pyright: ignore[reportPrivateUsage]
+            [sys.executable, "-I", "-B", "-c", "import time;time.sleep(5)"],
+            env={},
+            cwd=None,
+            profile=profile,
+        )
+
+    details = cast(dict[str, object], raised.value.details)
+    assert details["budget_outcome"] == "supervision_failed"
+    assert cast(dict[str, bool], details["cleanup"])["process_group_absent"] is True
+
+
+@pytest.mark.parametrize("failure", [PermissionError("denied"), OSError("lookup failed")])
+def test_process_group_identity_lookup_errors_fail_closed_with_cleanup_receipt(
+    monkeypatch: pytest.MonkeyPatch, failure: OSError
+) -> None:
+    receipt = _module()
+    monkeypatch.setattr(
+        receipt.os,
+        "getpgid",
+        lambda _pid: (_ for _ in ()).throw(failure),
+    )
+    profile = receipt.BoundedProfile(
+        wall_seconds=5.0,
+        stdout_bytes=4096,
+        stderr_bytes=4096,
+        footprint_bytes=64 * 1024 * 1024,
+        term_grace_seconds=0.2,
+    )
+
+    with pytest.raises(receipt.ReceiptError, match="bounded_supervision_failed") as raised:
+        receipt._run_bounded(  # pyright: ignore[reportPrivateUsage]
+            [sys.executable, "-I", "-B", "-c", "import time;time.sleep(5)"],
+            env={},
+            cwd=None,
+            profile=profile,
+        )
+
+    details = cast(dict[str, object], raised.value.details)
+    assert details["budget_outcome"] == "supervision_failed"
+    assert cast(dict[str, bool], details["cleanup"])["process_group_absent"] is True
+
+
+@pytest.mark.parametrize("failure", [PermissionError("denied"), OSError("probe failed")])
+def test_process_group_probe_errors_fail_closed(
+    monkeypatch: pytest.MonkeyPatch, failure: OSError
+) -> None:
+    receipt = _module()
+    monkeypatch.setattr(receipt.os, "killpg", lambda _pid, _sig: (_ for _ in ()).throw(failure))
+
+    with pytest.raises(receipt.ReceiptError, match="bounded_cleanup_incomplete"):
+        receipt._process_group_absent(43210)  # pyright: ignore[reportPrivateUsage]
+
+
 @pytest.mark.skipif(platform.system() != "Darwin", reason="Darwin proc_pid_rusage authority")
 def test_real_darwin_controlled_allocator_proves_footprint_and_cleanup() -> None:
     receipt = _module()
@@ -1600,7 +1792,8 @@ def test_real_darwin_controlled_allocator_proves_footprint_and_cleanup() -> None
     )
     source = (
         "import time;chunks=[];"
-        "exec(\"while True:\\n chunks.append(bytearray(b'x'*(4*1024*1024)))\\n time.sleep(0.05)\")"
+        "exec(\"for _ in range(10):\\n chunks.append(bytearray(b'x'*(4*1024*1024)))\\n"
+        " time.sleep(0.05)\\nwhile True:\\n time.sleep(1)\")"
     )
 
     result = receipt._run_bounded(  # pyright: ignore[reportPrivateUsage]

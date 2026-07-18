@@ -586,9 +586,19 @@ def _process_group_absent(pid: int) -> bool:
         os.killpg(pid, 0)
     except ProcessLookupError:
         return True
-    except PermissionError:
-        return False
+    except OSError as error:
+        raise ReceiptError("bounded_cleanup_incomplete") from error
     return False
+
+
+def _signal_process_group(pid: int, sig: signal.Signals) -> bool:
+    try:
+        os.killpg(pid, sig)
+    except ProcessLookupError:
+        return False
+    except OSError as error:
+        raise ReceiptError("bounded_cleanup_incomplete") from error
+    return True
 
 
 def _cleanup_process_group(
@@ -596,24 +606,25 @@ def _cleanup_process_group(
 ) -> dict[str, bool]:
     sigterm_sent = False
     sigkill_sent = False
-    if terminate and not _process_group_absent(process.pid):
-        try:
-            os.killpg(process.pid, signal.SIGTERM)
-            sigterm_sent = True
-        except ProcessLookupError:
-            pass
-    if process.poll() is None:
-        try:
-            process.wait(timeout=grace_seconds)
-        except subprocess.TimeoutExpired:
-            pass
-    if not _process_group_absent(process.pid):
-        if terminate:
+    group_absent = _process_group_absent(process.pid)
+    if terminate and not group_absent:
+        sigterm_sent = _signal_process_group(process.pid, signal.SIGTERM)
+    deadline = time.monotonic() + grace_seconds
+    while not group_absent:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        if process.poll() is None:
             try:
-                os.killpg(process.pid, signal.SIGKILL)
-                sigkill_sent = True
-            except ProcessLookupError:
+                process.wait(timeout=min(0.01, remaining))
+            except subprocess.TimeoutExpired:
                 pass
+        else:
+            time.sleep(min(0.01, remaining))
+        group_absent = _process_group_absent(process.pid)
+    if not group_absent:
+        if terminate:
+            sigkill_sent = _signal_process_group(process.pid, signal.SIGKILL)
         else:
             raise ReceiptError("bounded_cleanup_incomplete")
     try:
@@ -621,10 +632,11 @@ def _cleanup_process_group(
     except subprocess.TimeoutExpired as error:
         raise ReceiptError("bounded_cleanup_incomplete") from error
     deadline = time.monotonic() + max(grace_seconds, 0.1)
-    while not _process_group_absent(process.pid) and time.monotonic() < deadline:
+    group_absent = _process_group_absent(process.pid)
+    while not group_absent and time.monotonic() < deadline:
         time.sleep(min(0.01, grace_seconds))
-    absent = _process_group_absent(process.pid)
-    if not absent:
+        group_absent = _process_group_absent(process.pid)
+    if not group_absent:
         raise ReceiptError("bounded_cleanup_incomplete")
     return {
         "sigterm_sent": sigterm_sent,
@@ -659,7 +671,7 @@ def _supervision_receipt(
         "observed_max_bytes": observed_max,
         "overshoot_bytes": max(0, observed_max - budget),
         "budget_outcome": outcome,
-        "transient_overshoot_bound": "one_poll_interval",
+        "transient_overshoot_possible": True,
         "cleanup": cleanup,
         "hard_kernel_enforced": False,
         "bounds": {
@@ -672,6 +684,26 @@ def _supervision_receipt(
                 profile.stdout_bytes if profile.output_bytes is None else profile.output_bytes
             ),
         },
+    }
+
+
+def _cleanup_after_supervision_failure(
+    process: subprocess.Popen[bytes], *, grace_seconds: float
+) -> dict[str, bool]:
+    for _ in range(2):
+        try:
+            return _cleanup_process_group(
+                process,
+                grace_seconds=grace_seconds,
+                terminate=True,
+            )
+        except ReceiptError:
+            pass
+    return {
+        "sigterm_sent": False,
+        "sigkill_sent": False,
+        "waited": False,
+        "process_group_absent": False,
     }
 
 
@@ -713,7 +745,11 @@ def _run_bounded(
     budget = profile.footprint_bytes or 0
     observed_max = 0
     try:
-        if os.getpgid(process.pid) != process.pid:
+        try:
+            process_group = os.getpgid(process.pid)
+        except OSError as error:
+            raise ReceiptError("bounded_supervision_failed") from error
+        if process_group != process.pid:
             raise ReceiptError("bounded_leader_identity_invalid")
         sampler = (
             _DarwinFootprintSampler(process.pid) if profile.footprint_bytes is not None else None
@@ -730,9 +766,12 @@ def _run_bounded(
             process.stderr.fileno(): (process.stderr, profile.stderr_bytes),
         }
         captured: dict[int, bytearray] = {descriptor: bytearray() for descriptor in streams}
-        for descriptor, (stream, _) in streams.items():
-            os.set_blocking(descriptor, False)
-            selector.register(stream, selectors.EVENT_READ, descriptor)
+        try:
+            for descriptor, (stream, _) in streams.items():
+                os.set_blocking(descriptor, False)
+                selector.register(stream, selectors.EVENT_READ, descriptor)
+        except OSError as error:
+            raise ReceiptError("bounded_supervision_failed") from error
         started = time.monotonic()
         while selector.get_map() or process.poll() is None:
             if time.monotonic() - started > profile.wall_seconds:
@@ -801,29 +840,19 @@ def _run_bounded(
             )
         return BoundedRunResult(returncode, stdout, stderr, supervision)
     except ReceiptError as error:
-        if process.poll() is None or not _process_group_absent(process.pid):
-            try:
-                cleanup = _cleanup_process_group(
-                    process,
-                    grace_seconds=profile.term_grace_seconds,
-                    terminate=True,
-                )
-            except ReceiptError:
-                cleanup = {
-                    "sigterm_sent": False,
-                    "sigkill_sent": False,
-                    "waited": False,
-                    "process_group_absent": False,
-                }
-            if sampler is not None and error.details is None:
-                error.details = _supervision_receipt(
-                    profile=profile,
-                    baseline=baseline,
-                    budget=budget,
-                    observed_max=observed_max,
-                    outcome="supervision_failed",
-                    cleanup=cleanup,
-                )
+        cleanup = _cleanup_after_supervision_failure(
+            process,
+            grace_seconds=profile.term_grace_seconds,
+        )
+        if profile.footprint_bytes is not None and error.details is None:
+            error.details = _supervision_receipt(
+                profile=profile,
+                baseline=baseline,
+                budget=budget,
+                observed_max=observed_max,
+                outcome="supervision_failed",
+                cleanup=cleanup,
+            )
         raise
     finally:
         if selector is not None:
