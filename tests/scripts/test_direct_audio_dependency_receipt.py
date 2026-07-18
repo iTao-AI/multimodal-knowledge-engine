@@ -582,6 +582,7 @@ def _install_fake_nested_pip_runtime(
     case: dict[str, object],
     *,
     venv_alias: bool = False,
+    venv_hardlink: bool = False,
     site_packages_alias: Path | None = None,
     install_mutation: object | None = None,
 ) -> list[dict[str, object]]:
@@ -602,6 +603,8 @@ def _install_fake_nested_pip_runtime(
             target.parent.mkdir(parents=True)
             if venv_alias:
                 target.symlink_to(python)
+            elif venv_hardlink:
+                os.link(python, target)
             else:
                 target.write_bytes(python.read_bytes())
                 target.chmod(0o700)
@@ -716,6 +719,20 @@ def test_nested_pip_rejects_venv_alias_to_operator_interpreter(
 ) -> None:
     case = _nested_pip_case(tmp_path)
     calls = _install_fake_nested_pip_runtime(monkeypatch, case, venv_alias=True)
+
+    with pytest.raises(_module().ReceiptError, match="^pip_venv_invalid$"):
+        _run_nested_case(case)
+
+    assert len(calls) == 1
+    assert list(cast(Path, case["runtime_root"]).iterdir()) == []
+    assert cast(Path, case["python"]).read_bytes() == b"approved-python"
+
+
+def test_nested_pip_rejects_venv_hardlink_to_operator_interpreter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = _nested_pip_case(tmp_path)
+    calls = _install_fake_nested_pip_runtime(monkeypatch, case, venv_hardlink=True)
 
     with pytest.raises(_module().ReceiptError, match="^pip_venv_invalid$"):
         _run_nested_case(case)
@@ -896,6 +913,43 @@ def test_nested_pip_cleanup_failure_is_terminal_and_preserves_operator_python(
     assert cast(Path, case["python"]).read_bytes() == b"approved-python"
 
 
+@pytest.mark.skipif(sys.platform != "darwin", reason="Darwin inode-addressed cleanup contract")
+def test_nested_pip_cleanup_removes_owned_inode_and_preserves_path_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    receipt = _module()
+    call_root = tmp_path / "direct-audio-pip-owned"
+    call_root.mkdir()
+    call_root.chmod(0o700)
+    (call_root / "owned-state").write_text("owned", encoding="utf-8")
+    identity = receipt._owned_directory_identity(call_root)  # pyright: ignore[reportPrivateUsage]
+    displaced = tmp_path / "displaced-owned-root"
+    real_rmdir = os.rmdir
+    raced = False
+
+    def racing_rmdir(path: str | bytes | Path, *args: object, **kwargs: object) -> None:
+        nonlocal raced
+        rendered = os.fsdecode(path)
+        if not raced and rendered.startswith("/.vol/"):
+            os.replace(call_root, displaced)
+            call_root.mkdir()
+            (call_root / "operator-owned-sentinel").write_text("preserve", encoding="utf-8")
+            raced = True
+        real_rmdir(path, *args, **kwargs)
+
+    monkeypatch.setattr(receipt.os, "rmdir", racing_rmdir)
+
+    with pytest.raises(receipt.ReceiptError, match="^pip_cleanup_failed$"):
+        receipt._cleanup_owned_tree(  # pyright: ignore[reportPrivateUsage]
+            call_root,
+            identity,
+        )
+
+    assert raced is True
+    assert (call_root / "operator-owned-sentinel").read_text(encoding="utf-8") == "preserve"
+    assert not displaced.exists()
+
+
 def test_check_inputs_is_closed_sorted_public_safe_and_does_not_write(
     tmp_path: Path,
 ) -> None:
@@ -1069,6 +1123,80 @@ def test_fixture_root_replacement_during_descriptor_reads_fails_closed(
 
     with pytest.raises(receipt.ReceiptError, match="^fixture_identity_invalid$"):
         receipt.build_fixture_manifest(fixtures)
+
+
+@pytest.mark.parametrize(
+    ("input_name", "mutation", "expected_code"),
+    [
+        ("lock", "same_inode", "lock_identity_drift"),
+        ("lock", "replacement", "lock_identity_drift"),
+        ("constraints", "same_inode", "constraints_identity_drift"),
+        ("constraints", "replacement", "constraints_identity_drift"),
+        ("wheel", "same_inode", "wheel_identity_drift"),
+        ("wheel", "replacement", "wheel_identity_drift"),
+        ("README.md", "same_inode", "fixture_identity_invalid"),
+        ("README.md", "replacement", "fixture_identity_invalid"),
+        ("direct-audio.m4a", "same_inode", "fixture_identity_invalid"),
+        ("direct-audio.m4a", "replacement", "fixture_identity_invalid"),
+    ],
+)
+def test_check_inputs_revalidates_complete_authority_after_all_initial_reads(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    input_name: str,
+    mutation: str,
+    expected_code: str,
+) -> None:
+    receipt = _module()
+    wheelhouse = tmp_path / "wheelhouse"
+    wheelhouse.mkdir()
+    wheel = _wheel(wheelhouse, "demo-1.0-py3-none-any.whl", b"w")
+    lock, constraints = _write_single_package_lock(
+        tmp_path,
+        name="demo",
+        version="1.0",
+        sha256=hashlib.sha256(wheel.read_bytes()).hexdigest(),
+    )
+    fixtures = _copy_audio_fixture_root(tmp_path)
+    targets = {
+        "lock": lock,
+        "constraints": constraints,
+        "wheel": wheel,
+        "README.md": fixtures / "README.md",
+        "direct-audio.m4a": fixtures / "direct-audio.m4a",
+    }
+    target = targets[input_name]
+    original_controller_identity = receipt._public_controller_identity
+    mutated = False
+
+    def mutate_after_initial_reads(executable: Path) -> dict[str, object]:
+        nonlocal mutated
+        if not mutated:
+            value = target.read_bytes()
+            if mutation == "same_inode":
+                target.write_bytes(bytes([value[0] ^ 1]) + value[1:])
+            else:
+                target.unlink()
+                target.write_bytes(value)
+            mutated = True
+        return original_controller_identity(executable)
+
+    monkeypatch.setattr(receipt, "_public_controller_identity", mutate_after_initial_reads)
+
+    result = receipt.check_inputs(
+        pythons=(),
+        wheelhouse=wheelhouse,
+        lock_path=lock,
+        constraints=constraints,
+        fixture_root=fixtures,
+    )
+
+    assert mutated is True
+    assert result["status"] == "failed"
+    assert result["gate"] == "input_validation_failed"
+    assert expected_code in {
+        issue["code"] for issue in cast(list[dict[str, str]], result["issues"])
+    }
 
 
 def test_check_inputs_fails_closed_when_controller_executable_is_not_executable(
@@ -2627,6 +2755,7 @@ def _complete_generation_evidence() -> dict[str, object]:
         )
     digest = "a" * 64
     evidence: dict[str, object] = {
+        "schema_version": "mke.direct_audio_dependency_receipt.v1",
         "receipt_sha256": "",
         "script_sha256": script_sha256,
         "preflight_observed_digest": "",
@@ -2754,6 +2883,7 @@ def test_local_optional_use_allows_recorded_unresolved_transitive_items() -> Non
     receipt = _module()
     evidence, preflight, generation_preflight = _complete_generation_bundle()
 
+    assert evidence["schema_version"] == "mke.direct_audio_dependency_receipt.v1"
     assert receipt.validate_generation_evidence(
         evidence,
         preflight=preflight,
@@ -2762,6 +2892,98 @@ def test_local_optional_use_allows_recorded_unresolved_transitive_items() -> Non
         "external_binary_redistribution": "not_performed",
         "redistribution_authority": "not_claimed",
         "status": "passed",
+    }
+
+
+def test_generation_receipt_requires_schema_identity() -> None:
+    receipt = _module()
+    evidence, preflight, generation_preflight = _complete_generation_bundle()
+    del evidence["schema_version"]
+    _refresh_receipt_digest(evidence)
+
+    assert receipt.validate_generation_evidence(
+        evidence,
+        preflight=preflight,
+        generation_preflight=generation_preflight,
+    ) == {
+        "failure": "generation_evidence_incomplete",
+        "status": "failed",
+    }
+
+
+def test_generation_receipt_rejects_unknown_schema_and_binds_it_in_digest() -> None:
+    receipt = _module()
+    evidence, preflight, generation_preflight = _complete_generation_bundle()
+    original_digest = evidence["receipt_sha256"]
+    evidence["schema_version"] = "mke.direct_audio_dependency_receipt.v2"
+    _refresh_receipt_digest(evidence)
+
+    assert evidence["receipt_sha256"] != original_digest
+    assert receipt.validate_generation_evidence(
+        evidence,
+        preflight=preflight,
+        generation_preflight=generation_preflight,
+    ) == {
+        "failure": "generation_evidence_invalid",
+        "status": "failed",
+    }
+
+
+@pytest.mark.parametrize(
+    "inventory",
+    [
+        "preflight_interpreters",
+        "preflight_wheelhouse",
+        "preflight_wheel_resolution",
+        "preflight_fixtures",
+        "generation_wheel_inventory",
+        "generation_installed_distributions",
+        "generation_cells",
+        "cell_installed_distributions",
+        "cell_imports",
+        "cell_fixture_decodes",
+        "generation_fixtures",
+    ],
+)
+def test_generation_receipt_rejects_permuted_inventory_with_recomputed_digest(
+    inventory: str,
+) -> None:
+    receipt = _module()
+    evidence, preflight, generation_preflight = _complete_generation_bundle()
+    original_digest = evidence["receipt_sha256"]
+    if inventory.startswith("preflight_"):
+        field = inventory.removeprefix("preflight_")
+        for payload in (preflight, generation_preflight):
+            cast(list[object], payload[field]).reverse()
+            _refresh_preflight_digest(payload)
+        evidence["preflight_observed_digest"] = preflight["observed_digest"]
+        evidence["generation_preflight_observed_digest"] = generation_preflight["observed_digest"]
+    elif inventory == "generation_wheel_inventory":
+        cast(list[object], evidence["wheel_inventory"]).reverse()
+    elif inventory == "generation_installed_distributions":
+        cast(list[object], evidence["installed_distributions"]).reverse()
+    elif inventory == "generation_cells":
+        cast(list[object], evidence["cells"]).reverse()
+    elif inventory == "generation_fixtures":
+        cast(list[object], evidence["fixtures"]).reverse()
+    else:
+        cell = cast(list[dict[str, object]], evidence["cells"])[0]
+        field = {
+            "cell_installed_distributions": "installed_distributions",
+            "cell_imports": "imports",
+            "cell_fixture_decodes": "fixture_decodes",
+        }[inventory]
+        cast(list[object], cell[field]).reverse()
+    _refresh_receipt_digest(evidence)
+
+    assert evidence["receipt_sha256"] != original_digest
+    assert receipt.validate_generation_evidence(
+        evidence,
+        preflight=preflight,
+        generation_preflight=generation_preflight,
+    ) == {
+        "failure": "generation_evidence_invalid",
+        "status": "failed",
     }
 
 

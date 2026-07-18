@@ -46,6 +46,7 @@ _FFMPEG_FLAG = re.compile(
 _FFMPEG_LICENSE = re.compile(r"(?:LGPL|GPL) version [0-9]+(?:\.[0-9]+)*(?: or later)?\Z")
 _FIXTURES = ("direct-audio.m4a", "direct-audio.mp3", "direct-audio.wav")
 _FIXTURE_FILES = ("README.md", *_FIXTURES)
+_RECEIPT_SCHEMA_VERSION = "mke.direct_audio_dependency_receipt.v1"
 _FIXTURE_AUTHORITY_DOCUMENT_SHA256 = (
     "533bc8a47ba89aeb86de0e7b944da2f1a3f1de8a5ba062b861a3aef854a87ccb"
 )
@@ -371,22 +372,48 @@ def build_manifest_from_paths(paths: tuple[Path, ...]) -> tuple[WheelEntry, ...]
     return tuple(sorted(result, key=lambda item: item.filename))
 
 
-def build_wheelhouse_manifest(wheelhouse: Path) -> tuple[WheelEntry, ...]:
+def _wheelhouse_paths(wheelhouse: Path, *, code: str) -> tuple[tuple[int, ...], tuple[Path, ...]]:
     try:
         root = wheelhouse.lstat()
         if not stat.S_ISDIR(root.st_mode) or wheelhouse.is_symlink():
-            raise ReceiptError("wheel_input_invalid")
+            raise ReceiptError(code)
         paths: list[Path] = []
         with os.scandir(wheelhouse) as entries:
             for entry in entries:
                 if entry.is_symlink() or not entry.is_file(follow_symlinks=False):
-                    raise ReceiptError("wheel_input_invalid")
+                    raise ReceiptError(code)
                 paths.append(wheelhouse / entry.name)
     except ReceiptError:
         raise
     except OSError as error:
-        raise ReceiptError("wheel_input_invalid") from error
-    return build_manifest_from_paths(tuple(paths))
+        raise ReceiptError(code) from error
+    return (
+        (
+            root.st_dev,
+            root.st_ino,
+            root.st_mode,
+            root.st_size,
+            root.st_mtime_ns,
+            root.st_ctime_ns,
+        ),
+        tuple(sorted(paths, key=lambda path: path.name)),
+    )
+
+
+def build_wheelhouse_manifest(wheelhouse: Path) -> tuple[WheelEntry, ...]:
+    before_root, before_paths = _wheelhouse_paths(wheelhouse, code="wheel_input_invalid")
+    manifest = build_manifest_from_paths(before_paths)
+    after_root, after_paths = _wheelhouse_paths(wheelhouse, code="wheel_identity_drift")
+    if before_root != after_root or before_paths != after_paths:
+        raise ReceiptError("wheel_identity_drift")
+    try:
+        observed = build_manifest_from_paths(after_paths)
+        final_root, final_paths = _wheelhouse_paths(wheelhouse, code="wheel_identity_drift")
+    except ReceiptError as error:
+        raise ReceiptError("wheel_identity_drift") from error
+    if after_root != final_root or after_paths != final_paths or observed != manifest:
+        raise ReceiptError("wheel_identity_drift")
+    return manifest
 
 
 def validate_manifest_identity(wheelhouse: Path, expected: tuple[WheelEntry, ...]) -> None:
@@ -1182,6 +1209,67 @@ def _owned_directory_identity(path: Path) -> tuple[int, ...]:
     return (observed.st_dev, observed.st_ino, observed.st_mode)
 
 
+def _revalidate_owned_tree(path: Path, identity: tuple[int, ...], descriptor: int) -> None:
+    opened = os.fstat(descriptor)
+    observed = path.lstat()
+    if (
+        not stat.S_ISDIR(opened.st_mode)
+        or not stat.S_ISDIR(observed.st_mode)
+        or (opened.st_dev, opened.st_ino, opened.st_mode) != identity
+        or (observed.st_dev, observed.st_ino, observed.st_mode) != identity
+    ):
+        raise ReceiptError("pip_cleanup_failed")
+
+
+def _open_owned_tree(path: Path, identity: tuple[int, ...]) -> int:
+    descriptor: int | None = None
+    try:
+        if _owned_directory_identity(path) != identity:
+            raise ReceiptError("pip_cleanup_failed")
+        flags = (
+            os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_DIRECTORY", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+        )
+        descriptor = os.open(path, flags)
+        _revalidate_owned_tree(path, identity, descriptor)
+        return descriptor
+    except ReceiptError:
+        if descriptor is not None:
+            os.close(descriptor)
+        raise
+    except OSError as error:
+        if descriptor is not None:
+            os.close(descriptor)
+        raise ReceiptError("pip_cleanup_failed") from error
+
+
+def _remove_owned_tree_contents(descriptor: int) -> None:
+    for name in os.listdir(descriptor):
+        observed = os.stat(name, dir_fd=descriptor, follow_symlinks=False)
+        if stat.S_ISDIR(observed.st_mode):
+            shutil.rmtree(name, dir_fd=descriptor)
+        else:
+            os.unlink(name, dir_fd=descriptor)
+    if os.listdir(descriptor):
+        raise OSError("call-owned cleanup was incomplete")
+
+
+def _remove_owned_tree_entry(path: Path, identity: tuple[int, ...], parent_descriptor: int) -> None:
+    if sys.platform == "darwin":
+        identity_path = Path("/.vol") / str(identity[0]) / str(identity[1])
+        observed = identity_path.lstat()
+        if (
+            not stat.S_ISDIR(observed.st_mode)
+            or (observed.st_dev, observed.st_ino, observed.st_mode) != identity
+        ):
+            raise ReceiptError("pip_cleanup_failed")
+        os.rmdir(identity_path)
+        return
+    os.rmdir(path.name, dir_fd=parent_descriptor)
+
+
 def _write_exclusive_file(path: Path, value: bytes) -> None:
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
     try:
@@ -1291,10 +1379,31 @@ def _validate_pip_inputs(
 
 
 def _cleanup_owned_tree(path: Path, identity: tuple[int, ...]) -> None:
-    if _owned_directory_identity(path) != identity:
-        raise ReceiptError("pip_cleanup_failed")
+    descriptor = _open_owned_tree(path, identity)
+    parent_descriptor: int | None = None
     try:
-        shutil.rmtree(path)
+        os.fchmod(descriptor, 0o700)
+        _revalidate_owned_tree(path, identity, descriptor)
+        _remove_owned_tree_contents(descriptor)
+        _revalidate_owned_tree(path, identity, descriptor)
+        parent_flags = (
+            os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_DIRECTORY", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+        )
+        parent_descriptor = os.open(path.parent, parent_flags)
+        _revalidate_owned_tree(path, identity, descriptor)
+        _remove_owned_tree_entry(path, identity, parent_descriptor)
+    except ReceiptError:
+        raise
+    except OSError as error:
+        raise ReceiptError("pip_cleanup_failed") from error
+    finally:
+        if parent_descriptor is not None:
+            os.close(parent_descriptor)
+        os.close(descriptor)
+    try:
         path.lstat()
     except FileNotFoundError:
         return
@@ -1481,6 +1590,17 @@ def run_nested_pip_install(
             call_root=call_root,
             cell=cell,
         )
+        approved_after_creation = _snapshot_executable(python)
+        if (
+            venv_before.executable.target_file_identity
+            == approved_after_creation.target_file_identity
+        ):
+            raise ReceiptError("pip_venv_invalid")
+        if (
+            approved_after_creation.identity != generation_file_identity
+            or approved_after_creation.sha256 != preflight_interpreter.get("executable_sha256")
+        ):
+            raise ReceiptError("pip_interpreter_identity_drift")
         venv_interpreter, _, pip_executable = _probe_target_interpreter(venv_executable, cell)
         if (
             venv_interpreter != dict(preflight_interpreter)
@@ -1995,21 +2115,7 @@ def _wheel_resolution_rows(
     return rows
 
 
-def build_fixture_manifest(fixture_root: Path) -> tuple[dict[str, object], ...]:
-    try:
-        root_identity = _directory_authority(fixture_root, code="fixture_inventory_invalid")
-        names: list[str] = []
-        with os.scandir(fixture_root) as entries:
-            for entry in entries:
-                if entry.is_symlink() or not entry.is_file(follow_symlinks=False):
-                    raise ReceiptError("fixture_inventory_invalid")
-                names.append(entry.name)
-    except ReceiptError:
-        raise
-    except OSError as error:
-        raise ReceiptError("fixture_inventory_invalid") from error
-    if set(names) != set(_FIXTURE_FILES) or len(names) != len(_FIXTURE_FILES):
-        raise ReceiptError("fixture_inventory_invalid")
+def _fixture_manifest_once(fixture_root: Path) -> tuple[dict[str, object], ...]:
     result: list[dict[str, object]] = []
     for name in _FIXTURE_FILES:
         try:
@@ -2027,6 +2133,36 @@ def build_fixture_manifest(fixture_root: Path) -> tuple[dict[str, object], ...]:
                 "artifact_scope": "repository_distributed",
             }
         )
+    return tuple(result)
+
+
+def build_fixture_manifest(fixture_root: Path) -> tuple[dict[str, object], ...]:
+    try:
+        root_identity = _directory_authority(fixture_root, code="fixture_inventory_invalid")
+        names: list[str] = []
+        with os.scandir(fixture_root) as entries:
+            for entry in entries:
+                if entry.is_symlink() or not entry.is_file(follow_symlinks=False):
+                    raise ReceiptError("fixture_inventory_invalid")
+                names.append(entry.name)
+    except ReceiptError:
+        raise
+    except OSError as error:
+        raise ReceiptError("fixture_inventory_invalid") from error
+    if set(names) != set(_FIXTURE_FILES) or len(names) != len(_FIXTURE_FILES):
+        raise ReceiptError("fixture_inventory_invalid")
+    result = _fixture_manifest_once(fixture_root)
+    try:
+        middle_root_identity = _directory_authority(fixture_root, code="fixture_identity_invalid")
+        with os.scandir(fixture_root) as entries:
+            middle_names = sorted(entry.name for entry in entries)
+    except ReceiptError:
+        raise
+    except OSError as error:
+        raise ReceiptError("fixture_identity_invalid") from error
+    if middle_root_identity != root_identity or middle_names != sorted(_FIXTURE_FILES):
+        raise ReceiptError("fixture_identity_invalid")
+    observed = _fixture_manifest_once(fixture_root)
     try:
         final_root_identity = _directory_authority(fixture_root, code="fixture_identity_invalid")
         with os.scandir(fixture_root) as entries:
@@ -2035,9 +2171,13 @@ def build_fixture_manifest(fixture_root: Path) -> tuple[dict[str, object], ...]:
         raise
     except OSError as error:
         raise ReceiptError("fixture_identity_invalid") from error
-    if final_root_identity != root_identity or final_names != sorted(_FIXTURE_FILES):
+    if (
+        final_root_identity != root_identity
+        or final_names != sorted(_FIXTURE_FILES)
+        or observed != result
+    ):
         raise ReceiptError("fixture_identity_invalid")
-    return tuple(result)
+    return result
 
 
 def check_inputs(
@@ -2079,12 +2219,13 @@ def check_inputs(
             else:
                 interpreters.append(identity)
     lock_sha: str | None = None
+    lock_authority: FileAuthority | None = None
     root_requirements_sha: str | None = None
     projection_hash_authority: dict[tuple[str, str], frozenset[str]] = {}
     try:
         if lock_path is None:
             raise ReceiptError("lock_missing")
-        lock_value = _read_regular(lock_path)
+        lock_authority, lock_value = _file_authority(lock_path)
         projection = _derive_transcription_projection(lock_value, cells)
         lock_sha = hashlib.sha256(lock_value).hexdigest()
         root_requirements_sha = hashlib.sha256(projection.root_requirements).hexdigest()
@@ -2102,8 +2243,9 @@ def check_inputs(
         )
         issues.append(_issue(code, "uv-lock"))
     constraints_sha: str | None = None
+    constraints_authority: FileAuthority | None = None
     try:
-        constraints_value = _read_regular(constraints)
+        constraints_authority, constraints_value = _file_authority(constraints)
         constraints_sha = hashlib.sha256(constraints_value).hexdigest()
         if projection is None or constraints_value != projection.constraints:
             raise ReceiptError("constraints_projection_drift")
@@ -2112,14 +2254,16 @@ def check_inputs(
             raise ReceiptError("constraints_projection_drift")
     except ReceiptError as error:
         code = str(error)
-        if code in {"input_invalid", "input_identity_drift"}:
+        if code in {"input_invalid", "input_identity_drift", "pip_input_identity_drift"}:
             code = _declared_path_failure(
                 constraints,
                 missing="constraints_missing",
                 invalid="constraints_invalid",
             )
         issues.append(_issue(code, "external-constraints"))
+    wheelhouse_authority: tuple[int, ...] | None = None
     try:
+        wheelhouse_authority = _directory_authority(wheelhouse, code="wheel_input_invalid")
         manifest = build_wheelhouse_manifest(wheelhouse)
         if not manifest:
             issues.append(_issue("wheelhouse_empty", "external-wheelhouse"))
@@ -2135,6 +2279,7 @@ def check_inputs(
             issues.extend(_wheel_resolution_issues(manifest, projection, projection_hash_authority))
     except ReceiptError as error:
         manifest = ()
+        wheelhouse_authority = None
         code = str(error)
         if code in {"wheel_input_invalid", "input_invalid", "input_identity_drift"}:
             code = _declared_path_failure(
@@ -2148,10 +2293,15 @@ def check_inputs(
     wheel_resolution = (
         _wheel_resolution_rows(manifest, projection) if projection is not None else []
     )
+    fixture_root_authority: tuple[int, ...] | None = None
     try:
+        fixture_root_authority = _directory_authority(
+            fixture_root, code="fixture_inventory_invalid"
+        )
         fixture_receipts = list(build_fixture_manifest(fixture_root))
     except ReceiptError as error:
         fixture_receipts = []
+        fixture_root_authority = None
         issues.append(_issue(str(error), "audio-fixtures"))
     try:
         controller = _public_controller_identity(
@@ -2160,8 +2310,42 @@ def check_inputs(
     except ReceiptError as error:
         controller = None
         issues.append(_issue(str(error), "controller-executable"))
-    issues.sort(key=lambda item: json.dumps(item, sort_keys=True))
     script_value = _read_regular(Path(__file__).resolve())
+    if lock_authority is not None and lock_path is not None:
+        try:
+            observed_lock, _ = _file_authority(lock_path)
+            if observed_lock != lock_authority:
+                raise ReceiptError("lock_identity_drift")
+        except ReceiptError:
+            issues.append(_issue("lock_identity_drift", "uv-lock"))
+    if constraints_authority is not None:
+        try:
+            observed_constraints, _ = _file_authority(constraints)
+            if observed_constraints != constraints_authority:
+                raise ReceiptError("constraints_identity_drift")
+        except ReceiptError:
+            issues.append(_issue("constraints_identity_drift", "external-constraints"))
+    if wheelhouse_authority is not None:
+        try:
+            observed_wheelhouse = _directory_authority(wheelhouse, code="wheel_identity_drift")
+            validate_manifest_identity(wheelhouse, manifest)
+            if observed_wheelhouse != wheelhouse_authority:
+                raise ReceiptError("wheel_identity_drift")
+        except ReceiptError:
+            issues.append(_issue("wheel_identity_drift", "external-wheelhouse"))
+    if fixture_root_authority is not None:
+        try:
+            observed_fixture_root = _directory_authority(
+                fixture_root, code="fixture_identity_invalid"
+            )
+            observed_fixtures = build_fixture_manifest(fixture_root)
+            if observed_fixture_root != fixture_root_authority or observed_fixtures != tuple(
+                fixture_receipts
+            ):
+                raise ReceiptError("fixture_identity_invalid")
+        except ReceiptError:
+            issues.append(_issue("fixture_identity_invalid", "audio-fixtures"))
+    issues.sort(key=lambda item: json.dumps(item, sort_keys=True))
     result: dict[str, object] = {
         "schema": "mke.direct_audio_dependency_input_check.v1",
         "status": "failed" if issues else "passed",
@@ -2283,6 +2467,18 @@ def _inventory_rows(value: object, keys: set[str]) -> list[dict[str, object]] | 
             return None
         rows.append(row)
     return rows
+
+
+def _canonical_inventory(rows: list[dict[str, object]], identity_fields: tuple[str, ...]) -> bool:
+    identities = [tuple(row[field] for field in identity_fields) for row in rows]
+    try:
+        return identities == sorted(identities) and len(identities) == len(set(identities))
+    except TypeError:
+        return False
+
+
+def _canonical_strings(values: list[str] | None) -> bool:
+    return values is not None and values == sorted(set(values))
 
 
 def _string_items(value: object) -> list[str] | None:
@@ -2465,9 +2661,13 @@ def _passed_preflight_authority(
         or interpreters is None
         or len(interpreters) != 2
         or {item["label"] for item in interpreters} != {"python-3.12", "python-3.13"}
+        or not _canonical_inventory(interpreters, ("label",))
         or wheelhouse is None
+        or not _canonical_inventory(wheelhouse, ("filename",))
         or resolution is None
+        or not _canonical_inventory(resolution, ("cell", "distribution"))
         or fixtures is None
+        or not _canonical_inventory(fixtures, ("filename",))
         or not _digest_value(payload["lock_sha256"])
         or not _digest_value(payload["constraints_sha256"])
         or not _digest_value(payload["root_requirements_sha256"])
@@ -2703,6 +2903,7 @@ def validate_generation_evidence(
 ) -> dict[str, str]:
     """Validate local-use evidence without claiming binary redistribution authority."""
     required = {
+        "schema_version",
         "receipt_sha256",
         "script_sha256",
         "preflight_observed_digest",
@@ -2725,7 +2926,8 @@ def validate_generation_evidence(
     if set(evidence) != required:
         return {"failure": "generation_evidence_invalid", "status": "failed"}
     valid = (
-        evidence["external_binary_redistribution"] == "not_performed"
+        evidence["schema_version"] == _RECEIPT_SCHEMA_VERSION
+        and evidence["external_binary_redistribution"] == "not_performed"
         and evidence["redistribution_authority"] == "not_claimed"
     )
     preflight_authority = _passed_preflight_authority(preflight)
@@ -2782,6 +2984,11 @@ def validate_generation_evidence(
     if wheels is None or installed is None:
         valid = False
     else:
+        valid = (
+            valid
+            and _canonical_inventory(wheels, ("filename",))
+            and _canonical_inventory(installed, ("cell", "distribution"))
+        )
         wheel_entries = [_wheel_evidence_entry(item) for item in wheels]
         if any(item is None for item in wheel_entries):
             valid = False
@@ -2842,6 +3049,7 @@ def validate_generation_evidence(
         cell_rows is None
         or len(cell_rows) != 2
         or {item["cell"] for item in cell_rows} != {"3.12", "3.13"}
+        or not _canonical_inventory(cell_rows, ("cell",))
         or preflight_authority is None
         or installed is None
         or wheelhouse_manifest_sha256 is None
@@ -2903,6 +3111,7 @@ def validate_generation_evidence(
                     wheelhouse_manifest_sha256=wheelhouse_manifest_sha256,
                 )
                 or cell_installed is None
+                or not _canonical_inventory(cell_installed, ("distribution",))
                 or sorted(
                     cell_installed,
                     key=lambda item: cast(str, item["distribution"]),
@@ -2912,7 +3121,9 @@ def validate_generation_evidence(
                     key=lambda item: cast(str, item["distribution"]),
                 )
                 or imports is None
+                or not _canonical_inventory(imports, ("distribution",))
                 or decodes is None
+                or not _canonical_inventory(decodes, ("filename",))
             ):
                 valid = False
                 continue
@@ -2980,7 +3191,10 @@ def validate_generation_evidence(
                 or not _digest_value(item["sha256"])
                 for item in extensions
             )
+            or not _canonical_inventory(extensions, ("filename",))
             or any(not _public_reference(item) for item in [*linked_value, *bundled_value])
+            or not _canonical_strings(linked_value)
+            or not _canonical_strings(bundled_value)
             or len({item["filename"] for item in extensions}) != len(extensions)
             or len(set(linked_value)) != len(linked_value)
             or len(set(bundled_value)) != len(bundled_value)
@@ -3042,6 +3256,7 @@ def validate_generation_evidence(
         direct_names = {item["name"] for item in direct}
         valid = (
             valid
+            and _canonical_inventory(direct, ("name",))
             and direct_names == linked | bundled
             and len(direct_names) == len(direct)
             and all(
@@ -3082,6 +3297,7 @@ def validate_generation_evidence(
     else:
         valid = (
             valid
+            and _canonical_inventory(fixtures, ("filename",))
             and {item["filename"] for item in fixtures} == set(_FIXTURES)
             and len(fixtures) == len(_FIXTURES)
             and all(
@@ -3166,7 +3382,9 @@ def validate_generation_evidence(
         for item in unresolved_rows
     ):
         valid = False
-    elif len({item["name"] for item in unresolved_rows}) != len(unresolved_rows):
+    elif not _canonical_inventory(unresolved_rows, ("name",)) or len(
+        {item["name"] for item in unresolved_rows}
+    ) != len(unresolved_rows):
         valid = False
     if not valid:
         return {"failure": "generation_evidence_invalid", "status": "failed"}
