@@ -82,6 +82,40 @@ def test_agents_defines_hosted_handoff_merge_and_cleanup_authority() -> None:
         assert required in text
 
 
+def test_pr_body_final_reconciliation_is_fail_closed_across_governance_docs() -> None:
+    agents = _normalized(AGENTS).lower()
+    guide = _normalized(CONTRIBUTING_GUIDE).lower()
+    template = _normalized(PR_TEMPLATE).lower()
+
+    for text in (agents, guide, template):
+        reconciliation = re.search(
+            r"(?:reconcile the final pr body|during final reconciliation).{0,900}", text
+        )
+        assert reconciliation is not None
+        contract = reconciliation.group(0)
+        for required in (
+            "[ ]",
+            "[x]",
+            "after merge",
+            "before closeout",
+            "actual checks",
+            "authorization",
+            "merge identity",
+            "mergeability",
+            "review blockers",
+            "necessary links",
+            "cleanup",
+            "remaining risk",
+            "non-claims",
+            "persisted pr body",
+            "write-back",
+            "persisted-body readback",
+            "exact blocker or pending trigger",
+            "must not claim complete closeout",
+        ):
+            assert required in contract
+
+
 def test_contribution_docs_split_entry_point_from_executable_policy() -> None:
     entry = _text(CONTRIBUTING)
     guide = _normalized(CONTRIBUTING_GUIDE).lower()

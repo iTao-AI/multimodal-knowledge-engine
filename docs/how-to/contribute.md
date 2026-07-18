@@ -48,6 +48,13 @@ Do not push or create a PR without authorization. When authorized:
 5. Query the actual pull request and checks for hosted state. Local workflow YAML does not prove
    that a hosted check exists, ran, or passed.
 
+Reconcile the final PR body as gates change: every satisfied `[ ]` gate becomes `[x]`. After merge
+and before closeout, synchronize actual checks, authorization, merge identity, mergeability,
+review blockers, necessary links, cleanup, remaining risk, and explicit non-claims. Attempt the
+write-back, then read back the persisted PR body. If the write-back or persisted-body readback
+fails, or the body still drifts from actual state, record the exact blocker or pending trigger and
+you must not claim complete closeout.
+
 Before merge, require the reviewed HEAD and checks head to identify the same commit, all binding
 checks to be successful, the base to remain approved, and platform review/mergeability to be clear.
 For a squash merge, record both commit identities and prove the reviewed tree equals the merge

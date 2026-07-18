@@ -202,6 +202,12 @@ If the audit would commit, push, update a PR body, or require a version decision
 - After creating or updating a PR, read back the persisted title, body, base, head, and draft state.
   Use ordinary bullets for completed facts. Add checkboxes only for real pending gates whose
   completion affects merge readiness.
+- Reconcile the final PR body as gates change: every satisfied `[ ]` gate becomes `[x]`. After
+  merge and before closeout, synchronize actual checks, authorization, merge identity,
+  mergeability, review blockers, necessary links, cleanup, remaining risk, and explicit
+  non-claims. Attempt the write-back, then read back the persisted PR body. If the write-back or
+  persisted-body readback fails, or the body still drifts from actual state, record the exact
+  blocker or pending trigger and you must not claim complete closeout.
 - Before merge, bind review evidence and successful checks to the same reviewed HEAD and checks
   head. For a squash merge, verify that the reviewed tree equals the merge tree; commit-SHA
   inequality alone is expected and is not tree evidence.
