@@ -33,6 +33,14 @@ _DIST = re.compile(r"[a-z0-9]+(?:_[a-z0-9]+)*\Z")
 _VERSION = re.compile(r"[0-9][a-z0-9]*(?:[._+][a-z0-9]+)*\Z")
 _TAG = re.compile(r"[a-z0-9_]+(?:\.[a-z0-9_]+)*\Z")
 _PUBLIC_REFERENCE = re.compile(r"[a-z0-9]+(?:[-_][a-z0-9]+)*\Z")
+_SPDX_LICENSE = re.compile(
+    r"(?:MIT|[A-Za-z][A-Za-z0-9]*-[0-9]+(?:\.[0-9]+)*(?:-[A-Za-z0-9]+)*)\Z"
+)
+_EXTENSION_PART = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]*\Z")
+_FFMPEG_FLAG = re.compile(
+    r"(?:--(?:enable|disable)-[a-z0-9]+(?:-[a-z0-9]+)*|"
+    r"--[a-z0-9]+(?:-[a-z0-9]+)*=[a-z0-9_+,-]+)\Z"
+)
 _FIXTURES = ("direct-audio.m4a", "direct-audio.mp3", "direct-audio.wav")
 _FIXTURE_AUTHORITY_DOCUMENT_SHA256 = (
     "533bc8a47ba89aeb86de0e7b944da2f1a3f1de8a5ba062b861a3aef854a87ccb"
@@ -1537,6 +1545,40 @@ def _public_reference(value: object) -> bool:
     )
 
 
+def _closed_version(value: object) -> bool:
+    return isinstance(value, str) and _VERSION.fullmatch(value) is not None
+
+
+def _spdx_license(value: object) -> bool:
+    return isinstance(value, str) and _SPDX_LICENSE.fullmatch(value) is not None
+
+
+def _relative_extension_filename(value: object) -> bool:
+    if (
+        not isinstance(value, str)
+        or not value
+        or value != value.strip()
+        or value.startswith("/")
+        or "\\" in value
+        or any(ord(character) < 32 or ord(character) == 127 for character in value)
+    ):
+        return False
+    parts = value.split("/")
+    return all(
+        part not in {"", ".", ".."} and _EXTENSION_PART.fullmatch(part) is not None
+        for part in parts
+    )
+
+
+def _ffmpeg_configuration(value: object) -> bool:
+    if not isinstance(value, str) or not value or value != value.strip():
+        return False
+    flags = value.split(" ")
+    return flags == sorted(set(flags)) and all(
+        flag and _FFMPEG_FLAG.fullmatch(flag) is not None for flag in flags
+    )
+
+
 def _exact_mapping(value: object, keys: set[str]) -> dict[str, object] | None:
     if not isinstance(value, dict):
         return None
@@ -1875,9 +1917,11 @@ def validate_generation_evidence(
             or bundled_value is None
             or not [*linked_value, *bundled_value]
             or any(
-                not isinstance(item["filename"], str) or not _digest_value(item["sha256"])
+                not _relative_extension_filename(item["filename"])
+                or not _digest_value(item["sha256"])
                 for item in extensions
             )
+            or any(not _public_reference(item) for item in [*linked_value, *bundled_value])
             or len({item["filename"] for item in extensions}) != len(extensions)
             or len(set(linked_value)) != len(linked_value)
             or len(set(bundled_value)) != len(bundled_value)
@@ -1899,6 +1943,7 @@ def validate_generation_evidence(
         {
             "license",
             "configuration",
+            "configuration_sha256",
             "sha256",
             "source_reference",
             "license_text_sha256",
@@ -1912,9 +1957,9 @@ def validate_generation_evidence(
         valid = (
             valid
             and ffmpeg_row["artifact_scope"] == "local_runtime_only"
-            and all(
-                _resolved_text(ffmpeg_row[key]) for key in ("license", "configuration")
-            )
+            and _resolved_text(ffmpeg_row["license"])
+            and _ffmpeg_configuration(ffmpeg_row["configuration"])
+            and _digest_value(ffmpeg_row["configuration_sha256"])
             and _public_reference(ffmpeg_row["source_reference"])
             and _digest_value(ffmpeg_row["sha256"])
             and _digest_value(ffmpeg_row["license_text_sha256"])
@@ -1941,7 +1986,9 @@ def validate_generation_evidence(
             and direct_names == linked | bundled
             and len(direct_names) == len(direct)
             and all(
-                all(_resolved_text(item[key]) for key in ("name", "version", "license"))
+                _public_reference(item["name"])
+                and _closed_version(item["version"])
+                and _spdx_license(item["license"])
                 and _public_reference(item["source_reference"])
                 and _digest_value(item["evidence_sha256"])
                 and _digest_value(item["license_text_sha256"])
@@ -2053,8 +2100,8 @@ def validate_generation_evidence(
                 break
             unresolved_rows.append(row)
     if unresolved_rows is None or any(
-        not _resolved_text(item["name"])
-        or not _resolved_text(item["version"])
+        not _public_reference(item["name"])
+        or not _closed_version(item["version"])
         or not _digest_value(item["identity_sha256"])
         or item["redistribution_clearance"] != "unresolved"
         or item["local_use_restriction"] != "none_observed"

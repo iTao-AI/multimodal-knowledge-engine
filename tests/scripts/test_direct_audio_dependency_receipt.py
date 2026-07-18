@@ -2127,6 +2127,7 @@ def _complete_generation_evidence() -> dict[str, object]:
         "ffmpeg_runtime": {
             "license": "LGPL version 2.1 or later",
             "configuration": "--enable-shared",
+            "configuration_sha256": digest,
             "sha256": digest,
             "source_reference": "ffmpeg-runtime-version-output",
             "license_text_sha256": digest,
@@ -2258,6 +2259,65 @@ def test_generation_evidence_requires_full_passed_preflight_authority(mutation: 
         evidence["generation_preflight_observed_digest"] = generation_preflight[
             "observed_digest"
         ]
+
+    assert receipt.validate_generation_evidence(
+        evidence,
+        preflight=preflight,
+        generation_preflight=generation_preflight,
+    ) == {
+        "failure": "generation_evidence_invalid",
+        "status": "failed",
+    }
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "private_component_name",
+        "private_unresolved_name",
+        "hostname_unresolved_version",
+        "private_ffmpeg_configuration",
+        "invalid_ffmpeg_configuration_digest",
+        "duplicate_ffmpeg_configuration_token",
+        "noncanonical_ffmpeg_configuration_order",
+        "private_direct_license",
+        "absolute_extension_filename",
+        "parent_extension_filename",
+    ],
+)
+def test_generation_evidence_rejects_private_or_noncanonical_field_grammar(
+    mutation: str,
+) -> None:
+    receipt = _module()
+    evidence, preflight, generation_preflight = _complete_generation_bundle()
+    pyav = cast(dict[str, object], evidence["pyav"])
+    direct = cast(list[dict[str, object]], evidence["direct_components"])
+    unresolved = cast(list[dict[str, object]], evidence["unresolved_transitive_binary_items"])
+    ffmpeg = cast(dict[str, object], evidence["ffmpeg_runtime"])
+    if mutation == "private_component_name":
+        private_name = "/Users/operator/private/libavcodec.dylib"
+        pyav["linked_components"] = [private_name]
+        direct[0]["name"] = private_name
+    elif mutation == "private_unresolved_name":
+        unresolved[0]["name"] = "/Users/operator/private/libfoo.dylib"
+    elif mutation == "hostname_unresolved_version":
+        unresolved[0]["version"] = "build-host.internal"
+    elif mutation == "private_ffmpeg_configuration":
+        ffmpeg["configuration"] = "--prefix=/Users/operator/private/build"
+    elif mutation == "invalid_ffmpeg_configuration_digest":
+        ffmpeg["configuration_sha256"] = "invalid"
+    elif mutation == "duplicate_ffmpeg_configuration_token":
+        ffmpeg["configuration"] = "--enable-shared --enable-shared"
+    elif mutation == "noncanonical_ffmpeg_configuration_order":
+        ffmpeg["configuration"] = "--enable-shared --enable-gpl"
+    elif mutation == "private_direct_license":
+        direct[0]["license"] = "/Users/operator/private/LICENSE"
+    elif mutation == "absolute_extension_filename":
+        cast(list[dict[str, object]], pyav["extensions"])[0]["filename"] = (
+            "/Users/operator/private/av/_core.so"
+        )
+    else:
+        cast(list[dict[str, object]], pyav["extensions"])[0]["filename"] = "av/../_core.so"
 
     assert receipt.validate_generation_evidence(
         evidence,
