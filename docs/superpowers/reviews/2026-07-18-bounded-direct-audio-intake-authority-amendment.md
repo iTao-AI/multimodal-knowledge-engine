@@ -136,8 +136,13 @@ requested bounded repair before acquisition. Commit
   unexpected controller failures terminate at closed public-safe error codes.
 
 The repair preserved real RED evidence for forged generation authority, nested-pip ownership and
-TOCTOU drift, lock/fixture provenance, and public error leakage. The resulting focused controller
-suite passed `180` tests, and the required-extra fixture suite passed `8` tests. This checkpoint is
-not Task 1 acceptance: Step 5 remains partial, no real package environment or canonical dependency
-receipt exists, Steps 6-7 remain open, and acquisition still requires separate authorization and a
-targeted authority re-review.
+TOCTOU drift, lock/fixture provenance, and public error leakage. A bounded near-field review then
+identified one remaining venv-target alias boundary. Follow-up commit
+`55d3c3a3365ea36bf0be39ed5e6c9d50d70346ac` binds the venv root, executable, configuration,
+`bin`, `lib`, interpreter-library, and `site-packages` identities before install and after both
+install and `pip check`; its regressions reject pre-install aliasing and post-install retargeting
+without changing the operator-owned target. The resulting focused controller suite passed `182`
+tests, and the required-extra fixture suite passed `8` tests. This checkpoint is not Task 1
+acceptance: Step 5 remains partial, no real package environment or canonical dependency receipt
+exists, Steps 6-7 remain open, and acquisition still requires separate authorization and a targeted
+authority re-review.

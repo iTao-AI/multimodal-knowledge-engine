@@ -327,9 +327,11 @@ Expected: PASS with exactly three fixture identities.
 > the redistribution-safe generation record, and the three immutable fixture identities. A fresh
 > required-extra fixture run passed `8` tests. The acquisition-independent Step 5 controller and
 > validator remain partial; targeted authority repair commit
-> `f49fbb231bb24b7ec180a54ef9f3dc9246402b68` passed all `180` receipt-controller tests. No package
-> acquisition, call-owned package environment, or canonical dependency receipt was generated.
-> Step 5 remains unchecked, and Steps 6-7 remain pending their explicit gates.
+> `f49fbb231bb24b7ec180a54ef9f3dc9246402b68` established the closed controller schema. Follow-up
+> commit `55d3c3a3365ea36bf0be39ed5e6c9d50d70346ac` bound the complete call-owned venv target tree;
+> the resulting receipt-controller suite passed all `182` tests. No package acquisition,
+> call-owned package environment, or canonical dependency receipt was generated. Step 5 remains
+> unchecked, and Steps 6-7 remain pending their explicit gates.
 
 - [ ] **Step 5: Implement the external dependency/license receipt and validator**
 
