@@ -165,6 +165,15 @@ Commit `7425334e2320df3a112f03bf765decca3bab3e35` closes that bounded range:
 - the new regressions preserved the independent RED cases before the receipt-controller suite
   passed `207` tests and the combined controller/fixture run passed `215` tests.
 
+A final targeted cleanup review found that the public path could be replaced between its identity
+precheck and descriptor open, preserving the replacement but leaking the displaced call-owned
+tree. Commit `2802d6687d6e583bc9f5b023a6770da1f43ca5b5` closes only that Darwin boundary: it opens the
+captured `(device, inode)` through `/.vol`, performs descriptor-bound cleanup of the original
+`venv` and staging tree, preserves any same-name replacement, and returns terminal
+`pip_cleanup_failed` after observed public-path drift. The independent pre-open race regression and
+the existing final-`rmdir` race regression both pass. The receipt-controller suite now passes `208`
+tests, and the combined controller/fixture run passes `216` tests.
+
 This remains a pre-acquisition checkpoint rather than Task 1 acceptance. No package acquisition,
 real package environment, canonical receipt, dependency artifact, or durable license evidence
 reference was produced. Step 5 remains partial and unchecked; Steps 6-7 remain open.

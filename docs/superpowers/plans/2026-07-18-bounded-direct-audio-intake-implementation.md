@@ -331,10 +331,14 @@ Expected: PASS with exactly three fixture identities.
 > commit `55d3c3a3365ea36bf0be39ed5e6c9d50d70346ac` bound the complete call-owned venv target tree;
 > final authority repair commit `7425334e2320df3a112f03bf765decca3bab3e35` froze canonical
 > inventory ordering and the receipt schema identity, added whole-input preflight revalidation,
-> made Darwin cleanup inode-bound, and rejected venv hardlink aliases before pip. The resulting
-> receipt-controller suite passed all `207` tests, and its combined fixture run passed all `215`
-> tests. No package acquisition, call-owned package environment, or canonical dependency receipt
-> was generated. Step 5 remains unchecked, and Steps 6-7 remain pending their explicit gates.
+> introduced Darwin inode-bound cleanup, and rejected venv hardlink aliases before pip. Follow-up
+> cleanup authority repair commit `2802d6687d6e583bc9f5b023a6770da1f43ca5b5` closes the remaining
+> pre-open replacement window by opening the captured Darwin inode through `/.vol`, cleaning the
+> original `venv` and staging tree, preserving a same-name replacement, and returning terminal
+> `pip_cleanup_failed` after observed path drift. The resulting receipt-controller suite passed all
+> `208` tests, and its combined fixture run passed all `216` tests. No package acquisition,
+> call-owned package environment, or canonical dependency receipt was generated. Step 5 remains
+> unchecked, and Steps 6-7 remain pending their explicit gates.
 
 - [ ] **Step 5: Implement the external dependency/license receipt and validator**
 
