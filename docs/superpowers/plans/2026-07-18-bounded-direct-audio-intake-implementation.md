@@ -329,9 +329,12 @@ Expected: PASS with exactly three fixture identities.
 > validator remain partial; targeted authority repair commit
 > `f49fbb231bb24b7ec180a54ef9f3dc9246402b68` established the closed controller schema. Follow-up
 > commit `55d3c3a3365ea36bf0be39ed5e6c9d50d70346ac` bound the complete call-owned venv target tree;
-> the resulting receipt-controller suite passed all `182` tests. No package acquisition,
-> call-owned package environment, or canonical dependency receipt was generated. Step 5 remains
-> unchecked, and Steps 6-7 remain pending their explicit gates.
+> final authority repair commit `7425334e2320df3a112f03bf765decca3bab3e35` froze canonical
+> inventory ordering and the receipt schema identity, added whole-input preflight revalidation,
+> made Darwin cleanup inode-bound, and rejected venv hardlink aliases before pip. The resulting
+> receipt-controller suite passed all `207` tests, and its combined fixture run passed all `215`
+> tests. No package acquisition, call-owned package environment, or canonical dependency receipt
+> was generated. Step 5 remains unchecked, and Steps 6-7 remain pending their explicit gates.
 
 - [ ] **Step 5: Implement the external dependency/license receipt and validator**
 

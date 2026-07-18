@@ -146,3 +146,25 @@ tests, and the required-extra fixture suite passed `8` tests. This checkpoint is
 acceptance: Step 5 remains partial, no real package environment or canonical dependency receipt
 exists, Steps 6-7 remain open, and acquisition still requires separate authorization and a targeted
 authority re-review.
+
+## Final Bounded Authority Repair Checkpoint
+
+A targeted review of the candidate through
+`7063266247565ad3f6460cfe7bab4dcf6b9145d6` found five remaining model-free authority gaps.
+Commit `7425334e2320df3a112f03bf765decca3bab3e35` closes that bounded range:
+
+- all preflight and generation inventories must use their one frozen ordering before their
+  canonical digest can validate, and the exact
+  `schema_version=mke.direct_audio_dependency_receipt.v1` literal is digest-bound;
+- `--check-inputs` retains and revalidates the complete lock, constraints, wheelhouse, and
+  `README.md` plus three-fixture authority after all initial reads;
+- Darwin call-root cleanup holds a no-follow descriptor, removes the bound call-owned inode, keeps
+  a raced same-name replacement, and reports incomplete ownership cleanup as terminal;
+- a `--copies` venv executable that shares the approved interpreter's device and inode is rejected
+  before any pip command; and
+- the new regressions preserved the independent RED cases before the receipt-controller suite
+  passed `207` tests and the combined controller/fixture run passed `215` tests.
+
+This remains a pre-acquisition checkpoint rather than Task 1 acceptance. No package acquisition,
+real package environment, canonical receipt, dependency artifact, or durable license evidence
+reference was produced. Step 5 remains partial and unchecked; Steps 6-7 remain open.
