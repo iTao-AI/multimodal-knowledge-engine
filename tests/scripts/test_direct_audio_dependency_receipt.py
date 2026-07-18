@@ -74,6 +74,15 @@ def _write_single_package_lock(
     return lock, constraints
 
 
+def _copy_audio_fixture_root(tmp_path: Path) -> Path:
+    source = Path(__file__).parents[1] / "fixtures" / "audio"
+    target = tmp_path / "audio-fixtures"
+    target.mkdir()
+    for name in ("README.md", "direct-audio.m4a", "direct-audio.mp3", "direct-audio.wav"):
+        (target / name).write_bytes((source / name).read_bytes())
+    return target
+
+
 def test_manifest_keeps_disjoint_wheels_and_reuses_one_universal_entry(
     tmp_path: Path,
 ) -> None:
@@ -278,12 +287,151 @@ transcription = [{ name = "faster-whisper" }, { name = "av" }]
     ]
 
 
+def test_lock_projection_supports_platform_python_implementation_marker(
+    tmp_path: Path,
+) -> None:
+    receipt = _module()
+    digest = "a" * 64
+    lock = tmp_path / "uv.lock"
+    lock.write_text(
+        "version = 1\n"
+        'requires-python = ">=3.12, <3.14"\n'
+        "[[package]]\n"
+        'name = "demo"\n'
+        'version = "1.0"\n'
+        'source = { registry = "https://pypi.org/simple" }\n'
+        'wheels = [{ url = "https://example.invalid/demo-1.0-py3-none-any.whl", '
+        f'hash = "sha256:{digest}", size = 1 }}]\n'
+        "[[package]]\n"
+        'name = "multimodal-knowledge-engine"\n'
+        'version = "0.1.3"\n'
+        'source = { editable = "." }\n'
+        "[package.optional-dependencies]\n"
+        'transcription = [{ name = "demo", '
+        "marker = \"platform_python_implementation == 'CPython'\" }]\n",
+        encoding="utf-8",
+    )
+
+    projection = receipt.derive_transcription_projection(lock, _cells())
+
+    assert [(item.name, item.version) for item in projection.requirements] == [("demo", "1.0")]
+
+
+def test_lock_projection_rejects_unknown_marker_variable_with_closed_error(
+    tmp_path: Path,
+) -> None:
+    receipt = _module()
+    digest = "a" * 64
+    lock = tmp_path / "uv.lock"
+    lock.write_text(
+        "version = 1\n"
+        'requires-python = ">=3.12, <3.14"\n'
+        "[[package]]\n"
+        'name = "demo"\n'
+        'version = "1.0"\n'
+        'source = { registry = "https://pypi.org/simple" }\n'
+        'wheels = [{ url = "https://example.invalid/demo-1.0-py3-none-any.whl", '
+        f'hash = "sha256:{digest}", size = 1 }}]\n'
+        "[[package]]\n"
+        'name = "multimodal-knowledge-engine"\n'
+        'version = "0.1.3"\n'
+        'source = { editable = "." }\n'
+        "[package.optional-dependencies]\n"
+        'transcription = [{ name = "demo", marker = "os_name == \'posix\'" }]\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(receipt.ReceiptError, match="^lock_projection_invalid$"):
+        receipt.derive_transcription_projection(lock, _cells())
+
+
+@pytest.mark.parametrize(
+    "lock_text",
+    [
+        'version = 1\npackage = ["not-a-mapping"]\n',
+        "version = 1\n[[package]]\nname = []\n",
+        (
+            'version = 1\n[[package]]\nname = "multimodal-knowledge-engine"\n'
+            'source = { editable = "." }\n[package.optional-dependencies]\n'
+            'transcription = "not-a-list"\n'
+        ),
+    ],
+)
+def test_malformed_lock_types_have_one_closed_projection_error(
+    tmp_path: Path, lock_text: str
+) -> None:
+    receipt = _module()
+    lock = tmp_path / "uv.lock"
+    lock.write_text(lock_text, encoding="utf-8")
+
+    with pytest.raises(receipt.ReceiptError, match="^lock_projection_invalid$"):
+        receipt.derive_transcription_projection(lock, _cells())
+
+
+def test_lock_wheel_authority_rejects_incompatible_hash_renamed_as_darwin(
+    tmp_path: Path,
+) -> None:
+    receipt = _module()
+    linux_bytes = b"linux-wheel"
+    darwin_bytes = b"darwin-wheel"
+    linux_digest = hashlib.sha256(linux_bytes).hexdigest()
+    darwin_digest = hashlib.sha256(darwin_bytes).hexdigest()
+    lock = tmp_path / "uv.lock"
+    lock.write_text(
+        "version = 1\n"
+        'requires-python = ">=3.12, <3.14"\n'
+        "[[package]]\n"
+        'name = "demo"\n'
+        'version = "1.0"\n'
+        'source = { registry = "https://pypi.org/simple" }\n'
+        "wheels = [\n"
+        '  { url = "https://example.invalid/demo-1.0-cp311-abi3-macosx_11_0_arm64.whl", '
+        f'hash = "sha256:{darwin_digest}", size = {len(darwin_bytes)} }},\n'
+        '  { url = "https://example.invalid/demo-1.0-cp311-abi3-manylinux_2_28_aarch64.whl", '
+        f'hash = "sha256:{linux_digest}", size = {len(linux_bytes)} }},\n'
+        "]\n"
+        "[[package]]\n"
+        'name = "multimodal-knowledge-engine"\n'
+        'version = "0.1.3"\n'
+        'source = { editable = "." }\n'
+        "[package.optional-dependencies]\n"
+        'transcription = [{ name = "demo" }]\n',
+        encoding="utf-8",
+    )
+    constraints = tmp_path / "constraints.txt"
+    constraints.write_bytes(receipt.derive_transcription_projection(lock, _cells()).constraints)
+    wheelhouse = tmp_path / "wheelhouse"
+    wheelhouse.mkdir()
+    _wheel(
+        wheelhouse,
+        "demo-1.0-cp311-abi3-macosx_11_0_arm64.whl",
+        linux_bytes,
+    )
+    fixtures = _copy_audio_fixture_root(tmp_path)
+
+    result = receipt.check_inputs(
+        pythons=(),
+        wheelhouse=wheelhouse,
+        lock_path=lock,
+        constraints=constraints,
+        fixture_root=fixtures,
+    )
+
+    assert "wheel_substituted" in {
+        item["code"] for item in cast(list[dict[str, str]], result["issues"])
+    }
+
+
 def test_lock_projection_and_resolution_are_exact_per_python_cell(tmp_path: Path) -> None:
     receipt = _module()
     lock = tmp_path / "uv.lock"
     digest = "a" * 64
-    wheel = (
-        '{ url = "https://example.invalid/demo-1.0-py3-none-any.whl", '
+    root_wheel = (
+        '{ url = "https://example.invalid/root_demo-1.0-py3-none-any.whl", '
+        f'hash = "sha256:{digest}", size = 1 }}'
+    )
+    only_wheel = (
+        '{ url = "https://example.invalid/only_312-1.0-cp312-cp312-macosx_11_0_arm64.whl", '
         f'hash = "sha256:{digest}", size = 1 }}'
     )
     lock.write_text(
@@ -297,19 +445,21 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
   { name = "only-312", marker = "python_version < '3.13'" },
 ]
-wheels = [WHEEL]
+    wheels = [ROOT_WHEEL]
 [[package]]
 name = "only-312"
 version = "1.0"
 source = { registry = "https://pypi.org/simple" }
-wheels = [WHEEL]
+    wheels = [ONLY_WHEEL]
 [[package]]
 name = "multimodal-knowledge-engine"
 version = "0.1.3"
 source = { editable = "." }
 [package.optional-dependencies]
 transcription = [{ name = "root-demo" }]
-""".strip().replace("WHEEL", wheel)
+    """.strip()
+        .replace("ROOT_WHEEL", root_wheel)
+        .replace("ONLY_WHEEL", only_wheel)
         + "\n",
         encoding="utf-8",
     )
@@ -362,12 +512,13 @@ def test_check_inputs_uses_canonical_per_cell_constraint_authority(tmp_path: Pat
         'requires-python = ">=3.12, <3.14"\n'
         '[[package]]\nname = "root-demo"\nversion = "1.0"\n'
         'source = { registry = "https://pypi.org/simple" }\n'
-        'wheels = [{ url = "https://example.invalid/root.whl", '
-        f'hash = "sha256:{root_digest}", size = 1 }}]\n'
+        'wheels = [{ url = "https://example.invalid/root_demo-1.0-py3-none-any.whl", '
+        f'hash = "sha256:{root_digest}", size = {root.stat().st_size} }}]\n'
         '[[package]]\nname = "only-312"\nversion = "1.0"\n'
         'source = { registry = "https://pypi.org/simple" }\n'
-        'wheels = [{ url = "https://example.invalid/only.whl", '
-        f'hash = "sha256:{only_digest}", size = 1 }}]\n'
+        'wheels = [{ url = "https://example.invalid/'
+        'only_312-1.0-cp312-cp312-macosx_11_0_arm64.whl", '
+        f'hash = "sha256:{only_digest}", size = {only.stat().st_size} }}]\n'
         '[[package]]\nname = "multimodal-knowledge-engine"\nversion = "0.1.3"\n'
         'source = { editable = "." }\n[package.optional-dependencies]\n'
         'transcription = [{ name = "root-demo" }, '
@@ -394,73 +545,109 @@ def test_check_inputs_uses_canonical_per_cell_constraint_authority(tmp_path: Pat
     assert all(item["build"] is None for item in manifest)
 
 
-def test_nested_pip_boundary_uses_exact_argv_and_empty_allowlisted_environment(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def _nested_pip_case(tmp_path: Path) -> dict[str, object]:
     receipt = _module()
-    python = tmp_path / "python"
-    python.write_bytes(b"python")
+    python = tmp_path / "operator-python"
+    python.write_bytes(b"approved-python")
+    python.chmod(0o700)
     wheelhouse = tmp_path / "wheelhouse"
     wheelhouse.mkdir()
-    _wheel(wheelhouse, "demo-1.0-py3-none-any.whl")
+    _wheel(wheelhouse, "demo-1.0-py3-none-any.whl", b"wheel-bytes")
     constraints = tmp_path / "constraints.txt"
     requirements = tmp_path / "requirements.txt"
-    constraints.write_bytes(b"demo==1 --hash=sha256:" + b"a" * 64 + b"\n")
+    constraints.write_bytes(b"demo==1.0 --hash=sha256:" + b"a" * 64 + b"\n")
     requirements.write_bytes(constraints.read_bytes())
     runtime_root = tmp_path / "runtime"
     runtime_root.mkdir()
-    home = runtime_root / "home"
-    temp = runtime_root / "tmp"
-    cwd = runtime_root / "cwd"
-    home.mkdir()
-    temp.mkdir()
-    cwd.mkdir()
-    manifest = receipt.build_wheelhouse_manifest(wheelhouse)
-    captured: dict[str, object] = {}
-    preflight_public = {
+    snapshot = receipt._snapshot_executable(python)  # pyright: ignore[reportPrivateUsage]
+    public = {
         "label": "python-3.12",
         "python_version": "3.12.9",
-        "executable_sha256": hashlib.sha256(python.read_bytes()).hexdigest(),
+        "executable_sha256": snapshot.sha256,
     }
-    preflight_file_identity = (1, 2, 3)
-    probe_calls: list[tuple[Path, object]] = []
+    return {
+        "python": python,
+        "wheelhouse": wheelhouse,
+        "constraints": constraints,
+        "requirements": requirements,
+        "runtime_root": runtime_root,
+        "manifest": receipt.build_wheelhouse_manifest(wheelhouse),
+        "public": public,
+        "identity": snapshot.identity,
+    }
 
-    def intercept(argv: list[str], **kwargs: object) -> SimpleNamespace:
-        captured["argv"] = argv
-        captured.update(kwargs)
-        return SimpleNamespace(returncode=0, stdout=b"", stderr=b"", supervision=None)
 
-    monkeypatch.setattr(receipt, "_run_bounded", intercept)
-    monkeypatch.setattr(
-        receipt,
-        "_probe_target_interpreter",
-        lambda path, cell: (
-            probe_calls.append((path, cell)) or preflight_public,
-            preflight_file_identity,
-            python.resolve(),
-        ),
-    )
-    monkeypatch.setenv("PIP_INDEX_URL", "https://credential.invalid/simple")
-    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.invalid")
-    receipt.run_nested_pip_install(
-        python=python,
-        wheelhouse=wheelhouse,
+def _install_fake_nested_pip_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+    case: dict[str, object],
+    *,
+    venv_alias: bool = False,
+    install_mutation: object | None = None,
+) -> list[dict[str, object]]:
+    receipt = _module()
+    python = cast(Path, case["python"])
+    public = cast(dict[str, object], case["public"])
+    calls: list[dict[str, object]] = []
+
+    def probe(path: Path, _cell: object):
+        snapshot = receipt._snapshot_executable(path)  # pyright: ignore[reportPrivateUsage]
+        return dict(public), snapshot.identity, snapshot.resolved
+
+    def runner(argv: list[str], **kwargs: object):
+        calls.append({"argv": list(argv), **kwargs})
+        if argv[1:5] == ["-I", "-B", "-m", "venv"]:
+            venv = Path(argv[-1])
+            target = venv / "bin" / "python3.12"
+            target.parent.mkdir(parents=True)
+            if venv_alias:
+                target.symlink_to(python)
+            else:
+                target.write_bytes(python.read_bytes())
+                target.chmod(0o700)
+        elif "install" in argv and callable(install_mutation):
+            install_mutation(argv)
+        return receipt.BoundedRunResult(0, b"", b"", None)
+
+    monkeypatch.setattr(receipt, "_probe_target_interpreter", probe)
+    monkeypatch.setattr(receipt, "_run_bounded", runner)
+    return calls
+
+
+def _run_nested_case(case: dict[str, object]) -> dict[str, object]:
+    receipt = _module()
+    constraints = cast(Path, case["constraints"])
+    requirements = cast(Path, case["requirements"])
+    return receipt.run_nested_pip_install(
+        python=cast(Path, case["python"]),
+        wheelhouse=cast(Path, case["wheelhouse"]),
         constraints=constraints,
         root_requirements=requirements,
-        expected_manifest=manifest,
+        expected_manifest=cast(tuple[Any, ...], case["manifest"]),
         constraints_sha256=hashlib.sha256(constraints.read_bytes()).hexdigest(),
         root_requirements_sha256=hashlib.sha256(requirements.read_bytes()).hexdigest(),
-        runtime_root=runtime_root,
-        home=home,
-        temp=temp,
-        cwd=cwd,
+        runtime_root=cast(Path, case["runtime_root"]),
         cell=_cells()[0],
-        preflight_interpreter=preflight_public,
-        preflight_file_identity=preflight_file_identity,
+        preflight_interpreter=cast(dict[str, object], case["public"]),
+        preflight_file_identity=cast(tuple[int, ...], case["identity"]),
     )
 
-    expected = [
-        str(python.resolve()),
+
+def test_nested_pip_uses_exclusive_staging_and_call_owned_venv(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = _nested_pip_case(tmp_path)
+    calls = _install_fake_nested_pip_runtime(monkeypatch, case)
+    monkeypatch.setenv("PIP_INDEX_URL", "https://credential.invalid/simple")
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.invalid")
+
+    result = _run_nested_case(case)
+
+    assert result["cell"] == "3.12"
+    assert result["pip_install"] == "passed"
+    assert result["pip_check"] == "passed"
+    assert result["cleanup"] == "passed"
+    assert result["argv"] == [
+        "call-owned-venv-python",
         "-I",
         "-m",
         "pip",
@@ -470,172 +657,181 @@ def test_nested_pip_boundary_uses_exact_argv_and_empty_allowlisted_environment(
         "install",
         "--no-index",
         "--find-links",
-        wheelhouse.resolve().as_uri(),
+        "call-owned-wheelhouse-uri",
         "--only-binary=:all:",
         "--no-cache-dir",
         "--require-hashes",
         "--constraint",
-        str(constraints.resolve()),
+        "call-owned-constraints",
         "--requirement",
-        str(requirements.resolve()),
+        "call-owned-root-requirements",
     ]
-    assert captured["argv"] == expected
-    assert captured["cwd"] == cwd.resolve()
-    assert captured["env"] == {
-        "HOME": str(home.resolve()),
-        "TMPDIR": str(temp.resolve()),
-        "PIP_CONFIG_FILE": os.devnull,
+    assert result["environment"] == {
+        "HOME": "call-owned-home",
+        "PIP_CONFIG_FILE": "platform-null",
+        "TMPDIR": "call-owned-temp",
     }
-    assert probe_calls == [(python, _cells()[0])]
-    rendered = json.dumps(captured, default=str)
+    assert len(calls) == 3
+    creator = cast(list[str], calls[0]["argv"])
+    assert creator[:5] == [
+        str(cast(Path, case["python"]).resolve()),
+        "-I",
+        "-B",
+        "-m",
+        "venv",
+    ]
+    assert creator[-2] == "--copies"
+    install = cast(list[str], calls[1]["argv"])
+    check = cast(list[str], calls[2]["argv"])
+    runtime_root = cast(Path, case["runtime_root"])
+    call_root = Path(creator[-1]).parent
+    assert call_root.parent == runtime_root.resolve()
+    assert install[0].startswith(str(call_root / "venv" / "bin"))
+    assert install[0] != str(cast(Path, case["python"]).resolve())
+    assert check[-1] == "check"
+    assert check[0] == install[0]
+    assert str(cast(Path, case["wheelhouse"]).resolve()) not in json.dumps(calls, default=str)
+    assert str(cast(Path, case["constraints"]).resolve()) not in json.dumps(calls, default=str)
+    assert list(runtime_root.iterdir()) == []
+    assert cast(Path, case["python"]).read_bytes() == b"approved-python"
+    rendered = json.dumps(calls, default=str)
     for forbidden in ("PIP_INDEX_URL", "HTTPS_PROXY", "credential.invalid", "proxy.invalid"):
         assert forbidden not in rendered
-    profile = cast(Any, captured["profile"])
-    assert profile.wall_seconds == 300.0
-    assert profile.stdout_bytes == 64 * 1024
-    assert profile.stderr_bytes == 64 * 1024
 
 
-def test_nested_pip_uses_probe_bound_target_after_declared_alias_retarget(
+def test_nested_pip_rejects_venv_alias_to_operator_interpreter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = _nested_pip_case(tmp_path)
+    calls = _install_fake_nested_pip_runtime(monkeypatch, case, venv_alias=True)
+
+    with pytest.raises(_module().ReceiptError, match="^pip_venv_invalid$"):
+        _run_nested_case(case)
+
+    assert len(calls) == 1
+    assert list(cast(Path, case["runtime_root"]).iterdir()) == []
+    assert cast(Path, case["python"]).read_bytes() == b"approved-python"
+
+
+def test_nested_pip_rejects_venv_retarget_after_install(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = _nested_pip_case(tmp_path)
+
+    def retarget_venv(argv: list[str]) -> None:
+        executable = Path(argv[0])
+        value = executable.read_bytes()
+        executable.unlink()
+        executable.write_bytes(value)
+        executable.chmod(0o700)
+
+    _install_fake_nested_pip_runtime(monkeypatch, case, install_mutation=retarget_venv)
+
+    with pytest.raises(_module().ReceiptError, match="^pip_venv_identity_drift$"):
+        _run_nested_case(case)
+
+    assert list(cast(Path, case["runtime_root"]).iterdir()) == []
+    assert cast(Path, case["python"]).read_bytes() == b"approved-python"
+
+
+@pytest.mark.parametrize("mutation", ["replacement", "same_size_digest_drift"])
+def test_nested_pip_rejects_source_replacement_before_execution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: str,
+) -> None:
+    receipt = _module()
+    case = _nested_pip_case(tmp_path)
+    calls = _install_fake_nested_pip_runtime(monkeypatch, case)
+    original_write = getattr(receipt, "_write_exclusive_file", None)
+    writes = 0
+
+    def drifting_write(path: Path, value: bytes) -> None:
+        nonlocal writes
+        writes += 1
+        if original_write is not None:
+            original_write(path, value)
+        if writes == 1:
+            source = cast(Path, case["constraints"])
+            if mutation == "replacement":
+                source.unlink()
+                source.write_bytes(b"replaced")
+            else:
+                source.write_bytes(b"x" * len(source.read_bytes()))
+
+    monkeypatch.setattr(receipt, "_write_exclusive_file", drifting_write, raising=False)
+
+    with pytest.raises(receipt.ReceiptError, match="^pip_input_identity_drift$"):
+        _run_nested_case(case)
+
+    assert calls == []
+    assert list(cast(Path, case["runtime_root"]).iterdir()) == []
+
+
+def test_nested_pip_rejects_source_post_run_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = _nested_pip_case(tmp_path)
+
+    def mutate_source(_argv: list[str]) -> None:
+        source = cast(Path, case["requirements"])
+        source.write_bytes(b"x" * len(source.read_bytes()))
+
+    _install_fake_nested_pip_runtime(monkeypatch, case, install_mutation=mutate_source)
+
+    with pytest.raises(_module().ReceiptError, match="^pip_input_identity_drift$"):
+        _run_nested_case(case)
+
+    assert list(cast(Path, case["runtime_root"]).iterdir()) == []
+
+
+@pytest.mark.parametrize("mutation", ["replacement", "symlink", "extra", "missing"])
+def test_nested_pip_rejects_staging_inventory_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: str,
+) -> None:
+    case = _nested_pip_case(tmp_path)
+
+    def mutate_stage(argv: list[str]) -> None:
+        uri = argv[argv.index("--find-links") + 1]
+        staged_wheelhouse = Path(uri.removeprefix("file://"))
+        wheel = staged_wheelhouse / "demo-1.0-py3-none-any.whl"
+        if mutation == "replacement":
+            wheel.unlink()
+            wheel.write_bytes(b"other-bytes")
+        elif mutation == "symlink":
+            wheel.unlink()
+            wheel.symlink_to(cast(Path, case["wheelhouse"]) / wheel.name)
+        elif mutation == "extra":
+            (staged_wheelhouse / "extra-1.0-py3-none-any.whl").write_bytes(b"extra")
+        else:
+            wheel.unlink()
+
+    _install_fake_nested_pip_runtime(monkeypatch, case, install_mutation=mutate_stage)
+
+    with pytest.raises(_module().ReceiptError, match="^pip_staging_identity_drift$"):
+        _run_nested_case(case)
+
+    assert list(cast(Path, case["runtime_root"]).iterdir()) == []
+
+
+def test_nested_pip_cleanup_failure_is_terminal_and_preserves_operator_python(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     receipt = _module()
-    first = tmp_path / "python-first"
-    second = tmp_path / "python-second"
-    first.write_bytes(b"first")
-    second.write_bytes(b"second")
-    first.chmod(0o700)
-    second.chmod(0o700)
-    python = tmp_path / "python"
-    python.symlink_to(first)
-    wheelhouse = tmp_path / "wheelhouse"
-    wheelhouse.mkdir()
-    _wheel(wheelhouse, "demo-1.0-py3-none-any.whl")
-    constraints = tmp_path / "constraints.txt"
-    constraints.write_bytes(b"demo==1 --hash=sha256:" + b"a" * 64 + b"\n")
-    runtime_root = tmp_path / "runtime"
-    runtime_root.mkdir()
-    home = runtime_root / "home"
-    temp = runtime_root / "tmp"
-    cwd = runtime_root / "cwd"
-    home.mkdir()
-    temp.mkdir()
-    cwd.mkdir()
-    manifest = receipt.build_wheelhouse_manifest(wheelhouse)
-    public = {"label": "python-3.12", "executable_sha256": "a" * 64}
-    identity = (1, 2, 3)
-    captured: dict[str, object] = {}
+    case = _nested_pip_case(tmp_path)
+    _install_fake_nested_pip_runtime(monkeypatch, case)
 
-    def probe(_path: Path, _cell: object):
-        python.unlink()
-        python.symlink_to(second)
-        return public, identity, first.resolve()
+    def fail_cleanup(_path: Path, _identity: tuple[int, ...]) -> None:
+        raise receipt.ReceiptError("pip_cleanup_failed")
 
-    def intercept(argv: list[str], **_kwargs: object) -> SimpleNamespace:
-        captured["argv"] = argv
-        return SimpleNamespace(returncode=0, stdout=b"", stderr=b"", supervision=None)
+    monkeypatch.setattr(receipt, "_cleanup_owned_tree", fail_cleanup, raising=False)
 
-    monkeypatch.setattr(receipt, "_probe_target_interpreter", probe)
-    monkeypatch.setattr(receipt, "_run_bounded", intercept)
+    with pytest.raises(receipt.ReceiptError, match="^pip_cleanup_failed$"):
+        _run_nested_case(case)
 
-    receipt.run_nested_pip_install(
-        python=python,
-        wheelhouse=wheelhouse,
-        constraints=constraints,
-        root_requirements=constraints,
-        expected_manifest=manifest,
-        constraints_sha256=hashlib.sha256(constraints.read_bytes()).hexdigest(),
-        root_requirements_sha256=hashlib.sha256(constraints.read_bytes()).hexdigest(),
-        runtime_root=runtime_root,
-        home=home,
-        temp=temp,
-        cwd=cwd,
-        cell=_cells()[0],
-        preflight_interpreter=public,
-        preflight_file_identity=identity,
-    )
-
-    argv = cast(list[str], captured["argv"])
-    assert argv[0] == str(first.resolve())
-    assert argv[0] != str(python)
-
-
-def test_nested_pip_rejects_symlink_wheelhouse_and_non_call_owned_cwd(
-    tmp_path: Path,
-) -> None:
-    receipt = _module()
-    python = _wheel(tmp_path, "python")
-    real_wheelhouse = tmp_path / "real-wheelhouse"
-    real_wheelhouse.mkdir()
-    _wheel(real_wheelhouse, "demo-1.0-py3-none-any.whl")
-    wheelhouse = tmp_path / "wheelhouse"
-    wheelhouse.symlink_to(real_wheelhouse, target_is_directory=True)
-    constraints = tmp_path / "constraints.txt"
-    constraints.write_bytes(b"demo==1.0 --hash=sha256:" + b"a" * 64 + b"\n")
-    runtime_root = tmp_path / "runtime"
-    runtime_root.mkdir()
-    home = runtime_root / "home"
-    temp = runtime_root / "tmp"
-    home.mkdir()
-    temp.mkdir()
-    outside_cwd = tmp_path / "outside-cwd"
-    outside_cwd.mkdir()
-
-    with pytest.raises(receipt.ReceiptError, match="wheel_input_invalid"):
-        receipt.run_nested_pip_install(
-            python=python,
-            wheelhouse=wheelhouse,
-            constraints=constraints,
-            root_requirements=constraints,
-            expected_manifest=receipt.build_wheelhouse_manifest(real_wheelhouse),
-            constraints_sha256=hashlib.sha256(constraints.read_bytes()).hexdigest(),
-            root_requirements_sha256=hashlib.sha256(constraints.read_bytes()).hexdigest(),
-            runtime_root=runtime_root,
-            home=home,
-            temp=temp,
-            cwd=outside_cwd,
-            cell=_cells()[0],
-            preflight_interpreter={},
-            preflight_file_identity=(),
-        )
-
-    with pytest.raises(receipt.ReceiptError, match="runtime_path_invalid"):
-        receipt.run_nested_pip_install(
-            python=python,
-            wheelhouse=real_wheelhouse,
-            constraints=constraints,
-            root_requirements=constraints,
-            expected_manifest=receipt.build_wheelhouse_manifest(real_wheelhouse),
-            constraints_sha256=hashlib.sha256(constraints.read_bytes()).hexdigest(),
-            root_requirements_sha256=hashlib.sha256(constraints.read_bytes()).hexdigest(),
-            runtime_root=runtime_root,
-            home=home,
-            temp=temp,
-            cwd=outside_cwd,
-            cell=_cells()[0],
-            preflight_interpreter={},
-            preflight_file_identity=(),
-        )
-
-    owned_cwd = runtime_root / "cwd"
-    owned_cwd.mkdir()
-    with pytest.raises(receipt.ReceiptError, match="pip_input_identity_drift"):
-        receipt.run_nested_pip_install(
-            python=python,
-            wheelhouse=real_wheelhouse,
-            constraints=constraints,
-            root_requirements=constraints,
-            expected_manifest=receipt.build_wheelhouse_manifest(real_wheelhouse),
-            constraints_sha256="0" * 64,
-            root_requirements_sha256=hashlib.sha256(constraints.read_bytes()).hexdigest(),
-            runtime_root=runtime_root,
-            home=home,
-            temp=temp,
-            cwd=owned_cwd,
-            cell=_cells()[0],
-            preflight_interpreter={},
-            preflight_file_identity=(),
-        )
+    assert cast(Path, case["python"]).read_bytes() == b"approved-python"
 
 
 def test_check_inputs_is_closed_sorted_public_safe_and_does_not_write(
@@ -709,6 +905,108 @@ def test_check_inputs_is_closed_sorted_public_safe_and_does_not_write(
         "timestamp",
     ):
         assert forbidden not in rendered
+
+
+def test_check_inputs_binds_exact_readme_and_binary_fixture_inventory(tmp_path: Path) -> None:
+    receipt = _module()
+    fixtures = _copy_audio_fixture_root(tmp_path)
+    wheelhouse = tmp_path / "wheelhouse"
+    wheelhouse.mkdir()
+
+    result = receipt.check_inputs(
+        pythons=(),
+        wheelhouse=wheelhouse,
+        lock_path=tmp_path / "missing.lock",
+        constraints=tmp_path / "missing-constraints.txt",
+        fixture_root=fixtures,
+    )
+
+    inventory = cast(list[dict[str, object]], result["fixtures"])
+    assert [item["filename"] for item in inventory] == [
+        "README.md",
+        "direct-audio.m4a",
+        "direct-audio.mp3",
+        "direct-audio.wav",
+    ]
+    readme = inventory[0]
+    assert readme["bytes"] == 7256
+    assert readme["sha256"] == _FIXTURE_AUTHORITY_DOCUMENT_SHA256
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_code"),
+    [
+        ("missing_readme", "fixture_inventory_invalid"),
+        ("readme_symlink", "fixture_inventory_invalid"),
+        ("extra", "fixture_inventory_invalid"),
+        ("same_size_replacement", "fixture_identity_invalid"),
+        ("root_symlink", "fixture_inventory_invalid"),
+    ],
+)
+def test_check_inputs_fixture_root_mutations_fail_closed(
+    tmp_path: Path, mutation: str, expected_code: str
+) -> None:
+    receipt = _module()
+    fixtures = _copy_audio_fixture_root(tmp_path)
+    fixture_argument = fixtures
+    if mutation == "missing_readme":
+        (fixtures / "README.md").unlink()
+    elif mutation == "readme_symlink":
+        readme = fixtures / "README.md"
+        value = readme.read_bytes()
+        readme.unlink()
+        outside = tmp_path / "outside-readme"
+        outside.write_bytes(value)
+        readme.symlink_to(outside)
+    elif mutation == "extra":
+        (fixtures / "unexpected.txt").write_text("unexpected", encoding="utf-8")
+    elif mutation == "same_size_replacement":
+        fixture = fixtures / "direct-audio.mp3"
+        fixture.write_bytes(b"x" * fixture.stat().st_size)
+    else:
+        alias = tmp_path / "fixture-alias"
+        alias.symlink_to(fixtures, target_is_directory=True)
+        fixture_argument = alias
+    wheelhouse = tmp_path / "wheelhouse"
+    wheelhouse.mkdir()
+
+    result = receipt.check_inputs(
+        pythons=(),
+        wheelhouse=wheelhouse,
+        lock_path=tmp_path / "missing.lock",
+        constraints=tmp_path / "missing-constraints.txt",
+        fixture_root=fixture_argument,
+    )
+
+    assert expected_code in {item["code"] for item in cast(list[dict[str, str]], result["issues"])}
+
+
+def test_fixture_root_replacement_during_descriptor_reads_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    receipt = _module()
+    fixtures = _copy_audio_fixture_root(tmp_path)
+    replacement = tmp_path / "replacement-fixtures"
+    replacement.mkdir()
+    for entry in fixtures.iterdir():
+        (replacement / entry.name).write_bytes(entry.read_bytes())
+    displaced = tmp_path / "displaced-fixtures"
+    original_read = receipt._read_regular
+    replaced = False
+
+    def replacing_read(path: Path) -> bytes:
+        nonlocal replaced
+        value = original_read(path)
+        if path.parent == fixtures and path.name == "README.md" and not replaced:
+            fixtures.rename(displaced)
+            replacement.rename(fixtures)
+            replaced = True
+        return value
+
+    monkeypatch.setattr(receipt, "_read_regular", replacing_read)
+
+    with pytest.raises(receipt.ReceiptError, match="^fixture_identity_invalid$"):
+        receipt.build_fixture_manifest(fixtures)
 
 
 def test_check_inputs_fails_closed_when_controller_executable_is_not_executable(
@@ -837,11 +1135,11 @@ def test_check_inputs_accumulates_all_missing_cells_and_distributions(
         'requires-python = ">=3.12, <3.14"\n'
         '[[package]]\nname = "first"\nversion = "1.0"\n'
         'source = { registry = "https://pypi.org/simple" }\n'
-        'wheels = [{ url = "https://example.invalid/first.whl", '
+        'wheels = [{ url = "https://example.invalid/first-1.0-py3-none-any.whl", '
         f'hash = "sha256:{first_digest}", size = 1 }}]\n'
         '[[package]]\nname = "second"\nversion = "2.0"\n'
         'source = { registry = "https://pypi.org/simple" }\n'
-        'wheels = [{ url = "https://example.invalid/second.whl", '
+        'wheels = [{ url = "https://example.invalid/second-2.0-py3-none-any.whl", '
         f'hash = "sha256:{second_digest}", size = 1 }}]\n'
         '[[package]]\nname = "multimodal-knowledge-engine"\nversion = "0.1.3"\n'
         'source = { editable = "." }\n[package.optional-dependencies]\n'
@@ -885,11 +1183,11 @@ def test_missing_declared_paths_still_emit_full_lock_derived_matrix(
         'requires-python = ">=3.12, <3.14"\n'
         '[[package]]\nname = "first"\nversion = "1.0"\n'
         'source = { registry = "https://pypi.org/simple" }\n'
-        'wheels = [{ url = "https://example.invalid/first.whl", '
+        'wheels = [{ url = "https://example.invalid/first-1.0-py3-none-any.whl", '
         f'hash = "sha256:{first_digest}", size = 1 }}]\n'
         '[[package]]\nname = "second"\nversion = "2.0"\n'
         'source = { registry = "https://pypi.org/simple" }\n'
-        'wheels = [{ url = "https://example.invalid/second.whl", '
+        'wheels = [{ url = "https://example.invalid/second-2.0-py3-none-any.whl", '
         f'hash = "sha256:{second_digest}", size = 1 }}]\n'
         '[[package]]\nname = "multimodal-knowledge-engine"\nversion = "0.1.3"\n'
         'source = { editable = "." }\n[package.optional-dependencies]\n'
@@ -1613,6 +1911,18 @@ def test_cleanup_waits_for_leader_exited_cooperative_descendant_before_sigkill(
     assert cleanup["process_group_absent"] is True
 
 
+def test_bounded_runner_maps_missing_executable_to_closed_receipt_error() -> None:
+    receipt = _module()
+
+    with pytest.raises(receipt.ReceiptError, match="^bounded_supervision_failed$"):
+        receipt._run_bounded(  # pyright: ignore[reportPrivateUsage]
+            ["definitely-missing-receipt-executable"],
+            env={},
+            cwd=None,
+            profile=receipt.BoundedProfile(1.0, 32, 32),
+        )
+
+
 def test_signal_failure_retries_cleanup_and_preserves_supervision_receipt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1846,7 +2156,7 @@ def test_real_darwin_controlled_allocator_proves_footprint_and_cleanup() -> None
     source = (
         "import time;chunks=[];"
         "exec(\"for _ in range(10):\\n chunks.append(bytearray(b'x'*(4*1024*1024)))\\n"
-        " time.sleep(0.05)\\nwhile True:\\n time.sleep(1)\")"
+        ' time.sleep(0.05)\\nwhile True:\\n time.sleep(1)")'
     )
 
     result = receipt._run_bounded(  # pyright: ignore[reportPrivateUsage]
@@ -1974,20 +2284,6 @@ def _canonical_digest(value: object) -> str:
     ).hexdigest()
 
 
-def _generation_preflight_digest(evidence: dict[str, object]) -> str:
-    projection = {
-        "fixtures": sorted(
-            cast(list[dict[str, object]], evidence["fixtures"]),
-            key=lambda item: cast(str, item["filename"]),
-        ),
-        "wheel_inventory": sorted(
-            cast(list[dict[str, object]], evidence["wheel_inventory"]),
-            key=lambda item: cast(str, item["filename"]),
-        ),
-    }
-    return _canonical_digest(projection)
-
-
 def _refresh_preflight_digest(payload: dict[str, object]) -> None:
     observed = {
         key: value
@@ -1997,9 +2293,57 @@ def _refresh_preflight_digest(payload: dict[str, object]) -> None:
     payload["observed_digest"] = _canonical_digest(observed)
 
 
+def _refresh_receipt_digest(evidence: dict[str, object]) -> None:
+    evidence["receipt_sha256"] = _canonical_digest(
+        {key: value for key, value in evidence.items() if key != "receipt_sha256"}
+    )
+
+
+def _interpreter_rows() -> list[dict[str, object]]:
+    return [
+        {
+            "label": f"python-{version}",
+            "implementation": "cpython",
+            "python_version": f"{version}.9",
+            "system": "Darwin",
+            "machine": "arm64",
+            "sysconfig_platform": "macosx-15.0-arm64",
+            "soabi": f"cpython-{version.replace('.', '')}-darwin",
+            "ext_suffix": f".cpython-{version.replace('.', '')}-darwin.so",
+            "cache_tag": f"cpython-{version.replace('.', '')}",
+            "abiflags": "",
+            "pointer_bits": 64,
+            "byteorder": "little",
+            "executable_sha256": character * 64,
+        }
+        for version, character in (("3.12", "6"), ("3.13", "7"))
+    ]
+
+
+def _wheel_manifest_digest(wheels: list[dict[str, object]]) -> str:
+    return _canonical_digest(
+        [
+            {
+                "filename": item["filename"],
+                "distribution": item["distribution"],
+                "version": item["version"],
+                "build": item["build"],
+                "python_tags": item["python_tags"],
+                "abi_tags": item["abi_tags"],
+                "platform_tags": item["platform_tags"],
+                "bytes": item["bytes"],
+                "sha256": item["sha256"],
+            }
+            for item in wheels
+        ]
+    )
+
+
 def _complete_preflight_payload(evidence: dict[str, object]) -> dict[str, object]:
     wheel_rows = cast(list[dict[str, object]], evidence["wheel_inventory"])
     fixture_rows = cast(list[dict[str, object]], evidence["fixtures"])
+    installed_rows = cast(list[dict[str, object]], evidence["installed_distributions"])
+    wheel_by_filename = {item["filename"]: item for item in wheel_rows}
     digest = "9" * 64
     payload: dict[str, object] = {
         "schema": "mke.direct_audio_dependency_input_check.v1",
@@ -2017,46 +2361,33 @@ def _complete_preflight_payload(evidence: dict[str, object]) -> dict[str, object
             "executable_mode": "0755",
             "executable_sha256": digest,
         },
-        "script": {"sha256": "8" * 64},
-        "interpreters": [
-            {
-                "label": f"python-{version}",
-                "implementation": "cpython",
-                "python_version": f"{version}.9",
-                "system": "Darwin",
-                "machine": "arm64",
-                "sysconfig_platform": "macosx-15.0-arm64",
-                "soabi": f"cpython-{version.replace('.', '')}-darwin",
-                "ext_suffix": f".cpython-{version.replace('.', '')}-darwin.so",
-                "cache_tag": f"cpython-{version.replace('.', '')}",
-                "abiflags": "",
-                "pointer_bits": 64,
-                "byteorder": "little",
-                "executable_sha256": character * 64,
-            }
-            for version, character in (("3.12", "6"), ("3.13", "7"))
-        ],
+        "script": {"sha256": evidence["script_sha256"]},
+        "interpreters": _interpreter_rows(),
         "lock_sha256": "5" * 64,
         "constraints_sha256": "4" * 64,
-        "wheelhouse": [
+        "root_requirements_sha256": "3" * 64,
+        "wheelhouse": [dict(item) for item in wheel_rows],
+        "wheel_resolution": [
             {
-                **item,
-                "bytes": index + 100,
-                "build": None,
-                "python_tags": ["cp312" if index == 0 else "cp313"],
-                "abi_tags": ["cp312" if index == 0 else "cp313"],
-                "platform_tags": ["macosx_11_0_arm64"],
+                "cell": item["cell"],
+                "distribution": item["distribution"],
+                "version": item["version"],
+                "filename": item["source_wheel_filename"],
+                "sha256": wheel_by_filename[item["source_wheel_filename"]]["sha256"],
             }
-            for index, item in enumerate(wheel_rows)
+            for item in installed_rows
         ],
         "fixtures": [
-            {
-                "filename": item["filename"],
-                "bytes": item["bytes"],
-                "sha256": item["sha256"],
-                "artifact_scope": item["artifact_scope"],
-            }
-            for item in fixture_rows
+            dict(cast(dict[str, object], evidence["fixture_authority_document"])),
+            *[
+                {
+                    "filename": item["filename"],
+                    "bytes": item["bytes"],
+                    "sha256": item["sha256"],
+                    "artifact_scope": item["artifact_scope"],
+                }
+                for item in fixture_rows
+            ],
         ],
         "issues": [],
         "observed_digest": "",
@@ -2065,57 +2396,217 @@ def _complete_preflight_payload(evidence: dict[str, object]) -> dict[str, object
     return payload
 
 
-def _complete_generation_bundle() -> tuple[
-    dict[str, object], dict[str, object], dict[str, object]
-]:
+def _complete_generation_bundle() -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
     evidence = _complete_generation_evidence()
     preflight = _complete_preflight_payload(evidence)
     generation_preflight = _complete_preflight_payload(evidence)
     evidence["preflight_observed_digest"] = preflight["observed_digest"]
     evidence["generation_preflight_observed_digest"] = generation_preflight["observed_digest"]
+    _refresh_receipt_digest(evidence)
     return evidence, preflight, generation_preflight
 
 
 def _complete_generation_evidence() -> dict[str, object]:
+    script = Path(__file__).parents[2] / "scripts" / "direct_audio_dependency_receipt.py"
+    script_sha256 = hashlib.sha256(script.read_bytes()).hexdigest()
+    wheels: list[dict[str, object]] = [
+        {
+            "filename": "av-17.0-cp312-cp312-macosx_11_0_arm64.whl",
+            "distribution": "av",
+            "version": "17.0",
+            "build": None,
+            "python_tags": ["cp312"],
+            "abi_tags": ["cp312"],
+            "platform_tags": ["macosx_11_0_arm64"],
+            "bytes": 101,
+            "sha256": "a" * 64,
+            "artifact_scope": "local_runtime_only",
+        },
+        {
+            "filename": "av-17.0-cp313-cp313-macosx_11_0_arm64.whl",
+            "distribution": "av",
+            "version": "17.0",
+            "build": None,
+            "python_tags": ["cp313"],
+            "abi_tags": ["cp313"],
+            "platform_tags": ["macosx_11_0_arm64"],
+            "bytes": 102,
+            "sha256": "c" * 64,
+            "artifact_scope": "local_runtime_only",
+        },
+        {
+            "filename": "faster_whisper-1.2.1-py3-none-any.whl",
+            "distribution": "faster-whisper",
+            "version": "1.2.1",
+            "build": None,
+            "python_tags": ["py3"],
+            "abi_tags": ["none"],
+            "platform_tags": ["any"],
+            "bytes": 103,
+            "sha256": "d" * 64,
+            "artifact_scope": "local_runtime_only",
+        },
+        {
+            "filename": "huggingface_hub-1.0-py3-none-any.whl",
+            "distribution": "huggingface-hub",
+            "version": "1.0",
+            "build": None,
+            "python_tags": ["py3"],
+            "abi_tags": ["none"],
+            "platform_tags": ["any"],
+            "bytes": 104,
+            "sha256": "e" * 64,
+            "artifact_scope": "local_runtime_only",
+        },
+    ]
+    wheels_by_name = {cast(str, item["filename"]): item for item in wheels}
+    installed: list[dict[str, object]] = []
+    for cell in ("3.12", "3.13"):
+        filenames = (
+            (
+                "av-17.0-cp312-cp312-macosx_11_0_arm64.whl"
+                if cell == "3.12"
+                else "av-17.0-cp313-cp313-macosx_11_0_arm64.whl"
+            ),
+            "faster_whisper-1.2.1-py3-none-any.whl",
+            "huggingface_hub-1.0-py3-none-any.whl",
+        )
+        for filename in filenames:
+            wheel = wheels_by_name[filename]
+            installed.append(
+                {
+                    "distribution": wheel["distribution"],
+                    "version": wheel["version"],
+                    "source_wheel_filename": filename,
+                    "source_wheel_sha256": wheel["sha256"],
+                    "cell": cell,
+                    "artifact_scope": "local_runtime_only",
+                }
+            )
+    interpreters = {item["label"]: item for item in _interpreter_rows()}
+    manifest_sha256 = _wheel_manifest_digest(wheels)
+    pip_authority = {
+        "argv": [
+            "call-owned-venv-python",
+            "-I",
+            "-m",
+            "pip",
+            "--isolated",
+            "--disable-pip-version-check",
+            "--no-input",
+            "install",
+            "--no-index",
+            "--find-links",
+            "call-owned-wheelhouse-uri",
+            "--only-binary=:all:",
+            "--no-cache-dir",
+            "--require-hashes",
+            "--constraint",
+            "call-owned-constraints",
+            "--requirement",
+            "call-owned-root-requirements",
+        ],
+        "environment": {
+            "HOME": "call-owned-home",
+            "PIP_CONFIG_FILE": "platform-null",
+            "TMPDIR": "call-owned-temp",
+        },
+        "pip_install": "passed",
+        "pip_check": "passed",
+        "cleanup": "passed",
+        "staging": {
+            "constraints_sha256": "4" * 64,
+            "root_requirements_sha256": "3" * 64,
+            "wheelhouse_manifest_sha256": manifest_sha256,
+        },
+    }
+    cells = []
+    for cell in ("3.12", "3.13"):
+        cell_installed = [dict(item) for item in installed if item["cell"] == cell]
+        cells.append(
+            {
+                "cell": cell,
+                "interpreter": dict(interpreters[f"python-{cell}"]),
+                "pip": json.loads(json.dumps(pip_authority)),
+                "installed_distributions": cell_installed,
+                "imports": [
+                    {
+                        "distribution": distribution,
+                        "module": module,
+                        "status": "passed",
+                        "version": version,
+                        "evidence_sha256": (
+                            wheels_by_name[
+                                "av-17.0-cp312-cp312-macosx_11_0_arm64.whl"
+                                if cell == "3.12"
+                                else "av-17.0-cp313-cp313-macosx_11_0_arm64.whl"
+                            ]["sha256"]
+                            if distribution == "av"
+                            else digest
+                        ),
+                    }
+                    for distribution, module, version, digest in (
+                        ("av", "av", "17.0", "a" * 64),
+                        ("faster-whisper", "faster_whisper", "1.2.1", "d" * 64),
+                        ("huggingface-hub", "huggingface_hub", "1.0", "e" * 64),
+                    )
+                ],
+                "fixture_decodes": [
+                    {
+                        "filename": name,
+                        "sha256": fixture_sha256,
+                        "decoder": "pyav",
+                        "status": "passed",
+                        "stream_count": 1,
+                    }
+                    for name, (_, fixture_sha256, _) in _FIXTURE_IDENTITIES.items()
+                ],
+            }
+        )
     digest = "a" * 64
-    digest_313 = "c" * 64
     evidence: dict[str, object] = {
+        "receipt_sha256": "",
+        "script_sha256": script_sha256,
         "preflight_observed_digest": "",
         "generation_preflight_observed_digest": "",
         "external_binary_redistribution": "not_performed",
         "redistribution_authority": "not_claimed",
-        "wheel_inventory": [
-            {
-                "filename": "av-17.0-cp312.whl",
-                "distribution": "av",
-                "version": "17.0",
-                "sha256": digest,
-                "artifact_scope": "local_runtime_only",
+        "wheel_inventory": wheels,
+        "installed_distributions": installed,
+        "cells": cells,
+        "darwin_supervisor": {
+            "api": "proc_pid_rusage",
+            "api_version": "RUSAGE_INFO_V4",
+            "tool": "stdlib-ctypes",
+            "metric": "ri_phys_footprint",
+            "leader_scope": "process_group_leader",
+            "leader_identity_binding": "pid+ri_proc_start_abstime",
+            "descendants_scope": "ordinary_cooperative_descendants",
+            "budget_mode": "baseline_plus",
+            "baseline_bytes": 1_000_000,
+            "budget_bytes": 2_000_000,
+            "poll_seconds": 0.01,
+            "controlled_allocator": "stdlib-bytearray-growth",
+            "observed_max_bytes": 2_100_000,
+            "overshoot_bytes": 100_000,
+            "budget_outcome": "exceeded_terminated",
+            "transient_overshoot_possible": True,
+            "cleanup": {
+                "sigterm_sent": True,
+                "sigkill_sent": False,
+                "waited": True,
+                "process_group_absent": True,
             },
-            {
-                "filename": "av-17.0-cp313.whl",
-                "distribution": "av",
-                "version": "17.0",
-                "sha256": digest_313,
-                "artifact_scope": "local_runtime_only",
+            "hard_kernel_enforced": False,
+            "bounds": {
+                "wall_seconds": 5.0,
+                "stdout_bytes": 4096,
+                "stderr_bytes": 4096,
+                "input_bytes": 0,
+                "temp_bytes": 0,
+                "output_bytes": 4096,
             },
-        ],
-        "installed_distributions": [
-            {
-                "distribution": "av",
-                "version": "17.0",
-                "source_wheel_sha256": digest,
-                "cell": "3.12",
-                "artifact_scope": "local_runtime_only",
-            },
-            {
-                "distribution": "av",
-                "version": "17.0",
-                "source_wheel_sha256": digest_313,
-                "cell": "3.13",
-                "artifact_scope": "local_runtime_only",
-            },
-        ],
+        },
         "pyav": {
             "distribution": "av",
             "version": "17.0",
@@ -2145,6 +2636,12 @@ def _complete_generation_evidence() -> dict[str, object]:
                 "local_use_restriction": "none_observed",
             }
         ],
+        "fixture_authority_document": {
+            "filename": "README.md",
+            "bytes": 7_256,
+            "sha256": _FIXTURE_AUTHORITY_DOCUMENT_SHA256,
+            "artifact_scope": "repository_distributed",
+        },
         "fixtures": [
             {
                 "filename": name,
@@ -2177,9 +2674,7 @@ def _complete_generation_evidence() -> dict[str, object]:
             }
         ],
     }
-    preflight_digest = _generation_preflight_digest(evidence)
-    evidence["preflight_observed_digest"] = preflight_digest
-    evidence["generation_preflight_observed_digest"] = preflight_digest
+    _refresh_receipt_digest(evidence)
     return evidence
 
 
@@ -2206,6 +2701,169 @@ def test_local_optional_use_allows_recorded_unresolved_transitive_items() -> Non
         "redistribution_authority": "not_claimed",
         "status": "passed",
     }
+
+
+def test_positive_generation_wheels_match_the_production_filename_parser() -> None:
+    receipt = _module()
+    wheels = cast(list[dict[str, object]], _complete_generation_evidence()["wheel_inventory"])
+
+    for wheel in wheels:
+        assert receipt._parse_wheel_filename(cast(str, wheel["filename"])) == (
+            wheel["distribution"],
+            wheel["version"],
+            wheel["build"],
+            tuple(cast(list[str], wheel["python_tags"])),
+            tuple(cast(list[str], wheel["abi_tags"])),
+            tuple(cast(list[str], wheel["platform_tags"])),
+        )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "cell_version_abi_mismatch",
+        "duplicate_interpreter_digest",
+        "wrong_sysconfig_platform",
+        "arbitrary_script_sha",
+        "invalid_wheel_filename_and_tags",
+    ],
+)
+def test_generation_rejects_semantically_forged_runtime_authority(mutation: str) -> None:
+    receipt = _module()
+    evidence, preflight, generation_preflight = _complete_generation_bundle()
+    preflights = (preflight, generation_preflight)
+    if mutation == "cell_version_abi_mismatch":
+        for payload in preflights:
+            interpreter = cast(list[dict[str, object]], payload["interpreters"])[0]
+            interpreter["python_version"] = "3.13.9"
+            interpreter["soabi"] = "cpython-313-darwin"
+            interpreter["ext_suffix"] = ".cpython-313-darwin.so"
+            interpreter["cache_tag"] = "cpython-313"
+    elif mutation == "duplicate_interpreter_digest":
+        for payload in preflights:
+            interpreters = cast(list[dict[str, object]], payload["interpreters"])
+            interpreters[1]["executable_sha256"] = interpreters[0]["executable_sha256"]
+    elif mutation == "wrong_sysconfig_platform":
+        for payload in preflights:
+            cast(list[dict[str, object]], payload["interpreters"])[0]["sysconfig_platform"] = (
+                "linux-aarch64"
+            )
+    elif mutation == "arbitrary_script_sha":
+        for payload in preflights:
+            cast(dict[str, object], payload["script"])["sha256"] = "f" * 64
+        evidence["script_sha256"] = "f" * 64
+    else:
+        original_filename = "av-17.0-cp312-cp312-macosx_11_0_arm64.whl"
+        invalid_filename = "av-17.0-invalid.whl"
+        for payload in preflights:
+            wheel = cast(list[dict[str, object]], payload["wheelhouse"])[0]
+            wheel["filename"] = invalid_filename
+            wheel["python_tags"] = ["invalid"]
+            wheel["abi_tags"] = ["invalid"]
+            for resolution in cast(list[dict[str, object]], payload["wheel_resolution"]):
+                if resolution["filename"] == original_filename:
+                    resolution["filename"] = invalid_filename
+        evidence_wheel = cast(list[dict[str, object]], evidence["wheel_inventory"])[0]
+        evidence_wheel["filename"] = invalid_filename
+        evidence_wheel["python_tags"] = ["invalid"]
+        evidence_wheel["abi_tags"] = ["invalid"]
+        for installed in cast(list[dict[str, object]], evidence["installed_distributions"]):
+            if installed["source_wheel_filename"] == original_filename:
+                installed["source_wheel_filename"] = invalid_filename
+        for cell_row in cast(list[dict[str, object]], evidence["cells"]):
+            for installed in cast(list[dict[str, object]], cell_row["installed_distributions"]):
+                if installed["source_wheel_filename"] == original_filename:
+                    installed["source_wheel_filename"] = invalid_filename
+    if mutation in {
+        "cell_version_abi_mismatch",
+        "duplicate_interpreter_digest",
+        "wrong_sysconfig_platform",
+    }:
+        authority_by_label = {
+            row["label"]: row for row in cast(list[dict[str, object]], preflight["interpreters"])
+        }
+        for cell_row in cast(list[dict[str, object]], evidence["cells"]):
+            cell_row["interpreter"] = dict(authority_by_label[f"python-{cell_row['cell']}"])
+    for payload in preflights:
+        _refresh_preflight_digest(payload)
+    evidence["preflight_observed_digest"] = preflight["observed_digest"]
+    evidence["generation_preflight_observed_digest"] = generation_preflight["observed_digest"]
+    _refresh_receipt_digest(evidence)
+
+    assert receipt.validate_generation_evidence(
+        evidence,
+        preflight=preflight,
+        generation_preflight=generation_preflight,
+    ) == {"failure": "generation_evidence_invalid", "status": "failed"}
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "pip_check_missing",
+        "pip_check_failed",
+        "pip_argv_drift",
+        "pip_environment_drift",
+        "root_requirements_staging_drift",
+        "missing_cp313_cell",
+        "missing_installed_distribution",
+        "missing_import_proof",
+        "missing_fixture_decode",
+        "allocator_trigger_missing",
+        "supervisor_cleanup_incomplete",
+        "fixture_authority_document_drift",
+    ],
+)
+def test_generation_requires_closed_runtime_authority(mutation: str) -> None:
+    receipt = _module()
+    evidence, preflight, generation_preflight = _complete_generation_bundle()
+    cells = cast(list[dict[str, object]], evidence["cells"])
+    pip = cast(dict[str, object], cells[0]["pip"])
+    if mutation == "pip_check_missing":
+        del pip["pip_check"]
+    elif mutation == "pip_check_failed":
+        pip["pip_check"] = "failed"
+    elif mutation == "pip_argv_drift":
+        cast(list[str], pip["argv"]).remove("--no-index")
+    elif mutation == "pip_environment_drift":
+        cast(dict[str, str], pip["environment"])["HTTPS_PROXY"] = "https://proxy.invalid"
+    elif mutation == "root_requirements_staging_drift":
+        cast(dict[str, object], pip["staging"])["root_requirements_sha256"] = "8" * 64
+    elif mutation == "missing_cp313_cell":
+        cells.pop()
+    elif mutation == "missing_installed_distribution":
+        cast(list[dict[str, object]], cells[0]["installed_distributions"]).pop()
+    elif mutation == "missing_import_proof":
+        cast(list[dict[str, object]], cells[0]["imports"]).pop()
+    elif mutation == "missing_fixture_decode":
+        cast(list[dict[str, object]], cells[1]["fixture_decodes"]).pop()
+    elif mutation == "allocator_trigger_missing":
+        cast(dict[str, object], evidence["darwin_supervisor"])["controlled_allocator"] = "none"
+    elif mutation == "supervisor_cleanup_incomplete":
+        supervisor = cast(dict[str, object], evidence["darwin_supervisor"])
+        cast(dict[str, object], supervisor["cleanup"])["process_group_absent"] = False
+    else:
+        cast(dict[str, object], evidence["fixture_authority_document"])["sha256"] = "8" * 64
+    _refresh_receipt_digest(evidence)
+
+    assert receipt.validate_generation_evidence(
+        evidence,
+        preflight=preflight,
+        generation_preflight=generation_preflight,
+    ) == {"failure": "generation_evidence_invalid", "status": "failed"}
+
+
+@pytest.mark.parametrize("missing", ["cells", "darwin_supervisor", "fixture_authority_document"])
+def test_generation_rejects_missing_top_level_runtime_evidence(missing: str) -> None:
+    receipt = _module()
+    evidence, preflight, generation_preflight = _complete_generation_bundle()
+    del evidence[missing]
+
+    assert receipt.validate_generation_evidence(
+        evidence,
+        preflight=preflight,
+        generation_preflight=generation_preflight,
+    ) == {"failure": "generation_evidence_incomplete", "status": "failed"}
 
 
 @pytest.mark.parametrize(
@@ -2242,23 +2900,17 @@ def test_generation_evidence_requires_full_passed_preflight_authority(mutation: 
             cast(list[dict[str, object]], payload["wheelhouse"])[0]["sha256"] = "d" * 64
             _refresh_preflight_digest(payload)
         evidence["preflight_observed_digest"] = preflight["observed_digest"]
-        evidence["generation_preflight_observed_digest"] = generation_preflight[
-            "observed_digest"
-        ]
+        evidence["generation_preflight_observed_digest"] = generation_preflight["observed_digest"]
     elif mutation == "fixture_projection_drift":
         for payload in (preflight, generation_preflight):
             cast(list[dict[str, object]], payload["fixtures"])[0]["bytes"] = 1
             _refresh_preflight_digest(payload)
         evidence["preflight_observed_digest"] = preflight["observed_digest"]
-        evidence["generation_preflight_observed_digest"] = generation_preflight[
-            "observed_digest"
-        ]
+        evidence["generation_preflight_observed_digest"] = generation_preflight["observed_digest"]
     else:
         cast(dict[str, object], generation_preflight["controller"])["python_version"] = "3.13.10"
         _refresh_preflight_digest(generation_preflight)
-        evidence["generation_preflight_observed_digest"] = generation_preflight[
-            "observed_digest"
-        ]
+        evidence["generation_preflight_observed_digest"] = generation_preflight["observed_digest"]
 
     assert receipt.validate_generation_evidence(
         evidence,
@@ -2525,3 +3177,67 @@ def test_generation_cli_without_authorized_inputs_keeps_acquisition_gate(
         "failure": "acquisition_authorization_required",
         "status": "failed",
     }
+
+
+def test_main_redacts_unexpected_controller_failure_to_one_closed_json_object(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    receipt = _module()
+    monkeypatch.setattr(
+        receipt.sys,
+        "flags",
+        SimpleNamespace(isolated=1, dont_write_bytecode=1),
+    )
+
+    def fail_closed(**_kwargs: object) -> dict[str, object]:
+        raise RuntimeError("private failure at /Users/operator/secret")
+
+    monkeypatch.setattr(receipt, "check_inputs", fail_closed)
+
+    result = receipt.main(
+        [
+            "--check-inputs",
+            "--python",
+            "python3.12",
+            "--python",
+            "python3.13",
+            "--wheelhouse",
+            "wheelhouse",
+            "--lock",
+            "uv.lock",
+            "--constraints",
+            "constraints.txt",
+            "--fixture-root",
+            "fixtures",
+            "--json",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert result == 2
+    assert json.loads(captured.out) == {
+        "failure": "receipt_controller_failed",
+        "status": "failed",
+    }
+    assert captured.err == ""
+    assert "Traceback" not in captured.out
+    assert "/Users/" not in captured.out
+
+
+def test_main_closes_argument_errors_without_usage_or_private_path(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    receipt = _module()
+
+    result = receipt.main(["--check-inputs", "--python", "/Users/operator/private-python"])
+    captured = capsys.readouterr()
+
+    assert result == 2
+    assert json.loads(captured.out) == {
+        "failure": "cli_arguments_invalid",
+        "status": "failed",
+    }
+    assert captured.err == ""
+    assert "usage:" not in captured.out
+    assert "/Users/" not in captured.out
