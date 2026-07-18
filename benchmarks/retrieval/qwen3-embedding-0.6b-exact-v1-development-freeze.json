@@ -3909,7 +3909,7 @@
   "protocol": {
     "bytes": 5127,
     "path": "protocol-lock.json",
-    "sha256": "2b8c108d6773308b888739275ce75ee2f5514484e1256a5c78501df57eb3e33f"
+    "sha256": "601ba9c6f56bb695a09c6b2460fd2bf403e66c8cd7d94d61c262726488ac43a2"
   },
   "schema_version": "mke.dense_development_freeze.v1",
   "source": {
@@ -3920,9 +3920,9 @@
         "sha256": "d4200f549e9a612b469df6c3e696743cdd7b117b0e1f874d4b43cf8efc2d60ff"
       },
       {
-        "bytes": 204983,
+        "bytes": 207835,
         "path": "uv.lock",
-        "sha256": "bb31c77b8a8f975246c620a0e114417c6a4865d9c26c3f4c12c780b9e6952cce"
+        "sha256": "31be8fe6302a844634306eea2ec6e891540e8006e45ece9f8cd6db7b53d308a1"
       },
       {
         "bytes": 10868,
@@ -3980,7 +3980,7 @@
         "sha256": "1c838b1464be9426c67887bfe5e0ff082d5a81d0addaf6addb4e7b7317c3627b"
       }
     ],
-    "sha256": "sha256:6a889fd713978affc608f4f151625c986e520b199ef32b1b25d80f8c72eb7380"
+    "sha256": "sha256:c673067d0d4c85a42840d6e4a8a8c4435bd2682a196ff679248184adb133579a"
   },
   "threshold_report": {
     "candidate_status": "not_evaluated",

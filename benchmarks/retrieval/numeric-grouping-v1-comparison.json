@@ -3,7 +3,7 @@
   "protocol": {
     "id": "retrieval-numeric-v1",
     "path": "tests/fixtures/retrieval-numeric-v1/protocol-lock.json",
-    "sha256": "76287630d3d5b114d143d729192261beb3a0733282fb90d3cc8575fcffdbc7dd"
+    "sha256": "efd2e578168a50ec74a50e6d757bf2f5171b501b3a08992097614469ce05ea3e"
   },
   "manifests": {
     "development": {
