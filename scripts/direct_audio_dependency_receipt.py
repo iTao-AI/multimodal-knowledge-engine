@@ -1537,21 +1537,6 @@ def _public_reference(value: object) -> bool:
     )
 
 
-def _generation_preflight_digest(
-    wheels: list[dict[str, object]], fixtures: list[dict[str, object]]
-) -> str | None:
-    if any(not isinstance(item.get("filename"), str) for item in [*wheels, *fixtures]):
-        return None
-    projection = {
-        "fixtures": sorted(fixtures, key=lambda item: cast(str, item["filename"])),
-        "wheel_inventory": sorted(wheels, key=lambda item: cast(str, item["filename"])),
-    }
-    try:
-        return _canonical_digest(projection)
-    except (TypeError, ValueError, UnicodeEncodeError):
-        return None
-
-
 def _exact_mapping(value: object, keys: set[str]) -> dict[str, object] | None:
     if not isinstance(value, dict):
         return None
@@ -1582,7 +1567,213 @@ def _string_items(value: object) -> list[str] | None:
     return cast(list[str], items)
 
 
-def validate_generation_evidence(evidence: Mapping[str, object]) -> dict[str, str]:
+def _passed_preflight_authority(
+    value: Mapping[str, object] | None,
+) -> tuple[str, list[dict[str, object]], list[dict[str, object]]] | None:
+    keys = {
+        "schema",
+        "status",
+        "gate",
+        "distribution",
+        "controller",
+        "script",
+        "interpreters",
+        "lock_sha256",
+        "constraints_sha256",
+        "wheelhouse",
+        "fixtures",
+        "issues",
+        "observed_digest",
+    }
+    payload = _exact_mapping(value, keys)
+    if payload is None:
+        return None
+    distribution = _exact_mapping(
+        payload["distribution"],
+        {"external_binary_redistribution", "redistribution_authority"},
+    )
+    controller = _exact_mapping(
+        payload["controller"],
+        {
+            "implementation",
+            "python_version",
+            "platform",
+            "executable_type",
+            "executable_mode",
+            "executable_sha256",
+        },
+    )
+    script = _exact_mapping(payload["script"], {"sha256"})
+    interpreters = _inventory_rows(
+        payload["interpreters"],
+        {
+            "label",
+            "implementation",
+            "python_version",
+            "system",
+            "machine",
+            "sysconfig_platform",
+            "soabi",
+            "ext_suffix",
+            "cache_tag",
+            "abiflags",
+            "pointer_bits",
+            "byteorder",
+            "executable_sha256",
+        },
+    )
+    wheelhouse = _inventory_rows(
+        payload["wheelhouse"],
+        {
+            "filename",
+            "bytes",
+            "sha256",
+            "distribution",
+            "version",
+            "build",
+            "python_tags",
+            "abi_tags",
+            "platform_tags",
+            "artifact_scope",
+        },
+    )
+    fixtures = _inventory_rows(
+        payload["fixtures"], {"filename", "bytes", "sha256", "artifact_scope"}
+    )
+    if (
+        payload["schema"] != "mke.direct_audio_dependency_input_check.v1"
+        or payload["status"] != "passed"
+        or payload["gate"] != "inputs_valid"
+        or payload["issues"] != []
+        or distribution
+        != {
+            "external_binary_redistribution": "not_performed",
+            "redistribution_authority": "not_claimed",
+        }
+        or controller is None
+        or controller["implementation"] != "cpython"
+        or not _resolved_text(controller["python_version"])
+        or not _resolved_text(controller["platform"])
+        or controller["executable_type"] != "regular"
+        or not isinstance(controller["executable_mode"], str)
+        or re.fullmatch(r"0[0-7]{3}", controller["executable_mode"]) is None
+        or not _digest_value(controller["executable_sha256"])
+        or script is None
+        or not _digest_value(script["sha256"])
+        or interpreters is None
+        or len(interpreters) != 2
+        or {item["label"] for item in interpreters} != {"python-3.12", "python-3.13"}
+        or wheelhouse is None
+        or fixtures is None
+        or not _digest_value(payload["lock_sha256"])
+        or not _digest_value(payload["constraints_sha256"])
+        or not _digest_value(payload["observed_digest"])
+    ):
+        return None
+    if any(
+        item["implementation"] != "cpython"
+        or item["system"] != "Darwin"
+        or item["machine"] != "arm64"
+        or item["pointer_bits"] != 64
+        or item["byteorder"] != "little"
+        or not isinstance(item["abiflags"], str)
+        or any(
+            not _resolved_text(item[key])
+            for key in (
+                "label",
+                "python_version",
+                "sysconfig_platform",
+                "soabi",
+                "ext_suffix",
+                "cache_tag",
+            )
+        )
+        or not _digest_value(item["executable_sha256"])
+        for item in interpreters
+    ):
+        return None
+    for item in wheelhouse:
+        python_tags = _string_items(item["python_tags"])
+        abi_tags = _string_items(item["abi_tags"])
+        platform_tags = _string_items(item["platform_tags"])
+        filename = item["filename"]
+        if (
+            not isinstance(filename, str)
+            or Path(filename).name != filename
+            or not filename
+            or not isinstance(item["bytes"], int)
+            or isinstance(item["bytes"], bool)
+            or item["bytes"] <= 0
+            or not _digest_value(item["sha256"])
+            or not _resolved_text(item["distribution"])
+            or not _resolved_text(item["version"])
+            or (item["build"] is not None and not _resolved_text(item["build"]))
+            or not python_tags
+            or not abi_tags
+            or not platform_tags
+            or item["artifact_scope"] != "local_runtime_only"
+        ):
+            return None
+    if len({item["filename"] for item in wheelhouse}) != len(wheelhouse):
+        return None
+    if (
+        {item["filename"] for item in fixtures} != set(_FIXTURES)
+        or len(fixtures) != len(_FIXTURES)
+        or any(
+            not isinstance(item["bytes"], int)
+            or isinstance(item["bytes"], bool)
+            or item["bytes"] <= 0
+            or not _digest_value(item["sha256"])
+            or item["artifact_scope"] != "repository_distributed"
+            for item in fixtures
+        )
+    ):
+        return None
+    observed = {
+        key: item
+        for key, item in payload.items()
+        if key not in {"issues", "status", "gate", "observed_digest"}
+    }
+    try:
+        expected_digest = _canonical_digest(observed)
+    except (TypeError, ValueError, UnicodeEncodeError):
+        return None
+    if payload["observed_digest"] != expected_digest:
+        return None
+    wheel_projection = sorted(
+        (
+            {
+                "filename": item["filename"],
+                "distribution": item["distribution"],
+                "version": item["version"],
+                "sha256": item["sha256"],
+                "artifact_scope": item["artifact_scope"],
+            }
+            for item in wheelhouse
+        ),
+        key=lambda item: cast(str, item["filename"]),
+    )
+    fixture_projection = sorted(
+        (
+            {
+                "filename": item["filename"],
+                "bytes": item["bytes"],
+                "sha256": item["sha256"],
+                "artifact_scope": item["artifact_scope"],
+            }
+            for item in fixtures
+        ),
+        key=lambda item: cast(str, item["filename"]),
+    )
+    return expected_digest, wheel_projection, fixture_projection
+
+
+def validate_generation_evidence(
+    evidence: Mapping[str, object],
+    *,
+    preflight: Mapping[str, object] | None = None,
+    generation_preflight: Mapping[str, object] | None = None,
+) -> dict[str, str]:
     """Validate local-use evidence without claiming binary redistribution authority."""
     required = {
         "preflight_observed_digest",
@@ -1815,12 +2006,33 @@ def validate_generation_evidence(evidence: Mapping[str, object]) -> dict[str, st
     if wheels is None or fixtures is None:
         valid = False
     else:
-        expected_preflight_digest = _generation_preflight_digest(wheels, fixtures)
+        preflight_authority = _passed_preflight_authority(preflight)
+        generation_preflight_authority = _passed_preflight_authority(generation_preflight)
+        generation_wheel_projection = sorted(
+            wheels, key=lambda item: cast(str, item["filename"])
+        )
+        generation_fixture_projection = sorted(
+            (
+                {
+                    "filename": item["filename"],
+                    "bytes": item["bytes"],
+                    "sha256": item["sha256"],
+                    "artifact_scope": item["artifact_scope"],
+                }
+                for item in fixtures
+            ),
+            key=lambda item: cast(str, item["filename"]),
+        )
         valid = (
             valid
-            and expected_preflight_digest is not None
-            and evidence["preflight_observed_digest"] == expected_preflight_digest
-            and evidence["generation_preflight_observed_digest"] == expected_preflight_digest
+            and preflight_authority is not None
+            and generation_preflight_authority is not None
+            and preflight_authority == generation_preflight_authority
+            and evidence["preflight_observed_digest"] == preflight_authority[0]
+            and evidence["generation_preflight_observed_digest"]
+            == generation_preflight_authority[0]
+            and generation_wheel_projection == preflight_authority[1]
+            and generation_fixture_projection == preflight_authority[2]
         )
     unresolved = evidence["unresolved_transitive_binary_items"]
     unresolved_keys = {

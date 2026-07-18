@@ -1988,6 +1988,94 @@ def _generation_preflight_digest(evidence: dict[str, object]) -> str:
     return _canonical_digest(projection)
 
 
+def _refresh_preflight_digest(payload: dict[str, object]) -> None:
+    observed = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"issues", "status", "gate", "observed_digest"}
+    }
+    payload["observed_digest"] = _canonical_digest(observed)
+
+
+def _complete_preflight_payload(evidence: dict[str, object]) -> dict[str, object]:
+    wheel_rows = cast(list[dict[str, object]], evidence["wheel_inventory"])
+    fixture_rows = cast(list[dict[str, object]], evidence["fixtures"])
+    digest = "9" * 64
+    payload: dict[str, object] = {
+        "schema": "mke.direct_audio_dependency_input_check.v1",
+        "status": "passed",
+        "gate": "inputs_valid",
+        "distribution": {
+            "external_binary_redistribution": "not_performed",
+            "redistribution_authority": "not_claimed",
+        },
+        "controller": {
+            "implementation": "cpython",
+            "python_version": "3.13.9",
+            "platform": "macosx-15.0-arm64",
+            "executable_type": "regular",
+            "executable_mode": "0755",
+            "executable_sha256": digest,
+        },
+        "script": {"sha256": "8" * 64},
+        "interpreters": [
+            {
+                "label": f"python-{version}",
+                "implementation": "cpython",
+                "python_version": f"{version}.9",
+                "system": "Darwin",
+                "machine": "arm64",
+                "sysconfig_platform": "macosx-15.0-arm64",
+                "soabi": f"cpython-{version.replace('.', '')}-darwin",
+                "ext_suffix": f".cpython-{version.replace('.', '')}-darwin.so",
+                "cache_tag": f"cpython-{version.replace('.', '')}",
+                "abiflags": "",
+                "pointer_bits": 64,
+                "byteorder": "little",
+                "executable_sha256": character * 64,
+            }
+            for version, character in (("3.12", "6"), ("3.13", "7"))
+        ],
+        "lock_sha256": "5" * 64,
+        "constraints_sha256": "4" * 64,
+        "wheelhouse": [
+            {
+                **item,
+                "bytes": index + 100,
+                "build": None,
+                "python_tags": ["cp312" if index == 0 else "cp313"],
+                "abi_tags": ["cp312" if index == 0 else "cp313"],
+                "platform_tags": ["macosx_11_0_arm64"],
+            }
+            for index, item in enumerate(wheel_rows)
+        ],
+        "fixtures": [
+            {
+                "filename": item["filename"],
+                "bytes": item["bytes"],
+                "sha256": item["sha256"],
+                "artifact_scope": item["artifact_scope"],
+            }
+            for item in fixture_rows
+        ],
+        "issues": [],
+        "observed_digest": "",
+    }
+    _refresh_preflight_digest(payload)
+    return payload
+
+
+def _complete_generation_bundle() -> tuple[
+    dict[str, object], dict[str, object], dict[str, object]
+]:
+    evidence = _complete_generation_evidence()
+    preflight = _complete_preflight_payload(evidence)
+    generation_preflight = _complete_preflight_payload(evidence)
+    evidence["preflight_observed_digest"] = preflight["observed_digest"]
+    evidence["generation_preflight_observed_digest"] = generation_preflight["observed_digest"]
+    return evidence, preflight, generation_preflight
+
+
 def _complete_generation_evidence() -> dict[str, object]:
     digest = "a" * 64
     digest_313 = "c" * 64
@@ -2094,13 +2182,90 @@ def _complete_generation_evidence() -> dict[str, object]:
     return evidence
 
 
+def test_generation_rejects_partial_projection_as_preflight_authority() -> None:
+    receipt = _module()
+    evidence = _complete_generation_evidence()
+
+    assert receipt.validate_generation_evidence(evidence) == {
+        "failure": "generation_evidence_invalid",
+        "status": "failed",
+    }
+
+
 def test_local_optional_use_allows_recorded_unresolved_transitive_items() -> None:
     receipt = _module()
+    evidence, preflight, generation_preflight = _complete_generation_bundle()
 
-    assert receipt.validate_generation_evidence(_complete_generation_evidence()) == {
+    assert receipt.validate_generation_evidence(
+        evidence,
+        preflight=preflight,
+        generation_preflight=generation_preflight,
+    ) == {
         "external_binary_redistribution": "not_performed",
         "redistribution_authority": "not_claimed",
         "status": "passed",
+    }
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "failed_status",
+        "nonempty_issues",
+        "observed_digest_tamper",
+        "controller_drift_without_rehash",
+        "unknown_preflight_field",
+        "wheel_projection_drift",
+        "fixture_projection_drift",
+        "generation_full_preflight_drift",
+    ],
+)
+def test_generation_evidence_requires_full_passed_preflight_authority(mutation: str) -> None:
+    receipt = _module()
+    evidence, preflight, generation_preflight = _complete_generation_bundle()
+    if mutation == "failed_status":
+        preflight["status"] = "failed"
+    elif mutation == "nonempty_issues":
+        preflight["gate"] = "input_validation_failed"
+        preflight["issues"] = [{"code": "wheel_missing", "subject": "external-wheelhouse"}]
+    elif mutation == "observed_digest_tamper":
+        preflight["observed_digest"] = "f" * 64
+    elif mutation == "controller_drift_without_rehash":
+        cast(dict[str, object], preflight["controller"])["python_version"] = "3.12.0"
+    elif mutation == "unknown_preflight_field":
+        preflight["private_path"] = "/Users/operator/private"
+        _refresh_preflight_digest(preflight)
+        evidence["preflight_observed_digest"] = preflight["observed_digest"]
+    elif mutation == "wheel_projection_drift":
+        for payload in (preflight, generation_preflight):
+            cast(list[dict[str, object]], payload["wheelhouse"])[0]["sha256"] = "d" * 64
+            _refresh_preflight_digest(payload)
+        evidence["preflight_observed_digest"] = preflight["observed_digest"]
+        evidence["generation_preflight_observed_digest"] = generation_preflight[
+            "observed_digest"
+        ]
+    elif mutation == "fixture_projection_drift":
+        for payload in (preflight, generation_preflight):
+            cast(list[dict[str, object]], payload["fixtures"])[0]["bytes"] = 1
+            _refresh_preflight_digest(payload)
+        evidence["preflight_observed_digest"] = preflight["observed_digest"]
+        evidence["generation_preflight_observed_digest"] = generation_preflight[
+            "observed_digest"
+        ]
+    else:
+        cast(dict[str, object], generation_preflight["controller"])["python_version"] = "3.13.10"
+        _refresh_preflight_digest(generation_preflight)
+        evidence["generation_preflight_observed_digest"] = generation_preflight[
+            "observed_digest"
+        ]
+
+    assert receipt.validate_generation_evidence(
+        evidence,
+        preflight=preflight,
+        generation_preflight=generation_preflight,
+    ) == {
+        "failure": "generation_evidence_invalid",
+        "status": "failed",
     }
 
 
@@ -2128,7 +2293,7 @@ def test_local_optional_use_allows_recorded_unresolved_transitive_items() -> Non
 )
 def test_generation_evidence_rejects_noncanonical_inventory_mutations(mutation: str) -> None:
     receipt = _module()
-    evidence = _complete_generation_evidence()
+    evidence, preflight, generation_preflight = _complete_generation_bundle()
     fixtures = cast(list[dict[str, object]], evidence["fixtures"])
     direct = cast(list[dict[str, object]], evidence["direct_components"])
     unresolved = cast(list[dict[str, object]], evidence["unresolved_transitive_binary_items"])
@@ -2174,12 +2339,11 @@ def test_generation_evidence_rejects_noncanonical_inventory_mutations(mutation: 
     else:
         evidence["preflight_observed_digest"] = "f" * 64
         evidence["generation_preflight_observed_digest"] = "f" * 64
-    if mutation != "arbitrary_preflight_digest":
-        preflight_digest = _generation_preflight_digest(evidence)
-        evidence["preflight_observed_digest"] = preflight_digest
-        evidence["generation_preflight_observed_digest"] = preflight_digest
-
-    assert receipt.validate_generation_evidence(evidence) == {
+    assert receipt.validate_generation_evidence(
+        evidence,
+        preflight=preflight,
+        generation_preflight=generation_preflight,
+    ) == {
         "failure": "generation_evidence_invalid",
         "status": "failed",
     }
@@ -2209,7 +2373,7 @@ def test_generation_evidence_rejects_noncanonical_inventory_mutations(mutation: 
 )
 def test_generation_evidence_fails_closed_for_authority_drift(mutation: str) -> None:
     receipt = _module()
-    evidence = _complete_generation_evidence()
+    evidence, preflight, generation_preflight = _complete_generation_bundle()
     if mutation == "distribution_claim":
         evidence["external_binary_redistribution"] = "performed"
     elif mutation == "fixture":
@@ -2257,7 +2421,11 @@ def test_generation_evidence_fails_closed_for_authority_drift(mutation: str) -> 
     else:
         cast(list[dict[str, object]], evidence["fixtures"])[0]["profile_sha256"] = "invalid"
 
-    assert receipt.validate_generation_evidence(evidence) == {
+    assert receipt.validate_generation_evidence(
+        evidence,
+        preflight=preflight,
+        generation_preflight=generation_preflight,
+    ) == {
         "failure": "generation_evidence_invalid",
         "status": "failed",
     }
