@@ -16,6 +16,24 @@ A later actual-diff authority review of
 offline-input authority. This record now includes the bounded targeted repair and targeted
 re-review. The CEO, Engineering, Developer Experience, and full Autoplan phases were not rerun.
 
+## Authority Amendment Notice
+
+This historical full-plan review remains authoritative for all unrelated product, architecture,
+staging, compatibility, and verification findings. Its resource-enforcement, target-executable
+preflight, and external-binary redistribution-clearance surfaces are amended and superseded by
+`docs/superpowers/reviews/2026-07-18-bounded-direct-audio-intake-authority-amendment.md`.
+
+The superseding record defines Darwin arm64 `ri_phys_footprint` polling supervision with
+`hard_kernel_enforced=false`, a fixed bounded stdlib target-executable identity probe, and the
+separation between local optional-dependency use and unperformed/unclaimed external-binary
+redistribution. No other finding or verdict in this review is superseded.
+
+| Historical authority conclusion | Status |
+|---|---|
+| Aggregate or descendant-sampled native-child resource ceiling | `Superseded` by stable leader identity and leader-only non-aggregate `ri_phys_footprint`; ordinary cooperative descendants remain process-group termination/wait/cleanup scope only |
+| Generic or non-executing target-interpreter preflight | `Superseded` by one fixed bounded stdlib identity probe under a sanitized environment with descriptor identity before/after |
+| Transitive external-binary redistribution clearance as a local-use feasibility hard stop | `Superseded` by the `local_runtime_only` classification and exact `external_binary_redistribution=not_performed` / `redistribution_authority=not_claimed` literals; committed fixtures remain `repository_distributed` and a hard authority gate |
+
 ## Verdict
 
 `CLEARED FOR STAGED IMPLEMENTATION; PR A REQUIRES SEPARATE DISPATCH`
@@ -26,8 +44,8 @@ re-review. The CEO, Engineering, Developer Experience, and full Autoplan phases 
   amendments.
 - Developer-experience review: clean after accepted onboarding, example, recovery, migration, and
   review-sequencing amendments.
-- Targeted PR A offline-input re-review: clean after closing wheel compatibility, nested-pip
-  isolation, and acquisition-preflight execution findings.
+- Targeted PR A offline-input re-review: wheel compatibility and nested-pip isolation are closed;
+  acquisition-preflight execution authority is reconciled under the superseding amendment.
 
 No unresolved product or architecture decision remains in the plan. The review introduced no new
 dependency direction or external side effect.
@@ -39,10 +57,16 @@ dependency direction or external side effect.
 2. Split delivery into PR A feasibility/license evidence, PR B internal foundation, PR C public
    activation/Export v2/terminal proof, and a separate release closeout.
 3. Make PR A receipt authority exact over external constraints, a canonical wheelhouse manifest,
-   PyAV/FFmpeg components, licenses/notices, fixtures, supported platforms, and native-child
-   containment without binding ordinary MKE commits.
-4. Put PyAV inspection and faster-whisper execution behind receipt-backed bounded child processes;
-   keep PR B free of public runtime activation.
+   PyAV/FFmpeg inventory/direct evidence, `local_runtime_only` external binaries,
+   `repository_distributed` fixtures, closed external-binary non-redistribution literals,
+   target-executable identities, supported platforms, and supervisory proof without binding
+   ordinary MKE commits.
+4. Prove the Darwin arm64 polling supervisor with a controlled allocator in the supervisory leader
+   in PR A, including stable leader identity, leader-only non-aggregate `ri_phys_footprint`,
+   transient overshoot, ordinary-descendant process-group `SIGTERM`/fixed grace/`SIGKILL`/wait-reap,
+   and fail-closed leader sampling plus descendant signaling/cleanup; then integrate it in PR B.
+   Retain `hard_kernel_enforced=false` and make no sandbox, hostile-media, or `setsid`/`setpgid`
+   escape claim.
 5. Strengthen immutable intake with unresolved-path symlink rejection, resolved allowed-root
    containment, descriptor-bound copying, a second full digest, file-timestamp identity, and
    same-inode mutation tests.
@@ -63,16 +87,17 @@ dependency direction or external side effect.
     environment, `--no-index`, validated local `--find-links`, binary-only hashed inputs, and no
     index/proxy/cache/source-build fallback.
 13. Run the acquisition preflight directly under an existing approved stdlib-only controller
-    interpreter with isolated/no-bytecode flags, descriptor-only reads, public-safe JSON, and
-    verified no-write identity across worktree, environment, and cache roots.
+    interpreter with isolated/no-bytecode flags; bind each target executable before/after one fixed
+    bounded stdlib identity probe under a sanitized environment, with no pip, `uv`, install,
+    environment, bytecode, or cache activity.
 
-## Targeted Repair Closure
+## Targeted Repair Status
 
 | Finding | Resolution | Targeted result |
 |---|---|---|
 | Shared wheelhouse rejected valid same-version cp312/cp313 wheels | Manifest identity is full filename/bytes/SHA-256/parsed tags; compatibility is resolved exactly once per supported cell; disjoint wheels and universal reuse are explicit | Closed |
 | Outer offline flag did not constrain ordinary pip | Real nested-pip argv/environment is frozen and tested with no index, config, proxy, cache, or source-build fallback | Closed |
-| Read-only preflight used an environment-creating launcher | Preflight uses a direct approved stdlib-only interpreter, never `uv run`, and proves before/after no-write identity | Closed |
+| Read-only preflight used an environment-creating launcher | Preflight uses a direct approved stdlib-only controller, never `uv run`, and runs only the fixed bounded target identity probe with descriptor identity before/after and no package/cache activity | `Superseded` by authority amendment |
 
 The repair changes no product boundary, dependency direction, PR staging, Export v2 authority,
 release boundary, or external-side-effect authorization.
@@ -82,6 +107,11 @@ release boundary, or external-side-effect authorization.
 PR A still requires a separate implementation dispatch, and acquisition remains separately
 authorized. PR B waits for accepted/merged PR A. PR C waits for accepted/merged PR A, PR B, and the
 independent LLM Wiki compatibility docs/evidence PR.
+
+PR A does not redistribute external dependency binaries and must record
+`external_binary_redistribution=not_performed` and
+`redistribution_authority=not_claimed`. Fixture redistribution remains a hard gate. Any future
+bundling or release redistribution of external binaries requires separate legal review.
 
 At this review point, that downstream compatibility evidence has not been accepted or merged. The
 expected compatibility outcome is therefore not treated as an established fact, and the exact

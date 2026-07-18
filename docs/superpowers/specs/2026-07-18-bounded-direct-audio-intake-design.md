@@ -4,6 +4,9 @@ Status: authority-amended written design approved on 2026-07-18 for staged imple
 planning and full plan review. This document does not authorize implementation, dependency or
 model acquisition, public claims, version publication, or deployment.
 
+The three feasibility-authority surfaces amended after the original full plan review are recorded
+in `docs/superpowers/reviews/2026-07-18-bounded-direct-audio-intake-authority-amendment.md`.
+
 Planning baseline: `6dfc1882a78f23023e26018df7ec1d60adcd8e3e`.
 
 Target release candidate: v0.1.4 after feature acceptance and a separate release closeout.
@@ -123,8 +126,10 @@ This stage does not add:
 - changes to chunking, lexical ranking, dense retrieval, RRF, reranking, or answer generation;
 - an HTTP service, workspace UI, multi-tenancy, RBAC, review authority, freshness policy, or
   business-decision authority;
-- LLM Wiki as a dependency or Evidence authority; or
-- a production SLA, arbitrary-language quality guarantee, real-user adoption, or deployment claim.
+- LLM Wiki as a dependency or Evidence authority;
+- a production SLA, arbitrary-language quality guarantee, real-user adoption, or deployment claim;
+  or
+- a sandbox, hostile-media isolation guarantee, or hard-kernel memory-enforcement claim.
 
 ## Supported Audio-v1 Profile
 
@@ -287,8 +292,8 @@ Before Source or Run creation:
    require a second bounded full-read digest to match;
 8. require unchanged source device, inode, mode, size, `mtime_ns`, and `ctime_ns`, then atomically
    seal the private snapshot;
-9. inspect the snapshot with locked PyAV inside a receipt-backed memory- and
-   process-group-bounded package-owned child before constructing the model;
+9. inspect the snapshot with locked PyAV inside the receipt-backed Darwin arm64 supervisory
+   process-group boundary before constructing the model;
 10. map the validated semantic profile to the canonical MKE media type; and
 11. process and transcribe only the sealed snapshot.
 
@@ -411,9 +416,21 @@ The runtime contract remains:
 - lightweight request preflight checks typed configuration, optional dependency availability,
   static profile grammar, and prepared cache completeness without constructing `WhisperModel`;
 - request-time model construction occurs only after admission;
-- model resolution, media inspection, transcription, stdout, stderr, memory, time, cancellation,
-  process group, parent wait, and descendant cleanup remain bounded by the accepted PR A platform
-  cell; timeout and output caps alone are not native-parser memory containment;
+- on the supported Darwin arm64 cell, model resolution, media inspection, and transcription run
+  under a package-owned supervisory leader in a dedicated process group. The supervisor polls only
+  the stable identity and `ri_phys_footprint` of the supervisory leader against the configured
+  budget. The measurement is non-aggregate: ordinary-descendant footprints are not added to the
+  budget observation. Polling permits transient overshoot and is not a hard kernel limit;
+- budget exceedance, timeout, cancellation, or shutdown sends `SIGTERM` to the dedicated process
+  group, waits one fixed grace interval, sends `SIGKILL` to survivors in that group, and waits/reaps
+  the group. Leader or observed-child identity drift, unavailable or failed leader sampling,
+  process-group identity/signaling failure, or incomplete wait/cleanup fails closed. The receipt records
+  `hard_kernel_enforced=false`;
+- the supervisor samples only the dedicated leader for the budget and covers ordinary cooperative
+  descendants only through process-group identity, signaling, wait/reap, and cleanup. It is not a
+  sandbox and does
+  not claim containment of hostile media, escaped/reparented processes, `setsid`/`setpgid` escape,
+  privileged helpers, or kernel/decoder compromise;
 - no implicit cache location, fallback identifier, URL, token, or SDK exception enters public
   output.
 
@@ -602,26 +619,35 @@ PR A is a feasibility gate before any direct-audio foundation or activation work
 - the three audio profiles must be decoded by the installed PyAV wheel, not inferred from package
   metadata;
 - source-build or system-FFmpeg installation is not claimed unless separately proved;
-- the actual PyAV binary wheels used for supported proof environments must receive a transitive
-  bundled-library and license audit;
-- FFmpeg and other bundled libraries, enabled components, licenses, and required notices must be
-  documented from the exact wheel/runtime evidence rather than treating the PyAV package's
-  BSD-3-Clause metadata as the complete binary distribution license;
-- fixture source, generation, redistribution permission, notices, exact bytes, and profile authority
-  must be complete;
-- each accepted platform cell must prove the exact child memory-ceiling and process-group cleanup
-  mechanisms used before native PyAV/FFmpeg parsing; an unavailable or unproved mechanism is an
-  unsupported/failed cell, not a timeout-only fallback;
+- the actual PyAV binary wheels used for supported proof environments retain exact linked/bundled
+  component inventory and direct license/notice evidence from the wheel/runtime; PyAV's
+  BSD-3-Clause package metadata is not treated as complete transitive binary evidence;
+- PR A and normal MKE installation classify those third-party wheels as `local_runtime_only` and
+  use them locally but do not redistribute them in Git, the MKE sdist/wheel, or Release assets. The
+  receipt therefore freezes the closed
+  literals `external_binary_redistribution=not_performed` and
+  `redistribution_authority=not_claimed`. Missing transitive redistribution clearance is not a
+  feasibility hard stop while that non-redistribution boundary remains true;
+- committed fixtures are classified as `repository_distributed`; their source, generation,
+  redistribution permission, notices, exact bytes, and profile authority must be complete;
+- the accepted Darwin arm64 platform cell must prove the supervisory mechanism with a controlled
+  allocator running in the supervisory leader: stable leader identity, leader-only non-aggregate
+  `ri_phys_footprint` budget detection, ordinary-descendant process-group identity, observable
+  polling overshoot, `SIGTERM` then fixed grace then `SIGKILL`, complete wait/reap, and fail-closed
+  leader sampling plus descendant signaling/cleanup. This is PR A feasibility evidence;
 - model source, exact revision, model-card license, model tree digest, and cache-only authority must
   remain documented for the later PR C proof; and
 - no model weights or operator cache files enter Git, sdist, wheel, or Release assets.
 
 The PR A receipt binds the external dependency set, canonical constraints and wheelhouse manifest,
-PyAV wheel/runtime, linked or bundled FFmpeg components, licenses, notices, fixture identities,
-validation platform, and child-containment authority. It does not bind an MKE source commit or MKE
-wheel. Ordinary later product or documentation commits therefore do not invalidate it. Refresh it
-only when an external dependency or constraints, prepared wheelhouse, PyAV wheel, platform,
-containment mechanism, or fixture authority changes.
+PyAV wheel/runtime, linked or bundled FFmpeg component inventory/direct evidence, the external
+`local_runtime_only` classification, fixture identities and `repository_distributed` authority,
+the closed external-binary non-redistribution literals, validation platform, target-executable
+probe, and Darwin arm64 supervisory authority. It does not bind an MKE source commit or MKE wheel.
+Ordinary later product or documentation commits therefore do not
+invalidate it. Refresh it only when an external dependency or constraints, prepared wheelhouse,
+PyAV wheel, platform, supervisory mechanism, target-probe contract, non-redistribution boundary, or
+fixture authority changes.
 
 The canonical wheelhouse inventory identifies each wheel by its full canonical filename, byte
 count, SHA-256, and parsed compatibility tags. It does not globally deduplicate by normalized
@@ -643,22 +669,34 @@ resolution drift is a stable failed cell and cannot trigger network access, inde
 local build.
 
 The acquisition preflight is a distinct stdlib-only path invoked directly with an already existing,
-explicitly approved controller interpreter under isolated/no-bytecode flags. It records the
-interpreter implementation, exact version, platform identity, resolved executable digest, and
-command without publishing its local path. A missing or invalid interpreter fails closed. The
-preflight only descriptor-reads declared inputs and emits public-safe JSON; it does not use
-`uv run`, synchronize or create an environment, install a package, write an output, mutate a cache,
-or leave a temporary artifact. Receipt generation remains a separately authorized later action and
-uses the same frozen nested-pip boundary.
+explicitly approved controller interpreter under isolated/no-bytecode flags. Each declared target
+Python executable is resolved to a regular executable and descriptor-bound before execution. The
+bound identity includes device, inode, mode, byte count, `mtime_ns`, `ctime_ns`, and SHA-256. The
+controller runs one fixed, bounded stdlib identity probe under a sanitized environment; the probe
+reports only implementation, exact version, platform identity, and executable digest. The
+controller then reopens/revalidates the target descriptor identity and digest after the probe.
+Missing/substituted identity, nonzero exit, timeout, oversized or malformed output, or before/after
+drift fails closed. The probe cannot accept caller code or imports and must not invoke pip, `uv`,
+installation, environment creation/synchronization, bytecode, or cache access/mutation.
 
-Any unresolved license, notice, fixture redistribution, or binary-component obligation is a
-no-go hard stop: PR A cannot be accepted and PR B cannot begin. Acquisition of packages, wheels,
-models, or external artifacts remains separately authorized and is not implied by this design.
+The remaining preflight only descriptor-reads declared constraints, wheelhouse entries, fixture
+paths, and the controller script and emits public-safe JSON. It does not write an output or leave a
+temporary artifact. Receipt generation remains a separately authorized later action and uses the
+same frozen nested-pip boundary.
+
+Fixture redistribution permission and identity remain a no-go hard stop: PR A cannot be accepted
+and PR B cannot begin without them. Local dependency resolution/import/decode, direct component
+inventory/evidence, the fixed target-executable probe, and the Darwin arm64 supervisory allocator
+proof must also pass. Unresolved transitive redistribution clearance for external binaries is
+recorded without becoming a feasibility hard stop because external binary redistribution is not
+performed or claimed. Future bundling or redistribution requires separate legal review before
+release. Acquisition of packages, wheels, models, or external artifacts remains
+separately authorized and is not implied by this design.
 
 PR C owns a distinct terminal installed proof. That proof binds a fresh final MKE wheel, the
 accepted PR A receipt digest, the actual installed package set, and the prepared model tree. It
-does not regenerate the complete PR A license analysis merely because tracked MKE source or docs
-changed.
+does not regenerate the complete PR A inventory/direct-evidence analysis merely because tracked MKE
+source or docs changed.
 
 ## Fixtures
 
@@ -692,7 +730,7 @@ Required CI remains model-free and offline. It must cover:
 - exact suffix/MIME/profile matrix and negative cases;
 - immutable snapshot, TOCTOU, cleanup, cancellation, and Asset media-type drift;
 - allowed-root parent-symlink retarget, same-inode same-size mutation, admission-before-model, and
-  receipt-backed native child memory/process-group containment;
+  receipt-backed Darwin arm64 supervisory polling/process-group cleanup;
 - audio DTO, wire schema, fingerprint, required stages, manifest, report, and timestamp Evidence;
 - Run/Publication atomicity, failure isolation, supersession, Search, Ask, and portable EvidenceRef;
 - existing PDF/video regression contracts;
@@ -734,7 +772,8 @@ wheel and use only its installed commands/modules to:
 11. emit one closed public-safe aggregate bound to wheel, package set, model tree, fixture, export,
     and consumer identities.
 
-The real proof records elapsed time and peak RSS as observations only. It does not set a
+The real proof records elapsed time and peak supervisory-leader `ri_phys_footprint` as observations
+only on the supported Darwin arm64 cell. It does not set a
 production SLA or claim all platforms.
 
 ## CI And Evaluation Identity
@@ -781,14 +820,19 @@ Each PR is independently reviewable and must satisfy its own exit gate.
 ### PR A — Direct-audio feasibility and license evidence
 
 PR A contains only redistribution-safe synthetic fixtures, exact package/PyAV wheel and linked or
-bundled FFmpeg component inventory, license/notice/fixture-provenance receipt generation and
-validation, focused tests, and necessary public-neutral reference evidence. It does not modify
+bundled FFmpeg component inventory/direct evidence, the closed external-binary redistribution
+literals, fixture-provenance receipt generation and validation, the fixed target-executable identity
+probe, the Darwin arm64 controlled-allocator supervisory proof, focused tests, and necessary
+public-neutral reference evidence. It does not modify
 `src/mke`, add a public runtime, CLI/MCP route, Export schema, or product capability claim.
 
 PR A may proceed in parallel with the independent LLM Wiki compatibility docs/evidence PR because
-it does not write README or export shared surfaces. Any unresolved license, notice, fixture
-redistribution, or binary-component obligation produces a no-go hard stop. No dependency, wheel,
-model, fixture, or other external-artifact acquisition is authorized by this stage.
+it does not write README or export shared surfaces. Missing fixture redistribution authority,
+local dependency feasibility, direct component inventory, target-executable identity, or the
+supported-cell supervisory proof produces a no-go hard stop. Transitive external-binary
+redistribution clearance does not, because PR A freezes non-redistribution/non-claim literals. No
+dependency, wheel, model, fixture, or other external-artifact acquisition is authorized by this
+stage.
 
 ### PR B — Internal direct-audio foundation
 
@@ -797,11 +841,13 @@ contracts, descriptor-bound immutable snapshotting, strict profile inspection, A
 authority, the cache-only audio child/provider, internal adapter/storage contracts, necessary video
 compatibility regressions, and model-free tests.
 
-PR B does not activate an application user journey. It adds no canonical public dispatcher,
+PR B integrates the accepted Darwin arm64 supervisor into the internal inspection/transcription
+children, including identity, polling, termination, grace, kill, wait, and cleanup failures. PR B
+does not activate an application user journey. It adds no canonical public dispatcher,
 CLI/MCP audio route, Export v2, public capability documentation or claim, real-provider proof, or
 release proof. Runtime composition that would expose direct audio publicly moves to PR C. PR B need
 not wait for LLM Wiki compatibility because it neither freezes Export v2 nor edits README/export
-documentation, but it cannot run in parallel with PR A or bypass the license gate.
+documentation, but it cannot run in parallel with PR A or bypass the amended PR A feasibility gate.
 
 ### PR C — Public activation, Export v2, and terminal proof
 
@@ -835,7 +881,8 @@ The feature is valid-positive only when all of the following are true:
 - v2 exports the complete mixed Library and passes an independent installed-wheel consumer;
 - Python 3.12/3.13 package evidence, exact local real proof, network denial, model/cache authority,
   and cleanup all pass;
-- fixture, dependency, bundled-library, model, and license provenance are complete;
+- fixture redistribution authority is complete; dependency and bundled-library inventory/direct
+  evidence, model provenance, and the external-binary non-redistribution literals are complete;
 - full repository gates and canonical evaluation validators pass; and
 - public docs make only the bounded local direct-audio claim.
 
@@ -850,7 +897,8 @@ Do not publish the v0.1.4 capability if any of these remains true:
 - any failure can expose partial Evidence or change the active Publication;
 - the v2 export cannot represent every active audio Publication exactly once;
 - ordinary Python 3.12/3.13 installation breaks a supported extra or existing proof;
-- bundled FFmpeg/transitive license and notice obligations are unresolved;
+- fixture redistribution authority is unresolved, or a release would bundle/redistribute external
+  binaries without the separately required legal review;
 - the real installed-wheel path cannot return exact timestamp Evidence through CLI/MCP and the
   external consumer; or
 - the measured local resource envelope is unsuitable for the approved bounded profile.
@@ -888,8 +936,9 @@ It may not claim:
   `https://github.com/SYSTRAN/faster-whisper/blob/master/faster_whisper/utils.py`
 - PyAV provides container and stream inspection over FFmpeg libraries:
   `https://pyav.org/docs/stable/api/container.html`
-- PyAV binary wheels are linked against bundled FFmpeg builds and therefore require exact-binary
-  license review rather than package-metadata-only reasoning:
+- PyAV binary wheels are linked against bundled FFmpeg builds and therefore retain exact-binary
+  inventory and direct evidence rather than package-metadata-only reasoning; this design does not
+  claim redistribution authority for those external binaries:
   `https://github.com/PyAV-Org/PyAV`
 
 These references justify feasibility and inspection boundaries. The implementation authority
