@@ -41,6 +41,10 @@ def _cells():
     )
 
 
+def _freeze_synthetic_darwin_cells(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(_module(), "_supported_cells", _cells)
+
+
 def _requirements():
     receipt = _module()
     return (
@@ -373,8 +377,10 @@ def test_malformed_lock_types_have_one_closed_projection_error(
 
 def test_lock_wheel_authority_rejects_incompatible_hash_renamed_as_darwin(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     receipt = _module()
+    _freeze_synthetic_darwin_cells(monkeypatch)
     linux_bytes = b"linux-wheel"
     darwin_bytes = b"darwin-wheel"
     linux_digest = hashlib.sha256(linux_bytes).hexdigest()
@@ -1380,9 +1386,13 @@ def test_check_inputs_reports_missing_substituted_and_extra_wheels(
     ],
 )
 def test_check_inputs_reports_cell_specific_candidate_failures(
-    tmp_path: Path, input_kind: str, expected_code: str
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    input_kind: str,
+    expected_code: str,
 ) -> None:
     receipt = _module()
+    _freeze_synthetic_darwin_cells(monkeypatch)
     payload = b"approved-wheel"
     lock, constraints = _write_single_package_lock(
         tmp_path,
@@ -1403,7 +1413,7 @@ def test_check_inputs_reports_cell_specific_candidate_failures(
     fixtures.mkdir()
 
     result = receipt.check_inputs(
-        pythons=(Path(sys.executable), Path(sys.executable)),
+        pythons=(),
         wheelhouse=wheelhouse,
         lock_path=lock,
         constraints=constraints,
@@ -3247,11 +3257,34 @@ def test_generation_rejects_partial_projection_as_preflight_authority() -> None:
     }
 
 
-def test_local_optional_use_allows_recorded_unresolved_transitive_items() -> None:
+def test_local_optional_use_allows_recorded_unresolved_transitive_items(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     receipt = _module()
+    _freeze_synthetic_darwin_cells(monkeypatch)
     evidence, preflight, generation_preflight = _complete_generation_bundle()
 
     assert evidence["schema_version"] == "mke.direct_audio_dependency_receipt.v1"
+    assert receipt.validate_generation_evidence(
+        evidence,
+        preflight=preflight,
+        generation_preflight=generation_preflight,
+    ) == {
+        "external_binary_redistribution": "not_performed",
+        "redistribution_authority": "not_claimed",
+        "status": "passed",
+    }
+
+
+def test_synthetic_darwin_generation_authority_is_independent_of_linux_host(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    receipt = _module()
+    evidence, preflight, generation_preflight = _complete_generation_bundle()
+    monkeypatch.setattr(receipt.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(receipt.platform, "machine", lambda: "x86_64")
+    _freeze_synthetic_darwin_cells(monkeypatch)
+
     assert receipt.validate_generation_evidence(
         evidence,
         preflight=preflight,
@@ -3789,6 +3822,7 @@ def test_generation_cli_writes_only_validator_accepted_canonical_receipt(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     receipt = _module()
+    _freeze_synthetic_darwin_cells(monkeypatch)
     evidence, preflight, generation_preflight = _complete_generation_bundle()
     output = tmp_path / "dependency-artifacts.json"
     captured: dict[str, object] = {}
@@ -3810,9 +3844,9 @@ def test_generation_cli_writes_only_validator_accepted_canonical_receipt(
     result = receipt.main(
         [
             "--python",
-            sys.executable,
+            "synthetic-python3.12",
             "--python",
-            sys.executable,
+            "synthetic-python3.13",
             "--wheelhouse",
             str(tmp_path / "wheelhouse"),
             "--lock",
@@ -3840,7 +3874,10 @@ def test_generation_cli_writes_only_validator_accepted_canonical_receipt(
         "receipt_sha256": evidence["receipt_sha256"],
         "status": "passed",
     }
-    assert captured["pythons"] == (Path(sys.executable), Path(sys.executable))
+    assert captured["pythons"] == (
+        Path("synthetic-python3.12"),
+        Path("synthetic-python3.13"),
+    )
 
 
 def test_generation_receipt_requires_schema_identity() -> None:
