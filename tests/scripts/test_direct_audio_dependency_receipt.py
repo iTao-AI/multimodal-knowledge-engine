@@ -256,7 +256,7 @@ name = "multimodal-knowledge-engine"
 version = "0.1.3"
 source = { editable = "." }
 [package.optional-dependencies]
-transcription = [{ name = "faster-whisper" }, { name = "av" }]
+transcription = [{ name = "faster-whisper" }]
 """.strip()
     wheel_a = (
         '{ url = "https://example.invalid/av-17.1.0-py3-none-any.whl", '
@@ -686,7 +686,7 @@ def test_nested_pip_uses_exclusive_staging_and_call_owned_venv(
         "PIP_CONFIG_FILE": "platform-null",
         "TMPDIR": "call-owned-temp",
     }
-    assert len(calls) == 3
+    assert len(calls) == 4
     creator = cast(list[str], calls[0]["argv"])
     assert creator[:5] == [
         str(cast(Path, case["python"]).resolve()),
@@ -696,8 +696,18 @@ def test_nested_pip_uses_exclusive_staging_and_call_owned_venv(
         "venv",
     ]
     assert creator[-2] == "--copies"
-    install = cast(list[str], calls[1]["argv"])
-    check = cast(list[str], calls[2]["argv"])
+    assert "--without-pip" in creator
+    ensurepip = cast(list[str], calls[1]["argv"])
+    assert ensurepip[1:] == [
+        "-I",
+        "-B",
+        "-m",
+        "ensurepip",
+        "--upgrade",
+        "--default-pip",
+    ]
+    install = cast(list[str], calls[2]["argv"])
+    check = cast(list[str], calls[3]["argv"])
     runtime_root = cast(Path, case["runtime_root"])
     call_root = Path(creator[-1]).parent
     assert call_root.parent == runtime_root.resolve()
@@ -712,6 +722,48 @@ def test_nested_pip_uses_exclusive_staging_and_call_owned_venv(
     rendered = json.dumps(calls, default=str)
     for forbidden in ("PIP_INDEX_URL", "HTTPS_PROXY", "credential.invalid", "proxy.invalid"):
         assert forbidden not in rendered
+
+
+def test_nested_pip_collects_runtime_evidence_before_call_owned_cleanup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    receipt = _module()
+    case = _nested_pip_case(tmp_path)
+    _install_fake_nested_pip_runtime(monkeypatch, case)
+    fixtures = _copy_audio_fixture_root(tmp_path)
+    observed: dict[str, object] = {}
+
+    def collect(**kwargs: object) -> dict[str, object]:
+        python = cast(Path, kwargs["python"])
+        observed.update(kwargs)
+        observed["venv_exists_during_probe"] = python.exists()
+        return {"schema": "mke.direct_audio_runtime_evidence.v1"}
+
+    monkeypatch.setattr(receipt, "_collect_runtime_evidence", collect)
+    constraints = cast(Path, case["constraints"])
+    requirements = cast(Path, case["requirements"])
+    result = receipt.run_nested_pip_install(
+        python=cast(Path, case["python"]),
+        wheelhouse=cast(Path, case["wheelhouse"]),
+        constraints=constraints,
+        root_requirements=requirements,
+        expected_manifest=cast(tuple[Any, ...], case["manifest"]),
+        constraints_sha256=hashlib.sha256(constraints.read_bytes()).hexdigest(),
+        root_requirements_sha256=hashlib.sha256(requirements.read_bytes()).hexdigest(),
+        runtime_root=cast(Path, case["runtime_root"]),
+        cell=_cells()[0],
+        preflight_interpreter=cast(dict[str, object], case["public"]),
+        preflight_file_identity=cast(tuple[int, ...], case["identity"]),
+        fixture_root=fixtures,
+        requirements=(receipt.Requirement("demo", "1.0"),),
+    )
+
+    assert result["runtime_evidence"] == {
+        "schema": "mke.direct_audio_runtime_evidence.v1"
+    }
+    assert observed["venv_exists_during_probe"] is True
+    assert observed["fixture_root"] == fixtures
+    assert list(cast(Path, case["runtime_root"]).iterdir()) == []
 
 
 def test_nested_pip_rejects_venv_alias_to_operator_interpreter(
@@ -2855,11 +2907,12 @@ def _complete_generation_evidence() -> dict[str, object]:
             "bundled_components": [],
         },
         "ffmpeg_runtime": {
+            "version": "8.0.0",
             "license": "LGPL version 2.1 or later",
             "configuration": "--enable-shared",
             "configuration_sha256": digest,
             "sha256": digest,
-            "source_reference": "ffmpeg-runtime-version-output",
+            "source_reference": "ffmpeg-project-8_0_0",
             "license_text_sha256": digest,
             "artifact_scope": "local_runtime_only",
         },
@@ -2869,7 +2922,7 @@ def _complete_generation_evidence() -> dict[str, object]:
                 "version": "61",
                 "license": "LGPL-2.1-or-later",
                 "evidence_sha256": digest,
-                "source_reference": "pyav-linked-library-inventory",
+                "source_reference": "ffmpeg-project-8_0_0",
                 "license_text_sha256": digest,
                 "artifact_scope": "local_runtime_only",
                 "local_use_restriction": "none_observed",
@@ -2941,6 +2994,206 @@ def test_local_optional_use_allows_recorded_unresolved_transitive_items() -> Non
         "redistribution_authority": "not_claimed",
         "status": "passed",
     }
+
+
+def test_generation_rejects_arbitrary_project_source_reference_substitution() -> None:
+    receipt = _module()
+    evidence, preflight, generation_preflight = _complete_generation_bundle()
+    cast(dict[str, object], evidence["ffmpeg_runtime"])["source_reference"] = (
+        "arbitrary-public-token"
+    )
+    for component in cast(list[dict[str, object]], evidence["direct_components"]):
+        component["source_reference"] = "arbitrary-public-token"
+    _refresh_receipt_digest(evidence)
+
+    assert receipt.validate_generation_evidence(
+        evidence,
+        preflight=preflight,
+        generation_preflight=generation_preflight,
+    ) == {"failure": "generation_evidence_invalid", "status": "failed"}
+
+
+@pytest.mark.skipif(platform.system() != "Darwin", reason="Darwin wheel floor authority")
+def test_preflight_authority_uses_live_os_floor_with_target_interpreter_abi() -> None:
+    receipt = _module()
+    evidence, preflight, _ = _complete_generation_bundle()
+    del evidence
+    wheelhouse = cast(list[dict[str, object]], preflight["wheelhouse"])
+    resolutions = cast(list[dict[str, object]], preflight["wheel_resolution"])
+    for interpreter in cast(list[dict[str, object]], preflight["interpreters"]):
+        interpreter["sysconfig_platform"] = "macosx-11.0-arm64"
+    replacements: dict[str, str] = {}
+    for wheel in wheelhouse:
+        filename = cast(str, wheel["filename"])
+        if cast(str, wheel["distribution"]) != "av":
+            continue
+        replacement = filename.replace("macosx_11_0_arm64", "macosx_14_0_arm64")
+        wheel["filename"] = replacement
+        wheel["platform_tags"] = ["macosx_14_0_arm64"]
+        replacements[filename] = replacement
+    for row in resolutions:
+        filename = cast(str, row["filename"])
+        if filename in replacements:
+            row["filename"] = replacements[filename]
+    _refresh_preflight_digest(preflight)
+
+    assert receipt._passed_preflight_authority(preflight) is not None  # pyright: ignore[reportPrivateUsage]
+
+
+def test_runtime_evidence_probe_uses_fixed_isolated_command_and_closed_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    receipt = _module()
+    python = tmp_path / "venv" / "bin" / "python3.12"
+    python.parent.mkdir(parents=True)
+    python.write_bytes(b"python")
+    python.chmod(0o700)
+    fixtures = _copy_audio_fixture_root(tmp_path)
+    cwd = tmp_path / "cwd"
+    cwd.mkdir()
+    payload = {
+        "schema": "mke.direct_audio_runtime_evidence.v1",
+        "installed_distributions": [
+            {"distribution": "av", "version": "17.1.0"},
+            {"distribution": "faster-whisper", "version": "1.2.1"},
+            {"distribution": "huggingface-hub", "version": "1.21.0"},
+        ],
+        "imports": [
+            {"distribution": "av", "module": "av", "status": "passed", "version": "17.1.0"},
+            {
+                "distribution": "faster-whisper",
+                "module": "faster_whisper",
+                "status": "passed",
+                "version": "1.2.1",
+            },
+            {
+                "distribution": "huggingface-hub",
+                "module": "huggingface_hub",
+                "status": "passed",
+                "version": "1.21.0",
+            },
+        ],
+        "fixture_decodes": [
+            {
+                "filename": name,
+                "sha256": fixture_sha256,
+                "decoder": "pyav",
+                "status": "passed",
+                "stream_count": 1,
+            }
+            for name, (_, fixture_sha256, _) in _FIXTURE_IDENTITIES.items()
+        ],
+        "pyav": {
+            "version": "17.1.0",
+            "extensions": [{"filename": "av/_core.abi3.so", "sha256": "a" * 64}],
+            "bundled_binaries": [
+                {
+                    "filename": "av/.dylibs/libavutil.60.26.101.dylib",
+                    "sha256": "b" * 64,
+                }
+            ],
+            "library_versions": {"libavutil": "60.26.101"},
+            "license": "BSD-3-Clause",
+            "license_text_sha256": "c" * 64,
+            "ffmpeg_license": "LGPL version 3 or later",
+            "ffmpeg_configuration": "--disable-static --enable-shared",
+            "ffmpeg_configuration_sha256": "d" * 64,
+            "ffmpeg_version": "8.1.1",
+        },
+    }
+    captured: dict[str, object] = {}
+
+    def run(argv: list[str], **kwargs: object) -> SimpleNamespace:
+        captured["argv"] = argv
+        captured.update(kwargs)
+        return SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("ascii")
+            + b"\n",
+            stderr=b"",
+            supervision=None,
+        )
+
+    monkeypatch.setattr(receipt, "_run_bounded", run)
+
+    observed = receipt._collect_runtime_evidence(  # pyright: ignore[reportPrivateUsage]
+        python=python,
+        fixture_root=fixtures,
+        requirements=(
+            receipt.Requirement("av", "17.1.0"),
+            receipt.Requirement("faster-whisper", "1.2.1"),
+            receipt.Requirement("huggingface-hub", "1.21.0"),
+        ),
+        cwd=cwd,
+        env={"HOME": "call-owned-home", "TMPDIR": "call-owned-temp"},
+    )
+
+    assert cast(list[str], captured["argv"])[:5] == [
+        str(python),
+        "-I",
+        "-B",
+        "-c",
+        receipt._RUNTIME_EVIDENCE_SOURCE,  # pyright: ignore[reportPrivateUsage]
+    ]
+    assert captured["env"] == {"HOME": "call-owned-home", "TMPDIR": "call-owned-temp"}
+    assert captured["cwd"] == cwd
+    assert observed == payload
+    assert str(tmp_path) not in json.dumps(observed, sort_keys=True)
+
+
+def test_generation_cli_writes_only_validator_accepted_canonical_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    receipt = _module()
+    evidence, preflight, generation_preflight = _complete_generation_bundle()
+    output = tmp_path / "dependency-artifacts.json"
+    captured: dict[str, object] = {}
+
+    def generate(
+        **kwargs: object,
+    ) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
+        captured.update(kwargs)
+        return evidence, preflight, generation_preflight
+
+    monkeypatch.setattr(receipt, "generate_dependency_receipt", generate, raising=False)
+    monkeypatch.setattr(receipt, "_controller_isolated", lambda: True)
+
+    result = receipt.main(
+        [
+            "--python",
+            sys.executable,
+            "--python",
+            sys.executable,
+            "--wheelhouse",
+            str(tmp_path / "wheelhouse"),
+            "--lock",
+            str(tmp_path / "uv.lock"),
+            "--constraints",
+            str(tmp_path / "constraints.txt"),
+            "--fixture-root",
+            str(tmp_path / "fixtures"),
+            "--output",
+            str(output),
+        ]
+    )
+
+    assert result == 0
+    assert json.loads(output.read_text(encoding="ascii")) == evidence
+    assert output.read_bytes() == (
+        json.dumps(evidence, sort_keys=True, separators=(",", ":")).encode("ascii") + b"\n"
+    )
+    assert receipt.validate_generation_evidence(
+        evidence,
+        preflight=preflight,
+        generation_preflight=generation_preflight,
+    )["status"] == "passed"
+    assert json.loads(capsys.readouterr().out) == {
+        "receipt_sha256": evidence["receipt_sha256"],
+        "status": "passed",
+    }
+    assert captured["pythons"] == (Path(sys.executable), Path(sys.executable))
 
 
 def test_generation_receipt_requires_schema_identity() -> None:
@@ -3516,11 +3769,7 @@ def test_main_redacts_unexpected_controller_failure_to_one_closed_json_object(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     receipt = _module()
-    monkeypatch.setattr(
-        receipt.sys,
-        "flags",
-        SimpleNamespace(isolated=1, dont_write_bytecode=1),
-    )
+    monkeypatch.setattr(receipt, "_controller_isolated", lambda: True)
 
     def fail_closed(**_kwargs: object) -> dict[str, object]:
         raise RuntimeError("private failure at /Users/operator/secret")

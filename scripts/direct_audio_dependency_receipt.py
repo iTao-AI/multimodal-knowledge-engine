@@ -189,6 +189,13 @@ class BoundedRunResult:
 
 _TARGET_PROFILE = BoundedProfile(5.0, 4096, 4096, output_bytes=4096)
 _PIP_PROFILE = BoundedProfile(300.0, 64 * 1024, 64 * 1024, output_bytes=64 * 1024)
+_RUNTIME_EVIDENCE_PROFILE = BoundedProfile(
+    60.0,
+    256 * 1024,
+    64 * 1024,
+    footprint_bytes=1024 * 1024 * 1024,
+    output_bytes=256 * 1024,
+)
 _PIP_ARGV_AUTHORITY = [
     "call-owned-venv-python",
     "-I",
@@ -236,6 +243,146 @@ _INTERPRETER_PROBE_SOURCE = (
     "'byteorder':sys.byteorder"
     "},sort_keys=True,separators=(',',':')))"
 )
+_RUNTIME_EVIDENCE_SOURCE = """
+import ctypes
+import hashlib
+import importlib
+import importlib.metadata
+import json
+import pathlib
+import re
+import sys
+
+fixture_root = pathlib.Path(sys.argv[1])
+requirements = json.loads(sys.argv[2])
+installed = []
+for distribution in sorted(requirements):
+    installed.append(
+        {
+            "distribution": distribution,
+            "version": importlib.metadata.version(distribution),
+        }
+    )
+imports = []
+for distribution, module in sorted(
+    {
+        "av": "av",
+        "faster-whisper": "faster_whisper",
+        "huggingface-hub": "huggingface_hub",
+    }.items()
+):
+    importlib.import_module(module)
+    imports.append(
+        {
+            "distribution": distribution,
+            "module": module,
+            "status": "passed",
+            "version": importlib.metadata.version(distribution),
+        }
+    )
+import av
+
+fixture_decodes = []
+for fixture in sorted(fixture_root.iterdir(), key=lambda item: item.name):
+    if fixture.name == "README.md":
+        continue
+    value = fixture.read_bytes()
+    with av.open(str(fixture), mode="r") as container:
+        audio_streams = list(container.streams.audio)
+        if len(audio_streams) != 1 or any(
+            len(items) for items in (container.streams.video, container.streams.subtitles)
+        ):
+            raise RuntimeError("fixture stream inventory invalid")
+        decoded = sum(1 for _ in container.decode(audio=audio_streams[0].index))
+        if decoded <= 0:
+            raise RuntimeError("fixture decode was empty")
+    fixture_decodes.append(
+        {
+            "filename": fixture.name,
+            "sha256": hashlib.sha256(value).hexdigest(),
+            "decoder": "pyav",
+            "status": "passed",
+            "stream_count": 1,
+        }
+    )
+av_root = pathlib.Path(av.__file__).parent
+site_root = av_root.parent
+extensions = [
+    {
+        "filename": path.relative_to(site_root).as_posix(),
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+    }
+    for path in sorted(av_root.rglob("*.so"))
+]
+bundled_binaries = [
+    {
+        "filename": path.relative_to(site_root).as_posix(),
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+    }
+    for path in sorted((av_root / ".dylibs").glob("*.dylib"))
+]
+library_versions = {
+    name: ".".join(str(item) for item in version)
+    for name, version in sorted(av.library_versions.items())
+}
+av_distribution = importlib.metadata.distribution("av")
+license_files = [
+    pathlib.Path(av_distribution.locate_file(path))
+    for path in av_distribution.files or []
+    if str(path).endswith("licenses/LICENSE.txt")
+]
+if len(license_files) != 1:
+    raise RuntimeError("PyAV license evidence unavailable")
+license_text = license_files[0].read_bytes()
+av_license = av_distribution.metadata.get("License-Expression")
+libavutil = [
+    path
+    for path in (av_root / ".dylibs").glob("libavutil.*.dylib")
+    if path.is_file()
+]
+if len(libavutil) != 1:
+    raise RuntimeError("FFmpeg runtime evidence unavailable")
+runtime = ctypes.CDLL(str(libavutil[0]))
+runtime.avutil_license.restype = ctypes.c_char_p
+runtime.avutil_configuration.restype = ctypes.c_char_p
+runtime.av_version_info.restype = ctypes.c_char_p
+ffmpeg_license = runtime.avutil_license().decode("ascii", errors="strict")
+raw_configuration = runtime.avutil_configuration().decode("ascii", errors="strict")
+safe_configuration = " ".join(
+    sorted(
+        {
+            token
+            for token in raw_configuration.split(" ")
+            if re.fullmatch(
+                r"(?:--(?:enable|disable)-[a-z0-9]+(?:-[a-z0-9]+)*|"
+                r"--[a-z0-9]+(?:-[a-z0-9]+)*=[a-z0-9_+,-]+)",
+                token,
+            )
+        }
+    )
+)
+payload = {
+    "schema": "mke.direct_audio_runtime_evidence.v1",
+    "installed_distributions": installed,
+    "imports": imports,
+    "fixture_decodes": fixture_decodes,
+    "pyav": {
+        "version": importlib.metadata.version("av"),
+        "extensions": extensions,
+        "bundled_binaries": bundled_binaries,
+        "library_versions": library_versions,
+        "license": av_license,
+        "license_text_sha256": hashlib.sha256(license_text).hexdigest(),
+        "ffmpeg_license": ffmpeg_license,
+        "ffmpeg_configuration": safe_configuration,
+        "ffmpeg_configuration_sha256": hashlib.sha256(
+            raw_configuration.encode("ascii")
+        ).hexdigest(),
+        "ffmpeg_version": runtime.av_version_info().decode("ascii", errors="strict"),
+    },
+}
+print(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True))
+""".strip()
 
 
 def _normal_name(value: str) -> str:
@@ -620,14 +767,12 @@ def _derive_transcription_projection(lock_value: bytes, cells: tuple[Cell, ...])
             raise ReceiptError("lock_projection_invalid")
         roots.append(root)
     selected_by_cell: dict[str, set[str]] = {}
-    root_names_by_cell: dict[str, set[str]] = {}
     for cell in cells:
         root_names = {
             cast(str, item.get("name"))
             for item in roots
             if _marker_applies(item.get("marker"), (cell,))
         }
-        root_names_by_cell[cell.version] = root_names
         pending = list(root_names)
         selected: set[str] = set()
         while pending:
@@ -728,10 +873,7 @@ def _derive_transcription_projection(lock_value: bytes, cells: tuple[Cell, ...])
         )
         lines_by_name[name] = line
     lines = [lines_by_name[name] for name in sorted(selected_union)]
-    root_union: set[str] = set()
-    for root_names in root_names_by_cell.values():
-        root_union.update(root_names)
-    root_lines = [lines_by_name[name] for name in sorted(root_union)]
+    root_lines = [lines_by_name[name] for name in sorted(selected_union)]
     root_encoded = ("\n".join(sorted(root_lines)) + "\n").encode("ascii")
     requirements_by_cell = tuple(
         (
@@ -750,7 +892,7 @@ def _derive_transcription_projection(lock_value: bytes, cells: tuple[Cell, ...])
         (
             cell.version,
             (
-                "\n".join(lines_by_name[name] for name in sorted(root_names_by_cell[cell.version]))
+                "\n".join(lines_by_name[name] for name in sorted(selected_by_cell[cell.version]))
                 + "\n"
             ).encode("ascii"),
         )
@@ -1533,6 +1675,167 @@ def _validate_venv_authority(
         raise ReceiptError("pip_venv_identity_drift")
 
 
+def _prepare_darwin_copied_runtime(
+    *, base_executable: Path, venv: Path, cell: Cell
+) -> None:
+    if sys.platform != "darwin":
+        return
+    source = base_executable.parent.parent / "lib" / f"libpython{cell.version}.dylib"
+    destination = venv / "lib" / source.name
+    if not source.exists() or destination.exists():
+        return
+    try:
+        authority, value = _file_authority(source)
+        _write_exclusive_file(destination, value)
+        destination.chmod(0o600)
+        observed, _ = _file_authority(source)
+    except (OSError, ReceiptError) as error:
+        raise ReceiptError("pip_venv_creation_failed") from error
+    if observed != authority:
+        raise ReceiptError("pip_interpreter_identity_drift")
+
+
+def _relative_bundled_binary_filename(value: object) -> bool:
+    if not isinstance(value, str) or not value.startswith("av/.dylibs/"):
+        return False
+    name = value.removeprefix("av/.dylibs/")
+    return "/" not in name and _EXTENSION_PART.fullmatch(name) is not None
+
+
+def _collect_runtime_evidence(
+    *,
+    python: Path,
+    fixture_root: Path,
+    requirements: tuple[Requirement, ...],
+    cwd: Path,
+    env: Mapping[str, str],
+) -> dict[str, object]:
+    expected = {item.name: item.version for item in requirements}
+    fixture_directory = _validated_directory(fixture_root, code="fixture_inventory_invalid")
+    result = _run_bounded(
+        [
+            str(python),
+            "-I",
+            "-B",
+            "-c",
+            _RUNTIME_EVIDENCE_SOURCE,
+            str(fixture_directory),
+            json.dumps(expected, sort_keys=True, separators=(",", ":")),
+        ],
+        env=dict(env),
+        cwd=cwd,
+        profile=_RUNTIME_EVIDENCE_PROFILE,
+    )
+    if result.returncode != 0 or result.stderr:
+        raise ReceiptError("runtime_evidence_probe_failed")
+    try:
+        decoded = cast(object, json.loads(result.stdout.decode("ascii", errors="strict")))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ReceiptError("runtime_evidence_invalid") from error
+    payload = _exact_mapping(
+        decoded,
+        {
+            "schema",
+            "installed_distributions",
+            "imports",
+            "fixture_decodes",
+            "pyav",
+        },
+    )
+    if payload is None or payload["schema"] != "mke.direct_audio_runtime_evidence.v1":
+        raise ReceiptError("runtime_evidence_invalid")
+    installed = _inventory_rows(
+        payload["installed_distributions"], {"distribution", "version"}
+    )
+    imports = _inventory_rows(
+        payload["imports"], {"distribution", "module", "status", "version"}
+    )
+    decodes = _inventory_rows(
+        payload["fixture_decodes"],
+        {"filename", "sha256", "decoder", "status", "stream_count"},
+    )
+    pyav = _exact_mapping(
+        payload["pyav"],
+        {
+            "version",
+            "extensions",
+            "bundled_binaries",
+            "library_versions",
+            "license",
+            "license_text_sha256",
+            "ffmpeg_license",
+            "ffmpeg_configuration",
+            "ffmpeg_configuration_sha256",
+            "ffmpeg_version",
+        },
+    )
+    if installed is None or imports is None or decodes is None or pyav is None:
+        raise ReceiptError("runtime_evidence_invalid")
+    extensions = _inventory_rows(pyav["extensions"], {"filename", "sha256"})
+    bundled = _inventory_rows(pyav["bundled_binaries"], {"filename", "sha256"})
+    library_versions = pyav["library_versions"]
+    if not isinstance(library_versions, dict):
+        raise ReceiptError("runtime_evidence_invalid")
+    libraries = cast(dict[object, object], library_versions)
+    library_names = [name for name in libraries if isinstance(name, str)]
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("ascii") + b"\n"
+    valid = (
+        result.stdout == canonical
+        and _canonical_inventory(installed, ("distribution",))
+        and {cast(str, item["distribution"]): item["version"] for item in installed} == expected
+        and _canonical_inventory(imports, ("distribution",))
+        and {item["distribution"] for item in imports} == set(_REQUIRED_IMPORTS)
+        and all(
+            item["module"] == _REQUIRED_IMPORTS.get(cast(str, item["distribution"]))
+            and item["status"] == "passed"
+            and item["version"] == expected.get(cast(str, item["distribution"]))
+            for item in imports
+        )
+        and _canonical_inventory(decodes, ("filename",))
+        and {item["filename"] for item in decodes} == set(_FIXTURES)
+        and all(
+            item["sha256"] == _FIXTURE_AUTHORITY[cast(str, item["filename"])]["sha256"]
+            and item["decoder"] == "pyav"
+            and item["status"] == "passed"
+            and item["stream_count"] == 1
+            for item in decodes
+        )
+        and extensions is not None
+        and bundled is not None
+        and _canonical_inventory(extensions, ("filename",))
+        and _canonical_inventory(bundled, ("filename",))
+        and all(
+            _relative_extension_filename(item["filename"])
+            and _digest_value(item["sha256"])
+            for item in extensions
+        )
+        and all(
+            _relative_bundled_binary_filename(item["filename"])
+            and _digest_value(item["sha256"])
+            for item in bundled
+        )
+        and pyav["version"] == expected.get("av")
+        and pyav["license"] == "BSD-3-Clause"
+        and _digest_value(pyav["license_text_sha256"])
+        and libraries
+        and len(library_names) == len(libraries)
+        and library_names == sorted(library_names)
+        and all(
+            isinstance(name, str)
+            and _public_reference(name)
+            and _closed_version(version)
+            for name, version in libraries.items()
+        )
+        and _ffmpeg_license(pyav["ffmpeg_license"])
+        and _ffmpeg_configuration(pyav["ffmpeg_configuration"])
+        and _digest_value(pyav["ffmpeg_configuration_sha256"])
+        and _closed_version(pyav["ffmpeg_version"])
+    )
+    if not valid:
+        raise ReceiptError("runtime_evidence_invalid")
+    return payload
+
+
 def run_nested_pip_install(
     *,
     python: Path,
@@ -1546,7 +1849,11 @@ def run_nested_pip_install(
     cell: Cell,
     preflight_interpreter: Mapping[str, object],
     preflight_file_identity: tuple[int, ...],
+    fixture_root: Path | None = None,
+    requirements: tuple[Requirement, ...] | None = None,
 ) -> dict[str, object]:
+    if (fixture_root is None) != (requirements is None):
+        raise ReceiptError("runtime_evidence_inputs_invalid")
     validated_runtime = _validated_directory(runtime_root, code="runtime_path_invalid")
     generation_interpreter, generation_file_identity, generation_executable = (
         _probe_target_interpreter(python, cell)
@@ -1609,6 +1916,7 @@ def run_nested_pip_install(
                 "-B",
                 "-m",
                 "venv",
+                "--without-pip",
                 "--copies",
                 str(venv),
             ],
@@ -1619,7 +1927,12 @@ def run_nested_pip_install(
         if creation.returncode != 0 or creation.stderr:
             raise ReceiptError("pip_venv_creation_failed")
         venv_executable = venv / "bin" / f"python{cell.version}"
-        venv_before = _snapshot_venv_authority(
+        _prepare_darwin_copied_runtime(
+            base_executable=generation_executable,
+            venv=venv,
+            cell=cell,
+        )
+        venv_initial = _snapshot_venv_authority(
             venv=venv,
             executable=venv_executable,
             call_root=call_root,
@@ -1627,7 +1940,7 @@ def run_nested_pip_install(
         )
         approved_after_creation = _snapshot_executable(python)
         if (
-            venv_before.executable.target_file_identity
+            venv_initial.executable.target_file_identity
             == approved_after_creation.target_file_identity
         ):
             raise ReceiptError("pip_venv_invalid")
@@ -1639,16 +1952,45 @@ def run_nested_pip_install(
         venv_interpreter, _, pip_executable = _probe_target_interpreter(venv_executable, cell)
         if (
             venv_interpreter != dict(preflight_interpreter)
-            or pip_executable != venv_before.executable.resolved
+            or pip_executable != venv_initial.executable.resolved
         ):
             raise ReceiptError("pip_venv_identity_drift")
         _validate_venv_authority(
-            venv_before,
+            venv_initial,
             venv=venv,
             executable=venv_executable,
             call_root=call_root,
             cell=cell,
         )
+        ensurepip = _run_bounded(
+            [
+                str(venv_executable),
+                "-I",
+                "-B",
+                "-m",
+                "ensurepip",
+                "--upgrade",
+                "--default-pip",
+            ],
+            env={"HOME": str(home), "TMPDIR": str(temp)},
+            cwd=cwd,
+            profile=_PIP_PROFILE,
+        )
+        if ensurepip.returncode != 0:
+            raise ReceiptError("pip_venv_creation_failed")
+        venv_before = _snapshot_venv_authority(
+            venv=venv,
+            executable=venv_executable,
+            call_root=call_root,
+            cell=cell,
+        )
+        if (
+            venv_before.executable != venv_initial.executable
+            or venv_before.configuration != venv_initial.configuration
+            or [name for name, _ in venv_before.directories]
+            != [name for name, _ in venv_initial.directories]
+        ):
+            raise ReceiptError("pip_venv_identity_drift")
         environment = {
             "HOME": str(home),
             "TMPDIR": str(temp),
@@ -1754,6 +2096,18 @@ def run_nested_pip_install(
             or final_interpreter.sha256 != preflight_interpreter.get("executable_sha256")
         ):
             raise ReceiptError("pip_interpreter_identity_drift")
+        if fixture_root is not None:
+            if requirements is None:
+                raise ReceiptError("runtime_evidence_inputs_invalid")
+            runtime_evidence = _collect_runtime_evidence(
+                python=venv_executable,
+                fixture_root=fixture_root,
+                requirements=requirements,
+                cwd=cwd,
+                env=environment,
+            )
+        else:
+            runtime_evidence = None
         manifest_digest = _wheel_manifest_sha256(expected_manifest)
         public_result = {
             "cell": cell.version,
@@ -1767,6 +2121,8 @@ def run_nested_pip_install(
                 "wheelhouse_manifest_sha256": manifest_digest,
             },
         }
+        if runtime_evidence is not None:
+            public_result["runtime_evidence"] = runtime_evidence
     except ReceiptError as error:
         failure = error
     except Exception as error:
@@ -2453,6 +2809,12 @@ def _spdx_license(value: object) -> bool:
     return isinstance(value, str) and _SPDX_LICENSE.fullmatch(value) is not None
 
 
+def _project_reference_id(project: str, version: object) -> str | None:
+    if project not in {"pyav", "ffmpeg"} or not _closed_version(version):
+        return None
+    return f"{project}-project-{cast(str, version).replace('.', '_')}"
+
+
 def _relative_extension_filename(value: object) -> bool:
     if (
         not isinstance(value, str)
@@ -2735,22 +3097,33 @@ def _passed_preflight_authority(
     entries_by_filename = {entry.filename: entry for entry in cast(list[WheelEntry], wheel_entries)}
     resolution_keys: set[tuple[object, object]] = set()
     used_filenames: set[str] = set()
+    live_cells = {cell.version: cell for cell in _supported_cells()}
     for row in resolution:
         cell = row["cell"]
         filename = row["filename"]
         if not isinstance(cell, str) or not isinstance(filename, str):
             return None
         interpreter = interpreter_map.get(cell)
+        live_cell = live_cells.get(cell)
         entry = entries_by_filename.get(filename)
         key = (cell, row["distribution"])
         if (
             interpreter is None
+            or live_cell is None
             or entry is None
             or key in resolution_keys
             or row["distribution"] != entry.distribution
             or row["version"] != entry.version
             or row["sha256"] != entry.sha256
-            or not _wheel_compatible(entry, interpreter[0])
+            or not _wheel_compatible(
+                entry,
+                Cell(
+                    interpreter[0].python,
+                    interpreter[0].version,
+                    interpreter[0].python_tag,
+                    live_cell.platform_tag,
+                ),
+            )
         ):
             return None
         resolution_keys.add(key)
@@ -2928,6 +3301,405 @@ def _valid_pip_authority(
         and staging["root_requirements_sha256"] == root_requirements_sha256
         and staging["wheelhouse_manifest_sha256"] == wheelhouse_manifest_sha256
     )
+
+
+_CONTROLLED_ALLOCATOR_SOURCE = (
+    "import time;chunks=[];"
+    "exec(\"for _ in range(10):\\n chunks.append(bytearray(b'x'*(4*1024*1024)))\\n"
+    " time.sleep(0.05)\\nwhile True:\\n time.sleep(1)\")"
+)
+
+
+def _collect_supervisor_evidence() -> dict[str, object]:
+    profile = BoundedProfile(
+        wall_seconds=5.0,
+        stdout_bytes=4096,
+        stderr_bytes=4096,
+        footprint_bytes=24 * 1024 * 1024,
+        footprint_budget_mode="baseline_plus",
+        poll_seconds=0.01,
+        term_grace_seconds=0.25,
+        controlled_allocator="stdlib-dirty-bytearray-4mib-v1",
+        output_bytes=4096,
+    )
+    result = _run_bounded(
+        [sys.executable, "-I", "-B", "-c", _CONTROLLED_ALLOCATOR_SOURCE],
+        env={},
+        cwd=None,
+        profile=profile,
+    )
+    if result.returncode == 0 or result.stdout or result.stderr or result.supervision is None:
+        raise ReceiptError("supervisor_evidence_invalid")
+    if not _valid_supervisor_authority(result.supervision):
+        raise ReceiptError("supervisor_evidence_invalid")
+    return result.supervision
+
+
+def _runtime_pyav(value: Mapping[str, object]) -> dict[str, object]:
+    pyav = value.get("pyav")
+    if not isinstance(pyav, dict):
+        raise ReceiptError("runtime_evidence_invalid")
+    return cast(dict[str, object], pyav)
+
+
+def _component_name_and_version(filename: str) -> tuple[str, str]:
+    name = filename.rsplit("/", 1)[-1]
+    match = re.fullmatch(r"(lib[A-Za-z0-9_-]+)\.([0-9][A-Za-z0-9._+]*)\.dylib", name)
+    if match is None:
+        raise ReceiptError("binary_component_inventory_invalid")
+    normalized = re.sub(r"[^a-z0-9]+", "-", match[1].lower()).strip("-")
+    if not _public_reference(normalized) or not _closed_version(match[2]):
+        raise ReceiptError("binary_component_inventory_invalid")
+    return normalized, match[2]
+
+
+def _build_generation_evidence(
+    *,
+    preflight: Mapping[str, object],
+    generation_preflight: Mapping[str, object],
+    cell_runs: list[tuple[str, dict[str, object], dict[str, object]]],
+    supervisor: dict[str, object],
+) -> dict[str, object]:
+    authority = _passed_preflight_authority(preflight)
+    generation_authority = _passed_preflight_authority(generation_preflight)
+    if authority is None or generation_authority is None:
+        raise ReceiptError("generation_preflight_invalid")
+    if generation_authority != authority:
+        raise ReceiptError("generation_preflight_invalid")
+    resolution = cast(list[dict[str, object]], authority["wheel_resolution"])
+    installed = [
+        {
+            "distribution": row["distribution"],
+            "version": row["version"],
+            "source_wheel_filename": row["filename"],
+            "source_wheel_sha256": row["sha256"],
+            "cell": row["cell"],
+            "artifact_scope": "local_runtime_only",
+        }
+        for row in resolution
+    ]
+    installed.sort(key=lambda item: (cast(str, item["cell"]), cast(str, item["distribution"])))
+    installed_by_cell_distribution = {
+        (cast(str, item["cell"]), cast(str, item["distribution"])): item
+        for item in installed
+    }
+    cells: list[dict[str, object]] = []
+    all_extensions: list[dict[str, object]] = []
+    bundled_by_component: dict[str, list[dict[str, str]]] = {}
+    runtime_pyav_rows: list[dict[str, object]] = []
+    for cell, pip_result, runtime in sorted(cell_runs, key=lambda item: item[0]):
+        pyav = _runtime_pyav(runtime)
+        runtime_pyav_rows.append(pyav)
+        runtime_installed = cast(list[dict[str, object]], runtime["installed_distributions"])
+        runtime_imports = cast(list[dict[str, object]], runtime["imports"])
+        runtime_decodes = cast(list[dict[str, object]], runtime["fixture_decodes"])
+        cell_installed = [item for item in installed if item["cell"] == cell]
+        if {
+            (item["distribution"], item["version"]) for item in runtime_installed
+        } != {(item["distribution"], item["version"]) for item in cell_installed}:
+            raise ReceiptError("installed_distribution_evidence_invalid")
+        imports: list[dict[str, object]] = []
+        for item in runtime_imports:
+            source = installed_by_cell_distribution.get(
+                (cell, cast(str, item["distribution"]))
+            )
+            if source is None:
+                raise ReceiptError("import_evidence_invalid")
+            imports.append({**item, "evidence_sha256": source["source_wheel_sha256"]})
+        for item in cast(list[dict[str, object]], pyav["extensions"]):
+            all_extensions.append(
+                {
+                    "filename": f"python-{cell}/{item['filename']}",
+                    "sha256": item["sha256"],
+                }
+            )
+        for item in cast(list[dict[str, object]], pyav["bundled_binaries"]):
+            name, version = _component_name_and_version(cast(str, item["filename"]))
+            bundled_by_component.setdefault(name, []).append(
+                {
+                    "cell": cell,
+                    "filename": cast(str, item["filename"]),
+                    "sha256": cast(str, item["sha256"]),
+                    "version": version,
+                }
+            )
+        public_pip = dict(pip_result)
+        public_pip.pop("runtime_evidence", None)
+        public_pip.pop("cell", None)
+        cells.append(
+            {
+                "cell": cell,
+                "interpreter": cast(dict[str, dict[str, object]], authority["interpreters"])[
+                    f"python-{cell}"
+                ],
+                "pip": public_pip,
+                "installed_distributions": cell_installed,
+                "imports": sorted(imports, key=lambda item: cast(str, item["distribution"])),
+                "fixture_decodes": sorted(
+                    runtime_decodes, key=lambda item: cast(str, item["filename"])
+                ),
+            }
+        )
+    if len(runtime_pyav_rows) != 2:
+        raise ReceiptError("generation_cell_count_invalid")
+    first_pyav = runtime_pyav_rows[0]
+    invariant_fields = (
+        "version",
+        "library_versions",
+        "license",
+        "license_text_sha256",
+        "ffmpeg_license",
+        "ffmpeg_configuration",
+        "ffmpeg_configuration_sha256",
+        "ffmpeg_version",
+    )
+    if any(
+        row.get(field) != first_pyav.get(field)
+        for row in runtime_pyav_rows[1:]
+        for field in invariant_fields
+    ):
+        raise ReceiptError("runtime_component_identity_drift")
+    library_versions = cast(dict[str, str], first_pyav["library_versions"])
+    linked_components = sorted(library_versions)
+    if not linked_components or any(name not in bundled_by_component for name in linked_components):
+        raise ReceiptError("binary_component_inventory_invalid")
+    license_value = cast(str, first_pyav["ffmpeg_license"])
+    license_match = re.fullmatch(
+        r"(LGPL|GPL) version ([0-9]+)(?:\.([0-9]+))?( or later)?", license_value
+    )
+    if license_match is None:
+        raise ReceiptError("runtime_license_invalid")
+    spdx_license = (
+        f"{license_match[1]}-{license_match[2]}.{license_match[3] or '0'}"
+        f"-{'or-later' if license_match[4] else 'only'}"
+    )
+    runtime_license_sha = hashlib.sha256(license_value.encode("ascii")).hexdigest()
+    direct_components: list[dict[str, object]] = [
+        {
+            "name": "pyav",
+            "version": first_pyav["version"],
+            "license": "BSD-3-Clause",
+            "evidence_sha256": _canonical_digest(
+                {
+                    "extensions": sorted(
+                        all_extensions,
+                        key=lambda item: cast(str, item["filename"]),
+                    ),
+                    "license_text_sha256": first_pyav["license_text_sha256"],
+                }
+            ),
+            "source_reference": _project_reference_id("pyav", first_pyav["version"]),
+            "license_text_sha256": first_pyav["license_text_sha256"],
+            "artifact_scope": "local_runtime_only",
+            "local_use_restriction": "none_observed",
+        }
+    ]
+    for name in linked_components:
+        rows = bundled_by_component[name]
+        versions = {item["version"] for item in rows}
+        if versions != {library_versions[name]}:
+            raise ReceiptError("binary_component_version_drift")
+        direct_components.append(
+            {
+                "name": name,
+                "version": library_versions[name],
+                "license": spdx_license,
+                "evidence_sha256": _canonical_digest(rows),
+                "source_reference": _project_reference_id(
+                    "ffmpeg", first_pyav["ffmpeg_version"]
+                ),
+                "license_text_sha256": runtime_license_sha,
+                "artifact_scope": "local_runtime_only",
+                "local_use_restriction": "none_observed",
+            }
+        )
+    unresolved: list[dict[str, object]] = []
+    for name, rows in sorted(bundled_by_component.items()):
+        if name in linked_components:
+            continue
+        versions = {item["version"] for item in rows}
+        if len(versions) != 1:
+            raise ReceiptError("binary_component_version_drift")
+        unresolved.append(
+            {
+                "name": name,
+                "version": versions.pop(),
+                "identity_sha256": _canonical_digest(rows),
+                "redistribution_clearance": "unresolved",
+                "local_use_restriction": "none_observed",
+                "artifact_scope": "local_runtime_only",
+            }
+        )
+    ffmpeg_rows = [
+        item
+        for name in linked_components
+        for item in bundled_by_component[name]
+    ]
+    evidence: dict[str, object] = {
+        "schema_version": _RECEIPT_SCHEMA_VERSION,
+        "receipt_sha256": "",
+        "script_sha256": authority["script_sha256"],
+        "preflight_observed_digest": authority["observed_digest"],
+        "generation_preflight_observed_digest": generation_authority["observed_digest"],
+        "external_binary_redistribution": "not_performed",
+        "redistribution_authority": "not_claimed",
+        "wheel_inventory": authority["wheelhouse"],
+        "installed_distributions": installed,
+        "cells": cells,
+        "darwin_supervisor": supervisor,
+        "pyav": {
+            "distribution": "av",
+            "version": first_pyav["version"],
+            "artifact_scope": "local_runtime_only",
+            "extensions": sorted(all_extensions, key=lambda item: cast(str, item["filename"])),
+            "linked_components": linked_components,
+            "bundled_components": ["pyav"],
+        },
+        "ffmpeg_runtime": {
+            "version": first_pyav["ffmpeg_version"],
+            "license": license_value,
+            "configuration": first_pyav["ffmpeg_configuration"],
+            "configuration_sha256": first_pyav["ffmpeg_configuration_sha256"],
+            "sha256": _canonical_digest(ffmpeg_rows),
+            "source_reference": _project_reference_id(
+                "ffmpeg", first_pyav["ffmpeg_version"]
+            ),
+            "license_text_sha256": runtime_license_sha,
+            "artifact_scope": "local_runtime_only",
+        },
+        "direct_components": sorted(direct_components, key=lambda item: cast(str, item["name"])),
+        "fixture_authority_document": {
+            "filename": "README.md",
+            "bytes": _FIXTURE_AUTHORITY["README.md"]["bytes"],
+            "sha256": _FIXTURE_AUTHORITY["README.md"]["sha256"],
+            "artifact_scope": "repository_distributed",
+        },
+        "fixtures": [
+            {
+                "filename": name,
+                "sha256": _FIXTURE_AUTHORITY[name]["sha256"],
+                "redistribution": "permitted",
+                "artifact_scope": "repository_distributed",
+                "bytes": _FIXTURE_AUTHORITY[name]["bytes"],
+                "source": "repository-authored-synthetic-speech",
+                "recipe_sha256": _FIXTURE_AUTHORITY_DOCUMENT_SHA256,
+                "license": "Flite",
+                "license_evidence_sha256": _FIXTURE_AUTHORITY_DOCUMENT_SHA256,
+                "source_sha256": _FIXTURE_SOURCE_SHA256,
+                "required_notice": "included",
+                "notice_evidence_sha256": _FIXTURE_AUTHORITY_DOCUMENT_SHA256,
+                "redistribution_basis": "documented_source_license_and_recipe",
+                "redistribution_evidence_sha256": _FIXTURE_AUTHORITY_DOCUMENT_SHA256,
+                "profile_sha256": _FIXTURE_AUTHORITY[name]["profile_sha256"],
+                "authority_document_sha256": _FIXTURE_AUTHORITY_DOCUMENT_SHA256,
+            }
+            for name in _FIXTURES
+        ],
+        "unresolved_transitive_binary_items": unresolved,
+    }
+    evidence["receipt_sha256"] = _canonical_digest(
+        {key: value for key, value in evidence.items() if key != "receipt_sha256"}
+    )
+    return evidence
+
+
+def generate_dependency_receipt(
+    *,
+    pythons: tuple[Path, ...],
+    wheelhouse: Path,
+    lock_path: Path,
+    constraints: Path,
+    fixture_root: Path,
+) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
+    preflight = check_inputs(
+        pythons=pythons,
+        wheelhouse=wheelhouse,
+        lock_path=lock_path,
+        constraints=constraints,
+        fixture_root=fixture_root,
+    )
+    authority = _passed_preflight_authority(preflight)
+    if authority is None:
+        raise ReceiptError("generation_inputs_invalid")
+    projection = _derive_transcription_projection(_read_regular(lock_path), _supported_cells())
+    manifest = build_wheelhouse_manifest(wheelhouse)
+    snapshots = [_snapshot_executable(path) for path in pythons]
+    interpreters = cast(dict[str, dict[str, object]], authority["interpreters"])
+    if len(snapshots) != 2 or any(
+        snapshot.sha256 != interpreters[f"python-{cell.version}"]["executable_sha256"]
+        for snapshot, cell in zip(snapshots, projection.cells, strict=True)
+    ):
+        raise ReceiptError("pip_interpreter_identity_drift")
+    try:
+        runtime_root = Path(tempfile.mkdtemp(prefix="direct-audio-receipt-"))
+        runtime_root.chmod(0o700)
+        runtime_identity = _owned_directory_identity(runtime_root)
+    except (OSError, ReceiptError) as error:
+        raise ReceiptError("runtime_path_invalid") from error
+    failure: ReceiptError | None = None
+    evidence: dict[str, object] | None = None
+    generation_preflight: dict[str, object] | None = None
+    cell_runs: list[tuple[str, dict[str, object], dict[str, object]]] = []
+    try:
+        requirements_by_cell = dict(projection.requirements_by_cell)
+        root_by_cell = dict(projection.root_requirements_by_cell)
+        for index, cell in enumerate(projection.cells):
+            root_requirements = runtime_root / f"root-requirements-{cell.version}.txt"
+            root_value = root_by_cell[cell.version]
+            _write_exclusive_file(root_requirements, root_value)
+            pip_result = run_nested_pip_install(
+                python=pythons[index],
+                wheelhouse=wheelhouse,
+                constraints=constraints,
+                root_requirements=root_requirements,
+                expected_manifest=manifest,
+                constraints_sha256=cast(str, authority["constraints_sha256"]),
+                root_requirements_sha256=hashlib.sha256(root_value).hexdigest(),
+                runtime_root=runtime_root,
+                cell=cell,
+                preflight_interpreter=interpreters[f"python-{cell.version}"],
+                preflight_file_identity=snapshots[index].identity,
+                fixture_root=fixture_root,
+                requirements=requirements_by_cell[cell.version],
+            )
+            runtime_evidence = pip_result.get("runtime_evidence")
+            if not isinstance(runtime_evidence, dict):
+                raise ReceiptError("runtime_evidence_invalid")
+            cell_runs.append((cell.version, pip_result, cast(dict[str, object], runtime_evidence)))
+        supervisor = _collect_supervisor_evidence()
+        generation_preflight = check_inputs(
+            pythons=pythons,
+            wheelhouse=wheelhouse,
+            lock_path=lock_path,
+            constraints=constraints,
+            fixture_root=fixture_root,
+        )
+        evidence = _build_generation_evidence(
+            preflight=preflight,
+            generation_preflight=generation_preflight,
+            cell_runs=cell_runs,
+            supervisor=supervisor,
+        )
+        if validate_generation_evidence(
+            evidence,
+            preflight=preflight,
+            generation_preflight=generation_preflight,
+        ).get("status") != "passed":
+            raise ReceiptError("generation_evidence_invalid")
+    except ReceiptError as error:
+        failure = error
+    except Exception as error:
+        failure = ReceiptError("receipt_generation_failed")
+        failure.__cause__ = error
+    try:
+        _cleanup_owned_tree(runtime_root, runtime_identity)
+    except ReceiptError as cleanup_error:
+        raise cleanup_error from failure
+    if failure is not None:
+        raise failure
+    if evidence is None or generation_preflight is None:
+        raise ReceiptError("receipt_generation_failed")
+    return evidence, preflight, generation_preflight
 
 
 def validate_generation_evidence(
@@ -3209,6 +3981,7 @@ def validate_generation_evidence(
     )
     linked: set[str] = set()
     bundled: set[str] = set()
+    pyav_reference: str | None = None
     if pyav is None:
         valid = False
     else:
@@ -3239,8 +4012,10 @@ def validate_generation_evidence(
         else:
             linked = set(linked_value)
             bundled = set(bundled_value)
+            pyav_reference = _project_reference_id("pyav", pyav_row["version"])
             valid = (
                 valid
+                and pyav_reference is not None
                 and pyav_row["artifact_scope"] == "local_runtime_only"
                 and installed is not None
                 and (pyav_row["distribution"], pyav_row["version"])
@@ -3249,6 +4024,7 @@ def validate_generation_evidence(
     ffmpeg = _exact_mapping(
         evidence["ffmpeg_runtime"],
         {
+            "version",
             "license",
             "configuration",
             "configuration_sha256",
@@ -3260,15 +4036,19 @@ def validate_generation_evidence(
     )
     if ffmpeg is None:
         valid = False
+        ffmpeg_reference = None
     else:
         ffmpeg_row = ffmpeg
+        ffmpeg_reference = _project_reference_id("ffmpeg", ffmpeg_row["version"])
         valid = (
             valid
+            and ffmpeg_reference is not None
             and ffmpeg_row["artifact_scope"] == "local_runtime_only"
+            and _closed_version(ffmpeg_row["version"])
             and _ffmpeg_license(ffmpeg_row["license"])
             and _ffmpeg_configuration(ffmpeg_row["configuration"])
             and _digest_value(ffmpeg_row["configuration_sha256"])
-            and _public_reference(ffmpeg_row["source_reference"])
+            and ffmpeg_row["source_reference"] == ffmpeg_reference
             and _digest_value(ffmpeg_row["sha256"])
             and _digest_value(ffmpeg_row["license_text_sha256"])
         )
@@ -3298,7 +4078,8 @@ def validate_generation_evidence(
                 _public_reference(item["name"])
                 and _closed_version(item["version"])
                 and _spdx_license(item["license"])
-                and _public_reference(item["source_reference"])
+                and item["source_reference"]
+                == (pyav_reference if item["name"] == "pyav" else ffmpeg_reference)
                 and _digest_value(item["evidence_sha256"])
                 and _digest_value(item["license_text_sha256"])
                 and item["artifact_scope"] == "local_runtime_only"
@@ -3449,6 +4230,14 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _controller_isolated() -> bool:
+    return (
+        sys.implementation.name == "cpython"
+        and bool(sys.flags.isolated)
+        and bool(sys.flags.dont_write_bytecode)
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     try:
         args = _parser().parse_args(argv)
@@ -3461,18 +4250,14 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         return 2
-    if not args.check_inputs:
+    if not args.check_inputs and args.output is None:
         payload: dict[str, object] = {
             "failure": "acquisition_authorization_required",
             "status": "failed",
         }
         print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
         return 1
-    if (
-        sys.implementation.name != "cpython"
-        or not sys.flags.isolated
-        or not sys.flags.dont_write_bytecode
-    ):
+    if not _controller_isolated():
         print(
             json.dumps(
                 {"failure": "controller_not_isolated", "status": "failed"},
@@ -3482,13 +4267,43 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
     try:
-        payload = check_inputs(
-            pythons=tuple(args.python),
-            wheelhouse=args.wheelhouse,
-            lock_path=args.lock,
-            constraints=args.constraints,
-            fixture_root=args.fixture_root,
-        )
+        if args.check_inputs:
+            payload = check_inputs(
+                pythons=tuple(args.python),
+                wheelhouse=args.wheelhouse,
+                lock_path=args.lock,
+                constraints=args.constraints,
+                fixture_root=args.fixture_root,
+            )
+        else:
+            evidence, preflight, generation_preflight = generate_dependency_receipt(
+                pythons=tuple(args.python),
+                wheelhouse=args.wheelhouse,
+                lock_path=args.lock,
+                constraints=args.constraints,
+                fixture_root=args.fixture_root,
+            )
+            validation = validate_generation_evidence(
+                evidence,
+                preflight=preflight,
+                generation_preflight=generation_preflight,
+            )
+            if validation.get("status") != "passed":
+                raise ReceiptError("generation_evidence_invalid")
+            try:
+                value = json.dumps(
+                    evidence, sort_keys=True, separators=(",", ":")
+                ).encode("ascii") + b"\n"
+            except (TypeError, ValueError, UnicodeEncodeError) as error:
+                raise ReceiptError("generation_evidence_invalid") from error
+            try:
+                _write_exclusive_file(cast(Path, args.output), value)
+            except ReceiptError as error:
+                raise ReceiptError("receipt_output_invalid") from error
+            payload = {
+                "receipt_sha256": evidence["receipt_sha256"],
+                "status": "passed",
+            }
     except ReceiptError as error:
         code = str(error)
         if _PUBLIC_REFERENCE.fullmatch(code) is None:

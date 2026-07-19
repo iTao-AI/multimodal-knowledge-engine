@@ -177,3 +177,26 @@ tests, and the combined controller/fixture run passes `216` tests.
 This remains a pre-acquisition checkpoint rather than Task 1 acceptance. No package acquisition,
 real package environment, canonical receipt, dependency artifact, or durable license evidence
 reference was produced. Step 5 remains partial and unchecked; Steps 6-7 remain open.
+
+## Authorized acquisition execution (2026-07-19)
+
+Independent acquisition authority subsequently approved the exact lock-derived Darwin arm64
+binary wheels for the existing CPython 3.12 and 3.13 targets. The controller acquired 35 unique
+wheel files from their locked HTTPS artifact sources, validated 81,319,275 retained wheel bytes,
+and stayed within the approved 2.5 GiB combined retained and call-owned estimate. It used no source
+build, sdist, interpreter, model, voice, hosted API, index fallback, or cache fallback.
+
+The final model-free receipt-controller and fixture suite passed 220 tests before canonical
+generation. Both isolated ordinary-pip cells then passed install, `pip check`, the three required
+imports, and all three fixture decodes; every call-owned environment and staging tree was removed.
+The Darwin controlled allocator probe exceeded its supervisory footprint budget, terminated the
+process group, waited, and proved cleanup. The canonical receipt digest is
+`6d8d92a9d6f0be9987cca556c6dc2008ad3703bf220c403e8a4fa9c2dc3c7b0b`.
+
+The durable reference records PyAV 17.1.0, runtime-reported FFmpeg 8.1.1 and its license and
+configuration evidence, exact directly observed FFmpeg library versions, PyAV extension and
+bundled-library identities, and 12 unresolved transitive dylib families. The distribution boundary
+remains `external_binary_redistribution=not_performed` and
+`redistribution_authority=not_claimed`; no full transitive binary redistribution clearance is
+claimed. This execution completes the planned local Task 1 implementation gates but remains
+subject to actual-diff authority review; it does not approve PR B or PR C.
