@@ -340,7 +340,18 @@ Expected: PASS with exactly three fixture identities.
 > call-owned package environment, or canonical dependency receipt was generated. Step 5 remains
 > unchecked, and Steps 6-7 remain pending their explicit gates.
 
-- [ ] **Step 5: Implement the external dependency/license receipt and validator**
+> **Authorized acquisition closure (2026-07-19):** Commit
+> `6547b05704c798cc1ea6b929f27bd4c0b8513cf1` completes the real controller path, canonical
+> dependency receipt, and durable evidence reference. The retained wheelhouse contains 35 exact
+> lock-derived wheels (81,319,275 bytes); both CPython cells passed offline ordinary-pip install,
+> `pip check`, required imports, and all three fixture decodes. Canonical receipt SHA-256 is
+> `6d8d92a9d6f0be9987cca556c6dc2008ad3703bf220c403e8a4fa9c2dc3c7b0b`. Final focused and adjacent
+> verification passed 294 tests, full pytest passed 2,576 tests with 4 skips, build/proof/demo
+> gates passed, call-owned residue was absent, and bounded targeted re-review returned no findings.
+> These are local Task 1 execution facts pending actual-diff authority acceptance; they do not
+> authorize PR B or PR C.
+
+- [x] **Step 5: Implement the external dependency/license receipt and validator**
 
 The controller accepts explicit Python 3.12 and 3.13 interpreters, a prepared-offline wheelhouse
 directory, lock-derived external constraints, the fixture root, and an output path. It
@@ -441,7 +452,7 @@ Freeze this acquisition-independent authority matrix in RED tests before collect
 Each supported platform cell freezes the exact inventory command/tool identity and its allowed
 evidence sources. Unsupported tooling is a failed cell, not a reason to omit the component.
 
-- [ ] **Step 6: Stop for acquisition authority, then generate the PR A receipt**
+- [x] **Step 6: Stop for acquisition authority, then generate the PR A receipt**
 
 Before any real package or fixture-generation input is acquired, report the exact missing inputs,
 source, expected disk impact, and cleanup ownership and obtain separate authorization. Input
@@ -515,7 +526,7 @@ when the external dependency set or constraints, prepared wheelhouse, PyAV wheel
 platform, supervisory authority, target-probe contract, non-redistribution boundary, or fixture
 authority changes.
 
-- [ ] **Step 7: Write the durable evidence reference and close PR A**
+- [x] **Step 7: Write the durable evidence reference and close PR A**
 
 `docs/reference/direct-audio-dependency-and-license-evidence.md` records the receipt schema,
 validated external boundary, component inventory/direct evidence, fixture redistribution

@@ -186,7 +186,7 @@ wheel files from their locked HTTPS artifact sources, validated 81,319,275 retai
 and stayed within the approved 2.5 GiB combined retained and call-owned estimate. It used no source
 build, sdist, interpreter, model, voice, hosted API, index fallback, or cache fallback.
 
-The final model-free receipt-controller and fixture suite passed 220 tests before canonical
+The final model-free receipt-controller and fixture suite passed 221 tests before canonical
 generation. Both isolated ordinary-pip cells then passed install, `pip check`, the three required
 imports, and all three fixture decodes; every call-owned environment and staging tree was removed.
 The Darwin controlled allocator probe exceeded its supervisory footprint budget, terminated the
@@ -200,3 +200,11 @@ remains `external_binary_redistribution=not_performed` and
 `redistribution_authority=not_claimed`; no full transitive binary redistribution clearance is
 claimed. This execution completes the planned local Task 1 implementation gates but remains
 subject to actual-diff authority review; it does not approve PR B or PR C.
+
+Local execution commit `6547b05704c798cc1ea6b929f27bd4c0b8513cf1` binds the final controller,
+regressions, canonical receipt, durable reference, and this acquisition record. A bounded
+findings-only review identified one source-reference substitution gap; the repair added an exact
+RED regression and closed versioned reference IDs for PyAV 17.1.0 and FFmpeg 8.1.1. Targeted
+re-review then returned no findings. Final verification passed 294 focused and adjacent tests,
+2,576 full-suite tests with 4 skips, Ruff, Pyright, offline build, product proof, demo verification,
+canonical readback, no-write preflight identity, public-neutral scans, and no-residue cleanup.
