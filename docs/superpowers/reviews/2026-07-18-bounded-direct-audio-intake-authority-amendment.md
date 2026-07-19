@@ -209,11 +209,12 @@ re-review then returned no findings. Final verification passed 294 focused and a
 2,576 full-suite tests with 4 skips, Ruff, Pyright, offline build, product proof, demo verification,
 canonical readback, no-write preflight identity, public-neutral scans, and no-residue cleanup.
 
-## Targeted Actual-Diff Repair Candidate (2026-07-19)
+## Targeted Actual-Diff Acceptance (2026-07-19)
 
-Status: **pending targeted authority re-review**. A later executable-path review of the committed
-candidate found five bounded receipt-authority gaps. The repair candidate closes them without
-changing production runtime, dependencies, lock data, workflows, fixtures, or PR B/PR C scope:
+Status: **CLEAN; TASK 1 ACCEPTED; CLEARED FOR PR A PR HANDOFF**. A later executable-path review of
+the committed candidate found five bounded receipt-authority gaps. The accepted repair closes them
+without changing production runtime, dependencies, lock data, workflows, fixtures, or PR B/PR C
+scope:
 
 - a fixed stdlib descriptor bootstrap hashes, compiles, and executes the same controller bytes,
   binds that identity into preflight and receipt evidence, and revalidates it at the terminal CLI
@@ -247,5 +248,20 @@ skips. Full Ruff, Pyright with the existing interpreter bound explicitly, offlin
 proof (8/8), demo verification, canonical static readback, retained-input identity, and no-residue
 checks passed. A bounded findings-only near-field review returned no findings.
 
-This candidate remains subject to targeted authority re-review. It is not Task 1 acceptance, does
-not authorize external-binary redistribution, and does not begin or approve PR B or PR C.
+Independent targeted authority re-review bound its review log to commit
+`3638619efd07916055caa2e80d9592a525a0248e`, returned `status=clean` with
+`quality_score=10.0`, and closed all five critical findings and both informational findings. Its
+independent targeted slice passed 17 tests with 214 deselected; `git diff --check`, the exact
+13-path branch-scope audit, and clean-worktree verification also passed. The
+`/Users/operator/...` strings in tests are deliberate rejection and sanitization inputs, not public
+output or leaked operator data.
+
+Task 1 is accepted and PR A implementation is complete. This acceptance is dependency, fixture,
+license-boundary, and supervisor feasibility authority only: no ASR ran, no model or voice was
+downloaded, and production runtime was not modified. It is not legal advice, performs no external
+binary redistribution, and claims no external binary redistribution authority. Redistribution
+clearance for the 12 observed transitive dylib families remains unresolved and requires separate
+review before any future bundling or publication.
+
+The result is **CLEARED FOR PR A PR HANDOFF**. This clears only PR A's local acceptance gate; it
+does not authorize PR B, PR C, release, external publication, push, merge, tag, or deployment.

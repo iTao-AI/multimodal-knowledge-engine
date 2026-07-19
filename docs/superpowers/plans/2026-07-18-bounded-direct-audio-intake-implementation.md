@@ -348,7 +348,7 @@ Expected: PASS with exactly three fixture identities.
 > verification record are historical because a subsequent actual-diff review requested bounded
 > controller, decode, cleanup, immutable-license-source, and committed-validator repair.
 
-> **Targeted actual-diff repair candidate (2026-07-19):** The fixed descriptor bootstrap now binds
+> **Targeted actual-diff repair acceptance (2026-07-19):** The fixed descriptor bootstrap now binds
 > the exact bytes compiled and executed by the controller; fixture decode uses the bytes bound to
 > each fixture digest; terminal process-group cleanup failure overrides the triggering error;
 > FFmpeg evidence binds immutable `n8.1.1` source and official license bytes; and
@@ -362,7 +362,13 @@ Expected: PASS with exactly three fixture identities.
 > with 4 skips. Full Ruff, Pyright with the existing interpreter bound explicitly, offline build,
 > product proof (8/8), demo verification, canonical static readback, retained-input identity, and
 > no-residue checks passed; a bounded findings-only near-field review returned no findings.
-> Targeted authority re-review remains pending. This does not authorize PR B or PR C.
+> Independent targeted authority re-review of commit
+> `3638619efd07916055caa2e80d9592a525a0248e` returned `CLEAN`: all five critical findings and both
+> informational findings are closed, the independent targeted slice passed 17 tests with 214
+> deselected, `git diff --check` passed, the branch remained within its exact 13-path scope, and the
+> reviewed worktree was clean. Task 1 is accepted, PR A implementation is complete, and the result
+> is **CLEARED FOR PR A PR HANDOFF**. This clears only PR A's local acceptance gate; it does not
+> authorize PR B, PR C, release, or external publication.
 
 - [x] **Step 5: Implement the external dependency/license receipt and validator**
 
