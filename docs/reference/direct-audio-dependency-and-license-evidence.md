@@ -9,8 +9,10 @@ binaries.
 
 - Schema: `mke.direct_audio_dependency_receipt.v1`
 - Receipt: `benchmarks/audio/dependency-artifacts.json`
-- Canonical receipt SHA-256:
-  `6d8d92a9d6f0be9987cca556c6dc2008ad3703bf220c403e8a4fa9c2dc3c7b0b`
+- Canonical payload SHA-256 (`receipt_sha256`):
+  `af6664c35b50a84ec9ba8d7cf08fd6c2c60ff8cbb1f4682253d6c1b6db2329ec`
+- Committed file SHA-256:
+  `9ec24aa34ce5ad9f1f8160d26694180a76a8b2c31d3b53322105941551b33fe6`
 - Locked wheel inventory: 35 unique files and 62 cell-specific resolutions
 - Constraints SHA-256:
   `af121bfd1c59381ce9cc960612d2b5e48cfea37572f22fd92a1968dc978959af`
@@ -25,6 +27,15 @@ call-owned environments with an empty inherited environment, `--no-index`, a val
 `--find-links`, binary-only selection, `--no-cache-dir`, `--require-hashes`, and the accepted
 constraints. Both cells report `pip_install=passed`, `pip_check=passed`, and complete cleanup.
 
+The controller was executed through the fixed
+`mke.fixed_stdlib_descriptor_bootstrap.v1` bootstrap. The bootstrap descriptor-read, hashed,
+compiled, and executed the same controller bytes, then bound controller SHA-256
+`0b619c9baea74349728056440753a437dc373908dae301c2ac99ccea6585ac73` into the receipt.
+The read-only `--validate-receipt` lane validates canonical JSON, schema, self-digest, controller
+identity, and all static cross-bindings without replaying retained wheels or installed runtimes.
+Its result therefore states `retained_runtime_replay=not_performed`; the separate generation run
+is the retained-input and runtime replay authority.
+
 ## Validated cells and runtime evidence
 
 | Cell | CPython | Executable SHA-256 | Installed distributions | Required imports | Fixture decodes |
@@ -36,8 +47,10 @@ The required imports were PyAV 17.1.0, faster-whisper 1.2.1, and huggingface-hub
 was downloaded or loaded, and no speech recognition was run. Each cell decoded the MP3, WAV, and
 M4A fixtures through its installed PyAV runtime.
 
-The runtime reported FFmpeg 8.1.1, `LGPL version 3 or later`, and the exact configuration digest
-`4b43d2f7d03dc3e7c2685553ff20594b1fe6e454e916cee4ed037ca9ac6c0cc5`.
+The runtime reported FFmpeg 8.1.1 and `LGPL version 3 or later`. The public configuration field is
+a canonical path-free flag projection; SHA-256
+`4b43d2f7d03dc3e7c2685553ff20594b1fe6e454e916cee4ed037ca9ac6c0cc5` binds the exact raw runtime
+configuration bytes rather than the projected text.
 The receipt binds 96 cell-qualified PyAV extension identities and these directly observed runtime
 components: `libavcodec` 62.28.101, `libavdevice` 62.3.101, `libavfilter` 11.14.101,
 `libavformat` 62.12.101, `libavutil` 60.26.101, `libswresample` 6.3.101, and `libswscale`
@@ -45,19 +58,26 @@ components: `libavcodec` 62.28.101, `libavdevice` 62.3.101, `libavfilter` 11.14.
 `76af0461ffb92e19f1c14449e95557d83a2dfaa1baf202d49e5f1d8746c0da19`.
 
 The receipt binds `pyav-project-17_1_0` to the
-[PyAV v17.1.0 source and license](https://github.com/PyAV-Org/PyAV/tree/v17.1.0), and binds
-`ffmpeg-project-8_1_1` to the
-[FFmpeg n8.1.1 source](https://github.com/FFmpeg/FFmpeg/tree/n8.1.1) and
-[FFmpeg legal and license reference](https://ffmpeg.org/legal.html). The component and license
-evidence digests plus these closed versioned reference IDs are covered by the canonical receipt
-digest. They are evidence, not legal advice.
+[PyAV v17.1.0 source and license](https://github.com/PyAV-Org/PyAV/tree/v17.1.0). It binds FFmpeg tag
+`n8.1.1` (tag object `150ba6ddfabb5c433bb2fb3ee546d2a96e59066d`) to immutable source commit
+[`239f2c733de417201d7ad3b3b8b0d9b63285b2b1`](https://github.com/FFmpeg/FFmpeg/tree/239f2c733de417201d7ad3b3b8b0d9b63285b2b1).
+At that commit, [`LICENSE.md`](https://github.com/FFmpeg/FFmpeg/blob/239f2c733de417201d7ad3b3b8b0d9b63285b2b1/LICENSE.md)
+is 4,346 bytes with SHA-256
+`2e1d16c72fd74e12063776371da757322f8b77589386532f4fd8634bde7de1af`, and
+[`COPYING.LGPLv3`](https://github.com/FFmpeg/FFmpeg/blob/239f2c733de417201d7ad3b3b8b0d9b63285b2b1/COPYING.LGPLv3)
+is 7,651 bytes with SHA-256
+`da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768`.
+These immutable source and license identities are covered by the canonical payload digest. They
+are evidence, not legal advice or a binary redistribution claim.
 
 The installed PyAV wheels also contained 12 observed transitive dylib families whose identities
 are recorded in the receipt: `libdav1d`, `libmp3lame`, `libopencore-amrnb`,
 `libopencore-amrwb`, `libopus`, `libsharpyuv`, `libsvtav1enc`, `libvpx`, `libwebp`,
-`libwebpmux`, `libx264`, and `libx265`. Their binary redistribution clearance remains unresolved.
-That does not block this local optional-dependency feasibility proof because no external binary is
-distributed by MKE in this change.
+`libwebpmux`, `libx264`, and `libx265`. Their filename suffixes are recorded as observations, not
+asserted upstream versions; upstream version authority, local-use restrictions, and binary source
+provenance remain unestablished or not assessed. Their binary redistribution clearance remains
+unresolved. That does not block this local optional-dependency feasibility proof because no
+external binary is distributed by MKE in this change.
 
 ## Darwin supervisory proof
 

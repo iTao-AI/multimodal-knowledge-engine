@@ -208,3 +208,44 @@ RED regression and closed versioned reference IDs for PyAV 17.1.0 and FFmpeg 8.1
 re-review then returned no findings. Final verification passed 294 focused and adjacent tests,
 2,576 full-suite tests with 4 skips, Ruff, Pyright, offline build, product proof, demo verification,
 canonical readback, no-write preflight identity, public-neutral scans, and no-residue cleanup.
+
+## Targeted Actual-Diff Repair Candidate (2026-07-19)
+
+Status: **pending targeted authority re-review**. A later executable-path review of the committed
+candidate found five bounded receipt-authority gaps. The repair candidate closes them without
+changing production runtime, dependencies, lock data, workflows, fixtures, or PR B/PR C scope:
+
+- a fixed stdlib descriptor bootstrap hashes, compiles, and executes the same controller bytes,
+  binds that identity into preflight and receipt evidence, and revalidates it at the terminal CLI
+  boundary. A deterministic replacement regression proves that executed source A cannot approve a
+  receipt claiming source B;
+- fixture SHA-256 and PyAV decode now consume the same in-memory bytes, so path replacement between
+  hashing and decode cannot produce divergent authority;
+- two consecutive terminal process-group cleanup failures override timeout or supervision errors
+  with `bounded_cleanup_incomplete`, including a real surviving-descendant regression;
+- FFmpeg 8.1.1 evidence binds tag object
+  `150ba6ddfabb5c433bb2fb3ee546d2a96e59066d`, source commit
+  `239f2c733de417201d7ad3b3b8b0d9b63285b2b1`, and the exact versioned `LICENSE.md` and
+  `COPYING.LGPLv3` byte counts and SHA-256 digests. Dylib suffixes remain observations, local-use
+  restrictions remain `not_assessed`, and binary source or redistribution authority remains
+  `not_claimed`; and
+- `--validate-receipt` provides a read-only canonical-artifact lane with closed JSON and no
+  retained-input or runtime replay claim. It distinguishes canonical payload SHA-256
+  `af6664c35b50a84ec9ba8d7cf08fd6c2c60ff8cbb1f4682253d6c1b6db2329ec` from committed file SHA-256
+  `9ec24aa34ce5ad9f1f8160d26694180a76a8b2c31d3b53322105941551b33fe6`.
+
+The retained acquisition inventory remained 37 files and 81,347,222 bytes with aggregate identity
+`fdf11342c50e6a63234db7052a57d793a7f80918d7fd870f9071bdefe299bc77`. Offline regeneration reused
+those exact inputs; both CPython cells again passed isolated ordinary-pip install, `pip check`,
+required imports, and three fixture decodes, and the controller proved call-owned cleanup. The
+final focused command now sets `MKE_REQUIRE_TRANSCRIPTION_EXTRA=1`, preventing real fixture profile
+tests from silently skipping.
+
+Final local verification passed 239 focused receipt/fixture tests with the transcription extra
+required, 115 adjacent model-free transcription/package tests, and 2,594 full-suite tests with 4
+skips. Full Ruff, Pyright with the existing interpreter bound explicitly, offline build, product
+proof (8/8), demo verification, canonical static readback, retained-input identity, and no-residue
+checks passed. A bounded findings-only near-field review returned no findings.
+
+This candidate remains subject to targeted authority re-review. It is not Task 1 acceptance, does
+not authorize external-binary redistribution, and does not begin or approve PR B or PR C.

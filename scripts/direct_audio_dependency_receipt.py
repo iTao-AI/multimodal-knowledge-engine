@@ -32,7 +32,13 @@ from pathlib import Path
 from typing import NoReturn, cast
 from urllib.parse import urlsplit
 
+_EXECUTED_CONTROLLER_AUTHORITY = globals().pop(
+    "__MKE_DIRECT_AUDIO_CONTROLLER_AUTHORITY__",
+    None,
+)
+
 _DIGEST = re.compile(r"[0-9a-f]{64}\Z")
+_SHA1 = re.compile(r"[0-9a-f]{40}\Z")
 _DIST = re.compile(r"[a-z0-9]+(?:_[a-z0-9]+)*\Z")
 _VERSION = re.compile(r"[0-9][a-z0-9]*(?:[._+][a-z0-9]+)*\Z")
 _TAG = re.compile(r"[a-z0-9_]+(?:\.[a-z0-9_]+)*\Z")
@@ -51,6 +57,31 @@ _FIXTURE_AUTHORITY_DOCUMENT_SHA256 = (
     "533bc8a47ba89aeb86de0e7b944da2f1a3f1de8a5ba062b861a3aef854a87ccb"
 )
 _FIXTURE_SOURCE_SHA256 = "2e62303fbc08223d326b6faa3699bbbfdf0e0fca335101bdb7265b4988d11cb4"
+_PYAV_VERSION = "17.1.0"
+_PYAV_LICENSE_TEXT_SHA256 = (
+    "76af0461ffb92e19f1c14449e95557d83a2dfaa1baf202d49e5f1d8746c0da19"
+)
+_FFMPEG_VERSION = "8.1.1"
+_FFMPEG_RUNTIME_LICENSE_LABEL = "LGPL version 3 or later"
+_FFMPEG_RUNTIME_LICENSE_LABEL_SHA256 = (
+    "511f63111e9aeaf0151394415cd170c1a396c95bb3da8a63aa681cc8d978a306"
+)
+_FFMPEG_SOURCE_TAG = "n8.1.1"
+_FFMPEG_SOURCE_TAG_OBJECT_SHA1 = "150ba6ddfabb5c433bb2fb3ee546d2a96e59066d"
+_FFMPEG_SOURCE_COMMIT_SHA1 = "239f2c733de417201d7ad3b3b8b0d9b63285b2b1"
+_FFMPEG_SOURCE_REFERENCE = (
+    "ffmpeg-source-n8_1_1-239f2c733de417201d7ad3b3b8b0d9b63285b2b1"
+)
+_FFMPEG_LICENSE_NOTICE_FILENAME = "LICENSE.md"
+_FFMPEG_LICENSE_NOTICE_BYTES = 4_346
+_FFMPEG_LICENSE_NOTICE_SHA256 = (
+    "2e1d16c72fd74e12063776371da757322f8b77589386532f4fd8634bde7de1af"
+)
+_FFMPEG_LICENSE_TEXT_FILENAME = "COPYING.LGPLv3"
+_FFMPEG_LICENSE_TEXT_BYTES = 7_651
+_FFMPEG_LICENSE_TEXT_SHA256 = (
+    "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768"
+)
 
 
 def _canonical_digest(value: object) -> str:
@@ -63,6 +94,123 @@ def _canonical_digest(value: object) -> str:
             allow_nan=False,
         ).encode("ascii")
     ).hexdigest()
+
+
+_CONTROLLER_EXECUTION_SCHEMA = "mke.direct_audio_controller_execution.v1"
+_CONTROLLER_BOOTSTRAP_CONTRACT = "mke.fixed_stdlib_descriptor_bootstrap.v1"
+_CONTROLLER_SOURCE_BINDING = "descriptor-sha256-compile-exec-same-bytes"
+_CONTROLLER_SCRIPT_MAX_BYTES = 2 * 1024 * 1024
+_CONTROLLER_BOOTSTRAP_CONTRACT_SHA256 = _canonical_digest(
+    {
+        "argv": [
+            "approved-cpython",
+            "-I",
+            "-B",
+            "-c",
+            "fixed-bootstrap-source",
+            "--",
+            "controller-script",
+            "controller-arguments",
+        ],
+        "descriptor_flags": ["O_CLOEXEC", "O_NOFOLLOW", "O_RDONLY"],
+        "max_script_bytes": _CONTROLLER_SCRIPT_MAX_BYTES,
+        "schema": _CONTROLLER_BOOTSTRAP_CONTRACT,
+        "source_binding": _CONTROLLER_SOURCE_BINDING,
+    }
+)
+_CONTROLLER_BOOTSTRAP_SOURCE = """
+import hashlib
+import json
+import os
+import stat
+import sys
+
+def fail():
+    print(json.dumps({"failure":"controller_bootstrap_failed","status":"failed"},sort_keys=True,separators=(",",":")))
+    raise SystemExit(2)
+
+try:
+    if len(sys.argv) < 3 or sys.argv[1] != "--":
+        fail()
+    path = sys.argv[2]
+    arguments = sys.argv[3:]
+    before = os.lstat(path)
+    if not stat.S_ISREG(before.st_mode) or before.st_size <= 0 or before.st_size > 2097152:
+        fail()
+    descriptor = os.open(
+        path,
+        os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0),
+    )
+    try:
+        opened = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino)
+        ):
+            fail()
+        chunks = []
+        remaining = opened.st_size
+        while remaining:
+            chunk = os.read(descriptor, min(remaining, 1048576))
+            if not chunk:
+                fail()
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        if os.read(descriptor, 1):
+            fail()
+        after = os.fstat(descriptor)
+    finally:
+        os.close(descriptor)
+    path_after = os.lstat(path)
+    identity = lambda value: (
+        value.st_dev,
+        value.st_ino,
+        value.st_mode,
+        value.st_size,
+        value.st_mtime_ns,
+        value.st_ctime_ns,
+    )
+    if identity(opened) != identity(after) or identity(after) != identity(path_after):
+        fail()
+    source = b"".join(chunks)
+    if len(source) != opened.st_size:
+        fail()
+    authority = {
+        "bootstrap_contract":"mke.fixed_stdlib_descriptor_bootstrap.v1",
+        "bootstrap_contract_sha256":"__CONTRACT_SHA256__",
+        "schema":"mke.direct_audio_controller_execution.v1",
+        "script_bytes":len(source),
+        "script_sha256":hashlib.sha256(source).hexdigest(),
+        "source_binding":"descriptor-sha256-compile-exec-same-bytes",
+    }
+    code = compile(
+        source,
+        "<mke-direct-audio-controller>",
+        "exec",
+        dont_inherit=True,
+        optimize=sys.flags.optimize,
+    )
+except SystemExit:
+    raise
+except BaseException:
+    fail()
+
+namespace = {
+    "__MKE_DIRECT_AUDIO_CONTROLLER_AUTHORITY__": authority,
+    "__cached__": None,
+    "__file__": path,
+    "__name__": "__main__",
+    "__package__": None,
+    "__spec__": None,
+}
+sys.argv = ["direct_audio_dependency_receipt.py", *arguments]
+try:
+    exec(code, namespace)
+except SystemExit:
+    raise
+except BaseException:
+    fail()
+""".strip().replace("__CONTRACT_SHA256__", _CONTROLLER_BOOTSTRAP_CONTRACT_SHA256)
 
 
 _FIXTURE_AUTHORITY = {
@@ -248,6 +396,7 @@ import ctypes
 import hashlib
 import importlib
 import importlib.metadata
+import io
 import json
 import pathlib
 import re
@@ -287,7 +436,7 @@ for fixture in sorted(fixture_root.iterdir(), key=lambda item: item.name):
     if fixture.name == "README.md":
         continue
     value = fixture.read_bytes()
-    with av.open(str(fixture), mode="r") as container:
+    with av.open(io.BytesIO(value), mode="r") as container:
         audio_streams = list(container.streams.audio)
         if len(audio_streams) != 1 or any(
             len(items) for items in (container.streams.video, container.streams.subtitles)
@@ -444,6 +593,53 @@ def _read_regular(path: Path) -> bytes:
     return b"".join(chunks)
 
 
+def _controller_execution_projection(*, require_bound: bool) -> dict[str, object]:
+    try:
+        source = _read_regular(Path(__file__))
+    except ReceiptError as error:
+        raise ReceiptError("controller_bootstrap_invalid") from error
+    source_sha256 = hashlib.sha256(source).hexdigest()
+    authority = _EXECUTED_CONTROLLER_AUTHORITY
+    if authority is None:
+        if require_bound:
+            raise ReceiptError("controller_bootstrap_required")
+        return {
+            "bootstrap_contract": "not_performed",
+            "bootstrap_contract_sha256": None,
+            "schema": _CONTROLLER_EXECUTION_SCHEMA,
+            "script_bytes": len(source),
+            "script_sha256": source_sha256,
+            "source_binding": "unbound_module_import",
+        }
+    if not isinstance(authority, dict):
+        raise ReceiptError("controller_bootstrap_invalid")
+    observed = cast(dict[object, object], authority)
+    required = {
+        "bootstrap_contract",
+        "bootstrap_contract_sha256",
+        "schema",
+        "script_bytes",
+        "script_sha256",
+        "source_binding",
+    }
+    if set(observed) != required:
+        raise ReceiptError("controller_bootstrap_invalid")
+    script_bytes = observed["script_bytes"]
+    if (
+        observed["schema"] != _CONTROLLER_EXECUTION_SCHEMA
+        or observed["bootstrap_contract"] != _CONTROLLER_BOOTSTRAP_CONTRACT
+        or observed["bootstrap_contract_sha256"] != _CONTROLLER_BOOTSTRAP_CONTRACT_SHA256
+        or observed["source_binding"] != _CONTROLLER_SOURCE_BINDING
+        or not isinstance(script_bytes, int)
+        or isinstance(script_bytes, bool)
+        or not 0 < script_bytes <= _CONTROLLER_SCRIPT_MAX_BYTES
+        or observed["script_sha256"] != source_sha256
+        or script_bytes != len(source)
+    ):
+        raise ReceiptError("controller_bootstrap_invalid")
+    return {cast(str, key): value for key, value in observed.items()}
+
+
 def _parse_wheel_filename(
     filename: str,
 ) -> tuple[str, str, str | None, tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
@@ -572,7 +768,7 @@ def validate_manifest_identity(wheelhouse: Path, expected: tuple[WheelEntry, ...
         raise ReceiptError("wheel_identity_drift")
 
 
-def _wheel_compatible(entry: WheelEntry, cell: Cell) -> bool:
+def _wheel_python_abi_compatible(entry: WheelEntry, cell: Cell) -> bool:
     python_ok = (
         "py3" in entry.python_tags
         or cell.python_tag in entry.python_tags
@@ -587,10 +783,22 @@ def _wheel_compatible(entry: WheelEntry, cell: Cell) -> bool:
     abi_ok = (
         "none" in entry.abi_tags or "abi3" in entry.abi_tags or cell.python_tag in entry.abi_tags
     )
+    return python_ok and abi_ok
+
+
+def _wheel_static_compatible(entry: WheelEntry, cell: Cell) -> bool:
+    platform_family_ok = "any" in entry.platform_tags or any(
+        re.fullmatch(r"macosx_\d+_\d+_(?:arm64|universal2)", tag) is not None
+        for tag in entry.platform_tags
+    )
+    return _wheel_python_abi_compatible(entry, cell) and platform_family_ok
+
+
+def _wheel_compatible(entry: WheelEntry, cell: Cell) -> bool:
     platform_ok = "any" in entry.platform_tags or any(
         _platform_tag_compatible(tag, cell.platform_tag) for tag in entry.platform_tags
     )
-    return python_ok and abi_ok and platform_ok
+    return _wheel_python_abi_compatible(entry, cell) and platform_ok
 
 
 def _platform_tag_compatible(wheel_tag: str, cell_tag: str) -> bool:
@@ -1263,6 +1471,18 @@ def _run_bounded(
             process,
             grace_seconds=profile.term_grace_seconds,
         )
+        if not cleanup["process_group_absent"]:
+            details: dict[str, object] = {"cleanup": cleanup}
+            if profile.footprint_bytes is not None:
+                details = _supervision_receipt(
+                    profile=profile,
+                    baseline=baseline,
+                    budget=budget,
+                    observed_max=observed_max,
+                    outcome="cleanup_incomplete",
+                    cleanup=cleanup,
+                )
+            raise ReceiptError("bounded_cleanup_incomplete", details=details) from cause
         if profile.footprint_bytes is not None:
             error.details = _supervision_receipt(
                 profile=profile,
@@ -1278,6 +1498,18 @@ def _run_bounded(
             process,
             grace_seconds=profile.term_grace_seconds,
         )
+        if not cleanup["process_group_absent"]:
+            details = {"cleanup": cleanup}
+            if profile.footprint_bytes is not None:
+                details = _supervision_receipt(
+                    profile=profile,
+                    baseline=baseline,
+                    budget=budget,
+                    observed_max=observed_max,
+                    outcome="cleanup_incomplete",
+                    cleanup=cleanup,
+                )
+            raise ReceiptError("bounded_cleanup_incomplete", details=details) from error
         if profile.footprint_bytes is not None and error.details is None:
             error.details = _supervision_receipt(
                 profile=profile,
@@ -2579,6 +2811,7 @@ def check_inputs(
     fixture_root: Path,
     lock_path: Path | None = None,
     controller_executable: Path | None = None,
+    require_controller_authority: bool = False,
 ) -> dict[str, object]:
     issues: list[dict[str, str]] = []
     interpreters: list[dict[str, object]] = []
@@ -2701,7 +2934,21 @@ def check_inputs(
     except ReceiptError as error:
         controller = None
         issues.append(_issue(str(error), "controller-executable"))
-    script_value = _read_regular(Path(__file__).resolve())
+    script_value = _read_regular(Path(__file__))
+    try:
+        script_authority = _controller_execution_projection(
+            require_bound=require_controller_authority
+        )
+    except ReceiptError as error:
+        issues.append(_issue(str(error), "controller-script"))
+        script_authority = {
+            "bootstrap_contract": "not_performed",
+            "bootstrap_contract_sha256": None,
+            "schema": _CONTROLLER_EXECUTION_SCHEMA,
+            "script_bytes": len(script_value),
+            "script_sha256": hashlib.sha256(script_value).hexdigest(),
+            "source_binding": "unbound_module_import",
+        }
     if lock_authority is not None and lock_path is not None:
         try:
             observed_lock, _ = _file_authority(lock_path)
@@ -2746,7 +2993,7 @@ def check_inputs(
             "redistribution_authority": "not_claimed",
         },
         "controller": controller,
-        "script": {"sha256": hashlib.sha256(script_value).hexdigest()},
+        "script": script_authority,
         "interpreters": sorted(interpreters, key=lambda item: cast(str, item["label"])),
         "lock_sha256": lock_sha,
         "constraints_sha256": constraints_sha,
@@ -2994,7 +3241,17 @@ def _passed_preflight_authority(
             "executable_sha256",
         },
     )
-    script = _exact_mapping(payload["script"], {"sha256"})
+    script = _exact_mapping(
+        payload["script"],
+        {
+            "bootstrap_contract",
+            "bootstrap_contract_sha256",
+            "schema",
+            "script_bytes",
+            "script_sha256",
+            "source_binding",
+        },
+    )
     interpreters = _inventory_rows(
         payload["interpreters"],
         {
@@ -3054,7 +3311,14 @@ def _passed_preflight_authority(
         or re.fullmatch(r"0[0-7]{3}", controller["executable_mode"]) is None
         or not _digest_value(controller["executable_sha256"])
         or script is None
-        or not _digest_value(script["sha256"])
+        or script["schema"] != _CONTROLLER_EXECUTION_SCHEMA
+        or script["bootstrap_contract"] != _CONTROLLER_BOOTSTRAP_CONTRACT
+        or script["bootstrap_contract_sha256"] != _CONTROLLER_BOOTSTRAP_CONTRACT_SHA256
+        or script["source_binding"] != _CONTROLLER_SOURCE_BINDING
+        or not isinstance(script["script_bytes"], int)
+        or isinstance(script["script_bytes"], bool)
+        or not 0 < script["script_bytes"] <= _CONTROLLER_SCRIPT_MAX_BYTES
+        or not _digest_value(script["script_sha256"])
         or interpreters is None
         or len(interpreters) != 2
         or {item["label"] for item in interpreters} != {"python-3.12", "python-3.13"}
@@ -3084,10 +3348,14 @@ def _passed_preflight_authority(
     ):
         return None
     try:
-        live_script_sha256 = hashlib.sha256(_read_regular(Path(__file__).resolve())).hexdigest()
+        live_script = _read_regular(Path(__file__))
+        live_script_sha256 = hashlib.sha256(live_script).hexdigest()
     except ReceiptError:
         return None
-    if script["sha256"] != live_script_sha256:
+    if (
+        script["script_sha256"] != live_script_sha256
+        or script["script_bytes"] != len(live_script)
+    ):
         return None
     wheel_entries = [_wheel_evidence_entry(item) for item in wheelhouse]
     if any(item is None for item in wheel_entries):
@@ -3161,6 +3429,7 @@ def _passed_preflight_authority(
     return {
         "observed_digest": expected_digest,
         "script_sha256": live_script_sha256,
+        "controller_execution": dict(script),
         "constraints_sha256": payload["constraints_sha256"],
         "root_requirements_sha256": payload["root_requirements_sha256"],
         "interpreters": {f"python-{version}": row for version, (_, row) in interpreter_map.items()},
@@ -3414,13 +3683,15 @@ def _build_generation_evidence(
                 }
             )
         for item in cast(list[dict[str, object]], pyav["bundled_binaries"]):
-            name, version = _component_name_and_version(cast(str, item["filename"]))
+            name, observed_dylib_suffix = _component_name_and_version(
+                cast(str, item["filename"])
+            )
             bundled_by_component.setdefault(name, []).append(
                 {
                     "cell": cell,
                     "filename": cast(str, item["filename"]),
+                    "observed_dylib_suffix": observed_dylib_suffix,
                     "sha256": cast(str, item["sha256"]),
-                    "version": version,
                 }
             )
         public_pip = dict(pip_result)
@@ -3459,6 +3730,13 @@ def _build_generation_evidence(
         for field in invariant_fields
     ):
         raise ReceiptError("runtime_component_identity_drift")
+    if (
+        first_pyav["version"] != _PYAV_VERSION
+        or first_pyav["license_text_sha256"] != _PYAV_LICENSE_TEXT_SHA256
+        or first_pyav["ffmpeg_version"] != _FFMPEG_VERSION
+        or first_pyav["ffmpeg_license"] != _FFMPEG_RUNTIME_LICENSE_LABEL
+    ):
+        raise ReceiptError("runtime_component_identity_drift")
     library_versions = cast(dict[str, str], first_pyav["library_versions"])
     linked_components = sorted(library_versions)
     if not linked_components or any(name not in bundled_by_component for name in linked_components):
@@ -3474,11 +3752,14 @@ def _build_generation_evidence(
         f"-{'or-later' if license_match[4] else 'only'}"
     )
     runtime_license_sha = hashlib.sha256(license_value.encode("ascii")).hexdigest()
+    if runtime_license_sha != _FFMPEG_RUNTIME_LICENSE_LABEL_SHA256:
+        raise ReceiptError("runtime_license_invalid")
     direct_components: list[dict[str, object]] = [
         {
             "name": "pyav",
             "version": first_pyav["version"],
             "license": "BSD-3-Clause",
+            "license_authority": "installed_distribution_metadata",
             "evidence_sha256": _canonical_digest(
                 {
                     "extensions": sorted(
@@ -3491,42 +3772,44 @@ def _build_generation_evidence(
             "source_reference": _project_reference_id("pyav", first_pyav["version"]),
             "license_text_sha256": first_pyav["license_text_sha256"],
             "artifact_scope": "local_runtime_only",
-            "local_use_restriction": "none_observed",
+            "local_use_restriction": "not_assessed",
+            "binary_source_provenance": "not_claimed",
         }
     ]
     for name in linked_components:
         rows = bundled_by_component[name]
-        versions = {item["version"] for item in rows}
-        if versions != {library_versions[name]}:
+        observed_suffixes = {item["observed_dylib_suffix"] for item in rows}
+        if observed_suffixes != {library_versions[name]}:
             raise ReceiptError("binary_component_version_drift")
         direct_components.append(
             {
                 "name": name,
                 "version": library_versions[name],
                 "license": spdx_license,
+                "license_authority": "runtime_reported",
                 "evidence_sha256": _canonical_digest(rows),
-                "source_reference": _project_reference_id(
-                    "ffmpeg", first_pyav["ffmpeg_version"]
-                ),
-                "license_text_sha256": runtime_license_sha,
+                "source_reference": _FFMPEG_SOURCE_REFERENCE,
+                "license_text_sha256": _FFMPEG_LICENSE_TEXT_SHA256,
                 "artifact_scope": "local_runtime_only",
-                "local_use_restriction": "none_observed",
+                "local_use_restriction": "not_assessed",
+                "binary_source_provenance": "not_claimed",
             }
         )
     unresolved: list[dict[str, object]] = []
     for name, rows in sorted(bundled_by_component.items()):
         if name in linked_components:
             continue
-        versions = {item["version"] for item in rows}
-        if len(versions) != 1:
+        observed_suffixes = {item["observed_dylib_suffix"] for item in rows}
+        if len(observed_suffixes) != 1:
             raise ReceiptError("binary_component_version_drift")
         unresolved.append(
             {
                 "name": name,
-                "version": versions.pop(),
+                "observed_dylib_suffix": observed_suffixes.pop(),
+                "upstream_version_authority": "not_established",
                 "identity_sha256": _canonical_digest(rows),
                 "redistribution_clearance": "unresolved",
-                "local_use_restriction": "none_observed",
+                "local_use_restriction": "not_assessed",
                 "artifact_scope": "local_runtime_only",
             }
         )
@@ -3539,10 +3822,12 @@ def _build_generation_evidence(
         "schema_version": _RECEIPT_SCHEMA_VERSION,
         "receipt_sha256": "",
         "script_sha256": authority["script_sha256"],
+        "controller_execution": authority["controller_execution"],
         "preflight_observed_digest": authority["observed_digest"],
         "generation_preflight_observed_digest": generation_authority["observed_digest"],
         "external_binary_redistribution": "not_performed",
         "redistribution_authority": "not_claimed",
+        "binary_source_provenance": "not_claimed",
         "wheel_inventory": authority["wheelhouse"],
         "installed_distributions": installed,
         "cells": cells,
@@ -3557,14 +3842,22 @@ def _build_generation_evidence(
         },
         "ffmpeg_runtime": {
             "version": first_pyav["ffmpeg_version"],
-            "license": license_value,
+            "runtime_license_label": license_value,
+            "runtime_license_label_sha256": runtime_license_sha,
             "configuration": first_pyav["ffmpeg_configuration"],
             "configuration_sha256": first_pyav["ffmpeg_configuration_sha256"],
-            "sha256": _canonical_digest(ffmpeg_rows),
-            "source_reference": _project_reference_id(
-                "ffmpeg", first_pyav["ffmpeg_version"]
-            ),
-            "license_text_sha256": runtime_license_sha,
+            "binary_inventory_sha256": _canonical_digest(ffmpeg_rows),
+            "source_tag": _FFMPEG_SOURCE_TAG,
+            "source_tag_object_sha1": _FFMPEG_SOURCE_TAG_OBJECT_SHA1,
+            "source_commit_sha1": _FFMPEG_SOURCE_COMMIT_SHA1,
+            "source_reference": _FFMPEG_SOURCE_REFERENCE,
+            "license_notice_filename": _FFMPEG_LICENSE_NOTICE_FILENAME,
+            "license_notice_bytes": _FFMPEG_LICENSE_NOTICE_BYTES,
+            "license_notice_sha256": _FFMPEG_LICENSE_NOTICE_SHA256,
+            "license_text_filename": _FFMPEG_LICENSE_TEXT_FILENAME,
+            "license_text_bytes": _FFMPEG_LICENSE_TEXT_BYTES,
+            "license_text_sha256": _FFMPEG_LICENSE_TEXT_SHA256,
+            "binary_source_provenance": "not_claimed",
             "artifact_scope": "local_runtime_only",
         },
         "direct_components": sorted(direct_components, key=lambda item: cast(str, item["name"])),
@@ -3611,12 +3904,14 @@ def generate_dependency_receipt(
     constraints: Path,
     fixture_root: Path,
 ) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
+    _controller_execution_projection(require_bound=True)
     preflight = check_inputs(
         pythons=pythons,
         wheelhouse=wheelhouse,
         lock_path=lock_path,
         constraints=constraints,
         fixture_root=fixture_root,
+        require_controller_authority=True,
     )
     authority = _passed_preflight_authority(preflight)
     if authority is None:
@@ -3673,6 +3968,7 @@ def generate_dependency_receipt(
             lock_path=lock_path,
             constraints=constraints,
             fixture_root=fixture_root,
+            require_controller_authority=True,
         )
         evidence = _build_generation_evidence(
             preflight=preflight,
@@ -3707,16 +4003,19 @@ def validate_generation_evidence(
     *,
     preflight: Mapping[str, object] | None = None,
     generation_preflight: Mapping[str, object] | None = None,
+    _static: bool = False,
 ) -> dict[str, str]:
     """Validate local-use evidence without claiming binary redistribution authority."""
     required = {
         "schema_version",
         "receipt_sha256",
         "script_sha256",
+        "controller_execution",
         "preflight_observed_digest",
         "generation_preflight_observed_digest",
         "external_binary_redistribution",
         "redistribution_authority",
+        "binary_source_provenance",
         "wheel_inventory",
         "installed_distributions",
         "cells",
@@ -3736,22 +4035,64 @@ def validate_generation_evidence(
         evidence["schema_version"] == _RECEIPT_SCHEMA_VERSION
         and evidence["external_binary_redistribution"] == "not_performed"
         and evidence["redistribution_authority"] == "not_claimed"
+        and evidence["binary_source_provenance"] == "not_claimed"
     )
-    preflight_authority = _passed_preflight_authority(preflight)
-    generation_preflight_authority = _passed_preflight_authority(generation_preflight)
+    controller_execution = _exact_mapping(
+        evidence["controller_execution"],
+        {
+            "bootstrap_contract",
+            "bootstrap_contract_sha256",
+            "schema",
+            "script_bytes",
+            "script_sha256",
+            "source_binding",
+        },
+    )
+    try:
+        live_script = _read_regular(Path(__file__))
+    except ReceiptError:
+        live_script = b""
     valid = (
         valid
-        and preflight_authority is not None
-        and generation_preflight_authority is not None
-        and preflight_authority == generation_preflight_authority
+        and controller_execution is not None
+        and controller_execution["schema"] == _CONTROLLER_EXECUTION_SCHEMA
+        and controller_execution["bootstrap_contract"] == _CONTROLLER_BOOTSTRAP_CONTRACT
+        and controller_execution["bootstrap_contract_sha256"]
+        == _CONTROLLER_BOOTSTRAP_CONTRACT_SHA256
+        and controller_execution["source_binding"] == _CONTROLLER_SOURCE_BINDING
+        and controller_execution["script_bytes"] == len(live_script)
+        and controller_execution["script_sha256"] == hashlib.sha256(live_script).hexdigest()
+        and evidence["script_sha256"] == controller_execution["script_sha256"]
     )
-    if preflight_authority is not None:
+    preflight_authority = None if _static else _passed_preflight_authority(preflight)
+    generation_preflight_authority = (
+        None if _static else _passed_preflight_authority(generation_preflight)
+    )
+    if _static:
+        valid = (
+            valid
+            and preflight is None
+            and generation_preflight is None
+            and _digest_value(evidence["preflight_observed_digest"])
+            and _digest_value(evidence["generation_preflight_observed_digest"])
+            and evidence["preflight_observed_digest"]
+            == evidence["generation_preflight_observed_digest"]
+        )
+    else:
+        valid = (
+            valid
+            and preflight_authority is not None
+            and generation_preflight_authority is not None
+            and preflight_authority == generation_preflight_authority
+        )
+    if not _static and preflight_authority is not None:
         valid = (
             valid
             and evidence["preflight_observed_digest"] == preflight_authority["observed_digest"]
             and evidence["generation_preflight_observed_digest"]
             == preflight_authority["observed_digest"]
             and evidence["script_sha256"] == preflight_authority["script_sha256"]
+            and controller_execution == preflight_authority["controller_execution"]
         )
     try:
         receipt_digest = _canonical_digest(
@@ -3816,9 +4157,10 @@ def validate_generation_evidence(
             )
             for item in installed
         }
-        if preflight_authority is None:
-            expected_installed: set[tuple[object, ...]] = set()
-        else:
+        expected_installed: set[tuple[object, object, object, object, object]]
+        if _static:
+            expected_installed = installed_authority
+        elif preflight_authority is not None:
             expected_installed = {
                 (
                     item["cell"],
@@ -3829,11 +4171,18 @@ def validate_generation_evidence(
                 )
                 for item in cast(list[dict[str, object]], preflight_authority["wheel_resolution"])
             }
+        else:
+            expected_installed = set()
         valid = (
             valid
-            and preflight_authority is not None
-            and sorted(wheels, key=lambda item: cast(str, item["filename"]))
-            == preflight_authority["wheelhouse"]
+            and (
+                _static
+                or (
+                    preflight_authority is not None
+                    and sorted(wheels, key=lambda item: cast(str, item["filename"]))
+                    == preflight_authority["wheelhouse"]
+                )
+            )
             and installed_authority == expected_installed
             and all(
                 isinstance(item["source_wheel_filename"], str)
@@ -3857,14 +4206,16 @@ def validate_generation_evidence(
         or len(cell_rows) != 2
         or {item["cell"] for item in cell_rows} != {"3.12", "3.13"}
         or not _canonical_inventory(cell_rows, ("cell",))
-        or preflight_authority is None
         or installed is None
         or wheelhouse_manifest_sha256 is None
+        or (not _static and preflight_authority is None)
     ):
         valid = False
     else:
-        preflight_interpreters = cast(
-            dict[str, dict[str, object]], preflight_authority["interpreters"]
+        preflight_interpreters = (
+            {}
+            if preflight_authority is None
+            else cast(dict[str, dict[str, object]], preflight_authority["interpreters"])
         )
         installed_keys = {
             "distribution",
@@ -3874,6 +4225,9 @@ def validate_generation_evidence(
             "cell",
             "artifact_scope",
         }
+        interpreter_digests: set[object] = set()
+        constraints_digests: set[object] = set()
+        root_requirements_digests: set[object] = set()
         for cell_row in cell_rows:
             cell = cell_row["cell"]
             if not isinstance(cell, str):
@@ -3906,15 +4260,59 @@ def validate_generation_evidence(
                 cell_row["fixture_decodes"],
                 {"filename", "sha256", "decoder", "status", "stream_count"},
             )
+            interpreter_authority = (
+                None if interpreter is None else _interpreter_authority(interpreter)
+            )
+            pip = _exact_mapping(
+                cell_row["pip"],
+                {"argv", "environment", "pip_install", "pip_check", "cleanup", "staging"},
+            )
+            staging = (
+                None
+                if pip is None
+                else _exact_mapping(
+                    pip["staging"],
+                    {
+                        "constraints_sha256",
+                        "root_requirements_sha256",
+                        "wheelhouse_manifest_sha256",
+                    },
+                )
+            )
+            if _static:
+                expected_constraints_sha256 = (
+                    None if staging is None else staging["constraints_sha256"]
+                )
+                expected_root_requirements_sha256 = (
+                    None if staging is None else staging["root_requirements_sha256"]
+                )
+            else:
+                expected_constraints_sha256 = (
+                    None
+                    if preflight_authority is None
+                    else preflight_authority["constraints_sha256"]
+                )
+                expected_root_requirements_sha256 = (
+                    None
+                    if preflight_authority is None
+                    else preflight_authority["root_requirements_sha256"]
+                )
             expected_cell_installed = [item for item in installed if item["cell"] == cell]
             if (
                 interpreter is None
-                or _interpreter_authority(interpreter) is None
-                or interpreter != preflight_interpreters.get(f"python-{cell}")
+                or interpreter_authority is None
+                or interpreter_authority[0].version != cell
+                or (
+                    not _static
+                    and interpreter != preflight_interpreters.get(f"python-{cell}")
+                )
+                or staging is None
+                or not _digest_value(staging["constraints_sha256"])
+                or not _digest_value(staging["root_requirements_sha256"])
                 or not _valid_pip_authority(
                     cell_row["pip"],
-                    constraints_sha256=preflight_authority["constraints_sha256"],
-                    root_requirements_sha256=preflight_authority["root_requirements_sha256"],
+                    constraints_sha256=expected_constraints_sha256,
+                    root_requirements_sha256=expected_root_requirements_sha256,
                     wheelhouse_manifest_sha256=wheelhouse_manifest_sha256,
                 )
                 or cell_installed is None
@@ -3934,9 +4332,22 @@ def validate_generation_evidence(
             ):
                 valid = False
                 continue
+            interpreter_digests.add(interpreter["executable_sha256"])
+            constraints_digests.add(staging["constraints_sha256"])
+            root_requirements_digests.add(staging["root_requirements_sha256"])
             installed_by_distribution = {
                 cast(str, item["distribution"]): item for item in cell_installed
             }
+            if any(
+                not isinstance(item["source_wheel_filename"], str)
+                or (
+                    entry := wheel_authority.get(item["source_wheel_filename"])
+                )
+                is None
+                or not _wheel_static_compatible(entry, interpreter_authority[0])
+                for item in cell_installed
+            ):
+                valid = False
             if (
                 {item["distribution"] for item in imports} != set(_REQUIRED_IMPORTS)
                 or len(imports) != len(_REQUIRED_IMPORTS)
@@ -3959,7 +4370,8 @@ def validate_generation_evidence(
                 {item["filename"] for item in decodes} != set(_FIXTURES)
                 or len(decodes) != len(_FIXTURES)
                 or any(
-                    item["sha256"] != _FIXTURE_AUTHORITY[cast(str, item["filename"])]["sha256"]
+                    item["sha256"]
+                    != _FIXTURE_AUTHORITY[cast(str, item["filename"])]["sha256"]
                     or item["decoder"] != "pyav"
                     or item["status"] != "passed"
                     or item["stream_count"] != 1
@@ -3967,6 +4379,19 @@ def validate_generation_evidence(
                 )
             ):
                 valid = False
+        if (
+            len(interpreter_digests) != 2
+            or len(constraints_digests) != 1
+            or len(root_requirements_digests) != 1
+        ):
+            valid = False
+    if installed is not None and wheel_authority:
+        used_wheels = {
+            item["source_wheel_filename"]
+            for item in installed
+            if isinstance(item["source_wheel_filename"], str)
+        }
+        valid = valid and used_wheels == set(wheel_authority)
     valid = valid and _valid_supervisor_authority(evidence["darwin_supervisor"])
     pyav = _exact_mapping(
         evidence["pyav"],
@@ -4016,6 +4441,8 @@ def validate_generation_evidence(
             valid = (
                 valid
                 and pyav_reference is not None
+                and pyav_row["distribution"] == "av"
+                and pyav_row["version"] == _PYAV_VERSION
                 and pyav_row["artifact_scope"] == "local_runtime_only"
                 and installed is not None
                 and (pyav_row["distribution"], pyav_row["version"])
@@ -4025,12 +4452,22 @@ def validate_generation_evidence(
         evidence["ffmpeg_runtime"],
         {
             "version",
-            "license",
+            "runtime_license_label",
+            "runtime_license_label_sha256",
             "configuration",
             "configuration_sha256",
-            "sha256",
+            "binary_inventory_sha256",
+            "source_tag",
+            "source_tag_object_sha1",
+            "source_commit_sha1",
             "source_reference",
+            "license_notice_filename",
+            "license_notice_bytes",
+            "license_notice_sha256",
+            "license_text_filename",
+            "license_text_bytes",
             "license_text_sha256",
+            "binary_source_provenance",
             "artifact_scope",
         },
     )
@@ -4039,18 +4476,32 @@ def validate_generation_evidence(
         ffmpeg_reference = None
     else:
         ffmpeg_row = ffmpeg
-        ffmpeg_reference = _project_reference_id("ffmpeg", ffmpeg_row["version"])
+        ffmpeg_reference = _FFMPEG_SOURCE_REFERENCE
+        configuration = ffmpeg_row["configuration"]
         valid = (
             valid
-            and ffmpeg_reference is not None
             and ffmpeg_row["artifact_scope"] == "local_runtime_only"
-            and _closed_version(ffmpeg_row["version"])
-            and _ffmpeg_license(ffmpeg_row["license"])
-            and _ffmpeg_configuration(ffmpeg_row["configuration"])
+            and ffmpeg_row["version"] == _FFMPEG_VERSION
+            and ffmpeg_row["runtime_license_label"] == _FFMPEG_RUNTIME_LICENSE_LABEL
+            and ffmpeg_row["runtime_license_label_sha256"]
+            == _FFMPEG_RUNTIME_LICENSE_LABEL_SHA256
+            and isinstance(configuration, str)
+            and _ffmpeg_configuration(configuration)
             and _digest_value(ffmpeg_row["configuration_sha256"])
-            and ffmpeg_row["source_reference"] == ffmpeg_reference
-            and _digest_value(ffmpeg_row["sha256"])
-            and _digest_value(ffmpeg_row["license_text_sha256"])
+            and _digest_value(ffmpeg_row["binary_inventory_sha256"])
+            and ffmpeg_row["source_tag"] == _FFMPEG_SOURCE_TAG
+            and ffmpeg_row["source_tag_object_sha1"] == _FFMPEG_SOURCE_TAG_OBJECT_SHA1
+            and ffmpeg_row["source_commit_sha1"] == _FFMPEG_SOURCE_COMMIT_SHA1
+            and _SHA1.fullmatch(cast(str, ffmpeg_row["source_tag_object_sha1"])) is not None
+            and _SHA1.fullmatch(cast(str, ffmpeg_row["source_commit_sha1"])) is not None
+            and ffmpeg_row["source_reference"] == _FFMPEG_SOURCE_REFERENCE
+            and ffmpeg_row["license_notice_filename"] == _FFMPEG_LICENSE_NOTICE_FILENAME
+            and ffmpeg_row["license_notice_bytes"] == _FFMPEG_LICENSE_NOTICE_BYTES
+            and ffmpeg_row["license_notice_sha256"] == _FFMPEG_LICENSE_NOTICE_SHA256
+            and ffmpeg_row["license_text_filename"] == _FFMPEG_LICENSE_TEXT_FILENAME
+            and ffmpeg_row["license_text_bytes"] == _FFMPEG_LICENSE_TEXT_BYTES
+            and ffmpeg_row["license_text_sha256"] == _FFMPEG_LICENSE_TEXT_SHA256
+            and ffmpeg_row["binary_source_provenance"] == "not_claimed"
         )
     direct = _inventory_rows(
         evidence["direct_components"],
@@ -4058,11 +4509,13 @@ def validate_generation_evidence(
             "name",
             "version",
             "license",
+            "license_authority",
             "evidence_sha256",
             "source_reference",
             "license_text_sha256",
             "artifact_scope",
             "local_use_restriction",
+            "binary_source_provenance",
         },
     )
     if direct is None:
@@ -4078,12 +4531,27 @@ def validate_generation_evidence(
                 _public_reference(item["name"])
                 and _closed_version(item["version"])
                 and _spdx_license(item["license"])
-                and item["source_reference"]
-                == (pyav_reference if item["name"] == "pyav" else ffmpeg_reference)
                 and _digest_value(item["evidence_sha256"])
-                and _digest_value(item["license_text_sha256"])
                 and item["artifact_scope"] == "local_runtime_only"
-                and item["local_use_restriction"] == "none_observed"
+                and item["local_use_restriction"] == "not_assessed"
+                and item["binary_source_provenance"] == "not_claimed"
+                and (
+                    (
+                        item["name"] == "pyav"
+                        and item["version"] == _PYAV_VERSION
+                        and item["license"] == "BSD-3-Clause"
+                        and item["license_authority"] == "installed_distribution_metadata"
+                        and item["source_reference"] == pyav_reference
+                        and item["license_text_sha256"] == _PYAV_LICENSE_TEXT_SHA256
+                    )
+                    or (
+                        item["name"] != "pyav"
+                        and item["license"] == "LGPL-3.0-or-later"
+                        and item["license_authority"] == "runtime_reported"
+                        and item["source_reference"] == ffmpeg_reference
+                        and item["license_text_sha256"] == _FFMPEG_LICENSE_TEXT_SHA256
+                    )
+                )
                 for item in direct
             )
         )
@@ -4167,13 +4635,19 @@ def validate_generation_evidence(
         )
         valid = (
             valid
-            and preflight_authority is not None
-            and generation_fixture_projection == preflight_authority["fixtures"]
+            and (
+                _static
+                or (
+                    preflight_authority is not None
+                    and generation_fixture_projection == preflight_authority["fixtures"]
+                )
+            )
         )
     unresolved = evidence["unresolved_transitive_binary_items"]
     unresolved_keys = {
         "name",
-        "version",
+        "observed_dylib_suffix",
+        "upstream_version_authority",
         "identity_sha256",
         "redistribution_clearance",
         "local_use_restriction",
@@ -4190,10 +4664,11 @@ def validate_generation_evidence(
             unresolved_rows.append(row)
     if unresolved_rows is None or any(
         not _public_reference(item["name"])
-        or not _closed_version(item["version"])
+        or not _closed_version(item["observed_dylib_suffix"])
+        or item["upstream_version_authority"] != "not_established"
         or not _digest_value(item["identity_sha256"])
         or item["redistribution_clearance"] != "unresolved"
-        or item["local_use_restriction"] != "none_observed"
+        or item["local_use_restriction"] != "not_assessed"
         or item["artifact_scope"] != "local_runtime_only"
         for item in unresolved_rows
     ):
@@ -4202,6 +4677,10 @@ def validate_generation_evidence(
         {item["name"] for item in unresolved_rows}
     ) != len(unresolved_rows):
         valid = False
+    elif direct is not None and {item["name"] for item in unresolved_rows} & {
+        item["name"] for item in direct
+    }:
+        valid = False
     if not valid:
         return {"failure": "generation_evidence_invalid", "status": "failed"}
     return {
@@ -4209,6 +4688,66 @@ def validate_generation_evidence(
         "redistribution_authority": "not_claimed",
         "status": "passed",
     }
+
+
+def validate_committed_receipt(evidence: Mapping[str, object]) -> dict[str, str]:
+    """Validate the committed canonical artifact without replaying retained inputs."""
+    validation = validate_generation_evidence(evidence, _static=True)
+    if validation.get("status") != "passed":
+        return {"failure": "committed_receipt_invalid", "status": "failed"}
+    return {
+        "authority": "canonical_static_artifact",
+        "binary_source_provenance": "not_claimed",
+        "external_binary_redistribution": "not_performed",
+        "redistribution_authority": "not_claimed",
+        "retained_runtime_replay": "not_performed",
+        "status": "passed",
+    }
+
+
+def _validate_committed_receipt_file(
+    path: Path,
+    *,
+    executed_controller: Mapping[str, object],
+) -> dict[str, object]:
+    try:
+        before, value = _file_authority(path)
+        if not 0 < len(value) <= 2 * 1024 * 1024:
+            raise ReceiptError("committed_receipt_invalid")
+        decoded = value.decode("ascii")
+        parsed = json.loads(decoded)
+        if not isinstance(parsed, dict):
+            raise ReceiptError("committed_receipt_invalid")
+        evidence = cast(dict[str, object], parsed)
+        if (
+            evidence.get("controller_execution") != executed_controller
+            or evidence.get("script_sha256") != executed_controller.get("script_sha256")
+        ):
+            raise ReceiptError("controller_bootstrap_invalid")
+        canonical = json.dumps(
+            evidence,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("ascii") + b"\n"
+        if value != canonical:
+            raise ReceiptError("committed_receipt_invalid")
+        validation = validate_committed_receipt(evidence)
+        if validation.get("status") != "passed":
+            raise ReceiptError("committed_receipt_invalid")
+        after, after_value = _file_authority(path)
+        if after != before or after_value != value:
+            raise ReceiptError("committed_receipt_invalid")
+        return {
+            **validation,
+            "canonical_payload_sha256": evidence["receipt_sha256"],
+            "committed_file_sha256": hashlib.sha256(value).hexdigest(),
+        }
+    except ReceiptError as error:
+        if str(error) == "controller_bootstrap_invalid":
+            raise
+        raise ReceiptError("committed_receipt_invalid") from error
+    except (OSError, TypeError, ValueError, UnicodeDecodeError, UnicodeEncodeError) as error:
+        raise ReceiptError("committed_receipt_invalid") from error
 
 
 class _ClosedArgumentParser(argparse.ArgumentParser):
@@ -4220,11 +4759,12 @@ class _ClosedArgumentParser(argparse.ArgumentParser):
 def _parser() -> argparse.ArgumentParser:
     parser = _ClosedArgumentParser(prog="direct_audio_dependency_receipt.py")
     parser.add_argument("--check-inputs", action="store_true")
-    parser.add_argument("--python", action="append", type=Path, required=True)
-    parser.add_argument("--wheelhouse", type=Path, required=True)
-    parser.add_argument("--lock", type=Path, required=True)
-    parser.add_argument("--constraints", type=Path, required=True)
-    parser.add_argument("--fixture-root", type=Path, required=True)
+    parser.add_argument("--validate-receipt", type=Path)
+    parser.add_argument("--python", action="append", type=Path, default=[])
+    parser.add_argument("--wheelhouse", type=Path)
+    parser.add_argument("--lock", type=Path)
+    parser.add_argument("--constraints", type=Path)
+    parser.add_argument("--fixture-root", type=Path)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--json", action="store_true")
     return parser
@@ -4250,7 +4790,29 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         return 2
-    if not args.check_inputs and args.output is None:
+    input_arguments = (
+        bool(args.python),
+        args.wheelhouse is not None,
+        args.lock is not None,
+        args.constraints is not None,
+        args.fixture_root is not None,
+    )
+    validate_mode = args.validate_receipt is not None
+    if validate_mode and (
+        args.check_inputs or args.output is not None or any(input_arguments) or not args.json
+    ):
+        payload = {"failure": "cli_arguments_invalid", "status": "failed"}
+        print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+        return 2
+    if not validate_mode and not all(input_arguments):
+        payload = {"failure": "cli_arguments_invalid", "status": "failed"}
+        print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+        return 2
+    if not validate_mode and args.check_inputs and args.output is not None:
+        payload = {"failure": "cli_arguments_invalid", "status": "failed"}
+        print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+        return 2
+    if not validate_mode and not args.check_inputs and args.output is None:
         payload: dict[str, object] = {
             "failure": "acquisition_authorization_required",
             "status": "failed",
@@ -4267,21 +4829,28 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
     try:
-        if args.check_inputs:
+        executed_controller = _controller_execution_projection(require_bound=True)
+        if validate_mode:
+            payload = _validate_committed_receipt_file(
+                cast(Path, args.validate_receipt),
+                executed_controller=executed_controller,
+            )
+        elif args.check_inputs:
             payload = check_inputs(
                 pythons=tuple(args.python),
-                wheelhouse=args.wheelhouse,
-                lock_path=args.lock,
-                constraints=args.constraints,
-                fixture_root=args.fixture_root,
+                wheelhouse=cast(Path, args.wheelhouse),
+                lock_path=cast(Path, args.lock),
+                constraints=cast(Path, args.constraints),
+                fixture_root=cast(Path, args.fixture_root),
+                require_controller_authority=True,
             )
         else:
             evidence, preflight, generation_preflight = generate_dependency_receipt(
                 pythons=tuple(args.python),
-                wheelhouse=args.wheelhouse,
-                lock_path=args.lock,
-                constraints=args.constraints,
-                fixture_root=args.fixture_root,
+                wheelhouse=cast(Path, args.wheelhouse),
+                lock_path=cast(Path, args.lock),
+                constraints=cast(Path, args.constraints),
+                fixture_root=cast(Path, args.fixture_root),
             )
             validation = validate_generation_evidence(
                 evidence,
@@ -4304,6 +4873,8 @@ def main(argv: list[str] | None = None) -> int:
                 "receipt_sha256": evidence["receipt_sha256"],
                 "status": "passed",
             }
+        if _controller_execution_projection(require_bound=True) != executed_controller:
+            raise ReceiptError("controller_bootstrap_invalid")
     except ReceiptError as error:
         code = str(error)
         if _PUBLIC_REFERENCE.fullmatch(code) is None:

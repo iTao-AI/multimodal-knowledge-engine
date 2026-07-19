@@ -341,15 +341,28 @@ Expected: PASS with exactly three fixture identities.
 > unchecked, and Steps 6-7 remain pending their explicit gates.
 
 > **Authorized acquisition closure (2026-07-19):** Commit
-> `6547b05704c798cc1ea6b929f27bd4c0b8513cf1` completes the real controller path, canonical
+> `6547b05704c798cc1ea6b929f27bd4c0b8513cf1` established the first real controller path,
 > dependency receipt, and durable evidence reference. The retained wheelhouse contains 35 exact
 > lock-derived wheels (81,319,275 bytes); both CPython cells passed offline ordinary-pip install,
-> `pip check`, required imports, and all three fixture decodes. Canonical receipt SHA-256 is
-> `6d8d92a9d6f0be9987cca556c6dc2008ad3703bf220c403e8a4fa9c2dc3c7b0b`. Final focused and adjacent
-> verification passed 294 tests, full pytest passed 2,576 tests with 4 skips, build/proof/demo
-> gates passed, call-owned residue was absent, and bounded targeted re-review returned no findings.
-> These are local Task 1 execution facts pending actual-diff authority acceptance; they do not
-> authorize PR B or PR C.
+> `pip check`, required imports, and all three fixture decodes. Its initial receipt identity and
+> verification record are historical because a subsequent actual-diff review requested bounded
+> controller, decode, cleanup, immutable-license-source, and committed-validator repair.
+
+> **Targeted actual-diff repair candidate (2026-07-19):** The fixed descriptor bootstrap now binds
+> the exact bytes compiled and executed by the controller; fixture decode uses the bytes bound to
+> each fixture digest; terminal process-group cleanup failure overrides the triggering error;
+> FFmpeg evidence binds immutable `n8.1.1` source and official license bytes; and
+> `--validate-receipt` independently checks the canonical committed artifact without claiming a
+> retained-runtime replay. Offline regeneration passed for both cells. The current canonical
+> payload SHA-256 is `af6664c35b50a84ec9ba8d7cf08fd6c2c60ff8cbb1f4682253d6c1b6db2329ec`;
+> the committed file SHA-256 is
+> `9ec24aa34ce5ad9f1f8160d26694180a76a8b2c31d3b53322105941551b33fe6`.
+> Final candidate verification passed 239 focused receipt/fixture tests with the transcription
+> extra required, 115 adjacent model-free transcription/package tests, and 2,594 full-suite tests
+> with 4 skips. Full Ruff, Pyright with the existing interpreter bound explicitly, offline build,
+> product proof (8/8), demo verification, canonical static readback, retained-input identity, and
+> no-residue checks passed; a bounded findings-only near-field review returned no findings.
+> Targeted authority re-review remains pending. This does not authorize PR B or PR C.
 
 - [x] **Step 5: Implement the external dependency/license receipt and validator**
 
@@ -473,11 +486,14 @@ Freeze the target subprocess as `(target_python, "-I", "-B", "-c", FIXED_IDENTIT
 `shell=False`, a constant audited probe body/digest, bounded stdout/stderr/time, and an environment
 built from an empty mapping with only a separately proved platform minimum. Tests intercept the
 actual argv/environment, reject any caller-controlled probe text or import path, and prove the
-before/after descriptor identity transaction around the real bounded subprocess.
+before/after descriptor identity transaction around the real bounded subprocess. Invoke the
+controller itself through the reviewed `_CONTROLLER_BOOTSTRAP_SOURCE`; direct script execution is
+rejected because it cannot bind the exact bytes that were compiled and executed. In the commands
+below, `FIXED_DESCRIPTOR_BOOTSTRAP_SOURCE` is that reviewed literal.
 
 ```bash
 /usr/bin/env -i PATH=/usr/bin:/bin \
-  "$RECEIPT_CONTROLLER_PYTHON" -I -B \
+  "$RECEIPT_CONTROLLER_PYTHON" -I -B -c "$FIXED_DESCRIPTOR_BOOTSTRAP_SOURCE" -- \
   scripts/direct_audio_dependency_receipt.py \
   --check-inputs \
   --lock uv.lock \
@@ -504,7 +520,7 @@ environments and invoke the frozen nested-pip boundary from Step 5:
 
 ```bash
 /usr/bin/env -i PATH=/usr/bin:/bin \
-  "$RECEIPT_CONTROLLER_PYTHON" -I -B \
+  "$RECEIPT_CONTROLLER_PYTHON" -I -B -c "$FIXED_DESCRIPTOR_BOOTSTRAP_SOURCE" -- \
   scripts/direct_audio_dependency_receipt.py \
   --lock uv.lock \
   --python "$PYTHON312" \
@@ -512,7 +528,14 @@ environments and invoke the frozen nested-pip boundary from Step 5:
   --wheelhouse "$TRANSCRIPTION_WHEELHOUSE" \
   --constraints "$TRANSCRIPTION_CONSTRAINTS" \
   --fixture-root tests/fixtures/audio \
-  --output benchmarks/audio/dependency-artifacts.json
+  --output benchmarks/audio/dependency-artifacts.json \
+  --json
+
+/usr/bin/env -i PATH=/usr/bin:/bin \
+  "$RECEIPT_CONTROLLER_PYTHON" -I -B -c "$FIXED_DESCRIPTOR_BOOTSTRAP_SOURCE" -- \
+  scripts/direct_audio_dependency_receipt.py \
+  --validate-receipt benchmarks/audio/dependency-artifacts.json \
+  --json
 ```
 
 Require `status=passed`, two exact interpreter/platform cells, canonical constraints and wheelhouse
@@ -538,7 +561,7 @@ legal review. It contains no product capability claim, local path, or MKE wheel 
 
 ```bash
 git diff --check
-UV_OFFLINE=1 uv run pytest -q \
+UV_OFFLINE=1 MKE_REQUIRE_TRANSCRIPTION_EXTRA=1 uv run pytest -q \
   tests/adapters/test_audio_fixtures.py \
   tests/scripts/test_direct_audio_dependency_receipt.py
 UV_OFFLINE=1 uv run ruff check scripts/direct_audio_dependency_receipt.py \

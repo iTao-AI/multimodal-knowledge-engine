@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
+import io
 import json
 import os
 import platform
@@ -11,6 +13,7 @@ import stat
 import subprocess
 import sys
 import sysconfig
+import types
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
@@ -1100,15 +1103,17 @@ def test_check_inputs_is_closed_sorted_public_safe_and_does_not_write(
         == hashlib.sha256(Path(sys.executable).resolve().read_bytes()).hexdigest()
     )
     assert "sha256" not in controller
-    script = cast(dict[str, str], result["script"])
-    assert (
-        script["sha256"]
-        == hashlib.sha256(
-            (
-                Path(__file__).parents[2] / "scripts" / "direct_audio_dependency_receipt.py"
-            ).read_bytes()
-        ).hexdigest()
-    )
+    script_path = Path(__file__).parents[2] / "scripts" / "direct_audio_dependency_receipt.py"
+    script_bytes = script_path.read_bytes()
+    script = cast(dict[str, object], result["script"])
+    assert script == {
+        "bootstrap_contract": "not_performed",
+        "bootstrap_contract_sha256": None,
+        "schema": "mke.direct_audio_controller_execution.v1",
+        "script_bytes": len(script_bytes),
+        "script_sha256": hashlib.sha256(script_bytes).hexdigest(),
+        "source_binding": "unbound_module_import",
+    }
     issues = cast(list[dict[str, str]], result["issues"])
     assert issues == sorted(issues, key=lambda item: json.dumps(item, sort_keys=True))
     assert before == after
@@ -1676,14 +1681,150 @@ def test_real_check_inputs_cli_requires_isolated_no_bytecode_controller(
     ]
 
     rejected = subprocess.run([sys.executable, *argv], capture_output=True, check=False)
-    accepted = subprocess.run([sys.executable, "-I", "-B", *argv], capture_output=True, check=False)
+    unbound = subprocess.run(
+        [sys.executable, "-I", "-B", *argv], capture_output=True, check=False
+    )
+    receipt = _module()
+    accepted = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-B",
+            "-c",
+            receipt._CONTROLLER_BOOTSTRAP_SOURCE,  # pyright: ignore[reportPrivateUsage]
+            "--",
+            *argv,
+        ],
+        capture_output=True,
+        check=False,
+        env={},
+    )
 
     assert rejected.returncode == 2
     assert json.loads(rejected.stdout)["failure"] == "controller_not_isolated"
+    assert unbound.returncode == 2
+    assert json.loads(unbound.stdout) == {
+        "failure": "controller_bootstrap_required",
+        "status": "failed",
+    }
     assert accepted.returncode == 1
     payload = json.loads(accepted.stdout)
     assert payload["status"] == "failed"
     assert payload["gate"] == "input_validation_failed"
+    script_authority = cast(dict[str, object], payload["script"])
+    assert script_authority["schema"] == "mke.direct_audio_controller_execution.v1"
+    assert script_authority["bootstrap_contract"] == (
+        "mke.fixed_stdlib_descriptor_bootstrap.v1"
+    )
+    assert script_authority["source_binding"] == (
+        "descriptor-sha256-compile-exec-same-bytes"
+    )
+    assert script_authority["script_sha256"] == hashlib.sha256(script.read_bytes()).hexdigest()
+    assert script_authority["script_bytes"] == script.stat().st_size
+
+
+def test_descriptor_bootstrap_executes_and_hashes_the_same_bytes_after_path_replacement(
+    tmp_path: Path,
+) -> None:
+    receipt = _module()
+    controller = tmp_path / "controller.py"
+    replacement = tmp_path / "replacement.py"
+    replacement_bytes = b"raise RuntimeError('replacement must not execute')\n"
+    replacement.write_bytes(replacement_bytes)
+    source = (
+        "import hashlib,json,os\n"
+        f"os.replace({str(replacement)!r},{str(controller)!r})\n"
+        "authority=globals()['__MKE_DIRECT_AUDIO_CONTROLLER_AUTHORITY__']\n"
+        f"current=open({str(controller)!r},'rb').read()\n"
+        "print(json.dumps({'authority':authority,'current_sha256':"
+        "hashlib.sha256(current).hexdigest()},sort_keys=True,separators=(',',':')))\n"
+    ).encode()
+    controller.write_bytes(source)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-B",
+            "-c",
+            receipt._CONTROLLER_BOOTSTRAP_SOURCE,  # pyright: ignore[reportPrivateUsage]
+            "--",
+            str(controller),
+        ],
+        capture_output=True,
+        check=False,
+        env={},
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == b""
+    payload = json.loads(result.stdout)
+    authority = cast(dict[str, object], payload["authority"])
+    assert authority["script_sha256"] == hashlib.sha256(source).hexdigest()
+    assert authority["script_bytes"] == len(source)
+    assert payload["current_sha256"] == hashlib.sha256(replacement_bytes).hexdigest()
+    assert authority["script_sha256"] != payload["current_sha256"]
+    assert authority["source_binding"] == "descriptor-sha256-compile-exec-same-bytes"
+
+
+def test_running_controller_cannot_validate_receipt_for_post_gate_replacement(
+    tmp_path: Path,
+) -> None:
+    receipt = _module()
+    production_script = (
+        Path(__file__).parents[2] / "scripts" / "direct_audio_dependency_receipt.py"
+    )
+    replacement = tmp_path / "replacement-controller.py"
+    controller = tmp_path / "controller.py"
+    artifact = tmp_path / "dependency-artifacts.json"
+    replacement_bytes = production_script.read_bytes()
+    replacement.write_bytes(replacement_bytes)
+    injection = (
+        "\n_ORIGINAL_CONTROLLER_PROJECTION = _controller_execution_projection\n"
+        "_CONTROLLER_REPLACED = False\n"
+        "def _replace_after_first_projection(*, require_bound):\n"
+        "    global _CONTROLLER_REPLACED\n"
+        "    authority = _ORIGINAL_CONTROLLER_PROJECTION(require_bound=require_bound)\n"
+        "    if not _CONTROLLER_REPLACED:\n"
+        f"        os.replace({str(replacement)!r}, __file__)\n"
+        "        _CONTROLLER_REPLACED = True\n"
+        "    return authority\n"
+        "_controller_execution_projection = _replace_after_first_projection\n\n"
+    )
+    source = replacement_bytes.decode("utf-8").replace(
+        '\nif __name__ == "__main__":\n',
+        injection + 'if __name__ == "__main__":\n',
+    )
+    controller.write_text(source, encoding="utf-8")
+    evidence = _complete_generation_evidence()
+    artifact.write_bytes(
+        json.dumps(evidence, sort_keys=True, separators=(",", ":")).encode("ascii") + b"\n"
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-B",
+            "-c",
+            receipt._CONTROLLER_BOOTSTRAP_SOURCE,  # pyright: ignore[reportPrivateUsage]
+            "--",
+            str(controller),
+            "--validate-receipt",
+            str(artifact),
+            "--json",
+        ],
+        capture_output=True,
+        check=False,
+        env={},
+    )
+
+    assert result.returncode == 2
+    assert json.loads(result.stdout) == {
+        "failure": "controller_bootstrap_invalid",
+        "status": "failed",
+    }
+    assert result.stderr == b""
 
 
 def test_receipt_generation_fails_closed_without_complete_authorized_evidence() -> None:
@@ -2430,6 +2571,81 @@ def test_process_group_probe_errors_fail_closed(
         receipt._process_group_absent(43210)  # pyright: ignore[reportPrivateUsage]
 
 
+def test_terminal_cleanup_failure_overrides_timeout_after_two_real_descendant_attempts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    receipt = _module()
+    marker = tmp_path / "descendant-pid"
+    source = (
+        "import pathlib,subprocess,sys,time;"
+        "child=subprocess.Popen([sys.executable,'-I','-B','-c',"
+        "'import time;time.sleep(30)']);"
+        f"pathlib.Path({str(marker)!r}).write_text(str(child.pid),encoding='ascii');"
+        "time.sleep(30)"
+    )
+    real_popen = receipt.subprocess.Popen
+    real_killpg = receipt.os.killpg
+    processes: list[subprocess.Popen[bytes]] = []
+    cleanup_signal_failures = 0
+
+    def capture_process(*args: object, **kwargs: object) -> subprocess.Popen[bytes]:
+        process = real_popen(*args, **kwargs)
+        processes.append(process)
+        return process
+
+    def deny_cleanup_signals(pid: int, sig: int) -> None:
+        nonlocal cleanup_signal_failures
+        if sig in {receipt.signal.SIGTERM, receipt.signal.SIGKILL}:
+            cleanup_signal_failures += 1
+            raise PermissionError("cleanup denied")
+        real_killpg(pid, sig)
+
+    monkeypatch.setattr(receipt.subprocess, "Popen", capture_process)
+    monkeypatch.setattr(receipt.os, "killpg", deny_cleanup_signals)
+    profile = receipt.BoundedProfile(
+        wall_seconds=0.2,
+        stdout_bytes=4096,
+        stderr_bytes=4096,
+        poll_seconds=0.01,
+        term_grace_seconds=0.05,
+    )
+
+    try:
+        with pytest.raises(receipt.ReceiptError) as raised:
+            receipt._run_bounded(  # pyright: ignore[reportPrivateUsage]
+                [sys.executable, "-I", "-B", "-c", source],
+                env={},
+                cwd=None,
+                profile=profile,
+            )
+
+        assert str(raised.value) == "bounded_cleanup_incomplete"
+        assert cleanup_signal_failures >= 2
+        assert processes and processes[0].poll() is None
+        descendant_pid = int(marker.read_text(encoding="ascii"))
+        assert os.getpgid(descendant_pid) == processes[0].pid
+        os.kill(descendant_pid, 0)
+        details = cast(dict[str, object], raised.value.details)
+        assert cast(dict[str, bool], details["cleanup"])["process_group_absent"] is False
+    finally:
+        monkeypatch.setattr(receipt.os, "killpg", real_killpg)
+        if processes and not receipt._process_group_absent(  # pyright: ignore[reportPrivateUsage]
+            processes[0].pid
+        ):
+            try:
+                receipt._cleanup_process_group(  # pyright: ignore[reportPrivateUsage]
+                    processes[0], grace_seconds=0.2, terminate=True
+                )
+            except receipt.ReceiptError:
+                real_killpg(processes[0].pid, receipt.signal.SIGKILL)
+                processes[0].wait(timeout=2.0)
+        if processes:
+            assert receipt._process_group_absent(  # pyright: ignore[reportPrivateUsage]
+                processes[0].pid
+            )
+
+
 @pytest.mark.skipif(platform.system() != "Darwin", reason="Darwin proc_pid_rusage authority")
 def test_real_darwin_controlled_allocator_proves_footprint_and_cleanup() -> None:
     receipt = _module()
@@ -2651,7 +2867,7 @@ def _complete_preflight_payload(evidence: dict[str, object]) -> dict[str, object
             "executable_mode": "0755",
             "executable_sha256": digest,
         },
-        "script": {"sha256": evidence["script_sha256"]},
+        "script": dict(cast(dict[str, object], evidence["controller_execution"])),
         "interpreters": _interpreter_rows(),
         "lock_sha256": "5" * 64,
         "constraints_sha256": "4" * 64,
@@ -2698,12 +2914,22 @@ def _complete_generation_bundle() -> tuple[dict[str, object], dict[str, object],
 
 def _complete_generation_evidence() -> dict[str, object]:
     script = Path(__file__).parents[2] / "scripts" / "direct_audio_dependency_receipt.py"
-    script_sha256 = hashlib.sha256(script.read_bytes()).hexdigest()
+    script_bytes = script.read_bytes()
+    script_sha256 = hashlib.sha256(script_bytes).hexdigest()
+    receipt = _module()
+    controller_execution = {
+        "bootstrap_contract": "mke.fixed_stdlib_descriptor_bootstrap.v1",
+        "bootstrap_contract_sha256": receipt._CONTROLLER_BOOTSTRAP_CONTRACT_SHA256,  # pyright: ignore[reportPrivateUsage]
+        "schema": "mke.direct_audio_controller_execution.v1",
+        "script_bytes": len(script_bytes),
+        "script_sha256": script_sha256,
+        "source_binding": "descriptor-sha256-compile-exec-same-bytes",
+    }
     wheels: list[dict[str, object]] = [
         {
-            "filename": "av-17.0-cp312-cp312-macosx_11_0_arm64.whl",
+            "filename": "av-17.1.0-cp312-cp312-macosx_11_0_arm64.whl",
             "distribution": "av",
-            "version": "17.0",
+            "version": "17.1.0",
             "build": None,
             "python_tags": ["cp312"],
             "abi_tags": ["cp312"],
@@ -2713,9 +2939,9 @@ def _complete_generation_evidence() -> dict[str, object]:
             "artifact_scope": "local_runtime_only",
         },
         {
-            "filename": "av-17.0-cp313-cp313-macosx_11_0_arm64.whl",
+            "filename": "av-17.1.0-cp313-cp313-macosx_11_0_arm64.whl",
             "distribution": "av",
-            "version": "17.0",
+            "version": "17.1.0",
             "build": None,
             "python_tags": ["cp313"],
             "abi_tags": ["cp313"],
@@ -2754,9 +2980,9 @@ def _complete_generation_evidence() -> dict[str, object]:
     for cell in ("3.12", "3.13"):
         filenames = (
             (
-                "av-17.0-cp312-cp312-macosx_11_0_arm64.whl"
+                "av-17.1.0-cp312-cp312-macosx_11_0_arm64.whl"
                 if cell == "3.12"
-                else "av-17.0-cp313-cp313-macosx_11_0_arm64.whl"
+                else "av-17.1.0-cp313-cp313-macosx_11_0_arm64.whl"
             ),
             "faster_whisper-1.2.1-py3-none-any.whl",
             "huggingface_hub-1.0-py3-none-any.whl",
@@ -2827,16 +3053,16 @@ def _complete_generation_evidence() -> dict[str, object]:
                         "version": version,
                         "evidence_sha256": (
                             wheels_by_name[
-                                "av-17.0-cp312-cp312-macosx_11_0_arm64.whl"
+                                "av-17.1.0-cp312-cp312-macosx_11_0_arm64.whl"
                                 if cell == "3.12"
-                                else "av-17.0-cp313-cp313-macosx_11_0_arm64.whl"
+                                else "av-17.1.0-cp313-cp313-macosx_11_0_arm64.whl"
                             ]["sha256"]
                             if distribution == "av"
                             else digest
                         ),
                     }
                     for distribution, module, version, digest in (
-                        ("av", "av", "17.0", "a" * 64),
+                        ("av", "av", "17.1.0", "a" * 64),
                         ("faster-whisper", "faster_whisper", "1.2.1", "d" * 64),
                         ("huggingface-hub", "huggingface_hub", "1.0", "e" * 64),
                     )
@@ -2858,10 +3084,12 @@ def _complete_generation_evidence() -> dict[str, object]:
         "schema_version": "mke.direct_audio_dependency_receipt.v1",
         "receipt_sha256": "",
         "script_sha256": script_sha256,
-        "preflight_observed_digest": "",
-        "generation_preflight_observed_digest": "",
+        "controller_execution": controller_execution,
+        "preflight_observed_digest": "b" * 64,
+        "generation_preflight_observed_digest": "b" * 64,
         "external_binary_redistribution": "not_performed",
         "redistribution_authority": "not_claimed",
+        "binary_source_provenance": "not_claimed",
         "wheel_inventory": wheels,
         "installed_distributions": installed,
         "cells": cells,
@@ -2900,33 +3128,71 @@ def _complete_generation_evidence() -> dict[str, object]:
         },
         "pyav": {
             "distribution": "av",
-            "version": "17.0",
+            "version": "17.1.0",
             "artifact_scope": "local_runtime_only",
             "extensions": [{"filename": "av/_core.so", "sha256": digest}],
             "linked_components": ["libavcodec"],
-            "bundled_components": [],
+            "bundled_components": ["pyav"],
         },
         "ffmpeg_runtime": {
-            "version": "8.0.0",
-            "license": "LGPL version 2.1 or later",
+            "version": "8.1.1",
+            "runtime_license_label": "LGPL version 3 or later",
+            "runtime_license_label_sha256": (
+                "511f63111e9aeaf0151394415cd170c1a396c95bb3da8a63aa681cc8d978a306"
+            ),
             "configuration": "--enable-shared",
             "configuration_sha256": digest,
-            "sha256": digest,
-            "source_reference": "ffmpeg-project-8_0_0",
-            "license_text_sha256": digest,
+            "binary_inventory_sha256": digest,
+            "source_tag": "n8.1.1",
+            "source_tag_object_sha1": "150ba6ddfabb5c433bb2fb3ee546d2a96e59066d",
+            "source_commit_sha1": "239f2c733de417201d7ad3b3b8b0d9b63285b2b1",
+            "source_reference": (
+                "ffmpeg-source-n8_1_1-239f2c733de417201d7ad3b3b8b0d9b63285b2b1"
+            ),
+            "license_notice_filename": "LICENSE.md",
+            "license_notice_bytes": 4346,
+            "license_notice_sha256": (
+                "2e1d16c72fd74e12063776371da757322f8b77589386532f4fd8634bde7de1af"
+            ),
+            "license_text_filename": "COPYING.LGPLv3",
+            "license_text_bytes": 7651,
+            "license_text_sha256": (
+                "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768"
+            ),
+            "binary_source_provenance": "not_claimed",
             "artifact_scope": "local_runtime_only",
         },
         "direct_components": [
             {
                 "name": "libavcodec",
-                "version": "61",
-                "license": "LGPL-2.1-or-later",
+                "version": "62.28.101",
+                "license": "LGPL-3.0-or-later",
+                "license_authority": "runtime_reported",
                 "evidence_sha256": digest,
-                "source_reference": "ffmpeg-project-8_0_0",
-                "license_text_sha256": digest,
+                "source_reference": (
+                    "ffmpeg-source-n8_1_1-239f2c733de417201d7ad3b3b8b0d9b63285b2b1"
+                ),
+                "license_text_sha256": (
+                    "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768"
+                ),
                 "artifact_scope": "local_runtime_only",
-                "local_use_restriction": "none_observed",
-            }
+                "local_use_restriction": "not_assessed",
+                "binary_source_provenance": "not_claimed",
+            },
+            {
+                "name": "pyav",
+                "version": "17.1.0",
+                "license": "BSD-3-Clause",
+                "license_authority": "installed_distribution_metadata",
+                "evidence_sha256": digest,
+                "source_reference": "pyav-project-17_1_0",
+                "license_text_sha256": (
+                    "76af0461ffb92e19f1c14449e95557d83a2dfaa1baf202d49e5f1d8746c0da19"
+                ),
+                "artifact_scope": "local_runtime_only",
+                "local_use_restriction": "not_assessed",
+                "binary_source_provenance": "not_claimed",
+            },
         ],
         "fixture_authority_document": {
             "filename": "README.md",
@@ -2958,10 +3224,11 @@ def _complete_generation_evidence() -> dict[str, object]:
         "unresolved_transitive_binary_items": [
             {
                 "name": "system-runtime",
-                "version": "1",
+                "observed_dylib_suffix": "1",
+                "upstream_version_authority": "not_established",
                 "identity_sha256": digest,
                 "redistribution_clearance": "unresolved",
-                "local_use_restriction": "none_observed",
+                "local_use_restriction": "not_assessed",
                 "artifact_scope": "local_runtime_only",
             }
         ],
@@ -2994,6 +3261,219 @@ def test_local_optional_use_allows_recorded_unresolved_transitive_items() -> Non
         "redistribution_authority": "not_claimed",
         "status": "passed",
     }
+
+
+def test_generation_evidence_freezes_immutable_ffmpeg_license_and_source_authority() -> None:
+    evidence = _complete_generation_evidence()
+    ffmpeg = cast(dict[str, object], evidence["ffmpeg_runtime"])
+
+    assert ffmpeg == {
+        "version": "8.1.1",
+        "runtime_license_label": "LGPL version 3 or later",
+        "runtime_license_label_sha256": (
+            "511f63111e9aeaf0151394415cd170c1a396c95bb3da8a63aa681cc8d978a306"
+        ),
+        "configuration": "--enable-shared",
+        "configuration_sha256": "a" * 64,
+        "binary_inventory_sha256": "a" * 64,
+        "source_tag": "n8.1.1",
+        "source_tag_object_sha1": "150ba6ddfabb5c433bb2fb3ee546d2a96e59066d",
+        "source_commit_sha1": "239f2c733de417201d7ad3b3b8b0d9b63285b2b1",
+        "source_reference": (
+            "ffmpeg-source-n8_1_1-239f2c733de417201d7ad3b3b8b0d9b63285b2b1"
+        ),
+        "license_notice_filename": "LICENSE.md",
+        "license_notice_bytes": 4346,
+        "license_notice_sha256": (
+            "2e1d16c72fd74e12063776371da757322f8b77589386532f4fd8634bde7de1af"
+        ),
+        "license_text_filename": "COPYING.LGPLv3",
+        "license_text_bytes": 7651,
+        "license_text_sha256": (
+            "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768"
+        ),
+        "binary_source_provenance": "not_claimed",
+        "artifact_scope": "local_runtime_only",
+    }
+    direct = cast(list[dict[str, object]], evidence["direct_components"])
+    assert all(item["local_use_restriction"] == "not_assessed" for item in direct)
+    assert all(item["binary_source_provenance"] == "not_claimed" for item in direct)
+    unresolved = cast(list[dict[str, object]], evidence["unresolved_transitive_binary_items"])
+    assert unresolved
+    assert all("version" not in item for item in unresolved)
+    assert all(item["upstream_version_authority"] == "not_established" for item in unresolved)
+    assert all(item["local_use_restriction"] == "not_assessed" for item in unresolved)
+
+
+def test_committed_dependency_receipt_passes_independent_static_validation() -> None:
+    receipt = _module()
+    path = Path(__file__).parents[2] / "benchmarks" / "audio" / "dependency-artifacts.json"
+    committed_bytes = path.read_bytes()
+    evidence = cast(dict[str, object], json.loads(committed_bytes.decode("ascii")))
+
+    assert committed_bytes == (
+        json.dumps(evidence, sort_keys=True, separators=(",", ":")).encode("ascii") + b"\n"
+    )
+    assert receipt.validate_committed_receipt(evidence) == {
+        "authority": "canonical_static_artifact",
+        "binary_source_provenance": "not_claimed",
+        "external_binary_redistribution": "not_performed",
+        "redistribution_authority": "not_claimed",
+        "retained_runtime_replay": "not_performed",
+        "status": "passed",
+    }
+    assert evidence["receipt_sha256"] != hashlib.sha256(committed_bytes).hexdigest()
+
+
+def test_complete_generation_evidence_passes_independent_static_validation() -> None:
+    receipt = _module()
+
+    assert receipt.validate_committed_receipt(_complete_generation_evidence()) == {
+        "authority": "canonical_static_artifact",
+        "binary_source_provenance": "not_claimed",
+        "external_binary_redistribution": "not_performed",
+        "redistribution_authority": "not_claimed",
+        "retained_runtime_replay": "not_performed",
+        "status": "passed",
+    }
+
+
+def test_validate_receipt_cli_accepts_committed_artifact_without_runtime_replay() -> None:
+    receipt = _module()
+    script = Path(__file__).parents[2] / "scripts" / "direct_audio_dependency_receipt.py"
+    artifact = Path(__file__).parents[2] / "benchmarks" / "audio" / "dependency-artifacts.json"
+    artifact_bytes = artifact.read_bytes()
+    evidence = cast(dict[str, object], json.loads(artifact_bytes.decode("ascii")))
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-B",
+            "-c",
+            receipt._CONTROLLER_BOOTSTRAP_SOURCE,  # pyright: ignore[reportPrivateUsage]
+            "--",
+            str(script),
+            "--validate-receipt",
+            str(artifact),
+            "--json",
+        ],
+        capture_output=True,
+        check=False,
+        env={},
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == b""
+    assert json.loads(result.stdout) == {
+        "authority": "canonical_static_artifact",
+        "binary_source_provenance": "not_claimed",
+        "canonical_payload_sha256": evidence["receipt_sha256"],
+        "committed_file_sha256": hashlib.sha256(artifact_bytes).hexdigest(),
+        "external_binary_redistribution": "not_performed",
+        "redistribution_authority": "not_claimed",
+        "retained_runtime_replay": "not_performed",
+        "status": "passed",
+    }
+
+
+def test_validate_receipt_cli_rejects_noncanonical_artifact_public_safely(
+    tmp_path: Path,
+) -> None:
+    receipt = _module()
+    script = Path(__file__).parents[2] / "scripts" / "direct_audio_dependency_receipt.py"
+    artifact = tmp_path / "private-operator-receipt.json"
+    artifact.write_text(json.dumps(_complete_generation_evidence(), indent=2), encoding="ascii")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-B",
+            "-c",
+            receipt._CONTROLLER_BOOTSTRAP_SOURCE,  # pyright: ignore[reportPrivateUsage]
+            "--",
+            str(script),
+            "--validate-receipt",
+            str(artifact),
+            "--json",
+        ],
+        capture_output=True,
+        check=False,
+        env={},
+    )
+
+    assert result.returncode == 2
+    assert result.stderr == b""
+    assert json.loads(result.stdout) == {
+        "failure": "committed_receipt_invalid",
+        "status": "failed",
+    }
+    assert b"private-operator-receipt" not in result.stdout
+    assert b"Traceback" not in result.stdout
+
+
+def test_validate_receipt_mode_rejects_mixed_generation_arguments(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    receipt = _module()
+
+    result = receipt.main(
+        [
+            "--validate-receipt",
+            "dependency-artifacts.json",
+            "--check-inputs",
+            "--json",
+        ]
+    )
+
+    assert result == 2
+    assert json.loads(capsys.readouterr().out) == {
+        "failure": "cli_arguments_invalid",
+        "status": "failed",
+    }
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement"),
+    [
+        ("source_tag", "n8.1.2"),
+        ("source_tag_object_sha1", "1" * 40),
+        ("source_commit_sha1", "2" * 40),
+        ("license_notice_sha256", "3" * 64),
+        ("license_text_sha256", "4" * 64),
+        ("binary_source_provenance", "established"),
+    ],
+)
+def test_static_receipt_validator_rejects_well_formed_ffmpeg_authority_substitution(
+    field: str,
+    replacement: str,
+) -> None:
+    receipt = _module()
+    evidence = _complete_generation_evidence()
+    cast(dict[str, object], evidence["ffmpeg_runtime"])[field] = replacement
+    _refresh_receipt_digest(evidence)
+
+    assert receipt.validate_committed_receipt(evidence) == {
+        "failure": "committed_receipt_invalid",
+        "status": "failed",
+    }
+
+
+def test_task1_final_focused_gate_requires_real_pyav_fixture_profiles() -> None:
+    plan = (
+        Path(__file__).parents[2]
+        / "docs"
+        / "superpowers"
+        / "plans"
+        / "2026-07-18-bounded-direct-audio-intake-implementation.md"
+    ).read_text(encoding="utf-8")
+    task1 = plan.split("### Task 1 (PR A):", 1)[1].split("### Task 2 (PR B):", 1)[0]
+    step7 = task1.split("**Step 7:", 1)[1]
+
+    assert "UV_OFFLINE=1 MKE_REQUIRE_TRANSCRIPTION_EXTRA=1 uv run pytest -q" in step7
+    assert "tests/adapters/test_audio_fixtures.py" in step7
+    assert "tests/scripts/test_direct_audio_dependency_receipt.py" in step7
 
 
 def test_generation_rejects_arbitrary_project_source_reference_substitution() -> None:
@@ -3038,6 +3518,37 @@ def test_preflight_authority_uses_live_os_floor_with_target_interpreter_abi() ->
     _refresh_preflight_digest(preflight)
 
     assert receipt._passed_preflight_authority(preflight) is not None  # pyright: ignore[reportPrivateUsage]
+
+
+def test_static_receipt_uses_target_abi_without_treating_sysconfig_floor_as_host_ceiling() -> None:
+    receipt = _module()
+    evidence = _complete_generation_evidence()
+    wheels = cast(list[dict[str, object]], evidence["wheel_inventory"])
+    replacements: dict[str, str] = {}
+    for wheel in wheels:
+        filename = cast(str, wheel["filename"])
+        if cast(str, wheel["distribution"]) != "av":
+            continue
+        replacement = filename.replace("macosx_11_0_arm64", "macosx_14_0_arm64")
+        wheel["filename"] = replacement
+        wheel["platform_tags"] = ["macosx_14_0_arm64"]
+        replacements[filename] = replacement
+    for installed in cast(list[dict[str, object]], evidence["installed_distributions"]):
+        filename = cast(str, installed["source_wheel_filename"])
+        if filename in replacements:
+            installed["source_wheel_filename"] = replacements[filename]
+    manifest_sha256 = _wheel_manifest_digest(wheels)
+    for cell in cast(list[dict[str, object]], evidence["cells"]):
+        for installed in cast(list[dict[str, object]], cell["installed_distributions"]):
+            filename = cast(str, installed["source_wheel_filename"])
+            if filename in replacements:
+                installed["source_wheel_filename"] = replacements[filename]
+        cast(dict[str, object], cast(dict[str, object], cell["pip"])["staging"])[
+            "wheelhouse_manifest_sha256"
+        ] = manifest_sha256
+    _refresh_receipt_digest(evidence)
+
+    assert receipt.validate_committed_receipt(evidence)["status"] == "passed"
 
 
 def test_runtime_evidence_probe_uses_fixed_isolated_command_and_closed_output(
@@ -3141,6 +3652,137 @@ def test_runtime_evidence_probe_uses_fixed_isolated_command_and_closed_output(
     assert str(tmp_path) not in json.dumps(observed, sort_keys=True)
 
 
+def test_runtime_probe_decodes_the_exact_bytes_bound_to_fixture_sha_after_replacement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    receipt = _module()
+    fixture_root = tmp_path / "fixtures"
+    fixture_root.mkdir()
+    fixture = fixture_root / "direct-audio.wav"
+    original_bytes = b"fixture-a"
+    replacement_bytes = b"fixture-b"
+    fixture.write_bytes(original_bytes)
+    replacement = tmp_path / "replacement.wav"
+    replacement.write_bytes(replacement_bytes)
+
+    site_root = tmp_path / "site-packages"
+    av_root = site_root / "av"
+    dylib_root = av_root / ".dylibs"
+    dylib_root.mkdir(parents=True)
+    (av_root / "__init__.py").write_text("", encoding="ascii")
+    (av_root / "_core.abi3.so").write_bytes(b"extension")
+    (dylib_root / "libavutil.60.26.101.dylib").write_bytes(b"dylib")
+    license_file = site_root / "av-17.1.0.dist-info" / "licenses" / "LICENSE.txt"
+    license_file.parent.mkdir(parents=True)
+    license_file.write_bytes(b"PyAV license")
+
+    observed: dict[str, object] = {}
+
+    class Container:
+        streams = SimpleNamespace(
+            audio=[SimpleNamespace(index=0)],
+            video=[],
+            subtitles=[],
+        )
+
+        def __enter__(self) -> Container:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def decode(self, *, audio: int):
+            assert audio == 0
+            return iter((object(),))
+
+    def open_fixture(value: object, *, mode: str) -> Container:
+        assert mode == "r"
+        assert isinstance(value, io.BytesIO)
+        observed["decoded_bytes"] = value.getvalue()
+        return Container()
+
+    av_module = types.ModuleType("av")
+    av_module.__file__ = str(av_root / "__init__.py")
+    av_module.library_versions = {"libavutil": (60, 26, 101)}  # type: ignore[attr-defined]
+    av_module.open = open_fixture  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "av", av_module)
+    monkeypatch.setitem(sys.modules, "faster_whisper", types.ModuleType("faster_whisper"))
+    monkeypatch.setitem(sys.modules, "huggingface_hub", types.ModuleType("huggingface_hub"))
+
+    versions = {
+        "av": "17.1.0",
+        "faster-whisper": "1.2.1",
+        "huggingface-hub": "1.21.0",
+    }
+    monkeypatch.setattr(importlib.metadata, "version", lambda name: versions[name])
+
+    class Distribution:
+        files = [Path("av-17.1.0.dist-info/licenses/LICENSE.txt")]
+        metadata = {"License-Expression": "BSD-3-Clause"}
+
+        def locate_file(self, _path: Path) -> Path:
+            return license_file
+
+    monkeypatch.setattr(importlib.metadata, "distribution", lambda _name: Distribution())
+
+    class RuntimeSymbol:
+        restype: object = None
+
+        def __init__(self, value: bytes) -> None:
+            self.value = value
+
+        def __call__(self) -> bytes:
+            return self.value
+
+    runtime = SimpleNamespace(
+        avutil_license=RuntimeSymbol(b"LGPL version 3 or later"),
+        avutil_configuration=RuntimeSymbol(b"--disable-static --enable-shared"),
+        av_version_info=RuntimeSymbol(b"8.1.1"),
+    )
+    monkeypatch.setattr(receipt.ctypes, "CDLL", lambda _path: runtime)
+
+    original_read_bytes = Path.read_bytes
+    replaced = False
+
+    def replacing_read_bytes(path: Path) -> bytes:
+        nonlocal replaced
+        value = original_read_bytes(path)
+        if path == fixture and not replaced:
+            os.replace(replacement, fixture)
+            replaced = True
+        return value
+
+    monkeypatch.setattr(Path, "read_bytes", replacing_read_bytes)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "runtime-evidence-probe",
+            str(fixture_root),
+            json.dumps(versions, sort_keys=True, separators=(",", ":")),
+        ],
+    )
+
+    exec(receipt._RUNTIME_EVIDENCE_SOURCE, {"__name__": "__main__"})  # noqa: S102
+
+    payload = json.loads(capsys.readouterr().out)
+    decodes = cast(list[dict[str, object]], payload["fixture_decodes"])
+    assert replaced is True
+    assert original_read_bytes(fixture) == replacement_bytes
+    assert observed["decoded_bytes"] == original_bytes
+    assert decodes == [
+        {
+            "decoder": "pyav",
+            "filename": "direct-audio.wav",
+            "sha256": hashlib.sha256(original_bytes).hexdigest(),
+            "status": "passed",
+            "stream_count": 1,
+        }
+    ]
+
+
 def test_generation_cli_writes_only_validator_accepted_canonical_receipt(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -3159,6 +3801,11 @@ def test_generation_cli_writes_only_validator_accepted_canonical_receipt(
 
     monkeypatch.setattr(receipt, "generate_dependency_receipt", generate, raising=False)
     monkeypatch.setattr(receipt, "_controller_isolated", lambda: True)
+    monkeypatch.setattr(
+        receipt,
+        "_controller_execution_projection",
+        lambda *, require_bound: evidence["controller_execution"],
+    )
 
     result = receipt.main(
         [
@@ -3335,11 +3982,12 @@ def test_generation_rejects_semantically_forged_runtime_authority(mutation: str)
             )
     elif mutation == "arbitrary_script_sha":
         for payload in preflights:
-            cast(dict[str, object], payload["script"])["sha256"] = "f" * 64
+            cast(dict[str, object], payload["script"])["script_sha256"] = "f" * 64
+        cast(dict[str, object], evidence["controller_execution"])["script_sha256"] = "f" * 64
         evidence["script_sha256"] = "f" * 64
     else:
-        original_filename = "av-17.0-cp312-cp312-macosx_11_0_arm64.whl"
-        invalid_filename = "av-17.0-invalid.whl"
+        original_filename = "av-17.1.0-cp312-cp312-macosx_11_0_arm64.whl"
+        invalid_filename = "av-17.1.0-invalid.whl"
         for payload in preflights:
             wheel = cast(list[dict[str, object]], payload["wheelhouse"])[0]
             wheel["filename"] = invalid_filename
@@ -3512,10 +4160,10 @@ def test_generation_evidence_requires_full_passed_preflight_authority(mutation: 
     [
         "private_component_name",
         "private_unresolved_name",
-        "hostname_unresolved_version",
+        "hostname_unresolved_suffix",
         "private_ffmpeg_configuration",
-        "private_ffmpeg_license",
-        "hostname_ffmpeg_license",
+        "private_ffmpeg_runtime_license_label",
+        "hostname_ffmpeg_runtime_license_label",
         "invalid_ffmpeg_configuration_digest",
         "duplicate_ffmpeg_configuration_token",
         "noncanonical_ffmpeg_configuration_order",
@@ -3539,14 +4187,14 @@ def test_generation_evidence_rejects_private_or_noncanonical_field_grammar(
         direct[0]["name"] = private_name
     elif mutation == "private_unresolved_name":
         unresolved[0]["name"] = "/Users/operator/private/libfoo.dylib"
-    elif mutation == "hostname_unresolved_version":
-        unresolved[0]["version"] = "build-host.internal"
+    elif mutation == "hostname_unresolved_suffix":
+        unresolved[0]["observed_dylib_suffix"] = "build-host.internal"
     elif mutation == "private_ffmpeg_configuration":
         ffmpeg["configuration"] = "--prefix=/Users/operator/private/build"
-    elif mutation == "private_ffmpeg_license":
-        ffmpeg["license"] = "/Users/operator/private/LICENSE"
-    elif mutation == "hostname_ffmpeg_license":
-        ffmpeg["license"] = "build-host.internal"
+    elif mutation == "private_ffmpeg_runtime_license_label":
+        ffmpeg["runtime_license_label"] = "/Users/operator/private/LICENSE"
+    elif mutation == "hostname_ffmpeg_runtime_license_label":
+        ffmpeg["runtime_license_label"] = "build-host.internal"
     elif mutation == "invalid_ffmpeg_configuration_digest":
         ffmpeg["configuration_sha256"] = "invalid"
     elif mutation == "duplicate_ffmpeg_configuration_token":
@@ -3614,7 +4262,7 @@ def test_generation_evidence_rejects_noncanonical_inventory_mutations(mutation: 
         unresolved.append(dict(unresolved[0]))
     elif mutation == "duplicate_unresolved_transitive_name":
         duplicate = dict(unresolved[0])
-        duplicate["version"] = "2"
+        duplicate["observed_dylib_suffix"] = "2"
         duplicate["identity_sha256"] = "d" * 64
         unresolved.append(duplicate)
     elif mutation == "duplicate_linked_component":
@@ -3664,7 +4312,7 @@ def test_generation_evidence_rejects_noncanonical_inventory_mutations(mutation: 
         "unknown_field",
         "unresolved_identity",
         "local_use_restriction",
-        "ffmpeg_unknown_license",
+        "ffmpeg_unknown_runtime_license_label",
         "ffmpeg_unobservable_configuration",
         "direct_unresolved_version",
         "direct_source_reference",
@@ -3701,8 +4349,8 @@ def test_generation_evidence_fails_closed_for_authority_drift(mutation: str) -> 
         cast(list[dict[str, object]], evidence["direct_components"])[0]["local_use_restriction"] = (
             "restricted"
         )
-    elif mutation == "ffmpeg_unknown_license":
-        cast(dict[str, object], evidence["ffmpeg_runtime"])["license"] = "unknown"
+    elif mutation == "ffmpeg_unknown_runtime_license_label":
+        cast(dict[str, object], evidence["ffmpeg_runtime"])["runtime_license_label"] = "unknown"
     elif mutation == "ffmpeg_unobservable_configuration":
         cast(dict[str, object], evidence["ffmpeg_runtime"])["configuration"] = "unobservable"
     elif mutation == "direct_unresolved_version":
@@ -3770,6 +4418,11 @@ def test_main_redacts_unexpected_controller_failure_to_one_closed_json_object(
 ) -> None:
     receipt = _module()
     monkeypatch.setattr(receipt, "_controller_isolated", lambda: True)
+    monkeypatch.setattr(
+        receipt,
+        "_controller_execution_projection",
+        lambda *, require_bound: {},
+    )
 
     def fail_closed(**_kwargs: object) -> dict[str, object]:
         raise RuntimeError("private failure at /Users/operator/secret")
