@@ -163,6 +163,26 @@ def test_docs_index_links_governance_and_completed_authorities() -> None:
     assert "`v0.1.3` release-candidate verification gate" in normalized
 
 
+def test_docs_index_links_all_current_documentation_areas() -> None:
+    text = _text(DOCS_INDEX)
+    missing: list[str] = []
+
+    for area in (
+        "tutorials",
+        "how-to",
+        "reference",
+        "explanation",
+        "decisions",
+        "releases",
+    ):
+        for path in sorted((ROOT / "docs" / area).glob("*.md")):
+            relative = path.relative_to(ROOT / "docs").as_posix()
+            if f"](./{relative})" not in text:
+                missing.append(relative)
+
+    assert missing == []
+
+
 def test_v013_closeout_docs_record_completed_docs_merge_and_cleanup() -> None:
     combined = "\n".join(
         _text(path)
