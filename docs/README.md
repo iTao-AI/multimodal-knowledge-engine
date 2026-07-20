@@ -33,6 +33,9 @@ do not change Search, Ask, MCP, owner startup, Publication, ingestion, or runtim
 - [Architecture](./explanation/architecture.md)
 - [Public Contracts](./reference/contracts.md)
 - [CLI Reference](./reference/cli.md)
+- [Direct-Audio Dependency And License Evidence](./reference/direct-audio-dependency-and-license-evidence.md)
+  records dependency, license, and synthetic-fixture feasibility for staged planning; it does not
+  ship direct-audio intake.
 - [Enable Bounded CJK Retrieval](./how-to/enable-cjk-retrieval.md)
 - [Use Local Transcription](./how-to/use-local-transcription.md)
 - [Export A Compiled Library](./how-to/export-compiled-library.md)
@@ -111,4 +114,5 @@ how-to guides, reference docs, and ADRs.
 ## Development Verification
 
 Use the verified bootstrap commands in the [Getting Started tutorial](./tutorials/getting-started.md)
-before changing product behavior.
+before changing product behavior. Follow the [contributor workflow](./how-to/contribute.md) for
+risk-based verification, pull requests, and safe task-owned cleanup.

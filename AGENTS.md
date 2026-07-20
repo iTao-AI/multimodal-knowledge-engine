@@ -70,6 +70,11 @@ Public product concepts are:
 
 Changing any constraint above requires an ADR in the same PR.
 
+## Framework Reuse And Project-Owned Logic
+
+- Before building ingestion, parsing, retrieval, MCP, process-control, or provider infrastructure, inspect the installed library and framework versions, existing adapters, relevant source boundaries, and current official documentation.
+- Prefer native capabilities behind project-owned ports when they satisfy the approved contract, deterministic tests, offline and privacy requirements, authority separation, compatibility, and maintenance cost. Keep project-owned logic when framework semantics do not match or would introduce unnecessary coupling, hosted dependencies, runtime side effects, or migration risk. Framework runtime, index, trace, or checkpoint state never owns `Library`, `Run`, `Evidence`, or `Publication` authority.
+
 ## Working Model
 
 Codex is the primary project Agent and owns planning, implementation, testing, documentation, PR preparation, and final verification.
@@ -78,11 +83,11 @@ Use GStack and Superpowers when they match the task:
 
 - Ambiguous product or architecture work: `superpowers:brainstorming`.
 - Multi-step implementation: `superpowers:writing-plans`.
-- Plan review when scope or risk warrants it: `gstack-autoplan` or the relevant focused plan review.
-- Bugs and unexplained failures: `gstack-investigate` or `superpowers:systematic-debugging`.
-- Implementation: TDD and focused verification.
-- Final diff review: `gstack-review`.
-- Frontend behavior: `gstack-qa-only` or `gstack-qa` when a fix loop is intended.
+- Plan review when scope or risk warrants it: `autoplan` or the relevant focused plan review.
+- Bugs and unexplained failures: default to `superpowers:systematic-debugging`; use `investigate` instead for cross-system or environment investigations, after two evidence-backed repair rounds fail to close the same problem, or when a formal investigation record is required. Do not run both full procedures for the same problem.
+- Implementation: `superpowers:test-driven-development` and focused verification.
+- Final diff review: run `review` once before PR unless an explicitly designated independent authority already owns the same full-diff review; fixes receive targeted re-review by default.
+- Frontend behavior: `qa-only` or `qa` when a fix loop is intended.
 - Completion claims: `superpowers:verification-before-completion`.
 
 Do not require a second-model review for every change. Recommend an independent second view only for major architecture decisions, high-risk cross-module changes, important milestones, or unresolved uncertainty.
@@ -127,7 +132,7 @@ Superpowers specs and plans are implementation history. Long-lived architecture 
 
 - Keep active plan checklists current as work is completed.
 - Mark completed plans explicitly so later Agents do not treat historical work as pending.
-- After `gstack-review`, `gstack-autoplan`, or equivalent plan/PR review, persist durable
+- After `review`, `autoplan`, or equivalent plan/PR review, persist durable
   public-neutral findings under `docs/superpowers/reviews/` when this repository is the downstream
   execution target.
 - If the related spec or plan changes materially after a review is persisted, mark the older review
@@ -184,7 +189,7 @@ Documentation changes ship in the same PR as the behavior they describe.
 | Installation, demo, or user workflow | Update tutorial or how-to docs |
 | Internal refactor with no behavior change | Record `No documentation impact` in the PR |
 
-Run `gstack-document-release` as a pre-merge documentation audit for important features, public contract changes, architecture changes, and release PRs. It is not mandatory for every small internal change.
+Run `document-release` as a pre-merge documentation audit for important features, public contract changes, architecture changes, and release PRs. It is not mandatory for every small internal change.
 
 If the audit would commit, push, update a PR body, or require a version decision without authorization, stop and recommend the exact next action.
 
