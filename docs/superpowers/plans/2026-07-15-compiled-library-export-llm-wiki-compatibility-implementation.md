@@ -1,7 +1,7 @@
 # Compiled Library Export LLM Wiki Compatibility Implementation Plan
 
-Status: engineering-reviewed follow-up plan; blocked until the core export PR is merged and its
-post-merge checks pass.
+Status: engineering-reviewed follow-up plan; core lineage and post-merge gates are satisfied, and
+Task 1 is authorized from a clean current compatibility branch containing the core merge.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to execute the
 > project-owned mechanical and verification steps. The authority window performs the isolated
@@ -11,11 +11,12 @@ post-merge checks pass.
 traced back to exact MKE Evidence in an isolated LLM Wiki workflow, then record the bounded claim
 without changing MKE runtime behavior.
 
-**Architecture:** Build one fresh installed-wheel export from the merged core commit, transfer only
-the validated export and closed receipt to a call-owned compatibility workspace, run the existing
-agent-driven LLM Wiki workflow against a new local `.wiki/`, and join the compiled article back to
-MKE's unchanged manifest and JSONL through `content_fingerprint`. MKE remains the provenance
-authority; the wiki is a downstream synthesized view.
+**Architecture:** Build one fresh installed-wheel export from the current clean compatibility branch
+commit containing the core export merge, transfer only the validated export and closed receipt to a
+call-owned compatibility workspace, run the existing agent-driven LLM Wiki workflow against a new
+local `.wiki/`, and join the compiled article back to MKE's unchanged manifest and JSONL through
+`content_fingerprint`. MKE remains the provenance authority; the wiki is a downstream synthesized
+view.
 
 **Tech Stack:** Python 3.12/3.13, the merged `compiled_library_export_proof.py`, standard-library
 hashing and JSON validation, the installed LLM Wiki agent workflow, Markdown documentation tests,
@@ -23,21 +24,33 @@ Pytest, Ruff, Pyright, Hatch/uv, and Git.
 
 ## Entry Gate
 
-- Require the core Compiled Library Export PR to be merged into `main` with expected CI, CodeQL,
-  and compiled-library proof checks successful.
+- Retain `5d707cfcc98da8ce76d31238c14158cd78b03803` as the core Compiled Library Export
+  lineage authority. Require it to remain an ancestor of the current clean compatibility branch.
+- Require the core Compiled Library Export PR and its expected CI, CodeQL, and compiled-library
+  proof checks to be complete.
 - Require `main == origin/main`, a clean primary worktree, and no open core-export repair PR.
-- Create a new isolated docs/evidence worktree from that exact merge commit.
+- Create a new isolated docs/evidence branch and worktree from the current clean `main`, then build
+  and prove the exact compatibility branch commit that contains the core lineage authority.
 - Re-read the merged public spec, core plan, implementation review, export how-to, proof how-to,
   and this compatibility plan.
 - Do not reuse a pre-merge retained export, wheel, receipt, wiki, or candidate worktree.
 - Stop if the merged command, schemas, proof receipt, or public claim boundary differs from this
   plan. Update the plan through authority review before continuing.
 
+### Targeted Authority Amendment
+
+The merged producer, its retained-export tests, and the export how-to already agree on the
+`compiled-library/` directory name. This amendment aligns the compatibility evidence procedure with
+that established contract and with the current package-bearing branch while retaining the core
+merge as lineage authority. It authorizes no runtime, schema, producer, test, dependency, workflow,
+or release-identity change.
+
 ## Global Constraints
 
 - This is a docs/evidence PR. Do not modify `src/mke`, dependencies, lockfiles, workflows, product
   scripts, export schemas, fixtures, retrieval artifacts, OCR evidence, or release identity.
-- Use only a fresh public-safe synthetic export produced from the exact merged core commit.
+- Use only a fresh public-safe synthetic export produced from the exact clean compatibility branch
+  commit containing the core lineage authority.
 - Never write to a configured wiki hub. Create and remove only a call-owned isolated `.wiki/`.
 - Do not add LLM Wiki as a runtime, development, CI, or documentation build dependency.
 - Do not invent `/wiki:*` shell commands. Use the installed agent workflow and its documented
@@ -55,7 +68,7 @@ Pytest, Ruff, Pyright, Hatch/uv, and Git.
 ## Data Flow
 
 ```text
-merged core commit
+current compatibility branch commit containing core merge
       |
       | build one wheel, Python 3.12 + 3.13 generic proof
       v
@@ -93,15 +106,15 @@ exact mke.evidence_ref.v1 return path
 
 ---
 
-### Task 1: Produce a fresh retained export from merged core
+### Task 1: Produce a fresh retained export from the current compatibility branch
 
 **Files:** no tracked changes.
 
 - [ ] **Step 1: Verify the exact merged baseline and interpreter authority**
 
-Record the core merge SHA and exact Python 3.12/3.13 interpreter paths. Require distinct real
-interpreters and a clean source worktree. Run the core documentation tests and generic proof tests
-before building retained evidence.
+Record the core lineage SHA, exact compatibility branch source commit, and exact Python 3.12/3.13
+interpreter paths. Require distinct real interpreters and a clean source worktree. Run the core
+documentation tests and generic proof tests before building retained evidence.
 
 - [ ] **Step 2: Run one fresh same-wheel proof with retained output**
 
@@ -115,7 +128,7 @@ UV_OFFLINE=1 uv run python scripts/compiled_library_export_proof.py \
 ```
 
 Require one wheel digest across both interpreters and exact proof aggregate status `passed`.
-Require the retained root to contain only `export/` and `proof-receipt.json`.
+Require the retained root to contain only `compiled-library/` and `proof-receipt.json`.
 
 - [ ] **Step 3: Independently validate retained authority**
 
