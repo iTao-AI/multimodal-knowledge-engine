@@ -103,6 +103,21 @@ def test_requested_language_changes_faster_whisper_fingerprint() -> None:
     assert is_recognized_video_fingerprint(english)
 
 
+def test_video_fingerprint_and_dto_remain_unchanged_by_audio_contract() -> None:
+    provenance = _provenance()
+    assert faster_whisper_fingerprint(provenance).startswith("faster-whisper-v1:")
+    assert (
+        ParsedVideoTranscript(
+            media=VideoMediaInfo("mp4", "h264", "aac", True, 1_500),
+            segments=(VideoTranscriptSegment(0, 1_000, "spoken evidence"),),
+            transcription_provenance=provenance,
+        )
+        .segments[0]
+        .text
+        == "spoken evidence"
+    )
+
+
 @pytest.mark.parametrize(
     "field",
     [
