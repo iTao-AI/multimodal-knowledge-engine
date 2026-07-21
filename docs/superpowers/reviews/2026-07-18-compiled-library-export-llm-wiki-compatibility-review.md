@@ -1,10 +1,12 @@
 # Compiled Library Export LLM Wiki Compatibility Review
 
-Verdict: **CLEARED FOR SEMANTIC-PROJECTION TASK 4**. Targeted authority re-review accepted the
-exact repaired docs/test candidate at `0f40cbbd6cdc9463917868415565de899cbdb1d3` as clean with zero
-actionable findings. A subsequent authority amendment preserves run-local provenance UUIDs and
-replaces cross-run raw-tree equality with closed raw validity plus normalized semantic-projection
-equality. Task 4 has not started under the amended gate.
+Verdict: **TASK 4 LOCAL EVIDENCE COMPLETE; PENDING FINAL ACTUAL-DIFF REVIEW**. Targeted authority
+re-review accepted the repaired docs/test candidate at
+`0f40cbbd6cdc9463917868415565de899cbdb1d3` as clean with zero actionable findings. The subsequent
+authority amendment at `e0559816a66957d2964b20d0d08ca1b8ec2f3719` preserves run-local
+provenance UUIDs and replaces cross-run raw-tree equality with closed raw validity plus normalized
+semantic-projection equality. The amended final proof and scoped local gates passed; this closure
+now awaits final actual-diff review.
 
 ## Initial Actual-Diff Findings
 
@@ -92,8 +94,56 @@ product-lifecycle, package, dependency, workflow, or release change.
 - Proof receipt SHA-256:
   `24b8843b20cf6fa6d64112e4227349e9c870f76d3c85fe12c83dcffefcfdcc28`
 
-The final-candidate wheel identity is intentionally pending Task 4. It must be freshly measured
-after this docs repair is committed.
+## Final Task 4 Evidence
+
+The amendment commit `e0559816a66957d2964b20d0d08ca1b8ec2f3719` is the sole final-proof
+source authority. The fresh final wheel is
+`multimodal_knowledge_engine-0.1.3-py3-none-any.whl`, `309598` bytes, SHA-256
+`f45c172685744aeee549c41334106bfd40354e62fbfa00b94ebd69c196746e12`. Independent descriptor
+reads confirmed package name `multimodal-knowledge-engine`, version `0.1.3`, and source binding.
+The Python identities were CPython `3.12.13` and CPython `3.13.12`.
+
+The single fresh same-wheel proof returned schema `mke.compiled_library_export_proof.v1`, status
+`passed`, interpreter count `2`, and the same final wheel SHA-256. Its canonical retained receipt
+SHA-256 is `65e07848d323465cd67cfd647262e0b5ffaee726e1b4411ab398abbb697d2d50`.
+Both standalone consumer runs and independent closed raw validation passed.
+
+The pre-docs raw tree SHA-256 remained
+`debd814a900141cf52c08126fb7138aa7bae327e432667f9398d829c54f5335a`; the final raw tree
+SHA-256 is `63495005e7b2fbc466270fe095cf767f0055c8b7325115df3a0daa5717e4a8a0`.
+The two stable Source keys and three stable Evidence keys matched. Both normalized semantic
+projections produced SHA-256
+`e85a971adaa304e0a4ea3b5249b81e657862d34b831fa1a342501b5ae7a2ef07`.
+All seven semantic-drift probes changed that projection, and duplicate or inconsistent raw
+identifier probes failed closed.
+
+The final closed descriptor inventory is:
+
+```text
+evidence/0ac3e96efc89ee91e48bb3efc8611de88b2698e5aa26c1f8e0e8f78ad2d60ddd.jsonl  536  fa93f17f917d5f6d8a67f0ca87722fc043c4c57107e2af3ac6e916492e495452
+evidence/6c2a57a73ee01976bccfcfe73f3334d8d1675a891ccc5868d68fa2caadf27e3e.jsonl  969  7de643bfee86ae0ddc1e8028060bcb4c1c007c8b058abfc73a87c4aeda98db57
+export-manifest.json                                                                    2003  332b17cd4e9795705e82d24e259f39144260f266d0075afe78bdf2a618795450
+sources/0ac3e96efc89ee91e48bb3efc8611de88b2698e5aa26c1f8e0e8f78ad2d60ddd.md       763  2f39236bdb6c189baac3f5c1a1fd7b46657a577cd455173fe72b90f7c54e95de
+sources/6c2a57a73ee01976bccfcfe73f3334d8d1675a891ccc5868d68fa2caadf27e3e.md       858  eb00de8481156ec1e440d0edd4e37e0090a8ee758557d35b56cfc21d5b5a3008
+```
+
+The final raw tree retained the same digest before transfer, after transfer, and after wiki use.
+The fresh isolated local wiki compiled one sourced article from two raw Sources and three exact
+Evidence records. The page return path reached final raw Evidence
+`ev_042ee266927a42dc88ab101ccaea143b` at page `1`; the timestamp return path reached final raw
+Evidence `ev_10820df5332549398d706b6243d970ff` at `0-1200` milliseconds. Both exact Unicode and
+SHA-256 joins reached the raw wrapper, `content_fingerprint`, locator boundary, manifest leaf, and
+complete `mke.evidence_ref.v1` object. Comparison aliases never entered the wiki.
+
+Exactly two query-lite processes ran, one per locator kind. A post-query transport encoder was
+unavailable after both processes completed, so the queries were not rerun. The immutable wiki tree
+and frozen deterministic query program reconstructed the two closed response bytes for independent
+return-path validation. This is a bounded final-review limitation; it does not alter the query
+count or establish a product behavior claim.
+
+Query and non-fixing lint made zero wiki writes. Lint reported zero Critical issues and zero broken
+source links. Configured-hub impact remained unchanged without sibling-content reads, the
+call-owned wiki root was removed, and the final retained evidence was preserved.
 
 ## Strict Closed Aggregate
 
