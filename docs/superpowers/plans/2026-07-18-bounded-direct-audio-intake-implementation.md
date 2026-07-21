@@ -603,7 +603,7 @@ PR B cannot begin until this PR is accepted and merged.
 - Consumes: existing timestamp normalization semantics, `TranscriptionProvenance`, RunManifest validation, and fixed audio-v1 limits.
 - Produces: `AudioTranscriptSegment`, `AudioMediaInfo`, `ParsedAudioTranscript`, `AudioTranscriptExtractionResult`, `REQUIRED_AUDIO_STAGES`, `audio_extractor_fingerprint()`, `parse_audio_transcript_payload()`.
 
-- [ ] **Step 1: Write failing closed-contract tests**
+- [x] **Step 1: Write failing closed-contract tests**
 
 Cover exact schema keys, unknown/missing fields, bool-as-int rejection, Unicode normalization,
 segment ordering, finite/in-range timestamps, segment count, media limits, container/codec/profile,
@@ -634,7 +634,7 @@ def test_audio_manifest_rejects_wrong_fingerprint(fingerprint: str) -> None:
         validate_audio_manifest(_audio_manifest(fingerprint))
 ```
 
-- [ ] **Step 2: Run RED tests**
+- [x] **Step 2: Run RED tests**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -645,7 +645,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: collection or import failures for the new audio symbols; existing video tests remain green.
 
-- [ ] **Step 3: Add immutable audio values and closed parser**
+- [x] **Step 3: Add immutable audio values and closed parser**
 
 Use these exact public shapes:
 
@@ -689,7 +689,7 @@ _AUDIO_FINGERPRINT_RE = re.compile(r"faster-whisper-audio-v1:[0-9a-f]{64}\Z")
 spec, and closed nested media/segment/provenance fields. Reuse normalization helpers only when their
 semantics are identical; do not return video DTOs.
 
-- [ ] **Step 4: Add canonical extractor identity**
+- [x] **Step 4: Add canonical extractor identity**
 
 ```python
 def audio_extractor_fingerprint(provenance: TranscriptionProvenance) -> str:
@@ -710,7 +710,7 @@ Manifest validation accepts the exact audio grammar only with audio stages and t
 It must still accept every existing PDF, OCR-evaluation, sidecar-video, and faster-whisper-video
 manifest unchanged.
 
-- [ ] **Step 5: Run GREEN and adjacent tests**
+- [x] **Step 5: Run GREEN and adjacent tests**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -725,7 +725,7 @@ UV_OFFLINE=1 uv run pyright
 
 Expected: all pass; no existing manifest or video output changes.
 
-- [ ] **Step 6: Review and commit Task 2**
+- [x] **Step 6: Review and commit Task 2**
 
 ```bash
 git diff --check
@@ -755,7 +755,7 @@ git commit -m "feat(audio): define direct audio contracts"
   Tasks 4-7. Task 3 does not run PyAV or expose an executable inspection provider; Task 4 owns all
   native parsing. PR B never parses untrusted media in the owner process.
 
-- [ ] **Step 1: Write descriptor and SQLite authority RED tests**
+- [x] **Step 1: Write descriptor and SQLite authority RED tests**
 
 ```python
 def test_audio_snapshot_rejects_same_size_replacement(tmp_path: Path) -> None:
@@ -779,7 +779,7 @@ Also cover symlink file, symlink parent, non-regular file, empty input, growth, 
 same-inode same-size writes during copy, descriptor/path inode replacement before and after
 inspection, cleanup failure, output root overlap, and all invalid stream/profile/limit cases.
 
-- [ ] **Step 2: Run RED tests**
+- [x] **Step 2: Run RED tests**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -790,7 +790,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: new snapshot/inspection imports fail and SQLite media-type conflict is not rejected.
 
-- [ ] **Step 3: Implement a call-owned immutable snapshot**
+- [x] **Step 3: Implement a call-owned immutable snapshot**
 
 ```python
 @dataclass(frozen=True)
@@ -835,7 +835,7 @@ or follows a replacement.
 9. remove only call-owned inodes using no-follow identity checks, returning a stable cleanup error
    without deleting a replacement.
 
-- [ ] **Step 4: Define pure profile normalization and a closed inspection protocol**
+- [x] **Step 4: Define pure profile normalization and a closed inspection protocol**
 
 ```python
 class AudioInspectionRequest(TypedDict):
@@ -859,7 +859,7 @@ inventory, wrong AAC profile, unsupported channel/sample rate, and extension/pro
 Task 4 owns the package child that performs `av.open()` and revalidates the sealed snapshot before
 and after parsing; the owner validates only the closed result.
 
-- [ ] **Step 5: Make digest/media-type reuse fail closed**
+- [x] **Step 5: Make digest/media-type reuse fail closed**
 
 Add `AssetMediaTypeMismatchError(ValueError)` in the SQLite adapter. In `_ensure_asset`, select the
 existing row by digest and compare exact SQLite storage class and
@@ -880,7 +880,7 @@ if row is not None:
 Add a migration/read regression proving old PDF/video Assets remain valid and no schema change is
 required.
 
-- [ ] **Step 6: Run GREEN, race repetitions, and adjacent suites**
+- [x] **Step 6: Run GREEN, race repetitions, and adjacent suites**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -898,7 +898,7 @@ UV_OFFLINE=1 uv run pyright
 
 Expected: every run passes; no partial output, operator-owned deletion, or legacy Asset drift.
 
-- [ ] **Step 7: Review and commit Task 3**
+- [x] **Step 7: Review and commit Task 3**
 
 ```bash
 git diff --check
@@ -933,7 +933,7 @@ cleanup owns only the copied inode.
   non-model-constructing audio preflight, and uncomposed provider adapters. No owner/runtime
   composition exposes this behavior in PR B.
 
-- [ ] **Step 1: Write child/provider RED tests**
+- [x] **Step 1: Write child/provider RED tests**
 
 Cover both package children: exact argv, isolated interpreter flags, `shell=False`, owner config,
 cache-only environment,
@@ -965,7 +965,7 @@ def test_audio_child_uses_closed_protocol_and_offline_environment(
 The tests must prove the child validates the Task 3 inspected identity supplied by the parent and
 does not independently accept a different path or download policy.
 
-- [ ] **Step 2: Run RED tests**
+- [x] **Step 2: Run RED tests**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -976,7 +976,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: missing internal inspection/transcription child and provider symbols; existing video cases pass.
 
-- [ ] **Step 3: Extract only identical private faster-whisper helpers**
+- [x] **Step 3: Extract only identical private faster-whisper helpers**
 
 Keep `FasterWhisperTranscriptionConfig`, exact revision, explicit prepare, doctor, model resolution,
 runtime profile resolution, and cache-only loading as the single owner policy. Private helpers may
@@ -1004,7 +1004,7 @@ project-owned public values.
 Do not change the public `mke.video_transcript.v1` serializer, video fingerprint, MP4 probe, video
 exit mapping, or video provider result type.
 
-- [ ] **Step 4: Implement the two closed audio children**
+- [x] **Step 4: Implement the two closed audio children**
 
 The inspection child accepts only the sealed snapshot path, expected identity/digest/bytes, suffix,
 and fixed inspection limits. It opens no-follow, binds the descriptor, runs PyAV/FFmpeg parsing in
@@ -1049,7 +1049,7 @@ AUDIO_EXIT_ERRORS: dict[int, tuple[str, str]] = {
 Unknown nonzero exits map to redacted `audio_ingest_failed`; raw stderr, argv, cache paths, model
 paths, exception text, and tracebacks never enter public payloads.
 
-- [ ] **Step 5: Keep the package-owned provider internal**
+- [x] **Step 5: Keep the package-owned provider internal**
 
 The internal adapter commands use the current interpreter and modules, not PATH discovery:
 
@@ -1077,7 +1077,7 @@ preflight without changing video behavior. The module invocation above is the so
 entry point; do not add a console script.
 `pyproject.toml`, dependencies, and `uv.lock` remain unchanged.
 
-- [ ] **Step 6: Run GREEN and process cleanup repetitions**
+- [x] **Step 6: Run GREEN and process cleanup repetitions**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1098,7 +1098,7 @@ UV_OFFLINE=1 uv run pyright
 
 Expected: all pass with no descendant, reader thread, temp file, or operation registration leak.
 
-- [ ] **Step 7: Review and commit Task 4**
+- [x] **Step 7: Review and commit Task 4**
 
 ```bash
 git diff --check

@@ -106,6 +106,7 @@ def test_local_command_provider_uses_argv_with_shell_false(
     assert kwargs["shell"] is False
     assert kwargs["stdout"] == subprocess.PIPE
     assert kwargs["stderr"] == subprocess.PIPE
+    assert kwargs["start_new_session"] is False
 
 
 def test_local_command_provider_rejects_oversized_stdout_before_json_parser(
