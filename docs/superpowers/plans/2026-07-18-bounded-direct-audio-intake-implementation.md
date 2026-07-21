@@ -1115,6 +1115,22 @@ git commit -m "feat(audio): add internal cache-only audio provider"
 Task review must prove the internal child/provider boundary and video compatibility. Public owner
 composition remains intentionally absent and is verified in PR C.
 
+### PR B Local Acceptance Closure
+
+Tasks 2 through 4 are locally accepted at reviewed repair HEAD
+`1fb1cd88a393207684d0cbf3072a116e4b1f6dfc` and are **CLEARED FOR PR B PR HANDOFF**. The final
+targeted authority re-review closed the Linux-host portability issue in the cleanup regression by
+gating the real Darwin `/.vol/<dev>/<ino>` contract on the host's actual `sys.platform` and keeping
+an independent regression that explicitly selects the generic non-Darwin path. The accepted repair
+changes tests only; production, contracts, evaluation identities, dependencies, workflows, and
+public surfaces remain unchanged.
+
+This closure records local acceptance only. PR B remains an uncomposed internal foundation: it does
+not activate direct audio through runtime, CLI, or MCP; run real ASR or acquire a model; claim a
+sandbox or hostile-media containment; claim external-binary redistribution authority; or authorize
+release or deployment. It does not mark PR B merged, satisfy the PR C entry gate, start PR C, or
+complete any Task 5 through Task 10 checkbox.
+
 ---
 
 ## PR C Entry Gate: Reconcile Export v2 Before Public Activation

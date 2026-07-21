@@ -2,7 +2,7 @@
 
 ## Status
 
-**TARGETED AUTHORITY RE-REVIEW PENDING**
+**ACCEPTED / CLEARED FOR PR B PR HANDOFF**
 
 This record covers the bounded internal PR B implementation for Tasks 2 through 4. It does not
 start PR C, activate direct audio through a public runtime, or mark any Task 5 through Task 10 step
@@ -58,10 +58,37 @@ Verification bound to that implementation and identity state reported:
 - successful offline build, eight-case product proof, verified demo, byte-identity, scope, secret,
   and public-neutral checks.
 
-The remaining gate is independent targeted authority re-review of the final committed branch. The
-terminal clean-commit verification is reported externally after this durable status record and does
-not write another tracked result.
+## Targeted Portability Re-Review And Acceptance
 
-This record is execution evidence only. It does not state or imply an accepted review verdict,
-released capability, production media containment, redistribution authority, or public runtime
-activation.
+Targeted authority review found one tests-only portability issue after the cleanup repair: the
+final-root replacement regression forced both `darwin` and `linux` through one parametrized test.
+On `ubuntu-latest`, the synthetic Darwin case entered the production `/.vol/<dev>/<ino>` branch
+without the real macOS inode-addressed namespace, so the regression could not prove removal of the
+displaced call-owned root on that host.
+
+Commit `1fb1cd88a393207684d0cbf3072a116e4b1f6dfc` contains the exact tests-only correction. The
+Darwin regression is collection-gated by the host's actual `sys.platform`; the independent
+non-Darwin regression explicitly selects the generic Linux branch. Both retain the original
+assertions that cleanup returns `snapshot_cleanup_failed`, preserves the operator-owned replacement
+identity and directory, and removes the displaced call-owned root. The commit changes only
+`tests/adapters/test_audio_inspection.py` with 23 insertions and 4 deletions. It does not change
+production, contract, evaluation, dependency, workflow, or public-surface behavior.
+
+Independent verification bound to reviewed repair HEAD
+`1fb1cd88a393207684d0cbf3072a116e4b1f6dfc` reported:
+
+- `81 passed` with five existing SWIG warnings for `tests/adapters/test_audio_inspection.py` and
+  `tests/domain/test_audio_contracts.py`;
+- clean Ruff results for the changed file;
+- Pyright with zero errors and zero warnings for the changed file;
+- clean `git diff --check`, exact one-file repair scope, and a clean worktree; and
+- acceptance of the execution evidence `2720 passed, 4 skipped, 5 warnings` for the complete suite.
+
+Targeted authority re-review found no remaining actionable finding. Tasks 2 through 4 are locally
+accepted and this branch is cleared for PR B PR handoff. This does not mark PR B merged, satisfy the
+PR C entry gate, or authorize Task 5 through Task 10.
+
+This acceptance covers only the uncomposed internal PR B foundation. It does not state or imply
+public runtime, CLI, or MCP activation; real ASR or model acquisition; a sandbox or hostile-media
+containment guarantee; external-binary redistribution authority; a released capability; or release
+or deployment.
