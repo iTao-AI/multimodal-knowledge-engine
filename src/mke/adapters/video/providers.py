@@ -158,6 +158,7 @@ def _run_bounded_command(
             shell=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            start_new_session=False,
         )
     except FileNotFoundError as error:
         raise VideoExtractionError("transcript command executable is missing") from error

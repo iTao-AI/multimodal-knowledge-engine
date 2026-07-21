@@ -1,3 +1,5 @@
+from typing import Any, cast
+
 from mke.adapters.video.process import ActiveProcessController
 
 
@@ -53,3 +55,36 @@ def test_shutdown_kills_scoped_and_unscoped_children() -> None:
     assert unscoped.killed is True
     assert scoped.waited is True
     assert unscoped.waited is True
+
+
+def test_cancel_uses_registered_process_group_terminator() -> None:
+    controller = ActiveProcessController()
+    operation_id = controller.begin_operation()
+    process = FakeProcess()
+    terminated: list[object] = []
+    controller.register(
+        cast(Any, process),
+        operation_id=operation_id,
+        terminator=lambda child: terminated.append(child),
+    )
+
+    controller.cancel_operation(operation_id)
+
+    assert terminated == [process]
+    assert process.killed is False
+
+
+def test_late_group_registration_observes_cancellation_latch() -> None:
+    controller = ActiveProcessController()
+    operation_id = controller.begin_operation()
+    controller.cancel_operation(operation_id)
+    process = FakeProcess()
+    terminated: list[object] = []
+
+    controller.register(
+        cast(Any, process),
+        operation_id=operation_id,
+        terminator=lambda child: terminated.append(child),
+    )
+
+    assert terminated == [process]

@@ -124,6 +124,10 @@ class InjectedStorageFailure(RuntimeError):
     """Raised by deterministic reliability proof failure injection."""
 
 
+class AssetMediaTypeMismatchError(ValueError):
+    """Raised when one content digest has conflicting media authority."""
+
+
 class SQLiteStore:
     """Persistence adapter for Source-level Publication semantics."""
 
@@ -419,10 +423,13 @@ class SQLiteStore:
 
     def _ensure_asset(self, asset_sha256: str, media_type: str) -> str:
         row = self._connection.execute(
-            "SELECT asset_id FROM assets WHERE sha256 = ?", (asset_sha256,)
+            "SELECT asset_id, media_type FROM assets WHERE sha256 = ?", (asset_sha256,)
         ).fetchone()
         if row is not None:
-            return str(row["asset_id"])
+            stored_media_type = row["media_type"]
+            if type(stored_media_type) is not str or stored_media_type != media_type:
+                raise AssetMediaTypeMismatchError("asset_media_type_mismatch")
+            return self._require_sqlite_text(row["asset_id"], "asset id is invalid")
         asset_id = _new_id("asset")
         self._connection.execute(
             "INSERT INTO assets(asset_id, sha256, media_type) VALUES (?, ?, ?)",

@@ -9,7 +9,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
-from typing import Literal, Protocol, cast
+from typing import BinaryIO, Literal, Protocol, cast
 
 from mke.adapters.video.contracts import AdapterExitCode, VideoTranscriptionLimits
 from mke.domain import (
@@ -110,11 +110,25 @@ class _TranscribingModel(_ReadyModel, Protocol):
     model: _ResolvedRuntimeModel
 
     def transcribe(
-        self, path: str, *, language: str | None
+        self, media: str | BinaryIO, *, language: str | None
     ) -> tuple[Iterable[_TranscriptionSegment], _TranscriptionInfo]: ...
 
 
 class _TranscribingModelFactory(Protocol):
+    def __call__(
+        self,
+        model_size_or_path: str,
+        *,
+        device: str,
+        compute_type: str,
+        local_files_only: bool,
+    ) -> _TranscribingModel: ...
+
+
+class WhisperModelFactory(Protocol):
+    @property
+    def library_version(self) -> str: ...
+
     def __call__(
         self,
         model_size_or_path: str,
@@ -167,6 +181,34 @@ class TranscriptionReadiness:
     checks: tuple[ReadinessCheck, ...]
     cause: str | None
     next_step: str | None
+
+
+@dataclass(frozen=True)
+class NormalizedTranscriptSegment:
+    start_ms: int
+    end_ms: int
+    text: str
+
+
+@dataclass(frozen=True)
+class VersionedWhisperModelFactory:
+    factory: _TranscribingModelFactory
+    library_version: str
+
+    def __call__(
+        self,
+        model_size_or_path: str,
+        *,
+        device: str,
+        compute_type: str,
+        local_files_only: bool,
+    ) -> _TranscribingModel:
+        return self.factory(
+            model_size_or_path,
+            device=device,
+            compute_type=compute_type,
+            local_files_only=local_files_only,
+        )
 
 
 def normalize_model_identifier(model: str) -> str:
@@ -338,6 +380,60 @@ def doctor_transcription(
     )
 
 
+def audio_transcription_preflight(
+    config: object,
+) -> TranscriptionReadiness:
+    """Check audio readiness without importing or constructing ``WhisperModel``."""
+
+    if not isinstance(config, FasterWhisperTranscriptionConfig):
+        return _not_ready(
+            (ReadinessCheck("config", "failed", "configuration invalid"),),
+            "transcription configuration is invalid",
+            "check_model_configuration",
+        )
+    profile_failure = _validate_runtime_profile(config)
+    if profile_failure is not None:
+        return _not_ready(
+            (ReadinessCheck("profile", "failed", "unsupported profile"),),
+            profile_failure,
+            "choose_supported_transcription_profile",
+        )
+    try:
+        import_module("av")
+        import_module("faster_whisper")
+    except ImportError:
+        return _not_ready(
+            (ReadinessCheck("dependencies", "failed", "optional dependencies missing"),),
+            "transcription optional dependency is not installed",
+            "install_transcription_extra",
+        )
+    checks = (
+        ReadinessCheck("dependencies", "passed", "optional dependencies available"),
+        ReadinessCheck("profile", "passed", "runtime profile supported"),
+    )
+    try:
+        snapshot = resolve_model_snapshot(config, allow_download=False)
+        _require_complete_model_snapshot(snapshot)
+    except ModelResolutionError as error:
+        return _not_ready(
+            checks + (ReadinessCheck("model", "failed", "model snapshot unavailable"),),
+            error.cause,
+            error.next_step,
+        )
+    return TranscriptionReadiness(
+        status="ready",
+        checks=checks + (ReadinessCheck("model", "passed", "exact model revision cached"),),
+        cause=None,
+        next_step=None,
+    )
+
+
+def load_whisper_runtime() -> tuple[_TranscribingModelFactory, str]:
+    """Load the existing optional runtime for another package-owned media child."""
+
+    return _load_whisper_runtime()
+
+
 def _import_optional_runtime() -> _WhisperModelFactory:
     import_module("av")
     faster_whisper = import_module("faster_whisper")
@@ -458,15 +554,14 @@ def normalize_segments(
     return tuple(normalized)
 
 
-def transcribe_media(
-    path: Path,
+def transcribe_cached_media(
+    media: str | BinaryIO,
+    *,
     config: FasterWhisperTranscriptionConfig,
-) -> ParsedVideoTranscript:
-    try:
-        model_factory, library_version = _load_whisper_runtime()
-    except ImportError as error:
-        raise AdapterProtocolError(AdapterExitCode.DEPENDENCY_MISSING) from error
-    media = probe_media(path, config.limits)
+    model_factory: WhisperModelFactory,
+) -> tuple[tuple[NormalizedTranscriptSegment, ...], TranscriptionProvenance]:
+    """Materialize one cache-only inference into media-neutral private values."""
+
     try:
         snapshot = resolve_model_snapshot(config, allow_download=False)
     except ModelResolutionError as error:
@@ -485,7 +580,7 @@ def transcribe_media(
             local_files_only=True,
         )
         raw_segments, info = model.transcribe(
-            str(path),
+            media,
             language=None if config.language == "auto" else config.language,
         )
         materialized = tuple(raw_segments)
@@ -494,20 +589,71 @@ def transcribe_media(
     except Exception as error:
         logger.exception("faster_whisper_transcription_failed")
         raise AdapterProtocolError(AdapterExitCode.TRANSCRIPTION_FAILED) from error
-    segments = normalize_segments(materialized, media, config.limits)
+    segments = _normalize_cached_segments(materialized, config.limits)
     duration_ms = math.floor((time.monotonic() - started) * 1000 + 0.5)
-    detected_language = info.language.lower()
     provenance = TranscriptionProvenance(
         provider="faster-whisper",
         model=config.model,
         model_revision=config.model_revision,
-        library_version=library_version,
+        library_version=model_factory.library_version,
         device=model.model.device,
         compute_type=model.model.compute_type,
         language=config.language,
-        detected_language=detected_language,
+        detected_language=info.language.lower(),
         model_source="cache",
         transcription_duration_ms=duration_ms,
+    )
+    return segments, provenance
+
+
+def _normalize_cached_segments(
+    raw_segments: Iterable[_TranscriptionSegment],
+    limits: VideoTranscriptionLimits,
+) -> tuple[NormalizedTranscriptSegment, ...]:
+    normalized: list[NormalizedTranscriptSegment] = []
+    previous_end = 0
+    for raw in raw_segments:
+        if len(normalized) >= limits.max_segment_count:
+            raise AdapterProtocolError(AdapterExitCode.SCHEMA_INVALID)
+        start_ms = normalize_timestamp_ms(raw.start)
+        end_ms = normalize_timestamp_ms(raw.end)
+        if start_ms < previous_end:
+            if previous_end - start_ms > 1:
+                raise AdapterProtocolError(AdapterExitCode.SCHEMA_INVALID)
+            start_ms = previous_end
+        text = raw.text.strip()
+        if (
+            not text
+            or end_ms <= start_ms
+            or end_ms > limits.max_media_duration_ms
+        ):
+            raise AdapterProtocolError(AdapterExitCode.SCHEMA_INVALID)
+        normalized.append(NormalizedTranscriptSegment(start_ms, end_ms, text))
+        previous_end = end_ms
+    if not normalized:
+        raise AdapterProtocolError(AdapterExitCode.EMPTY_TRANSCRIPT)
+    return tuple(normalized)
+
+
+def transcribe_media(
+    path: Path,
+    config: FasterWhisperTranscriptionConfig,
+) -> ParsedVideoTranscript:
+    try:
+        model_factory, library_version = _load_whisper_runtime()
+    except ImportError as error:
+        raise AdapterProtocolError(AdapterExitCode.DEPENDENCY_MISSING) from error
+    media = probe_media(path, config.limits)
+    normalized, provenance = transcribe_cached_media(
+        str(path),
+        config=config,
+        model_factory=VersionedWhisperModelFactory(model_factory, library_version),
+    )
+    if any(segment.end_ms > media.duration_ms for segment in normalized):
+        raise AdapterProtocolError(AdapterExitCode.SCHEMA_INVALID)
+    segments = tuple(
+        VideoTranscriptSegment(segment.start_ms, segment.end_ms, segment.text)
+        for segment in normalized
     )
     return ParsedVideoTranscript(
         media=media,

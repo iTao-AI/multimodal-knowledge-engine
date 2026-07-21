@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Literal
 
 
 class RunState(StrEnum):
@@ -144,6 +146,53 @@ class VideoTranscriptSegment:
 
 
 @dataclass(frozen=True)
+class AudioTranscriptSegment:
+    start_ms: int
+    end_ms: int
+    text: str
+
+    def __post_init__(self) -> None:
+        if type(self.start_ms) is not int or type(self.end_ms) is not int:
+            raise ValueError("audio timestamps must be integer milliseconds")
+        if self.start_ms < 0 or self.end_ms <= self.start_ms:
+            raise ValueError("audio timestamps must use increasing ranges")
+        if type(self.text) is not str:
+            raise ValueError("audio transcript text must be a string")
+        normalized = unicodedata.normalize("NFC", self.text).strip()
+        try:
+            encoded = normalized.encode("utf-8")
+        except UnicodeEncodeError as error:
+            raise ValueError("audio transcript text must be valid UTF-8") from error
+        if not normalized or len(encoded) > 1_000_000:
+            raise ValueError("audio transcript text must be non-empty and bounded")
+        object.__setattr__(self, "text", normalized)
+
+
+@dataclass(frozen=True)
+class AudioMediaInfo:
+    container: Literal["mp3", "wav", "m4a"]
+    audio_codec: Literal["mp3", "pcm_s16le", "aac"]
+    channels: int
+    sample_rate_hz: int
+    duration_ms: int
+
+    def __post_init__(self) -> None:
+        supported_profiles = {
+            ("mp3", "mp3"),
+            ("wav", "pcm_s16le"),
+            ("m4a", "aac"),
+        }
+        if (self.container, self.audio_codec) not in supported_profiles:
+            raise ValueError("audio media profile is unsupported")
+        if type(self.channels) is not int or self.channels not in {1, 2}:
+            raise ValueError("audio media channels must be one or two")
+        if type(self.sample_rate_hz) is not int or not 8_000 <= self.sample_rate_hz <= 48_000:
+            raise ValueError("audio media sample rate is unsupported")
+        if type(self.duration_ms) is not int or not 0 < self.duration_ms <= 900_000:
+            raise ValueError("audio media duration is unsupported")
+
+
+@dataclass(frozen=True)
 class VideoMediaInfo:
     container: str
     video_codec: str
@@ -226,6 +275,24 @@ class ParsedVideoTranscript:
 
 
 @dataclass(frozen=True)
+class ParsedAudioTranscript:
+    media: AudioMediaInfo
+    segments: tuple[AudioTranscriptSegment, ...]
+    transcription_provenance: TranscriptionProvenance | None = None
+
+    def __post_init__(self) -> None:
+        if not self.segments or len(self.segments) > 10_000:
+            raise ValueError("audio transcript segment count is unsupported")
+        previous_end = 0
+        for segment in self.segments:
+            if segment.start_ms < previous_end:
+                raise ValueError("audio transcript ranges must be sorted and non-overlapping")
+            if segment.end_ms > self.media.duration_ms:
+                raise ValueError("audio transcript segment exceeds media duration")
+            previous_end = segment.end_ms
+
+
+@dataclass(frozen=True)
 class TranscriptIntakeReport:
     provider: str
     model: str
@@ -267,6 +334,17 @@ class TranscriptExtractionResult:
 
     @property
     def segments(self) -> tuple[VideoTranscriptSegment, ...]:
+        return self.parsed_transcript.segments
+
+
+@dataclass(frozen=True)
+class AudioTranscriptExtractionResult:
+    parsed_transcript: ParsedAudioTranscript
+    extractor_fingerprint: str
+    transcript_intake_report: TranscriptIntakeReport | None = None
+
+    @property
+    def segments(self) -> tuple[AudioTranscriptSegment, ...]:
         return self.parsed_transcript.segments
 
 
@@ -433,13 +511,13 @@ REQUIRED_PDF_STAGES = frozenset({"pdf_text_extraction", "candidate_evidence"})
 PDF_EXTRACTOR_FINGERPRINT = "builtin-pdf-text-v1"
 PYMUPDF_TEXT_FINGERPRINT = "pymupdf-text-v1"
 REQUIRED_VIDEO_STAGES = frozenset({"video_transcription", "candidate_evidence"})
+REQUIRED_AUDIO_STAGES = frozenset({"audio_transcription", "candidate_evidence"})
 VIDEO_TRANSCRIPT_FINGERPRINT = "builtin-video-transcript-v1"
 LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT = "local-command-video-transcript-v1"
 _FASTER_WHISPER_FINGERPRINT_RE = re.compile(r"faster-whisper-v1:[0-9a-f]{64}\Z")
+_FASTER_WHISPER_AUDIO_FINGERPRINT_RE = re.compile(r"faster-whisper-audio-v1:[0-9a-f]{64}\Z")
 _PDF_OCR_EVALUATION_FINGERPRINT_RE = re.compile(r"pdf-ocr-eval-v1:[0-9a-f]{64}\Z")
-_REQUIRED_PDF_OCR_EVALUATION_STAGES = frozenset(
-    {"pdf_ocr_extraction", "candidate_evidence"}
-)
+_REQUIRED_PDF_OCR_EVALUATION_STAGES = frozenset({"pdf_ocr_extraction", "candidate_evidence"})
 
 
 def is_recognized_video_fingerprint(value: str) -> bool:
@@ -451,6 +529,10 @@ def is_recognized_video_fingerprint(value: str) -> bool:
         }
         or _FASTER_WHISPER_FINGERPRINT_RE.fullmatch(value) is not None
     )
+
+
+def is_recognized_audio_fingerprint(value: str) -> bool:
+    return _FASTER_WHISPER_AUDIO_FINGERPRINT_RE.fullmatch(value) is not None
 
 
 def validate_manifest(manifest: RunManifest, evidence: list[CandidateEvidence]) -> None:
@@ -467,6 +549,9 @@ def validate_manifest(manifest: RunManifest, evidence: list[CandidateEvidence]) 
         expected_locator_kind = "page"
     elif is_recognized_video_fingerprint(manifest.extractor_fingerprint):
         expected_stages = REQUIRED_VIDEO_STAGES
+        expected_locator_kind = "timestamp_ms"
+    elif is_recognized_audio_fingerprint(manifest.extractor_fingerprint):
+        expected_stages = REQUIRED_AUDIO_STAGES
         expected_locator_kind = "timestamp_ms"
     elif _PDF_OCR_EVALUATION_FINGERPRINT_RE.fullmatch(manifest.extractor_fingerprint):
         expected_stages = _REQUIRED_PDF_OCR_EVALUATION_STAGES

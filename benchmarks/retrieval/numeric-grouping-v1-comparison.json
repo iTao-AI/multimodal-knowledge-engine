@@ -3,7 +3,7 @@
   "protocol": {
     "id": "retrieval-numeric-v1",
     "path": "tests/fixtures/retrieval-numeric-v1/protocol-lock.json",
-    "sha256": "efd2e578168a50ec74a50e6d757bf2f5171b501b3a08992097614469ce05ea3e"
+    "sha256": "9907b99a4363ebaa357c215994087f4b3c8840707375f1ccd8e59f3c7ad9d441"
   },
   "manifests": {
     "development": {
@@ -41,12 +41,42 @@
     "revision": 1
   },
   "source": {
-    "sha256": "d91957a095ccb9e47788497e2d98a205a12291f42cd6236f6570efcd7d48d85b",
+    "sha256": "1109c813ca36f9977dee409eb40ff7c84a276c28ddaaccc7e421d89a21f22e2f",
     "files": [
       {
         "path": "src/mke/__init__.py",
         "bytes": 58,
         "sha256": "05a8ced7d4e3b51f21dc75ae662f8e3e8c5b9a9c2b9a16ed9717d27eecc9eb74"
+      },
+      {
+        "path": "src/mke/adapters/audio/__init__.py",
+        "bytes": 9973,
+        "sha256": "64a51308098066b42cc03dceded5b164e818b746ed10b5bf681e35733dfe5f7f"
+      },
+      {
+        "path": "src/mke/adapters/audio/contracts.py",
+        "bytes": 1802,
+        "sha256": "966a4594a46a257be495c0392af80a0d54d8221004cd39a7521876d7753fda5b"
+      },
+      {
+        "path": "src/mke/adapters/audio/faster_whisper_cli.py",
+        "bytes": 7599,
+        "sha256": "d03eb94e0b41b873c4337529f525dbb6518e3b84e76ee010c75e5626137f9d6a"
+      },
+      {
+        "path": "src/mke/adapters/audio/inspection.py",
+        "bytes": 24820,
+        "sha256": "bbe8efc651ccb941d1416cc597811d073b4c8a4539ecb16d19334cf610f384b4"
+      },
+      {
+        "path": "src/mke/adapters/audio/inspection_cli.py",
+        "bytes": 7701,
+        "sha256": "bea6cd37bf19bfa76a5d3ec7176109409538ad3f9eb7512f59494a4d54cbe18f"
+      },
+      {
+        "path": "src/mke/adapters/audio/schema.py",
+        "bytes": 8312,
+        "sha256": "bf78fc2bc24159301ff3dbe641b8d2ed3941e74e78fadbb9c2315e9fd873eaa2"
       },
       {
         "path": "src/mke/adapters/embedding/__init__.py",
@@ -80,8 +110,8 @@
       },
       {
         "path": "src/mke/adapters/sqlite/__init__.py",
-        "bytes": 64216,
-        "sha256": "9d8fbb09ad69f0846f56a42aabcc6e67130e62e2e8f404b44fc70b3d0877ecfb"
+        "bytes": 64611,
+        "sha256": "919535909f9ec0c20ea6a507067b927efefa70c63bdb77ea19bd126e8cfbb8e1"
       },
       {
         "path": "src/mke/adapters/vector/__init__.py",
@@ -115,8 +145,8 @@
       },
       {
         "path": "src/mke/adapters/video/faster_whisper.py",
-        "bytes": 16872,
-        "sha256": "2e9c99653fb32631fb5a77ad94950dcf5271fb746be17dbce469cf08508e7b63"
+        "bytes": 21719,
+        "sha256": "890159cd679e20045badbff8be9cb993ce5148ed45abdc6a303b749f78c697bb"
       },
       {
         "path": "src/mke/adapters/video/faster_whisper_cli.py",
@@ -125,13 +155,13 @@
       },
       {
         "path": "src/mke/adapters/video/process.py",
-        "bytes": 3494,
-        "sha256": "ccff38870cbab5af6a40f22434d7ccb0204c4e65069b807dd46ba91aeaf16724"
+        "bytes": 20747,
+        "sha256": "46ef4d8937c010833898ab9e3654f5cf000e7f309d7d93e1a1973ab8d00c5e2a"
       },
       {
         "path": "src/mke/adapters/video/providers.py",
-        "bytes": 10036,
-        "sha256": "a565037a92938fb4aa4d647e8d42a2ee8280c55b8dcb560d24c5ba0cc0098c2a"
+        "bytes": 10073,
+        "sha256": "79eb121b9cbb1321f504ff32806801211a0796b345b9c8f7593be4fd617c0ada"
       },
       {
         "path": "src/mke/adapters/video/schema.py",
@@ -160,8 +190,8 @@
       },
       {
         "path": "src/mke/domain/__init__.py",
-        "bytes": 16304,
-        "sha256": "06de813d170006511426b6d9b8ae4ba811e2a5d84b5213cab1f689c73d9fdf23"
+        "bytes": 19894,
+        "sha256": "966310ec778d4940889817e0282834e7f898f39e4d864475686dc6064469fb0f"
       },
       {
         "path": "src/mke/domain/library_export.py",

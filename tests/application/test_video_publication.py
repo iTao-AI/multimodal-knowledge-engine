@@ -44,6 +44,15 @@ def test_video_ingest_publishes_timestamp_evidence_to_active_search(tmp_path: Pa
     ]
 
 
+def test_video_asset_media_identity_remains_compatible(tmp_path: Path) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    first = engine.ingest_video(VIDEO_FIXTURES / "short-audio.mp4")
+    second = engine.ingest_video(VIDEO_FIXTURES / "short-audio.mp4")
+
+    assert first.run_state == RunState.PUBLISHED
+    assert second.run_state == RunState.PUBLISHED
+
+
 def test_normal_video_ingest_keeps_recognized_video_manifest(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

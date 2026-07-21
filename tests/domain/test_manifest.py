@@ -3,6 +3,7 @@ import pytest
 from mke.domain import (
     PDF_EXTRACTOR_FINGERPRINT,
     PYMUPDF_TEXT_FINGERPRINT,
+    REQUIRED_AUDIO_STAGES,
     REQUIRED_PDF_STAGES,
     REQUIRED_VIDEO_STAGES,
     VIDEO_TRANSCRIPT_FINGERPRINT,
@@ -40,9 +41,7 @@ def _make_manifest(
         run_id=run_id,
         evidence_count=evidence_count,
         required_stages=(
-            tuple(sorted(REQUIRED_PDF_STAGES))
-            if required_stages is None
-            else required_stages
+            tuple(sorted(REQUIRED_PDF_STAGES)) if required_stages is None else required_stages
         ),
         extractor_fingerprint=(
             PDF_EXTRACTOR_FINGERPRINT if extractor_fingerprint is None else extractor_fingerprint
@@ -86,6 +85,47 @@ def test_manifest_validation_accepts_exact_faster_whisper_fingerprint() -> None:
     ]
 
     validate_manifest(manifest, evidence)
+
+
+def test_manifest_validation_accepts_exact_audio_fingerprint() -> None:
+    manifest = _make_manifest(
+        required_stages=tuple(sorted(REQUIRED_AUDIO_STAGES)),
+        extractor_fingerprint="faster-whisper-audio-v1:" + ("a" * 64),
+    )
+    evidence = [_make_evidence(locator_kind="timestamp_ms", locator_start=0, locator_end=1_200)]
+
+    validate_manifest(manifest, evidence)
+
+
+@pytest.mark.parametrize(
+    "fingerprint",
+    [
+        "faster-whisper-audio-v1:abc",
+        "faster-whisper-audio-v1:" + ("A" * 64),
+        "faster-whisper-audio-v2:" + ("a" * 64),
+        "faster-whisper-v1:" + ("a" * 64),
+    ],
+)
+def test_manifest_validation_rejects_wrong_audio_fingerprint(fingerprint: str) -> None:
+    manifest = _make_manifest(
+        required_stages=tuple(sorted(REQUIRED_AUDIO_STAGES)),
+        extractor_fingerprint=fingerprint,
+    )
+    evidence = [_make_evidence(locator_kind="timestamp_ms", locator_start=0, locator_end=1)]
+
+    with pytest.raises(ManifestValidationError):
+        validate_manifest(manifest, evidence)
+
+
+def test_manifest_validation_rejects_audio_fingerprint_with_video_stages() -> None:
+    manifest = _make_manifest(
+        required_stages=tuple(sorted(REQUIRED_VIDEO_STAGES)),
+        extractor_fingerprint="faster-whisper-audio-v1:" + ("a" * 64),
+    )
+    evidence = [_make_evidence(locator_kind="timestamp_ms", locator_start=0, locator_end=1)]
+
+    with pytest.raises(ManifestValidationError, match="required stages"):
+        validate_manifest(manifest, evidence)
 
 
 def test_manifest_validation_accepts_exact_pdf_ocr_evaluation_fingerprint() -> None:
