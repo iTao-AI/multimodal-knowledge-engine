@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import os
 import stat
+import sys
 from pathlib import Path
 from typing import cast
 
@@ -248,11 +249,29 @@ def test_audio_snapshot_failed_creation_preserves_sealed_pre_read_replacement(
     assert remaining[0].read_bytes() == b"operator replacement"
 
 
-@pytest.mark.parametrize("platform", ["darwin", "linux"])
-def test_audio_snapshot_final_cleanup_removes_owned_root_and_preserves_replacement(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: str
+@pytest.mark.skipif(
+    sys.platform != "darwin", reason="Darwin inode-addressed cleanup contract"
+)
+def test_audio_snapshot_final_cleanup_removes_owned_root_and_preserves_replacement_on_darwin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(inspection.sys, "platform", platform)
+    _assert_final_cleanup_removes_owned_root_and_preserves_replacement(
+        tmp_path, monkeypatch
+    )
+
+
+def test_audio_snapshot_final_cleanup_removes_owned_root_and_preserves_replacement_off_darwin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(inspection.sys, "platform", "linux")
+    _assert_final_cleanup_removes_owned_root_and_preserves_replacement(
+        tmp_path, monkeypatch
+    )
+
+
+def _assert_final_cleanup_removes_owned_root_and_preserves_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     snapshot = snapshot_audio_source(_source(tmp_path), tmp_path / "owned")
     displaced = tmp_path / "displaced-owned-root"
     original_require = inspection._require_owned_root  # pyright: ignore[reportPrivateUsage]
