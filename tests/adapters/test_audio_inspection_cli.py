@@ -2,6 +2,7 @@ from __future__ import annotations
 
 # pyright: reportPrivateUsage=false, reportUnknownArgumentType=false, reportUnknownLambdaType=false
 import hashlib
+import importlib.util
 import json
 import os
 import platform
@@ -29,6 +30,37 @@ from mke.adapters.video.process import (
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "audio"
 
 
+def _require_pyav() -> None:
+    if importlib.util.find_spec("av") is not None:
+        return
+    if os.environ.get("MKE_REQUIRE_TRANSCRIPTION_EXTRA") == "1":
+        pytest.fail("PyAV is required when MKE_REQUIRE_TRANSCRIPTION_EXTRA=1")
+    pytest.skip("transcription extra is not installed")
+
+
+def test_real_pyav_guard_skips_when_optional_dependency_is_absent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name: None)
+    monkeypatch.delenv("MKE_REQUIRE_TRANSCRIPTION_EXTRA", raising=False)
+
+    with pytest.raises(pytest.skip.Exception, match="transcription extra is not installed"):
+        _require_pyav()
+
+
+def test_real_pyav_guard_fails_when_required_extra_is_absent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name: None)
+    monkeypatch.setenv("MKE_REQUIRE_TRANSCRIPTION_EXTRA", "1")
+
+    with pytest.raises(
+        pytest.fail.Exception,
+        match="PyAV is required when MKE_REQUIRE_TRANSCRIPTION_EXTRA=1",
+    ):
+        _require_pyav()
+
+
 @pytest.mark.parametrize(
     ("filename", "container", "codec"),
     [
@@ -40,6 +72,7 @@ FIXTURES = Path(__file__).parents[1] / "fixtures" / "audio"
 def test_inspection_child_parses_closed_fixture_profile(
     tmp_path: Path, filename: str, container: str, codec: str
 ) -> None:
+    _require_pyav()
     source = FIXTURES / filename
     snapshot = snapshot_audio_source(source, tmp_path / "owned")
     request = AudioInspectionRequest(
@@ -67,6 +100,7 @@ def test_inspection_child_parses_closed_fixture_profile(
 def test_inspection_child_revalidates_path_after_native_parse(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    _require_pyav()
     source = FIXTURES / "direct-audio.wav"
     snapshot = snapshot_audio_source(source, tmp_path / "owned")
     request = AudioInspectionRequest(
@@ -168,6 +202,7 @@ def test_inspection_cli_redacts_native_parser_failure(
 
 
 def test_inspection_child_rejects_corrupt_native_media(tmp_path: Path) -> None:
+    _require_pyav()
     source = tmp_path / "corrupt.wav"
     source.write_bytes(b"not a wave file")
     snapshot = snapshot_audio_source(source, tmp_path / "owned")
@@ -194,9 +229,14 @@ def test_inspection_module_uses_isolated_package_child_argv() -> None:
     )
 
 
+@pytest.mark.skipif(
+    platform.system() != "Darwin" or platform.machine() != "arm64",
+    reason="Darwin arm64 footprint supervisor contract",
+)
 def test_real_inspection_provider_uses_darwin_footprint_supervisor(
     tmp_path: Path,
 ) -> None:
+    _require_pyav()
     source = FIXTURES / "direct-audio.wav"
     snapshot = snapshot_audio_source(source, tmp_path / "owned")
     provider = InternalAudioProvider(
