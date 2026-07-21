@@ -39,13 +39,28 @@ Controlled tests against the prior candidate reported `8 failed, 4 passed`. The 
 passed on the repair, and the combined inspection/parser suite reported `81 passed`. Five cleanup
 race repetitions and the Tasks 2 through 4 focused and adjacent video suites also passed.
 
-## Pending Gates
+## Local Verification Closure
 
-- terminal retrieval identity closure for the repaired source identity;
-- all seven canonical validators and normalized semantic-equality proof;
-- complete repository test, lint, type, build, proof, demo, scope, byte-identity, secret, and residue
-  gates; and
-- independent targeted authority re-review of the resulting exact HEAD.
+Commit `5f6f2e8651fe5c001997288c552e82055c2975f0` records the separate terminal retrieval identity
+closure. The validator-proven dependency-closed set contains 16 paths within the approved 21-path
+maximum. Staged, detached-mirror, and worktree bytes agreed, all seven canonical validators passed,
+and normalized semantic projections remained equal from E1 through E3-E. Observations, ordered
+results, metrics, thresholds, gates, diagnostics, selected candidate or profile, status, and verdict
+did not change.
+
+Verification bound to that implementation and identity state reported:
+
+- `232 passed` for the combined Tasks 2 through 4 focused and adjacent video suite;
+- five cleanup race repetitions with `12 passed` per repetition;
+- `191 passed` for the retrieval artifact regression suite;
+- `2720 passed, 4 skipped` for the complete repository suite;
+- clean Ruff and Pyright results;
+- successful offline build, eight-case product proof, verified demo, byte-identity, scope, secret,
+  and public-neutral checks.
+
+The remaining gate is independent targeted authority re-review of the final committed branch. The
+terminal clean-commit verification is reported externally after this durable status record and does
+not write another tracked result.
 
 This record is execution evidence only. It does not state or imply an accepted review verdict,
 released capability, production media containment, redistribution authority, or public runtime
