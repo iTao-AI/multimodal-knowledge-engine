@@ -47,10 +47,22 @@ Values equal to a limit are accepted; values above it fail closed with
 claims. A catchable failure removes only call-owned entries whose identity can be proven; an
 ambiguous replacement is left for operator inspection and returns `cleanup_failed`.
 
-LLM Wiki compatibility is deferred to a separate isolated acceptance proof. This core export does
-not claim that any downstream compiler preserves the contract. OCR Phase 0 records bounded local
-viability evidence on a fixed synthetic corpus and is not production OCR. The export does not
-claim reconstructed layout, hosted integration, real-user adoption, or a new release identity.
+## Downstream LLM Wiki Compatibility
+
+> The exported Markdown was ingested and compiled in an isolated LLM Wiki workflow, preserving a
+> return path to MKE's authoritative content fingerprint and Evidence sidecars for local-Agent use.
+
+The bounded proof ingested two immutable synthetic Markdown records and synthesized one sourced
+article. It ran exactly two content checks: one page locator and one timestamp locator. Each return
+path followed the downstream article to its raw record, then used the exact `content_fingerprint`
+to recover the unchanged manifest entry and exact `mke.evidence_ref.v1` JSONL record.
+
+The compiled article remains a downstream synthesized view. The MKE manifest and Evidence sidecars
+remain authoritative. This fixed synthetic corpus and local isolated workflow do not make LLM Wiki
+an MKE dependency, Evidence authority, bundled integration, hosted service, or production
+deployment. The proof does not claim hosted integration, real-user adoption, or general multimodal
+understanding. OCR Phase 0 remains bounded local viability evidence and is not production OCR. The
+export does not claim reconstructed layout or a new release identity.
 
 For exact response and artifact fields, see [CLI Reference](../reference/cli.md) and
 [Public Contracts](../reference/contracts.md).

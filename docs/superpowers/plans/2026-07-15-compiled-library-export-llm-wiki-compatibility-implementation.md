@@ -1,7 +1,8 @@
 # Compiled Library Export LLM Wiki Compatibility Implementation Plan
 
-Status: engineering-reviewed follow-up plan; core lineage and post-merge gates are satisfied, and
-Task 1 is authorized from a clean current compatibility branch containing the core merge.
+Status: Tasks 1 through 3 are complete locally with retained producer evidence, a closed
+isolated-workflow aggregate, and a verified docs/evidence candidate. Task 4 remains an unstarted
+authority gate.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to execute the
 > project-owned mechanical and verification steps. The authority window performs the isolated
@@ -110,13 +111,13 @@ exact mke.evidence_ref.v1 return path
 
 **Files:** no tracked changes.
 
-- [ ] **Step 1: Verify the exact merged baseline and interpreter authority**
+- [x] **Step 1: Verify the exact merged baseline and interpreter authority**
 
 Record the core lineage SHA, exact compatibility branch source commit, and exact Python 3.12/3.13
 interpreter paths. Require distinct real interpreters and a clean source worktree. Run the core
 documentation tests and generic proof tests before building retained evidence.
 
-- [ ] **Step 2: Run one fresh same-wheel proof with retained output**
+- [x] **Step 2: Run one fresh same-wheel proof with retained output**
 
 ```bash
 PROOF_ROOT="$(mktemp -d)"
@@ -130,56 +131,64 @@ UV_OFFLINE=1 uv run python scripts/compiled_library_export_proof.py \
 Require one wheel digest across both interpreters and exact proof aggregate status `passed`.
 Require the retained root to contain only `compiled-library/` and `proof-receipt.json`.
 
-- [ ] **Step 3: Independently validate retained authority**
+- [x] **Step 3: Independently validate retained authority**
 
 Run the standalone consumer against the retained export and original proof inputs. Verify receipt
 schema, counts, wheel digest, export tree inventory, canonical manifest/JSONL, and every file
 digest. Compute and record one deterministic tree digest over normalized relative path, byte count,
 and SHA-256 tuples. Reject symlinks, special files, unknown entries, or local/private receipt data.
 
-- [ ] **Step 4: Hard stop for authority-window compatibility execution**
+- [x] **Step 4: Hard stop for authority-window compatibility execution**
 
 Transfer only the retained export location, closed receipt values, tree digest, and required
 natural-language workflow. Do not ask the project worker to initialize or operate LLM Wiki.
+
+Accepted producer evidence binds core lineage
+`5d707cfcc98da8ce76d31238c14158cd78b03803` and source commit
+`c070e0e06e7bb6edd523ef782eb97417f76abf00` to wheel SHA-256
+`50bccd685957c1b21e9b45d066060f0a89dd7f4e71e6f86b3546ce3ea4a2b036`, proof receipt SHA-256
+`24b8843b20cf6fa6d64112e4227349e9c870f76d3c85fe12c83dcffefcfdcc28`, and retained tree SHA-256
+`debd814a900141cf52c08126fb7138aa7bae327e432667f9398d829c54f5335a`. The same-wheel and
+standalone-consumer checks passed without tracked changes.
 
 ### Task 2: Run isolated LLM Wiki compatibility proof
 
 **Owner:** authority window using the `wiki` skill. No tracked project write during this task.
 
-- [ ] **Step 1: Establish an isolated wiki without configured-hub impact**
+- [x] **Step 1: Establish an isolated wiki without configured-hub impact**
 
 Create a new call-owned temporary parent and initialize a local wiki titled
 `Compiled Library Export Compatibility`. Record the configured hub identity before and after only
 as a private comparison; never copy it into public evidence. Confirm all writes remain under the
 call-owned parent.
 
-- [ ] **Step 2: Ingest immutable raw Markdown and compile one sourced article**
+- [x] **Step 2: Ingest immutable raw Markdown and compile one sourced article**
 
 Ingest each retained `sources/*.md` as an immutable raw record while preserving Markdown. Compile
 at least one article whose non-empty `sources:` frontmatter names the ingested raw records. Rebuild
 or stale-check derived indexes according to the installed workflow.
 
-- [ ] **Step 3: Query page and timestamp facts**
+- [x] **Step 3: Query page and timestamp facts**
 
 Run exactly two bounded content checks: one answer backed by a page locator and one answer backed
 by a timestamp locator. The proof checks retrieval of the expected source-backed facts, not prose
 style or model quality.
 
-- [ ] **Step 4: Prove the return path to authoritative Evidence**
+- [x] **Step 4: Prove the return path to authoritative Evidence**
 
 For each query, follow the compiled article to an ingested raw record. Require the raw body to
 retain the exact `content_fingerprint` and its `## Page N` or
 `## Timestamp START-END ms` boundary. Join that fingerprint to the unchanged MKE manifest and
 JSONL, then recover and validate the exact `mke.evidence_ref.v1` record.
 
-- [ ] **Step 5: Lint, rehash, and clean up**
+- [x] **Step 5: Lint, rehash, and clean up**
 
 Run wiki lint and require zero Critical issues and zero broken source links. Report unrelated
 warnings without turning them into MKE runtime requirements. Rehash the retained export and require
 the original tree digest. Remove only the call-owned wiki and confirm configured-hub impact is
 unchanged.
 
-- [ ] **Step 6: Produce the closed public-safe aggregate**
+- [x] **Step 6: Produce the closed public-safe aggregate**
 
 ```json
 {
@@ -195,13 +204,17 @@ unchanged.
 }
 ```
 
-Counts are runtime-measured and may differ only where explicitly data-dependent. The schema,
-field set, two queries, zero Critical lint issues, unchanged hub, unchanged export, and preserved
-Evidence return path are fixed. Do not persist raw wiki content or model output.
+The accepted run ingested two immutable raw Markdown records, synthesized one sourced article, and
+ran exactly two queries: one page locator and one timestamp locator. Both return paths joined the
+exact `content_fingerprint` to unchanged manifest/JSONL bytes and exact `mke.evidence_ref.v1`
+records. Lint reported zero Critical issues and zero broken source links, with one non-blocking
+single-article/no-peer suggestion. Configured hub, configuration, and credentials were not resolved
+or touched; the call-owned local root was removed, and the final retained-export rehash matched the
+original tree digest. No raw wiki content or model output is persisted.
 
 ### Task 3: Record the bounded compatibility claim
 
-- [ ] **Step 1: Write RED documentation contract tests**
+- [x] **Step 1: Write RED documentation contract tests**
 
 Require this exact public sentence in the selected English/Chinese surfaces:
 
@@ -211,7 +224,7 @@ Require this exact public sentence in the selected English/Chinese surfaces:
 Reject claims that LLM Wiki is an MKE dependency, Evidence authority, bundled integration, hosted
 service, production deployment, real-user adoption, or general multimodal understanding.
 
-- [ ] **Step 2: Run documentation RED**
+- [x] **Step 2: Run documentation RED**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -221,14 +234,16 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: only the missing accepted compatibility statement fails.
 
-- [ ] **Step 3: Update docs and create the compatibility review**
+Observed: `1 failed, 131 passed`; the only failure was the new exact-sentence contract.
+
+- [x] **Step 3: Update docs and create the compatibility review**
 
 Document the two-query bounded proof, downstream synthesis boundary, Evidence return path, fixed
 synthetic input, local isolated workflow, and non-production limitations. The review records the
 core merge SHA, wheel digest, retained tree digest, closed aggregate, exact docs diff, and commands,
 without local paths, hostnames, timestamps, or raw content.
 
-- [ ] **Step 4: Run docs GREEN and presentation audit**
+- [x] **Step 4: Run docs GREEN and presentation audit**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -238,7 +253,10 @@ UV_OFFLINE=1 uv run python scripts/release_presentation_audit.py --root .
 git diff --check
 ```
 
-- [ ] **Step 5: Commit the docs/evidence PR candidate**
+Observed: `132 passed`; the standalone audit returned `{"status": "ok", "violations": []}`, and
+`git diff --check` passed.
+
+- [x] **Step 5: Commit the docs/evidence PR candidate**
 
 Stage only the planned documentation, documentation test, compatibility plan, and compatibility
 review files. Verify the exact changed-file allowlist before committing.

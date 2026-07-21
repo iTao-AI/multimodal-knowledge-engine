@@ -249,9 +249,12 @@ not reconstruct source layout and excludes original Source bytes.
 > MKE can deterministically export active Publications as portable Markdown with exact page or
 > timestamp Evidence provenance, validated through an installed-wheel external consumer proof.
 
-The package identity is `v0.1.3`. LLM Wiki compatibility is deferred to a separate isolated proof. OCR
-Phase 0 records bounded local viability evidence on a fixed synthetic corpus; it is not production
-OCR.
+> The exported Markdown was ingested and compiled in an isolated LLM Wiki workflow, preserving a
+> return path to MKE's authoritative content fingerprint and Evidence sidecars for local-Agent use.
+
+This bounded local proof does not make LLM Wiki an MKE dependency, Evidence authority, bundled
+integration, hosted service, or production deployment. The package identity is `v0.1.3`. OCR Phase
+0 records bounded local viability evidence on a fixed synthetic corpus; it is not production OCR.
 
 See [Export A Compiled Library](./docs/how-to/export-compiled-library.md) and
 [Run The Compiled Library Export Proof](./docs/how-to/run-compiled-library-export-proof.md).

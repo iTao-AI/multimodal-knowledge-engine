@@ -5,6 +5,20 @@ EXACT_CLAIM = (
     "MKE can deterministically export active Publications as portable Markdown with exact page or "
     "timestamp Evidence provenance, validated through an installed-wheel external consumer proof."
 )
+EXACT_COMPATIBILITY_CLAIM = (
+    "The exported Markdown was ingested and compiled in an isolated LLM Wiki workflow, "
+    "preserving a return path to MKE's authoritative content fingerprint and Evidence sidecars "
+    "for local-Agent use."
+)
+FORBIDDEN_COMPATIBILITY_CLAIMS = (
+    "LLM Wiki is an MKE dependency",
+    "LLM Wiki is the Evidence authority",
+    "MKE bundles LLM Wiki",
+    "MKE provides a hosted LLM Wiki service",
+    "MKE is deployed in production through LLM Wiki",
+    "LLM Wiki proves real-user adoption",
+    "LLM Wiki proves general multimodal understanding",
+)
 
 
 def _text(relative: str) -> str:
@@ -22,6 +36,18 @@ def test_readmes_and_docs_index_make_compiled_library_export_discoverable() -> N
     assert "how-to/run-compiled-library-export-proof.md" in _text("docs/README.md")
     assert EXACT_CLAIM in _normalized("README.md").replace("> ", "")
     assert EXACT_CLAIM in _normalized("README_CN.md").replace("> ", "")
+
+
+def test_readmes_publish_only_the_approved_llm_wiki_compatibility_claim() -> None:
+    for relative in ("README.md", "README_CN.md"):
+        assert EXACT_COMPATIBILITY_CLAIM in _normalized(relative).replace("> ", "")
+
+    public_text = "\n".join(
+        _text(relative)
+        for relative in ("README.md", "README_CN.md", "docs/how-to/export-compiled-library.md")
+    ).casefold()
+    for claim in FORBIDDEN_COMPATIBILITY_CLAIMS:
+        assert claim.casefold() not in public_text
 
 
 def test_cli_reference_documents_the_closed_export_command_and_response() -> None:
@@ -66,7 +92,9 @@ def test_export_how_to_documents_budgets_read_only_publication_and_exclusions() 
         "does not read or include original Source files",
         "Markdown is a readable derivative",
         "JSONL EvidenceRef records remain the machine authority",
-        "LLM Wiki compatibility is deferred",
+        "exactly two content checks",
+        "The compiled article remains a downstream synthesized view",
+        "content_fingerprint",
         "fixed synthetic corpus",
         "not production OCR",
     ):
