@@ -1,7 +1,9 @@
 import sqlite3
 from pathlib import Path
 
-from mke.adapters.sqlite import SQLiteStore
+import pytest
+
+from mke.adapters.sqlite import AssetMediaTypeMismatchError, SQLiteStore
 from mke.application import KnowledgeEngine
 from mke.domain import RunEventType
 from tests.conftest import PDF_FIXTURES
@@ -99,3 +101,23 @@ def test_migration_creates_transcript_intake_reports_table(tmp_path: Path) -> No
     connection.close()
 
     assert row == ("transcript_intake_reports",)
+
+
+def test_legacy_asset_media_type_remains_authoritative_without_schema_change(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "mke.sqlite"
+    store = SQLiteStore(db_path)
+    original = store.ensure_source("document.pdf", "a" * 64, "application/pdf")
+    assert store.ensure_source("copy.pdf", "a" * 64, "application/pdf") == original
+
+    with pytest.raises(AssetMediaTypeMismatchError, match="asset_media_type_mismatch"):
+        store.ensure_source("same.mp3", "a" * 64, "audio/mpeg")
+
+    columns = tuple(
+        row[1]
+        for row in store._connection.execute(  # pyright: ignore[reportPrivateUsage]
+            "PRAGMA table_info(assets)"
+        )
+    )
+    assert columns == ("asset_id", "sha256", "media_type")

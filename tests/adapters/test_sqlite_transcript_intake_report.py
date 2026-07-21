@@ -2,7 +2,11 @@ from pathlib import Path
 
 import pytest
 
-from mke.adapters.sqlite import InjectedStorageFailure, SQLiteStore
+from mke.adapters.sqlite import (
+    AssetMediaTypeMismatchError,
+    InjectedStorageFailure,
+    SQLiteStore,
+)
 from mke.domain import (
     LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT,
     REQUIRED_PDF_STAGES,
@@ -17,6 +21,26 @@ from mke.domain import (
 )
 
 _FASTER_WHISPER_FINGERPRINT = "faster-whisper-v1:" + ("a" * 64)
+
+
+def test_asset_digest_cannot_change_media_type(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "mke.sqlite")
+    store.ensure_source("first.pdf", "a" * 64, media_type="application/pdf")
+
+    with pytest.raises(AssetMediaTypeMismatchError, match="asset_media_type_mismatch"):
+        store.ensure_source("same.mp3", "a" * 64, media_type="audio/mpeg")
+
+
+def test_asset_media_type_storage_class_must_be_text(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "mke.sqlite")
+    store.ensure_source("first.pdf", "a" * 64, media_type="application/pdf")
+    store._connection.execute(  # pyright: ignore[reportPrivateUsage]
+        "UPDATE assets SET media_type = ? WHERE sha256 = ?", (b"application/pdf", "a" * 64)
+    )
+    store._connection.commit()  # pyright: ignore[reportPrivateUsage]
+
+    with pytest.raises(AssetMediaTypeMismatchError, match="asset_media_type_mismatch"):
+        store.ensure_source("copy.pdf", "a" * 64, media_type="application/pdf")
 
 
 def _report() -> TranscriptIntakeReport:
