@@ -48,7 +48,7 @@
     "integrity_claim": "adjudication_record_integrity"
   },
   "source_identity": {
-    "sha256": "cc1d8e76d3eff8ef0f886c1d40c413c440f28cd0d2ba4723b1668c8e166192bd",
+    "sha256": "1109c813ca36f9977dee409eb40ff7c84a276c28ddaaccc7e421d89a21f22e2f",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -72,8 +72,8 @@
       },
       {
         "path": "src/mke/adapters/audio/inspection.py",
-        "bytes": 22609,
-        "sha256": "c1442713053c4c2a003499d8b54454f6a87c0a8b8de9a3055a58a15a0fda0c53"
+        "bytes": 24820,
+        "sha256": "bbe8efc651ccb941d1416cc597811d073b4c8a4539ecb16d19334cf610f384b4"
       },
       {
         "path": "src/mke/adapters/audio/inspection_cli.py",
@@ -82,8 +82,8 @@
       },
       {
         "path": "src/mke/adapters/audio/schema.py",
-        "bytes": 8273,
-        "sha256": "23404c26d27285cf25b2bdec12811db90cb1a34860e818bb9e7072940202fc25"
+        "bytes": 8312,
+        "sha256": "bf78fc2bc24159301ff3dbe641b8d2ed3941e74e78fadbb9c2315e9fd873eaa2"
       },
       {
         "path": "src/mke/adapters/embedding/__init__.py",
