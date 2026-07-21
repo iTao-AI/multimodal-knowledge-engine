@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -5,20 +6,46 @@ EXACT_CLAIM = (
     "MKE can deterministically export active Publications as portable Markdown with exact page or "
     "timestamp Evidence provenance, validated through an installed-wheel external consumer proof."
 )
-EXACT_COMPATIBILITY_CLAIM = (
+EXACT_ENGLISH_COMPATIBILITY_CLAIM = (
     "The exported Markdown was ingested and compiled in an isolated LLM Wiki workflow, "
     "preserving a return path to MKE's authoritative content fingerprint and Evidence sidecars "
     "for local-Agent use."
 )
+EXACT_CHINESE_COMPATIBILITY_CLAIM = (
+    "导出的 Markdown 已在隔离的 LLM Wiki 工作流中完成摄取与编译，并保留了回到 MKE 权威 "
+    "content fingerprint 和 Evidence sidecar 的路径，供本地 Agent 使用。"
+)
+EXACT_ENGLISH_RELEASE_FRAMING = (
+    "v0.1.3's generic proof did not verify LLM Wiki compatibility; separate post-release "
+    "acceptance evidence is recorded below."
+)
+EXACT_CHINESE_RELEASE_FRAMING = (
+    "v0.1.3 的 generic proof 未验证 LLM Wiki compatibility；下方记录了单独的 post-release "
+    "acceptance evidence。"
+)
+EXACT_ENGLISH_COMPATIBILITY_BOUNDARY = (
+    "This evidence does not make LLM Wiki an MKE dependency or Evidence authority, and it does "
+    "not provide a bundled adapter, automatic sync, hosted service, production deployment, "
+    "real-user adoption, or general multimodal understanding. LLM Wiki compatibility was not "
+    "shipped by v0.1.3."
+)
+EXACT_CHINESE_COMPATIBILITY_BOUNDARY = (
+    "这项证据不会使 LLM Wiki 成为 MKE dependency 或 Evidence authority，也不提供 bundled "
+    "adapter、automatic sync、hosted service 或 production deployment，也不证明真实用户采用或"
+    "通用多模态理解。LLM Wiki compatibility 并非由 v0.1.3 交付。"
+)
 FORBIDDEN_COMPATIBILITY_CLAIMS = (
     "LLM Wiki is an MKE dependency",
-    "LLM Wiki is the Evidence authority",
-    "MKE bundles LLM Wiki",
+    "LLM Wiki is MKE's Evidence authority",
+    "MKE includes a bundled LLM Wiki adapter",
+    "MKE automatically syncs exports to LLM Wiki",
     "MKE provides a hosted LLM Wiki service",
-    "MKE is deployed in production through LLM Wiki",
-    "LLM Wiki proves real-user adoption",
-    "LLM Wiki proves general multimodal understanding",
+    "MKE deploys LLM Wiki in production",
+    "This proves real-user adoption",
+    "This proves general multimodal understanding",
+    "v0.1.3 shipped LLM Wiki compatibility",
 )
+V013_RELEASE_SHA256 = "85aa1ba71cfc9df18ccd8655d7f3de82434c77cff0b8729a53968471fc5e22e0"
 
 
 def _text(relative: str) -> str:
@@ -38,9 +65,23 @@ def test_readmes_and_docs_index_make_compiled_library_export_discoverable() -> N
     assert EXACT_CLAIM in _normalized("README_CN.md").replace("> ", "")
 
 
-def test_readmes_publish_only_the_approved_llm_wiki_compatibility_claim() -> None:
-    for relative in ("README.md", "README_CN.md"):
-        assert EXACT_COMPATIBILITY_CLAIM in _normalized(relative).replace("> ", "")
+def test_public_docs_publish_the_localized_approved_llm_wiki_compatibility_claims() -> None:
+    assert EXACT_ENGLISH_COMPATIBILITY_CLAIM in _normalized("README.md").replace("> ", "")
+    assert EXACT_ENGLISH_COMPATIBILITY_CLAIM in _normalized(
+        "docs/how-to/export-compiled-library.md"
+    ).replace("> ", "")
+    assert EXACT_CHINESE_COMPATIBILITY_CLAIM in _normalized("README_CN.md").replace("> ", "")
+
+
+def test_readmes_frame_compatibility_as_separate_post_release_evidence() -> None:
+    assert EXACT_ENGLISH_RELEASE_FRAMING in _normalized("README.md")
+    assert EXACT_CHINESE_RELEASE_FRAMING in _normalized("README_CN.md")
+
+
+def test_public_docs_preserve_the_full_compatibility_claim_boundary() -> None:
+    for relative in ("README.md", "docs/how-to/export-compiled-library.md"):
+        assert EXACT_ENGLISH_COMPATIBILITY_BOUNDARY in _normalized(relative)
+    assert EXACT_CHINESE_COMPATIBILITY_BOUNDARY in _normalized("README_CN.md")
 
     public_text = "\n".join(
         _text(relative)
@@ -48,6 +89,11 @@ def test_readmes_publish_only_the_approved_llm_wiki_compatibility_claim() -> Non
     ).casefold()
     for claim in FORBIDDEN_COMPATIBILITY_CLAIMS:
         assert claim.casefold() not in public_text
+
+
+def test_v013_release_history_remains_byte_identical() -> None:
+    release_bytes = (ROOT / "docs/releases/v0.1.3.md").read_bytes()
+    assert hashlib.sha256(release_bytes).hexdigest() == V013_RELEASE_SHA256
 
 
 def test_cli_reference_documents_the_closed_export_command_and_response() -> None:

@@ -1,0 +1,110 @@
+# Compiled Library Export LLM Wiki Compatibility Review
+
+Status: **PENDING TARGETED AUTHORITY RE-REVIEW**. The strict isolated proof is accepted, and the
+bounded docs/test authority repair is locally prepared. Task 4 has not started.
+
+## Initial Actual-Diff Findings
+
+The first docs candidate recorded a weaker nine-field aggregate and did not preserve the approved
+deterministic query-oracle and exact-response contract. It also required the English compatibility
+sentence in both README files and omitted the complete negative and historical release boundaries.
+
+The first Task 4 wording incorrectly stated that tracked docs could not change wheel bytes.
+`README.md` is package metadata input. Diagnostic builds measured the pre-docs wheel at 309326
+bytes with SHA-256
+`50bccd685957c1b21e9b45d066060f0a89dd7f4e71e6f86b3546ce3ea4a2b036` and the reviewed docs
+candidate wheel at 309422 bytes with SHA-256
+`3167b0d2edc07bc62e15c0e36540fcb5e8dc8d39b391e18664c91353661bcf23`. These diagnostic values
+explain the repaired gate; neither is final-candidate wheel authority.
+
+## Authority Binding
+
+- Core export lineage: `5d707cfcc98da8ce76d31238c14158cd78b03803`
+- Compatibility execution source/amendment commit:
+  `c070e0e06e7bb6edd523ef782eb97417f76abf00`
+- Actual-diff reviewed docs commit: `de70bc9c1b0fdec7c4f39d5d4c9e5db6e36966dd`
+- Pre-docs wheel SHA-256:
+  `50bccd685957c1b21e9b45d066060f0a89dd7f4e71e6f86b3546ce3ea4a2b036`
+- Retained export tree SHA-256:
+  `debd814a900141cf52c08126fb7138aa7bae327e432667f9398d829c54f5335a`
+- Proof receipt SHA-256:
+  `24b8843b20cf6fa6d64112e4227349e9c870f76d3c85fe12c83dcffefcfdcc28`
+
+The final-candidate wheel identity is intentionally pending Task 4. It must be freshly measured
+after this docs repair is committed.
+
+## Strict Closed Aggregate
+
+```json
+{"broken_source_link_count":0,"compiled_article_count":1,"configured_hub_impact":"unchanged","evidence_return_count":2,"evidence_schema":"mke.evidence_ref.v1","export_tree_identity":"unchanged","lint_critical_count":0,"page_query_count":1,"query_count":2,"query_scope":"isolated_local_wiki","raw_source_count":2,"schema_version":"mke.compiled_library_export_llm_wiki_proof.v1","status":"passed","timestamp_query_count":1}
+```
+
+The strict run used two raw Sources and three exact `mke.evidence_ref.v1` records to compile one
+sourced article. A deterministic oracle derived from the canonical manifest and JSONL selected
+exactly one page and one timestamp record. Exactly two queries ran through the installed read-only
+`wiki-query` local/query-lite route.
+
+Each closed response contained exactly `evidence_text` and `source`. Its Unicode text and UTF-8
+SHA-256 exactly matched the oracle, and its source reached the correct raw wrapper,
+`content_fingerprint`, locator boundary, manifest leaf, and complete Evidence object. Query and
+non-fixing lint made no wiki writes; immutable execution evidence remained outside the wiki.
+
+The retained tree and configured-hub identity comparison were unchanged. Lint reported zero
+Critical issues and zero broken source links. The call-owned root was removed. The configured-hub
+comparison did not read sibling content.
+
+## Documentation Contract And Limitations
+
+The exact English statement is:
+
+> The exported Markdown was ingested and compiled in an isolated LLM Wiki workflow, preserving a
+> return path to MKE's authoritative content fingerprint and Evidence sidecars for local-Agent use.
+
+The exact Chinese statement is:
+
+> 导出的 Markdown 已在隔离的 LLM Wiki 工作流中完成摄取与编译，并保留了回到 MKE 权威
+> content fingerprint 和 Evidence sidecar 的路径，供本地 Agent 使用。
+
+This is fixed synthetic-input, isolated local, post-release acceptance evidence. LLM Wiki remains a
+disposable downstream synthesized view. The result does not establish an MKE dependency, Evidence
+authority, bundled adapter, automatic sync, hosted service, production deployment, real-user
+adoption, or general multimodal understanding. Compatibility was not shipped by v0.1.3, whose
+release history remains unchanged.
+
+## Repair Scope
+
+- `README.md`
+- `README_CN.md`
+- `docs/how-to/export-compiled-library.md`
+- `tests/evaluation/test_compiled_library_export_documentation.py`
+- `docs/superpowers/plans/2026-07-15-compiled-library-export-llm-wiki-compatibility-implementation.md`
+- rename the superseded 2026-07-15 compatibility review to this 2026-07-18 review
+
+No product code, audit implementation, release history, dependency, lockfile, workflow, producer
+contract, schema, fixture, package version, or release identity changes in this repair.
+
+## Verification
+
+Focused RED:
+
+```text
+UV_OFFLINE=1 uv run pytest -q tests/evaluation/test_compiled_library_export_documentation.py tests/scripts/test_release_presentation_audit.py
+3 failed, 132 passed
+```
+
+The failures were limited to the missing exact Chinese statement, historical post-release framing,
+and complete negative claim boundary.
+
+Focused GREEN and presentation audit:
+
+```text
+UV_OFFLINE=1 uv run pytest -q tests/evaluation/test_compiled_library_export_documentation.py tests/scripts/test_release_presentation_audit.py
+135 passed
+UV_OFFLINE=1 uv run python scripts/release_presentation_audit.py --root .
+{"status": "ok", "violations": []}
+git diff --check
+passed
+```
+
+The exact path audit, review rename, Markdown fence balance, public-neutral scan, and byte identity
+of `docs/releases/v0.1.3.md` are verified before the local repair commit. Task 4 remains pending.
