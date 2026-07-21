@@ -1,7 +1,8 @@
 # Compiled Library Export LLM Wiki Compatibility Review
 
-Status: **PENDING TARGETED AUTHORITY RE-REVIEW**. The strict isolated proof is accepted, and the
-bounded docs/test authority repair is locally prepared. Task 4 has not started.
+Verdict: **CLEARED FOR TASK 4**. Targeted authority re-review accepted the exact repaired docs/test
+candidate at `0f40cbbd6cdc9463917868415565de899cbdb1d3` as clean with zero actionable findings. Task 4
+has not started.
 
 ## Initial Actual-Diff Findings
 
@@ -16,6 +17,25 @@ bytes with SHA-256
 candidate wheel at 309422 bytes with SHA-256
 `3167b0d2edc07bc62e15c0e36540fcb5e8dc8d39b391e18664c91353661bcf23`. These diagnostic values
 explain the repaired gate; neither is final-candidate wheel authority.
+
+## Targeted Re-Review Acceptance
+
+The accepted repair closed all three findings:
+
+1. the weak aggregate and manual evidence were replaced by the strict deterministic oracle, exact
+   response and return-path contract, and exact 14-field aggregate;
+2. Task 4 was corrected to rebuild and validate a fresh final wheel, retained target, oracle, and
+   isolated-wiki proof because `README.md` contributes package metadata; and
+3. the documentation contract now requires the exact localized statements, historical v0.1.3
+   framing, and full negative claim boundary.
+
+Independent verification at the reviewed HEAD recorded:
+
+- focused documentation and presentation-audit suite: `135 passed`;
+- standalone presentation audit: `{"status":"ok","violations":[]}`;
+- diff/check, exact seven-path scope, review rename, v0.1.3 release-note SHA, Markdown, and
+  public-neutral checks: passed; and
+- Task 4 checked steps: `0`.
 
 ## Authority Binding
 

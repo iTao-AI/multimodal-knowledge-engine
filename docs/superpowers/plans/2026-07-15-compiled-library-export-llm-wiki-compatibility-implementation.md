@@ -1,7 +1,7 @@
 # Compiled Library Export LLM Wiki Compatibility Implementation Plan
 
-Status: **PENDING TARGETED AUTHORITY RE-REVIEW**. Tasks 1 through 3 are complete locally after the
-bounded docs/test authority repair. Task 4 remains entirely unstarted.
+Status: **CLEARED FOR TASK 4**. Targeted authority re-review accepted the exact repaired docs/test
+candidate at `0f40cbbd6cdc9463917868415565de899cbdb1d3`. Task 4 remains entirely unstarted.
 
 > **For agentic workers:** Use the approved execution controller for the repository-owned
 > mechanical, proof, documentation, and verification steps. Run the LLM Wiki workflow only inside
@@ -31,6 +31,24 @@ Markdown documentation tests, Pytest, Ruff, Pyright, Hatch/uv, and Git.
   `de70bc9c1b0fdec7c4f39d5d4c9e5db6e36966dd` and requested this bounded authority repair.
 - The public v0.1.3 release history remains frozen. Its generic proof did not establish LLM Wiki
   compatibility; the completed compatibility run is separate post-release acceptance evidence.
+
+## Targeted Authority Re-Review Acceptance
+
+The targeted actual-diff re-review accepted
+`0f40cbbd6cdc9463917868415565de899cbdb1d3` as clean with zero actionable findings. It closed all
+three prior findings:
+
+1. the plan and review now bind the strict deterministic oracle, exact response and return-path
+   contract, and exact 14-field aggregate;
+2. Task 4 now treats `README.md` as wheel metadata input and requires a fresh final wheel, retained
+   target, oracle, and isolated-wiki proof; and
+3. the localized documentation contract now requires the exact Chinese statement, post-release
+   v0.1.3 framing, and complete negative claim boundary.
+
+Independent verification at that reviewed HEAD recorded `135 passed` for the focused documentation
+and presentation-audit suite, `{"status":"ok","violations":[]}` for the standalone presentation
+audit, and successful diff/check, exact seven-path scope, review rename, v0.1.3 release-note SHA,
+Markdown, and public-neutral checks. Task 4 had zero checked steps at acceptance.
 
 ## Entry Gate
 
