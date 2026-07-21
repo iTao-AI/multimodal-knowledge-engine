@@ -1,12 +1,11 @@
 # Compiled Library Export LLM Wiki Compatibility Implementation Plan
 
-Status: **TASK 4 LOCAL EVIDENCE COMPLETE; PENDING FINAL ACTUAL-DIFF REVIEW**. Targeted authority
-re-review accepted the repaired docs/test candidate at
-`0f40cbbd6cdc9463917868415565de899cbdb1d3`. The cross-run identity amendment at
-`e0559816a66957d2964b20d0d08ca1b8ec2f3719` preserved run-local provenance identifiers and
-replaced cross-run raw-tree equality with closed raw validation plus normalized
-semantic-projection equality. The amended final proof and scoped local gates passed; final
-actual-diff review, normal PR CI, and all remote operations remain pending.
+Status: **ACCEPTED — CLEARED FOR PR HANDOFF**. Final actual-diff review accepted exact candidate
+`c8df4bb9dae5c6ca16b5ec392c78fe08bc773c07` as clean with no actionable finding. The cross-run
+identity amendment at `e0559816a66957d2964b20d0d08ca1b8ec2f3719` preserved run-local
+provenance identifiers and replaced cross-run raw-tree equality with closed raw validation plus
+normalized semantic-projection equality. Task 4 local authority is complete. Normal PR CI and all
+remote operations remain pending and require separate handoff authorization.
 
 > **For agentic workers:** Use the approved execution controller for the repository-owned
 > mechanical, proof, documentation, and verification steps. Run the LLM Wiki workflow only inside
@@ -547,13 +546,38 @@ The exact scoped suite passed with `258 passed, 5 warnings`; the standalone pres
 returned `{"status":"ok","violations":[]}`. `git diff --check` and the clean pre-closure status
 gate passed.
 
-- [ ] **Step 3: Authority review and stop**
+- [x] **Step 3: Authority review and stop**
 
 Review the exact final docs/evidence diff, pre-docs and final wheel identities, both closed raw
 validations, stable-key and normalized semantic-projection equality, final raw-tree immutability,
 closed wiki aggregate, isolated log evidence, and cleanup proof. Stop with a clean local branch.
 Push, PR creation, Ready, merge, version bump, tag, GitHub Release, registry publication,
 deployment, direct-audio implementation, and production OCR remain separate authorization gates.
+
+Final actual-diff review accepted exact branch candidate
+`c8df4bb9dae5c6ca16b5ec392c78fe08bc773c07` over base
+`136e04a8213e126e88d352092da6f886563ad2d0` as clean with no actionable finding. The reviewed
+branch changed exactly six approved files with 808 insertions and 168 deletions, and the worktree
+was clean.
+
+Independent review reran the call-owned semantic comparator and confirmed both raw validations,
+two stable Source keys, three stable Evidence keys, normalized semantic tree SHA-256
+`e85a971adaa304e0a4ea3b5249b81e657862d34b831fa1a342501b5ae7a2ef07`, and rejection of every
+drift and duplicate or inconsistent-identifier probe. It independently recomputed final raw tree
+SHA-256 `63495005e7b2fbc466270fe095cf767f0055c8b7325115df3a0daa5717e4a8a0`
+and execution-record SHA-256
+`6557af1edb39dcb2a019c13e976216c0fc74b5bd01a4a6050e74430baaf5b6a2`, including the exact
+14-field aggregate. The native scoped command returned `258 passed, 5 warnings`; presentation
+audit returned status `ok` with zero violations; `git diff --check` passed; and
+`docs/releases/v0.1.3.md` remained SHA-256
+`85aa1ba71cfc9df18ccd8655d7f3de82434c77cff0b8729a53968471fc5e22e0`.
+
+The disclosed post-query response reconstruction is accepted as a bounded non-blocking execution
+limitation. The two query processes were not rerun. The frozen deterministic query program,
+unchanged wiki tree, closed canonical response encoding, and exact downstream Evidence joins
+uniquely determine the reconstructed response bytes. This acceptance does not strengthen the
+claim beyond isolated ingest and compile plus a preserved return path, and it establishes no model
+quality, general query capability, product integration, or production behavior.
 
 ## Not In Scope
 
@@ -565,10 +589,11 @@ deployment, direct-audio implementation, and production OCR remain separate auth
 
 ## Completion Boundary
 
-This plan is complete only when the final committed docs/evidence candidate has a fresh final
-wheel, a fresh retained export, a passed isolated-wiki aggregate, two exact Evidence return paths,
-closed raw validity for both runs, equal stable-key sets and normalized semantic tree digest across
-the pre-docs and final runs, an immutable final raw tree throughout transfer and wiki use,
+Local plan execution is accepted because the final committed docs/evidence candidate has a fresh
+final wheel, a fresh retained export, a passed isolated-wiki aggregate, two exact Evidence return
+paths, closed raw validity for both runs, equal stable-key sets and normalized semantic tree digest
+across the pre-docs and final runs, an immutable final raw tree throughout transfer and wiki use,
 unchanged configured hub, zero Critical lint issues, zero broken source links, scoped local gates,
-successful normal PR CI, a clean worktree, and an accepted authority review. Failure preserves the
+a clean worktree, and an accepted authority review. Normal PR CI and all remote actions remain PR
+handoff gates and are not completed by this local acceptance. Failure at a later gate preserves the
 generic export result and withholds only the LLM Wiki compatibility claim.

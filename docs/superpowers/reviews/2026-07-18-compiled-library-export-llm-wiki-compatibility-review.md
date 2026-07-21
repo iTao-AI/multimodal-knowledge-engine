@@ -1,12 +1,42 @@
 # Compiled Library Export LLM Wiki Compatibility Review
 
-Verdict: **TASK 4 LOCAL EVIDENCE COMPLETE; PENDING FINAL ACTUAL-DIFF REVIEW**. Targeted authority
-re-review accepted the repaired docs/test candidate at
-`0f40cbbd6cdc9463917868415565de899cbdb1d3` as clean with zero actionable findings. The subsequent
-authority amendment at `e0559816a66957d2964b20d0d08ca1b8ec2f3719` preserves run-local
-provenance UUIDs and replaces cross-run raw-tree equality with closed raw validity plus normalized
-semantic-projection equality. The amended final proof and scoped local gates passed; this closure
-now awaits final actual-diff review.
+Verdict: **ACCEPTED — CLEARED FOR PR HANDOFF**. Final actual-diff review accepted exact candidate
+`c8df4bb9dae5c6ca16b5ec392c78fe08bc773c07` over base
+`136e04a8213e126e88d352092da6f886563ad2d0` as clean with no actionable finding. Task 4 local
+authority is complete. Normal PR CI and all remote operations remain pending and require separate
+handoff authorization.
+
+## Final Actual-Diff Review Acceptance
+
+The reviewed branch changed exactly six approved files with 808 insertions and 168 deletions, and
+the worktree was clean. Independent review evidence confirmed:
+
+- both pre-docs and final raw exports passed the call-owned semantic comparator's closed raw
+  validation;
+- stable Source count `2`, stable Evidence count `3`, and normalized semantic tree SHA-256
+  `e85a971adaa304e0a4ea3b5249b81e657862d34b831fa1a342501b5ae7a2ef07`;
+- all semantic-drift and duplicate or inconsistent-identifier probes were rejected;
+- final raw tree SHA-256
+  `63495005e7b2fbc466270fe095cf767f0055c8b7325115df3a0daa5717e4a8a0`;
+- external execution-record SHA-256
+  `6557af1edb39dcb2a019c13e976216c0fc74b5bd01a4a6050e74430baaf5b6a2`, containing the exact
+  14-field aggregate;
+- the native scoped command returned `258 passed, 5 warnings`;
+- presentation audit returned status `ok` with zero violations;
+- `git diff --check` passed; and
+- `docs/releases/v0.1.3.md` remained SHA-256
+  `85aa1ba71cfc9df18ccd8655d7f3de82434c77cff0b8729a53968471fc5e22e0`.
+
+The disclosed response reconstruction is accepted as a bounded non-blocking execution limitation.
+The two query processes were not rerun. The frozen deterministic query program, unchanged wiki
+tree, closed canonical response encoding, and exact downstream Evidence joins uniquely determine
+the reconstructed response bytes. A fresh workflow rerun would not materially change the accepted
+claim or product confidence.
+
+The limitation remains durable and does not strengthen the public claim. The accepted claim is
+limited to isolated ingest and compile plus a preserved return path. It does not establish model
+quality, general query capability, an MKE dependency or Evidence authority, bundled integration,
+hosted or production behavior, or real-user adoption.
 
 ## Initial Actual-Diff Findings
 
@@ -219,5 +249,6 @@ passed
 ```
 
 The exact path audit, review rename, Markdown fence balance, public-neutral scan, and byte identity
-of `docs/releases/v0.1.3.md` are verified before the local repair commit. Task 4 remains pending
-under the raw-valid plus semantic-projection-equal plus final-raw-immutable gate.
+of `docs/releases/v0.1.3.md` were verified before the local repair commit. Final actual-diff review
+accepted Task 4 under the raw-valid plus semantic-projection-equal plus final-raw-immutable gate.
+Normal PR CI and all remote actions remain pending.
