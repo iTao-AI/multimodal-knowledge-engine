@@ -47,10 +47,33 @@ Values equal to a limit are accepted; values above it fail closed with
 claims. A catchable failure removes only call-owned entries whose identity can be proven; an
 ambiguous replacement is left for operator inspection and returns `cleanup_failed`.
 
-LLM Wiki compatibility is deferred to a separate isolated acceptance proof. This core export does
-not claim that any downstream compiler preserves the contract. OCR Phase 0 records bounded local
-viability evidence on a fixed synthetic corpus and is not production OCR. The export does not
-claim reconstructed layout, hosted integration, real-user adoption, or a new release identity.
+## Downstream LLM Wiki Compatibility
+
+> The exported Markdown was ingested and compiled in an isolated LLM Wiki workflow, preserving a
+> return path to MKE's authoritative content fingerprint and Evidence sidecars for local-Agent use.
+
+The bounded proof ingested two immutable synthetic Markdown records and synthesized one sourced
+article from two Sources and three exact `mke.evidence_ref.v1` records. Before ingest, a
+deterministic oracle derived from the canonical manifest and JSONL selected exactly one page record
+and one timestamp record. The proof then ran exactly two content checks through the installed
+read-only `wiki-query` local/query-lite route.
+
+Each closed response contained exactly `evidence_text` and `source`. The returned Unicode text and
+its UTF-8 SHA-256 matched the oracle without normalization. The `source` path reached the correct
+compiled article and immutable raw wrapper, then the exact `content_fingerprint`, locator boundary,
+manifest leaf, and complete Evidence object. Query and non-fixing lint made no wiki writes; their
+execution evidence was retained in an immutable call-owned record outside the wiki.
+
+The compiled article remains a downstream synthesized view. The MKE manifest and Evidence sidecars
+remain authoritative.
+
+This evidence does not make LLM Wiki an MKE dependency or Evidence authority, and it does not
+provide a bundled adapter, automatic sync, hosted service, production deployment, real-user
+adoption, or general multimodal understanding. LLM Wiki compatibility was not shipped by v0.1.3.
+
+This fixed synthetic corpus is post-release acceptance evidence from a call-owned isolated local
+workflow. It does not claim reconstructed layout or a new release identity. OCR Phase 0 remains
+bounded local viability evidence and is not production OCR.
 
 For exact response and artifact fields, see [CLI Reference](../reference/cli.md) and
 [Public Contracts](../reference/contracts.md).
