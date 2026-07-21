@@ -178,6 +178,108 @@ def test_audio_snapshot_creation_reports_cleanup_failure(
         snapshot_audio_source(source, tmp_path / "owned")
 
 
+def test_audio_snapshot_failed_creation_preserves_staging_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _source(tmp_path, b"abcdefgh")
+    owned_root = tmp_path / "owned"
+    original_copy = inspection._copy_descriptor  # pyright: ignore[reportPrivateUsage]
+    replacement_identity: tuple[int, int, int] | None = None
+
+    def replace_staging_after_copy(
+        source_fd: int, target_fd: int, max_bytes: int
+    ) -> tuple[int, str]:
+        nonlocal replacement_identity
+        result = original_copy(source_fd, target_fd, max_bytes)
+        staging_path = next(owned_root.iterdir())
+        replacement = tmp_path / "operator-staging-replacement"
+        replacement.write_bytes(b"operator replacement")
+        os.replace(replacement, staging_path)
+        metadata = staging_path.lstat()
+        replacement_identity = (metadata.st_dev, metadata.st_ino, metadata.st_mode)
+        source.write_bytes(b"ABCDEFGH")
+        return result
+
+    monkeypatch.setattr(inspection, "_copy_descriptor", replace_staging_after_copy)
+
+    with pytest.raises(AudioSnapshotError, match="snapshot_cleanup_failed"):
+        snapshot_audio_source(source, owned_root)
+
+    remaining = tuple(owned_root.iterdir())
+    assert len(remaining) == 1
+    metadata = remaining[0].lstat()
+    assert (metadata.st_dev, metadata.st_ino, metadata.st_mode) == replacement_identity
+    assert remaining[0].read_bytes() == b"operator replacement"
+
+
+def test_audio_snapshot_failed_creation_preserves_sealed_pre_read_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _source(tmp_path)
+    owned_root = tmp_path / "owned"
+    original_read = inspection._read_path_identity  # pyright: ignore[reportPrivateUsage]
+    replacement_identity: tuple[int, int, int] | None = None
+    replaced = False
+
+    def replace_sealed_before_read(
+        path: Path, *, code: str, max_bytes: int
+    ) -> inspection.FileIdentity:
+        nonlocal replaced, replacement_identity
+        if not replaced and path.parent == owned_root and path.name.startswith("snapshot-"):
+            replacement = tmp_path / "operator-sealed-replacement"
+            replacement.write_bytes(b"operator replacement")
+            replacement.chmod(0o400)
+            os.replace(replacement, path)
+            metadata = path.lstat()
+            replacement_identity = (metadata.st_dev, metadata.st_ino, metadata.st_mode)
+            replaced = True
+        return original_read(path, code=code, max_bytes=max_bytes)
+
+    monkeypatch.setattr(inspection, "_read_path_identity", replace_sealed_before_read)
+
+    with pytest.raises(AudioSnapshotError, match="snapshot_cleanup_failed"):
+        snapshot_audio_source(source, owned_root)
+
+    remaining = tuple(owned_root.iterdir())
+    assert replaced is True
+    assert len(remaining) == 1
+    metadata = remaining[0].lstat()
+    assert (metadata.st_dev, metadata.st_ino, metadata.st_mode) == replacement_identity
+    assert remaining[0].read_bytes() == b"operator replacement"
+
+
+@pytest.mark.parametrize("platform", ["darwin", "linux"])
+def test_audio_snapshot_final_cleanup_removes_owned_root_and_preserves_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: str
+) -> None:
+    monkeypatch.setattr(inspection.sys, "platform", platform)
+    snapshot = snapshot_audio_source(_source(tmp_path), tmp_path / "owned")
+    displaced = tmp_path / "displaced-owned-root"
+    original_require = inspection._require_owned_root  # pyright: ignore[reportPrivateUsage]
+    replacement_identity: tuple[int, int, int] | None = None
+    calls = 0
+
+    def replace_root_after_identity_check(value: inspection.AudioSourceSnapshot) -> None:
+        nonlocal calls, replacement_identity
+        original_require(value)
+        calls += 1
+        if calls == 2:
+            os.replace(value.owned_root, displaced)
+            value.owned_root.mkdir(mode=0o750)
+            metadata = value.owned_root.lstat()
+            replacement_identity = (metadata.st_dev, metadata.st_ino, metadata.st_mode)
+
+    monkeypatch.setattr(inspection, "_require_owned_root", replace_root_after_identity_check)
+
+    with pytest.raises(AudioSnapshotError, match="snapshot_cleanup_failed"):
+        cleanup_audio_snapshot(snapshot)
+
+    metadata = snapshot.owned_root.lstat()
+    assert (metadata.st_dev, metadata.st_ino, metadata.st_mode) == replacement_identity
+    assert snapshot.owned_root.is_dir()
+    assert not displaced.exists()
+
+
 @pytest.mark.parametrize(
     ("suffix", "observation", "expected"),
     [

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import cast
+from typing import Literal, cast
 
 from mke.adapters.audio.contracts import AudioTranscriptionLimits
 from mke.domain import (
@@ -87,15 +87,15 @@ def _parse_media(payload: dict[str, object], limits: AudioTranscriptionLimits) -
         raise AudioTranscriptValidationError("audio media duration is unsupported")
     container = payload["container"]
     codec = payload["audio_codec"]
-    if (container, codec) not in {
+    if type(container) is not str or type(codec) is not str or (container, codec) not in {
         ("mp3", "mp3"),
         ("wav", "pcm_s16le"),
         ("m4a", "aac"),
     }:
         raise AudioTranscriptValidationError("audio media profile is unsupported")
     return AudioMediaInfo(
-        container=cast("str", container),  # pyright: ignore[reportArgumentType]
-        audio_codec=cast("str", codec),  # pyright: ignore[reportArgumentType]
+        container=cast(Literal["mp3", "wav", "m4a"], container),
+        audio_codec=cast(Literal["mp3", "pcm_s16le", "aac"], codec),
         channels=channels,
         sample_rate_hz=sample_rate_hz,
         duration_ms=duration_ms,

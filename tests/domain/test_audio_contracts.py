@@ -188,6 +188,20 @@ def test_audio_parser_rejects_unsupported_media(field: str, value: object, match
         parse_audio_transcript_payload(payload)
 
 
+@pytest.mark.parametrize("field", ["container", "audio_codec"])
+@pytest.mark.parametrize("value", [[], {}, None, True], ids=["list", "dict", "null", "bool"])
+def test_audio_parser_rejects_non_string_media_profile_with_typed_error(
+    field: str, value: object
+) -> None:
+    payload = _payload()
+    media = payload["media"]
+    assert isinstance(media, dict)
+    media[field] = value
+
+    with pytest.raises(AudioTranscriptValidationError, match="profile"):
+        parse_audio_transcript_payload(payload)
+
+
 @pytest.mark.parametrize(
     ("segments", "match"),
     [

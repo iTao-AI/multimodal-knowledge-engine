@@ -140,6 +140,7 @@ def snapshot_audio_source(
     root_identity: tuple[int, int, int] | None = None
     source_fd: int | None = None
     target_fd: int | None = None
+    target_identity: tuple[int, int, int] | None = None
     staging_path: Path | None = None
     sealed_path: Path | None = None
     try:
@@ -166,6 +167,7 @@ def snapshot_audio_source(
             | getattr(os, "O_NOFOLLOW", 0),
             0o600,
         )
+        target_identity = _node_identity(os.fstat(target_fd))
         copied_bytes, copied_sha256 = _copy_descriptor(source_fd, target_fd, limits.max_input_bytes)
         os.fsync(target_fd)
         second_bytes, second_sha256 = _hash_descriptor(source_fd, limits.max_input_bytes)
@@ -215,6 +217,7 @@ def snapshot_audio_source(
         _cleanup_failed_snapshot(
             private_root,
             root_identity=root_identity,
+            target_identity=target_identity,
             staging_path=staging_path,
             sealed_path=sealed_path,
         )
@@ -223,6 +226,7 @@ def snapshot_audio_source(
         _cleanup_failed_snapshot(
             private_root,
             root_identity=root_identity,
+            target_identity=target_identity,
             staging_path=staging_path,
             sealed_path=sealed_path,
         )
@@ -272,6 +276,7 @@ def require_matching_identity(
 
 
 def cleanup_audio_snapshot(snapshot: AudioSourceSnapshot) -> None:
+    root_fd: int | None = None
     try:
         try:
             verify_owned_path(snapshot)
@@ -279,39 +284,35 @@ def cleanup_audio_snapshot(snapshot: AudioSourceSnapshot) -> None:
             raise AudioSnapshotError("snapshot_cleanup_failed") from error
         if snapshot.owned_path.parent != snapshot.owned_root:
             raise AudioSnapshotError("snapshot_cleanup_failed")
-        if sys.platform == "darwin":
-            identity_path = (
-                Path("/.vol")
-                / str(snapshot.owned_identity.device)
-                / str(snapshot.owned_identity.inode)
-            )
-            identity_stat = identity_path.lstat()
-            if _stat_tuple(identity_stat) != _file_identity_tuple(snapshot.owned_identity):
-                raise AudioSnapshotError("snapshot_cleanup_failed")
-            os.unlink(identity_path)
-        else:
-            root_fd = os.open(snapshot.owned_root, _directory_flags())
-            try:
-                if _directory_identity(os.fstat(root_fd)) != snapshot._owned_root_identity:
-                    raise AudioSnapshotError("snapshot_cleanup_failed")
-                observed = os.stat(
-                    snapshot.owned_path.name,
-                    dir_fd=root_fd,
-                    follow_symlinks=False,
-                )
-                if _stat_tuple(observed) != _file_identity_tuple(snapshot.owned_identity):
-                    raise AudioSnapshotError("snapshot_cleanup_failed")
-                os.unlink(snapshot.owned_path.name, dir_fd=root_fd)
-            finally:
-                os.close(root_fd)
+        root_identity = snapshot._owned_root_identity  # pyright: ignore[reportPrivateUsage]
+        root_fd = os.open(snapshot.owned_root, _directory_flags())
+        if _directory_identity(os.fstat(root_fd)) != root_identity:
+            raise AudioSnapshotError("snapshot_cleanup_failed")
+        observed = os.stat(
+            snapshot.owned_path.name,
+            dir_fd=root_fd,
+            follow_symlinks=False,
+        )
+        if _stat_tuple(observed) != _file_identity_tuple(snapshot.owned_identity):
+            raise AudioSnapshotError("snapshot_cleanup_failed")
+        os.unlink(snapshot.owned_path.name, dir_fd=root_fd)
         _require_owned_root(snapshot)
-        os.rmdir(snapshot.owned_root)
+        root_path_unchanged = _remove_owned_root_entry(
+            snapshot.owned_root,
+            root_identity,
+            root_fd,
+        )
+        if not root_path_unchanged or os.path.lexists(snapshot.owned_root):
+            raise AudioSnapshotError("snapshot_cleanup_failed")
     except AudioSnapshotError as error:
         if str(error) == "snapshot_cleanup_failed":
             raise
         raise AudioSnapshotError("snapshot_cleanup_failed") from error
     except OSError as error:
         raise AudioSnapshotError("snapshot_cleanup_failed") from error
+    finally:
+        if root_fd is not None:
+            os.close(root_fd)
 
 
 def validate_audio_inspection_request(payload: object) -> AudioInspectionRequest:
@@ -527,6 +528,10 @@ def _directory_identity(value: os.stat_result) -> tuple[int, int, int]:
     return (value.st_dev, value.st_ino, value.st_mode)
 
 
+def _node_identity(value: os.stat_result) -> tuple[int, int, int]:
+    return (value.st_dev, value.st_ino, stat.S_IFMT(value.st_mode))
+
+
 def _file_identity_tuple(value: FileIdentity) -> tuple[int, ...]:
     return (
         value.device,
@@ -630,24 +635,70 @@ def _cleanup_failed_snapshot(
     root: Path,
     *,
     root_identity: tuple[int, int, int] | None,
+    target_identity: tuple[int, int, int] | None,
     staging_path: Path | None,
     sealed_path: Path | None,
 ) -> None:
     if root_identity is None:
         return
+    root_fd: int | None = None
     try:
         if _directory_identity(root.lstat()) != root_identity:
             raise AudioSnapshotError("snapshot_cleanup_failed")
-        for path in (staging_path, sealed_path):
-            if path is not None and path.parent == root and os.path.lexists(path):
-                observed = path.lstat()
-                if not stat.S_ISREG(observed.st_mode):
-                    raise AudioSnapshotError("snapshot_cleanup_failed")
-                os.unlink(path)
-        if os.listdir(root):
+        root_fd = os.open(root, _directory_flags())
+        if _directory_identity(os.fstat(root_fd)) != root_identity:
             raise AudioSnapshotError("snapshot_cleanup_failed")
-        os.rmdir(root)
+        if target_identity is not None:
+            for name in tuple(os.listdir(root_fd)):
+                observed = os.stat(name, dir_fd=root_fd, follow_symlinks=False)
+                if _node_identity(observed) == target_identity:
+                    os.unlink(name, dir_fd=root_fd)
+        if os.listdir(root_fd):
+            raise AudioSnapshotError("snapshot_cleanup_failed")
+        for path in (staging_path, sealed_path):
+            if path is not None and path.parent != root:
+                raise AudioSnapshotError("snapshot_cleanup_failed")
+        root_path_unchanged = _remove_owned_root_entry(root, root_identity, root_fd)
+        if not root_path_unchanged or os.path.lexists(root):
+            raise AudioSnapshotError("snapshot_cleanup_failed")
     except AudioSnapshotError:
         raise
     except OSError as error:
         raise AudioSnapshotError("snapshot_cleanup_failed") from error
+    finally:
+        if root_fd is not None:
+            os.close(root_fd)
+
+
+def _remove_owned_root_entry(
+    root: Path,
+    root_identity: tuple[int, int, int],
+    root_fd: int,
+) -> bool:
+    if _directory_identity(os.fstat(root_fd)) != root_identity or os.listdir(root_fd):
+        raise AudioSnapshotError("snapshot_cleanup_failed")
+    if sys.platform == "darwin":
+        identity_path = Path("/.vol") / str(root_identity[0]) / str(root_identity[1])
+        if _directory_identity(identity_path.lstat()) != root_identity:
+            raise AudioSnapshotError("snapshot_cleanup_failed")
+        try:
+            root_path_unchanged = _directory_identity(root.lstat()) == root_identity
+        except OSError:
+            root_path_unchanged = False
+        os.rmdir(identity_path)
+        return root_path_unchanged
+    parent_fd = os.open(root.parent, _directory_flags())
+    try:
+        owned_name: str | None = None
+        for name in os.listdir(parent_fd):
+            observed = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+            if _directory_identity(observed) == root_identity:
+                if owned_name is not None:
+                    raise AudioSnapshotError("snapshot_cleanup_failed")
+                owned_name = name
+        if owned_name is None:
+            raise AudioSnapshotError("snapshot_cleanup_failed")
+        os.rmdir(owned_name, dir_fd=parent_fd)
+        return owned_name == root.name
+    finally:
+        os.close(parent_fd)

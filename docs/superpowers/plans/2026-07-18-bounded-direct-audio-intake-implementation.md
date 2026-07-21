@@ -908,8 +908,9 @@ git add src/mke/adapters/audio/inspection.py src/mke/adapters/sqlite/__init__.py
 git commit -m "fix(audio): bind direct audio source identity"
 ```
 
-The review must explicitly verify that snapshot creation occurs before Source/Run creation and that
-cleanup owns only the copied inode.
+The review must explicitly verify that PR B remains an uncomposed internal foundation with no
+Source/Run creation path, and that cleanup owns only the copied inode. Task 5 / PR C must verify
+snapshot creation before Source/Run creation when it composes the owner lifecycle.
 
 ---
 
