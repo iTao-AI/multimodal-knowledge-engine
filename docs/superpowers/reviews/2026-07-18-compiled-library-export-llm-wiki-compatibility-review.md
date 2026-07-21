@@ -1,8 +1,10 @@
 # Compiled Library Export LLM Wiki Compatibility Review
 
-Verdict: **CLEARED FOR TASK 4**. Targeted authority re-review accepted the exact repaired docs/test
-candidate at `0f40cbbd6cdc9463917868415565de899cbdb1d3` as clean with zero actionable findings. Task 4
-has not started.
+Verdict: **CLEARED FOR SEMANTIC-PROJECTION TASK 4**. Targeted authority re-review accepted the
+exact repaired docs/test candidate at `0f40cbbd6cdc9463917868415565de899cbdb1d3` as clean with zero
+actionable findings. A subsequent authority amendment preserves run-local provenance UUIDs and
+replaces cross-run raw-tree equality with closed raw validity plus normalized semantic-projection
+equality. Task 4 has not started under the amended gate.
 
 ## Initial Actual-Diff Findings
 
@@ -37,6 +39,46 @@ Independent verification at the reviewed HEAD recorded:
   public-neutral checks: passed; and
 - Task 4 checked steps: `0`.
 
+## Cross-Run Identity Authority Amendment
+
+A diagnostic Task 4 attempt from acceptance commit
+`56ac968a7e30f478bb06559c370353895a1a06c5` produced a valid fresh same-wheel export, but its raw
+tree was not byte-identical to the independent pre-docs run. Read-only comparison confirmed that
+paths, `content_fingerprint`, display name, media type, extractor fingerprint, required stages,
+locator, exact Evidence text, counts, and observation were unchanged. Differences were limited to
+run-local Source, Publication, Run, and Evidence UUIDs and the Evidence, Markdown, and manifest
+SHA-256 values derived from those bytes.
+
+The diagnostic wheel SHA-256
+`f45c172685744aeee549c41334106bfd40354e62fbfa00b94ebd69c196746e12`, receipt SHA-256
+`65e07848d323465cd67cfd647262e0b5ffaee726e1b4411ab398abbb697d2d50`, and raw tree SHA-256
+`2b9cedc422ae0a1da46c3d0ecbd0726482c0e03c57c758aee56a983838424822` are blocker/diagnostic
+evidence only. The authority amendment that records this finding changes the execution HEAD, so
+none is final-candidate authority.
+
+The repaired gate independently validates both raw exports as closed canonical artifacts with
+valid unique identifiers and referential consistency. Cross-run Source identity uses
+`content_fingerprint`; Evidence identity uses
+`(content_fingerprint, locator.kind, locator.start, locator.end, sha256(exact UTF-8 text))`.
+A call-owned standard-library comparator derives comparison-only aliases for Source, Publication,
+Run, and Evidence, preserves all exact non-ID fields, rebuilds normalized canonical JSONL,
+Markdown, manifest, and a normalized semantic tree digest, and requires exact equality. The tree
+digest reuses the retained evidence validator's live encoding: SHA-256 of concatenated canonical
+JSON lines, one sorted `[relative_path, byte_count, sha256]` row per regular file.
+
+The comparator must prove rejection of drift in Evidence text, locator, display name, media type,
+extractor fingerprint, required stages, or publication revision. Closed raw validation continues
+to reject duplicate or inconsistent identifiers, symlinks, special files, and unknown entries.
+Aliases are never written into retained output or the wiki and never replace MKE authority. The
+wiki consumes final raw bytes and returns final raw `mke.evidence_ref.v1` objects.
+
+Raw tree digest equality is not required across independent runs. Both raw digests are recorded,
+and the final raw digest must remain identical before transfer, after transfer, and after the wiki
+workflow. Consequently, `export_tree_identity="unchanged"` in the frozen 14-field aggregate means
+final retained raw-tree intra-run immutability, not pre-docs/final raw-byte equality. This repair
+does not authorize deterministic product UUIDs or any producer, schema, proof-script,
+product-lifecycle, package, dependency, workflow, or release change.
+
 ## Authority Binding
 
 - Core export lineage: `5d707cfcc98da8ce76d31238c14158cd78b03803`
@@ -69,9 +111,9 @@ SHA-256 exactly matched the oracle, and its source reached the correct raw wrapp
 `content_fingerprint`, locator boundary, manifest leaf, and complete Evidence object. Query and
 non-fixing lint made no wiki writes; immutable execution evidence remained outside the wiki.
 
-The retained tree and configured-hub identity comparison were unchanged. Lint reported zero
-Critical issues and zero broken source links. The call-owned root was removed. The configured-hub
-comparison did not read sibling content.
+The retained tree remained unchanged within that run, and the configured-hub identity comparison
+was unchanged. Lint reported zero Critical issues and zero broken source links. The call-owned
+root was removed. The configured-hub comparison did not read sibling content.
 
 ## Documentation Contract And Limitations
 
@@ -127,4 +169,5 @@ passed
 ```
 
 The exact path audit, review rename, Markdown fence balance, public-neutral scan, and byte identity
-of `docs/releases/v0.1.3.md` are verified before the local repair commit. Task 4 remains pending.
+of `docs/releases/v0.1.3.md` are verified before the local repair commit. Task 4 remains pending
+under the raw-valid plus semantic-projection-equal plus final-raw-immutable gate.

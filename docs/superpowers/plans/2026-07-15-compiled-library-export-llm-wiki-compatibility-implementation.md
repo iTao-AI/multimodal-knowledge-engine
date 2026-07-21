@@ -1,7 +1,10 @@
 # Compiled Library Export LLM Wiki Compatibility Implementation Plan
 
-Status: **CLEARED FOR TASK 4**. Targeted authority re-review accepted the exact repaired docs/test
-candidate at `0f40cbbd6cdc9463917868415565de899cbdb1d3`. Task 4 remains entirely unstarted.
+Status: **CLEARED FOR SEMANTIC-PROJECTION TASK 4**. Targeted authority re-review accepted the exact
+repaired docs/test candidate at `0f40cbbd6cdc9463917868415565de899cbdb1d3`. A subsequent
+authority amendment preserves run-local provenance identifiers and replaces cross-run raw-tree
+equality with closed raw validation plus normalized semantic-projection equality. Task 4 remains
+entirely unstarted under the amended gate.
 
 > **For agentic workers:** Use the approved execution controller for the repository-owned
 > mechanical, proof, documentation, and verification steps. Run the LLM Wiki workflow only inside
@@ -50,6 +53,55 @@ and presentation-audit suite, `{"status":"ok","violations":[]}` for the standalo
 audit, and successful diff/check, exact seven-path scope, review rename, v0.1.3 release-note SHA,
 Markdown, and public-neutral checks. Task 4 had zero checked steps at acceptance.
 
+## Cross-Run Identity Authority Amendment
+
+Source, Publication, Run, and Evidence UUIDs are valid run-local provenance identity, not
+cross-run content identity. A diagnostic Task 4 attempt from acceptance commit
+`56ac968a7e30f478bb06559c370353895a1a06c5` confirmed that the two raw exports differed only in
+those identifiers and in file and manifest digests derived from their bytes. Its wheel SHA-256
+`f45c172685744aeee549c41334106bfd40354e62fbfa00b94ebd69c196746e12`, receipt SHA-256
+`65e07848d323465cd67cfd647262e0b5ffaee726e1b4411ab398abbb697d2d50`, and raw tree SHA-256
+`2b9cedc422ae0a1da46c3d0ecbd0726482c0e03c57c758aee56a983838424822` are diagnostic evidence
+only and are not final-candidate authority.
+
+The approved cross-run gate is:
+
+1. Independently validate each raw export with the existing standalone consumer and descriptor
+   reads. Require closed canonical manifest, JSONL, and Markdown; exact inventory; every raw byte
+   count and SHA-256; valid unique identifiers and referential consistency; and rejection of
+   symlinks, special files, and unknown entries.
+2. Use `content_fingerprint` as the stable Source key and require the two stable Source key sets to
+   be exactly equal.
+3. Use `(content_fingerprint, locator.kind, locator.start, locator.end, sha256(exact UTF-8 text))`
+   as the stable Evidence key. Require uniqueness inside each export and exact set equality across
+   the two exports.
+4. In a call-owned standard-library comparator only, derive canonical aliases for comparison:
+   Source from `content_fingerprint`, Publication from `content_fingerprint` plus
+   `publication_revision`, Run from `content_fingerprint`, and Evidence from the complete stable
+   Evidence key. Never write these aliases into a retained export, wiki, or product file.
+5. Substitute aliases only in the comparison projection, preserve every exact non-ID field,
+   rebuild normalized canonical JSONL and normalized Markdown, recompute their SHA-256 values, and
+   rebuild the normalized manifest. Canonical JSON uses `sort_keys=True`, compact separators,
+   `ensure_ascii=False`, `allow_nan=False`, and one trailing newline.
+6. Compute a normalized semantic tree digest over the same closed inventory with the retained
+   evidence validator's live encoding: SHA-256 of concatenated canonical JSON lines, one sorted
+   `[relative_path, byte_count, sha256]` row per regular file. Require exact equality between the
+   pre-docs and final projections.
+7. Record both raw tree digests without requiring cross-run equality. Require the final raw tree
+   digest to remain identical before transfer, after transfer, and after the wiki workflow.
+   `export_tree_identity="unchanged"` in the 14-field aggregate means this final retained raw-tree
+   intra-run immutability only.
+8. Require the wiki to consume the final raw export and return the final raw Evidence objects.
+   Comparison aliases may not enter the wiki or replace MKE authority.
+9. Run controlled negative probes proving that drift in Evidence text, locator, display name,
+   media type, extractor fingerprint, required stages, or publication revision changes the
+   semantic projection. Continue to reject duplicate or inconsistent raw identifiers during
+   closed raw validation.
+
+This amendment changes comparison authority only. It authorizes no producer, schema, proof-script,
+product-lifecycle, package, dependency, workflow, or release change and specifically does not
+authorize deterministic product UUIDs.
+
 ## Entry Gate
 
 - Re-fetch current repository facts and require `main == origin/main`, a clean primary worktree,
@@ -84,8 +136,10 @@ Markdown, and public-neutral checks. Task 4 had zero checked steps at acceptance
 - Private source material, local paths, hostnames, credentials, tokens, raw model output,
   timestamps, configured-hub identity, and internal operator details may not enter repository
   files.
-- The retained MKE export is immutable input. Any inventory, byte, manifest, Markdown, JSONL, or
-  digest drift withholds the compatibility claim.
+- Each retained MKE export is immutable raw input. Any raw inventory, byte, manifest, Markdown,
+  JSONL, identifier-integrity, or digest failure rejects that export. Cross-run acceptance
+  additionally requires equal normalized semantic projections, while the final raw export must
+  remain byte-identical throughout transfer and wiki use.
 - A failed compatibility proof does not invalidate the generic Compiled Library Export contract.
   Classify the downstream gap and stop; any product-specific adapter requires a new design.
 - This is post-release downstream acceptance. It must not rewrite v0.1.3 history. An accepted
@@ -183,9 +237,9 @@ the original proof inputs. Require:
 - canonical manifest and JSONL records;
 - every manifest-bound Markdown and JSONL byte count and SHA-256;
 - no symlink, special file, unexpected entry, private path, hostname, credential, or timestamp;
-- one deterministic tree digest using the live proof controller's normalized relative-path plus
-  directory-marker/file-SHA-256 encoding, and a separate descriptor-read inventory that records
-  each regular file's byte count and SHA-256.
+- one deterministic tree digest using the retained evidence validator's SHA-256 of concatenated
+  canonical JSON lines, one sorted `[relative_path, byte_count, sha256]` row per regular file, with
+  descriptor reads supplying each byte count and SHA-256.
 
 Do not transfer the wheel, temporary environments, databases, logs, or original input paths into
 the wiki workspace.
@@ -378,10 +432,13 @@ local commit.
 
 - [ ] **Step 1: Rebuild and rerun on the committed docs candidate**
 
-`README.md` is package metadata input, so the final docs commit may change wheel bytes. Build a
-fresh final wheel and rerun the complete Python 3.12/3.13 proof with a new retained target, then
-rerun the isolated wiki workflow from that new target. Do not reuse the pre-docs wheel, retained
-directory, query oracle, or aggregate.
+`README.md` is package metadata input, so the final docs commit may change wheel bytes. The
+authority-amendment commit is the only final-proof source authority. Build a fresh final wheel and
+rerun the complete Python 3.12/3.13 proof exactly once with a new retained target. Do not reuse the
+diagnostic `56ac968a7e30f478bb06559c370353895a1a06c5` wheel, target, receipt, query oracle, or
+aggregate. The pre-docs retained root may be used only as the comparison baseline after it is
+freshly descriptor-validated and its raw tree digest is reconfirmed as
+`debd814a900141cf52c08126fb7138aa7bae327e432667f9398d829c54f5335a`.
 
 ```bash
 FINAL_PROOF_ROOT="$(mktemp -d)"
@@ -393,20 +450,26 @@ UV_OFFLINE=1 uv run python scripts/compiled_library_export_proof.py \
 ```
 
 Independently validate `FINAL_PROOF_ROOT/retained`, record its canonical receipt-file digest,
-descriptor-read byte inventory, and live tree digest, then build a new query oracle from its exact
-manifest/JSONL. A path or digest reference to the pre-docs retained root fails the final gate.
+descriptor-read byte inventory, and final raw tree digest. Run the approved standard-library
+semantic comparator and all negative probes against the separately validated pre-docs and final
+exports. Only after raw validation and semantic-projection equality pass, build a new query oracle
+from the final raw manifest/JSONL and run a fresh isolated wiki workflow from that final raw target.
 
 Require:
 
 - a newly measured final wheel digest, recorded separately from the pre-docs digest;
 - the final proof schema, status, interpreter count, export schema, Markdown format, Evidence
   schema, source/evidence counts, and two-query wiki aggregate invariants to match;
-- the regenerated `compiled-library/` tree digest to equal the pre-docs tree digest;
+- both raw exports to pass closed standalone and descriptor validation;
+- exact stable Source and Evidence key-set equality and an equal normalized semantic tree digest;
+- separate pre-docs and final raw tree digests, with no cross-run raw-byte equality requirement;
+- the final raw tree digest to remain unchanged before transfer, after transfer, and after wiki use;
 - two exact Evidence return paths, unchanged configured hub, zero Critical lint issues, zero broken
   source links, and successful cleanup.
 
 The final wheel digest is the candidate authority. Equality with the pre-docs wheel digest is not
-required and must not be claimed.
+required and must not be claimed. The wiki must consume and return final raw Evidence; comparison
+aliases are private comparator state and never MKE or wiki authority.
 
 - [ ] **Step 2: Run scoped local verification**
 
@@ -430,11 +493,11 @@ build gates. Normal PR CI remains the repository-wide regression authority.
 
 - [ ] **Step 3: Authority review and stop**
 
-Review the exact final docs/evidence diff, pre-docs and final wheel identities, retained export
-tree equality, closed wiki aggregate, isolated log evidence, and cleanup proof. Stop with a clean
-local branch. Push, PR creation, Ready, merge, version bump, tag, GitHub Release, registry
-publication, deployment, direct-audio implementation, and production OCR remain separate
-authorization gates.
+Review the exact final docs/evidence diff, pre-docs and final wheel identities, both closed raw
+validations, stable-key and normalized semantic-projection equality, final raw-tree immutability,
+closed wiki aggregate, isolated log evidence, and cleanup proof. Stop with a clean local branch.
+Push, PR creation, Ready, merge, version bump, tag, GitHub Release, registry publication,
+deployment, direct-audio implementation, and production OCR remain separate authorization gates.
 
 ## Not In Scope
 
@@ -448,7 +511,8 @@ authorization gates.
 
 This plan is complete only when the final committed docs/evidence candidate has a fresh final
 wheel, a fresh retained export, a passed isolated-wiki aggregate, two exact Evidence return paths,
-byte-identical compiled export tree across the pre-docs and final runs, unchanged configured hub,
-zero Critical lint issues, zero broken source links, scoped local gates, successful normal PR CI,
-a clean worktree, and an accepted authority review. Failure preserves the generic export result
-and withholds only the LLM Wiki compatibility claim.
+closed raw validity for both runs, equal stable-key sets and normalized semantic tree digest across
+the pre-docs and final runs, an immutable final raw tree throughout transfer and wiki use,
+unchanged configured hub, zero Critical lint issues, zero broken source links, scoped local gates,
+successful normal PR CI, a clean worktree, and an accepted authority review. Failure preserves the
+generic export result and withholds only the LLM Wiki compatibility claim.
