@@ -2400,6 +2400,38 @@ remains three and the retry count remains two. This record does not authorize a 
 invocation, a Step 8 build, authorization-only execution, manual pip replay, model load, ASR,
 provider or product-path execution, downloads, push, PR, merge, release, or deployment.
 
+The subsequent MCP diagnostic authority repair addressed a descriptor-binding gap in the retained
+operator diagnostic. The prior validator could check mode and link count through `lstat()` and then
+parse bytes through a separate open, and it accepted stage, overflow, and capture-failure
+combinations that the producer could not generate. Repair commit
+`67ffa385614f1f9f3fe2583aff3e9cfdc35520c3` binds regular-file type, mode `0600`, link count, size,
+bytes, final-path identity, and pre/post metadata to one descriptor-read inode. It also applies one
+shared semantic rule to producer and validator authority. Identity-closure commit
+`d9364668d73b8ad1b2e1669b7cd52dcf83ac9923` mechanically refreshes 16 validator-proven evaluation
+paths with normalized semantic equality, including unchanged E3-B behavior.
+
+Targeted actual-diff re-review of range
+`a9814f0429437ec229ed9eede27afe3c7c5e59aa..d9364668d73b8ad1b2e1669b7cd52dcf83ac9923`
+at reviewed HEAD `d9364668d73b8ad1b2e1669b7cd52dcf83ac9923` returned `CLEAN / ACCEPTED` with
+no remaining Critical, Important, or Minor finding. The substantive scope is exactly the MCP
+client, deployment controller, and their two test files; the remaining 16 paths are the
+validator-proven identity closure. Fresh focused suites reported `110 passed, 5 warnings`.
+Independent mutation checks rejected a checked `0600` inode replaced by a `0644` file, rejected
+same-inode mode drift, and rejected all four generator-impossible stage/overflow/capture-failure
+combinations as `mcp_failed`. Exact-limit stderr, overflow, and capture-failure positive cases were
+accepted, and invalid producer combinations normalized to `stage=stderr` with
+`capture_failed=true`. The descriptor validator bound regular-file type, `0600`, `nlink=1`, size,
+bytes, final-path identity, and pre/post metadata to the same inode. Semantic-equality evidence
+reported `true` for all 16 refreshed paths and unchanged E3-B behavior.
+
+Steps 6 and 7 remain accepted and complete. Step 8 is again the next incomplete gate, and Steps
+8-10 remain incomplete. Every earlier Step 8 or Step 9 wheel, authorization, aggregate,
+diagnostic, and related artifact remains historical evidence and cannot be reused as final
+authority. The real deployment-controller invocation count remains four and retry count remains
+three; a fifth invocation did not occur. This acceptance does not claim or authorize a manual MCP
+replay, model load, ASR, provider or product-path execution, real-ASR success, accuracy, SLA,
+production readiness, external-binary redistribution, release, or deployment.
+
 - [ ] **Step 8: Build the final MKE wheel and bind the terminal proof inputs**
 
 After PR C implementation, documentation, plan/review status, and any conditional identity closure

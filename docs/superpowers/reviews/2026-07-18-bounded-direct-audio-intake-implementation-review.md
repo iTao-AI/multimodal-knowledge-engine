@@ -3,10 +3,10 @@
 Status: **CLEAN / ACCEPTED**
 
 This record captures the approved PR C entry-gate reconciliation, the returned implementation
-review result, and the accepted bounded install-projection repair. The earlier Task 10 Step 6
-acceptance remains recorded. The later targeted acceptance clears only the gate to begin a fresh
-Step 8; it does not complete Steps 8-10 or authorize real-ASR, release, redistribution,
-production-readiness, or deployment activity.
+review result, the accepted bounded install-projection repair, and the accepted MCP diagnostic
+authority repair. The earlier Task 10 Step 6 acceptance remains recorded. The latest targeted
+acceptance clears only the gate to begin a fresh Step 8; it does not complete Steps 8-10 or
+authorize real-ASR, release, redistribution, production-readiness, or deployment activity.
 
 ## Frozen v1 Downstream Authority
 
@@ -407,14 +407,48 @@ fourth controller invocation, a Step 8 build, authorization-only execution, manu
 model load, ASR, provider or product-path execution, downloads, push, PR, merge, release, or
 deployment.
 
+## MCP Diagnostic Authority Repair Accepted
+
+The retained MCP failure diagnostic previously checked mode and link count through `lstat()` and
+then read bytes through a separate open, so replacement could separate the checked inode from the
+parsed inode. It also accepted stage, overflow, and capture-failure combinations that the producer
+could not generate. Repair commit `67ffa385614f1f9f3fe2583aff3e9cfdc35520c3` closes both gaps in
+the MCP client, deployment controller, and their two test files. The validator now descriptor-reads
+once and binds regular-file type, mode `0600`, `nlink=1`, size, bytes, final-path identity, and
+pre/post metadata to the same inode. Producer and validator use one semantic rule for stage,
+overflow, and capture-failure authority.
+
+Identity-closure commit `d9364668d73b8ad1b2e1669b7cd52dcf83ac9923` mechanically refreshes
+16 validator-proven evaluation paths. Targeted actual-diff re-review covered
+`a9814f0429437ec229ed9eede27afe3c7c5e59aa..d9364668d73b8ad1b2e1669b7cd52dcf83ac9923`
+at reviewed HEAD `d9364668d73b8ad1b2e1669b7cd52dcf83ac9923` and returned
+`CLEAN / ACCEPTED`, with no remaining Critical, Important, or Minor finding. The substantive scope
+is exactly four MCP client/controller and test paths; the other 16 paths are the validator-proven
+identity closure.
+
+Fresh focused suites reported `110 passed, 5 warnings`. Independent mutation checks rejected a
+checked `0600` inode replaced by a `0644` regular file, rejected same-inode mode drift, and rejected
+all four generator-impossible stage/overflow/capture-failure combinations as `mcp_failed`.
+Exact-limit stderr, overflow, and capture-failure positive cases were accepted. Invalid producer
+combinations normalized to `stage=stderr` with `capture_failed=true`. The descriptor validator
+bound regular-file type, `0600`, `nlink=1`, size, bytes, final-path identity, and pre/post metadata
+to the same inode. `semantic-equality.json` reported `true` for all 16 refreshed paths and unchanged
+E3-B behavior. No further targeted finding remains.
+
+Steps 6 and 7 remain accepted and complete. Step 8 is again the next incomplete gate; Steps 8-10
+remain incomplete. Every earlier Step 8 or Step 9 wheel, authorization, public aggregate,
+diagnostic, and related artifact remains historical evidence and cannot be reused as final
+authority. The real deployment-controller invocation count remains four and retry count remains
+three. A fifth invocation did not occur.
+
 ## Next Gate And Non-Claims
 
 The next incomplete gate is a fresh Step 8, which requires separate execution authority. This
 record does not claim that a post-repair final wheel was rebuilt, authorization-only validation was
-rerun, real ASR, model, or provider execution occurred, external inputs were acquired, packages or
-native binaries may be redistributed, or any push, PR, merge, release, deployment, production
-readiness, accuracy, SLA, or cross-platform authority exists. The historical deployment-controller
-invocations failed before real ASR; the latest stable step was `pip-install-3.12`. Those failures
-are not model, ASR, provider, or product success. This record does not claim release,
-redistribution authority, production readiness, SLA, deployment, or retry success. The current
-real deployment-controller invocation count is three and the retry count is two.
+rerun, a manual MCP replay occurred, real ASR, model, provider, or product-path execution occurred,
+external inputs were acquired, packages or native binaries may be redistributed, or any push, PR,
+merge, release, deployment, production readiness, accuracy, SLA, or cross-platform authority
+exists. The historical deployment-controller invocations failed before real ASR and are not model,
+ASR, provider, or product success. This record does not claim release, redistribution authority,
+production readiness, SLA, deployment, or retry success. The current real deployment-controller
+invocation count is four and the retry count is three; a fifth invocation did not occur.
