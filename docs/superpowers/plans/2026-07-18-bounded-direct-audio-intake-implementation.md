@@ -1883,7 +1883,7 @@ receipt but does not regenerate or reinterpret its license evidence.
   model tree, three fixtures, installed CLI/MCP, and the reconciled export v2 consumer.
 - Produces: `mke.direct_audio_deployment_proof.v1` aggregate bound to wheel, package set, model tree, fixtures, Publications, Evidence, export, consumer, network denial, and cleanup.
 
-- [ ] **Step 1: Write controller RED tests with fake subprocess boundaries**
+- [x] **Step 1: Write controller RED tests with fake subprocess boundaries**
 
 Cover exact two interpreters, same wheel, receipt binding, isolated venvs, the accepted PR A
 nested-pip argv/environment contract, descriptor-verified per-cell wheel compatibility and
@@ -1910,7 +1910,7 @@ Public `run_direct_audio_deployment_proof()` must not accept fake provider, sand
 or footprint seams. Test-only orchestration lives behind a private controller function and cannot publish
 canonical evidence.
 
-- [ ] **Step 2: Run RED tests**
+- [x] **Step 2: Run RED tests**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1920,7 +1920,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: missing controller/schema and MCP audio orchestration.
 
-- [ ] **Step 3: Implement bounded installed-wheel orchestration**
+- [x] **Step 3: Implement bounded installed-wheel orchestration**
 
 The public CLI is:
 
@@ -1942,7 +1942,7 @@ GitHub-style interpreter symlinks are valid while missing, dangling, directory, 
 targets fail closed. Every external command uses bounded stdout/stderr, a process group, timeout,
 parent wait, descendant cleanup, and a call-owned environment/home/cache/temp root.
 
-- [ ] **Step 4: Bind installed package and model authority before inference**
+- [x] **Step 4: Bind installed package and model authority before inference**
 
 For each environment:
 
@@ -1960,7 +1960,7 @@ For each environment:
 6. run the network canary under the same deny-network boundary as doctor and provider commands; and
 7. delete call-owned bytecode before installed-module identity checks and execution.
 
-- [ ] **Step 5: Execute the real product path**
+- [x] **Step 5: Execute the real product path**
 
 Using installed code only:
 
@@ -1977,7 +1977,7 @@ Using installed code only:
 Do not require exact full transcript equality across runtimes. Bind a stable expected keyword,
 non-empty normalized transcript, exact publication graph, locator integrity, and Source identity.
 
-- [ ] **Step 6: Run controller GREEN tests**
+- [x] **Step 6: Run controller GREEN tests**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1992,7 +1992,7 @@ UV_OFFLINE=1 uv run pyright
 
 Expected: all model-free controller tests pass and the historical video deployment proof remains valid.
 
-- [ ] **Step 7: Freeze the terminal proof authorization manifest without running real ASR**
+- [x] **Step 7: Freeze the terminal proof authorization manifest without running real ASR**
 
 The controller tests freeze the exact inputs that Task 10 must report before authorization: final
 MKE wheel SHA-256, PR A receipt digest, canonical wheelhouse-manifest and constraints digests,
@@ -2005,7 +2005,7 @@ observed peak, effective budget, and overshoot as fixed-fixture Darwin arm64 obs
 not run a non-terminal real ASR checkpoint in this Task or promote those observations to a default,
 recommendation, product ceiling, SLA, or cross-platform fact.
 
-- [ ] **Step 8: Review and commit Task 9**
+- [x] **Step 8: Review and commit Task 9**
 
 The controller, tests, and proof-schema documentation are committed; raw proof output remains
 external evidence and volatile timings are not frozen as thresholds. Then:
