@@ -26,14 +26,14 @@
       "sha256": "00f72934018a52b5b5f5591fba119050882aee9b782e5dac199702b0cf995944"
     },
     "cli_source": {
-      "bytes": 76730,
+      "bytes": 76830,
       "path": "src/mke/cli.py",
-      "sha256": "2c09f19a079ece545e8087ed1484e62e4965f27ff537ee31b3a1f6f8e3f82608"
+      "sha256": "da8dc062ba32ab3f427392583283be6cd651d948f0bb25ea0be5475fcd42ce99"
     },
     "dense_artifact": {
       "bytes": 403821,
       "path": "benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json",
-      "sha256": "1b899259fc7013b6f0b4e1d9efd3f3f122c32e12ce0c64c443150a49842d74dc"
+      "sha256": "f4f446e2176647e75963b0b0b68fac102400a803a0eab488a60682af152277bd"
     },
     "metrics_source": {
       "bytes": 8849,

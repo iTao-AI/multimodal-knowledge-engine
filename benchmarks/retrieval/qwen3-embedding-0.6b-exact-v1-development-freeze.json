@@ -3925,14 +3925,14 @@
         "sha256": "31be8fe6302a844634306eea2ec6e891540e8006e45ece9f8cd6db7b53d308a1"
       },
       {
-        "bytes": 11941,
+        "bytes": 12027,
         "path": ".github/workflows/ci.yml",
-        "sha256": "3cd9e4a11e9a27ce48639bdd34f07f8b6e8405e15bb5dfc64fde2ecfde0f9b17"
+        "sha256": "de23f4d8c489178b3fecc37c58bbb866c82c07927b5a5be0f139f87615551ccd"
       },
       {
-        "bytes": 76730,
+        "bytes": 76830,
         "path": "src/mke/cli.py",
-        "sha256": "2c09f19a079ece545e8087ed1484e62e4965f27ff537ee31b3a1f6f8e3f82608"
+        "sha256": "da8dc062ba32ab3f427392583283be6cd651d948f0bb25ea0be5475fcd42ce99"
       },
       {
         "bytes": 28723,
@@ -3980,7 +3980,7 @@
         "sha256": "1c838b1464be9426c67887bfe5e0ff082d5a81d0addaf6addb4e7b7317c3627b"
       }
     ],
-    "sha256": "sha256:05076f9e964b868f4ca96e04651ee6c92a337b966533087da2633720a0bb3e27"
+    "sha256": "sha256:3a9017f4bcea08475872d2d18b943b0df451f0fe2b05b268f055aa9f94ed47aa"
   },
   "threshold_report": {
     "candidate_status": "not_evaluated",

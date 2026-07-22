@@ -10,7 +10,7 @@
     "arms": [
       {
         "arm_id": "e3a-historical-fts5-baseline",
-        "semantic_digest": "0a712585f00f62473b5fe5643d66a2dad465fc579e1090684659f0eaec33e1fc"
+        "semantic_digest": "2616b6dc95f590b22c761a08eddf03c946ca8bdaf256fcee268cc50cd69a2c28"
       },
       {
         "arm_id": "cjk-trigram-overlap-v1",
@@ -4341,7 +4341,7 @@
     "e3a": {
       "bytes": 119575,
       "path": "benchmarks/retrieval/retrieval-chinese-v1-baseline.json",
-      "sha256": "0a712585f00f62473b5fe5643d66a2dad465fc579e1090684659f0eaec33e1fc"
+      "sha256": "2616b6dc95f590b22c761a08eddf03c946ca8bdaf256fcee268cc50cd69a2c28"
     },
     "e3b": {
       "bytes": 196145,
@@ -9509,14 +9509,14 @@
         "sha256": "31be8fe6302a844634306eea2ec6e891540e8006e45ece9f8cd6db7b53d308a1"
       },
       {
-        "bytes": 11941,
+        "bytes": 12027,
         "path": ".github/workflows/ci.yml",
-        "sha256": "3cd9e4a11e9a27ce48639bdd34f07f8b6e8405e15bb5dfc64fde2ecfde0f9b17"
+        "sha256": "de23f4d8c489178b3fecc37c58bbb866c82c07927b5a5be0f139f87615551ccd"
       },
       {
-        "bytes": 76730,
+        "bytes": 76830,
         "path": "src/mke/cli.py",
-        "sha256": "2c09f19a079ece545e8087ed1484e62e4965f27ff537ee31b3a1f6f8e3f82608"
+        "sha256": "da8dc062ba32ab3f427392583283be6cd651d948f0bb25ea0be5475fcd42ce99"
       },
       {
         "bytes": 28723,
@@ -9564,11 +9564,11 @@
         "sha256": "1c838b1464be9426c67887bfe5e0ff082d5a81d0addaf6addb4e7b7317c3627b"
       }
     ],
-    "sha256": "sha256:05076f9e964b868f4ca96e04651ee6c92a337b966533087da2633720a0bb3e27"
+    "sha256": "sha256:3a9017f4bcea08475872d2d18b943b0df451f0fe2b05b268f055aa9f94ed47aa"
   },
   "state": {
-    "development_freeze_sha256": "89dce04c8e6d937ad0faeca7a016a30646ca403a4c66ce1d47f0e21e8b955c7d",
-    "holdout_receipt_sha256": "267f1e7edc0cff8af71f65e68364cf8b01604f4cd351c87f4325ac391be46892"
+    "development_freeze_sha256": "49bc7b7cda958d1034a6be77080f252ee4f937fd6bb4e969e1c8ab7ad936c1ef",
+    "holdout_receipt_sha256": "80c779eae4640364b350ee0126af50e047b4879c3f21655abdaeb0776b9c95e9"
   },
   "threshold_report": {
     "candidate_status": "not_evaluated",

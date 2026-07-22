@@ -104,7 +104,7 @@
       },
       {
         "path": "src/mke/application/__init__.py",
-        "sha256": "fe02a9bc8823fc1c1c4432f13f5e60f076c78d817160f486f35366b57e2ae909"
+        "sha256": "5cd10875a43bcdeb8dcd933f7c239644b532f76ea0d550a61b23ba887a20e267"
       },
       {
         "path": "src/mke/evaluation/runner.py",

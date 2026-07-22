@@ -48,7 +48,7 @@
     "integrity_claim": "adjudication_record_integrity"
   },
   "source_identity": {
-    "sha256": "19510cff2c907778fb429be612de4ca75aa8ca92bf37fdf474e9ffda34f3c5a7",
+    "sha256": "a615babec9106542fd3c8ae6b8e91d0a99f43e8d3119093df9324819cc0a5bda",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -162,8 +162,8 @@
       },
       {
         "path": "src/mke/adapters/video/process.py",
-        "bytes": 20747,
-        "sha256": "46ef4d8937c010833898ab9e3654f5cf000e7f309d7d93e1a1973ab8d00c5e2a"
+        "bytes": 21480,
+        "sha256": "6ecbe63726222a33f9356db555942842d0296480b904e308ea0fc878a4d27f52"
       },
       {
         "path": "src/mke/adapters/video/providers.py",
@@ -182,8 +182,8 @@
       },
       {
         "path": "src/mke/application/__init__.py",
-        "bytes": 38431,
-        "sha256": "fe02a9bc8823fc1c1c4432f13f5e60f076c78d817160f486f35366b57e2ae909"
+        "bytes": 39060,
+        "sha256": "5cd10875a43bcdeb8dcd933f7c239644b532f76ea0d550a61b23ba887a20e267"
       },
       {
         "path": "src/mke/application/library_export.py",
@@ -192,8 +192,8 @@
       },
       {
         "path": "src/mke/cli.py",
-        "bytes": 76730,
-        "sha256": "2c09f19a079ece545e8087ed1484e62e4965f27ff537ee31b3a1f6f8e3f82608"
+        "bytes": 76830,
+        "sha256": "da8dc062ba32ab3f427392583283be6cd651d948f0bb25ea0be5475fcd42ce99"
       },
       {
         "path": "src/mke/domain/__init__.py",
@@ -447,8 +447,8 @@
       },
       {
         "path": "src/mke/interfaces/input_authority.py",
-        "bytes": 11226,
-        "sha256": "0b8669ec7ea12d944bea29b1bb0aa8038ed20b99f38f4224822bf03859be5830"
+        "bytes": 11312,
+        "sha256": "431665647986bb315abae3004e7b572b6e97f6fb23116754d260b243ad984c04"
       },
       {
         "path": "src/mke/interfaces/library_export.py",
@@ -467,8 +467,8 @@
       },
       {
         "path": "src/mke/interfaces/mcp_server.py",
-        "bytes": 7575,
-        "sha256": "3fc08db6f9be1102d95068d037665db132439dd50535b8560bf85d228e6e6014"
+        "bytes": 7837,
+        "sha256": "1442d1b2e31cb52accf90eb01ee7c6f5bc3e515544d2fac5fef89fdec5b77838"
       },
       {
         "path": "src/mke/interfaces/public_errors.py",
@@ -482,8 +482,8 @@
       },
       {
         "path": "src/mke/proof/direct_audio.py",
-        "bytes": 36291,
-        "sha256": "07cd1997f13f353b7aeca998779a5e25c357f0b0cc8376e51f0a9476e5b9d145"
+        "bytes": 36569,
+        "sha256": "7d20ae42544ddbfdbb26aa44658543b9ff03560ad6bd49c38856eb822dd8f773"
       },
       {
         "path": "src/mke/proof/evidence_provenance.py",
@@ -547,8 +547,8 @@
       },
       {
         "path": "src/mke/runtime.py",
-        "bytes": 14534,
-        "sha256": "dc8eb5c6f811c52b68b2970f1f94ff7306b6070a6511f18b7ada657947886719"
+        "bytes": 14906,
+        "sha256": "c967e51de7fc1b870fcf53000d4794d21c12b9e03c4afe74d34c18e176163398"
       },
       {
         "path": "src/mke/runtime_owner.py",
