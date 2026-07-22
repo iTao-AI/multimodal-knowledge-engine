@@ -2329,6 +2329,36 @@ wheel, sdist, binding report, and authorization-only manifest built from that ac
 clear the next Step 8 gate. This acceptance does not claim real ASR, provider or model success,
 release, redistribution authority, production readiness, accuracy, SLA, deployment, or retry.
 
+The later full locked dependency closure exposed one remaining static receipt-validation gap:
+after recomputing the wheelhouse manifest and receipt self-digest, an artifact could omit the MKE
+candidate entirely, omit it from one interpreter cell, or bind the two cells to different candidate
+wheels while `--validate-receipt` still returned passed. Repair commit
+`a158a4d50ef2ffa315538f3b6a6f242a1c5c56bc` requires exactly one
+`multimodal-knowledge-engine` wheel, exactly two top-level candidate installed rows for cells
+`3.12` and `3.13`, and identical filename, version, and SHA-256 bindings to that unique wheel. The
+existing per-cell installed projections remain exactly equal to the top-level rows.
+
+Career targeted re-review of range
+`893d520a83d82454f44516dc6815f50a8efca520..a158a4d50ef2ffa315538f3b6a6f242a1c5c56bc`
+returned CLEAN with no new finding. The exact repair scope is four files with `143 insertions, 4
+deletions`. Independent mutation replay accepted the positive canonical artifact and rejected the
+absent, one-cell-only, and two-different-candidate forms as `committed_receipt_invalid`; malformed
+candidate-cell input through the descriptor bootstrap also failed closed without a traceback. The
+canonical validation CLI exited zero with empty stderr, focused receipt, deployment, documentation,
+and proof tests reported `311 passed, 5 warnings`, focused Ruff passed, focused Pyright reported
+`0 errors`, and `git diff --check` passed.
+
+The refreshed canonical dependency receipt binds payload SHA-256
+`fd369d35cb97754839f62ed6ee72dbb69f4cedc85eae40f3c0891d314e0dc61e`, file SHA-256
+`befc901781c597b8e80f380cf5e29a183c672132c31590efff7d9ff1dad373b7`, and controller script
+SHA-256 `932c9e17733e343f15fa558f1e54d21248da8f3f13ce4e52acc344b8f7ca2257`.
+Its inventory remains 60 locked external wheels plus one candidate MKE wheel, 108 installed rows,
+and 54 packages per interpreter cell. Steps 6 and 7 remain accepted and complete; Step 8 remains
+the next incomplete gate. The real deployment-controller invocation count remains two and the retry
+count remains one. No third deployment-controller invocation, model, ASR, provider, or product-path
+execution occurred, and this closure does not establish redistribution, production, SLA, release,
+or deployment authority.
+
 - [ ] **Step 8: Build the final MKE wheel and bind the terminal proof inputs**
 
 After PR C implementation, documentation, plan/review status, and any conditional identity closure

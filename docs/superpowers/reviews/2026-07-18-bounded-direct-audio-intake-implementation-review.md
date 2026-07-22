@@ -309,13 +309,54 @@ All Step 8 material created before the docs-only acceptance commit recording the
 install-diagnostic verdict is also historical and prohibited as final authority. Only artifacts
 built and bound from that acceptance commit can clear the next Step 8 gate.
 
+## Static Candidate Receipt Authority Acceptance
+
+The full locked dependency closure exposed a static cross-binding false-green in the independent
+`--validate-receipt` lane. After recomputing the wheelhouse manifest and canonical self-digest, a
+receipt could omit the candidate MKE wheel and rows, omit the candidate from one interpreter cell,
+or bind Python 3.12 and Python 3.13 to different MKE candidates while reporting passed.
+
+Repair commit `a158a4d50ef2ffa315538f3b6a6f242a1c5c56bc` closes that finding by requiring:
+
+- exactly one `multimodal-knowledge-engine` candidate in the wheel inventory;
+- exactly two top-level candidate installed rows with cells `3.12` and `3.13`;
+- identical candidate filename, version, and SHA-256 in both rows, matching the unique wheel; and
+- the existing exact per-cell projection back to the top-level installed rows.
+
+Career targeted re-review of
+`893d520a83d82454f44516dc6815f50a8efca520..a158a4d50ef2ffa315538f3b6a6f242a1c5c56bc`
+returned CLEAN with no new finding. The exact four-file repair is `143 insertions, 4 deletions`.
+Independent mutation replay returned passed for the positive artifact and
+`committed_receipt_invalid` for absent-candidate, one-cell-only, and two-different-candidate
+receipts after their required digests were recomputed. A malformed candidate cell through the
+descriptor bootstrap returned the same closed failure without a raw traceback. The canonical
+bootstrap CLI exited zero with empty stderr; focused receipt, deployment, documentation, and proof
+tests reported `311 passed, 5 warnings`; focused Ruff passed; focused Pyright reported `0 errors`;
+and `git diff --check` passed.
+
+The accepted canonical receipt identities are:
+
+- payload SHA-256: `fd369d35cb97754839f62ed6ee72dbb69f4cedc85eae40f3c0891d314e0dc61e`;
+- file SHA-256: `befc901781c597b8e80f380cf5e29a183c672132c31590efff7d9ff1dad373b7`;
+- controller script SHA-256: `932c9e17733e343f15fa558f1e54d21248da8f3f13ce4e52acc344b8f7ca2257`;
+- inventory: 61 wheels, 108 installed rows, and 54 packages in each interpreter cell; and
+- unique candidate SHA-256: `8a9269593e7846b9142e70c897279ae52fe82607dd24dcbecd5965d8e4192dbb`.
+
+Steps 6 and 7 remain accepted and complete. Step 8 is the next incomplete gate. The real
+deployment-controller invocation count remains two and the retry count remains one. No third real
+controller invocation, model load, ASR, provider, or product-path execution occurred. This result
+does not establish external binary redistribution, production, SLA, release, or deployment
+authority. All Step 8 material predating the acceptance commit that records this result remains
+historical and cannot serve as final authority.
+
 ## Next Gate And Non-Claims
 
 Task 10 Step 7 records this returned result. Step 8 is the next incomplete gate. This record does
 not claim that a post-repair final wheel was rebuilt, authorization-only validation was rerun, real
 ASR, model, or provider execution occurred, external inputs were acquired, packages or native
 binaries may be redistributed, or any push, PR, merge, release, deployment, production readiness,
-accuracy, SLA, or cross-platform authority exists. The real deployment controller invocation count
-is exactly one, that invocation failed `install_failed`, and the retry count remains zero. This
-record does not claim ASR, provider, or model success, release, redistribution authority,
-production readiness, SLA, deployment, or retry.
+accuracy, SLA, or cross-platform authority exists. The first real deployment-controller invocation
+failed `install_failed`; that historical failure is not model, ASR, provider, or product success.
+This record does not claim release, redistribution authority, production readiness, SLA,
+deployment, or retry success. The current real deployment-controller invocation count is two and
+the retry count is one.
