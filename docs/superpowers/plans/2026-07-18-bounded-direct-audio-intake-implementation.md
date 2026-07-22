@@ -2432,7 +2432,7 @@ three; a fifth invocation did not occur. This acceptance does not claim or autho
 replay, model load, ASR, provider or product-path execution, real-ASR success, accuracy, SLA,
 production readiness, external-binary redistribution, release, or deployment.
 
-#### Bounded Offline Receipt Replay Closure
+#### Bounded Offline Receipt Replay Closure — Clean / Accepted
 
 The PR A external dependency and license projection remains frozen across ordinary MKE source and
 documentation commits. The static receipt validator must nevertheless retain its strict requirement
@@ -2470,10 +2470,26 @@ payload `fd369d35cb97754839f62ed6ee72dbb69f4cedc85eae40f3c0891d314e0dc61e` and f
 `befc901781c597b8e80f380cf5e29a183c672132c31590efff7d9ff1dad373b7`; the bounded replay binds
 payload `3dca3bc7737728ef49376f11d40e9611cf62552147840a0026b7ded5218a681a` and file
 `1fe3cd6fddd1bb07a949192c64fcf90ee2b9ac5fd22df1e8a334a5d446a611af`. The prior receipt and all
-prior Step 8/Step 9 artifacts remain historical evidence only. This closure is pending targeted
-actual-diff re-review. It does not complete Step 8, authorize authorization-only or Step 9, or
-change the historical real deployment-controller invocation and retry counts of four and three. A
-fifth real invocation remains outside this authority.
+prior Step 8/Step 9 artifacts remain historical evidence only.
+
+Targeted actual-diff re-review covered
+`1b784eb10c279113c8299e404fa0dd35ef2be7a5..794bbde8cbf9a65f57d76840b924089c9948aab9`
+at reviewed HEAD `794bbde8cbf9a65f57d76840b924089c9948aab9` and returned `CLEAN / ACCEPTED`
+with no Critical, Important, or Minor finding. Independent review confirmed byte identity with the
+preserved generated replay, an unchanged JSON path inventory, the exact 13 candidate-derived plus
+four bounded-observation leaves and invariants above, and external 60-wheel manifest SHA-256
+`04960db80c29a372f7d29028cf4a9f646845df0c207ca39b1eb618b232624d06`. The fresh candidate wheel
+remained 353200 bytes with SHA-256
+`e3abdf24589be880aa2c135cd8687ed6c21e0ea0ed2ec5fe1742703ef665c3d0` and contained the exact
+current `mcp_deployment_client.py` bytes. Static receipt validation plus the direct-audio
+documentation and presentation suite reported `215 passed`; the live presentation audit returned
+`status=ok`.
+
+This acceptance does not complete Step 8, authorize authorization-only or Step 9, or change the
+historical real deployment-controller invocation and retry counts of four and three. A fifth real
+invocation remains outside this authority. It does not establish real ASR, model, provider, or
+product success, redistribution authority, production readiness, accuracy, SLA, release, or
+deployment authority.
 
 - [ ] **Step 8: Build the final MKE wheel and bind the terminal proof inputs**
 

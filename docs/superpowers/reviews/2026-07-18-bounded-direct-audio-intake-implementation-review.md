@@ -441,7 +441,7 @@ diagnostic, and related artifact remains historical evidence and cannot be reuse
 authority. The real deployment-controller invocation count remains four and retry count remains
 three. A fifth invocation did not occur.
 
-## Bounded Offline Receipt Replay — Targeted Re-Review Pending
+## Bounded Offline Receipt Replay — Clean / Accepted
 
 The accepted external dependency and license projection does not follow ordinary MKE source or
 documentation commits. The static validator continues to require one exact candidate MKE wheel and
@@ -472,12 +472,27 @@ historical canonical payload/file identities were
 `fd369d35cb97754839f62ed6ee72dbb69f4cedc85eae40f3c0891d314e0dc61e` and
 `befc901781c597b8e80f380cf5e29a183c672132c31590efff7d9ff1dad373b7`. The bounded replay identities
 are `3dca3bc7737728ef49376f11d40e9611cf62552147840a0026b7ded5218a681a` and
-`1fe3cd6fddd1bb07a949192c64fcf90ee2b9ac5fd22df1e8a334a5d446a611af`. This closure awaits
-targeted actual-diff re-review.
+`1fe3cd6fddd1bb07a949192c64fcf90ee2b9ac5fd22df1e8a334a5d446a611af`.
+
+Targeted actual-diff re-review covered
+`1b784eb10c279113c8299e404fa0dd35ef2be7a5..794bbde8cbf9a65f57d76840b924089c9948aab9`
+at reviewed HEAD `794bbde8cbf9a65f57d76840b924089c9948aab9` and returned `CLEAN / ACCEPTED`
+with no Critical, Important, or Minor finding. Independent review confirmed that the committed
+receipt is byte-identical to the preserved generated replay, the JSON path inventory is unchanged,
+the semantic diff is exactly the 13 candidate-derived and four bounded-observation leaves above,
+and all stated supervisor invariants hold while every other supervisor field remains equal. The
+external 60-wheel manifest recomputed to
+`04960db80c29a372f7d29028cf4a9f646845df0c207ca39b1eb618b232624d06`. The fresh wheel remained
+353200 bytes with SHA-256
+`e3abdf24589be880aa2c135cd8687ed6c21e0ea0ed2ec5fe1742703ef665c3d0` and contained the exact
+current `mcp_deployment_client.py` bytes. Static receipt validation plus the direct-audio
+documentation and presentation suite reported `215 passed`; the live presentation audit returned
+`status=ok`.
 
 This record preserves the prior receipt and every previous Step 8/Step 9 artifact as historical
 evidence. It does not complete Step 8 or authorize authorization-only, Step 9, manual MCP replay,
-model, ASR, provider or product execution, download, release, redistribution, or deployment. The
+model, ASR, provider or product execution, download, release, redistribution, or deployment. It
+does not establish real-ASR success, production readiness, accuracy, or SLA authority. The
 historical real deployment-controller invocation and retry counts remain four and three; a fifth
 invocation did not occur.
 
