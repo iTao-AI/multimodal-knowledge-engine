@@ -5,6 +5,7 @@ import inspect
 import io
 import json
 import os
+import stat
 import subprocess
 import sys
 import zipfile
@@ -1137,18 +1138,25 @@ def test_cli_install_diagnostic_keeps_public_failure_aggregate_exact(
     }
 
 
-def _mcp_diagnostic_payload(*, stage: str = "search") -> dict[str, object]:
+def _mcp_diagnostic_payload(
+    *,
+    stage: str = "search",
+    stderr_bytes: int | None = None,
+    overflow: bool = False,
+    capture_failed: bool = False,
+) -> dict[str, object]:
     stderr = b"bounded server warning"
+    observed_bytes = len(stderr) if stderr_bytes is None else stderr_bytes
     return {
         "schema_version": "mke.mcp_deployment_diagnostic.v1",
         "status": "failed",
         "failure": "mcp_deployment_failed",
         "stage": stage,
         "stderr": {
-            "bytes": len(stderr),
+            "bytes": observed_bytes,
             "sha256": hashlib.sha256(stderr).hexdigest(),
-            "overflow": False,
-            "capture_failed": False,
+            "overflow": overflow,
+            "capture_failed": capture_failed,
         },
     }
 
@@ -1180,6 +1188,150 @@ def test_mcp_gate_preserves_valid_bounded_operator_diagnostic(tmp_path: Path) ->
     assert json.loads(diagnostic.read_text(encoding="ascii")) == (
         _mcp_diagnostic_payload()
     )
+
+
+def test_mcp_diagnostic_binds_policy_and_bytes_to_same_inode(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    diagnostic = tmp_path / "mcp-diagnostic.json"
+    diagnostic.write_text(
+        json.dumps(_mcp_diagnostic_payload(), sort_keys=True) + "\n",
+        encoding="ascii",
+    )
+    diagnostic.chmod(0o600)
+    replacement = tmp_path / "replacement.json"
+    replacement.write_text(
+        json.dumps(_mcp_diagnostic_payload(), sort_keys=True) + "\n",
+        encoding="ascii",
+    )
+    replacement.chmod(0o644)
+    original_lstat = Path.lstat
+    replaced = False
+
+    def replace_after_policy_check(path: Path) -> os.stat_result:
+        nonlocal replaced
+        observed = original_lstat(path)
+        if path == diagnostic and not replaced:
+            os.replace(replacement, diagnostic)
+            replaced = True
+        return observed
+
+    monkeypatch.setattr(Path, "lstat", replace_after_policy_check)
+
+    with pytest.raises(proof.DirectAudioDeploymentProofError, match="^mcp_failed$"):
+        proof._validate_mcp_diagnostic(  # pyright: ignore[reportPrivateUsage]
+            diagnostic
+        )
+
+    assert replaced is True
+    assert stat.S_IMODE(original_lstat(diagnostic).st_mode) == 0o644
+
+
+@pytest.mark.parametrize(
+    ("stage", "stderr_bytes", "overflow", "capture_failed"),
+    (
+        ("search", proof._MAX_MCP_SERVER_STDERR_BYTES + 1, True, False),  # pyright: ignore[reportPrivateUsage]
+        ("search", 0, False, True),
+        ("stderr", 0, False, False),
+        ("stderr", proof._MAX_MCP_SERVER_STDERR_BYTES, True, False),  # pyright: ignore[reportPrivateUsage]
+    ),
+)
+def test_mcp_diagnostic_rejects_generator_impossible_stderr_semantics(
+    tmp_path: Path,
+    stage: str,
+    stderr_bytes: int,
+    overflow: bool,
+    capture_failed: bool,
+) -> None:
+    diagnostic = tmp_path / "mcp-diagnostic.json"
+    diagnostic.write_text(
+        json.dumps(
+            _mcp_diagnostic_payload(
+                stage=stage,
+                stderr_bytes=stderr_bytes,
+                overflow=overflow,
+                capture_failed=capture_failed,
+            ),
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="ascii",
+    )
+    diagnostic.chmod(0o600)
+
+    with pytest.raises(proof.DirectAudioDeploymentProofError, match="^mcp_failed$"):
+        proof._validate_mcp_diagnostic(  # pyright: ignore[reportPrivateUsage]
+            diagnostic
+        )
+
+
+@pytest.mark.parametrize(
+    ("stage", "stderr_bytes", "overflow", "capture_failed"),
+    (
+        ("search", len(b"bounded server warning"), False, False),
+        ("search", proof._MAX_MCP_SERVER_STDERR_BYTES, False, False),  # pyright: ignore[reportPrivateUsage]
+        ("stderr", proof._MAX_MCP_SERVER_STDERR_BYTES + 1, True, False),  # pyright: ignore[reportPrivateUsage]
+        ("stderr", 0, False, True),
+    ),
+)
+def test_mcp_diagnostic_accepts_exact_producer_stderr_semantics(
+    tmp_path: Path,
+    stage: str,
+    stderr_bytes: int,
+    overflow: bool,
+    capture_failed: bool,
+) -> None:
+    diagnostic = tmp_path / "mcp-diagnostic.json"
+    payload = _mcp_diagnostic_payload(
+        stage=stage,
+        stderr_bytes=stderr_bytes,
+        overflow=overflow,
+        capture_failed=capture_failed,
+    )
+    diagnostic.write_text(
+        json.dumps(payload, sort_keys=True) + "\n",
+        encoding="ascii",
+    )
+    diagnostic.chmod(0o600)
+
+    assert proof._validate_mcp_diagnostic(  # pyright: ignore[reportPrivateUsage]
+        diagnostic
+    ) == payload
+
+
+def test_mcp_diagnostic_rejects_same_inode_content_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    diagnostic = tmp_path / "mcp-diagnostic.json"
+    value = (
+        json.dumps(_mcp_diagnostic_payload(), sort_keys=True) + "\n"
+    ).encode("ascii")
+    mutated = value.replace(b'"sha256": "', b'"sha256": "f', 1)[:-1]
+    assert len(mutated) == len(value)
+    diagnostic.write_bytes(value)
+    diagnostic.chmod(0o600)
+    original_read = os.read
+    changed = False
+
+    def mutate_after_read(descriptor: int, size: int) -> bytes:
+        nonlocal changed
+        chunk = original_read(descriptor, size)
+        if chunk and not changed:
+            with diagnostic.open("r+b", buffering=0) as stream:
+                stream.write(mutated)
+            changed = True
+        return chunk
+
+    monkeypatch.setattr(os, "read", mutate_after_read)
+
+    with pytest.raises(proof.DirectAudioDeploymentProofError, match="^mcp_failed$"):
+        proof._validate_mcp_diagnostic(  # pyright: ignore[reportPrivateUsage]
+            diagnostic
+        )
+
+    assert changed is True
 
 
 @pytest.mark.parametrize("diagnostic_state", ("missing", "malformed", "ambiguous"))

@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Protocol, cast
 
+from mke.proof import mcp_deployment_client as mcp_diagnostic_authority
 from mke.runtime import DEFAULT_MODEL_REVISION
 
 if TYPE_CHECKING or __package__:
@@ -46,23 +47,8 @@ _MAX_STDOUT_BYTES = 2 * 1024 * 1024
 _MAX_STDERR_BYTES = 512 * 1024
 _MAX_INSTALL_DIAGNOSTIC_TEXT_BYTES = 64 * 1024
 _MAX_MCP_DIAGNOSTIC_BYTES = 4096
-_MAX_MCP_SERVER_STDERR_BYTES = 256 * 1024
-_MCP_DIAGNOSTIC_STAGES = frozenset(
-    {
-        "startup",
-        "schema",
-        "ingest",
-        "get_run",
-        "search",
-        "ask",
-        "portable_search",
-        "portable_ask",
-        "shutdown",
-        "flow_validation",
-        "portable_validation",
-        "stderr",
-    }
-)
+_MAX_MCP_SERVER_STDERR_BYTES = mcp_diagnostic_authority._MAX_SERVER_STDERR_BYTES  # pyright: ignore[reportPrivateUsage]
+_MCP_DIAGNOSTIC_STAGES = mcp_diagnostic_authority._MCP_FAILURE_STAGES  # pyright: ignore[reportPrivateUsage]
 _INSTALL_DIAGNOSTIC_STEPS = frozenset(
     {
         "pip-install-3.12",
@@ -1054,18 +1040,77 @@ def _run_ok(runner: CommandRunner, call: CommandCall, code: str) -> None:
         raise DirectAudioDeploymentProofError(code)
 
 
+def _mcp_diagnostic_identity(value: os.stat_result) -> tuple[int, ...]:
+    return (
+        value.st_dev,
+        value.st_ino,
+        value.st_mode,
+        value.st_nlink,
+        value.st_size,
+        value.st_mtime_ns,
+        value.st_ctime_ns,
+    )
+
+
+def _read_mcp_diagnostic(path: Path) -> bytes:
+    descriptor: int | None = None
+    value = b""
+    failure: BaseException | None = None
+    try:
+        path_before = path.lstat()
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        opened = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or stat.S_IMODE(opened.st_mode) != 0o600
+            or opened.st_nlink != 1
+            or (opened.st_dev, opened.st_ino)
+            != (path_before.st_dev, path_before.st_ino)
+            or opened.st_size > _MAX_MCP_DIAGNOSTIC_BYTES
+        ):
+            raise OSError("invalid MCP diagnostic descriptor authority")
+        chunks: list[bytes] = []
+        observed_bytes = 0
+        while observed_bytes <= _MAX_MCP_DIAGNOSTIC_BYTES:
+            chunk = os.read(
+                descriptor,
+                min(
+                    64 * 1024,
+                    _MAX_MCP_DIAGNOSTIC_BYTES + 1 - observed_bytes,
+                ),
+            )
+            if not chunk:
+                break
+            chunks.append(chunk)
+            observed_bytes += len(chunk)
+        value = b"".join(chunks)
+        after = os.fstat(descriptor)
+        path_after = path.lstat()
+        identity = _mcp_diagnostic_identity(opened)
+        if (
+            len(value) > _MAX_MCP_DIAGNOSTIC_BYTES
+            or len(value) != opened.st_size
+            or identity != _mcp_diagnostic_identity(path_before)
+            or identity != _mcp_diagnostic_identity(after)
+            or identity != _mcp_diagnostic_identity(path_after)
+        ):
+            raise OSError("MCP diagnostic identity drift")
+    except OSError as error:
+        failure = error
+    if descriptor is not None:
+        try:
+            os.close(descriptor)
+        except OSError as error:
+            if failure is None:
+                failure = error
+    if failure is not None:
+        raise DirectAudioDeploymentProofError("mcp_failed") from failure
+    return value
+
+
 def _validate_mcp_diagnostic(path: Path) -> dict[str, object]:
     try:
-        observed = path.lstat()
-        if (
-            not stat.S_ISREG(observed.st_mode)
-            or observed.st_nlink != 1
-            or stat.S_IMODE(observed.st_mode) != 0o600
-        ):
-            raise DirectAudioDeploymentProofError("mcp_failed")
-        value = _read_regular(path)
-        if len(value) > _MAX_MCP_DIAGNOSTIC_BYTES:
-            raise DirectAudioDeploymentProofError("mcp_failed")
+        value = _read_mcp_diagnostic(path)
         payload = json.loads(value.decode("ascii", errors="strict"))
     except (OSError, UnicodeError, json.JSONDecodeError) as error:
         raise DirectAudioDeploymentProofError("mcp_failed") from error
@@ -1097,9 +1142,8 @@ def _validate_mcp_diagnostic(path: Path) -> dict[str, object]:
         or _DIGEST_RE.fullmatch(stderr_sha) is None
         or type(overflow) is not bool
         or type(capture_failed) is not bool
-        or (
-            overflow is False
-            and stderr_bytes > _MAX_MCP_SERVER_STDERR_BYTES
+        or not mcp_diagnostic_authority._mcp_failure_semantics_valid(  # pyright: ignore[reportPrivateUsage]
+            diagnostic.get("stage"), stderr
         )
     ):
         raise DirectAudioDeploymentProofError("mcp_failed")

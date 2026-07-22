@@ -915,6 +915,74 @@ def test_stderr_capture_failure_fails_closed(monkeypatch: pytest.MonkeyPatch) ->
     assert captured.value.stderr["capture_failed"] is True
 
 
+@pytest.mark.parametrize(
+    ("stage", "stderr_bytes", "overflow", "capture_failed"),
+    (
+        ("search", 256 * 1024 + 1, True, False),
+        ("search", 0, False, True),
+        ("stderr", 0, False, False),
+        ("stderr", 256 * 1024, True, False),
+    ),
+)
+def test_mcp_failure_normalizes_generator_impossible_stderr_semantics(
+    stage: str,
+    stderr_bytes: int,
+    overflow: bool,
+    capture_failed: bool,
+) -> None:
+    from mke.proof import mcp_deployment_client as client
+
+    failure = client.McpDeploymentFailure(
+        stage,  # pyright: ignore[reportArgumentType]
+        {
+            "bytes": stderr_bytes,
+            "sha256": hashlib.sha256(b"stderr").hexdigest(),
+            "overflow": overflow,
+            "capture_failed": capture_failed,
+        },
+    )
+
+    assert failure.stage == "stderr"
+    assert failure.stderr == {
+        "bytes": 0,
+        "sha256": hashlib.sha256(b"").hexdigest(),
+        "overflow": False,
+        "capture_failed": True,
+    }
+
+
+@pytest.mark.parametrize(
+    ("stage", "stderr_bytes", "overflow", "capture_failed"),
+    (
+        ("search", len(b"stderr"), False, False),
+        ("search", 256 * 1024, False, False),
+        ("stderr", 256 * 1024 + 1, True, False),
+        ("stderr", 0, False, True),
+    ),
+)
+def test_mcp_failure_preserves_exact_valid_stderr_semantics(
+    stage: str,
+    stderr_bytes: int,
+    overflow: bool,
+    capture_failed: bool,
+) -> None:
+    from mke.proof import mcp_deployment_client as client
+
+    metadata = {
+        "bytes": stderr_bytes,
+        "sha256": hashlib.sha256(b"stderr").hexdigest(),
+        "overflow": overflow,
+        "capture_failed": capture_failed,
+    }
+    failure = client.McpDeploymentFailure(
+        stage,  # pyright: ignore[reportArgumentType]
+        metadata,
+    )
+
+    assert failure.stage == stage
+    assert failure.stderr == metadata
+
+
 def test_real_stdio_boundary_captures_stderr_without_parent_sink() -> None:
     from mke.proof import mcp_deployment_client as client
 

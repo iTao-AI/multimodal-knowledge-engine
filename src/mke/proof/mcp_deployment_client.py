@@ -105,22 +105,11 @@ class McpDeploymentFailure(RuntimeError):
         if stage not in _MCP_FAILURE_STAGES:
             raise ValueError("invalid MCP deployment failure stage")
         super().__init__("mcp_deployment_failed")
-        self.stage = stage
         candidate = dict(stderr or _empty_stderr_metadata())
-        stderr_bytes = candidate.get("bytes")
-        stderr_sha = candidate.get("sha256")
-        overflow = candidate.get("overflow")
-        capture_failed = candidate.get("capture_failed")
-        if (
-            set(candidate) != {"bytes", "sha256", "overflow", "capture_failed"}
-            or type(stderr_bytes) is not int
-            or stderr_bytes < 0
-            or not isinstance(stderr_sha, str)
-            or re.fullmatch(r"[0-9a-f]{64}", stderr_sha) is None
-            or type(overflow) is not bool
-            or type(capture_failed) is not bool
-        ):
+        if not _mcp_failure_semantics_valid(stage, candidate):
+            stage = "stderr"
             candidate = _empty_stderr_metadata(capture_failed=True)
+        self.stage = stage
         self.stderr = candidate
 
 
@@ -135,6 +124,31 @@ def _empty_stderr_metadata(*, capture_failed: bool = False) -> dict[str, object]
         "overflow": False,
         "capture_failed": capture_failed,
     }
+
+
+def _mcp_failure_semantics_valid(
+    stage: object,
+    stderr: Mapping[str, object],
+) -> bool:
+    if not isinstance(stage, str) or stage not in _MCP_FAILURE_STAGES:
+        return False
+    stderr_bytes = stderr.get("bytes")
+    stderr_sha = stderr.get("sha256")
+    overflow = stderr.get("overflow")
+    capture_failed = stderr.get("capture_failed")
+    if (
+        set(stderr) != {"bytes", "sha256", "overflow", "capture_failed"}
+        or type(stderr_bytes) is not int
+        or stderr_bytes < 0
+        or not isinstance(stderr_sha, str)
+        or re.fullmatch(r"[0-9a-f]{64}", stderr_sha) is None
+        or type(overflow) is not bool
+        or type(capture_failed) is not bool
+    ):
+        return False
+    if overflow is not (stderr_bytes > _MAX_SERVER_STDERR_BYTES):
+        return False
+    return (stage == "stderr") is (overflow or capture_failed)
 
 
 class _BoundedStderrCapture:
