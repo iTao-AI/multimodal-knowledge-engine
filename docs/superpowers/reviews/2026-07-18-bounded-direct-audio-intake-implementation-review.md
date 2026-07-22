@@ -1,11 +1,12 @@
 # Bounded Direct-Audio Intake Implementation Review
 
-Status: **TARGETED AUTHORITY RE-REVIEW PENDING**
+Status: **CLEAN / ACCEPTED**
 
 This record captures the approved PR C entry-gate reconciliation, the returned implementation
-review result, and a later bounded install-projection repair awaiting targeted authority re-review.
-The earlier Task 10 Step 6 acceptance remains recorded, but the pending repair does not clear a
-fresh Step 8, real-ASR, release, redistribution, production-readiness, or deployment gate.
+review result, and the accepted bounded install-projection repair. The earlier Task 10 Step 6
+acceptance remains recorded. The later targeted acceptance clears only the gate to begin a fresh
+Step 8; it does not complete Steps 8-10 or authorize real-ASR, release, redistribution,
+production-readiness, or deployment activity.
 
 ## Frozen v1 Downstream Authority
 
@@ -350,7 +351,7 @@ does not establish external binary redistribution, production, SLA, release, or 
 authority. All Step 8 material predating the acceptance commit that records this result remains
 historical and cannot serve as final authority.
 
-## Locked-Root Install Projection Repair Pending Review
+## Locked-Root Install Projection Repair Accepted
 
 A later authorized Step 9 execution completed its repository pre-gates and then invoked the real
 deployment controller once. It failed closed at `pip-install-3.12` with the unchanged public
@@ -385,20 +386,34 @@ and 3.13, exactly 54 lines, 5,819 bytes, and SHA-256
 `e653870bfb252d22309bbe6b66bf7790bd89d167e41094dd5a358a20f876aebf` without running pip or the
 deployment controller.
 
-The repair is `TARGETED AUTHORITY RE-REVIEW PENDING`. The failed Step 9 evidence is historical only;
-it does not authorize reuse of its wheel, binding, authorization, or aggregate as final authority.
-The real deployment-controller invocation count is three and retry count is two. No fourth
-controller invocation, manual pip lane, model load, ASR, provider, product path, download, release,
-or deployment occurred during this repair.
+Career targeted actual-diff re-review covered
+`91993c658a81a9a1afb1bef4b3499731bfb9fb22..2f8af9eb481e7852337dae272ce4646beeec6434`
+at reviewed HEAD `2f8af9eb481e7852337dae272ce4646beeec6434`. The verdict was `CLEAN`, with no
+Critical, Important, or Minor finding. Independent review confirmed the exact four-file scope; the
+reuse of PR A `_candidate_wheel_authority()` without a second resolver; exact 54-line, 5,819-byte
+roots with SHA-256 `e653870bfb252d22309bbe6b66bf7790bd89d167e41094dd5a358a20f876aebf`
+for both interpreter cells; fixed-hash `mcp==1.28.1` and the unique candidate wheel; exact staged
+root validation before and after pip; preservation of `--require-hashes`, `--no-index`,
+`--only-binary=:all:`, constraints, isolated configuration, and dependency installation; and an
+unchanged serialized `mke.direct_audio_terminal_authorization.v1` schema. The fresh targeted
+12-test slice, Ruff, canonical full Pyright, and `git diff --check` passed.
+
+The repair is `CLEAN / ACCEPTED`. This acceptance clears only the gate to begin a fresh Step 8;
+Steps 8-10 remain incomplete. Every earlier Step 8 artifact and the failed Step 9 wheel,
+authorization, repository observations, public aggregate, and bounded install diagnostic remain
+historical evidence and cannot be reused as final authority. The real deployment-controller
+invocation count remains three and retry count remains two. This acceptance does not authorize a
+fourth controller invocation, a Step 8 build, authorization-only execution, manual pip replay,
+model load, ASR, provider or product-path execution, downloads, push, PR, merge, release, or
+deployment.
 
 ## Next Gate And Non-Claims
 
-The next gate is Career targeted actual-diff re-review of the locked-root projection repair. Step 8
-remains incomplete and blocked until that review returns. This record does
-not claim that a post-repair final wheel was rebuilt, authorization-only validation was rerun, real
-ASR, model, or provider execution occurred, external inputs were acquired, packages or native
-binaries may be redistributed, or any push, PR, merge, release, deployment, production readiness,
-accuracy, SLA, or cross-platform authority exists. The historical deployment-controller
+The next incomplete gate is a fresh Step 8, which requires separate execution authority. This
+record does not claim that a post-repair final wheel was rebuilt, authorization-only validation was
+rerun, real ASR, model, or provider execution occurred, external inputs were acquired, packages or
+native binaries may be redistributed, or any push, PR, merge, release, deployment, production
+readiness, accuracy, SLA, or cross-platform authority exists. The historical deployment-controller
 invocations failed before real ASR; the latest stable step was `pip-install-3.12`. Those failures
 are not model, ASR, provider, or product success. This record does not claim release,
 redistribution authority, production readiness, SLA, deployment, or retry success. The current
