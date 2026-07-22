@@ -15,7 +15,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
-_MAX_FILE_BYTES = 16 * 1024 * 1024
+_MAX_FILE_BYTES = 64 * 1024 * 1024
 _READ_BYTES = 64 * 1024
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _IDENTIFIER = {

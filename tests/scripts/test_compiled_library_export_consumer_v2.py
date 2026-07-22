@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import shutil
 import subprocess
@@ -20,6 +21,7 @@ from mke.domain import (
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/compiled_library_export_consumer_v2.py"
 V1_SCRIPT = ROOT / "scripts/compiled_library_export_consumer.py"
+_MIB = 1024 * 1024
 
 
 def _canonical(value: object) -> bytes:
@@ -99,6 +101,46 @@ def _tree(tmp_path: Path) -> tuple[Path, dict[str, Path]]:
     }
 
 
+def _large_tree(tmp_path: Path) -> Path:
+    raw, source = _source(tmp_path, "4", "audio/mpeg")
+    del raw
+    evidence = tuple(
+        CompiledEvidenceSnapshot(
+            evidence_id=f"ev_{index:032x}",
+            source_id=source.source_id,
+            content_fingerprint=source.content_fingerprint,
+            publication_id=source.publication_id,
+            publication_revision=source.publication_revision,
+            run_id=source.run_id,
+            locator_kind="timestamp_ms",
+            locator_start=index * 1_000,
+            locator_end=(index + 1) * 1_000,
+            text=("x" * 950_000) + str(index),
+        )
+        for index in range(18)
+    )
+    large_source = CompiledSourceSnapshotV2(
+        source_id=source.source_id,
+        display_name=source.display_name,
+        content_fingerprint=source.content_fingerprint,
+        media_type=source.media_type,
+        publication_id=source.publication_id,
+        publication_revision=source.publication_revision,
+        run_id=source.run_id,
+        extractor_fingerprint=source.extractor_fingerprint,
+        required_stages=source.required_stages,
+        evidence=evidence,
+    )
+    snapshot = CompiledLibrarySnapshotV2(
+        observation=ActivePublicationObservation("local", "active", 1, 1, len(evidence)),
+        sources=(large_source,),
+    )
+    publish_compiled_library(
+        snapshot, format_version="v2", output_name="large-export", parent=tmp_path
+    )
+    return tmp_path / "large-export"
+
+
 def _run(script: Path, export: Path) -> subprocess.CompletedProcess[str]:
     arguments = [sys.executable, str(script), "--export", str(export)]
     arguments.append("--json")
@@ -136,6 +178,47 @@ def test_v2_consumer_accepts_complete_portable_pdf_video_audio_tree(
         "evidence_schema": "mke.evidence_ref.v1",
     }
     assert result.stderr == ""
+
+
+def test_v2_consumer_accepts_producer_file_above_16_mib_within_64_mib(
+    tmp_path: Path,
+) -> None:
+    export = _large_tree(tmp_path)
+    evidence_path = next((export / "evidence").iterdir())
+    assert 16 * _MIB < evidence_path.stat().st_size <= 64 * _MIB
+
+    result = _run(SCRIPT, export)
+
+    assert result.returncode == 0
+    assert json.loads(result.stdout)["status"] == "passed"
+
+
+def test_v2_consumer_descriptor_and_stat_size_bounds_are_64_mib(
+    tmp_path: Path,
+) -> None:
+    spec = importlib.util.spec_from_file_location("compiled_consumer_v2", SCRIPT)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    descriptor_path = tmp_path / "descriptor.bin"
+    descriptor_path.write_bytes(b"x" * 17)
+    descriptor = descriptor_path.open("rb")
+    try:
+        assert module._read_descriptor(descriptor.fileno(), maximum=16)  # pyright: ignore[reportUnknownMemberType,reportPrivateUsage]
+    except module.ValidationError:  # pyright: ignore[reportUnknownMemberType]
+        pass
+    else:
+        raise AssertionError("descriptor read must reject maximum + 1 bytes")
+    finally:
+        descriptor.close()
+
+    export, _sources = _tree(tmp_path / "oversized")
+    evidence_path = next((export / "evidence").iterdir())
+    with evidence_path.open("r+b") as stream:
+        stream.truncate(64 * _MIB + 1)
+
+    _assert_failure(_run(SCRIPT, export), tmp_path)
 
 
 def test_v1_and_v2_consumers_do_not_cross_consume(tmp_path: Path) -> None:
