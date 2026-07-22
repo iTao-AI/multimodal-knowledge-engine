@@ -1,36 +1,38 @@
 # Direct-audio dependency and license evidence
 
 This reference records the bounded PR A feasibility proof for local optional dependencies and the
-three repository-distributed synthetic audio fixtures. The PR A receipt itself does not prove the
-separately documented PR C product candidate, and it does not authorize redistribution of external
-wheels or native binaries.
+three repository-distributed synthetic audio fixtures. The refreshed receipt binds the PR C
+candidate wheel only as a dependency-installation input; it does not prove candidate product
+behavior, and it does not authorize redistribution of external wheels or native binaries.
 
 ## Canonical receipt
 
 - Schema: `mke.direct_audio_dependency_receipt.v1`
 - Receipt: `benchmarks/audio/dependency-artifacts.json`
 - Canonical payload SHA-256 (`receipt_sha256`):
-  `492aecb71aa87ff9ab7cc49b2153f7df989cd5124eae961ab8824a8b8121f11d`
+  `ea862aea598470e1762cd5da8f579c6fa5d1a764ed6b1cc353aeeb56ab73b3a5`
 - Committed file SHA-256:
-  `1efc5a7858ad75f9bd14f707c43ef5cb2736ed0fabf30f6d87c311fceee75adf`
-- Locked wheel inventory: 60 unique files and 106 cell-specific resolutions
+  `a36a1fc3b6ba9a07b249f27455114aea5ba5fb3718e716911a75e16132ddcc3f`
+- Wheel inventory: 60 locked external files plus one candidate MKE wheel, with 108 cell-specific
+  resolutions
 - Constraints SHA-256:
   `4379a58870a10077587ba55b4d01669fca580301223d19a2f31307eefd395b08`
 - Full hashed cell requirements SHA-256:
-  `d60eb0f2f61c8d450304477817fafaf3887b7ac549acb07932887a19a9a834ce`
+  `e653870bfb252d22309bbe6b66bf7790bd89d167e41094dd5a358a20f876aebf`
 - Wheelhouse manifest SHA-256:
-  `04960db80c29a372f7d29028cf4a9f646845df0c207ca39b1eb618b232624d06`
+  `de0361b881ba936bb61c473df99f2a2b1f44fb02baefd56f027414587790c4a4`
 
 The wheel bytes were acquired only from the exact HTTPS artifact URLs and digests recorded in the
-locked external-distribution projection. The controller then used ordinary pip in exclusive
-call-owned environments with an empty inherited environment, `--no-index`, a validated local
-`--find-links`, binary-only selection, `--no-cache-dir`, `--require-hashes`, and the accepted
-constraints. Both cells report `pip_install=passed`, `pip_check=passed`, and complete cleanup.
+locked external-distribution projection. The candidate wheel was the separately bound local PR C
+input. The controller then used ordinary pip in exclusive call-owned environments with an empty
+inherited environment, `--no-index`, a validated local `--find-links`, binary-only selection,
+`--no-cache-dir`, `--require-hashes`, and the accepted constraints. Both cells report
+`pip_install=passed`, `pip_check=passed`, and complete cleanup.
 
 The controller was executed through the fixed
 `mke.fixed_stdlib_descriptor_bootstrap.v1` bootstrap. The bootstrap descriptor-read, hashed,
 compiled, and executed the same controller bytes, then bound controller SHA-256
-`7e029d9edd7ac78e3a9477d3071781765a5d6d98808456d8335332bca1e10f4a` into the receipt.
+`55b5618f5cf7079d872026b8348e7548e97161651486bc69b86e9301389139fb` into the receipt.
 The read-only `--validate-receipt` lane validates canonical JSON, schema, self-digest, controller
 identity, and all static cross-bindings without replaying retained wheels or installed runtimes.
 Its result therefore states `retained_runtime_replay=not_performed`; the separate generation run
@@ -40,8 +42,8 @@ is the retained-input and runtime replay authority.
 
 | Cell | CPython | Executable SHA-256 | Installed distributions | Required imports | Fixture decodes |
 |---|---|---|---:|---:|---:|
-| 3.12 | 3.12.13, `cp312`, Darwin arm64 | `e2605291e058fdbe3102e8185d0ac5fe0e063398de617010a6af3a42a78f05e3` | 53 | 3 passed | 3 passed |
-| 3.13 | 3.13.13, `cp313`, Darwin arm64 | `3237648c5222017bba78737370570e4c9d5a01e552cdf2fa11f107c8d00fc06e` | 53 | 3 passed | 3 passed |
+| 3.12 | 3.12.13, `cp312`, Darwin arm64 | `e2605291e058fdbe3102e8185d0ac5fe0e063398de617010a6af3a42a78f05e3` | 54 | 3 passed | 3 passed |
+| 3.13 | 3.13.13, `cp313`, Darwin arm64 | `3237648c5222017bba78737370570e4c9d5a01e552cdf2fa11f107c8d00fc06e` | 54 | 3 passed | 3 passed |
 
 The required imports were PyAV 17.1.0, faster-whisper 1.2.1, and huggingface-hub 1.21.0. No model
 was downloaded or loaded, and no speech recognition was run. Each cell decoded the MP3, WAV, and
@@ -112,12 +114,13 @@ asset distribution requires a separate complete binary redistribution and legal 
 
 ## PR C installed-wheel binding
 
-PR C validates this refreshed external receipt before its authorization-only and terminal
-installed-wheel controller paths. The refresh closes the candidate wheel's complete active locked
+PR C validates this refreshed receipt before its authorization-only and terminal installed-wheel
+controller paths. The refresh closes and installs the candidate wheel's complete active locked
 dependency graph for the two declared cells; it does not turn the dependency receipt into candidate
-product or real-ASR evidence. The controller separately binds the candidate MKE wheel, the accepted
-constraints and wheelhouse-manifest digests, exact prepared model tree, two interpreter identities,
-fixtures, Export v2 consumer, and the owner-selected `baseline_plus` supervision pair.
+product or real-ASR evidence. The deployment controller independently rebinds the candidate MKE
+wheel, external wheelhouse manifest, accepted constraints, exact prepared model tree, two
+interpreter identities, fixtures, Export v2 consumer, and the owner-selected `baseline_plus`
+supervision pair.
 
 The PR A literals remain `external_binary_redistribution=not_performed` and
 `redistribution_authority=not_claimed`. Package metadata is not redistribution authority. Any

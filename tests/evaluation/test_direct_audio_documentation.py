@@ -368,7 +368,8 @@ def test_proof_and_dependency_docs_preserve_authority_and_non_claims() -> None:
         "external_binary_redistribution=not_performed",
         "redistribution_authority=not_claimed",
         "future bundling or release redistribution requires separate legal review",
-        "does not refresh the PR A receipt",
+        "dependency-installation input",
+        "does not turn the dependency receipt into candidate product or real-ASR evidence",
     ):
         assert term in evidence
 
