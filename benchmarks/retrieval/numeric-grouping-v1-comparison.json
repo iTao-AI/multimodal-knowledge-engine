@@ -3,7 +3,7 @@
   "protocol": {
     "id": "retrieval-numeric-v1",
     "path": "tests/fixtures/retrieval-numeric-v1/protocol-lock.json",
-    "sha256": "9907b99a4363ebaa357c215994087f4b3c8840707375f1ccd8e59f3c7ad9d441"
+    "sha256": "89b68eddd36ef3d72085b8ed3b59d92b6b4749d04db2a6a5b5ff1932c1b84bd2"
   },
   "manifests": {
     "development": {
@@ -41,7 +41,7 @@
     "revision": 1
   },
   "source": {
-    "sha256": "1109c813ca36f9977dee409eb40ff7c84a276c28ddaaccc7e421d89a21f22e2f",
+    "sha256": "19510cff2c907778fb429be612de4ca75aa8ca92bf37fdf474e9ffda34f3c5a7",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -50,8 +50,8 @@
       },
       {
         "path": "src/mke/adapters/audio/__init__.py",
-        "bytes": 9973,
-        "sha256": "64a51308098066b42cc03dceded5b164e818b746ed10b5bf681e35733dfe5f7f"
+        "bytes": 11210,
+        "sha256": "3f41112468bb6f8e6d24a142d05082adbbd36129b08c44f5720f7a2887b659cb"
       },
       {
         "path": "src/mke/adapters/audio/contracts.py",
@@ -70,8 +70,8 @@
       },
       {
         "path": "src/mke/adapters/audio/inspection_cli.py",
-        "bytes": 7701,
-        "sha256": "bea6cd37bf19bfa76a5d3ec7176109409538ad3f9eb7512f59494a4d54cbe18f"
+        "bytes": 7936,
+        "sha256": "7830a860603793faafa957feef3a3f718cc87eef4421a3d32ab2b9bc916d75fc"
       },
       {
         "path": "src/mke/adapters/audio/schema.py",
@@ -95,8 +95,8 @@
       },
       {
         "path": "src/mke/adapters/filesystem/library_export.py",
-        "bytes": 20536,
-        "sha256": "663075398b5580a22033d98776583ccce40981ee423b5f338509d3227830ec3b"
+        "bytes": 21129,
+        "sha256": "a3a5cd4df045697fe523e2ce65dc455250aa41f82c1e7b506e0f574b5fefe11c"
       },
       {
         "path": "src/mke/adapters/pdf/__init__.py",
@@ -110,8 +110,8 @@
       },
       {
         "path": "src/mke/adapters/sqlite/__init__.py",
-        "bytes": 64611,
-        "sha256": "919535909f9ec0c20ea6a507067b927efefa70c63bdb77ea19bd126e8cfbb8e1"
+        "bytes": 68941,
+        "sha256": "dc8e31f71e3c143d86d0c17d86882b63476c5bc9f6e0b9575d8fd59555a4a052"
       },
       {
         "path": "src/mke/adapters/vector/__init__.py",
@@ -175,28 +175,28 @@
       },
       {
         "path": "src/mke/application/__init__.py",
-        "bytes": 21992,
-        "sha256": "ca940547a7520b040d46bd85abf02685900dc610f38212a65c1caeb9106499b3"
+        "bytes": 38431,
+        "sha256": "fe02a9bc8823fc1c1c4432f13f5e60f076c78d817160f486f35366b57e2ae909"
       },
       {
         "path": "src/mke/application/library_export.py",
-        "bytes": 8171,
-        "sha256": "cf8c6ac820b92b00e706b2a917bbbdf104e444694e717b81909707f7e91e890e"
+        "bytes": 9465,
+        "sha256": "9eababbaa776be96785e651dc15638ae26717c2d90727c59261674cf92f5c83e"
       },
       {
         "path": "src/mke/cli.py",
-        "bytes": 72903,
-        "sha256": "d02505e4bd00e1cf5be95a12dbd091c63972e1fa2753a035ab811a24033c59fb"
+        "bytes": 76730,
+        "sha256": "2c09f19a079ece545e8087ed1484e62e4965f27ff537ee31b3a1f6f8e3f82608"
       },
       {
         "path": "src/mke/domain/__init__.py",
-        "bytes": 19894,
-        "sha256": "966310ec778d4940889817e0282834e7f898f39e4d864475686dc6064469fb0f"
+        "bytes": 20066,
+        "sha256": "fc729fcf6e326ffec3ab10dfe2078b21d7107b0d81cc5a9f6a24add24065f5c0"
       },
       {
         "path": "src/mke/domain/library_export.py",
-        "bytes": 8899,
-        "sha256": "2d6758e54f516f382899cb317f5b807ee4eb2621f26bda07b1bee68d2358dab6"
+        "bytes": 14633,
+        "sha256": "f0064cee036b2084e470e89e17271597740ef1440c9d43b5fd71e31ad877351e"
       },
       {
         "path": "src/mke/embeddings/__init__.py",
@@ -434,14 +434,24 @@
         "sha256": "d9fa04c3715bae8e02f008cefe27678b945bfe2ea828a786868025c04ad5a7cc"
       },
       {
+        "path": "src/mke/interfaces/audio_errors.py",
+        "bytes": 1101,
+        "sha256": "3753fd1f2c2e29245f6b0991b55815abc7d407848b1d84ebd97e036ba84f462c"
+      },
+      {
+        "path": "src/mke/interfaces/input_authority.py",
+        "bytes": 11226,
+        "sha256": "0b8669ec7ea12d944bea29b1bb0aa8038ed20b99f38f4224822bf03859be5830"
+      },
+      {
         "path": "src/mke/interfaces/library_export.py",
-        "bytes": 6979,
-        "sha256": "323c7bdc3d508ff419d9b4ad321416e65e59fc246dc1c9c3be2af95719853519"
+        "bytes": 9889,
+        "sha256": "5974eb1ceffdec7ad748cb43c9d257a53bbea49c3cc8e5f159aac9c74cf2af4f"
       },
       {
         "path": "src/mke/interfaces/mcp_contract.py",
-        "bytes": 15772,
-        "sha256": "812b78c9c97473d4689ad4c8f4b6ac246455f9a8908592e20d21b3b1dfadce75"
+        "bytes": 17061,
+        "sha256": "22235b4f0d3892a7f900522c2054aef6c6effb8114664b8c3bf67868aa1e1b2a"
       },
       {
         "path": "src/mke/interfaces/mcp_schemas.py",
@@ -450,18 +460,23 @@
       },
       {
         "path": "src/mke/interfaces/mcp_server.py",
-        "bytes": 7559,
-        "sha256": "09be8a3e2ad19ff9cc978ee65f9b31039e2f04e70be78d2ab418d07d0509f796"
+        "bytes": 7575,
+        "sha256": "3fc08db6f9be1102d95068d037665db132439dd50535b8560bf85d228e6e6014"
       },
       {
         "path": "src/mke/interfaces/public_errors.py",
-        "bytes": 6330,
-        "sha256": "d2f5aeaaee0fb2fefd72d77992898f7af498d15f55ab0db38f40bda47af4096f"
+        "bytes": 6432,
+        "sha256": "18fec66fd50ed63c65bac90716bead8050d0c26752cdb950069dd7f6cc828a18"
       },
       {
         "path": "src/mke/proof/__init__.py",
-        "bytes": 1152,
-        "sha256": "389b14a19e2bec0abc606597a9a74eab908b1dc23b295ce56ca937b4b2d6f19c"
+        "bytes": 1585,
+        "sha256": "9145eee1d8d0572e7877a35a17c262d27a56e75fe4d81f51b0d9a76889de5852"
+      },
+      {
+        "path": "src/mke/proof/direct_audio.py",
+        "bytes": 36291,
+        "sha256": "07cd1997f13f353b7aeca998779a5e25c357f0b0cc8376e51f0a9476e5b9d145"
       },
       {
         "path": "src/mke/proof/evidence_provenance.py",
@@ -480,8 +495,8 @@
       },
       {
         "path": "src/mke/proof/mcp_deployment_client.py",
-        "bytes": 12068,
-        "sha256": "ae8617801a97492f0d7c259ea60ac703f0a3806a6bb2a267afe672b3e053d035"
+        "bytes": 18108,
+        "sha256": "7243c5643a22ba979015eb59f066ab16ad6ebad0702fcdbbf7f6d5792922d0d8"
       },
       {
         "path": "src/mke/proof/report.py",
@@ -525,8 +540,8 @@
       },
       {
         "path": "src/mke/runtime.py",
-        "bytes": 10351,
-        "sha256": "b49228da2b0db34b99dc2849625e5d4353c8fd1fdeafe472138c61b7cb61c0d4"
+        "bytes": 14534,
+        "sha256": "dc8eb5c6f811c52b68b2970f1f94ff7306b6070a6511f18b7ada657947886719"
       },
       {
         "path": "src/mke/runtime_owner.py",

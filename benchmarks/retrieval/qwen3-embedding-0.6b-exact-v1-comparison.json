@@ -10,11 +10,11 @@
     "arms": [
       {
         "arm_id": "e3a-historical-fts5-baseline",
-        "semantic_digest": "43cada2424de9af4d1ffb76b9f5c65c1137e2cc01db9127a095fdfe13ca9fa57"
+        "semantic_digest": "0a712585f00f62473b5fe5643d66a2dad465fc579e1090684659f0eaec33e1fc"
       },
       {
         "arm_id": "cjk-trigram-overlap-v1",
-        "semantic_digest": "458cf3cee243df7db5cc7fc0ce4083419d0b63da52a48b5d705118c5e4f5e6c7"
+        "semantic_digest": "9a3d7c58e52db5351f895fa7fe5463b66346dfed355b4a3f6794aafe189558e2"
       },
       {
         "arm_id": "cjk-active-scan-overlap-v1",
@@ -4339,14 +4339,14 @@
   },
   "historical_arms": {
     "e3a": {
-      "bytes": 119036,
+      "bytes": 119575,
       "path": "benchmarks/retrieval/retrieval-chinese-v1-baseline.json",
-      "sha256": "43cada2424de9af4d1ffb76b9f5c65c1137e2cc01db9127a095fdfe13ca9fa57"
+      "sha256": "0a712585f00f62473b5fe5643d66a2dad465fc579e1090684659f0eaec33e1fc"
     },
     "e3b": {
       "bytes": 196145,
       "path": "benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json",
-      "sha256": "458cf3cee243df7db5cc7fc0ce4083419d0b63da52a48b5d705118c5e4f5e6c7"
+      "sha256": "9a3d7c58e52db5351f895fa7fe5463b66346dfed355b4a3f6794aafe189558e2"
     }
   },
   "holdout_candidate": {
@@ -9493,7 +9493,7 @@
   "protocol": {
     "bytes": 5127,
     "path": "tests/fixtures/retrieval-dense-v1/protocol-lock.json",
-    "sha256": "74a0b2b0c92f610fe98f12f837935052f7946661d4df01d9b60e1808a654e15b"
+    "sha256": "e4b6eb93cc51d772d074696ff6cfcc6ef1e17b9b79b990c6b0f6fd8e6fe8b23c"
   },
   "schema_version": "mke.dense_comparison_artifact.v1",
   "source": {
@@ -9509,14 +9509,14 @@
         "sha256": "31be8fe6302a844634306eea2ec6e891540e8006e45ece9f8cd6db7b53d308a1"
       },
       {
-        "bytes": 11134,
+        "bytes": 11941,
         "path": ".github/workflows/ci.yml",
-        "sha256": "14b06a90362be23ed65f84a0eef98d2974e40cd01580b8c777786e49e6942215"
+        "sha256": "3cd9e4a11e9a27ce48639bdd34f07f8b6e8405e15bb5dfc64fde2ecfde0f9b17"
       },
       {
-        "bytes": 72903,
+        "bytes": 76730,
         "path": "src/mke/cli.py",
-        "sha256": "d02505e4bd00e1cf5be95a12dbd091c63972e1fa2753a035ab811a24033c59fb"
+        "sha256": "2c09f19a079ece545e8087ed1484e62e4965f27ff537ee31b3a1f6f8e3f82608"
       },
       {
         "bytes": 28723,
@@ -9564,11 +9564,11 @@
         "sha256": "1c838b1464be9426c67887bfe5e0ff082d5a81d0addaf6addb4e7b7317c3627b"
       }
     ],
-    "sha256": "sha256:dc547753313859a2286107e91c957ba0798aae437c17a60e0e6a349cebf6b6a5"
+    "sha256": "sha256:05076f9e964b868f4ca96e04651ee6c92a337b966533087da2633720a0bb3e27"
   },
   "state": {
-    "development_freeze_sha256": "7902294f2e3bdd168668be1e707f2704b46af38366ceebb06dd0835dde59e66d",
-    "holdout_receipt_sha256": "311463d6fe0092a97871bb469ab2cd6cfd9c9c823119e13bc80202480c1f1596"
+    "development_freeze_sha256": "89dce04c8e6d937ad0faeca7a016a30646ca403a4c66ce1d47f0e21e8b955c7d",
+    "holdout_receipt_sha256": "267f1e7edc0cff8af71f65e68364cf8b01604f4cd351c87f4325ac391be46892"
   },
   "threshold_report": {
     "candidate_status": "not_evaluated",

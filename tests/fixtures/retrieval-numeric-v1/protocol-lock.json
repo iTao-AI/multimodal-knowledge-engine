@@ -96,7 +96,7 @@
       },
       {
         "path": "src/mke/adapters/sqlite/__init__.py",
-        "sha256": "919535909f9ec0c20ea6a507067b927efefa70c63bdb77ea19bd126e8cfbb8e1"
+        "sha256": "dc8e31f71e3c143d86d0c17d86882b63476c5bc9f6e0b9575d8fd59555a4a052"
       },
       {
         "path": "src/mke/adapters/video/__init__.py",
@@ -104,7 +104,7 @@
       },
       {
         "path": "src/mke/application/__init__.py",
-        "sha256": "ca940547a7520b040d46bd85abf02685900dc610f38212a65c1caeb9106499b3"
+        "sha256": "fe02a9bc8823fc1c1c4432f13f5e60f076c78d817160f486f35366b57e2ae909"
       },
       {
         "path": "src/mke/evaluation/runner.py",
