@@ -45,6 +45,24 @@ _PROVIDER_TIMEOUT_SECONDS = 900.0
 _MAX_STDOUT_BYTES = 2 * 1024 * 1024
 _MAX_STDERR_BYTES = 512 * 1024
 _MAX_INSTALL_DIAGNOSTIC_TEXT_BYTES = 64 * 1024
+_MAX_MCP_DIAGNOSTIC_BYTES = 4096
+_MAX_MCP_SERVER_STDERR_BYTES = 256 * 1024
+_MCP_DIAGNOSTIC_STAGES = frozenset(
+    {
+        "startup",
+        "schema",
+        "ingest",
+        "get_run",
+        "search",
+        "ask",
+        "portable_search",
+        "portable_ask",
+        "shutdown",
+        "flow_validation",
+        "portable_validation",
+        "stderr",
+    }
+)
 _INSTALL_DIAGNOSTIC_STEPS = frozenset(
     {
         "pip-install-3.12",
@@ -239,6 +257,7 @@ class DirectAudioProofConfig:
     direct_audio_footprint_budget_mode: Literal["baseline_plus"]
     provider_timeout_seconds: float = _PROVIDER_TIMEOUT_SECONDS
     install_diagnostic: Path | None = None
+    mcp_diagnostic: Path | None = None
 
     def __post_init__(self) -> None:
         if len(self.interpreters) != 2:
@@ -998,6 +1017,14 @@ def _clean_environment(root: Path) -> dict[str, str]:
         "PIP_CONFIG_FILE": os.devnull,
         "HF_HUB_OFFLINE": "1",
         "TRANSFORMERS_OFFLINE": "1",
+        "UV_OFFLINE": "1",
+        "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+        "LANG": "C",
+        "LC_ALL": "C",
+        "LOGNAME": "",
+        "SHELL": "",
+        "TERM": "dumb",
+        "USER": "",
     }
 
 
@@ -1025,6 +1052,89 @@ def _run_ok(runner: CommandRunner, call: CommandCall, code: str) -> None:
     result = runner.run(call)
     if result.returncode != 0:
         raise DirectAudioDeploymentProofError(code)
+
+
+def _validate_mcp_diagnostic(path: Path) -> dict[str, object]:
+    try:
+        observed = path.lstat()
+        if (
+            not stat.S_ISREG(observed.st_mode)
+            or observed.st_nlink != 1
+            or stat.S_IMODE(observed.st_mode) != 0o600
+        ):
+            raise DirectAudioDeploymentProofError("mcp_failed")
+        value = _read_regular(path)
+        if len(value) > _MAX_MCP_DIAGNOSTIC_BYTES:
+            raise DirectAudioDeploymentProofError("mcp_failed")
+        payload = json.loads(value.decode("ascii", errors="strict"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise DirectAudioDeploymentProofError("mcp_failed") from error
+    if not isinstance(payload, dict):
+        raise DirectAudioDeploymentProofError("mcp_failed")
+    diagnostic = cast(dict[str, object], payload)
+    if (
+        set(diagnostic)
+        != {"schema_version", "status", "failure", "stage", "stderr"}
+        or diagnostic.get("schema_version") != "mke.mcp_deployment_diagnostic.v1"
+        or diagnostic.get("status") != "failed"
+        or diagnostic.get("failure") != "mcp_deployment_failed"
+        or diagnostic.get("stage") not in _MCP_DIAGNOSTIC_STAGES
+    ):
+        raise DirectAudioDeploymentProofError("mcp_failed")
+    raw_stderr = diagnostic.get("stderr")
+    if not isinstance(raw_stderr, dict):
+        raise DirectAudioDeploymentProofError("mcp_failed")
+    stderr = cast(dict[str, object], raw_stderr)
+    stderr_bytes = stderr.get("bytes")
+    stderr_sha = stderr.get("sha256")
+    overflow = stderr.get("overflow")
+    capture_failed = stderr.get("capture_failed")
+    if (
+        set(stderr) != {"bytes", "sha256", "overflow", "capture_failed"}
+        or type(stderr_bytes) is not int
+        or stderr_bytes < 0
+        or not isinstance(stderr_sha, str)
+        or _DIGEST_RE.fullmatch(stderr_sha) is None
+        or type(overflow) is not bool
+        or type(capture_failed) is not bool
+        or (
+            overflow is False
+            and stderr_bytes > _MAX_MCP_SERVER_STDERR_BYTES
+        )
+    ):
+        raise DirectAudioDeploymentProofError("mcp_failed")
+    return diagnostic
+
+
+def _run_mcp_gate(
+    runner: CommandRunner,
+    call: CommandCall,
+    diagnostic: Path | None,
+) -> dict[str, object]:
+    if call.step != "mcp-m4a" or diagnostic is None:
+        raise DirectAudioDeploymentProofError("mcp_failed")
+    try:
+        diagnostic.lstat()
+    except FileNotFoundError:
+        pass
+    except OSError as error:
+        raise DirectAudioDeploymentProofError("mcp_failed") from error
+    else:
+        raise DirectAudioDeploymentProofError("mcp_failed")
+    result = runner.run(call)
+    if result.returncode == 0 and not result.stderr:
+        try:
+            diagnostic.lstat()
+        except FileNotFoundError:
+            return _json_result(result, "mcp_failed")
+        except OSError as error:
+            raise DirectAudioDeploymentProofError("mcp_failed") from error
+        raise DirectAudioDeploymentProofError("mcp_failed")
+    try:
+        _validate_mcp_diagnostic(diagnostic)
+    except DirectAudioDeploymentProofError as error:
+        raise DirectAudioDeploymentProofError("mcp_failed") from error
+    raise DirectAudioDeploymentProofError("mcp_failed")
 
 
 def _utf8_preview(value: bytes) -> tuple[str, bool]:
@@ -1379,6 +1489,8 @@ def _product_call(
     config: DirectAudioProofConfig,
 ) -> CommandCall:
     if lane == "mcp":
+        if config.mcp_diagnostic is None:
+            raise DirectAudioDeploymentProofError("mcp_failed")
         fixture_fingerprint = "sha256:" + _sha256(_read_regular(fixture))
         argv = (
             str(python),
@@ -1394,6 +1506,10 @@ def _product_call(
             str(db),
             "--allowed-root",
             str(fixture.parent),
+            "--child-cwd",
+            str(root),
+            "--diagnostic",
+            str(config.mcp_diagnostic),
             "--model-revision",
             DEFAULT_MODEL_REVISION,
             "--model-cache",
@@ -1952,7 +2068,7 @@ def _run_direct_audio_deployment_proof_impl(
                 )
             if any(len(values) != 1 for values in semantic_groups.values()):
                 raise DirectAudioDeploymentProofError("product_path_failed")
-            mcp = _run_json(
+            mcp = _run_mcp_gate(
                 runner,
                 _product_call(
                     lane="mcp",
@@ -1965,7 +2081,7 @@ def _run_direct_audio_deployment_proof_impl(
                     env=env,
                     config=config,
                 ),
-                "mcp_failed",
+                config.mcp_diagnostic,
             )
             try:
                 validate_product_result(mcp, fixture="m4a")
@@ -2117,6 +2233,8 @@ def run_direct_audio_deployment_proof(
     config: DirectAudioProofConfig,
 ) -> dict[str, object]:
     """Run the canonical terminal proof with no injectable authority seams."""
+    if config.mcp_diagnostic is None:
+        raise DirectAudioDeploymentProofError("mcp_failed")
     authorization = _validate_inputs(config)
     interpreter_snapshots = _bound_interpreter_snapshots(config, authorization)
     runner = _RealRunner(config)
@@ -2170,6 +2288,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--receipt", type=Path)
     parser.add_argument("--install-diagnostic", type=Path)
+    parser.add_argument("--mcp-diagnostic", type=Path)
     parser.add_argument("--authorization-only", action="store_true")
     parser.add_argument("--json", action="store_true")
     return parser
@@ -2225,6 +2344,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             direct_audio_footprint_bytes=args.direct_audio_footprint_bytes,
             direct_audio_footprint_budget_mode=args.direct_audio_footprint_budget_mode,
             install_diagnostic=args.install_diagnostic,
+            mcp_diagnostic=args.mcp_diagnostic,
         )
         report = (
             build_direct_audio_authorization_manifest(config)

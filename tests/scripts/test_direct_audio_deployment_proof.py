@@ -69,6 +69,7 @@ def _config(tmp_path: Path) -> proof.DirectAudioProofConfig:
         fixture_root=fixture_root,
         direct_audio_footprint_bytes=4096,
         direct_audio_footprint_budget_mode="baseline_plus",
+        mcp_diagnostic=tmp_path / "mcp-diagnostic.json",
     )
 
 
@@ -716,6 +717,12 @@ def test_private_orchestration_freezes_two_cells_and_real_product_call_plan(
     assert "4096" in mcp.argv
     assert "--direct-audio-footprint-budget-mode" in mcp.argv
     assert "baseline_plus" in mcp.argv
+    assert "--child-cwd" in mcp.argv
+    assert str(mcp.cwd) in mcp.argv
+    assert "--diagnostic" in mcp.argv
+    assert str(config.mcp_diagnostic) in mcp.argv
+    assert mcp.env["UV_OFFLINE"] == "1"
+    assert mcp.env["PATH"] == "/usr/bin:/bin:/usr/sbin:/sbin"
     assert all("PYTHONPATH" not in call.env for call in runner.calls)
     pip_call = next(call for call in runner.calls if call.step == "pip-install-3.12")
     assert set(pip_call.env) == {"HOME", "PIP_CONFIG_FILE", "TMPDIR"}
@@ -1116,11 +1123,137 @@ def test_cli_install_diagnostic_keeps_public_failure_aggregate_exact(
             "--json",
         ]
     ) == 1
-    assert json.loads(capsys.readouterr().out) == {
+    output = capsys.readouterr().out
+    assert output == (
+        '{"canonical": false, "failure": "install_failed", '
+        '"schema_version": "mke.direct_audio_deployment_proof.v1", '
+        '"status": "failed"}\n'
+    )
+    assert json.loads(output) == {
         "schema_version": "mke.direct_audio_deployment_proof.v1",
         "status": "failed",
         "canonical": False,
         "failure": "install_failed",
+    }
+
+
+def _mcp_diagnostic_payload(*, stage: str = "search") -> dict[str, object]:
+    stderr = b"bounded server warning"
+    return {
+        "schema_version": "mke.mcp_deployment_diagnostic.v1",
+        "status": "failed",
+        "failure": "mcp_deployment_failed",
+        "stage": stage,
+        "stderr": {
+            "bytes": len(stderr),
+            "sha256": hashlib.sha256(stderr).hexdigest(),
+            "overflow": False,
+            "capture_failed": False,
+        },
+    }
+
+
+def test_mcp_gate_preserves_valid_bounded_operator_diagnostic(tmp_path: Path) -> None:
+    diagnostic = tmp_path / "mcp-diagnostic.json"
+
+    class FailedMcpRunner:
+        def run(self, call: proof.CommandCall) -> proof.CommandResult:
+            del call
+            diagnostic.write_text(
+                json.dumps(_mcp_diagnostic_payload(), sort_keys=True) + "\n",
+                encoding="ascii",
+            )
+            diagnostic.chmod(0o600)
+            return proof.CommandResult(
+                1,
+                b'{"status":"failed","reason":"mcp_deployment_failed"}\n',
+                b"",
+            )
+
+    with pytest.raises(proof.DirectAudioDeploymentProofError, match="^mcp_failed$"):
+        proof._run_mcp_gate(  # pyright: ignore[reportPrivateUsage]
+            FailedMcpRunner(),
+            proof.CommandCall("mcp-m4a", ("not-executed",), {}, tmp_path),
+            diagnostic,
+        )
+
+    assert json.loads(diagnostic.read_text(encoding="ascii")) == (
+        _mcp_diagnostic_payload()
+    )
+
+
+@pytest.mark.parametrize("diagnostic_state", ("missing", "malformed", "ambiguous"))
+def test_mcp_gate_fails_closed_when_diagnostic_is_not_valid(
+    tmp_path: Path,
+    diagnostic_state: str,
+) -> None:
+    diagnostic = tmp_path / "mcp-diagnostic.json"
+
+    class FailedMcpRunner:
+        def run(self, call: proof.CommandCall) -> proof.CommandResult:
+            del call
+            if diagnostic_state == "malformed":
+                diagnostic.write_bytes(b'{"stage":"/private/raw-secret"}\n')
+                diagnostic.chmod(0o600)
+            elif diagnostic_state == "ambiguous":
+                payload = _mcp_diagnostic_payload(stage="unknown")
+                diagnostic.write_text(json.dumps(payload) + "\n", encoding="ascii")
+                diagnostic.chmod(0o600)
+            return proof.CommandResult(1, b"{}", b"client stderr must stay private")
+
+    with pytest.raises(proof.DirectAudioDeploymentProofError, match="^mcp_failed$"):
+        proof._run_mcp_gate(  # pyright: ignore[reportPrivateUsage]
+            FailedMcpRunner(),
+            proof.CommandCall("mcp-m4a", ("not-executed",), {}, tmp_path),
+            diagnostic,
+        )
+
+
+def test_successful_mcp_gate_rejects_spurious_diagnostic(tmp_path: Path) -> None:
+    diagnostic = tmp_path / "mcp-diagnostic.json"
+    diagnostic.write_text(json.dumps(_mcp_diagnostic_payload()) + "\n", encoding="ascii")
+    diagnostic.chmod(0o600)
+
+    with pytest.raises(proof.DirectAudioDeploymentProofError, match="^mcp_failed$"):
+        proof._run_mcp_gate(  # pyright: ignore[reportPrivateUsage]
+            InstallGateRunner(proof.CommandResult(0, b'{"status":"passed"}', b"")),
+            proof.CommandCall("mcp-m4a", ("not-executed",), {}, tmp_path),
+            diagnostic,
+        )
+
+
+def test_cli_mcp_diagnostic_keeps_public_failure_aggregate_exact(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config = _config(tmp_path)
+
+    def fail(value: proof.DirectAudioProofConfig) -> dict[str, object]:
+        assert value.mcp_diagnostic == config.mcp_diagnostic
+        raise proof.DirectAudioDeploymentProofError("mcp_failed")
+
+    monkeypatch.setattr(proof, "run_direct_audio_deployment_proof", fail)
+
+    assert proof.main(
+        [
+            *_cli_args(config),
+            "--mcp-diagnostic",
+            str(config.mcp_diagnostic),
+            "--json",
+        ]
+    ) == 1
+    output = capsys.readouterr().out
+    assert output == (
+        '{"canonical": false, "failure": "mcp_failed", '
+        '"schema_version": "mke.direct_audio_deployment_proof.v1", '
+        '"status": "failed"}\n'
+    )
+    assert json.loads(output) == {
+        "schema_version": "mke.direct_audio_deployment_proof.v1",
+        "status": "failed",
+        "canonical": False,
+        "failure": "mcp_failed",
     }
 
 

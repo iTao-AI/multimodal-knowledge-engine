@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
+import os
 import re
+import stat
+import threading
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import timedelta
 from pathlib import Path
-from typing import cast
+from typing import Literal, TextIO, cast
 
 from mcp import ClientSession, StdioServerParameters, types
 from mcp.client.stdio import stdio_client
@@ -57,6 +61,139 @@ _REPORT_IDENTITY_FIELDS = (
     "detected_language",
     "model_source",
 )
+_MAX_SERVER_STDERR_BYTES = 256 * 1024
+_MCP_FAILURE_STAGES = frozenset(
+    {
+        "startup",
+        "schema",
+        "ingest",
+        "get_run",
+        "search",
+        "ask",
+        "portable_search",
+        "portable_ask",
+        "shutdown",
+        "flow_validation",
+        "portable_validation",
+        "stderr",
+    }
+)
+McpFailureStage = Literal[
+    "startup",
+    "schema",
+    "ingest",
+    "get_run",
+    "search",
+    "ask",
+    "portable_search",
+    "portable_ask",
+    "shutdown",
+    "flow_validation",
+    "portable_validation",
+    "stderr",
+]
+
+
+class McpDeploymentFailure(RuntimeError):
+    """Closed installed-MCP failure with stable stage and stderr metadata."""
+
+    def __init__(
+        self,
+        stage: McpFailureStage,
+        stderr: Mapping[str, object] | None = None,
+    ) -> None:
+        if stage not in _MCP_FAILURE_STAGES:
+            raise ValueError("invalid MCP deployment failure stage")
+        super().__init__("mcp_deployment_failed")
+        self.stage = stage
+        candidate = dict(stderr or _empty_stderr_metadata())
+        stderr_bytes = candidate.get("bytes")
+        stderr_sha = candidate.get("sha256")
+        overflow = candidate.get("overflow")
+        capture_failed = candidate.get("capture_failed")
+        if (
+            set(candidate) != {"bytes", "sha256", "overflow", "capture_failed"}
+            or type(stderr_bytes) is not int
+            or stderr_bytes < 0
+            or not isinstance(stderr_sha, str)
+            or re.fullmatch(r"[0-9a-f]{64}", stderr_sha) is None
+            or type(overflow) is not bool
+            or type(capture_failed) is not bool
+        ):
+            candidate = _empty_stderr_metadata(capture_failed=True)
+        self.stderr = candidate
+
+
+class McpDiagnosticWriteError(RuntimeError):
+    """Closed failure writing the operator-only MCP diagnostic."""
+
+
+def _empty_stderr_metadata(*, capture_failed: bool = False) -> dict[str, object]:
+    return {
+        "bytes": 0,
+        "sha256": hashlib.sha256(b"").hexdigest(),
+        "overflow": False,
+        "capture_failed": capture_failed,
+    }
+
+
+class _BoundedStderrCapture:
+    """Drain child stderr while retaining only closed bounded metadata."""
+
+    def __init__(self) -> None:
+        self._read_descriptor, write_descriptor = os.pipe()
+        self.stream: TextIO = os.fdopen(
+            write_descriptor,
+            "w",
+            encoding="utf-8",
+            errors="replace",
+            buffering=1,
+        )
+        self._bytes = 0
+        self._digest = hashlib.sha256()
+        self._capture_failed = False
+        self._thread = threading.Thread(
+            target=self._drain,
+            name="mke-mcp-stderr-capture",
+            daemon=True,
+        )
+        self._thread.start()
+
+    def _drain(self) -> None:
+        try:
+            while True:
+                chunk = os.read(self._read_descriptor, 64 * 1024)
+                if not chunk:
+                    return
+                self._bytes += len(chunk)
+                self._digest.update(chunk)
+        except OSError:
+            self._capture_failed = True
+        finally:
+            try:
+                os.close(self._read_descriptor)
+            except OSError:
+                self._capture_failed = True
+
+    def finish(self) -> dict[str, object]:
+        try:
+            self.stream.close()
+        except OSError:
+            self._capture_failed = True
+        self._thread.join(timeout=5.0)
+        if self._thread.is_alive():
+            self._capture_failed = True
+            try:
+                os.close(self._read_descriptor)
+            except OSError:
+                pass
+            self._thread.join(timeout=1.0)
+        return {
+            "bytes": self._bytes,
+            "sha256": self._digest.hexdigest(),
+            "overflow": self._bytes > _MAX_SERVER_STDERR_BYTES,
+            "capture_failed": self._capture_failed or self._thread.is_alive(),
+        }
 
 
 async def run_mcp_flow(
@@ -74,73 +211,111 @@ async def run_mcp_flow(
     if provider_timeout_seconds <= 0:
         raise ValueError("provider timeout must be positive")
     timeout = timedelta(seconds=provider_timeout_seconds)
-    async with stdio_client(server) as (read, write):
-        async with ClientSession(
-            read,
-            write,
-            read_timeout_seconds=timeout,
-        ) as session:
-            await session.initialize()
-            listed = await session.list_tools()
-            assert_public_tool_schemas(listed.tools, require_portable=portable_evidence)
+    try:
+        capture = _BoundedStderrCapture()
+    except OSError as error:
+        raise McpDeploymentFailure(
+            "stderr", _empty_stderr_metadata(capture_failed=True)
+        ) from error
+    stage: McpFailureStage = "startup"
+    failure: Exception | None = None
+    ingest: dict[str, object] = {}
+    inspected: dict[str, object] = {}
+    searched: dict[str, object] = {}
+    asked: dict[str, object] = {}
+    portable_searched: dict[str, object] | None = None
+    portable_asked: dict[str, object] | None = None
+    try:
+        async with stdio_client(server, errlog=capture.stream) as (read, write):
+            async with ClientSession(
+                read,
+                write,
+                read_timeout_seconds=timeout,
+            ) as session:
+                await session.initialize()
+                stage = "schema"
+                listed = await session.list_tools()
+                assert_public_tool_schemas(
+                    listed.tools, require_portable=portable_evidence
+                )
 
-            ingest = tool_payload(
-                await session.call_tool("ingest_file", {"path": fixture_name})
-            )
-            run_id = _required_string(ingest, "run_id")
-            inspected = tool_payload(
-                await session.call_tool("get_run", {"run_id": run_id})
-            )
-            searched = tool_payload(
-                await session.call_tool(
-                    "search_library",
-                    {"query": search_query, "limit": 5},
+                stage = "ingest"
+                ingest = tool_payload(
+                    await session.call_tool("ingest_file", {"path": fixture_name})
                 )
-            )
-            asked = tool_payload(
-                await session.call_tool(
-                    "ask_library",
-                    {"question": ask_question, "limit": 5},
+                run_id = _required_string(ingest, "run_id")
+                stage = "get_run"
+                inspected = tool_payload(
+                    await session.call_tool("get_run", {"run_id": run_id})
                 )
-            )
-            portable_searched: dict[str, object] | None = None
-            portable_asked: dict[str, object] | None = None
-            if portable_evidence:
-                portable_searched = tool_payload(
+                stage = "search"
+                searched = tool_payload(
                     await session.call_tool(
-                        "search_library_v1",
+                        "search_library",
                         {"query": search_query, "limit": 5},
                     )
                 )
-                portable_asked = tool_payload(
+                stage = "ask"
+                asked = tool_payload(
                     await session.call_tool(
-                        "ask_library_v1",
+                        "ask_library",
                         {"question": ask_question, "limit": 5},
                     )
                 )
-    result = validate_mcp_flow(
-        ingest,
-        inspected,
-        searched,
-        asked,
-        expected_keyword=expected_keyword,
-    )
-    if portable_evidence:
-        if expected_content_fingerprint is None:
-            raise ValueError("portable MCP proof requires the expected Source fingerprint")
-        portable = validate_portable_evidence(
-            cast(dict[str, object], portable_searched),
-            cast(dict[str, object], portable_asked),
-            run_id=_required_string(ingest, "run_id"),
-            content_fingerprint=expected_content_fingerprint,
-            keyword=expected_keyword,
-            media_duration_ms=cast(
-                int,
-                cast(dict[str, object], result["transcript_intake_report"])[
-                    "media_duration_ms"
-                ],
-            ),
+                if portable_evidence:
+                    stage = "portable_search"
+                    portable_searched = tool_payload(
+                        await session.call_tool(
+                            "search_library_v1",
+                            {"query": search_query, "limit": 5},
+                        )
+                    )
+                    stage = "portable_ask"
+                    portable_asked = tool_payload(
+                        await session.call_tool(
+                            "ask_library_v1",
+                            {"question": ask_question, "limit": 5},
+                        )
+                    )
+                stage = "shutdown"
+    except Exception as error:
+        failure = error
+    stderr = capture.finish()
+    if stderr["overflow"] is True or stderr["capture_failed"] is True:
+        raise McpDeploymentFailure("stderr", stderr) from failure
+    if failure is not None:
+        raise McpDeploymentFailure(stage, stderr) from failure
+    try:
+        result = validate_mcp_flow(
+            ingest,
+            inspected,
+            searched,
+            asked,
+            expected_keyword=expected_keyword,
         )
+    except Exception as error:
+        raise McpDeploymentFailure("flow_validation", stderr) from error
+    if portable_evidence:
+        try:
+            if expected_content_fingerprint is None:
+                raise ValueError(
+                    "portable MCP proof requires the expected Source fingerprint"
+                )
+            portable = validate_portable_evidence(
+                cast(dict[str, object], portable_searched),
+                cast(dict[str, object], portable_asked),
+                run_id=_required_string(ingest, "run_id"),
+                content_fingerprint=expected_content_fingerprint,
+                keyword=expected_keyword,
+                media_duration_ms=cast(
+                    int,
+                    cast(dict[str, object], result["transcript_intake_report"])[
+                        "media_duration_ms"
+                    ],
+                ),
+            )
+        except Exception as error:
+            raise McpDeploymentFailure("portable_validation", stderr) from error
         result["evidence_ref"] = portable
         result["source_sha256"] = expected_content_fingerprint.removeprefix("sha256:")
         result["run_id"] = _required_string(ingest, "run_id")
@@ -396,6 +571,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--fixture-name", required=True)
     parser.add_argument("--db", type=Path, required=True)
     parser.add_argument("--allowed-root", type=Path, required=True)
+    parser.add_argument("--child-cwd", type=Path, required=True)
+    parser.add_argument("--diagnostic", type=Path, required=True)
     parser.add_argument("--model", default="small")
     parser.add_argument("--model-revision", required=True)
     parser.add_argument("--device", default="cpu")
@@ -414,6 +591,126 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--expected-content-fingerprint")
     parser.add_argument("--portable-evidence", action="store_true")
     return parser
+
+
+def _approved_child_environment(cwd: Path) -> dict[str, str]:
+    try:
+        resolved = cwd.resolve(strict=True)
+        process_cwd = Path.cwd().resolve(strict=True)
+    except OSError as error:
+        raise McpDeploymentFailure("startup") from error
+    if (
+        not cwd.is_absolute()
+        or cwd != Path(os.path.normpath(os.fspath(cwd)))
+        or cwd != resolved
+        or resolved != process_cwd
+        or not resolved.is_dir()
+    ):
+        raise McpDeploymentFailure("startup")
+    required = {
+        "HOME": str(cwd / "home"),
+        "TMPDIR": str(cwd / "tmp"),
+        "XDG_CACHE_HOME": str(cwd / "cache"),
+        "PIP_CONFIG_FILE": os.devnull,
+        "HF_HUB_OFFLINE": "1",
+        "TRANSFORMERS_OFFLINE": "1",
+        "UV_OFFLINE": "1",
+    }
+    for key, expected in required.items():
+        if os.environ.get(key) != expected:
+            raise McpDeploymentFailure("startup")
+    for key in ("HOME", "TMPDIR", "XDG_CACHE_HOME"):
+        path = Path(required[key])
+        try:
+            if path.resolve(strict=True) != path or not path.is_dir():
+                raise McpDeploymentFailure("startup")
+        except OSError as error:
+            raise McpDeploymentFailure("startup") from error
+    return {
+        **required,
+        "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+        "LANG": "C",
+        "LC_ALL": "C",
+        "LOGNAME": "",
+        "SHELL": "",
+        "TERM": "dumb",
+        "USER": "",
+    }
+
+
+def write_mcp_diagnostic(path: Path, failure: McpDeploymentFailure) -> None:
+    payload = {
+        "schema_version": "mke.mcp_deployment_diagnostic.v1",
+        "status": "failed",
+        "failure": "mcp_deployment_failed",
+        "stage": failure.stage,
+        "stderr": failure.stderr,
+    }
+    value = (
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("ascii")
+        + b"\n"
+    )
+    parent_descriptor: int | None = None
+    descriptor: int | None = None
+    identity: tuple[int, int] | None = None
+    write_failure: BaseException | None = None
+    try:
+        if not path.is_absolute() or path != Path(os.path.normpath(os.fspath(path))):
+            raise OSError("diagnostic path is not absolute and normalized")
+        parent = path.parent.resolve(strict=True)
+        if path != parent / path.name:
+            raise OSError("diagnostic path is not canonical")
+        parent_descriptor = os.open(
+            parent,
+            os.O_RDONLY
+            | getattr(os, "O_DIRECTORY", 0)
+            | getattr(os, "O_NOFOLLOW", 0),
+        )
+        descriptor = os.open(
+            path.name,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+            dir_fd=parent_descriptor,
+        )
+        observed = os.fstat(descriptor)
+        if not stat.S_ISREG(observed.st_mode) or observed.st_nlink != 1:
+            raise OSError("diagnostic target is not an owned regular file")
+        identity = (observed.st_dev, observed.st_ino)
+        os.fchmod(descriptor, 0o600)
+        remaining = memoryview(value)
+        while remaining:
+            written = os.write(descriptor, remaining)
+            if written <= 0:
+                raise OSError("diagnostic write made no progress")
+            remaining = remaining[written:]
+        os.fsync(descriptor)
+    except (OSError, RuntimeError) as error:
+        write_failure = error
+    if descriptor is not None:
+        try:
+            os.close(descriptor)
+        except OSError as error:
+            if write_failure is None:
+                write_failure = error
+    if write_failure is not None and parent_descriptor is not None and identity is not None:
+        try:
+            current = os.stat(
+                path.name,
+                dir_fd=parent_descriptor,
+                follow_symlinks=False,
+            )
+            if stat.S_ISREG(current.st_mode) and (current.st_dev, current.st_ino) == identity:
+                os.unlink(path.name, dir_fd=parent_descriptor)
+        except OSError:
+            pass
+    if parent_descriptor is not None:
+        try:
+            os.close(parent_descriptor)
+        except OSError as error:
+            if write_failure is None:
+                write_failure = error
+    if write_failure is not None:
+        raise McpDiagnosticWriteError("mcp_diagnostic_write_failed") from write_failure
 
 
 def _positive_int(value: str) -> int:
@@ -466,10 +763,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         )
     try:
+        child_environment = _approved_child_environment(args.child_cwd)
         report = run_mcp_flow_sync(
             StdioServerParameters(
                 command=args.mke_command,
                 args=server_args,
+                cwd=args.child_cwd,
+                env=child_environment,
             ),
             args.fixture_name,
             provider_timeout_seconds=args.transcription_timeout_seconds,
@@ -479,7 +779,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             expected_content_fingerprint=args.expected_content_fingerprint,
             portable_evidence=args.portable_evidence,
         )
+    except McpDeploymentFailure as failure:
+        try:
+            write_mcp_diagnostic(args.diagnostic, failure)
+        except McpDiagnosticWriteError:
+            pass
+        print(json.dumps({"status": "failed", "reason": "mcp_deployment_failed"}))
+        return 1
     except Exception:
+        try:
+            write_mcp_diagnostic(args.diagnostic, McpDeploymentFailure("startup"))
+        except McpDiagnosticWriteError:
+            pass
         print(json.dumps({"status": "failed", "reason": "mcp_deployment_failed"}))
         return 1
     print(json.dumps(report, sort_keys=True))
