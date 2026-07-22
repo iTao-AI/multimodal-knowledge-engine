@@ -173,12 +173,23 @@ jobs:
             --artifact benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json \
             --model-free
       - run: uv build
-      - name: Verify spoken fixture with transcription extra
+      - name: Verify model-free media contracts with transcription extra
         env:
+          HF_HUB_OFFLINE: "1"
           MKE_REQUIRE_TRANSCRIPTION_EXTRA: "1"
+          TRANSFORMERS_OFFLINE: "1"
         run: |
           uv sync --locked --extra transcription
-          uv run pytest tests/adapters/test_spoken_video_fixture.py -q
+          uv run pytest \
+            tests/adapters/test_spoken_video_fixture.py \
+            tests/adapters/test_audio_fixtures.py \
+            tests/adapters/test_faster_whisper_audio_cli.py \
+            tests/proof/test_direct_audio.py::test_direct_audio_proof_covers_all_formats_and_product_path \
+            tests/scripts/test_direct_audio_dependency_receipt.py::test_validate_receipt_cli_accepts_committed_artifact_without_runtime_replay \
+            -q
+          UV_OFFLINE=1 uv run mke proof direct-audio --json \
+            > /tmp/mke-direct-audio-proof.json
+          python -c 'import json; p=json.load(open("/tmp/mke-direct-audio-proof.json")); assert p["status"] == "passed"; assert p["network_access"] == "not_used"'
       - run: |
           uv venv /tmp/mke-wheel-env --python "${{ matrix.python-version }}"
           uv pip install --python /tmp/mke-wheel-env/bin/python dist/*.whl
@@ -231,6 +242,7 @@ jobs:
           uv pip install --python /tmp/mke-wheel-env/bin/python \
             --constraint /tmp/mke-transcription-constraints.txt \
             "${wheel}[transcription]"
+          uv pip check --python /tmp/mke-wheel-env/bin/python
           /tmp/mke-wheel-env/bin/python -c "import av, faster_whisper"
           set +e
           doctor_output=$(HF_HUB_OFFLINE=1 \

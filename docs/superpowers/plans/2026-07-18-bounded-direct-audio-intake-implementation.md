@@ -1733,7 +1733,7 @@ Task review must separately approve v1 byte compatibility and v2 completeness.
   Publication/Search/Ask, reconciled export v2, and independent v2 consumer.
 - Produces: deterministic model-free direct-audio product proof and bounded required CI coverage.
 
-- [ ] **Step 1: Write model-free product-proof RED tests**
+- [x] **Step 1: Write model-free product-proof RED tests**
 
 The proof injects a project-owned fake audio provider at the application port but exercises the
 real snapshot, inspection, Run/Publication, Search/Ask, EvidenceRef, export v2, consumer, and
@@ -1768,7 +1768,7 @@ def test_direct_audio_proof_covers_all_formats_and_product_path(tmp_path: Path) 
     assert report.cleanup is True
 ```
 
-- [ ] **Step 2: Run RED tests**
+- [x] **Step 2: Run RED tests**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1778,7 +1778,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: missing product-proof module and CLI contract.
 
-- [ ] **Step 3: Implement the deterministic proof report**
+- [x] **Step 3: Implement the deterministic proof report**
 
 ```python
 DirectAudioProofFailureCode = Literal[
@@ -1831,7 +1831,7 @@ Freeze the exact failure-code-to-next-step map and require both fields to be abs
 present/matched on failure. Unknown exceptions map to a closed redacted failure; no path, exception,
 stderr, or arbitrary string crosses the proof boundary.
 
-- [ ] **Step 4: Run model-free GREEN**
+- [x] **Step 4: Run model-free GREEN**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1845,7 +1845,7 @@ UV_OFFLINE=1 uv run pyright
 
 Expected: all model-free tests pass.
 
-- [ ] **Step 5: Bind required CI without model downloads**
+- [x] **Step 5: Bind required CI without model downloads**
 
 Prefer the existing Python 3.12/3.13 transcription-extra jobs. Add exact tests for fixture decode,
 fake-model audio child, model-free proof, accepted PR A receipt validator, `pip check`, empty-cache
@@ -1854,7 +1854,7 @@ executed.
 Do not add a model download, hosted cache mutation, system FFmpeg requirement, or arbitrary short
 job timeout.
 
-- [ ] **Step 6: Review and commit Task 8**
+- [x] **Step 6: Review and commit Task 8**
 
 ```bash
 git diff --check
