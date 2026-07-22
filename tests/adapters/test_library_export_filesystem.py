@@ -21,7 +21,10 @@ from mke.domain import (
     ActivePublicationObservation,
     CompiledEvidenceSnapshot,
     CompiledLibrarySnapshot,
+    CompiledLibrarySnapshotV2,
     CompiledSourceSnapshot,
+    CompiledSourceSnapshotV2,
+    LibraryExportDataError,
 )
 
 
@@ -78,6 +81,58 @@ def _snapshot() -> CompiledLibrarySnapshot:
         ),
         sources=sources,
     )
+
+
+def _snapshot_v2() -> CompiledLibrarySnapshotV2:
+    snapshot = _snapshot()
+    return CompiledLibrarySnapshotV2(
+        observation=snapshot.observation,
+        sources=tuple(CompiledSourceSnapshotV2(**source.__dict__) for source in snapshot.sources),
+    )
+
+
+def test_v2_publisher_binds_descriptor_tree_to_v2_renderers(tmp_path: Path) -> None:
+    result = publish_compiled_library(
+        _snapshot_v2(),
+        format_version="v2",
+        output_name="compiled-library-v2",
+        parent=tmp_path,
+    )
+
+    manifest_path = tmp_path / "compiled-library-v2" / "export-manifest.json"
+    manifest = json.loads(manifest_path.read_bytes())
+    assert manifest["schema_version"] == "mke.compiled_library_export.v2"
+    assert manifest["markdown_format"] == "mke.compiled_markdown.v2"
+    assert manifest["evidence_schema"] == "mke.evidence_ref.v1"
+    assert result.manifest_sha256 == sha256(manifest_path.read_bytes()).hexdigest()
+    for source in manifest["sources"]:
+        markdown = (tmp_path / "compiled-library-v2" / source["markdown_path"]).read_bytes()
+        assert b'mke_format: "mke.compiled_markdown.v2"' in markdown
+
+
+def test_publisher_rejects_snapshot_dto_version_mismatch_before_output(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(LibraryExportDataError, match="provenance"):
+        publish_compiled_library(
+            _snapshot_v2(),
+            format_version="v1",
+            output_name="compiled-library",
+            parent=tmp_path,
+        )
+
+    assert not (tmp_path / "compiled-library").exists()
+
+
+def test_publisher_rejects_unknown_version_before_output(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="format version"):
+        publish_compiled_library(
+            _snapshot_v2(),
+            format_version="v3",  # type: ignore[arg-type]
+            output_name="compiled-library",
+            parent=tmp_path,
+        )
+    assert not (tmp_path / "compiled-library").exists()
 
 
 def _identity(path: Path) -> tuple[int, int, int, int, int]:
@@ -460,15 +515,19 @@ def test_renders_writes_and_discards_each_source_before_rendering_the_next(
     real_markdown = publisher.render_compiled_markdown
     real_write = publisher._write_content_file  # pyright: ignore[reportPrivateUsage]
 
-    def render_evidence(source: CompiledSourceSnapshot) -> bytes:
+    def render_evidence(
+        source: CompiledSourceSnapshot, *, format_version: str = "v1"
+    ) -> bytes:
         digit = source.content_fingerprint[-1]
         events.append(f"render-evidence-{digit}")
-        return real_evidence(source)
+        return real_evidence(source, format_version=format_version)  # type: ignore[arg-type]
 
-    def render_markdown(source: CompiledSourceSnapshot) -> bytes:
+    def render_markdown(
+        source: CompiledSourceSnapshot, *, format_version: str = "v1"
+    ) -> bytes:
         digit = source.content_fingerprint[-1]
         events.append(f"render-markdown-{digit}")
-        return real_markdown(source)
+        return real_markdown(source, format_version=format_version)  # type: ignore[arg-type]
 
     def write(
         directory_fd: int,

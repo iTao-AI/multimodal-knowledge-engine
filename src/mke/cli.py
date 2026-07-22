@@ -152,6 +152,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     library_commands = library.add_subparsers(dest="library_command", required=True)
     library_export = library_commands.add_parser("export")
     library_export.add_argument("--output", required=True)
+    library_export.add_argument(
+        "--format-version", choices=("v1", "v2"), default="v1"
+    )
     library_export.add_argument("--json", action="store_true", dest="json_output")
 
     retrieval_admin = subcommands.add_parser("retrieval")
@@ -387,6 +390,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.db,
             args.output,
             json_output=args.json_output,
+            format_version=args.format_version,
         )
     if args.command == "eval" and any(
         item == "--db" or item.startswith("--db=") for item in raw_argv

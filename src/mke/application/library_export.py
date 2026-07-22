@@ -11,7 +11,10 @@ from mke.domain import (
     DEFAULT_EXPORT_LIMITS,
     CompiledEvidenceSnapshot,
     CompiledLibrarySnapshot,
+    CompiledLibrarySnapshotV2,
     CompiledSourceSnapshot,
+    CompiledSourceSnapshotV2,
+    ExportFormatVersion,
     LibraryExportDataError,
 )
 
@@ -58,8 +61,32 @@ class LibraryExportResult:
     manifest_sha256: str
 
 
-def _validate_source(source: CompiledSourceSnapshot) -> None:
-    if type(source) is not CompiledSourceSnapshot:
+CompiledSource = CompiledSourceSnapshot | CompiledSourceSnapshotV2
+CompiledLibrary = CompiledLibrarySnapshot | CompiledLibrarySnapshotV2
+
+_MARKDOWN_FORMAT = {
+    "v1": "mke.compiled_markdown.v1",
+    "v2": "mke.compiled_markdown.v2",
+}
+_MANIFEST_SCHEMA = {
+    "v1": "mke.compiled_library_export.v1",
+    "v2": "mke.compiled_library_export.v2",
+}
+
+
+def _require_format_version(value: object) -> ExportFormatVersion:
+    if value not in ("v1", "v2"):
+        raise ValueError("unsupported export format version")
+    return value  # type: ignore[return-value]
+
+
+def _validate_source(source: CompiledSource, format_version: ExportFormatVersion) -> None:
+    expected_type = (
+        CompiledSourceSnapshot
+        if format_version == "v1"
+        else CompiledSourceSnapshotV2
+    )
+    if type(source) is not expected_type:
         raise LibraryExportDataError("provenance")
     for item in source.evidence:
         if type(item) is not CompiledEvidenceSnapshot:
@@ -95,10 +122,13 @@ def _bounded_render(parts: Iterable[bytes]) -> bytes:
     return bytes(rendered)
 
 
-def render_evidence_jsonl(source: CompiledSourceSnapshot) -> bytes:
+def render_evidence_jsonl(
+    source: CompiledSource, *, format_version: ExportFormatVersion = "v1"
+) -> bytes:
     """Render one Source's active Evidence as canonical JSONL."""
 
-    _validate_source(source)
+    format_version = _require_format_version(format_version)
+    _validate_source(source, format_version)
     return _bounded_render(
         canonical_json_line(_evidence_payload(item)) for item in source.evidence
     )
@@ -108,13 +138,16 @@ def _json_scalar(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
-def render_compiled_markdown(source: CompiledSourceSnapshot) -> bytes:
+def render_compiled_markdown(
+    source: CompiledSource, *, format_version: ExportFormatVersion = "v1"
+) -> bytes:
     """Render one Source as deterministic provenance-preserving Markdown."""
 
-    _validate_source(source)
+    format_version = _require_format_version(format_version)
+    _validate_source(source, format_version)
     frontmatter = (
         "---\n"
-        f"mke_format: {_json_scalar('mke.compiled_markdown.v1')}\n"
+        f"mke_format: {_json_scalar(_MARKDOWN_FORMAT[format_version])}\n"
         f"source_id: {_json_scalar(source.source_id)}\n"
         f"display_name: {_json_scalar(source.display_name)}\n"
         f"content_fingerprint: {_json_scalar(source.content_fingerprint)}\n"
@@ -147,7 +180,7 @@ def render_compiled_markdown(source: CompiledSourceSnapshot) -> bytes:
 
 
 def _validate_entry(
-    source: CompiledSourceSnapshot, entry: RenderedSourceEntry
+    source: CompiledSource, entry: RenderedSourceEntry
 ) -> None:
     digest = source.content_fingerprint.removeprefix("sha256:")
     expected = (
@@ -210,12 +243,20 @@ def _entry_payload(entry: RenderedSourceEntry) -> dict[str, object]:
 
 
 def render_export_manifest(
-    snapshot: CompiledLibrarySnapshot,
+    snapshot: CompiledLibrary,
     entries: Sequence[RenderedSourceEntry],
+    *,
+    format_version: ExportFormatVersion = "v1",
 ) -> bytes:
     """Render the closed canonical manifest for a validated snapshot."""
 
-    if type(snapshot) is not CompiledLibrarySnapshot:
+    format_version = _require_format_version(format_version)
+    expected_type = (
+        CompiledLibrarySnapshot
+        if format_version == "v1"
+        else CompiledLibrarySnapshotV2
+    )
+    if type(snapshot) is not expected_type:
         raise LibraryExportDataError("provenance")
     snapshot.__post_init__()
     if len(entries) != len(snapshot.sources) or any(
@@ -223,14 +264,14 @@ def render_export_manifest(
     ):
         raise LibraryExportDataError("provenance")
     for source, entry in zip(snapshot.sources, entries, strict=True):
-        _validate_source(source)
+        _validate_source(source, format_version)
         _validate_entry(source, entry)
     observation = snapshot.observation
     return canonical_json_line(
         {
-            "schema_version": "mke.compiled_library_export.v1",
+            "schema_version": _MANIFEST_SCHEMA[format_version],
             "evidence_schema": "mke.evidence_ref.v1",
-            "markdown_format": "mke.compiled_markdown.v1",
+            "markdown_format": _MARKDOWN_FORMAT[format_version],
             "observation": {
                 "schema_version": "mke.active_publication_observation.v1",
                 "library_id": observation.library_id,

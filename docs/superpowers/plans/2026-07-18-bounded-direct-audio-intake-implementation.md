@@ -1549,7 +1549,7 @@ git commit -m "feat(audio): route direct audio interfaces"
   from accepted PR B plus Tasks 5-6.
 - Produces: explicit v2 manifest/Markdown/response, default v1 compatibility, v2 standalone consumer, and same-wheel v2 proof.
 
-- [ ] **Step 1: Freeze v1 bytes and write reconciled v2 RED tests**
+- [x] **Step 1: Freeze v1 bytes and write reconciled v2 RED tests**
 
 Build committed in-memory/golden snapshots for a v1-compatible PDF/video Library and a v2 mixed
 Library containing PDF text, current comparison-only PDF OCR, video, MP3, WAV, and M4A Sources.
@@ -1572,7 +1572,7 @@ The v2 tests must reject missing/extra Sources, unsupported media, wrong locator
 mismatch, stale Publication, evidence graph mismatch, tampered Markdown/JSONL/manifest, symlinks,
 unknown schema, and v1/v2 cross-consumption.
 
-- [ ] **Step 2: Run RED tests**
+- [x] **Step 2: Run RED tests**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1586,7 +1586,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: v2 symbols/flag/consumer are missing; v1 golden passes until the explicit audio snapshot case.
 
-- [ ] **Step 3: Add the reconciled closed version-selected domain models**
+- [x] **Step 3: Add the reconciled closed version-selected domain models**
 
 Preserve the current v1 `CompiledSourceSnapshot` and `CompiledLibrarySnapshot` accepted literals
 and validation byte-for-byte. Add separate closed v2 snapshot/source types, or an equivalently
@@ -1626,7 +1626,7 @@ typed `unsupported_active_media_type` result. The public v1 failure directs the 
 the complete export with `--format-version v2`; it never reports generic provenance drift or omits
 the Source.
 
-- [ ] **Step 4: Implement explicit deterministic reconciled v2 rendering and response**
+- [x] **Step 4: Implement explicit deterministic reconciled v2 rendering and response**
 
 `export_library(store, output, format_version=format_version)` chooses constants from this closed map:
 
@@ -1651,7 +1651,7 @@ content fingerprints, exact active Publication/revision/Run/manifest ownership, 
 post-commit tree revalidation. Add `--format-version {v1,v2}` with default `v1`; reject the option
 outside `library export` and preserve existing retrieval-option guards.
 
-- [ ] **Step 5: Add a standard-library-only v2 consumer**
+- [x] **Step 5: Add a standard-library-only v2 consumer**
 
 `compiled_library_export_consumer_v2.py` must independently parse and validate only v2. It accepts
 one export root, checks exact inventory, manifest self-digest, JSONL/source/Markdown digests,
@@ -1670,7 +1670,7 @@ Stable success output:
 }
 ```
 
-- [ ] **Step 6: Extend same-wheel proof without weakening v1 proof**
+- [x] **Step 6: Extend same-wheel proof without weakening v1 proof**
 
 The proof accepts either a call-owned wheel it builds for task verification or an explicit
 descriptor-verified `--mke-wheel` supplied by terminal verification. It installs the same wheel
@@ -1678,7 +1678,7 @@ under explicit Python 3.12 and 3.13 interpreters, creates a
 mixed active Library through installed MKE, exports v2 twice, compares exact trees, invokes the
 standalone v2 consumer, and reports the same wheel digest. Existing v1 proof cases remain unchanged.
 
-- [ ] **Step 7: Run GREEN and full export regressions**
+- [x] **Step 7: Run GREEN and full export regressions**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1698,7 +1698,7 @@ UV_OFFLINE=1 uv run pyright
 
 Expected: all pass; legacy v1 tree and consumer remain exact; v2 exports every active Source once.
 
-- [ ] **Step 8: Review and commit Task 7**
+- [x] **Step 8: Review and commit Task 7**
 
 ```bash
 git diff --check

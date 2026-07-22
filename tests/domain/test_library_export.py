@@ -8,7 +8,9 @@ from mke.domain.library_export import (
     DEFAULT_EXPORT_LIMITS,
     CompiledEvidenceSnapshot,
     CompiledLibrarySnapshot,
+    CompiledLibrarySnapshotV2,
     CompiledSourceSnapshot,
+    CompiledSourceSnapshotV2,
     ExportLimits,
     LibraryExportDataError,
 )
@@ -97,6 +99,58 @@ def active_snapshot(*sources: CompiledSourceSnapshot) -> CompiledLibrarySnapshot
     return CompiledLibrarySnapshot(observation, sources)
 
 
+def source_snapshot_v2(
+    *,
+    media_type: str,
+    source_suffix: str,
+    publication_suffix: str,
+    run_suffix: str,
+    digest: str,
+    comparison_ocr: bool = False,
+) -> CompiledSourceSnapshotV2:
+    if media_type == "application/pdf" and comparison_ocr:
+        kind = "page"
+        start, end = 1, 1
+        extractor = "pdf-ocr-eval-v1:" + "e" * 64
+        stages = ("candidate_evidence", "pdf_ocr_extraction")
+    elif media_type == "application/pdf":
+        kind = "page"
+        start, end = 1, 1
+        extractor = "pymupdf-text-v1"
+        stages = ("candidate_evidence", "pdf_text_extraction")
+    elif media_type == "video/mp4":
+        kind = "timestamp_ms"
+        start, end = 0, 1_200
+        extractor = "builtin-video-transcript-v1"
+        stages = ("candidate_evidence", "video_transcription")
+    else:
+        kind = "timestamp_ms"
+        start, end = 0, 1_200
+        extractor = "faster-whisper-audio-v1:" + "d" * 64
+        stages = ("audio_transcription", "candidate_evidence")
+    evidence = evidence_snapshot(
+        source_suffix=source_suffix,
+        publication_suffix=publication_suffix,
+        run_suffix=run_suffix,
+        digest=digest,
+        kind=kind,
+        start=start,
+        end=end,
+    )
+    return CompiledSourceSnapshotV2(
+        source_id="src_" + source_suffix * 32,
+        display_name="fixture",
+        content_fingerprint="sha256:" + digest,
+        media_type=media_type,  # type: ignore[arg-type]
+        publication_id="pub_" + publication_suffix * 32,
+        publication_revision=1,
+        run_id="run_" + run_suffix * 32,
+        extractor_fingerprint=extractor,
+        required_stages=stages,
+        evidence=(evidence,),
+    )
+
+
 def assert_reason(reason: str, factory: object) -> None:
     with pytest.raises(LibraryExportDataError) as exc_info:
         factory()  # type: ignore[operator]
@@ -131,6 +185,116 @@ def test_compiled_library_snapshot_accepts_page_and_timestamp_sources() -> None:
         snapshot.sources = ()  # type: ignore[misc]
     with pytest.raises(FrozenInstanceError):
         page.display_name = "changed"  # type: ignore[misc]
+
+
+def test_v2_snapshot_accepts_exact_reconciled_media_matrix() -> None:
+    sources = tuple(
+        source_snapshot_v2(
+            media_type=media_type,
+            source_suffix=source_suffix,
+            publication_suffix=publication_suffix,
+            run_suffix=run_suffix,
+            digest=digest * 64,
+            comparison_ocr=ocr,
+        )
+        for media_type, source_suffix, publication_suffix, run_suffix, digest, ocr in (
+            ("application/pdf", "1", "2", "3", "1", False),
+            ("application/pdf", "4", "5", "6", "2", True),
+            ("video/mp4", "7", "8", "9", "3", False),
+            ("audio/mpeg", "a", "b", "c", "4", False),
+            ("audio/wav", "d", "e", "f", "5", False),
+            ("audio/mp4", "0", "1", "2", "6", False),
+        )
+    )
+    observation = ActivePublicationObservation("local", "active", 6, 6, 6)
+
+    snapshot = CompiledLibrarySnapshotV2(observation, sources)
+
+    assert tuple(source.media_type for source in snapshot.sources) == (
+        "application/pdf",
+        "application/pdf",
+        "video/mp4",
+        "audio/mpeg",
+        "audio/wav",
+        "audio/mp4",
+    )
+
+
+def test_v1_and_v2_source_types_remain_closed_and_non_interchangeable() -> None:
+    audio = source_snapshot_v2(
+        media_type="audio/mpeg",
+        source_suffix="1",
+        publication_suffix="2",
+        run_suffix="3",
+        digest="a" * 64,
+    )
+    assert_reason(
+        "provenance",
+        lambda: CompiledSourceSnapshot(
+            **audio.__dict__,  # type: ignore[arg-type]
+        ),
+    )
+    v1_source = source_snapshot()
+    observation = ActivePublicationObservation("local", "active", 1, 1, 1)
+    assert_reason(
+        "provenance",
+        lambda: CompiledLibrarySnapshotV2(
+            observation,
+            (v1_source,),  # type: ignore[arg-type]
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("media_type", "extractor", "stages", "kind"),
+    [
+        (
+            "audio/mpeg",
+            "builtin-video-transcript-v1",
+            ("candidate_evidence", "video_transcription"),
+            "timestamp_ms",
+        ),
+        (
+            "video/mp4",
+            "faster-whisper-audio-v1:" + "d" * 64,
+            ("audio_transcription", "candidate_evidence"),
+            "timestamp_ms",
+        ),
+        (
+            "application/pdf",
+            "faster-whisper-audio-v1:" + "d" * 64,
+            ("audio_transcription", "candidate_evidence"),
+            "timestamp_ms",
+        ),
+    ],
+)
+def test_v2_source_rejects_media_authority_mismatch(
+    media_type: str,
+    extractor: str,
+    stages: tuple[str, ...],
+    kind: str,
+) -> None:
+    source = source_snapshot_v2(
+        media_type="audio/mpeg",
+        source_suffix="1",
+        publication_suffix="2",
+        run_suffix="3",
+        digest="a" * 64,
+    )
+    evidence = replace(
+        source.evidence[0],
+        locator_kind=kind,  # type: ignore[arg-type]
+    )
+    assert_reason(
+        "provenance",
+        lambda: replace(
+            source,
+            media_type=media_type,
+            extractor_fingerprint=extractor,
+            required_stages=stages,
+            evidence=(evidence,),
+        ),
+    )
 
 
 def test_snapshot_counts_utf8_bytes_and_allows_inactive_source_rows() -> None:

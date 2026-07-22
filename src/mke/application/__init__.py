@@ -9,7 +9,7 @@ from collections.abc import Callable
 from contextlib import AbstractContextManager, ExitStack
 from hashlib import sha256
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol, overload
 from uuid import uuid4
 
 from mke.adapters.audio import AudioProviderError
@@ -42,6 +42,8 @@ from mke.domain import (
     AudioTranscriptExtractionResult,
     CandidateEvidence,
     CompiledLibrarySnapshot,
+    CompiledLibrarySnapshotV2,
+    ExportFormatVersion,
     FailurePoint,
     IngestResult,
     ManifestValidationError,
@@ -300,8 +302,20 @@ class KnowledgeEngine:
     def observe_active_publications(self) -> ActivePublicationObservation:
         return self._store.observe_active_publications()
 
-    def compiled_library_snapshot(self) -> CompiledLibrarySnapshot:
-        return self._store.compiled_library_snapshot()
+    @overload
+    def compiled_library_snapshot(
+        self, *, format_version: Literal["v1"] = "v1"
+    ) -> CompiledLibrarySnapshot: ...
+
+    @overload
+    def compiled_library_snapshot(
+        self, *, format_version: Literal["v2"]
+    ) -> CompiledLibrarySnapshotV2: ...
+
+    def compiled_library_snapshot(
+        self, *, format_version: ExportFormatVersion = "v1"
+    ) -> CompiledLibrarySnapshot | CompiledLibrarySnapshotV2:
+        return self._store.compiled_library_snapshot(format_version=format_version)
 
     def search_provenance_snapshot(
         self, query: str, limit: int | None = None

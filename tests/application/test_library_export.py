@@ -21,7 +21,9 @@ from mke.domain import (
     ActivePublicationObservation,
     CompiledEvidenceSnapshot,
     CompiledLibrarySnapshot,
+    CompiledLibrarySnapshotV2,
     CompiledSourceSnapshot,
+    CompiledSourceSnapshotV2,
     LibraryExportDataError,
 )
 from mke.interfaces.mcp_schemas import (
@@ -158,6 +160,17 @@ def _compiled_snapshot() -> CompiledLibrarySnapshot:
     )
 
 
+def _compiled_source_v2(*, timestamp: bool = False) -> CompiledSourceSnapshotV2:
+    return CompiledSourceSnapshotV2(**_compiled_source(timestamp=timestamp).__dict__)
+
+
+def _compiled_snapshot_v2() -> CompiledLibrarySnapshotV2:
+    return CompiledLibrarySnapshotV2(
+        observation=_compiled_snapshot().observation,
+        sources=(_compiled_source_v2(), _compiled_source_v2(timestamp=True)),
+    )
+
+
 def _expected_page_jsonl() -> bytes:
     return (
         b'{"content_fingerprint":"sha256:'
@@ -233,7 +246,9 @@ def _expected_timestamp_markdown() -> bytes:
 
 
 def _rendered_entry(
-    source: CompiledSourceSnapshot, jsonl: bytes, markdown: bytes
+    source: CompiledSourceSnapshot | CompiledSourceSnapshotV2,
+    jsonl: bytes,
+    markdown: bytes,
 ) -> RenderedSourceEntry:
     digest = source.content_fingerprint.removeprefix("sha256:")
     return RenderedSourceEntry(
@@ -286,6 +301,88 @@ def test_render_exact_page_and_timestamp_artifact_bytes() -> None:
     assert sha256(timestamp_markdown).hexdigest() == (
         "9859cf444a9dd4ae748c4a777f554e647f0c3ea50722e0ffda0cb53e2d05492c"
     )
+
+
+def test_v2_render_changes_only_approved_format_literals() -> None:
+    v1_source = _compiled_source()
+    v2_source = _compiled_source_v2()
+    v1_jsonl = render_evidence_jsonl(v1_source)
+    v2_jsonl = render_evidence_jsonl(v2_source, format_version="v2")
+    v1_markdown = render_compiled_markdown(v1_source)
+    v2_markdown = render_compiled_markdown(v2_source, format_version="v2")
+
+    assert v2_jsonl == v1_jsonl
+    assert v2_markdown == v1_markdown.replace(
+        b"mke.compiled_markdown.v1", b"mke.compiled_markdown.v2"
+    )
+
+    v1_snapshot = _compiled_snapshot()
+    v2_snapshot = _compiled_snapshot_v2()
+    v1_entries = tuple(
+        _rendered_entry(
+            source,
+            render_evidence_jsonl(source),
+            render_compiled_markdown(source),
+        )
+        for source in v1_snapshot.sources
+    )
+    v2_entries = tuple(
+        _rendered_entry(  # type: ignore[arg-type]
+            source,
+            render_evidence_jsonl(source, format_version="v2"),
+            render_compiled_markdown(source, format_version="v2"),
+        )
+        for source in v2_snapshot.sources
+    )
+    v1_manifest = render_export_manifest(v1_snapshot, v1_entries)
+    v2_manifest = render_export_manifest(
+        v2_snapshot, v2_entries, format_version="v2"
+    )
+    v1_payload = json.loads(v1_manifest)
+    v2_payload = json.loads(v2_manifest)
+    assert v2_payload["schema_version"] == "mke.compiled_library_export.v2"
+    assert v2_payload["markdown_format"] == "mke.compiled_markdown.v2"
+    for v1_entry, v2_entry in zip(
+        v1_payload["sources"], v2_payload["sources"], strict=True
+    ):
+        assert v2_entry["evidence_sha256"] == v1_entry["evidence_sha256"]
+        v2_entry["markdown_sha256"] = v1_entry["markdown_sha256"]
+    v2_payload["schema_version"] = v1_payload["schema_version"]
+    v2_payload["markdown_format"] = v1_payload["markdown_format"]
+    assert v2_payload == v1_payload
+
+
+@pytest.mark.parametrize(
+    ("source", "format_version"),
+    [(_compiled_source_v2(), "v1"), (_compiled_source(), "v2")],
+)
+def test_render_rejects_source_dto_version_mismatch(
+    source: CompiledSourceSnapshot | CompiledSourceSnapshotV2,
+    format_version: str,
+) -> None:
+    with pytest.raises(LibraryExportDataError, match="provenance"):
+        render_evidence_jsonl(source, format_version=format_version)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("snapshot", "format_version"),
+    [(_compiled_snapshot_v2(), "v1"), (_compiled_snapshot(), "v2")],
+)
+def test_manifest_rejects_snapshot_dto_version_mismatch(
+    snapshot: CompiledLibrarySnapshot | CompiledLibrarySnapshotV2,
+    format_version: str,
+) -> None:
+    with pytest.raises(LibraryExportDataError, match="provenance"):
+        render_export_manifest(snapshot, (), format_version=format_version)  # type: ignore[arg-type]
+
+
+def test_renderers_reject_unknown_format_version() -> None:
+    with pytest.raises(ValueError, match="format version"):
+        render_evidence_jsonl(_compiled_source_v2(), format_version="v3")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="format version"):
+        render_export_manifest(
+            _compiled_snapshot_v2(), (), format_version="v3"  # type: ignore[arg-type]
+        )
 
 
 def test_render_manifest_has_exact_fields_and_golden_bytes() -> None:
@@ -564,7 +661,9 @@ def test_render_stops_consuming_parts_immediately_after_crossing_limit(
     guarded = _FailOnSecondEvidence((evidence, evidence))
     object.__setattr__(source, "evidence", guarded)
 
-    def skip_validation(_source: CompiledSourceSnapshot) -> None:
+    def skip_validation(
+        _source: CompiledSourceSnapshot, _format_version: str
+    ) -> None:
         return None
 
     monkeypatch.setattr(library_export, "_validate_source", skip_validation)

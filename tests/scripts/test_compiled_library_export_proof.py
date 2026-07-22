@@ -130,13 +130,91 @@ def test_candidate_source_rejects_head_change_during_real_authority_check(
     assert not (root / "source").exists()
 
 
+def test_supplied_wheel_is_copied_through_stable_descriptor(tmp_path: Path) -> None:
+    proof = _load()
+    source = tmp_path / "candidate.whl"
+    source.write_bytes(b"descriptor-bound wheel bytes")
+    target = tmp_path / "owned.whl"
+
+    digest = proof._copy_supplied_wheel(source, target)
+
+    assert target.read_bytes() == source.read_bytes()
+    assert digest == hashlib.sha256(source.read_bytes()).hexdigest()
+    symlink = tmp_path / "candidate-link.whl"
+    symlink.symlink_to(source)
+    with pytest.raises(proof.ControllerError, match="candidate_artifact_invalid"):
+        proof._copy_supplied_wheel(symlink, tmp_path / "rejected.whl")
+
+
+def test_run_proof_selects_explicit_wheel_without_building(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    proof = _load()
+    root = tmp_path / "owned"
+    supplied = tmp_path / "candidate.whl"
+    supplied.write_bytes(b"wheel")
+    selected = root / "wheel/candidate.whl"
+    events: list[str] = []
+    monkeypatch.setenv("UV_OFFLINE", "1")
+    monkeypatch.setattr(proof.tempfile, "mkdtemp", lambda **_kwargs: str(root))
+    monkeypatch.setattr(
+        proof,
+        "_build_candidate",
+        lambda *_args: pytest.fail("call-owned build must not run"),
+    )
+
+    def select(_config: object, _root: Path) -> tuple[Path, str]:
+        events.append("supplied")
+        return selected, "a" * 64
+
+    def prove(
+        _config: object,
+        _root: Path,
+        _wheel: Path,
+        _interpreter: Path,
+        index: int,
+    ) -> object:
+        return proof.InterpreterResult(
+            f"3.{12 + index}", "a" * 64, 2, 3, 3, 4, "passed"
+        )
+
+    monkeypatch.setattr(proof, "_supplied_candidate", select)
+    monkeypatch.setattr(proof, "_prove_interpreter", prove)
+    monkeypatch.setattr(proof, "_publish_retained", lambda *_args: None)
+    config = proof.ProofConfig(
+        tmp_path,
+        (Path("/python312"), Path("/python313")),
+        10,
+        100,
+        100,
+        mke_wheel=supplied,
+    )
+
+    result = proof.run_proof(config)
+
+    assert events == ["supplied"]
+    assert result["v2_consumer_status"] == "passed"
+    assert not root.exists()
+
+
 def test_aggregate_is_closed_and_requires_one_digest_for_two_interpreters() -> None:
     proof = _load()
     digest = hashlib.sha256(b"same wheel").hexdigest()
+
+    def interpreter_result(
+        interpreter: str,
+        wheel_digest: str = digest,
+        *,
+        v2_source_count: int = 3,
+    ) -> object:
+        return proof.InterpreterResult(
+            interpreter, wheel_digest, 2, 3, v2_source_count, 4, "passed"
+        )
+
     result = proof.aggregate_results(
         [
-            proof.InterpreterResult("3.12", digest, 2, 3),
-            proof.InterpreterResult("3.13", digest, 2, 3),
+            interpreter_result("3.12"),
+            interpreter_result("3.13"),
         ]
     )
     assert result == {
@@ -145,18 +223,29 @@ def test_aggregate_is_closed_and_requires_one_digest_for_two_interpreters() -> N
         "interpreter_count": 2,
         "markdown_format": "mke.compiled_markdown.v1",
         "proof_input_wheel_sha256": digest,
-        "schema_version": "mke.compiled_library_export_proof.v1",
+        "schema_version": "mke.compiled_library_export_proof.v2",
         "status": "passed",
+        "v2_consumer_schema": "mke.compiled_library_export_consumer.v2",
+        "v2_consumer_status": "passed",
+        "v2_evidence_count": 4,
+        "v2_export_schema": "mke.compiled_library_export.v2",
+        "v2_markdown_format": "mke.compiled_markdown.v2",
+        "v2_response_schema": "mke.compiled_library_export_response.v2",
+        "v2_source_count": 3,
     }
     for results in (
-        [proof.InterpreterResult("3.12", digest, 2, 3)],
+        [interpreter_result("3.12")],
         [
-            proof.InterpreterResult("3.12", digest, 2, 3),
-            proof.InterpreterResult("3.12", digest, 2, 3),
+            interpreter_result("3.12"),
+            interpreter_result("3.12"),
         ],
         [
-            proof.InterpreterResult("3.12", digest, 2, 3),
-            proof.InterpreterResult("3.13", "f" * 64, 2, 3),
+            interpreter_result("3.12"),
+            interpreter_result("3.13", "f" * 64),
+        ],
+        [
+            interpreter_result("3.12"),
+            interpreter_result("3.13", v2_source_count=2),
         ],
     ):
         with pytest.raises(proof.ControllerError, match="proof_failed"):
@@ -371,6 +460,8 @@ def test_run_proof_builds_one_candidate_and_checks_identity_invariants(
                         "python": str(Path(argv[0]).resolve()),
                     }
                 ).encode()
+            elif "class Provider:" in argv[2]:
+                events.append(f"{index}:ingest:direct-audio.mp3:model-free")
             else:
                 events.append(f"{index}:minor")
                 stdout = f"3.{12 + index}\n".encode()
@@ -398,7 +489,10 @@ def test_run_proof_builds_one_candidate_and_checks_identity_invariants(
             name = argv[argv.index("--output") + 1]
             events.append(f"{index}:export:{name}")
             target = cwd / name
-            if target.exists() or name == "corrupted-output":
+            if name == "mixed-v1-failed":
+                returncode = 1
+                stdout = proof.canonical_json(proof._V1_MIXED_FAILURE)
+            elif target.exists() or name == "corrupted-output":
                 returncode = 1
                 failure = (
                     proof._PRODUCER_FAILURES["provenance"]
@@ -408,13 +502,18 @@ def test_run_proof_builds_one_candidate_and_checks_identity_invariants(
                 stdout = proof.canonical_json(failure)
             else:
                 export_tree(target)
+                v2 = "--format-version" in argv
                 stdout = proof.canonical_json(
                     {
-                        "schema_version": "mke.compiled_library_export_response.v1",
+                        "schema_version": (
+                            "mke.compiled_library_export_response.v2"
+                            if v2
+                            else "mke.compiled_library_export_response.v1"
+                        ),
                         "ok": True,
                         "library_id": "local",
-                        "source_count": 2,
-                        "evidence_count": 3,
+                        "source_count": 3 if v2 else 2,
+                        "evidence_count": 4 if v2 else 3,
                         "manifest_sha256": "a" * 64,
                     }
                 )
@@ -427,6 +526,11 @@ def test_run_proof_builds_one_candidate_and_checks_identity_invariants(
                 stdout = b'{"code":"export_invalid","status":"failed"}\n'
             else:
                 stdout = proof.canonical_json(proof._CONSUMER_SUCCESS)
+        elif Path(argv[1]).name == "compiled_library_export_consumer_v2.py":
+            index = int(Path(argv[0]).parents[1].name.rsplit("-", 1)[1])
+            target = Path(argv[argv.index("--export") + 1])
+            events.append(f"{index}:consumer-v2:{target.name}")
+            stdout = proof.canonical_json(proof._CONSUMER_V2_SUCCESS)
         else:
             raise AssertionError(argv)
         return authority.CommandResult(returncode, stdout, b"")
@@ -480,9 +584,15 @@ def test_run_proof_builds_one_candidate_and_checks_identity_invariants(
         "consumer:digest-drift",
         "consumer:unexpected-file",
         "consumer:manifest-less",
+        "ingest:direct-audio.mp3:model-free",
+        "export:mixed-v1-failed",
+        "export:export-v2-first",
+        "export:export-v2-second",
+        "consumer-v2:export-v2-first",
     ]
-    assert events[4:22] == [f"0:{event}" for event in per_interpreter]
-    assert events[22:] == [f"1:{event}" for event in per_interpreter]
+    boundary = 4 + len(per_interpreter)
+    assert events[4:boundary] == [f"0:{event}" for event in per_interpreter]
+    assert events[boundary:] == [f"1:{event}" for event in per_interpreter]
     assert not owned.exists()
 
 
@@ -738,8 +848,15 @@ def test_main_success_returns_zero_and_one_closed_aggregate(
         "interpreter_count": 2,
         "markdown_format": "mke.compiled_markdown.v1",
         "proof_input_wheel_sha256": digest,
-        "schema_version": "mke.compiled_library_export_proof.v1",
+        "schema_version": "mke.compiled_library_export_proof.v2",
         "status": "passed",
+        "v2_consumer_schema": "mke.compiled_library_export_consumer.v2",
+        "v2_consumer_status": "passed",
+        "v2_evidence_count": 4,
+        "v2_export_schema": "mke.compiled_library_export.v2",
+        "v2_markdown_format": "mke.compiled_markdown.v2",
+        "v2_response_schema": "mke.compiled_library_export_response.v2",
+        "v2_source_count": 3,
     }
     monkeypatch.setattr(proof, "run_proof", lambda _config: aggregate)
     assert proof.main(["--python", "/python312", "--python", "/python313", "--json"]) == 0

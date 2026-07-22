@@ -8,12 +8,18 @@ from dataclasses import dataclass
 from typing import Literal
 
 from . import (
+    PDF_EXTRACTOR_FINGERPRINT,
+    PYMUPDF_TEXT_FINGERPRINT,
     ActivePublicationObservation,
     CandidateEvidence,
     ManifestValidationError,
     RunManifest,
+    is_recognized_audio_fingerprint,
+    is_recognized_video_fingerprint,
     validate_manifest,
 )
+
+ExportFormatVersion = Literal["v1", "v2"]
 
 _CONTENT_FINGERPRINT_RE = re.compile(r"sha256:[0-9a-f]{64}\Z")
 _ID_PATTERNS = {
@@ -42,7 +48,10 @@ DEFAULT_EXPORT_LIMITS = ExportLimits(4096, 65536, 128 * 1024 * 1024, 64 * 1024 *
 class LibraryExportDataError(ValueError):
     """Raised when domain truth cannot form a safe compiled Library snapshot."""
 
-    def __init__(self, reason: Literal["empty", "provenance", "too_large"]) -> None:
+    def __init__(
+        self,
+        reason: Literal["empty", "provenance", "too_large", "unsupported_active_media_type"],
+    ) -> None:
         super().__init__(f"compiled Library snapshot rejected: {reason}")
         self.reason = reason
 
@@ -215,6 +224,99 @@ class CompiledSourceSnapshot:
 
 
 @dataclass(frozen=True)
+class CompiledSourceSnapshotV2:
+    source_id: str
+    display_name: str
+    content_fingerprint: str
+    media_type: Literal[
+        "application/pdf",
+        "video/mp4",
+        "audio/mpeg",
+        "audio/wav",
+        "audio/mp4",
+    ]
+    publication_id: str
+    publication_revision: int
+    run_id: str
+    extractor_fingerprint: str
+    required_stages: tuple[str, ...]
+    evidence: tuple[CompiledEvidenceSnapshot, ...]
+
+    def __post_init__(self) -> None:
+        valid_shape = (
+            _valid_id("source", self.source_id)
+            and _valid_display_name(self.display_name)
+            and _valid_content_fingerprint(self.content_fingerprint)
+            and self.media_type
+            in {"application/pdf", "video/mp4", "audio/mpeg", "audio/wav", "audio/mp4"}
+            and _valid_id("publication", self.publication_id)
+            and type(self.publication_revision) is int
+            and self.publication_revision > 0
+            and _valid_id("run", self.run_id)
+            and type(self.extractor_fingerprint) is str
+            and bool(self.extractor_fingerprint)
+            and type(self.required_stages) is tuple
+            and all(type(stage) is str for stage in self.required_stages)
+            and type(self.evidence) is tuple
+            and bool(self.evidence)
+            and all(type(item) is CompiledEvidenceSnapshot for item in self.evidence)
+        )
+        if not valid_shape:
+            _reject_provenance()
+        if self.required_stages != tuple(sorted(self.required_stages)):
+            _reject_provenance()
+        if self.evidence != tuple(sorted(self.evidence, key=_evidence_sort_key)):
+            _reject_provenance()
+        for item in self.evidence:
+            if (
+                item.source_id != self.source_id
+                or item.content_fingerprint != self.content_fingerprint
+                or item.publication_id != self.publication_id
+                or item.publication_revision != self.publication_revision
+                or item.run_id != self.run_id
+            ):
+                _reject_provenance()
+        manifest = RunManifest(
+            run_id=self.run_id,
+            evidence_count=len(self.evidence),
+            required_stages=self.required_stages,
+            extractor_fingerprint=self.extractor_fingerprint,
+            asset_sha256=self.content_fingerprint.removeprefix("sha256:"),
+        )
+        candidates = [
+            CandidateEvidence(
+                evidence_id=item.evidence_id,
+                locator_kind=item.locator_kind,
+                locator_start=item.locator_start,
+                locator_end=item.locator_end,
+                text=item.text,
+            )
+            for item in self.evidence
+        ]
+        try:
+            validate_manifest(manifest, candidates)
+        except ManifestValidationError as exc:
+            raise LibraryExportDataError("provenance") from exc
+        locator_kinds = {item.locator_kind for item in self.evidence}
+        if self.media_type == "application/pdf":
+            valid_authority = locator_kinds == {"page"} and (
+                self.extractor_fingerprint
+                in {PDF_EXTRACTOR_FINGERPRINT, PYMUPDF_TEXT_FINGERPRINT}
+                or self.extractor_fingerprint.startswith("pdf-ocr-eval-v1:")
+            )
+        elif self.media_type == "video/mp4":
+            valid_authority = locator_kinds == {"timestamp_ms"} and (
+                is_recognized_video_fingerprint(self.extractor_fingerprint)
+            )
+        else:
+            valid_authority = locator_kinds == {"timestamp_ms"} and (
+                is_recognized_audio_fingerprint(self.extractor_fingerprint)
+            )
+        if not valid_authority:
+            _reject_provenance()
+
+
+@dataclass(frozen=True)
 class CompiledLibrarySnapshot:
     observation: ActivePublicationObservation
     sources: tuple[CompiledSourceSnapshot, ...]
@@ -226,6 +328,50 @@ class CompiledLibrarySnapshot:
             raise LibraryExportDataError("empty")
         if type(self.sources) is not tuple or not all(
             type(source) is CompiledSourceSnapshot for source in self.sources
+        ):
+            _reject_provenance()
+        if self.sources != tuple(
+            sorted(self.sources, key=lambda source: (source.content_fingerprint, source.source_id))
+        ):
+            _reject_provenance()
+        fingerprints = tuple(source.content_fingerprint for source in self.sources)
+        if len(fingerprints) != len(set(fingerprints)):
+            _reject_provenance()
+        evidence_count = sum(len(source.evidence) for source in self.sources)
+        if (
+            len(self.sources) != self.observation.active_publication_count
+            or evidence_count != self.observation.active_evidence_count
+        ):
+            _reject_provenance()
+        limits = DEFAULT_EXPORT_LIMITS
+        if (
+            len(self.sources) > limits.max_active_publications
+            or evidence_count > limits.max_active_evidence
+            or self.evidence_utf8_bytes > limits.max_evidence_utf8_bytes
+        ):
+            raise LibraryExportDataError("too_large")
+
+    @property
+    def evidence_utf8_bytes(self) -> int:
+        return sum(
+            len(item.text.encode("utf-8"))
+            for source in self.sources
+            for item in source.evidence
+        )
+
+
+@dataclass(frozen=True)
+class CompiledLibrarySnapshotV2:
+    observation: ActivePublicationObservation
+    sources: tuple[CompiledSourceSnapshotV2, ...]
+
+    def __post_init__(self) -> None:
+        if type(self.observation) is not ActivePublicationObservation:
+            _reject_provenance()
+        if self.observation.state != "active":
+            raise LibraryExportDataError("empty")
+        if type(self.sources) is not tuple or not all(
+            type(source) is CompiledSourceSnapshotV2 for source in self.sources
         ):
             _reject_provenance()
         if self.sources != tuple(

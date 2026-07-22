@@ -10,22 +10,32 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_vali
 
 from mke.adapters.filesystem import OutputPublicationError, publish_compiled_library
 from mke.application import KnowledgeEngine
-from mke.domain import LibraryExportDataError
+from mke.domain import ExportFormatVersion, LibraryExportDataError
 from mke.interfaces.public_errors import PublicError
 
-_SCHEMA_VERSION = "mke.compiled_library_export_response.v1"
+_RESPONSE_SCHEMAS = {
+    "v1": "mke.compiled_library_export_response.v1",
+    "v2": "mke.compiled_library_export_response.v2",
+}
 _REDACTED_CAUSE = "operation failed; details were redacted"
-_NON_REDACTED_CAUSES = frozenset(
+_COMMON_NON_REDACTED_CAUSES = frozenset(
     {
         "local Library has no active Publications",
         "active Publication provenance graph is invalid",
         "local Library database is unavailable or incompatible",
         "output directory must not already exist",
         "output parent is invalid",
-        "active Library exceeds v1 export limits",
     }
 )
-_EXPORT_CAUSES = _NON_REDACTED_CAUSES | {_REDACTED_CAUSE}
+_V1_EXPORT_CAUSES = _COMMON_NON_REDACTED_CAUSES | {
+    _REDACTED_CAUSE,
+    "active Library exceeds v1 export limits",
+    "active Library contains media unsupported by export v1",
+}
+_V2_EXPORT_CAUSES = _COMMON_NON_REDACTED_CAUSES | {
+    _REDACTED_CAUSE,
+    "active Library exceeds v2 export limits",
+}
 _MachineToken = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]{0,127}$")]
 _Sha256 = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
 
@@ -35,7 +45,9 @@ class _StrictModel(BaseModel):
 
 
 class LibraryExportSuccessV1(_StrictModel):
-    schema_version: Literal["mke.compiled_library_export_response.v1"] = _SCHEMA_VERSION
+    schema_version: Literal["mke.compiled_library_export_response.v1"] = (
+        "mke.compiled_library_export_response.v1"
+    )
     ok: Literal[True] = True
     library_id: Literal["local"] = "local"
     source_count: int = Field(ge=1)
@@ -44,7 +56,9 @@ class LibraryExportSuccessV1(_StrictModel):
 
 
 class LibraryExportErrorV1(_StrictModel):
-    schema_version: Literal["mke.compiled_library_export_response.v1"] = _SCHEMA_VERSION
+    schema_version: Literal["mke.compiled_library_export_response.v1"] = (
+        "mke.compiled_library_export_response.v1"
+    )
     ok: Literal[False]
     problem: _MachineToken
     cause: Annotated[str, StringConstraints(min_length=1, max_length=512)]
@@ -53,27 +67,76 @@ class LibraryExportErrorV1(_StrictModel):
 
     @model_validator(mode="after")
     def validate_export_cause(self) -> LibraryExportErrorV1:
-        if self.cause not in _EXPORT_CAUSES:
+        if self.cause not in _V1_EXPORT_CAUSES:
             raise ValueError("error cause is not approved for the Library export boundary")
         return self
 
 
-def library_export_error_payload(error: PublicError) -> dict[str, object]:
-    return {"schema_version": _SCHEMA_VERSION, **error.payload()}
+class LibraryExportSuccessV2(_StrictModel):
+    schema_version: Literal["mke.compiled_library_export_response.v2"] = (
+        "mke.compiled_library_export_response.v2"
+    )
+    ok: Literal[True] = True
+    library_id: Literal["local"] = "local"
+    source_count: int = Field(ge=1)
+    evidence_count: int = Field(ge=1)
+    manifest_sha256: _Sha256
 
 
-def _error_model(error: PublicError) -> LibraryExportErrorV1:
-    return LibraryExportErrorV1.model_validate(library_export_error_payload(error))
+class LibraryExportErrorV2(_StrictModel):
+    schema_version: Literal["mke.compiled_library_export_response.v2"] = (
+        "mke.compiled_library_export_response.v2"
+    )
+    ok: Literal[False]
+    problem: _MachineToken
+    cause: Annotated[str, StringConstraints(min_length=1, max_length=512)]
+    active_publication_impact: Literal["unchanged"] = "unchanged"
+    next_step: _MachineToken
+
+    @model_validator(mode="after")
+    def validate_export_cause(self) -> LibraryExportErrorV2:
+        if self.cause not in _V2_EXPORT_CAUSES:
+            raise ValueError("error cause is not approved for the Library export boundary")
+        return self
+
+
+LibraryExportResponse = (
+    LibraryExportSuccessV1
+    | LibraryExportErrorV1
+    | LibraryExportSuccessV2
+    | LibraryExportErrorV2
+)
+
+
+def _require_format_version(value: object) -> ExportFormatVersion:
+    if value not in ("v1", "v2"):
+        raise ValueError("unsupported export format version")
+    return value  # type: ignore[return-value]
+
+
+def library_export_error_payload(
+    error: PublicError, *, format_version: ExportFormatVersion = "v1"
+) -> dict[str, object]:
+    return {"schema_version": _RESPONSE_SCHEMAS[format_version], **error.payload()}
+
+
+def _error_model(
+    error: PublicError, format_version: ExportFormatVersion
+) -> LibraryExportErrorV1 | LibraryExportErrorV2:
+    model = LibraryExportErrorV1 if format_version == "v1" else LibraryExportErrorV2
+    return model.model_validate(
+        library_export_error_payload(error, format_version=format_version)
+    )
 
 
 def _render_response(
-    payload: LibraryExportSuccessV1 | LibraryExportErrorV1, *, json_output: bool
+    payload: LibraryExportResponse, *, json_output: bool
 ) -> str:
     if json_output:
         return json.dumps(
             payload.model_dump(), ensure_ascii=False, separators=(",", ":"), sort_keys=True
         )
-    if isinstance(payload, LibraryExportSuccessV1):
+    if isinstance(payload, (LibraryExportSuccessV1, LibraryExportSuccessV2)):
         return (
             "library_export=passed "
             f"library_id={payload.library_id} "
@@ -88,7 +151,9 @@ def _render_response(
     )
 
 
-def _snapshot_error(error: LibraryExportDataError) -> PublicError:
+def _snapshot_error(
+    error: LibraryExportDataError, format_version: ExportFormatVersion
+) -> PublicError:
     if error.reason == "empty":
         return PublicError(
             "library_export_invalid",
@@ -101,9 +166,15 @@ def _snapshot_error(error: LibraryExportDataError) -> PublicError:
             "active Publication provenance graph is invalid",
             "repair_local_library",
         )
+    if error.reason == "unsupported_active_media_type":
+        return PublicError(
+            "unsupported_active_media_type",
+            "active Library contains media unsupported by export v1",
+            "rerun_library_export_with_format_version_v2",
+        )
     return PublicError(
         "library_export_too_large",
-        "active Library exceeds v1 export limits",
+        f"active Library exceeds {format_version} export limits",
         "reduce_active_library_or_use_later_export_version",
     )
 
@@ -126,9 +197,12 @@ def _publication_error(error: OutputPublicationError) -> PublicError:
     return PublicError("library_export_failed", _REDACTED_CAUSE, "retry_library_export")
 
 
-def _redacted_failure() -> LibraryExportErrorV1:
+def _redacted_failure(
+    format_version: ExportFormatVersion,
+) -> LibraryExportErrorV1 | LibraryExportErrorV2:
     return _error_model(
-        PublicError("library_export_failed", _REDACTED_CAUSE, "retry_library_export")
+        PublicError("library_export_failed", _REDACTED_CAUSE, "retry_library_export"),
+        format_version,
     )
 
 
@@ -137,10 +211,12 @@ def run_library_export(
     output_name: str,
     *,
     json_output: bool,
+    format_version: ExportFormatVersion = "v1",
     parent: Path = Path("."),
 ) -> int:
     """Read one immutable active-state snapshot and publish it under ``parent``."""
 
+    format_version = _require_format_version(format_version)
     try:
         engine = KnowledgeEngine.open_read_only_export(db_path)
     except Exception:
@@ -149,21 +225,22 @@ def run_library_export(
                 "library_export_invalid",
                 "local Library database is unavailable or incompatible",
                 "open_current_library_database",
-            )
+            ),
+            format_version,
         )
         print(_render_response(response, json_output=json_output))
         return 1
 
     close_error: Exception | None = None
     snapshot = None
-    response: LibraryExportSuccessV1 | LibraryExportErrorV1 | None = None
+    response: LibraryExportResponse | None = None
     exit_code = 1
     try:
-        snapshot = engine.compiled_library_snapshot()
+        snapshot = engine.compiled_library_snapshot(format_version=format_version)
     except LibraryExportDataError as error:
-        response = _error_model(_snapshot_error(error))
+        response = _error_model(_snapshot_error(error, format_version), format_version)
     except Exception:
-        response = _redacted_failure()
+        response = _redacted_failure(format_version)
     finally:
         try:
             engine.close()
@@ -171,15 +248,21 @@ def run_library_export(
             close_error = error
 
     if close_error is not None:
-        response = _redacted_failure()
+        response = _redacted_failure(format_version)
     elif snapshot is not None:
         try:
             result = publish_compiled_library(
                 snapshot,
+                format_version=format_version,
                 output_name=output_name,
                 parent=parent,
             )
-            response = LibraryExportSuccessV1.model_validate(
+            success_model = (
+                LibraryExportSuccessV1
+                if format_version == "v1"
+                else LibraryExportSuccessV2
+            )
+            response = success_model.model_validate(
                 {
                     "library_id": result.library_id,
                     "source_count": result.source_count,
@@ -189,11 +272,13 @@ def run_library_export(
             )
             exit_code = 0
         except LibraryExportDataError as error:
-            response = _error_model(_snapshot_error(error))
+            response = _error_model(
+                _snapshot_error(error, format_version), format_version
+            )
         except OutputPublicationError as error:
-            response = _error_model(_publication_error(error))
+            response = _error_model(_publication_error(error), format_version)
         except Exception:
-            response = _redacted_failure()
+            response = _redacted_failure(format_version)
 
     assert response is not None
     print(_render_response(response, json_output=json_output))

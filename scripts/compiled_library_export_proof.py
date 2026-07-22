@@ -58,6 +58,21 @@ _CONSUMER_SUCCESS = {
     "source_count": 2,
     "status": "passed",
 }
+_CONSUMER_V2_SUCCESS = {
+    "schema_version": "mke.compiled_library_export_consumer.v2",
+    "status": "passed",
+    "export_schema": "mke.compiled_library_export.v2",
+    "markdown_format": "mke.compiled_markdown.v2",
+    "evidence_schema": "mke.evidence_ref.v1",
+}
+_V1_MIXED_FAILURE = {
+    "schema_version": "mke.compiled_library_export_response.v1",
+    "ok": False,
+    "problem": "unsupported_active_media_type",
+    "cause": "active Library contains media unsupported by export v1",
+    "active_publication_impact": "unchanged",
+    "next_step": "rerun_library_export_with_format_version_v2",
+}
 _PRODUCER_FAILURES = {
     "target_exists": {
         "schema_version": "mke.compiled_library_export_response.v1",
@@ -77,6 +92,60 @@ _PRODUCER_FAILURES = {
     },
 }
 _CONSUMER_FAILURE = {"status": "failed", "code": "export_invalid"}
+_MODEL_FREE_AUDIO_INGEST = r'''
+import sys
+from pathlib import Path
+from mke.adapters.audio.contracts import audio_extractor_fingerprint
+from mke.application import KnowledgeEngine
+from mke.domain import (
+    AudioMediaInfo,
+    AudioTranscriptExtractionResult,
+    AudioTranscriptSegment,
+    ParsedAudioTranscript,
+    TranscriptIntakeReport,
+    TranscriptionProvenance,
+)
+
+
+class Provider:
+    def inspect(self, snapshot, *, suffix):
+        snapshot.verify_owned_path()
+        if suffix != ".mp3":
+            raise ValueError("unexpected proof fixture")
+        return AudioMediaInfo("mp3", "mp3", 1, 16000, 1200)
+
+    def transcribe(self, snapshot, media, config):
+        snapshot.verify_owned_path()
+        provenance = TranscriptionProvenance(
+            "faster-whisper", "small", "a" * 40, "1.2.3", "cpu", "int8",
+            "auto", "en", "cache", 25,
+        )
+        report = TranscriptIntakeReport(
+            "faster-whisper", "small", "a" * 40, "1.2.3", "cpu", "int8",
+            "auto", "en", media.duration_ms, 25, 1, "cache",
+        )
+        return AudioTranscriptExtractionResult(
+            ParsedAudioTranscript(
+                media,
+                (AudioTranscriptSegment(0, 1000, "bounded synthetic speech"),),
+                provenance,
+            ),
+            audio_extractor_fingerprint(provenance),
+            report,
+        )
+
+
+engine = KnowledgeEngine(
+    Path(sys.argv[1]),
+    audio_provider=Provider(),
+    audio_transcription_config=object(),
+    audio_preflight=lambda: None,
+)
+try:
+    engine.ingest_file(Path(sys.argv[2]))
+finally:
+    engine.close()
+'''
 
 
 class ControllerError(RuntimeError):
@@ -95,6 +164,7 @@ class ProofConfig:
     max_stdout_bytes: int
     max_stderr_bytes: int
     retained_export: Path | None = None
+    mke_wheel: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -103,6 +173,9 @@ class InterpreterResult:
     proof_input_wheel_sha256: str
     source_count: int
     evidence_count: int
+    v2_source_count: int
+    v2_evidence_count: int
+    v2_consumer_status: str
 
 
 def canonical_json(value: Mapping[str, object]) -> bytes:
@@ -147,6 +220,9 @@ def aggregate_results(results: Sequence[InterpreterResult]) -> dict[str, object]
             _SHA256.fullmatch(item.proof_input_wheel_sha256) is None
             or item.source_count != 2
             or item.evidence_count != 3
+            or item.v2_source_count != 3
+            or item.v2_evidence_count != 4
+            or item.v2_consumer_status != "passed"
             for item in results
         )
     ):
@@ -157,8 +233,15 @@ def aggregate_results(results: Sequence[InterpreterResult]) -> dict[str, object]
         "interpreter_count": 2,
         "markdown_format": "mke.compiled_markdown.v1",
         "proof_input_wheel_sha256": results[0].proof_input_wheel_sha256,
-        "schema_version": "mke.compiled_library_export_proof.v1",
+        "schema_version": "mke.compiled_library_export_proof.v2",
         "status": "passed",
+        "v2_consumer_schema": "mke.compiled_library_export_consumer.v2",
+        "v2_consumer_status": "passed",
+        "v2_evidence_count": 4,
+        "v2_export_schema": "mke.compiled_library_export.v2",
+        "v2_markdown_format": "mke.compiled_markdown.v2",
+        "v2_response_schema": "mke.compiled_library_export_response.v2",
+        "v2_source_count": 3,
     }
 
 
@@ -272,6 +355,101 @@ def _build_candidate(config: ProofConfig, root: Path) -> tuple[Path, str]:
     return wheel, digest
 
 
+def _copy_supplied_wheel(source: Path, target: Path) -> str:
+    try:
+        before = os.lstat(source)
+        if not stat.S_ISREG(before.st_mode) or stat.S_ISLNK(before.st_mode):
+            raise ControllerError("candidate_artifact_invalid")
+        source_fd = os.open(source, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    except OSError as exc:
+        raise ControllerError("candidate_artifact_invalid") from exc
+    target_fd: int | None = None
+    digest = hashlib.sha256()
+    try:
+        opened = os.fstat(source_fd)
+        opened_identity = (
+            opened.st_dev,
+            opened.st_ino,
+            opened.st_size,
+            opened.st_mtime_ns,
+        )
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or (before.st_dev, before.st_ino) != (opened.st_dev, opened.st_ino)
+            or opened.st_size <= 0
+        ):
+            raise ControllerError("candidate_artifact_invalid")
+        target_fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        copied = 0
+        while True:
+            chunk = os.read(source_fd, 64 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+            copied += len(chunk)
+            remaining = memoryview(chunk)
+            while remaining:
+                written = os.write(target_fd, remaining)
+                if written <= 0:
+                    raise ControllerError("candidate_artifact_invalid")
+                remaining = remaining[written:]
+        after = os.fstat(source_fd)
+        if (
+            copied != opened.st_size
+            or opened_identity
+            != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+        ):
+            raise ControllerError("candidate_artifact_invalid")
+    except OSError as exc:
+        raise ControllerError("candidate_artifact_invalid") from exc
+    finally:
+        if target_fd is not None:
+            os.close(target_fd)
+        os.close(source_fd)
+    value = digest.hexdigest()
+    if _SHA256.fullmatch(value) is None:
+        raise ControllerError("candidate_artifact_invalid")
+    return value
+
+
+def _supplied_candidate(config: ProofConfig, root: Path) -> tuple[Path, str]:
+    supplied = config.mke_wheel
+    if supplied is None:
+        raise ControllerError("candidate_artifact_invalid")
+    source = _candidate_source(config, root)
+    build = root / "wheel"
+    build.mkdir()
+    wheel = build / supplied.name
+    digest = _copy_supplied_wheel(supplied, wheel)
+    try:
+        project = tomllib.loads((source / "pyproject.toml").read_text(encoding="utf-8"))[
+            "project"
+        ]
+    except (OSError, KeyError, tomllib.TOMLDecodeError) as exc:
+        raise ControllerError("candidate_artifact_invalid") from exc
+    metadata_name, metadata_version = _wheel_metadata(wheel)
+    if project.get("name") != metadata_name or project.get("version") != metadata_version:
+        raise ControllerError("candidate_artifact_invalid")
+    _command(
+        "wheel_build_failed",
+        [
+            "uv",
+            "export",
+            "--project",
+            str(source),
+            "--locked",
+            "--no-dev",
+            "--no-emit-project",
+            "--output-file",
+            str(root / "constraints.txt"),
+        ],
+        cwd=root,
+        env=isolated_environment(os.environ),
+        config=config,
+    )
+    return wheel, digest
+
+
 def tree_digest(root: Path) -> str:
     entries: list[tuple[str, str]] = []
     for path in sorted(root.rglob("*")):
@@ -329,10 +507,41 @@ def _producer_export_payload(
     return payload
 
 
+def _producer_v2_export_payload(stdout: bytes) -> dict[str, object]:
+    payload = _payload(stdout, "producer_failed")
+    if (
+        set(payload)
+        != {
+            "schema_version",
+            "ok",
+            "library_id",
+            "source_count",
+            "evidence_count",
+            "manifest_sha256",
+        }
+        or payload.get("schema_version") != "mke.compiled_library_export_response.v2"
+        or payload.get("ok") is not True
+        or payload.get("library_id") != "local"
+        or payload.get("source_count") != 3
+        or payload.get("evidence_count") != 4
+        or type(payload.get("manifest_sha256")) is not str
+        or _SHA256.fullmatch(cast(str, payload["manifest_sha256"])) is None
+    ):
+        raise ControllerError("producer_failed")
+    return payload
+
+
 def _consumer_payload(stdout: bytes, *, success: bool) -> dict[str, object]:
     payload = _payload(stdout, "consumer_failed")
     expected = _CONSUMER_SUCCESS if success else _CONSUMER_FAILURE
     if payload != expected:
+        raise ControllerError("consumer_failed")
+    return payload
+
+
+def _consumer_v2_payload(stdout: bytes) -> dict[str, object]:
+    payload = _payload(stdout, "consumer_failed")
+    if payload != _CONSUMER_V2_SUCCESS:
         raise ControllerError("consumer_failed")
     return payload
 
@@ -367,6 +576,29 @@ def _consumer_command(
         success=success,
     )
     return _consumer_payload(stdout, success=success)
+
+
+def _consumer_v2_command(
+    config: ProofConfig,
+    python: Path,
+    consumer: Path,
+    export: Path,
+    env: Mapping[str, str],
+) -> dict[str, object]:
+    stdout, _ = _command(
+        "consumer_failed",
+        [
+            str(python),
+            str(consumer),
+            "--export",
+            str(export),
+            "--json",
+        ],
+        cwd=export.parent,
+        env=env,
+        config=config,
+    )
+    return _consumer_v2_payload(stdout)
 
 
 def _copy_fixture(source: Path, target: Path) -> None:
@@ -500,14 +732,20 @@ def _prove_interpreter(
 
     pdf = workspace / "operations-guide.pdf"
     video = workspace / "spoken-evidence.mp4"
+    audio = workspace / "direct-audio.mp3"
     sidecar = workspace / "spoken-evidence.mp4.mke-transcript.json"
     consumer = workspace / "compiled_library_export_consumer.py"
+    consumer_v2 = workspace / "compiled_library_export_consumer_v2.py"
     _copy_fixture(config.repository / "tests/fixtures/local-knowledge-v1/operations-guide.pdf", pdf)
     _copy_fixture(config.repository / "tests/fixtures/video/spoken-evidence.mp4", video)
+    _copy_fixture(config.repository / "tests/fixtures/audio/direct-audio.mp3", audio)
     _copy_fixture(
         config.repository / "tests/fixtures/video/short-audio.mp4.mke-transcript.json", sidecar
     )
     _copy_fixture(config.repository / "scripts/compiled_library_export_consumer.py", consumer)
+    _copy_fixture(
+        config.repository / "scripts/compiled_library_export_consumer_v2.py", consumer_v2
+    )
     database = workspace / "library.sqlite"
     for source in (pdf, video):
         _command(
@@ -575,6 +813,61 @@ def _prove_interpreter(
     (partial / "export-manifest.json").unlink()
     _consumer_command(config, python, consumer, partial, pdf, video, env, success=False)
 
+    _command(
+        "producer_failed",
+        [str(python), "-c", _MODEL_FREE_AUDIO_INGEST, str(database), str(audio)],
+        cwd=workspace,
+        env=env,
+        config=config,
+    )
+    stdout, _ = _command(
+        "producer_failed",
+        [
+            str(mke),
+            "--db",
+            str(database),
+            "library",
+            "export",
+            "--output",
+            "mixed-v1-failed",
+            "--json",
+        ],
+        cwd=workspace,
+        env=env,
+        config=config,
+        success=False,
+    )
+    if _payload(stdout, "producer_failed") != _V1_MIXED_FAILURE:
+        raise ControllerError("producer_failed")
+
+    def export_v2(name: str) -> Path:
+        stdout, _ = _command(
+            "producer_failed",
+            [
+                str(mke),
+                "--db",
+                str(database),
+                "library",
+                "export",
+                "--format-version",
+                "v2",
+                "--output",
+                name,
+                "--json",
+            ],
+            cwd=workspace,
+            env=env,
+            config=config,
+        )
+        _producer_v2_export_payload(stdout)
+        return workspace / name
+
+    v2_first = export_v2("export-v2-first")
+    v2_second = export_v2("export-v2-second")
+    if tree_digest(v2_first) != tree_digest(v2_second):
+        raise ControllerError("producer_failed")
+    _consumer_v2_command(config, python, consumer_v2, v2_first, env)
+
     if index == 0:
         shutil.copytree(first, root / "retained-source")
     return InterpreterResult(
@@ -582,6 +875,9 @@ def _prove_interpreter(
         hashlib.sha256(wheel.read_bytes()).hexdigest(),
         source_count=2,
         evidence_count=3,
+        v2_source_count=3,
+        v2_evidence_count=4,
+        v2_consumer_status="passed",
     )
 
 
@@ -696,7 +992,11 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
     error: BaseException | None = None
     aggregate: dict[str, object] | None = None
     try:
-        wheel, _digest = _build_candidate(config, root)
+        wheel, _digest = (
+            _build_candidate(config, root)
+            if config.mke_wheel is None
+            else _supplied_candidate(config, root)
+        )
         results = [
             _prove_interpreter(config, root, wheel, interpreter, index)
             for index, interpreter in enumerate(config.python_interpreters)
@@ -724,6 +1024,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--python", action="append", type=Path, required=True)
     parser.add_argument("--retained-export", type=Path)
+    parser.add_argument("--mke-wheel", type=Path)
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--timeout-seconds", type=float, default=120.0)
     args = parser.parse_args(argv)
@@ -738,6 +1039,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 1024 * 1024,
                 1024 * 1024,
                 args.retained_export,
+                args.mke_wheel,
             )
         )
         exit_code = 0
