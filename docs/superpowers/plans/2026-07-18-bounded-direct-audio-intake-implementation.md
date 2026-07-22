@@ -2024,7 +2024,9 @@ Do not commit model weights, caches, venvs, wheelhouses, candidate wheels, datab
 
 ### Task 10 (PR C): Document The Contract, Close Conditional Identity, And Run Final Gates
 
-Status: Steps 1-7 complete. Step 8 is the next authorized gate; Steps 8-10 remain incomplete.
+Status: Steps 1-7 remain complete. A later locked-root install-projection repair is
+`TARGETED AUTHORITY RE-REVIEW PENDING`; Steps 8-10 remain incomplete and Step 8 cannot restart
+until that targeted review returns.
 
 **Files:**
 - Create: `docs/decisions/0011-bounded-direct-audio-intake.md`
@@ -2358,6 +2360,32 @@ the next incomplete gate. The real deployment-controller invocation count remain
 count remains one. No third deployment-controller invocation, model, ASR, provider, or product-path
 execution occurred, and this closure does not establish redistribution, production, SLA, release,
 or deployment authority.
+
+The next authorized Step 9 execution reached the real deployment controller once and failed
+closed at `pip-install-3.12`. The public aggregate remained `install_failed`; the bounded operator
+diagnostic showed that the deployment controller had replaced the receipt-backed 54-line root
+closure with one candidate-only direct-URL requirement. Under the unchanged `--require-hashes`
+contract, ranged candidate metadata such as `mcp<2,>=1.28.1` therefore lacked an explicit pinned,
+hashed root line. This was a deployment-controller install-projection defect, not dependency,
+wheel-metadata, receipt, constraints, wheelhouse, or pip drift.
+
+Targeted repair commit `9398f169348188ead18c082b28d20211cf293695` changes only
+`scripts/direct_audio_deployment_proof.py` and
+`tests/scripts/test_direct_audio_deployment_proof.py`. It reuses the existing PR A
+`_candidate_wheel_authority()` projection, carries the two exact per-cell root byte sequences only
+inside the non-serialized authorization object, writes the selected canonical bytes into the
+call-owned stage, and requires exact staged content before and after pip. The serialized
+`mke.direct_audio_terminal_authorization.v1` schema and the binary-only, no-index, constraints,
+hash-checking, isolated-environment contract remain unchanged. Against the retained accepted
+inputs, both Python cells reproduce 54 lines, 5,819 bytes, and root SHA-256
+`e653870bfb252d22309bbe6b66bf7790bd89d167e41094dd5a358a20f876aebf`.
+
+This repair is `TARGETED AUTHORITY RE-REVIEW PENDING`. The failed Step 9 wheel, authorization,
+repository-gate observations, controller aggregate, and install diagnostic are historical evidence
+only and cannot authorize another terminal run. The real deployment-controller invocation count is
+three and the retry count is two. No fourth controller invocation, manual pip replay, model load,
+ASR, provider, or product-path execution occurred during the repair. Steps 8-10 remain incomplete;
+no Step 8 rebuild or later gate is authorized by this record.
 
 - [ ] **Step 8: Build the final MKE wheel and bind the terminal proof inputs**
 
