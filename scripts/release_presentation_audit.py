@@ -622,18 +622,25 @@ def _line_overclaims_direct_audio(line: str) -> bool:
     )
     authority_affirmatives = (
         r"\bterminal\b.*\breal\s+asr\b.*\bproof\b.*\b(?:passed|verified|completed|successful)\b",
+        r"\bterminal\b.*\bproof\b.*\b(?:ran|performed|executed)\b.*\breal\s+asr\b",
         r"\b(?:verified|validated|proved)\b.*\breal\s+asr\b",
         r"\bredistribut(?:e|es|ed|ing)\b.*\bexternal\b.*\b(?:wheels?|native binaries)\b",
+        r"\bmke\b.*\b(?:bundl(?:e|es|ed|ing)|packag(?:e|es|ed|ing))\b.*"
+        r"\bexternal\b.*\b(?:wheels?|native binaries)\b",
         r"终端.*真实\s*asr.*(?:证明|验证).*(?:已通过|通过|完成|已验证)",
+        r"终端.*证明.*(?:运行|执行|完成)(?:了)?.*真实\s*asr",
         r"已验证.*真实\s*asr",
         r"重新分发.*外部.*(?:wheels?|原生二进制)",
+        r"mke.*(?:打包|捆绑).*外部.*(?:wheels?|原生二进制)",
     )
     authority_negations = (
-        r"\b(?:does not|do not)\s+(?:run|perform|verify|redistribute)\b",
-        r"\b(?:has|have|was|is)\s+not\s+(?:been\s+)?(?:run|performed|verified|redistributed)\b",
-        r"\bnot\s+(?:run|performed|verified|redistributed)\b",
-        r"(?:尚未|没有|未)(?:运行|执行|完成|验证|重新分发)",
-        r"不重新分发",
+        r"\b(?:does not|do not|did not)\s+"
+        r"(?:run|perform|execute|verify|redistribute|bundle|package)\b",
+        r"\b(?:has|have|was|is)\s+not\s+(?:been\s+)?"
+        r"(?:run|performed|executed|verified|redistributed|bundled|packaged)\b",
+        r"\bnot\s+(?:run|performed|executed|verified|redistributed|bundled|packaged)\b",
+        r"(?:尚未|没有|未)(?:运行|执行|完成|验证|重新分发|打包|捆绑)",
+        r"不(?:重新分发|打包|捆绑)",
     )
     if any(
         re.search(pattern, clause) is not None

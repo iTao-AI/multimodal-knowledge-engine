@@ -1123,15 +1123,19 @@ APPROVED_DIRECT_AUDIO_CLAIM = (
         "MKE has official LLM Wiki direct-audio integration.",
         "The terminal real ASR proof passed.",
         "MKE verified real ASR in the terminal proof.",
+        "The terminal proof ran real ASR.",
         "MKE redistributes external wheels and native binaries.",
         "MKE redistributes external wheels/native binaries.",
+        "MKE bundles external wheels and native binaries.",
         "MKE 支持任意音频编解码器。",
         "MKE 支持完整会议、访谈和讲座处理。",
         "MKE 会自动下载转写模型。",
         "Direct audio 支持所有平台。",
         "终端真实 ASR 证明已通过。",
         "MKE 已验证真实 ASR。",
+        "终端证明执行了真实 ASR。",
         "MKE 重新分发外部 wheels 和原生二进制文件。",
+        "MKE 打包外部 wheels 和原生二进制文件。",
     ],
 )
 def test_audit_rejects_direct_audio_overclaims(tmp_path: Path, claim: str) -> None:
@@ -1166,9 +1170,13 @@ def test_audit_rejects_wrapped_direct_audio_overclaim_once(tmp_path: Path) -> No
     "wrapped_claim",
     [
         "The terminal real ASR proof\npassed and was verified.",
+        "The terminal proof ran\nreal ASR.",
         "MKE redistributes external wheels\nand native binaries.",
+        "MKE bundles external wheels\nand native binaries.",
         "终端真实 ASR 证明\n已通过并完成验证。",
+        "终端证明执行了\n真实 ASR。",
         "MKE 重新分发外部 wheels\n和原生二进制文件。",
+        "MKE 打包外部 wheels\n和原生二进制文件。",
     ],
 )
 def test_audit_rejects_wrapped_audio_authority_overclaim_once(
@@ -1209,10 +1217,14 @@ def test_audit_rejects_wrapped_audio_authority_overclaim_once(
         ),
         "The terminal real ASR proof has not been performed.",
         "MKE has not verified real ASR.",
+        "The terminal proof did not run real ASR.",
         "MKE does not redistribute external wheels or native binaries.",
+        "MKE does not bundle external wheels or native binaries.",
         "尚未运行终端真实 ASR 证明。",
         "MKE 未验证真实 ASR。",
+        "终端证明未执行真实 ASR。",
         "MKE 不重新分发外部 wheels 或原生二进制文件。",
+        "MKE 不打包外部 wheels 或原生二进制文件。",
     ],
 )
 def test_audit_accepts_approved_or_negated_direct_audio_boundaries(
@@ -1237,8 +1249,15 @@ def test_audit_accepts_approved_or_negated_direct_audio_boundaries(
             "MKE redistributes external wheels/native binaries."
         ),
         "MKE has not verified real ASR and MKE verified real ASR in the terminal proof.",
+        "The terminal proof did not run real ASR, but the terminal proof ran real ASR.",
+        (
+            "MKE does not bundle external wheels or native binaries, but "
+            "MKE bundles external wheels and native binaries."
+        ),
         "MKE 不重新分发外部 wheels，但 MKE 重新分发外部 wheels 和原生二进制文件。",
         "MKE 未验证真实 ASR，但 MKE 已验证真实 ASR。",
+        "终端证明未执行真实 ASR，但终端证明执行了真实 ASR。",
+        "MKE 不打包外部 wheels，但 MKE 打包外部 wheels 和原生二进制文件。",
     ],
 )
 def test_audio_authority_negation_does_not_mask_contradictory_overclaim(
