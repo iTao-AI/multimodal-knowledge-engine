@@ -32,7 +32,7 @@
     "main_merge_base": "721784eabcb9fbb737166578010c9e1a46a25fef",
     "implementation_start": "3992b0e9371d1a8c9e019d3bbe2b32aac9665914",
     "evaluation_commit": "79bafb07ac592b684e6ceab15dc389dc33702978",
-    "evaluation_content_sha256": "a615babec9106542fd3c8ae6b8e91d0a99f43e8d3119093df9324819cc0a5bda",
+    "evaluation_content_sha256": "d437d67634e3a9a11fc9546cf8bd62e2bd33cd02dd35146f8d23f14d9b49c75f",
     "evaluation_content_files": [
       {
         "path": "src/mke/__init__.py",
@@ -451,8 +451,8 @@
       },
       {
         "path": "src/mke/interfaces/mcp_server.py",
-        "bytes": 7837,
-        "sha256": "1442d1b2e31cb52accf90eb01ee7c6f5bc3e515544d2fac5fef89fdec5b77838"
+        "bytes": 7847,
+        "sha256": "0090b03ecb598e2c8af45cac96e7788a80181c4cfaf3c0ea9220575526815f63"
       },
       {
         "path": "src/mke/interfaces/public_errors.py",
