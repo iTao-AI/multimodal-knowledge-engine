@@ -4551,6 +4551,29 @@ def validate_generation_evidence(
             )
             for item in installed
         }
+        candidate_wheels = [
+            entry
+            for entry in wheel_authority.values()
+            if entry.distribution == "multimodal-knowledge-engine"
+        ]
+        candidate_installed = [
+            item
+            for item in installed
+            if item["distribution"] == "multimodal-knowledge-engine"
+        ]
+        candidate_wheel = candidate_wheels[0] if len(candidate_wheels) == 1 else None
+        valid = (
+            valid
+            and candidate_wheel is not None
+            and len(candidate_installed) == 2
+            and {item["cell"] for item in candidate_installed} == {"3.12", "3.13"}
+            and all(
+                item["version"] == candidate_wheel.version
+                and item["source_wheel_filename"] == candidate_wheel.filename
+                and item["source_wheel_sha256"] == candidate_wheel.sha256
+                for item in candidate_installed
+            )
+        )
         expected_installed: set[tuple[object, object, object, object, object]]
         if _static:
             expected_installed = installed_authority

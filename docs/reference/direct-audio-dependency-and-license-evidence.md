@@ -10,9 +10,9 @@ behavior, and it does not authorize redistribution of external wheels or native 
 - Schema: `mke.direct_audio_dependency_receipt.v1`
 - Receipt: `benchmarks/audio/dependency-artifacts.json`
 - Canonical payload SHA-256 (`receipt_sha256`):
-  `ea862aea598470e1762cd5da8f579c6fa5d1a764ed6b1cc353aeeb56ab73b3a5`
+  `fd369d35cb97754839f62ed6ee72dbb69f4cedc85eae40f3c0891d314e0dc61e`
 - Committed file SHA-256:
-  `a36a1fc3b6ba9a07b249f27455114aea5ba5fb3718e716911a75e16132ddcc3f`
+  `befc901781c597b8e80f380cf5e29a183c672132c31590efff7d9ff1dad373b7`
 - Wheel inventory: 60 locked external files plus one candidate MKE wheel, with 108 cell-specific
   resolutions
 - Constraints SHA-256:
@@ -32,7 +32,7 @@ inherited environment, `--no-index`, a validated local `--find-links`, binary-on
 The controller was executed through the fixed
 `mke.fixed_stdlib_descriptor_bootstrap.v1` bootstrap. The bootstrap descriptor-read, hashed,
 compiled, and executed the same controller bytes, then bound controller SHA-256
-`55b5618f5cf7079d872026b8348e7548e97161651486bc69b86e9301389139fb` into the receipt.
+`932c9e17733e343f15fa558f1e54d21248da8f3f13ce4e52acc344b8f7ca2257` into the receipt.
 The read-only `--validate-receipt` lane validates canonical JSON, schema, self-digest, controller
 identity, and all static cross-bindings without replaying retained wheels or installed runtimes.
 Its result therefore states `retained_runtime_replay=not_performed`; the separate generation run

@@ -2977,6 +2977,16 @@ def _refresh_receipt_digest(evidence: dict[str, object]) -> None:
     )
 
 
+def _refresh_static_wheelhouse_manifest(evidence: dict[str, object]) -> None:
+    manifest_sha256 = _wheel_manifest_digest(
+        cast(list[dict[str, object]], evidence["wheel_inventory"])
+    )
+    for cell in cast(list[dict[str, object]], evidence["cells"]):
+        pip = cast(dict[str, object], cell["pip"])
+        staging = cast(dict[str, object], pip["staging"])
+        staging["wheelhouse_manifest_sha256"] = manifest_sha256
+
+
 def _interpreter_rows() -> list[dict[str, object]]:
     return [
         {
@@ -3554,6 +3564,112 @@ def test_complete_generation_evidence_passes_independent_static_validation() -> 
         "redistribution_authority": "not_claimed",
         "retained_runtime_replay": "not_performed",
         "status": "passed",
+    }
+
+
+def test_static_receipt_rejects_absent_candidate_with_recomputed_digests() -> None:
+    receipt = _module()
+    evidence = _complete_generation_evidence()
+    wheels = cast(list[dict[str, object]], evidence["wheel_inventory"])
+    wheels[:] = [
+        row for row in wheels if row["distribution"] != "multimodal-knowledge-engine"
+    ]
+    installed = cast(list[dict[str, object]], evidence["installed_distributions"])
+    installed[:] = [
+        row for row in installed if row["distribution"] != "multimodal-knowledge-engine"
+    ]
+    for cell in cast(list[dict[str, object]], evidence["cells"]):
+        cell_installed = cast(list[dict[str, object]], cell["installed_distributions"])
+        cell_installed[:] = [
+            row
+            for row in cell_installed
+            if row["distribution"] != "multimodal-knowledge-engine"
+        ]
+    _refresh_static_wheelhouse_manifest(evidence)
+    _refresh_receipt_digest(evidence)
+
+    assert receipt.validate_committed_receipt(evidence) == {
+        "failure": "committed_receipt_invalid",
+        "status": "failed",
+    }
+
+
+def test_static_receipt_rejects_candidate_missing_from_one_cell() -> None:
+    receipt = _module()
+    evidence = _complete_generation_evidence()
+    installed = cast(list[dict[str, object]], evidence["installed_distributions"])
+    installed[:] = [
+        row
+        for row in installed
+        if not (
+            row["cell"] == "3.13"
+            and row["distribution"] == "multimodal-knowledge-engine"
+        )
+    ]
+    cells = cast(list[dict[str, object]], evidence["cells"])
+    cell_313 = next(row for row in cells if row["cell"] == "3.13")
+    cell_installed = cast(list[dict[str, object]], cell_313["installed_distributions"])
+    cell_installed[:] = [
+        row for row in cell_installed if row["distribution"] != "multimodal-knowledge-engine"
+    ]
+    _refresh_receipt_digest(evidence)
+
+    assert receipt.validate_committed_receipt(evidence) == {
+        "failure": "committed_receipt_invalid",
+        "status": "failed",
+    }
+
+
+def test_static_receipt_rejects_different_candidates_across_cells() -> None:
+    receipt = _module()
+    evidence = _complete_generation_evidence()
+    second_candidate: dict[str, object] = {
+        "filename": "multimodal_knowledge_engine-0.1.4-py3-none-any.whl",
+        "distribution": "multimodal-knowledge-engine",
+        "version": "0.1.4",
+        "build": None,
+        "python_tags": ["py3"],
+        "abi_tags": ["none"],
+        "platform_tags": ["any"],
+        "bytes": 106,
+        "sha256": "f" * 64,
+        "artifact_scope": "local_runtime_only",
+    }
+    cast(list[dict[str, object]], evidence["wheel_inventory"]).append(second_candidate)
+    installed = cast(list[dict[str, object]], evidence["installed_distributions"])
+    top_level_candidate = next(
+        row
+        for row in installed
+        if row["cell"] == "3.13"
+        and row["distribution"] == "multimodal-knowledge-engine"
+    )
+    top_level_candidate.update(
+        {
+            "version": second_candidate["version"],
+            "source_wheel_filename": second_candidate["filename"],
+            "source_wheel_sha256": second_candidate["sha256"],
+        }
+    )
+    cells = cast(list[dict[str, object]], evidence["cells"])
+    cell_313 = next(row for row in cells if row["cell"] == "3.13")
+    cell_candidate = next(
+        row
+        for row in cast(list[dict[str, object]], cell_313["installed_distributions"])
+        if row["distribution"] == "multimodal-knowledge-engine"
+    )
+    cell_candidate.update(
+        {
+            "version": second_candidate["version"],
+            "source_wheel_filename": second_candidate["filename"],
+            "source_wheel_sha256": second_candidate["sha256"],
+        }
+    )
+    _refresh_static_wheelhouse_manifest(evidence)
+    _refresh_receipt_digest(evidence)
+
+    assert receipt.validate_committed_receipt(evidence) == {
+        "failure": "committed_receipt_invalid",
+        "status": "failed",
     }
 
 
