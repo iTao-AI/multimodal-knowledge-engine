@@ -10,16 +10,16 @@ wheels or native binaries.
 - Schema: `mke.direct_audio_dependency_receipt.v1`
 - Receipt: `benchmarks/audio/dependency-artifacts.json`
 - Canonical payload SHA-256 (`receipt_sha256`):
-  `af6664c35b50a84ec9ba8d7cf08fd6c2c60ff8cbb1f4682253d6c1b6db2329ec`
+  `492aecb71aa87ff9ab7cc49b2153f7df989cd5124eae961ab8824a8b8121f11d`
 - Committed file SHA-256:
-  `9ec24aa34ce5ad9f1f8160d26694180a76a8b2c31d3b53322105941551b33fe6`
-- Locked wheel inventory: 35 unique files and 62 cell-specific resolutions
+  `1efc5a7858ad75f9bd14f707c43ef5cb2736ed0fabf30f6d87c311fceee75adf`
+- Locked wheel inventory: 60 unique files and 106 cell-specific resolutions
 - Constraints SHA-256:
-  `af121bfd1c59381ce9cc960612d2b5e48cfea37572f22fd92a1968dc978959af`
+  `4379a58870a10077587ba55b4d01669fca580301223d19a2f31307eefd395b08`
 - Full hashed cell requirements SHA-256:
-  `33b8f38f3ee89c76e433de76e3e151b3d40876a84db06827ec994f2cc059b4ad`
+  `d60eb0f2f61c8d450304477817fafaf3887b7ac549acb07932887a19a9a834ce`
 - Wheelhouse manifest SHA-256:
-  `3932575cb68d059f11750ed83649c68f15680e4a5c1d61187645705ee11f4e3f`
+  `04960db80c29a372f7d29028cf4a9f646845df0c207ca39b1eb618b232624d06`
 
 The wheel bytes were acquired only from the exact HTTPS artifact URLs and digests recorded in the
 locked external-distribution projection. The controller then used ordinary pip in exclusive
@@ -30,7 +30,7 @@ constraints. Both cells report `pip_install=passed`, `pip_check=passed`, and com
 The controller was executed through the fixed
 `mke.fixed_stdlib_descriptor_bootstrap.v1` bootstrap. The bootstrap descriptor-read, hashed,
 compiled, and executed the same controller bytes, then bound controller SHA-256
-`0b619c9baea74349728056440753a437dc373908dae301c2ac99ccea6585ac73` into the receipt.
+`7e029d9edd7ac78e3a9477d3071781765a5d6d98808456d8335332bca1e10f4a` into the receipt.
 The read-only `--validate-receipt` lane validates canonical JSON, schema, self-digest, controller
 identity, and all static cross-bindings without replaying retained wheels or installed runtimes.
 Its result therefore states `retained_runtime_replay=not_performed`; the separate generation run
@@ -40,8 +40,8 @@ is the retained-input and runtime replay authority.
 
 | Cell | CPython | Executable SHA-256 | Installed distributions | Required imports | Fixture decodes |
 |---|---|---|---:|---:|---:|
-| 3.12 | 3.12.13, `cp312`, Darwin arm64 | `e2605291e058fdbe3102e8185d0ac5fe0e063398de617010a6af3a42a78f05e3` | 31 | 3 passed | 3 passed |
-| 3.13 | 3.13.13, `cp313`, Darwin arm64 | `3237648c5222017bba78737370570e4c9d5a01e552cdf2fa11f107c8d00fc06e` | 31 | 3 passed | 3 passed |
+| 3.12 | 3.12.13, `cp312`, Darwin arm64 | `e2605291e058fdbe3102e8185d0ac5fe0e063398de617010a6af3a42a78f05e3` | 53 | 3 passed | 3 passed |
+| 3.13 | 3.13.13, `cp313`, Darwin arm64 | `3237648c5222017bba78737370570e4c9d5a01e552cdf2fa11f107c8d00fc06e` | 53 | 3 passed | 3 passed |
 
 The required imports were PyAV 17.1.0, faster-whisper 1.2.1, and huggingface-hub 1.21.0. No model
 was downloaded or loaded, and no speech recognition was run. Each cell decoded the MP3, WAV, and
@@ -112,12 +112,12 @@ asset distribution requires a separate complete binary redistribution and legal 
 
 ## PR C installed-wheel binding
 
-PR C validates this unchanged external receipt before its authorization-only and terminal
-installed-wheel controller paths. The controller separately binds the candidate MKE wheel, the
-accepted constraints and wheelhouse-manifest digests, exact prepared model tree, two interpreter
-identities, fixtures, Export v2 consumer, and the owner-selected `baseline_plus` supervision pair.
-That distinct source/product binding does not refresh the PR A receipt and is not evidence that the
-separately authorized terminal real-ASR run has completed.
+PR C validates this refreshed external receipt before its authorization-only and terminal
+installed-wheel controller paths. The refresh closes the candidate wheel's complete active locked
+dependency graph for the two declared cells; it does not turn the dependency receipt into candidate
+product or real-ASR evidence. The controller separately binds the candidate MKE wheel, the accepted
+constraints and wheelhouse-manifest digests, exact prepared model tree, two interpreter identities,
+fixtures, Export v2 consumer, and the owner-selected `baseline_plus` supervision pair.
 
 The PR A literals remain `external_binary_redistribution=not_performed` and
 `redistribution_authority=not_claimed`. Package metadata is not redistribution authority. Any
