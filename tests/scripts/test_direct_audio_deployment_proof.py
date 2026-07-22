@@ -4,6 +4,8 @@ import hashlib
 import inspect
 import json
 import os
+import subprocess
+import sys
 from dataclasses import replace
 from pathlib import Path
 from typing import cast
@@ -11,6 +13,28 @@ from typing import cast
 import pytest
 
 from scripts import direct_audio_deployment_proof as proof
+
+
+def test_documented_direct_script_path_runs_without_pythonpath() -> None:
+    repository = Path(__file__).parents[2]
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-B",
+            "scripts/direct_audio_deployment_proof.py",
+            "--help",
+        ],
+        cwd=repository,
+        env={"PYTHONDONTWRITEBYTECODE": "1"},
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == ""
+    assert "usage: direct_audio_deployment_proof.py" in result.stdout
 
 
 def _config(tmp_path: Path) -> proof.DirectAudioProofConfig:

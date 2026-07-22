@@ -21,10 +21,14 @@ from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Protocol, cast
+from typing import TYPE_CHECKING, Literal, Protocol, cast
 
 from mke.runtime import DEFAULT_MODEL_REVISION
-from scripts import direct_audio_dependency_receipt as dependency_authority
+
+if TYPE_CHECKING or __package__:
+    from scripts import direct_audio_dependency_receipt as dependency_authority
+else:
+    import direct_audio_dependency_receipt as dependency_authority
 
 _MODEL_IDENTIFIER = "Systran/faster-whisper-small"
 _MODEL_DIRECTORY = "models--Systran--faster-whisper-small"
