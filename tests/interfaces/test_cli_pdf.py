@@ -26,7 +26,7 @@ def test_cli_ingest_and_search_pdf(tmp_path: Path, capsys: CaptureFixture[str]) 
 
 def test_cli_ingest_invalid_pdf_returns_error(tmp_path: Path, capsys: CaptureFixture[str]) -> None:
     db_path = tmp_path / "mke.sqlite"
-    invalid = tmp_path / "not-a-pdf.txt"
+    invalid = tmp_path / "not-a-pdf.pdf"
     invalid.write_text("not a pdf")
 
     assert main(["--db", str(db_path), "ingest", str(invalid)]) == 1
