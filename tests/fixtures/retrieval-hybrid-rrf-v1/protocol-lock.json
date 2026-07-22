@@ -33,7 +33,7 @@
     "dense_artifact": {
       "bytes": 403821,
       "path": "benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json",
-      "sha256": "f4f446e2176647e75963b0b0b68fac102400a803a0eab488a60682af152277bd"
+      "sha256": "d259f0f1977be4520d01e8b9f7dd7061b0bf644889317e2f0e2cf51900d8106c"
     },
     "metrics_source": {
       "bytes": 8849,
