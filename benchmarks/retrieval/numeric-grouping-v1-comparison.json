@@ -41,7 +41,7 @@
     "revision": 1
   },
   "source": {
-    "sha256": "73d145e6e209d522be2e8c53abe3c88e4a16220bb7f0e00545dae632d4310986",
+    "sha256": "3667c7ab724b5399f3d57faae103524d1ab49090b2647519a6b0f14db75de962",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -495,8 +495,8 @@
       },
       {
         "path": "src/mke/proof/mcp_deployment_client.py",
-        "bytes": 28786,
-        "sha256": "7491539e362a9c5bc7a85f37f188fba630ef3812cbfba9d81ab6c3b45a2399dd"
+        "bytes": 29174,
+        "sha256": "84a62f73403cdc239ac9ff01bcefd79d542b644956dd2c4ea8b6e0d1a7490bf6"
       },
       {
         "path": "src/mke/proof/report.py",
