@@ -36,3 +36,16 @@ revision, count, published state, and fingerprint equality before returning trus
 The v1 Search/Ask snapshot calls unchanged retrieval first, then perform one bulk enrichment in
 the same SQLite PEP 249 transaction. They do not change `SearchResult`, ranking, CLI, evaluation,
 or legacy MCP behavior and do not issue a nested `BEGIN` or per-result provenance query.
+
+The accepted direct-audio candidate keeps `ingest_file` path-only. The request remains exactly
+`{"path":"interview-excerpt.m4a"}`; media type, provider, model, cache, download, and supervision
+controls are not request fields. The owner starts on Darwin arm64 with both
+`--direct-audio-footprint-bytes <owner-selected-positive-int>` and
+`--direct-audio-footprint-budget-mode baseline_plus`, plus the prepared cache-only faster-whisper
+configuration. Changing owner configuration requires a controlled server restart.
+
+Successful MP3, WAV/PCM, or M4A/AAC intake is bounded to 15 minutes and 100 MiB and returns an
+active Publication. `search_library_v1` and `ask_library_v1` expose equivalent
+`mke.evidence_ref.v1` values with `timestamp_ms` locators. The canonical dispatcher and immutable
+snapshot lifecycle are shared with Python and CLI. Missing supervision or unsupported platform
+fails before Source and Run before model work without disabling PDF/video MCP operations.

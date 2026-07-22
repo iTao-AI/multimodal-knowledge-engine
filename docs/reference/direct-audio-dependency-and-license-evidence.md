@@ -1,9 +1,9 @@
 # Direct-audio dependency and license evidence
 
 This reference records the bounded PR A feasibility proof for local optional dependencies and the
-three repository-distributed synthetic audio fixtures. It does not claim that direct-audio intake
-is a product capability, and it does not authorize redistribution of external wheels or native
-binaries.
+three repository-distributed synthetic audio fixtures. The PR A receipt itself does not prove the
+separately documented PR C product candidate, and it does not authorize redistribution of external
+wheels or native binaries.
 
 ## Canonical receipt
 
@@ -109,3 +109,16 @@ FFmpeg binaries, models, and caches are not committed to Git, included in an MKE
 published as release assets. Package metadata alone is not treated as bundled-binary
 redistribution authority. Any future wheelhouse, container, native-binary, or additional release
 asset distribution requires a separate complete binary redistribution and legal review.
+
+## PR C installed-wheel binding
+
+PR C validates this unchanged external receipt before its authorization-only and terminal
+installed-wheel controller paths. The controller separately binds the candidate MKE wheel, the
+accepted constraints and wheelhouse-manifest digests, exact prepared model tree, two interpreter
+identities, fixtures, Export v2 consumer, and the owner-selected `baseline_plus` supervision pair.
+That distinct source/product binding does not refresh the PR A receipt and is not evidence that the
+separately authorized terminal real-ASR run has completed.
+
+The PR A literals remain `external_binary_redistribution=not_performed` and
+`redistribution_authority=not_claimed`. Package metadata is not redistribution authority. Any
+future bundling or release redistribution requires separate legal review.

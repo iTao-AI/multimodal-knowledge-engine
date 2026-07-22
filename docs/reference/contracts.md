@@ -184,7 +184,8 @@ runtime composition root as CLI ingest, Run inspection, Search, and Ask. The own
 may select `--retrieval-strategy cjk-active-scan-overlap-v1` or an explicit rollback; MCP requests
 cannot select or override retrieval strategy. `ingest_file`
 has the stable contract `ingest_file(config, path)`, only accepts files under the configured
-allowed root, and currently supports `.pdf` and `.mp4`. MCP requests cannot include transcription
+allowed root, and currently supports `.pdf`, `.mp4`, `.mp3`, `.wav`, and `.m4a`. MCP requests
+cannot include transcription
 command argv or override retrieval policy, provider, model, cache, endpoint, credential, or
 download policy.
 MCP rejects PDF inputs larger than 100 MB with `problem="input_file_too_large"` before opening the
@@ -233,3 +234,46 @@ display names and Evidence text to create metadata.
 All JSON and JSONL objects are closed. Readers must reject unknown schema versions, unknown fields,
 inventory drift, digest drift, path traversal, link/device entries, count drift, ownership drift,
 or a missing/invalid final manifest.
+
+## Bounded Direct Audio
+
+The accepted candidate adds `audio/mpeg`, `audio/wav`, and `audio/mp4` Source rows through the
+canonical dispatcher. The profile is MP3, WAV/PCM, or M4A/AAC up to 15 minutes and 100 MiB. Its
+extractor fingerprint is `faster-whisper-audio-v1:<64 lowercase hex>`, required stages are the
+closed audio transcription stages, and Evidence locators use `timestamp_ms`. Evidence remains
+`mke.evidence_ref.v1` with existing Source, Run, Publication, revision, fingerprint, and text
+fields; no audio metadata fields are added.
+
+Direct audio requires a cache-only faster-whisper owner on Darwin arm64 plus one explicit positive
+`direct_audio_footprint_bytes` / `baseline_plus` pair. It has no default, recommendation, or SLA.
+Missing authority stops before Source and Run before model work. The immutable snapshot is
+validated before an atomic active Publication switch.
+
+## Compiled Library Export V2
+
+V2 reuses the exact v1 structure and fields. Only these descriptors change:
+
+- `mke.compiled_library_export.v1` to `mke.compiled_library_export.v2`;
+- `mke.compiled_markdown.v1` to `mke.compiled_markdown.v2`; and
+- `mke.compiled_library_export_response.v1` to `mke.compiled_library_export_response.v2`.
+
+The live domain validator accepts this exact authority matrix:
+
+| Media type | Locator | Required stages | Extractor fingerprint |
+|---|---|---|---|
+| `application/pdf` | `page` | `candidate_evidence + pdf_text_extraction` | `builtin-pdf-text-v1 or pymupdf-text-v1` |
+| `application/pdf` | `page` | `candidate_evidence + pdf_ocr_extraction` | `pdf-ocr-eval-v1:<64 lowercase hex>` |
+| `video/mp4` | `timestamp_ms` | `candidate_evidence + video_transcription` | `builtin-video-transcript-v1, local-command-video-transcript-v1, or faster-whisper-v1:<64 lowercase hex>` |
+| `audio/mpeg, audio/wav, audio/mp4` | `timestamp_ms` | `audio_transcription + candidate_evidence` | `faster-whisper-audio-v1:<64 lowercase hex>` |
+
+The PDF OCR row is comparison-only PDF OCR, not production OCR. Required stages are exact sets;
+their rendered order above matches the canonical sorted DTO form.
+
+Evidence stays `mke.evidence_ref.v1`. V2 adds no Source, manifest-entry, Evidence, Markdown
+frontmatter, response, codec, channel, sample-rate, duration, provider, model, or report field.
+The success fields are exactly `schema_version`, `ok`, `library_id`, `source_count`,
+`evidence_count`, and `manifest_sha256`. Error fields are exactly `schema_version`, `ok`,
+`problem`, `cause`, `active_publication_impact`, and `next_step`; they are identical to v1.
+Default v1 and explicit v1 remain byte-identical for the same snapshot; the v1 and v2 consumers do
+not cross-consume. Opaque Source, Run, Publication, and Evidence IDs retain run-local random
+semantics; determinism is for repeated export of one snapshot, not fresh re-ingest across stores.

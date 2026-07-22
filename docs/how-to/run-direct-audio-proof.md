@@ -1,4 +1,18 @@
-# Run the installed-wheel direct-audio proof
+# Run the direct-audio proofs
+
+## Model-free product wiring
+
+Start with the offline deterministic proof:
+
+```bash
+UV_OFFLINE=1 uv run mke proof direct-audio --json
+```
+
+The closed result is `mke.direct_audio_proof.v1`. It uses a deterministic application-port
+provider, does not run ASR, does not load a model, and does not use the network. Passing this
+checkpoint proves product wiring only.
+
+## Installed-wheel authorization and terminal proof
 
 The terminal controller verifies the bounded direct-audio product path from the same fresh MKE
 wheel on CPython 3.12 and 3.13. It is offline and has no download option. Run it only after the
@@ -45,6 +59,7 @@ after a portable copy.
 
 The controller never runs Export v1 and never changes the model cache, retained wheelhouse,
 constraints, fixtures, or repository. A failed authority check stops before inference. Raw model
-timings and footprint observations are fixed-fixture Darwin arm64 diagnostics only; they do not
+timings and footprint observations will record configured bytes/mode, baseline, observed peak,
+effective budget, and overshoot as a fixed-fixture Darwin arm64 observation only; they do not
 establish accuracy, cross-platform behavior, hostile-media containment, a runtime budget default,
 or a deployment SLA.

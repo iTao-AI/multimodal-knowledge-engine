@@ -34,12 +34,14 @@ do not change Search, Ask, MCP, owner startup, Publication, ingestion, or runtim
 - [Public Contracts](./reference/contracts.md)
 - [CLI Reference](./reference/cli.md)
 - [Direct-Audio Dependency And License Evidence](./reference/direct-audio-dependency-and-license-evidence.md)
-  records dependency, license, and synthetic-fixture feasibility for staged planning; it does not
-  ship direct-audio intake.
+  records the PR A dependency, license, and synthetic-fixture feasibility receipt; the accepted
+  PR C product candidate is documented separately.
 - [Enable Bounded CJK Retrieval](./how-to/enable-cjk-retrieval.md)
 - [Use Local Transcription](./how-to/use-local-transcription.md)
 - [Export A Compiled Library](./how-to/export-compiled-library.md)
 - [Run The Compiled Library Export Proof](./how-to/run-compiled-library-export-proof.md)
+- [Use bounded direct audio](./how-to/use-direct-audio.md) — accepted v0.1.4 candidate golden paths
+- [Run the direct-audio proof](./how-to/run-direct-audio-proof.md) — model-free first; terminal proof requires separate authorization
 
 The architecture guide is the shortest path to the Evidence lifecycle, active Publication
 semantics, SQLite domain truth, rebuildable retrieval projections, and the shared CLI/MCP
@@ -47,7 +49,8 @@ application contract.
 
 The compiled Library guides document the read-only export command, exact portable schemas,
 transactional manifest-last publication, and generic installed-wheel consumer proof. LLM Wiki
-compatibility remains a separate deferred acceptance check rather than a current capability claim.
+compatibility has separate independently verified external downstream evidence; LLM Wiki remains
+outside MKE runtime and Evidence authority.
 
 ## Architecture And Evaluation
 
@@ -95,6 +98,7 @@ private planning notes do not belong in this repository.
 - [ADR-0008](./decisions/0008-cjk-active-scan-retrieval-strategy.md) defines `cjk-active-scan-overlap-v1`.
 - [ADR-0009](./decisions/0009-versioned-evidence-provenance-contract.md) defines the additive strict Evidence provenance read contract.
 - [ADR-0010](./decisions/0010-pdf-ocr-evaluation-manifest-fingerprint.md) defines the evaluation-only PDF OCR manifest fingerprint and its non-production boundary.
+- [ADR-0011](./decisions/0011-bounded-direct-audio-intake.md) defines the accepted v0.1.4 candidate's bounded audio authority and rollback.
 
 ## Implementation History
 

@@ -260,6 +260,18 @@ production OCR。
 参见 [Export A Compiled Library](./docs/how-to/export-compiled-library.md) 和
 [Run The Compiled Library Export Proof](./docs/how-to/run-compiled-library-export-proof.md)。
 
+## Direct Audio Candidate
+
+Direct audio 是 accepted v0.1.4 candidate，并非已发布能力。它在 Darwin arm64 上通过显式
+准备的 cache-only owner，增加 bounded MP3、WAV/PCM、M4A/AAC voice note 与 clip/excerpt
+摄取。owner 必须提供正整数 supervision value；MKE 不提供 runtime budget 默认值、推荐值或
+SLA。
+
+先运行 offline model-free proof，再按 [Use bounded direct audio](docs/how-to/use-direct-audio.md)
+完成 Python、CLI、stdio MCP 与 explicit Export v2 golden paths。独立的
+[installed-wheel proof guide](docs/how-to/run-direct-audio-proof.md) 仍是授权 gate；当前 candidate
+不声明 terminal real ASR 已运行。
+
 ## 文档
 
 - [Release notes](./docs/releases/v0.1.3.md)

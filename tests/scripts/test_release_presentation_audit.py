@@ -260,8 +260,7 @@ Search/Ask/MCP 读取 active Publication Evidence。
     (root / "README.md").write_text(readme_en_text, encoding="utf-8")
     (root / "README_CN.md").write_text(readme_cn_text, encoding="utf-8")
     (root / "docs/README.md").write_text(
-        readme_en_text
-        + "\nSee [v0.1.2](./releases/v0.1.2.md) and "
+        readme_en_text + "\nSee [v0.1.2](./releases/v0.1.2.md) and "
         "`dist/multimodal_knowledge_engine-0.1.2-py3-none-any.whl` and "
         "[Verify Release](./how-to/verify-release.md).\n",
         encoding="utf-8",
@@ -343,9 +342,13 @@ def test_audit_rejects_version_mismatch(tmp_path: Path) -> None:
 @pytest.mark.parametrize("path", ["README.md", "README_CN.md"])
 def test_audit_rejects_missing_top_language_switch(tmp_path: Path, path: str) -> None:
     _write_release_tree(tmp_path)
-    text = (tmp_path / path).read_text(encoding="utf-8").replace(
-        "[English](./README.md) | [中文](./README_CN.md)\n\n",
-        "",
+    text = (
+        (tmp_path / path)
+        .read_text(encoding="utf-8")
+        .replace(
+            "[English](./README.md) | [中文](./README_CN.md)\n\n",
+            "",
+        )
     )
     (tmp_path / path).write_text(text, encoding="utf-8")
 
@@ -396,9 +399,13 @@ def test_audit_rejects_diagram_without_comparison_only_evidence_boundary(
 def test_audit_rejects_missing_verified_v013_table(tmp_path: Path, path: str) -> None:
     _write_release_tree(tmp_path)
     heading = "## Verified in v0.1.3" if path == "README.md" else "## v0.1.3 已验证能力"
-    text = (tmp_path / path).read_text(encoding="utf-8").replace(
-        heading,
-        "## Release Scope",
+    text = (
+        (tmp_path / path)
+        .read_text(encoding="utf-8")
+        .replace(
+            heading,
+            "## Release Scope",
+        )
     )
     (tmp_path / path).write_text(text, encoding="utf-8")
 
@@ -409,9 +416,13 @@ def test_audit_rejects_missing_verified_v013_table(tmp_path: Path, path: str) ->
 def test_audit_rejects_shallow_readme_engineering_depth(tmp_path: Path, path: str) -> None:
     _write_release_tree(tmp_path)
     marker = "## What this release proves" if path == "README.md" else "## v0.1.3 工程深度"
-    text = (tmp_path / path).read_text(encoding="utf-8").replace(
-        marker,
-        "## Notes",
+    text = (
+        (tmp_path / path)
+        .read_text(encoding="utf-8")
+        .replace(
+            marker,
+            "## Notes",
+        )
     )
     (tmp_path / path).write_text(text, encoding="utf-8")
 
@@ -421,9 +432,13 @@ def test_audit_rejects_shallow_readme_engineering_depth(tmp_path: Path, path: st
 @pytest.mark.parametrize("path", ["README.md", "README_CN.md"])
 def test_audit_rejects_missing_retrieval_evidence_table(tmp_path: Path, path: str) -> None:
     _write_release_tree(tmp_path)
-    text = (tmp_path / path).read_text(encoding="utf-8").replace(
-        "Comparison-only evidence",
-        "Candidate observations",
+    text = (
+        (tmp_path / path)
+        .read_text(encoding="utf-8")
+        .replace(
+            "Comparison-only evidence",
+            "Candidate observations",
+        )
     )
     (tmp_path / path).write_text(text, encoding="utf-8")
 
@@ -543,8 +558,7 @@ def test_audit_rejects_stale_stage2_changelog_gate(tmp_path: Path) -> None:
 def test_audit_rejects_separate_branch_stage2_wording(tmp_path: Path) -> None:
     _write_release_tree(tmp_path)
     (tmp_path / "docs/how-to/verify-release.md").write_text(
-        "# Verify Release\n\n"
-        "Stage 2 must run from a separate branch after Stage 1 merges.\n",
+        "# Verify Release\n\nStage 2 must run from a separate branch after Stage 1 merges.\n",
         encoding="utf-8",
     )
 
@@ -610,8 +624,7 @@ def test_audit_does_not_apply_current_wheel_rule_to_v0_1_0_history(
     _write_release_tree(tmp_path)
     historical = tmp_path / "docs/releases/v0.1.0.md"
     historical.write_text(
-        "# v0.1.0\n\n"
-        "uv run python scripts/release_consumer_smoke.py --wheel dist/*.whl --json\n",
+        "# v0.1.0\n\nuv run python scripts/release_consumer_smoke.py --wheel dist/*.whl --json\n",
         encoding="utf-8",
     )
 
@@ -624,8 +637,7 @@ def test_audit_does_not_apply_current_wheel_rule_to_v0_1_1_history(
     _write_release_tree(tmp_path)
     historical = tmp_path / "docs/releases/v0.1.1.md"
     historical.write_text(
-        "# v0.1.1\n\n"
-        "uv run python scripts/release_consumer_smoke.py --wheel dist/*.whl --json\n",
+        "# v0.1.1\n\nuv run python scripts/release_consumer_smoke.py --wheel dist/*.whl --json\n",
         encoding="utf-8",
     )
 
@@ -907,7 +919,7 @@ def test_audit_rejects_unresolved_release_placeholders(
 
 @pytest.mark.parametrize(
     "positioning_word",
-    ["Career", "portfolio", "resume", "interview", "showcase"],
+    ["Career", "portfolio", "resume", "interview artifact", "showcase"],
 )
 def test_audit_rejects_non_neutral_public_positioning(
     tmp_path: Path,
@@ -996,8 +1008,7 @@ def test_compiled_library_same_claim_contradiction_remains_an_overclaim(
 ) -> None:
     _write_release_tree(tmp_path)
     (tmp_path / "README.md").write_text(
-        (tmp_path / "README.md").read_text(encoding="utf-8")
-        + f"\n{claim}\n",
+        (tmp_path / "README.md").read_text(encoding="utf-8") + f"\n{claim}\n",
         encoding="utf-8",
     )
 
@@ -1022,7 +1033,7 @@ def test_verify_release_co_binds_compiled_export_proof_to_validated_candidate() 
 
     assert "candidate_validation=" in text
     assert "scripts/compiled_library_export_proof.py" in text
-    assert 'compiled-export-proof.json' in text
+    assert "compiled-export-proof.json" in text
     assert 'proof["proof_input_wheel_sha256"] == validated["wheel_sha256"]' in text
     assert "The independent candidate validator" in text
 
@@ -1063,6 +1074,119 @@ def test_compiled_library_claim_audit_covers_feature_public_docs(
     path.write_text("# Feature\n\nverified LLM Wiki compatibility\n", encoding="utf-8")
 
     assert "compiled_library_overclaim" in _rules(tmp_path)
+
+
+APPROVED_DIRECT_AUDIO_CLAIM = (
+    "Bounded local voice notes and clips or excerpts from meetings, interviews, lectures, and "
+    "other downloaded spoken material, when encoded as the supported MP3, WAV/PCM, or M4A/AAC "
+    "profiles, can be transcribed through an explicitly prepared, cache-only faster-whisper "
+    "runtime into timestamped active Evidence, then consumed through Python, CLI, stdio MCP, "
+    "Search/Ask, and a versioned deterministic Compiled Library Export."
+)
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "MKE supports arbitrary audio codecs.",
+        "MKE supports arbitrary audio codecs and long audio are excluded.",
+        (
+            "MKE does not support arbitrary codecs and supports full-length meetings, "
+            "interviews, and lectures."
+        ),
+        "MKE supports meetings, interviews, and lectures.",
+        "MKE processes full-length meetings, interviews, and lectures.",
+        "MKE supports long audio.",
+        "MKE chunks and resumes streaming audio.",
+        "MKE provides speaker diarization and microphone capture.",
+        "MKE downloads transcription models automatically.",
+        "MKE automatically downloads transcription models.",
+        "MKE falls back to cloud ASR.",
+        "MKE provides a cloud ASR fallback.",
+        "MKE automatically syncs audio to LLM Wiki.",
+        "MKE supports direct audio across all platforms.",
+        "MKE guarantees transcript accuracy and an audio SLA.",
+        "MKE produces accurate transcripts.",
+        "MKE deploys direct audio in production.",
+        "MKE has production adoption.",
+        "MKE delivers business impact.",
+        "MKE is published on PyPI.",
+        "MKE provides a hosted transcription fallback.",
+        "MKE offers cloud transcription when local ASR fails.",
+        "MKE direct audio is production ready.",
+        "MKE does not claim cross-platform support and MKE is available on PyPI.",
+        "MKE does not support full-length meetings and has production adoption.",
+        "MKE does not download models and offers cloud transcription when local ASR fails.",
+        "MKE does not claim an SLA and direct audio is production ready.",
+        "MKE provides cross-platform direct-audio coverage.",
+        "MKE has official OpenAI direct-audio integration.",
+        "MKE has official LLM Wiki direct-audio integration.",
+        "MKE 支持任意音频编解码器。",
+        "MKE 支持完整会议、访谈和讲座处理。",
+        "MKE 会自动下载转写模型。",
+        "Direct audio 支持所有平台。",
+    ],
+)
+def test_audit_rejects_direct_audio_overclaims(tmp_path: Path, claim: str) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "README.md"
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{claim}\n",
+        encoding="utf-8",
+    )
+
+    assert "direct_audio_overclaim" in _rules(tmp_path)
+
+
+def test_audit_rejects_wrapped_direct_audio_overclaim_once(tmp_path: Path) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "README.md"
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n"
+        "MKE processes full-length meetings,\ninterviews, and lectures.\n",
+        encoding="utf-8",
+    )
+
+    violations = [
+        violation
+        for violation in audit_release_presentation(tmp_path)
+        if violation.rule == "direct_audio_overclaim"
+    ]
+    assert len(violations) == 1
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        APPROVED_DIRECT_AUDIO_CLAIM,
+        "MKE does not support arbitrary codecs or full-length meetings, interviews, or lectures.",
+        (
+            "Long audio, chunking, resume, streaming, diarization, and microphone capture "
+            "are excluded."
+        ),
+        "MKE does not download models implicitly or fall back to cloud ASR.",
+        "MKE does not currently support arbitrary audio codecs.",
+        "MKE does not automatically download transcription models.",
+        "MKE does not currently offer cloud transcription when local ASR fails.",
+        "Direct audio does not currently provide cross-platform support.",
+        (
+            "This candidate does not claim cross-platform support, transcript accuracy, an SLA, "
+            "or production deployment."
+        ),
+    ],
+)
+def test_audit_accepts_approved_or_negated_direct_audio_boundaries(
+    tmp_path: Path,
+    claim: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "README.md"
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{claim}\n",
+        encoding="utf-8",
+    )
+
+    assert "direct_audio_overclaim" not in _rules(tmp_path)
 
 
 def test_audit_rejects_private_paths_gstack_artifacts_credentials_and_tracebacks(

@@ -51,11 +51,23 @@ Exit codes:
 
 Expected duration: a few seconds on a local development machine.
 
+The accepted v0.1.4 candidate also exposes a deterministic model-free proof:
+
+```bash
+UV_OFFLINE=1 uv run mke proof direct-audio --json
+```
+
+Its closed schema is `mke.direct_audio_proof.v1`. It does not load a real model or authorize the
+separate installed-wheel terminal proof.
+
 ## Compiled Library Export
 
 ```text
 mke --db <library.sqlite3> library export --output <new-child-directory> [--json]
 ```
+
+The version selector form is
+`mke --db <library.sqlite3> library export --output <new-child-directory> --format-version {v1,v2} [--json]`.
 
 `--output` is required and names one new direct child of the current working directory. The target
 must not exist. The command opens the selected database through the dedicated read-only export
@@ -75,8 +87,34 @@ library_export=passed library_id=local source_count=<count> evidence_count=<coun
 `active_publication_impact="unchanged"`, and `next_step`. Exit code `0` means the manifest and all
 referenced files revalidated; exit code `1` is a stable export failure; invalid CLI usage exits `2`.
 
+Omitting `--format-version` selects default v1. Explicit v1 produces byte-identical output for the
+same snapshot. An active audio Source fails default or explicit v1 with
+`problem=unsupported_active_media_type`,
+`cause=active Library contains media unsupported by export v1`, and
+`next_step=rerun_library_export_with_format_version_v2`. Rerun the complete export with
+`--format-version v2`; success uses `mke.compiled_library_export_response.v2`.
+
 The output tree and schema details are in [Public Contracts](./contracts.md). Operational steps are
 in [Export A Compiled Library](../how-to/export-compiled-library.md).
+
+## Direct Audio Candidate
+
+Direct audio accepts bounded MP3, WAV/PCM, and M4A/AAC inputs up to 15 minutes and 100 MiB on an
+explicitly configured Darwin arm64 owner:
+
+```bash
+mke --db <library.sqlite3> ingest interview-excerpt.m4a \
+  --transcript-provider faster-whisper \
+  --model-cache <outside-repository-cache> \
+  --direct-audio-footprint-bytes <owner-selected-positive-int> \
+  --direct-audio-footprint-budget-mode baseline_plus --json
+```
+
+Both supervision flags are owner controls and must appear together. There is no request-time
+override and no default, recommendation, or SLA. Successful audio output uses `timestamp_ms`
+Evidence and `mke.evidence_ref.v1`; failure or partial processing does not switch the active
+Publication. Missing supervision and unsupported-platform failures are command-local and occur
+before Source and Run before model work.
 
 ## Retrieval Evaluation
 

@@ -2051,7 +2051,7 @@ Do not commit model weights, caches, venvs, wheelhouses, candidate wheels, datab
 - Consumes: reviewed actual behavior and proof identities from Tasks 1-9.
 - Produces: accepted ADR/docs/claims, canonical evaluation provenance, clean reviewed feature branch, and final evidence for independent authority review.
 
-- [ ] **Step 1: Write documentation and overclaim RED tests**
+- [x] **Step 1: Write documentation and overclaim RED tests**
 
 The contract test requires bounded MP3/WAV-PCM/M4A-AAC, 15 minutes, 100 MiB, voice notes and clips
 or excerpts rather than full-length meeting/interview/lecture support, owner-configured cache-only
@@ -2098,7 +2098,7 @@ fixture, plus unqualified `meetings`, `interviews`, and `lectures` claims as fai
 audit must distinguish bounded clips/excerpts from full-length support rather than banning the
 approved nouns mechanically.
 
-- [ ] **Step 2: Run documentation RED tests**
+- [x] **Step 2: Run documentation RED tests**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -2109,7 +2109,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: direct-audio docs and overclaim rules are missing.
 
-- [ ] **Step 3: Add ADR-0011 and public documentation**
+- [x] **Step 3: Add ADR-0011 and public documentation**
 
 ADR-0011 records the accepted bounded-audio decision, immutable snapshot, additive audio protocol,
 cache-only owner policy, canonical dispatcher, command-local errors, export v2, proof and license
@@ -2140,7 +2140,7 @@ Do not rewrite or refresh PR A license evidence merely because MKE source/docs c
 copy local paths, environment dumps, or infer redistribution permission from package metadata
 alone.
 
-- [ ] **Step 4: Make docs and audit GREEN**
+- [x] **Step 4: Make docs and audit GREEN**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
