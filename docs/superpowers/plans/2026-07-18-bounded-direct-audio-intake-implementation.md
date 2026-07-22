@@ -2432,33 +2432,48 @@ three; a fifth invocation did not occur. This acceptance does not claim or autho
 replay, model load, ASR, provider or product-path execution, real-ASR success, accuracy, SLA,
 production readiness, external-binary redistribution, release, or deployment.
 
-#### Candidate-Only Canonical Receipt Rebind Authority
+#### Bounded Offline Receipt Replay Closure
 
 The PR A external dependency and license projection remains frozen across ordinary MKE source and
 documentation commits. The static receipt validator must nevertheless retain its strict requirement
 that exactly one candidate MKE wheel is present and identically bound across the wheel inventory and
 both interpreter-cell installed projections. A final candidate-wheel byte change therefore permits
-one bounded replay through the existing reviewed receipt controller; the strict cross-binding is
-not weakened or removed.
+one bounded offline replay through the existing reviewed receipt controller; the strict
+cross-binding is not weakened or removed.
 
 The replay uses a call-owned wheelhouse containing byte-identical copies of the accepted 60 external
 wheels plus the one fresh candidate wheel. It reuses the accepted CPython 3.12 and 3.13 cells,
 constraints, lockfile, and fixtures under the existing offline, binary-only, hashed, no-index
-controller contract. It may change only:
+controller contract. The preserved replay generated exactly 17 changed leaves. Thirteen are
+candidate-derived:
 
-- candidate wheel bytes and SHA-256 in `wheel_inventory`;
-- candidate `source_wheel_sha256` rows for cells `3.12` and `3.13` in each cell projection and the
-  top-level installed projection, while filename and version remain fixed;
+- four candidate `source_wheel_sha256` installed rows across the two cell projections and two
+  top-level rows;
+- two per-cell `root_requirements_sha256` values and two per-cell full
+  `wheelhouse_manifest_sha256` values;
 - `preflight_observed_digest`, `generation_preflight_observed_digest`, and `receipt_sha256`; and
-- the mechanically derived canonical payload, committed-file, and wheelhouse-manifest references
-  in the durable evidence record.
+- candidate wheel bytes and SHA-256 in `wheel_inventory`.
+
+The other four leaves are a fresh controlled-supervisor observation. Baseline changed from
+`213064` to `196680`, budget from `25378888` to `25362504`, observed maximum from `27591136` to
+`27607520`, and overshoot from `2212248` to `2245016`. The observation remains valid only because
+budget minus baseline is exactly 24 MiB, observed maximum exceeds budget, overshoot equals observed
+maximum minus budget, `budget_outcome=exceeded_terminated`, and cleanup still records
+`sigterm_sent=true`, `waited=true`, and `process_group_absent=true`. Every other supervisor field
+is equal. This is a controlled allocator feasibility observation, not a direct-audio runtime
+budget, real-provider budget, production ceiling, SLA, or deployment approval.
 
 Every external wheel row, constraint, PyAV/FFmpeg/component, fixture, license, redistribution, and
 non-claim authority, plus every other receipt semantic field, must remain byte- or
-projection-equal. Unexpected drift is a hard stop. The prior receipt and all prior Step 8/Step 9
-artifacts remain historical evidence only. This rebind does not complete Step 8, authorize
-authorization-only or Step 9, or change the historical real deployment-controller invocation and
-retry counts of four and three. A fifth real invocation remains outside this authority.
+projection-equal. The exact 17-leaf comparison proved that equality. The historical receipt bound
+payload `fd369d35cb97754839f62ed6ee72dbb69f4cedc85eae40f3c0891d314e0dc61e` and file
+`befc901781c597b8e80f380cf5e29a183c672132c31590efff7d9ff1dad373b7`; the bounded replay binds
+payload `3dca3bc7737728ef49376f11d40e9611cf62552147840a0026b7ded5218a681a` and file
+`1fe3cd6fddd1bb07a949192c64fcf90ee2b9ac5fd22df1e8a334a5d446a611af`. The prior receipt and all
+prior Step 8/Step 9 artifacts remain historical evidence only. This closure is pending targeted
+actual-diff re-review. It does not complete Step 8, authorize authorization-only or Step 9, or
+change the historical real deployment-controller invocation and retry counts of four and three. A
+fifth real invocation remains outside this authority.
 
 - [ ] **Step 8: Build the final MKE wheel and bind the terminal proof inputs**
 

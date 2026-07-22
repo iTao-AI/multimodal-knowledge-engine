@@ -10,17 +10,21 @@ behavior, and it does not authorize redistribution of external wheels or native 
 - Schema: `mke.direct_audio_dependency_receipt.v1`
 - Receipt: `benchmarks/audio/dependency-artifacts.json`
 - Canonical payload SHA-256 (`receipt_sha256`):
-  `fd369d35cb97754839f62ed6ee72dbb69f4cedc85eae40f3c0891d314e0dc61e`
+  `3dca3bc7737728ef49376f11d40e9611cf62552147840a0026b7ded5218a681a`
 - Committed file SHA-256:
-  `befc901781c597b8e80f380cf5e29a183c672132c31590efff7d9ff1dad373b7`
+  `1fe3cd6fddd1bb07a949192c64fcf90ee2b9ac5fd22df1e8a334a5d446a611af`
 - Wheel inventory: 60 locked external files plus one candidate MKE wheel, with 108 cell-specific
   resolutions
+- Candidate MKE wheel: 353,200 bytes, SHA-256
+  `e3abdf24589be880aa2c135cd8687ed6c21e0ea0ed2ec5fe1742703ef665c3d0`
 - Constraints SHA-256:
   `4379a58870a10077587ba55b4d01669fca580301223d19a2f31307eefd395b08`
 - Full hashed cell requirements SHA-256:
-  `e653870bfb252d22309bbe6b66bf7790bd89d167e41094dd5a358a20f876aebf`
+  `fa42f60be4527979fed5e0afcf360c9f1ccc874187164ff99d9b0fe82999ba9d`
+- External 60-wheel manifest SHA-256:
+  `04960db80c29a372f7d29028cf4a9f646845df0c207ca39b1eb618b232624d06`
 - Wheelhouse manifest SHA-256:
-  `de0361b881ba936bb61c473df99f2a2b1f44fb02baefd56f027414587790c4a4`
+  `7169359c3d7d23c517b13f0ded7f5a7a2f7624183e294c10667f8890bb4fa69f`
 
 The wheel bytes were acquired only from the exact HTTPS artifact URLs and digests recorded in the
 locked external-distribution projection. The candidate wheel was the separately bound local PR C
@@ -87,9 +91,11 @@ The controlled allocator proof used public `proc_pid_rusage` `RUSAGE_INFO_V4` pr
 and sampled the leader's `ri_phys_footprint` every 0.01 seconds. The final canonical run recorded a
 24 MiB baseline-plus budget, detected an over-budget sample, sent process-group `SIGTERM`, waited,
 and proved the process group absent. The receipt explicitly records `hard_kernel_enforced=false`
-and the observed transient overshoot. This is a supervisory physical-footprint budget for ordinary
-cooperative descendants, not a production sandbox, hostile-media boundary, or aggregate hard RSS
-ceiling.
+and the observed transient overshoot. The bounded replay observed baseline `196680`, budget
+`25362504`, maximum `27607520`, and overshoot `2245016` bytes; the historical values remain recorded
+in the implementation review. This is a controlled allocator feasibility observation for ordinary
+cooperative descendants, not a direct-audio runtime budget, real-provider budget, production
+sandbox, hostile-media boundary, SLA, or aggregate hard RSS ceiling.
 
 ## Repository-distributed fixture authority
 

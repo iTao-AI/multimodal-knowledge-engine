@@ -441,22 +441,39 @@ diagnostic, and related artifact remains historical evidence and cannot be reuse
 authority. The real deployment-controller invocation count remains four and retry count remains
 three. A fifth invocation did not occur.
 
-## Candidate-Only Canonical Receipt Rebind In Progress
+## Bounded Offline Receipt Replay — Targeted Re-Review Pending
 
 The accepted external dependency and license projection does not follow ordinary MKE source or
 documentation commits. The static validator continues to require one exact candidate MKE wheel and
 the same candidate binding in both interpreter cells. When the final candidate wheel bytes change,
-one bounded replay through the existing reviewed receipt controller is therefore permitted without
-weakening that cross-binding.
+one bounded offline replay through the existing reviewed receipt controller is therefore permitted
+without weakening that cross-binding.
 
 The replay must use a call-owned wheelhouse composed of byte-identical copies of the accepted 60
 external wheels and the fresh candidate wheel. The accepted interpreters, lockfile, constraints,
 fixtures, descriptor bootstrap, offline nested-pip contract, and controller bytes remain unchanged.
-Only the candidate wheel bytes/SHA, the three candidate installed-row SHA bindings, the two
-preflight digests, the receipt self-digest, and corresponding mechanically derived durable digest
-references may change. Candidate filename/version and every external dependency, PyAV/FFmpeg,
-component, fixture, license, redistribution, and non-claim field must remain equal. Any other drift
-fails closed.
+The preserved replay changed exactly 17 leaves. Thirteen are mechanically candidate-derived: four
+candidate installed `source_wheel_sha256` rows, two per-cell root-requirement digests, two per-cell
+full-wheelhouse manifest digests, two preflight digests, the receipt self-digest, and candidate
+wheel bytes/SHA. Candidate filename/version and all 60 external-wheel rows remain unchanged.
+
+Four leaves are a newly authorized controlled-supervisor observation: baseline `213064 -> 196680`,
+budget `25378888 -> 25362504`, observed maximum `27591136 -> 27607520`, and overshoot
+`2212248 -> 2245016`. Budget minus baseline remains exactly 24 MiB; observed maximum exceeds
+budget; overshoot equals observed maximum minus budget; `budget_outcome` remains
+`exceeded_terminated`; cleanup remains `sigterm_sent=true`, `waited=true`, and
+`process_group_absent=true`; and every other supervisor field is equal. This is a controlled
+allocator feasibility observation only, not a real-provider budget, product default, production
+ceiling, SLA, or runtime approval.
+
+The exact 17-leaf comparison proves every other receipt leaf equal, including constraints,
+controller, PyAV/FFmpeg/component, fixture, license, redistribution, and non-claim authority. The
+historical canonical payload/file identities were
+`fd369d35cb97754839f62ed6ee72dbb69f4cedc85eae40f3c0891d314e0dc61e` and
+`befc901781c597b8e80f380cf5e29a183c672132c31590efff7d9ff1dad373b7`. The bounded replay identities
+are `3dca3bc7737728ef49376f11d40e9611cf62552147840a0026b7ded5218a681a` and
+`1fe3cd6fddd1bb07a949192c64fcf90ee2b9ac5fd22df1e8a334a5d446a611af`. This closure awaits
+targeted actual-diff re-review.
 
 This record preserves the prior receipt and every previous Step 8/Step 9 artifact as historical
 evidence. It does not complete Step 8 or authorize authorization-only, Step 9, manual MCP replay,
