@@ -5,6 +5,7 @@ import sqlite3
 import sys
 from collections.abc import Callable
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
@@ -12,7 +13,7 @@ import pytest
 from mke.adapters.video.contracts import VideoTranscriptionLimits
 from mke.adapters.video.process import ActiveProcessController
 from mke.adapters.video.providers import LocalCommandTranscriptProvider, SidecarTranscriptProvider
-from mke.application import KnowledgeEngine
+from mke.application import AudioIngestError, KnowledgeEngine
 from mke.runtime import (
     DEFAULT_MODEL_REVISION,
     FasterWhisperTranscriptionConfig,
@@ -23,7 +24,10 @@ from mke.runtime import (
     build_transcript_provider,
     first_party_adapter_argv,
 )
-from mke.runtime_owner import OwnerRuntimeState
+from mke.runtime_owner import BoundedAdmissionController, OwnerRuntimeState
+from tests.conftest import PDF_FIXTURES
+
+_OWNER_TEST_FOOTPRINT_BYTES = 12_345_679
 
 
 def test_runtime_defaults_to_sidecar_and_owns_one_process_controller(tmp_path: Path) -> None:
@@ -32,6 +36,84 @@ def test_runtime_defaults_to_sidecar_and_owns_one_process_controller(tmp_path: P
     assert runtime.transcription == SidecarTranscriptionConfig()
     assert runtime.retrieval_query_policy == "numeric-grouping-v1"
     assert runtime.process_controller is runtime.process_controller
+    assert runtime.direct_audio_footprint_bytes is None
+    assert runtime.direct_audio_footprint_budget_mode is None
+
+
+def test_runtime_accepts_explicit_direct_audio_supervision_pair(tmp_path: Path) -> None:
+    runtime = RuntimeConfig(
+        tmp_path / "mke.sqlite",
+        direct_audio_footprint_bytes=_OWNER_TEST_FOOTPRINT_BYTES,
+        direct_audio_footprint_budget_mode="baseline_plus",
+    )
+
+    assert runtime.direct_audio_footprint_bytes == _OWNER_TEST_FOOTPRINT_BYTES
+    assert runtime.direct_audio_footprint_budget_mode == "baseline_plus"
+
+
+def test_runtime_keeps_existing_positional_construction_compatible(tmp_path: Path) -> None:
+    controller = ActiveProcessController()
+    owner_state = OwnerRuntimeState()
+    admission = BoundedAdmissionController(capacity=2, max_waiters=3)
+    operation_id = controller.begin_operation()
+
+    runtime = RuntimeConfig(
+        tmp_path / "mke.sqlite",
+        None,
+        None,
+        SidecarTranscriptionConfig(),
+        controller,
+        owner_state,
+        admission,
+        operation_id,
+    )
+
+    assert runtime.process_controller is controller
+    assert runtime.owner_state is owner_state
+    assert runtime.admission_controller is admission
+    assert runtime.process_operation_id == operation_id
+    assert runtime.direct_audio_footprint_bytes is None
+    assert runtime.direct_audio_footprint_budget_mode is None
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"direct_audio_footprint_bytes": _OWNER_TEST_FOOTPRINT_BYTES},
+        {"direct_audio_footprint_budget_mode": "baseline_plus"},
+    ],
+)
+def test_runtime_requires_direct_audio_supervision_pair(
+    tmp_path: Path,
+    kwargs: dict[str, object],
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="direct audio supervision fields must be configured together",
+    ):
+        RuntimeConfig(tmp_path / "mke.sqlite", **kwargs)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("value", [True, 0, -1])
+def test_runtime_requires_positive_non_boolean_direct_audio_footprint(
+    tmp_path: Path,
+    value: object,
+) -> None:
+    with pytest.raises((TypeError, ValueError), match="positive integer"):
+        RuntimeConfig(
+            tmp_path / "mke.sqlite",
+            direct_audio_footprint_bytes=value,  # type: ignore[arg-type]
+            direct_audio_footprint_budget_mode="baseline_plus",
+        )
+
+
+def test_runtime_rejects_absolute_direct_audio_budget_mode(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="must be baseline_plus"):
+        RuntimeConfig(
+            tmp_path / "mke.sqlite",
+            direct_audio_footprint_bytes=_OWNER_TEST_FOOTPRINT_BYTES,
+            direct_audio_footprint_budget_mode="absolute",  # type: ignore[arg-type]
+        )
 
 
 def test_faster_whisper_defaults_match_the_approved_profile() -> None:
@@ -189,6 +271,204 @@ def test_build_engine_uses_shared_provider_factory(
         assert engine._store._query_policy == (  # pyright: ignore[reportPrivateUsage]
             "numeric-grouping-v1"
         )
+    finally:
+        engine.close()
+
+
+def test_build_engine_leaves_direct_audio_uncomposed_for_sidecar_owner(
+    tmp_path: Path,
+) -> None:
+    runtime = RuntimeConfig(tmp_path / "mke.sqlite")
+
+    engine = build_engine(runtime)
+    try:
+        assert engine._audio_provider is None  # pyright: ignore[reportPrivateUsage]
+        assert engine._audio_preflight is None  # pyright: ignore[reportPrivateUsage]
+        assert engine._admission_controller is runtime.admission_controller  # pyright: ignore[reportPrivateUsage]
+    finally:
+        engine.close()
+
+
+def test_build_engine_composes_direct_audio_only_for_faster_whisper_owner(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mke.adapters.audio import InternalAudioProvider
+
+    monkeypatch.setattr("mke.runtime.platform.system", lambda: "Darwin")
+    monkeypatch.setattr("mke.runtime.platform.machine", lambda: "arm64")
+    runtime = RuntimeConfig(
+        tmp_path / "mke.sqlite",
+        transcription=FasterWhisperTranscriptionConfig(),
+        direct_audio_footprint_bytes=_OWNER_TEST_FOOTPRINT_BYTES,
+        direct_audio_footprint_budget_mode="baseline_plus",
+    )
+
+    engine = build_engine(runtime)
+    try:
+        assert isinstance(
+            engine._audio_provider,  # pyright: ignore[reportPrivateUsage]
+            InternalAudioProvider,
+        )
+        assert engine._audio_transcription_config is runtime.transcription  # pyright: ignore[reportPrivateUsage]
+        assert engine._admission_controller is runtime.admission_controller  # pyright: ignore[reportPrivateUsage]
+    finally:
+        engine.close()
+
+
+def test_darwin_audio_runtime_uses_exact_owner_supervision_pair(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mke.adapters.audio import InternalAudioProvider
+
+    monkeypatch.setattr("mke.runtime.platform.system", lambda: "Darwin")
+    monkeypatch.setattr("mke.runtime.platform.machine", lambda: "arm64")
+    runtime = RuntimeConfig(
+        tmp_path / "mke.sqlite",
+        transcription=FasterWhisperTranscriptionConfig(),
+        direct_audio_footprint_bytes=_OWNER_TEST_FOOTPRINT_BYTES,
+        direct_audio_footprint_budget_mode="baseline_plus",
+    )
+
+    engine = build_engine(runtime)
+    try:
+        provider = engine._audio_provider  # pyright: ignore[reportPrivateUsage]
+        assert isinstance(provider, InternalAudioProvider)
+        assert provider.profile.footprint_bytes == _OWNER_TEST_FOOTPRINT_BYTES
+        assert provider.profile.footprint_budget_mode == "baseline_plus"
+    finally:
+        engine.close()
+
+
+def test_missing_audio_supervision_fails_before_preflight_snapshot_or_run(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unexpected_preflight(_config: FasterWhisperTranscriptionConfig) -> object:
+        pytest.fail("owner readiness preflight must not run")
+
+    def unexpected_snapshot(_path: Path, _root: Path) -> object:
+        pytest.fail("snapshot must not be created")
+
+    monkeypatch.setattr("mke.runtime.platform.system", lambda: "Darwin")
+    monkeypatch.setattr("mke.runtime.platform.machine", lambda: "arm64")
+    monkeypatch.setattr(
+        "mke.runtime.audio_transcription_preflight",
+        unexpected_preflight,
+    )
+    monkeypatch.setattr(
+        "mke.application.snapshot_audio_source",
+        unexpected_snapshot,
+    )
+    runtime = RuntimeConfig(
+        tmp_path / "mke.sqlite",
+        transcription=FasterWhisperTranscriptionConfig(),
+    )
+    engine = build_engine(runtime)
+    try:
+        with pytest.raises(AudioIngestError) as raised:
+            engine.ingest_audio(Path(__file__).parents[1] / "fixtures/audio/direct-audio.mp3")
+        assert raised.value.problem == "transcription_not_ready"
+        assert raised.value.cause == "direct audio supervision is not configured"
+        assert raised.value.next_step == "configure_direct_audio_supervision"
+        assert raised.value.run_id is None
+        assert engine.observe_active_publications().source_count == 0
+    finally:
+        engine.close()
+
+
+def test_unsupported_audio_platform_fails_before_preflight_snapshot_or_run(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unexpected_preflight(_config: FasterWhisperTranscriptionConfig) -> object:
+        pytest.fail("owner readiness preflight must not run")
+
+    def unexpected_snapshot(_path: Path, _root: Path) -> object:
+        pytest.fail("snapshot must not be created")
+
+    monkeypatch.setattr("mke.runtime.platform.system", lambda: "Linux")
+    monkeypatch.setattr("mke.runtime.platform.machine", lambda: "x86_64")
+    monkeypatch.setattr(
+        "mke.runtime.audio_transcription_preflight",
+        unexpected_preflight,
+    )
+    monkeypatch.setattr(
+        "mke.application.snapshot_audio_source",
+        unexpected_snapshot,
+    )
+    runtime = RuntimeConfig(
+        tmp_path / "mke.sqlite",
+        transcription=FasterWhisperTranscriptionConfig(),
+        direct_audio_footprint_bytes=_OWNER_TEST_FOOTPRINT_BYTES,
+        direct_audio_footprint_budget_mode="baseline_plus",
+    )
+    engine = build_engine(runtime)
+    try:
+        with pytest.raises(AudioIngestError) as raised:
+            engine.ingest_audio(Path(__file__).parents[1] / "fixtures/audio/direct-audio.wav")
+        assert raised.value.problem == "transcription_not_ready"
+        assert raised.value.cause == "direct audio runtime is supported only on Darwin arm64"
+        assert raised.value.next_step == "run_on_supported_darwin_arm64"
+        assert raised.value.run_id is None
+        assert engine.observe_active_publications().source_count == 0
+    finally:
+        engine.close()
+
+
+def test_missing_audio_supervision_keeps_pdf_and_video_owner_compatible(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("mke.runtime.platform.system", lambda: "Darwin")
+    monkeypatch.setattr("mke.runtime.platform.machine", lambda: "arm64")
+    runtime = RuntimeConfig(
+        tmp_path / "mke.sqlite",
+        transcription=FasterWhisperTranscriptionConfig(),
+    )
+
+    engine = build_engine(runtime)
+    try:
+        assert isinstance(engine._transcript_provider, LocalCommandTranscriptProvider)  # pyright: ignore[reportPrivateUsage]
+        assert engine.ingest_pdf(PDF_FIXTURES / "text-layer.pdf").run_state.value == "published"
+    finally:
+        engine.close()
+
+
+def test_audio_runtime_preflight_failure_is_pre_run_and_model_free(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[FasterWhisperTranscriptionConfig] = []
+
+    def not_ready(config: FasterWhisperTranscriptionConfig) -> object:
+        calls.append(config)
+        return SimpleNamespace(
+            status="not_ready",
+            cause="configured transcription model is not cached",
+            next_step="run_transcription_prepare",
+        )
+
+    monkeypatch.setattr("mke.runtime.audio_transcription_preflight", not_ready)
+    monkeypatch.setattr("mke.runtime.platform.system", lambda: "Darwin")
+    monkeypatch.setattr("mke.runtime.platform.machine", lambda: "arm64")
+    runtime = RuntimeConfig(
+        tmp_path / "mke.sqlite",
+        transcription=FasterWhisperTranscriptionConfig(),
+        direct_audio_footprint_bytes=_OWNER_TEST_FOOTPRINT_BYTES,
+        direct_audio_footprint_budget_mode="baseline_plus",
+    )
+    engine = build_engine(runtime)
+    try:
+        with pytest.raises(AudioIngestError) as raised:
+            engine.ingest_audio(Path(__file__).parents[1] / "fixtures/audio/direct-audio.mp3")
+        assert raised.value.problem == "transcription_not_ready"
+        assert raised.value.cause == "configured transcription model is not cached"
+        assert raised.value.next_step == "run_transcription_prepare"
+        assert raised.value.run_id is None
+        assert calls == [runtime.transcription]
+        assert engine.observe_active_publications().source_count == 0
     finally:
         engine.close()
 

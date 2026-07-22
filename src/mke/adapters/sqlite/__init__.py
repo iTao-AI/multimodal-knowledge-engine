@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Self
 from uuid import uuid4
 
+from mke.adapters.audio.contracts import audio_extractor_fingerprint
 from mke.domain import (
     DEFAULT_EXPORT_LIMITS,
     ActivationResult,
@@ -35,6 +36,8 @@ from mke.domain import (
     SearchSnapshot,
     SourceRecord,
     TranscriptIntakeReport,
+    TranscriptionProvenance,
+    is_recognized_audio_fingerprint,
     is_recognized_video_fingerprint,
     validate_manifest,
 )
@@ -542,6 +545,15 @@ class SQLiteStore:
                 event_type=RunEventType.RUN_FAILED,
             )
 
+    def mark_validated_run_failed(self, run_id: str) -> None:
+        with self._connection:
+            self._transition_run(
+                run_id,
+                expected=(RunState.VALIDATED,),
+                target=RunState.FAILED,
+                event_type=RunEventType.RUN_FAILED,
+            )
+
     def mark_run_running(self, run_id: str) -> None:
         with self._connection:
             self._transition_run(
@@ -662,7 +674,10 @@ class SQLiteStore:
                 fingerprint.startswith("faster-whisper-v1:")
                 and is_recognized_video_fingerprint(fingerprint)
             )
-            if is_faster_whisper and transcript_intake_report is None:
+            is_faster_whisper_audio = is_recognized_audio_fingerprint(fingerprint)
+            if (
+                is_faster_whisper or is_faster_whisper_audio
+            ) and transcript_intake_report is None:
                 raise ManifestValidationError(
                     "faster-whisper Publication requires a successful transcript intake report"
                 )
@@ -678,6 +693,39 @@ class SQLiteStore:
                 "SELECT * FROM evidence WHERE run_id = ? ORDER BY locator_start, evidence_id",
                 (run_id,),
             ).fetchall()
+            if is_faster_whisper_audio and transcript_intake_report is not None:
+                report_fingerprint = audio_extractor_fingerprint(
+                    TranscriptionProvenance(
+                        provider=transcript_intake_report.provider,
+                        model=transcript_intake_report.model,
+                        model_revision=transcript_intake_report.model_revision,
+                        library_version=transcript_intake_report.library_version,
+                        device=transcript_intake_report.device,
+                        compute_type=transcript_intake_report.compute_type,
+                        language=transcript_intake_report.language,
+                        detected_language=transcript_intake_report.detected_language,
+                        model_source=transcript_intake_report.model_source,
+                        transcription_duration_ms=(
+                            transcript_intake_report.transcription_duration_ms
+                        ),
+                    )
+                )
+                if report_fingerprint != fingerprint:
+                    raise ManifestValidationError(
+                        "transcript intake report provenance does not match RunManifest"
+                    )
+                if (
+                    transcript_intake_report.segment_count != len(evidence_rows)
+                    or any(
+                        str(row["locator_kind"]) != "timestamp_ms"
+                        or int(row["locator_end"])
+                        > transcript_intake_report.media_duration_ms
+                        for row in evidence_rows
+                    )
+                ):
+                    raise ManifestValidationError(
+                        "transcript intake report does not match candidate Evidence"
+                    )
             publication_id = _new_id("pub")
             next_revision = source.active_revision + 1
             self._connection.execute(

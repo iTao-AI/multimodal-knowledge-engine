@@ -1187,7 +1187,7 @@ consumer contract is a design hard stop.
 - Consumes: accepted/merged PR B immutable snapshot/media authority and internal audio provider.
 - Produces: `AudioIngestError`, `IngestDispatchError`, `KnowledgeEngine.ingest_audio()`, canonical `KnowledgeEngine.ingest_file()`, audio Run/Publication lifecycle, and active timestamp Evidence.
 
-- [ ] **Step 1: Write lifecycle and dispatcher RED tests**
+- [x] **Step 1: Write lifecycle and dispatcher RED tests**
 
 Cover suffix dispatch, uppercase suffixes, unsupported suffix, sidecar-owner rejection before Source
 and Run, exact snapshot hash, Run states, candidate/manifest/report atomicity, Search/Ask,
@@ -1219,7 +1219,7 @@ def test_ingest_file_uses_one_closed_suffix_dispatcher(
     assert calls == [(method, Path(name))]
 ```
 
-- [ ] **Step 2: Run RED tests**
+- [x] **Step 2: Run RED tests**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1231,7 +1231,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: missing audio ingest/dispatcher and audio activation behavior.
 
-- [ ] **Step 3: Add the canonical application surface**
+- [x] **Step 3: Add the canonical application surface**
 
 First compose the accepted internal inspection/transcription providers at the owner boundary only for the existing
 faster-whisper owner on Darwin arm64 when the owner explicitly supplies the paired
@@ -1293,7 +1293,7 @@ def ingest_file(self, path: Path) -> IngestResult:
 
 The dispatcher does not resolve the path and does not accept MIME hints from callers.
 
-- [ ] **Step 4: Implement fail-closed audio lifecycle**
+- [x] **Step 4: Implement fail-closed audio lifecycle**
 
 `ingest_audio()` must order authority as follows:
 
@@ -1328,14 +1328,14 @@ If cleanup cannot prove removal of the call-owned snapshot, return a stable fail
 publish. If a failure occurs after Run creation, mark only that Run failed or superseded and keep
 the prior active Publication. Do not fabricate a transcript report for failed or unavailable runs.
 
-- [ ] **Step 5: Extend atomic report activation for audio fingerprints**
+- [x] **Step 5: Extend atomic report activation for audio fingerprints**
 
 SQLite recognizes either historical `faster-whisper-v1:[0-9a-f]{64}` with video stages or new
 `faster-whisper-audio-v1:[0-9a-f]{64}` with audio stages as report-requiring. Validate report media
 duration/segment counts/provenance against the audio manifest and candidate Evidence in the same
 transaction. No new table or migration is required unless a real schema mismatch is proven.
 
-- [ ] **Step 6: Run GREEN, lifecycle races, and regressions**
+- [x] **Step 6: Run GREEN, lifecycle races, and regressions**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1355,7 +1355,7 @@ UV_OFFLINE=1 uv run pyright
 
 Expected: all pass; active Publication changes only on complete success.
 
-- [ ] **Step 7: Review and commit Task 5**
+- [x] **Step 7: Review and commit Task 5**
 
 ```bash
 git diff --check
