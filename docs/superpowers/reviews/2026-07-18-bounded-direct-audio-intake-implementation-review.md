@@ -253,6 +253,47 @@ The one historical same-wheel diagnostic attempted before the repair was committ
 `candidate_artifact_invalid` because candidate-source authority requires a clean Git snapshot. It
 is inconclusive execution-order evidence, was not rerun, and is not passing same-wheel authority.
 
+## Bounded Install-Diagnostic Repair Acceptance
+
+Targeted actual-diff review of exact HEAD
+`45c1895a9fc4e40284450825bca16fc71193c439`, with parent
+`bbcf107ea3fbcea7c9695f4a07024e5b86957b07`, returned
+`CLEAN / bounded install-diagnostic repair ACCEPTED`. The repair changed exactly:
+
+- `scripts/direct_audio_deployment_proof.py`; and
+- `tests/scripts/test_direct_audio_deployment_proof.py`.
+
+The exact diff is `482 insertions, 4 deletions`. The first closure rejects non-absolute,
+non-normalized, parent-traversing, alias, and symlink-parent operator diagnostic paths before file
+creation while preserving canonical Darwin `/private/var` paths. The second closure maps both file
+and parent descriptor close failures to the closed internal diagnostic-write error, retains the
+public `install_failed` classification, closes each descriptor once, and limits best-effort cleanup
+to the same created `(st_dev, st_ino)` identity so an operator replacement is not removed.
+
+Accepted verification for that exact repair reported:
+
+- focused findings: `7 passed`;
+- complete diagnostic set: `17 passed`;
+- deployment-proof file: `41 passed`;
+- documentation and presentation tests: `214 passed`;
+- committed combined read-back: `255 passed`;
+- full pytest: `3003 passed, 14 skipped, 5 warnings`;
+- Ruff: passed;
+- Pyright: `0 errors, 0 warnings`;
+- canonical E1 through E3-E validators: `7/7 passed`, with no identity refresh; and
+- `git diff --check`: passed.
+
+The public failure aggregate remains the same four fields and bytes-equivalent closed meaning:
+
+```json
+{"canonical":false,"failure":"install_failed","schema_version":"mke.direct_audio_deployment_proof.v1","status":"failed"}
+```
+
+The real deployment-controller invocation count is exactly one. That invocation failed
+`install_failed`; the retry count remains zero. The failure receipt and bounded operator failure
+summary are historical evidence only and do not identify the old run's exact failing install
+substep. No ASR, provider, model, or product success is established.
+
 ## Historical Terminal Evidence Boundary
 
 All earlier Step 8 wheels, binding reports, and authorization manifests are retained historical
@@ -264,6 +305,10 @@ digest `dc7df6ff38323d12c3e81627d0a4c201baafd498449e137e2a38e1f0b15e03c8`. They 
 final authority because later tracked repairs changed the source HEAD. A fresh Step 8 wheel,
 terminal-input binding, and authorization-only result are required before Step 9 can proceed.
 
+All Step 8 material created before the docs-only acceptance commit recording the bounded
+install-diagnostic verdict is also historical and prohibited as final authority. Only artifacts
+built and bound from that acceptance commit can clear the next Step 8 gate.
+
 ## Next Gate And Non-Claims
 
 Task 10 Step 7 records this returned result. Step 8 is the next incomplete gate. This record does
@@ -271,4 +316,6 @@ not claim that a post-repair final wheel was rebuilt, authorization-only validat
 ASR, model, or provider execution occurred, external inputs were acquired, packages or native
 binaries may be redistributed, or any push, PR, merge, release, deployment, production readiness,
 accuracy, SLA, or cross-platform authority exists. The real deployment controller invocation count
-remains zero.
+is exactly one, that invocation failed `install_failed`, and the retry count remains zero. This
+record does not claim ASR, provider, or model success, release, redistribution authority,
+production readiness, SLA, deployment, or retry.

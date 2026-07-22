@@ -2284,6 +2284,36 @@ without an identity refresh. The one dirty-source historical same-wheel diagnost
 was not rerun, and is not passing evidence. Steps 6 and 7 remain accepted and complete; Step 8 is
 again the next incomplete gate. The real deployment controller invocation count remains zero.
 
+The first authorized real deployment-controller invocation later failed closed with the public
+`install_failed` aggregate. A bounded observability repair was reviewed at exact HEAD
+`45c1895a9fc4e40284450825bca16fc71193c439`, with parent
+`bbcf107ea3fbcea7c9695f4a07024e5b86957b07`, and returned
+`CLEAN / bounded install-diagnostic repair ACCEPTED`. The repair changed exactly
+`scripts/direct_audio_deployment_proof.py` and
+`tests/scripts/test_direct_audio_deployment_proof.py` (`482 insertions, 4 deletions`). It rejects
+non-absolute, non-normalized, parent-traversing, alias, and symlink-parent diagnostic destinations
+before file creation while accepting the canonical Darwin `/private/var` path. It also converts
+file-descriptor and parent-descriptor close failures to the closed internal diagnostic-write error,
+preserves the public `install_failed` classification, closes each descriptor once, and removes only
+the same created inode during best-effort cleanup.
+
+Accepted verification for that exact repair reported: focused findings `7 passed`; the complete
+diagnostic set `17 passed`; the deployment-proof file `41 passed`; documentation and presentation
+tests `214 passed`; committed combined read-back `255 passed`; full pytest `3003 passed, 14 skipped,
+5 warnings`; Ruff passed; Pyright reported `0 errors, 0 warnings`; all seven canonical validators
+passed without an identity refresh; and `git diff --check` passed. The public failure aggregate
+remains exactly:
+
+```json
+{"canonical":false,"failure":"install_failed","schema_version":"mke.direct_audio_deployment_proof.v1","status":"failed"}
+```
+
+The real deployment-controller invocation count is exactly one, that invocation failed
+`install_failed`, and the retry count remains zero. Its failure receipt and bounded operator
+failure summary are historical evidence only. They do not establish the failing install substep
+and must not be reinterpreted as ASR, provider, model, or product success. Steps 6 and 7 remain
+accepted and complete; Step 8 is again the next incomplete gate.
+
 All earlier Step 8 wheels, binding reports, and authorization manifests are historical evidence
 only and are prohibited as final authority. This includes wheel digest
 `8a9269593e7846b9142e70c897279ae52fe82607dd24dcbecd5965d8e4192dbb`, binding-report digests
@@ -2292,6 +2322,12 @@ only and are prohibited as final authority. This includes wheel digest
 digest `dc7df6ff38323d12c3e81627d0a4c201baafd498449e137e2a38e1f0b15e03c8`. A fresh Step 8 wheel,
 terminal-input binding, and authorization-only result are required before any later Step 9
 execution.
+
+All Step 8 material created before the docs-only acceptance commit recording the bounded
+install-diagnostic verdict is likewise historical and prohibited as final authority. Only a fresh
+wheel, sdist, binding report, and authorization-only manifest built from that acceptance commit may
+clear the next Step 8 gate. This acceptance does not claim real ASR, provider or model success,
+release, redistribution authority, production readiness, accuracy, SLA, deployment, or retry.
 
 - [ ] **Step 8: Build the final MKE wheel and bind the terminal proof inputs**
 
