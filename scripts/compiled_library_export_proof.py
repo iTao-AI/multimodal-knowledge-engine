@@ -981,6 +981,22 @@ def _publish_retained(config: ProofConfig, root: Path, aggregate: Mapping[str, o
         raise ControllerError("proof_failed") from exc
 
 
+def _canonical_call_owned_root(root: Path) -> Path:
+    try:
+        unresolved = root.lstat()
+        canonical = root.resolve(strict=True)
+        resolved = canonical.lstat()
+    except (OSError, RuntimeError) as exc:
+        raise ControllerError("proof_failed") from exc
+    if (
+        not stat.S_ISDIR(unresolved.st_mode)
+        or not stat.S_ISDIR(resolved.st_mode)
+        or (unresolved.st_dev, unresolved.st_ino) != (resolved.st_dev, resolved.st_ino)
+    ):
+        raise ControllerError("proof_failed")
+    return canonical
+
+
 def run_proof(config: ProofConfig) -> dict[str, object]:
     if os.environ.get("UV_OFFLINE") != "1" or len(config.python_interpreters) != 2:
         raise ControllerError("proof_failed")
@@ -992,6 +1008,7 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
     error: BaseException | None = None
     aggregate: dict[str, object] | None = None
     try:
+        root = _canonical_call_owned_root(root)
         wheel, _digest = (
             _build_candidate(config, root)
             if config.mke_wheel is None

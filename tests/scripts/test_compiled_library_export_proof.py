@@ -197,6 +197,72 @@ def test_run_proof_selects_explicit_wheel_without_building(
     assert not root.exists()
 
 
+def test_run_proof_canonicalizes_call_owned_root_before_workspace_use(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    proof = _load()
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    alias_parent = tmp_path / "alias-parent"
+    alias_parent.symlink_to(real_parent, target_is_directory=True)
+    canonical_root = real_parent / "owned"
+    canonical_root.mkdir()
+    alias_root = alias_parent / "owned"
+    alias_identity = alias_root.stat()
+    canonical_identity = canonical_root.stat()
+    assert (alias_identity.st_dev, alias_identity.st_ino) == (
+        canonical_identity.st_dev,
+        canonical_identity.st_ino,
+    )
+    supplied = tmp_path / "candidate.whl"
+    supplied.write_bytes(b"wheel")
+    selected = canonical_root / "wheel/candidate.whl"
+    seen_roots: list[Path] = []
+    monkeypatch.setenv("UV_OFFLINE", "1")
+    monkeypatch.setattr(proof.tempfile, "mkdtemp", lambda **_kwargs: str(alias_root))
+
+    def select(_config: object, root: Path) -> tuple[Path, str]:
+        seen_roots.append(root)
+        assert root == canonical_root.resolve(strict=True)
+        return selected, "a" * 64
+
+    def prove(
+        _config: object,
+        root: Path,
+        _wheel: Path,
+        _interpreter: Path,
+        index: int,
+    ) -> object:
+        seen_roots.append(root)
+        assert root == canonical_root.resolve(strict=True)
+        return proof.InterpreterResult(
+            f"3.{12 + index}", "a" * 64, 2, 3, 3, 4, "passed"
+        )
+
+    monkeypatch.setattr(proof, "_supplied_candidate", select)
+    monkeypatch.setattr(proof, "_prove_interpreter", prove)
+    monkeypatch.setattr(
+        proof,
+        "_publish_retained",
+        lambda _config, root, _aggregate: seen_roots.append(root),
+    )
+    config = proof.ProofConfig(
+        tmp_path,
+        (Path("/python312"), Path("/python313")),
+        10,
+        100,
+        100,
+        mke_wheel=supplied,
+    )
+
+    result = proof.run_proof(config)
+
+    assert result["status"] == "passed"
+    assert seen_roots == [canonical_root] * 4
+    assert alias_parent.is_symlink()
+    assert not canonical_root.exists()
+
+
 def test_aggregate_is_closed_and_requires_one_digest_for_two_interpreters() -> None:
     proof = _load()
     digest = hashlib.sha256(b"same wheel").hexdigest()
