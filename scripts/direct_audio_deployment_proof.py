@@ -278,6 +278,7 @@ class AuthorizationManifest:
     cleanup_owner: str
     direct_audio_footprint_bytes: int
     direct_audio_footprint_budget_mode: Literal["baseline_plus"]
+    root_requirements_by_cell: tuple[tuple[str, bytes], ...] = ()
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -814,6 +815,38 @@ def _validate_wheel_compatibility(
         raise DirectAudioDeploymentProofError("dependency_authority_invalid") from error
 
 
+def _candidate_root_authority(
+    *,
+    candidate: Path,
+    constraints: bytes,
+    payload: Mapping[str, object],
+    projection: dependency_authority.LockProjection,
+) -> tuple[tuple[str, bytes], ...]:
+    try:
+        if constraints != projection.constraints:
+            raise dependency_authority.ReceiptError("constraints_projection_drift")
+        _, roots = dependency_authority._candidate_wheel_authority(  # pyright: ignore[reportPrivateUsage]
+            candidate,
+            projection,
+        )
+        expected_digest = _receipt_cell_digest(payload, "root_requirements_sha256")
+        root_map = dict(roots)
+        if (
+            len(root_map) != len(roots)
+            or set(root_map) != {"3.12", "3.13"}
+            or any(_sha256(value) != expected_digest for value in root_map.values())
+        ):
+            raise dependency_authority.ReceiptError("candidate_root_authority_invalid")
+        return roots
+    except (
+        DirectAudioDeploymentProofError,
+        KeyError,
+        TypeError,
+        dependency_authority.ReceiptError,
+    ) as error:
+        raise DirectAudioDeploymentProofError("dependency_authority_invalid") from error
+
+
 def _validate_inputs(config: DirectAudioProofConfig) -> AuthorizationManifest:
     if platform.system() != "Darwin" or platform.machine() != "arm64":
         raise DirectAudioDeploymentProofError("unsupported_platform")
@@ -856,6 +889,19 @@ def _validate_inputs(config: DirectAudioProofConfig) -> AuthorizationManifest:
     }
     if candidate_rows != [observed_candidate]:
         raise DirectAudioDeploymentProofError("dependency_authority_invalid")
+    try:
+        projection = dependency_authority.derive_transcription_projection(
+            Path(__file__).resolve().parent.parent / "uv.lock",
+            dependency_authority._supported_cells(),  # pyright: ignore[reportPrivateUsage]
+        )
+    except dependency_authority.ReceiptError as error:
+        raise DirectAudioDeploymentProofError("dependency_authority_invalid") from error
+    root_requirements_by_cell = _candidate_root_authority(
+        candidate=config.mke_wheel,
+        constraints=constraints,
+        payload=payload,
+        projection=projection,
+    )
     expected_wheels = _expected_wheel_manifest(payload)
     observed_wheels = _observed_wheel_manifest(config.wheelhouse)
     if observed_wheels != expected_wheels:
@@ -940,6 +986,7 @@ def _validate_inputs(config: DirectAudioProofConfig) -> AuthorizationManifest:
         cleanup_owner="call_owned_recursive_removal",
         direct_audio_footprint_bytes=config.direct_audio_footprint_bytes,
         direct_audio_footprint_budget_mode=config.direct_audio_footprint_budget_mode,
+        root_requirements_by_cell=root_requirements_by_cell,
     )
 
 
@@ -1421,12 +1468,14 @@ def _stage_cell_impl(
     if _sha256(constraints_value) != authorization.constraints_sha256:
         raise DirectAudioDeploymentProofError("input_identity_drift")
     (stage / "constraints.txt").write_bytes(constraints_value)
-    (stage / "root-requirements.txt").write_text(
-        "multimodal-knowledge-engine[transcription] @ "
-        f"{(stage_wheels / config.mke_wheel.name).as_uri()} "
-        f"--hash=sha256:{_sha256(wheel_value)}\n",
-        encoding="ascii",
-    )
+    root_authority = dict(authorization.root_requirements_by_cell)
+    if (
+        len(root_authority) != len(authorization.root_requirements_by_cell)
+        or set(root_authority) != {"3.12", "3.13"}
+        or version not in root_authority
+    ):
+        raise DirectAudioDeploymentProofError("input_identity_drift")
+    (stage / "root-requirements.txt").write_bytes(root_authority[version])
     for name in _FIXTURES:
         value = _read_regular(config.fixture_root / name)
         expected = {filename: digest for filename, _, digest in authorization.fixtures}
@@ -1581,9 +1630,17 @@ def _validate_staged_inputs(
         raise DirectAudioDeploymentProofError("pip_input_identity_drift")
     constraints = _read_regular(stage / "constraints.txt")
     requirements = _read_regular(stage / "root-requirements.txt")
+    cell_name = stage.parent.name
+    version = cell_name.removeprefix("python-")
+    root_authority = dict(authorization.root_requirements_by_cell)
+    expected_requirements = root_authority.get(version)
     if (
         _sha256(constraints) != authorization.constraints_sha256
-        or authorization.mke_wheel_sha256.encode("ascii") not in requirements
+        or len(root_authority) != len(authorization.root_requirements_by_cell)
+        or set(root_authority) != {"3.12", "3.13"}
+        or expected_requirements is None
+        or requirements != expected_requirements
+        or _sha256(requirements) != _sha256(expected_requirements)
     ):
         raise DirectAudioDeploymentProofError("pip_input_identity_drift")
 
@@ -1754,6 +1811,11 @@ def _run_direct_audio_deployment_proof_impl(
                 str(stage / "constraints.txt"),
                 "--requirement",
                 str(stage / "root-requirements.txt"),
+            )
+            _validate_staged_inputs(
+                config=config,
+                authorization=authorization,
+                stage=stage,
             )
             _run_install_gate(
                 runner,

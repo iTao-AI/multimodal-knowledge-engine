@@ -148,11 +148,119 @@ def _manifest(config: proof.DirectAudioProofConfig) -> proof.AuthorizationManife
         cleanup_owner="call_owned_recursive_removal",
         direct_audio_footprint_bytes=4096,
         direct_audio_footprint_budget_mode="baseline_plus",
+        root_requirements_by_cell=(
+            ("3.12", _staged_root_requirements(config)),
+            ("3.13", _staged_root_requirements(config)),
+        ),
     )
 
 
+def _staged_root_requirements(config: proof.DirectAudioProofConfig) -> bytes:
+    candidate = (
+        "multimodal-knowledge-engine[transcription]==0.1.3 "
+        f"--hash=sha256:{hashlib.sha256(config.mke_wheel.read_bytes()).hexdigest()}"
+    )
+    return (
+        "\n".join(
+            sorted(
+                (
+                    f"anyio==4.14.0 --hash=sha256:{'a' * 64}",
+                    f"av==17.1.0 --hash=sha256:{'b' * 64}",
+                    f"mcp==1.28.1 --hash=sha256:{'c' * 64}",
+                    candidate,
+                )
+            )
+        )
+        + "\n"
+    ).encode("ascii")
+
+
+@pytest.mark.parametrize("version", ("3.12", "3.13"))
+def test_stage_cell_writes_exact_receipt_bound_root_projection(
+    tmp_path: Path,
+    version: str,
+) -> None:
+    config = _config(tmp_path)
+    root = tmp_path / "runtime"
+    root.mkdir()
+
+    _, stage, _ = proof._stage_cell_impl(  # pyright: ignore[reportPrivateUsage]
+        config,
+        _manifest(config),
+        root,
+        version,
+    )
+
+    observed = (stage / "root-requirements.txt").read_bytes()
+    assert observed == _staged_root_requirements(config)
+    assert len(observed.decode("ascii").splitlines()) == 4
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        "missing-transitive",
+        "wrong-version",
+        "wrong-hash",
+        "noncanonical-order",
+        "duplicate",
+        "surplus",
+        "same-size-replacement",
+    ),
+)
+def test_staged_input_validation_requires_exact_root_projection(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    config = _config(tmp_path)
+    authorization = _manifest(config)
+    root = tmp_path / "runtime"
+    root.mkdir()
+    _, stage, _ = proof._stage_cell_impl(  # pyright: ignore[reportPrivateUsage]
+        config,
+        authorization,
+        root,
+        "3.12",
+    )
+    requirements = stage / "root-requirements.txt"
+    expected = _staged_root_requirements(config)
+    lines = expected.decode("ascii").splitlines()
+    if mutation == "missing-transitive":
+        mutated = ("\n".join(lines[1:]) + "\n").encode("ascii")
+    elif mutation == "wrong-version":
+        mutated = expected.replace(b"anyio==4.14.0", b"anyio==4.14.1")
+    elif mutation == "wrong-hash":
+        mutated = expected.replace(b"a" * 64, b"d" * 64, 1)
+    elif mutation == "noncanonical-order":
+        mutated = ("\n".join(reversed(lines)) + "\n").encode("ascii")
+    elif mutation == "duplicate":
+        mutated = expected + (lines[0] + "\n").encode("ascii")
+    elif mutation == "surplus":
+        mutated = expected + (
+            f"surplus==1.0 --hash=sha256:{'e' * 64}\n"
+        ).encode("ascii")
+    else:
+        mutated = expected.replace(b"anyio==4.14.0", b"anyio==4.14.1")
+    if mutation == "same-size-replacement":
+        replacement = stage / "replacement.txt"
+        replacement.write_bytes(mutated)
+        os.replace(replacement, requirements)
+    else:
+        requirements.write_bytes(mutated)
+
+    with pytest.raises(
+        proof.DirectAudioDeploymentProofError,
+        match="^pip_input_identity_drift$",
+    ):
+        proof._validate_staged_inputs(  # pyright: ignore[reportPrivateUsage]
+            config=config,
+            authorization=authorization,
+            stage=stage,
+        )
+
+
 def test_package_sets_reject_old_receipt_without_candidate_wheel_identity() -> None:
-    payload = {
+    payload: dict[str, object] = {
         "cells": [
             {
                 "cell": cell,
@@ -190,6 +298,126 @@ def _candidate_wheel(metadata: str) -> bytes:
             metadata,
         )
     return output.getvalue()
+
+
+def _candidate_root_fixture(
+    tmp_path: Path,
+    *,
+    extra_candidate_requirement: str | None = None,
+) -> tuple[
+    Path,
+    proof.dependency_authority.LockProjection,
+    dict[str, object],
+    tuple[tuple[str, bytes], ...],
+]:
+    candidate = tmp_path / "multimodal_knowledge_engine-0.1.3-py3-none-any.whl"
+    extra = (
+        ""
+        if extra_candidate_requirement is None
+        else f"Requires-Dist: {extra_candidate_requirement}\n"
+    )
+    candidate.write_bytes(
+        _candidate_wheel(
+            "Metadata-Version: 2.4\n"
+            "Name: multimodal-knowledge-engine\n"
+            "Version: 0.1.3\n"
+            "Requires-Dist: mcp<2,>=1.28.1\n"
+            f"{extra}"
+            "Provides-Extra: embedding\n"
+            "Requires-Dist: ignored==1; extra == 'embedding'\n"
+            "Provides-Extra: transcription\n"
+            "Requires-Dist: av<18,>=11; extra == 'transcription'\n"
+        )
+    )
+    authority = proof.dependency_authority
+    cells = (
+        authority.Cell("python3.12", "3.12", "cp312", "macosx_11_0_arm64"),
+        authority.Cell("python3.13", "3.13", "cp313", "macosx_11_0_arm64"),
+    )
+    requirements = (
+        authority.Requirement("anyio", "4.14.0"),
+        authority.Requirement("av", "17.1.0"),
+        authority.Requirement("mcp", "1.28.1"),
+    )
+    external_lines = (
+        f"anyio==4.14.0 --hash=sha256:{'a' * 64}",
+        f"av==17.1.0 --hash=sha256:{'b' * 64}",
+        f"mcp==1.28.1 --hash=sha256:{'c' * 64}",
+    )
+    external = ("\n".join(external_lines) + "\n").encode("ascii")
+    constraints = (
+        "# mke-cell 3.12:anyio==4.14.0,av==17.1.0,mcp==1.28.1\n"
+        "# mke-cell 3.13:anyio==4.14.0,av==17.1.0,mcp==1.28.1\n"
+        + external.decode("ascii")
+    ).encode("ascii")
+    projection = authority.LockProjection(
+        requirements=requirements,
+        requirements_by_cell=tuple((cell.version, requirements) for cell in cells),
+        constraints=constraints,
+        root_requirements=external,
+        root_requirements_by_cell=tuple((cell.version, external) for cell in cells),
+        direct_requirements_by_cell=tuple(
+            (cell.version, ("av", "mcp")) for cell in cells
+        ),
+        locked_wheels=(),
+        cells=cells,
+    )
+    candidate_line = (
+        "multimodal-knowledge-engine[transcription]==0.1.3 "
+        f"--hash=sha256:{hashlib.sha256(candidate.read_bytes()).hexdigest()}"
+    )
+    canonical = (
+        "\n".join(sorted((*external_lines, candidate_line))) + "\n"
+    ).encode("ascii")
+    roots = tuple((cell.version, canonical) for cell in cells)
+    digest = hashlib.sha256(canonical).hexdigest()
+    payload: dict[str, object] = {
+        "cells": [
+            {
+                "cell": cell.version,
+                "pip": {"staging": {"root_requirements_sha256": digest}},
+            }
+            for cell in cells
+        ]
+    }
+    return candidate, projection, payload, roots
+
+
+def test_candidate_root_projection_reuses_receipt_authority_for_both_cells(
+    tmp_path: Path,
+) -> None:
+    candidate, projection, payload, expected = _candidate_root_fixture(tmp_path)
+
+    observed = proof._candidate_root_authority(  # pyright: ignore[reportPrivateUsage]
+        candidate=candidate,
+        constraints=projection.constraints,
+        payload=payload,
+        projection=projection,
+    )
+
+    assert observed == expected
+    assert [cell for cell, _ in observed] == ["3.12", "3.13"]
+    assert all(len(value.decode("ascii").splitlines()) == 4 for _, value in observed)
+
+
+def test_candidate_root_projection_rejects_candidate_metadata_dependency_drift(
+    tmp_path: Path,
+) -> None:
+    candidate, projection, payload, _ = _candidate_root_fixture(
+        tmp_path,
+        extra_candidate_requirement="anyio<5,>=4",
+    )
+
+    with pytest.raises(
+        proof.DirectAudioDeploymentProofError,
+        match="^dependency_authority_invalid$",
+    ):
+        proof._candidate_root_authority(  # pyright: ignore[reportPrivateUsage]
+            candidate=candidate,
+            constraints=projection.constraints,
+            payload=payload,
+            projection=projection,
+        )
 
 
 def test_candidate_metadata_closes_core_and_transcription_requirements() -> None:
@@ -492,6 +720,12 @@ def test_private_orchestration_freezes_two_cells_and_real_product_call_plan(
     pip_call = next(call for call in runner.calls if call.step == "pip-install-3.12")
     assert set(pip_call.env) == {"HOME", "PIP_CONFIG_FILE", "TMPDIR"}
     assert pip_call.env["PIP_CONFIG_FILE"] == "/dev/null"
+    assert "--require-hashes" in pip_call.argv
+    assert "--no-index" in pip_call.argv
+    assert "--only-binary=:all:" in pip_call.argv
+    assert "--constraint" in pip_call.argv
+    assert "--requirement" in pip_call.argv
+    assert "--no-deps" not in pip_call.argv
     assert not any(
         key in call.env
         for call in runner.calls
@@ -544,6 +778,7 @@ def test_authorization_manifest_binds_owner_pair_without_default(tmp_path: Path)
     assert rendered["direct_audio_footprint_budget_mode"] == "baseline_plus"
     assert "recommended" not in json.dumps(rendered)
     assert "absolute" not in json.dumps(rendered)
+    assert "root_requirements_by_cell" not in rendered
 
 
 def test_missing_retained_authority_stops_before_runner(tmp_path: Path) -> None:
