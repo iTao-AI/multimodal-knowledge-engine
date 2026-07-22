@@ -158,9 +158,9 @@ def test_package_sets_reject_old_receipt_without_candidate_wheel_identity() -> N
                 "cell": cell,
                 "installed_distributions": [
                     {
-                        "distribution": "faster-whisper",
-                        "version": "1.2.1",
-                        "source_wheel_filename": "faster_whisper-1.2.1-py3-none-any.whl",
+                        "distribution": "mcp",
+                        "version": "1.28.1",
+                        "source_wheel_filename": "mcp-1.28.1-py3-none-any.whl",
                         "source_wheel_sha256": "a" * 64,
                     }
                 ],
@@ -177,6 +177,8 @@ def test_package_sets_reject_old_receipt_without_candidate_wheel_identity() -> N
             payload,
             "0.1.3",
             (("mcp", ">=1,<2"),),
+            "multimodal_knowledge_engine-0.1.3-py3-none-any.whl",
+            "b" * 64,
         )
 
 
@@ -262,7 +264,52 @@ def test_package_sets_reject_candidate_direct_version_drift() -> None:
             payload,
             "0.1.3",
             (("mcp", ">=1.28.1,<2"),),
+            "multimodal_knowledge_engine-0.1.3-py3-none-any.whl",
+            "b" * 64,
         )
+
+
+def test_package_sets_bind_exact_candidate_wheel_row() -> None:
+    filename = "multimodal_knowledge_engine-0.1.3-py3-none-any.whl"
+    payload = {
+        "cells": [
+            {
+                "cell": cell,
+                "installed_distributions": [
+                    {
+                        "distribution": "mcp",
+                        "version": "1.28.1",
+                        "source_wheel_filename": "mcp-1.28.1-py3-none-any.whl",
+                        "source_wheel_sha256": "a" * 64,
+                    },
+                    {
+                        "distribution": "multimodal-knowledge-engine",
+                        "version": "0.1.3",
+                        "source_wheel_filename": filename,
+                        "source_wheel_sha256": "b" * 64,
+                    },
+                ],
+            }
+            for cell in ("3.12", "3.13")
+        ]
+    }
+
+    assert proof._package_sets(  # pyright: ignore[reportPrivateUsage]
+        payload,
+        "0.1.3",
+        (("mcp", ">=1.28.1,<2"),),
+        filename,
+        "b" * 64,
+    ) == (
+        (
+            "3.12",
+            (("mcp", "1.28.1"), ("multimodal-knowledge-engine", "0.1.3")),
+        ),
+        (
+            "3.13",
+            (("mcp", "1.28.1"), ("multimodal-knowledge-engine", "0.1.3")),
+        ),
+    )
 
 
 class FakeRunner:

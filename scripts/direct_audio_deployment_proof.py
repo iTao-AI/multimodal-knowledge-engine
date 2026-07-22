@@ -514,7 +514,9 @@ def _receipt_payload(path: Path) -> tuple[dict[str, object], bytes]:
     return payload, value
 
 
-def _expected_wheel_manifest(payload: Mapping[str, object]) -> tuple[dict[str, object], ...]:
+def _expected_wheel_manifest(
+    payload: Mapping[str, object], *, include_candidate: bool = False
+) -> tuple[dict[str, object], ...]:
     raw = payload.get("wheel_inventory")
     if not isinstance(raw, list):
         raise DirectAudioDeploymentProofError("dependency_authority_invalid")
@@ -524,6 +526,11 @@ def _expected_wheel_manifest(payload: Mapping[str, object]) -> tuple[dict[str, o
             raise DirectAudioDeploymentProofError("dependency_authority_invalid")
         row = dict(cast(dict[str, object], item))
         row.pop("artifact_scope", None)
+        if (
+            not include_candidate
+            and row.get("distribution") == "multimodal-knowledge-engine"
+        ):
+            continue
         result.append(row)
     return tuple(result)
 
@@ -712,6 +719,8 @@ def _package_sets(
     payload: Mapping[str, object],
     candidate_version: str,
     candidate_requirements: tuple[tuple[str, str], ...],
+    candidate_filename: str,
+    candidate_sha256: str,
 ) -> tuple[tuple[str, tuple[tuple[str, str], ...]], ...]:
     raw_cells = payload.get("cells")
     if not isinstance(raw_cells, list):
@@ -726,6 +735,7 @@ def _package_sets(
         if not isinstance(name, str) or not isinstance(raw_distributions, list):
             raise DirectAudioDeploymentProofError("dependency_authority_invalid")
         distributions: list[tuple[str, str]] = []
+        candidate_rows = 0
         for item in cast(list[object], raw_distributions):
             if not isinstance(item, dict):
                 raise DirectAudioDeploymentProofError("dependency_authority_invalid")
@@ -743,14 +753,21 @@ def _package_sets(
             ):
                 raise DirectAudioDeploymentProofError("dependency_authority_invalid")
             distributions.append((distribution, version))
+            if distribution == "multimodal-knowledge-engine":
+                candidate_rows += 1
+                if (
+                    version != candidate_version
+                    or filename != candidate_filename
+                    or digest != candidate_sha256
+                ):
+                    raise DirectAudioDeploymentProofError("dependency_authority_invalid")
         authority = dict(distributions)
-        if len(authority) != len(distributions) or any(
+        if candidate_rows != 1 or len(authority) != len(distributions) or any(
             (locked := authority.get(requirement)) is None
             or not _version_satisfies(locked, specifier)
             for requirement, specifier in candidate_requirements
         ):
             raise DirectAudioDeploymentProofError("dependency_authority_invalid")
-        distributions.append(("multimodal-knowledge-engine", candidate_version))
         ordered = tuple(sorted(distributions))
         if len(set(ordered)) != len(ordered):
             raise DirectAudioDeploymentProofError("dependency_authority_invalid")
@@ -808,21 +825,55 @@ def _validate_inputs(config: DirectAudioProofConfig) -> AuthorizationManifest:
     if not stat.S_ISREG(sandbox_stat.st_mode) or not os.access(sandbox, os.X_OK):
         raise DirectAudioDeploymentProofError("network_boundary_failed")
     wheel = _read_regular(config.mke_wheel)
-    _, candidate_version, candidate_requirements = _wheel_metadata(wheel)
+    candidate_name, candidate_version, candidate_requirements = _wheel_metadata(wheel)
     payload, receipt_bytes = _receipt_payload(config.dependency_receipt)
     constraints = _read_regular(config.constraints)
     constraints_sha = _sha256(constraints)
     if constraints_sha != _receipt_cell_digest(payload, "constraints_sha256"):
+        raise DirectAudioDeploymentProofError("dependency_authority_invalid")
+    complete_receipt_wheels = _expected_wheel_manifest(payload, include_candidate=True)
+    candidate_rows = [
+        item
+        for item in complete_receipt_wheels
+        if item.get("distribution") == candidate_name
+    ]
+    try:
+        parsed_candidate = dependency_authority._parse_wheel_filename(  # pyright: ignore[reportPrivateUsage]
+            config.mke_wheel.name
+        )
+    except dependency_authority.ReceiptError as error:
+        raise DirectAudioDeploymentProofError("candidate_artifact_invalid") from error
+    observed_candidate = {
+        "filename": config.mke_wheel.name,
+        "distribution": parsed_candidate[0],
+        "version": parsed_candidate[1],
+        "build": parsed_candidate[2],
+        "python_tags": list(parsed_candidate[3]),
+        "abi_tags": list(parsed_candidate[4]),
+        "platform_tags": list(parsed_candidate[5]),
+        "bytes": len(wheel),
+        "sha256": _sha256(wheel),
+    }
+    if candidate_rows != [observed_candidate]:
         raise DirectAudioDeploymentProofError("dependency_authority_invalid")
     expected_wheels = _expected_wheel_manifest(payload)
     observed_wheels = _observed_wheel_manifest(config.wheelhouse)
     if observed_wheels != expected_wheels:
         raise DirectAudioDeploymentProofError("dependency_authority_invalid")
     _validate_wheel_compatibility(constraints, observed_wheels, payload)
-    wheelhouse_sha = _sha256(_canonical(list(observed_wheels)))
-    if wheelhouse_sha != _receipt_cell_digest(payload, "wheelhouse_manifest_sha256"):
+    combined_wheelhouse_sha = _sha256(_canonical(list(complete_receipt_wheels)))
+    if combined_wheelhouse_sha != _receipt_cell_digest(
+        payload, "wheelhouse_manifest_sha256"
+    ):
         raise DirectAudioDeploymentProofError("dependency_authority_invalid")
-    package_sets = _package_sets(payload, candidate_version, candidate_requirements)
+    wheelhouse_sha = _sha256(_canonical(list(observed_wheels)))
+    package_sets = _package_sets(
+        payload,
+        candidate_version,
+        candidate_requirements,
+        config.mke_wheel.name,
+        _sha256(wheel),
+    )
     model_files = _tree_manifest(
         _model_snapshot_root(config.model_root),
         authority_root=config.model_root,

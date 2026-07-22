@@ -33,6 +33,36 @@ def _wheel(root: Path, name: str, payload: bytes | None = None) -> Path:
     return path
 
 
+def _candidate_wheel_bytes(*, mcp_specifier: str = "<2,>=1.28.1") -> bytes:
+    receipt = _module()
+    output = io.BytesIO()
+    with receipt.zipfile.ZipFile(output, "w") as archive:
+        archive.writestr(
+            "multimodal_knowledge_engine-0.1.3.dist-info/METADATA",
+            "Metadata-Version: 2.4\n"
+            "Name: multimodal-knowledge-engine\n"
+            "Version: 0.1.3\n"
+            f"Requires-Dist: mcp{mcp_specifier}\n"
+            "Provides-Extra: embedding\n"
+            "Requires-Dist: sentence-transformers<6,>=3; extra == 'embedding'\n"
+            "Provides-Extra: transcription\n"
+            "Requires-Dist: av<18,>=11; extra == 'transcription'\n",
+        )
+    return output.getvalue()
+
+
+def test_candidate_metadata_closes_core_and_transcription_roots() -> None:
+    receipt = _module()
+
+    assert receipt._candidate_wheel_metadata(  # pyright: ignore[reportPrivateUsage]
+        _candidate_wheel_bytes()
+    ) == (
+        "multimodal-knowledge-engine",
+        "0.1.3",
+        (("av", "<18,>=11"), ("mcp", "<2,>=1.28.1")),
+    )
+
+
 def _cells():
     receipt = _module()
     return (
@@ -2992,6 +3022,12 @@ def _complete_preflight_payload(evidence: dict[str, object]) -> dict[str, object
     fixture_rows = cast(list[dict[str, object]], evidence["fixtures"])
     installed_rows = cast(list[dict[str, object]], evidence["installed_distributions"])
     wheel_by_filename = {item["filename"]: item for item in wheel_rows}
+    candidate_rows = [
+        item
+        for item in wheel_rows
+        if item["distribution"] == "multimodal-knowledge-engine"
+    ]
+    assert len(candidate_rows) == 1
     digest = "9" * 64
     payload: dict[str, object] = {
         "schema": "mke.direct_audio_dependency_input_check.v1",
@@ -3014,7 +3050,12 @@ def _complete_preflight_payload(evidence: dict[str, object]) -> dict[str, object
         "lock_sha256": "5" * 64,
         "constraints_sha256": "4" * 64,
         "root_requirements_sha256": "3" * 64,
-        "wheelhouse": [dict(item) for item in wheel_rows],
+        "wheelhouse": [
+            dict(item)
+            for item in wheel_rows
+            if item["distribution"] != "multimodal-knowledge-engine"
+        ],
+        "candidate_wheel": dict(candidate_rows[0]),
         "wheel_resolution": [
             {
                 "cell": item["cell"],
@@ -3116,6 +3157,18 @@ def _complete_generation_evidence() -> dict[str, object]:
             "sha256": "e" * 64,
             "artifact_scope": "local_runtime_only",
         },
+        {
+            "filename": "multimodal_knowledge_engine-0.1.3-py3-none-any.whl",
+            "distribution": "multimodal-knowledge-engine",
+            "version": "0.1.3",
+            "build": None,
+            "python_tags": ["py3"],
+            "abi_tags": ["none"],
+            "platform_tags": ["any"],
+            "bytes": 105,
+            "sha256": "b" * 64,
+            "artifact_scope": "local_runtime_only",
+        },
     ]
     wheels_by_name = {cast(str, item["filename"]): item for item in wheels}
     installed: list[dict[str, object]] = []
@@ -3128,6 +3181,7 @@ def _complete_generation_evidence() -> dict[str, object]:
             ),
             "faster_whisper-1.2.1-py3-none-any.whl",
             "huggingface_hub-1.0-py3-none-any.whl",
+            "multimodal_knowledge_engine-0.1.3-py3-none-any.whl",
         )
         for filename in filenames:
             wheel = wheels_by_name[filename]
