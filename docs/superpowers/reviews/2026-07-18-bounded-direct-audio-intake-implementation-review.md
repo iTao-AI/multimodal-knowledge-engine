@@ -119,3 +119,31 @@ CLI --format-version
 ```
 
 A renderer-only version switch is not accepted.
+
+## PR C Owner-Configured Runtime-Budget Clarification
+
+Direct audio is activated only on Darwin arm64 when the owner explicitly supplies both
+`RuntimeConfig.direct_audio_footprint_bytes` and
+`RuntimeConfig.direct_audio_footprint_budget_mode="baseline_plus"` at startup. Both fields are
+`None`, or both are configured. Configured bytes require `type(value) is int` and `value > 0`, so a
+boolean is rejected. The mode accepts only `baseline_plus` at the direct-audio composition boundary;
+the generic `SupervisedProcessProfile` retains its historical internal modes.
+
+There is no default, fallback, recommendation, or SLA for `direct_audio_footprint_bytes`. PR A's
+`24 MiB baseline_plus` value remains only controlled-allocator mechanism evidence, and
+`1 GiB absolute` has no runtime authority. The same configured pair supervises both audio
+inspection and transcription. It is owner-startup policy and never enters the path-only
+`ingest_file` request schema.
+
+Missing policy fails before Source, Run, snapshot, child, or model work with
+`transcription_not_ready / direct audio supervision is not configured /
+configure_direct_audio_supervision`. A non-Darwin arm64 runtime fails at the same boundary with
+`transcription_not_ready / direct audio runtime is supported only on Darwin arm64 /
+run_on_supported_darwin_arm64`. Neither condition changes PDF, video, or the existing
+faster-whisper video owner.
+
+PR C does not change the PR A/PR B supervisory mechanism and does not refresh the PR A receipt.
+Tasks 9 and 10 bind the configured pair in the terminal authorization manifest. The real proof may
+record configured bytes/mode, baseline, observed peak, effective budget, and overshoot only as
+fixed-fixture Darwin arm64 observations; it does not establish a production ceiling, SLA,
+recommendation, or cross-platform fact.

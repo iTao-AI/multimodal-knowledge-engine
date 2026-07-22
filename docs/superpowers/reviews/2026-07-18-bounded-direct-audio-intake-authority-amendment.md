@@ -47,6 +47,55 @@ wait, and cleanup negatives. PR B integrates the accepted mechanism into the int
 inspection and faster-whisper transcription children. PR C consumes that integrated boundary; it
 does not redefine it.
 
+### PR C Owner-Configured Runtime-Budget Clarification
+
+PR A's `24 MiB` `baseline_plus` value belongs only to the controlled-allocator mechanism proof. It
+is not a default, recommendation, or runtime budget for PyAV or faster-whisper. A `1 GiB`
+`absolute` value has no authority and must not appear as a default, fallback, or asserted product
+limit. PR C does not change the accepted supervisory mechanism and therefore does not refresh the
+PR A receipt.
+
+The v0.1.4 direct-audio runtime is activated only on Darwin arm64 and only when the owner explicitly
+configures this startup pair on `RuntimeConfig`:
+
+```python
+direct_audio_footprint_bytes: int | None = None
+direct_audio_footprint_budget_mode: Literal["baseline_plus"] | None = None
+```
+
+Both fields are `None`, or both are configured. Configured bytes require `type(value) is int` and
+`value > 0`; booleans are rejected. The only accepted direct-audio mode is exactly
+`baseline_plus`. The pair is owner-startup policy, not an `ingest_file` request parameter. One pair
+is used for both supervised audio inspection and transcription children; PR C does not invent
+separate budgets.
+
+Missing policy disables only direct audio and fails before Source, Run, snapshot, child, or model
+work with:
+
+```text
+problem=transcription_not_ready
+cause=direct audio supervision is not configured
+next_step=configure_direct_audio_supervision
+```
+
+An unsupported platform likewise disables only direct audio and fails at the same pre-work boundary
+with:
+
+```text
+problem=transcription_not_ready
+cause=direct audio runtime is supported only on Darwin arm64
+next_step=run_on_supported_darwin_arm64
+```
+
+PDF, video, and the existing faster-whisper video owner remain compatible when the pair is absent.
+The direct-audio composition boundary does not narrow the historical internal modes accepted by
+`SupervisedProcessProfile`.
+
+The Task 9/10 terminal authorization manifest and real proof bind the configured bytes and mode
+exactly. The proof records configured bytes and mode, baseline, observed peak, effective budget,
+and overshoot only as observations for the fixed fixture and Darwin arm64 proof cell. None of those
+observations is a production ceiling, SLA, recommendation, or cross-platform fact.
+
 ## B. Fixed Target-Executable Identity Probe
 
 The no-write acquisition preflight uses an already approved stdlib-only controller interpreter.

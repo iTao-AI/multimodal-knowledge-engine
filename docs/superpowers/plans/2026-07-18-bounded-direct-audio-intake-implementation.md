@@ -59,6 +59,22 @@ The superseding feasibility-authority amendments are recorded in
   PR C separately binds its fresh final MKE wheel to the accepted PR A receipt digest, installed
   package set, and prepared model tree.
 - Numeric ceilings observed on the fixed proof corpus are evidence, not a production SLA or cross-platform performance claim.
+- Direct audio is composed only on Darwin arm64 when the owner explicitly configures both
+  `RuntimeConfig.direct_audio_footprint_bytes` and
+  `RuntimeConfig.direct_audio_footprint_budget_mode="baseline_plus"`. The bytes value is a positive
+  non-boolean integer with no default or recommended value. The pair is absent by default, applies
+  identically to the supervised inspection and transcription children, and never appears in the
+  path-only `ingest_file` request.
+- PR A's `24 MiB baseline_plus` controlled-allocator value proves only the supervisory mechanism;
+  it is not a PyAV/faster-whisper runtime budget. `1 GiB absolute` has no authority. PR C does not
+  change the PR A/PR B mechanism or refresh the PR A receipt. The direct-audio composition boundary
+  accepts only `baseline_plus` without narrowing the generic `SupervisedProcessProfile` contract.
+- Missing direct-audio supervision fails before Source, Run, snapshot, child, or model work with
+  `direct audio supervision is not configured / configure_direct_audio_supervision`. A non-Darwin
+  arm64 runtime fails at the same boundary with
+  `direct audio runtime is supported only on Darwin arm64 / run_on_supported_darwin_arm64`. Both
+  conditions disable only direct audio; PDF, video, and the historical faster-whisper video owner
+  remain compatible.
 - PR A owns Task 1, PR B owns Tasks 2-4, and PR C owns Tasks 5-10. A v0.1.4
   version/tag/Release/archive-smoke closeout is a separate post-merge PR and separate authorization.
 - Full-length meetings, interviews, lectures, long-audio workers, chunking, resume, and streaming
@@ -1218,9 +1234,12 @@ Expected: missing audio ingest/dispatcher and audio activation behavior.
 - [ ] **Step 3: Add the canonical application surface**
 
 First compose the accepted internal inspection/transcription providers at the owner boundary only for the existing
-faster-whisper owner. The default sidecar owner continues to reject direct audio before Source or
-Run creation. Bind the current interpreter, existing owner configuration, operation controller,
-timeout, bounded capture, accepted PR A Darwin arm64 supervisory cell, lightweight
+faster-whisper owner on Darwin arm64 when the owner explicitly supplies the paired
+`direct_audio_footprint_bytes` and `direct_audio_footprint_budget_mode="baseline_plus"` startup
+policy. The default sidecar owner and an unconfigured or unsupported-platform faster-whisper owner
+continue to reject direct audio before Source or Run creation. Bind the current interpreter,
+existing owner configuration, operation controller, timeout, bounded capture, the explicit owner
+pair through the accepted PR A/PR B Darwin arm64 supervisory mechanism, lightweight
 non-model-constructing audio
 preflight, and existing `RuntimeConfig.admission_controller`; add no request-time controls or public
 child command. Existing explicit `transcription doctor` and owner-startup diagnostics retain their
@@ -1445,8 +1464,16 @@ generic cause. Do not add the audio causes to shared
 - [ ] **Step 5: Preserve owner-only transcription controls**
 
 The existing global trusted-owner transcription configuration remains the only model/cache/device/
-language input. `ingest` accepts a file plus existing presentation flags; stdio MCP tool input stays
-`{"path": string}`. The default sidecar owner returns:
+language input. The owner-startup CLI/MCP composition adds only:
+
+```text
+--direct-audio-footprint-bytes <positive-int>
+--direct-audio-footprint-budget-mode baseline_plus
+```
+
+The pair must be supplied together and does not enter an ingest request. `ingest` accepts a file
+plus existing presentation flags; stdio MCP tool input stays `{"path": string}`. The default
+sidecar owner returns:
 
 ```json
 {
@@ -1458,6 +1485,12 @@ language input. `ingest` accepts a file plus existing presentation flags; stdio 
 ```
 
 No Source or Run may exist after this rejection.
+
+An unconfigured faster-whisper owner returns
+`direct audio supervision is not configured / configure_direct_audio_supervision`; a non-Darwin
+arm64 owner returns
+`direct audio runtime is supported only on Darwin arm64 / run_on_supported_darwin_arm64`. These are
+operation-local closed errors and do not expand the shared `PublicError` allowlist.
 
 - [ ] **Step 6: Run GREEN and contract regressions**
 
@@ -1965,8 +1998,12 @@ The controller tests freeze the exact inputs that Task 10 must report before aut
 MKE wheel SHA-256, PR A receipt digest, canonical wheelhouse-manifest and constraints digests,
 prepared model identifier,
 revision and tree digest, interpreter versions, retained inputs, estimated temporary disk use,
-deny-network method, and cleanup ownership. If any input is absent, Task 10 stops; nothing downloads
-or repairs it. Do not run a non-terminal real ASR checkpoint in this Task.
+deny-network method, cleanup ownership, and the exact owner-configured
+`direct_audio_footprint_bytes` plus `baseline_plus` mode. If any input is absent, Task 10 stops;
+nothing downloads or repairs it. The later real proof records configured bytes/mode, baseline,
+observed peak, effective budget, and overshoot as fixed-fixture Darwin arm64 observations only. Do
+not run a non-terminal real ASR checkpoint in this Task or promote those observations to a default,
+recommendation, product ceiling, SLA, or cross-platform fact.
 
 - [ ] **Step 8: Review and commit Task 9**
 
