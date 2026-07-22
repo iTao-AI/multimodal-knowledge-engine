@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Generator
 from concurrent.futures import CancelledError
+from contextlib import AbstractContextManager, contextmanager
 from hashlib import sha256
 from pathlib import Path
 
@@ -11,7 +13,10 @@ from mke.adapters.audio import cleanup_audio_snapshot as real_cleanup_audio_snap
 from mke.application import (
     AudioIngestError,
     IngestDispatchError,
+    IngestFileAuthorityError,
     KnowledgeEngine,
+    PdfIngestError,
+    VideoIngestError,
 )
 from mke.domain import (
     AudioMediaInfo,
@@ -24,6 +29,7 @@ from mke.domain import (
     TranscriptionProvenance,
 )
 from mke.runtime_owner import BoundedAdmissionController
+from tests.conftest import PDF_FIXTURES, VIDEO_FIXTURES
 
 AUDIO_FIXTURES = Path(__file__).parents[1] / "fixtures" / "audio"
 
@@ -92,6 +98,24 @@ class FakeAudioProvider:
         snapshot.verify_owned_path()
         self.transcribed.append(snapshot)
         return _extraction(media)
+
+
+class FakeInputAuthority:
+    def __init__(self, path: Path, *, cleanup_fails: bool = False) -> None:
+        self.path = path
+        self.byte_count = path.stat().st_size
+        self.materializations = 0
+        self.cleanup_fails = cleanup_fails
+
+    def materialize(self) -> AbstractContextManager[Path]:
+        return self._materialize()
+
+    @contextmanager
+    def _materialize(self) -> Generator[Path, None, None]:
+        self.materializations += 1
+        yield self.path
+        if self.cleanup_fails:
+            raise IngestFileAuthorityError("input path changed during validation")
 
 
 def _engine(
@@ -170,6 +194,79 @@ def test_sidecar_owner_rejects_audio_before_source_or_run(tmp_path: Path) -> Non
     assert raised.value.next_step == "configure_faster_whisper_owner"
     assert raised.value.run_id is None
     assert engine.observe_active_publications().source_count == 0
+
+
+def test_bound_input_is_not_materialized_before_owner_readiness(tmp_path: Path) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    authority = FakeInputAuthority(AUDIO_FIXTURES / "direct-audio.mp3")
+
+    with pytest.raises(AudioIngestError) as raised:
+        engine.ingest_file(authority.path, input_authority=authority)
+
+    assert raised.value.problem == "transcription_not_ready"
+    assert authority.materializations == 0
+    assert engine.observe_active_publications().source_count == 0
+
+
+def test_bound_input_is_not_materialized_before_audio_preflight(
+    tmp_path: Path,
+) -> None:
+    authority = FakeInputAuthority(AUDIO_FIXTURES / "direct-audio.wav")
+
+    def reject() -> None:
+        raise AudioIngestError(
+            "direct audio runtime is supported only on Darwin arm64",
+            problem="transcription_not_ready",
+            next_step="run_on_supported_darwin_arm64",
+        )
+
+    engine = KnowledgeEngine(
+        tmp_path / "mke.sqlite",
+        audio_provider=FakeAudioProvider(),
+        audio_transcription_config=object(),
+        audio_preflight=reject,
+    )
+
+    with pytest.raises(AudioIngestError) as raised:
+        engine.ingest_file(authority.path, input_authority=authority)
+
+    assert raised.value.cause == "direct audio runtime is supported only on Darwin arm64"
+    assert authority.materializations == 0
+    assert engine.observe_active_publications().source_count == 0
+
+
+def test_pdf_bound_input_cleanup_failure_precedes_publication(tmp_path: Path) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    authority = FakeInputAuthority(
+        PDF_FIXTURES / "text-layer.pdf",
+        cleanup_fails=True,
+    )
+
+    with pytest.raises(PdfIngestError) as raised:
+        engine.ingest_file(authority.path, input_authority=authority)
+
+    assert raised.value.run_id is not None
+    assert engine.get_run(raised.value.run_id).state is RunState.FAILED
+    observation = engine.observe_active_publications()
+    assert observation.active_publication_count == 0
+    assert observation.active_evidence_count == 0
+
+
+def test_video_bound_input_cleanup_failure_precedes_publication(tmp_path: Path) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    authority = FakeInputAuthority(
+        VIDEO_FIXTURES / "short-audio.mp4",
+        cleanup_fails=True,
+    )
+
+    with pytest.raises(VideoIngestError) as raised:
+        engine.ingest_file(authority.path, input_authority=authority)
+
+    assert raised.value.run_id is not None
+    assert engine.get_run(raised.value.run_id).state is RunState.FAILED
+    observation = engine.observe_active_publications()
+    assert observation.active_publication_count == 0
+    assert observation.active_evidence_count == 0
 
 
 @pytest.mark.parametrize(

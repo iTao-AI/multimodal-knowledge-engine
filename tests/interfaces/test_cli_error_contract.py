@@ -12,6 +12,7 @@ from mke.cli import main
 from mke.interfaces.public_errors import (
     _ALLOWLISTED_CAUSES,  # pyright: ignore[reportPrivateUsage]
     PublicError,
+    is_public_error_cause,
     public_error_from_cause,
     render_public_error_line,
 )
@@ -77,6 +78,21 @@ def test_cli_error_renderer_uses_public_error_contract() -> None:
         "problem=invalid_question cause=question must not be empty "
         "active_publication_impact=unchanged next_step=provide_non_empty_question"
     )
+
+
+def test_operation_local_safe_cause_does_not_expand_shared_allowlist() -> None:
+    cause = "direct audio supervision is not configured"
+
+    error = public_error_from_cause(
+        cause,
+        problem="transcription_not_ready",
+        next_step="configure_direct_audio_supervision",
+        safe_causes=frozenset({cause}),
+    )
+
+    assert error.cause == cause
+    assert is_public_error_cause(cause) is False
+    assert cause not in _ALLOWLISTED_CAUSES
 
 
 def test_error_contract_redacts_unrecognized_sensitive_cause(

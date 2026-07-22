@@ -57,7 +57,7 @@ def build_mcp_server(config: McpRuntimeConfig) -> FastMCP:
     @mcp.tool()
     @_safe_async_tool
     async def ingest_file(path: str) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
-        """Ingest a PDF or short MP4 under the configured allowed root."""
+        """Ingest a PDF, short MP4, MP3, WAV, or M4A under the configured allowed root."""
         return await _ingest_with_cancellation(config, path)
 
     @mcp.tool()

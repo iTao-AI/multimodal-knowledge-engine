@@ -19,7 +19,14 @@ from mke.adapters.video.faster_whisper import (
     doctor_transcription,
     prepare_model,
 )
-from mke.application import AskValidationError, KnowledgeEngine, PdfIngestError, VideoIngestError
+from mke.application import (
+    AskValidationError,
+    AudioIngestError,
+    IngestDispatchError,
+    KnowledgeEngine,
+    PdfIngestError,
+    VideoIngestError,
+)
 from mke.domain import FailurePoint, PdfIntakeReport, SearchResult, TranscriptIntakeReport
 from mke.embeddings.contracts import CANDIDATE_ID as DENSE_CANDIDATE_ID
 from mke.embeddings.contracts import MODEL_ID as EMBEDDING_MODEL_ID
@@ -75,6 +82,7 @@ from mke.evaluation.relevance_gate_workflow import (
     run_relevance_gate_holdout,
 )
 from mke.evaluation.report import RetrievalEvaluationReport
+from mke.interfaces.audio_errors import DIRECT_AUDIO_SAFE_CAUSES
 from mke.interfaces.library_export import run_library_export
 from mke.interfaces.mcp_contract import McpRuntimeConfig, transcript_intake_report_payload
 from mke.interfaces.mcp_server import run_mcp_server
@@ -132,6 +140,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     ingest.add_argument("file", type=Path)
     ingest.add_argument("--json", action="store_true", dest="json_output")
     add_transcription_runtime_arguments(ingest, default_provider="sidecar")
+    add_direct_audio_supervision_arguments(ingest)
 
     search = subcommands.add_parser("search")
     search.add_argument("query", nargs="+")
@@ -340,6 +349,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     mcp = subcommands.add_parser("mcp")
     mcp.add_argument("--allowed-root", type=Path, default=Path.cwd())
     add_transcription_runtime_arguments(mcp, default_provider="sidecar")
+    add_direct_audio_supervision_arguments(mcp)
 
     transcription = subcommands.add_parser("transcription")
     transcription_subcommands = transcription.add_subparsers(
@@ -1295,10 +1305,7 @@ def _render_cjk_lexical_comparison_safely(
 
 def _ingest(engine: KnowledgeEngine, path: Path, *, json_output: bool = False) -> int:
     try:
-        if path.suffix.lower() == ".mp4":
-            result = engine.ingest_video(path)
-        else:
-            result = engine.ingest_pdf(path)
+        result = engine.ingest_file(path)
     except PdfIngestError as error:
         _print_error_contract(str(error), json_output=json_output)
         return 1
@@ -1308,6 +1315,25 @@ def _ingest(engine: KnowledgeEngine, path: Path, *, json_output: bool = False) -
             problem=error.problem,
             next_step=error.next_step,
             json_output=json_output,
+        )
+        return 1
+    except AudioIngestError as error:
+        _print_error_contract(
+            error.cause,
+            problem=error.problem,
+            next_step=error.next_step,
+            json_output=json_output,
+            run_id=error.run_id,
+            safe_causes=DIRECT_AUDIO_SAFE_CAUSES,
+        )
+        return 1
+    except IngestDispatchError as error:
+        _print_error_contract(
+            error.cause,
+            problem=error.problem,
+            next_step=error.next_step,
+            json_output=json_output,
+            safe_causes=DIRECT_AUDIO_SAFE_CAUSES,
         )
         return 1
     if json_output:
@@ -1574,11 +1600,15 @@ def _print_error_contract(
     problem: str = "pdf_ingest_failed",
     next_step: str = "fix_input_or_retry",
     json_output: bool = False,
+    run_id: str | None = None,
+    safe_causes: frozenset[str] = frozenset(),
 ) -> None:
     error = public_error_from_cause(
         cause,
         problem=problem,
         next_step=next_step,
+        run_id=run_id,
+        safe_causes=safe_causes,
     )
     if json_output:
         print(json.dumps(error.payload()))
@@ -1609,6 +1639,27 @@ def add_faster_whisper_runtime_arguments(parser: argparse.ArgumentParser) -> Non
     parser.add_argument("--transcription-timeout-seconds", type=float, default=900.0)
 
 
+def add_direct_audio_supervision_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--direct-audio-footprint-bytes",
+        type=_positive_int,
+    )
+    parser.add_argument(
+        "--direct-audio-footprint-budget-mode",
+        choices=("baseline_plus",),
+    )
+
+
+def _positive_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("value must be a positive integer") from error
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("value must be a positive integer")
+    return parsed
+
+
 def add_embedding_runtime_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--model",
@@ -1635,6 +1686,12 @@ def runtime_config_from_args(args: argparse.Namespace) -> RuntimeConfig:
         retrieval_query_policy=args.retrieval_query_policy,
         retrieval_strategy=args.retrieval_strategy,
         transcription=transcription,
+        direct_audio_footprint_bytes=getattr(args, "direct_audio_footprint_bytes", None),
+        direct_audio_footprint_budget_mode=getattr(
+            args,
+            "direct_audio_footprint_budget_mode",
+            None,
+        ),
     )
 
 

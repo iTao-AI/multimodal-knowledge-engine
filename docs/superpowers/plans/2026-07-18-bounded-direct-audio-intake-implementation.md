@@ -1387,7 +1387,7 @@ git commit -m "feat(audio): publish direct audio evidence"
 - Consumes: Task 5 `KnowledgeEngine.ingest_file()` and `AudioIngestError`.
 - Produces: CLI and MCP direct-audio flows with stable operation-local public errors and unchanged request schemas.
 
-- [ ] **Step 1: Write parser/schema/error RED tests**
+- [x] **Step 1: Write parser/schema/error RED tests**
 
 ```python
 def test_mcp_ingest_file_schema_remains_path_only(server: FastMCP) -> None:
@@ -1415,7 +1415,7 @@ exits 20-50, unknown exit, unexpected exception, cancellation, and all forbidden
 controls. Run the retarget regression through audio, PDF, and video dispatch so the canonical
 dispatcher cannot weaken existing containment. Assert every pre-Run row omits `run_id`.
 
-- [ ] **Step 2: Run RED tests**
+- [x] **Step 2: Run RED tests**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1429,7 +1429,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: audio routes unsupported or bypass the canonical dispatcher; legacy schema assertions pass.
 
-- [ ] **Step 3: Validate MCP path identity before resolution**
+- [x] **Step 3: Validate MCP path identity before resolution**
 
 `mcp_contract.ingest_file()` must preserve the exact path-only schema but reject a symlinked final
 component before calling `resolve(strict=True)`. Keep the unresolved spelling only for this
@@ -1452,7 +1452,7 @@ if not stat.S_ISREG(resolved_stat.st_mode):
 # After the resolved allowed-root containment check, dispatch `resolved` plus its bound identity.
 ```
 
-- [ ] **Step 4: Use command-local error mappings**
+- [x] **Step 4: Use command-local error mappings**
 
 CLI and MCP route success through `engine.ingest_file(candidate)`. Direct-audio failures serialize
 only these problems: `input_path_rejected`, `unsupported_media_type`, `transcription_not_ready`,
@@ -1461,7 +1461,7 @@ next steps, and `run_id` presence frozen in the design. Unknown errors use the e
 generic cause. Do not add the audio causes to shared
 `_ALLOWLISTED_CAUSES` or the read-tool consumer fixture.
 
-- [ ] **Step 5: Preserve owner-only transcription controls**
+- [x] **Step 5: Preserve owner-only transcription controls**
 
 The existing global trusted-owner transcription configuration remains the only model/cache/device/
 language input. The owner-startup CLI/MCP composition adds only:
@@ -1492,7 +1492,7 @@ arm64 owner returns
 `direct audio runtime is supported only on Darwin arm64 / run_on_supported_darwin_arm64`. These are
 operation-local closed errors and do not expand the shared `PublicError` allowlist.
 
-- [ ] **Step 6: Run GREEN and contract regressions**
+- [x] **Step 6: Run GREEN and contract regressions**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1511,7 +1511,7 @@ UV_OFFLINE=1 uv run pyright
 
 Expected: all pass; frozen MCP/read-tool/source-pack schemas remain exact.
 
-- [ ] **Step 7: Review and commit Task 6**
+- [x] **Step 7: Review and commit Task 6**
 
 ```bash
 git diff --check

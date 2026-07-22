@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass
 
 _REDACTED_CAUSE = "operation failed; details were redacted"
@@ -131,10 +132,11 @@ def public_error_from_cause(
     problem: str,
     next_step: str,
     run_id: str | None = None,
+    safe_causes: Collection[str] = (),
 ) -> PublicError:
     if cause.startswith("unknown run:"):
         public_cause = "unknown run"
-    elif cause in _ALLOWLISTED_CAUSES:
+    elif cause in _ALLOWLISTED_CAUSES or cause in safe_causes:
         public_cause = cause
     else:
         public_cause = _REDACTED_CAUSE

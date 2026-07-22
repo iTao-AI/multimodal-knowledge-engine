@@ -6,6 +6,7 @@ import re
 import stat
 import tempfile
 from collections.abc import Callable
+from contextlib import AbstractContextManager, ExitStack
 from hashlib import sha256
 from pathlib import Path
 from typing import Protocol
@@ -118,6 +119,16 @@ class AudioProvider(Protocol):
         raise NotImplementedError
 
 
+class IngestFileAuthority(Protocol):
+    """Lazy descriptor-bound materialization for a trusted interface boundary."""
+
+    path: Path
+    byte_count: int
+
+    def materialize(self) -> AbstractContextManager[Path]:
+        raise NotImplementedError
+
+
 class PdfIngestError(ValueError):
     """Raised when the PDF happy path cannot produce publishable Evidence."""
 
@@ -169,6 +180,10 @@ class IngestDispatchError(ValueError):
         self.problem = "unsupported_media_type"
         self.cause = cause
         self.next_step = next_step
+
+
+class IngestFileAuthorityError(ValueError):
+    """Raised when a bound interface input cannot be materialized unchanged."""
 
 
 class AskValidationError(ValueError):
@@ -326,23 +341,56 @@ class KnowledgeEngine:
         )
         return AskSnapshot(snapshot.observation, result, snapshot.results)
 
-    def ingest_pdf(self, path: Path) -> IngestResult:
-        return self._process_pdf(path, retry_of_run_id=None, failure_point=None)
+    def ingest_pdf(
+        self,
+        path: Path,
+        *,
+        input_authority: IngestFileAuthority | None = None,
+    ) -> IngestResult:
+        return self._process_pdf(
+            path,
+            retry_of_run_id=None,
+            failure_point=None,
+            input_authority=input_authority,
+        )
 
-    def ingest_video(self, path: Path) -> IngestResult:
-        return self._process_video(path)
+    def ingest_video(
+        self,
+        path: Path,
+        *,
+        input_authority: IngestFileAuthority | None = None,
+    ) -> IngestResult:
+        return self._process_video(path, input_authority=input_authority)
 
-    def ingest_audio(self, path: Path) -> IngestResult:
-        return self._process_audio(path)
+    def ingest_audio(
+        self,
+        path: Path,
+        *,
+        input_authority: IngestFileAuthority | None = None,
+    ) -> IngestResult:
+        return self._process_audio(path, input_authority=input_authority)
 
-    def ingest_file(self, path: Path) -> IngestResult:
+    def ingest_file(
+        self,
+        path: Path,
+        *,
+        input_authority: IngestFileAuthority | None = None,
+    ) -> IngestResult:
+        if input_authority is not None and input_authority.path != path:
+            raise IngestFileAuthorityError("input path changed during validation")
         route = _INGEST_SUFFIXES.get(path.suffix.lower())
         if route == "pdf":
-            return self.ingest_pdf(path)
+            if input_authority is None:
+                return self.ingest_pdf(path)
+            return self.ingest_pdf(path, input_authority=input_authority)
         if route == "video":
-            return self.ingest_video(path)
+            if input_authority is None:
+                return self.ingest_video(path)
+            return self.ingest_video(path, input_authority=input_authority)
         if route == "audio":
-            return self.ingest_audio(path)
+            if input_authority is None:
+                return self.ingest_audio(path)
+            return self.ingest_audio(path, input_authority=input_authority)
         raise IngestDispatchError(
             "supported suffixes are .pdf, .mp4, .mp3, .wav, and .m4a"
         )
@@ -392,17 +440,30 @@ class KnowledgeEngine:
         activate: bool = True,
         leave_running_for_test: bool = False,
         reuse_existing_source: bool = False,
+        input_authority: IngestFileAuthority | None = None,
     ) -> IngestResult:
-        asset_sha256 = _sha256_file(path)
-        source = self._select_source(path, asset_sha256, source_id, reuse_existing_source)
-        run = self.create_run(source.source_id, retry_of_run_id=retry_of_run_id)
-        self._store.mark_run_running(run.run_id)
-        if leave_running_for_test:
-            return IngestResult(run.run_id, RunState.RUNNING, 0, retry_of_run_id)
+        run: RunRecord | None = None
         try:
-            if failure_point == FailurePoint.BEFORE_VALIDATION:
-                raise InjectedStorageFailure(failure_point.value)
-            extraction = self._pdf_extractor.extract(path)
+            with ExitStack() as stack:
+                stable_path = (
+                    stack.enter_context(input_authority.materialize())
+                    if input_authority is not None
+                    else path
+                )
+                asset_sha256 = _sha256_file(stable_path)
+                source = self._select_source(
+                    path,
+                    asset_sha256,
+                    source_id,
+                    reuse_existing_source,
+                )
+                run = self.create_run(source.source_id, retry_of_run_id=retry_of_run_id)
+                self._store.mark_run_running(run.run_id)
+                if leave_running_for_test:
+                    return IngestResult(run.run_id, RunState.RUNNING, 0, retry_of_run_id)
+                if failure_point == FailurePoint.BEFORE_VALIDATION:
+                    raise InjectedStorageFailure(failure_point.value)
+                extraction = self._pdf_extractor.extract(stable_path)
             evidence = [
                 CandidateEvidence(
                     evidence_id=f"ev_{uuid4().hex}",
@@ -446,8 +507,16 @@ class KnowledgeEngine:
                 intake_report=extraction.report,
             )
         except RunTransitionError as error:
+            assert run is not None
             raise PdfIngestError(str(error), run.run_id) from error
-        except (PdfExtractionError, ManifestValidationError, InjectedStorageFailure) as error:
+        except (
+            PdfExtractionError,
+            ManifestValidationError,
+            InjectedStorageFailure,
+            IngestFileAuthorityError,
+        ) as error:
+            if run is None:
+                raise PdfIngestError(str(error)) from error
             if isinstance(error, PdfExtractionError) and error.report is not None:
                 self._store.persist_pdf_intake_report(run.run_id, error.report)
             if failure_point in {
@@ -477,25 +546,36 @@ class KnowledgeEngine:
                 return existing
         return self.ensure_source(display_name=path.name, asset_sha256=asset_sha256)
 
-    def _process_video(self, path: Path) -> IngestResult:
+    def _process_video(
+        self,
+        path: Path,
+        *,
+        input_authority: IngestFileAuthority | None = None,
+    ) -> IngestResult:
         run: RunRecord | None = None
         try:
-            try:
-                _validate_video_input(path, _VIDEO_TRANSCRIPTION_LIMITS)
-                asset_sha256 = _sha256_file(path)
-            except VideoIngestError:
-                raise
-            except OSError as error:
-                raise VideoIngestError("input video could not be read") from error
-            source = self.ensure_source(
-                display_name=path.name,
-                asset_sha256=asset_sha256,
-                media_type="video/mp4",
-            )
-            run = self.create_run(source.source_id)
-            self._store.mark_run_running(run.run_id)
-            transcript = self._transcript_provider.extract(path)
-            _validate_transcript_extraction_result(transcript)
+            with ExitStack() as stack:
+                stable_path = (
+                    stack.enter_context(input_authority.materialize())
+                    if input_authority is not None
+                    else path
+                )
+                try:
+                    _validate_video_input(stable_path, _VIDEO_TRANSCRIPTION_LIMITS)
+                    asset_sha256 = _sha256_file(stable_path)
+                except VideoIngestError:
+                    raise
+                except OSError as error:
+                    raise VideoIngestError("input video could not be read") from error
+                source = self.ensure_source(
+                    display_name=path.name,
+                    asset_sha256=asset_sha256,
+                    media_type="video/mp4",
+                )
+                run = self.create_run(source.source_id)
+                self._store.mark_run_running(run.run_id)
+                transcript = self._transcript_provider.extract(stable_path)
+                _validate_transcript_extraction_result(transcript)
             evidence = [
                 CandidateEvidence(
                     evidence_id=f"ev_{uuid4().hex}",
@@ -550,14 +630,22 @@ class KnowledgeEngine:
                 next_step=getattr(error, "next_step", "fix_input_or_retry"),
             ) from error
 
-    def _process_audio(self, path: Path) -> IngestResult:
+    def _process_audio(
+        self,
+        path: Path,
+        *,
+        input_authority: IngestFileAuthority | None = None,
+    ) -> IngestResult:
         suffix = path.suffix.lower()
         media_type = _AUDIO_MEDIA_TYPES.get(suffix)
         if media_type is None:
             raise IngestDispatchError(
                 "supported suffixes are .pdf, .mp4, .mp3, .wav, and .m4a"
             )
-        _validate_audio_input_path(path)
+        if input_authority is None:
+            _validate_audio_input_path(path)
+        else:
+            _validate_authorized_audio_input(input_authority)
         if self._audio_transcription_config is None or self._audio_preflight is None:
             raise AudioIngestError(
                 "direct audio requires faster-whisper owner",
@@ -584,12 +672,17 @@ class KnowledgeEngine:
         run: RunRecord | None = None
         publication_started = False
         try:
-            with lease:
+            with lease, ExitStack() as stack:
+                stable_path = (
+                    stack.enter_context(input_authority.materialize())
+                    if input_authority is not None
+                    else path
+                )
                 owned_root = (
                     Path(tempfile.gettempdir()).resolve()
                     / f".mke-audio-{uuid4().hex}"
                 )
-                snapshot = snapshot_audio_source(path, owned_root)
+                snapshot = snapshot_audio_source(stable_path, owned_root)
                 media = self._audio_provider.inspect(snapshot, suffix=suffix)
                 asset_sha256 = snapshot.owned_identity.sha256
                 source = self.ensure_source(
@@ -679,6 +772,12 @@ class KnowledgeEngine:
                     run.run_id if run is not None else None,
                     next_step="retry_with_stable_file",
                 ) from error
+            if isinstance(error, IngestFileAuthorityError):
+                raise AudioIngestError(
+                    "audio source identity changed during intake",
+                    run.run_id if run is not None else None,
+                    next_step="retry_with_stable_file",
+                ) from error
             if run is not None and isinstance(error, ManifestValidationError):
                 raise AudioIngestError(
                     "audio publication failed",
@@ -755,6 +854,19 @@ def _validate_audio_input_path(path: Path) -> None:
             next_step="choose_supported_file",
         )
     if observed.st_size > _MAX_AUDIO_INPUT_BYTES:
+        raise AudioIngestError(
+            "audio input exceeds supported limits",
+            next_step="choose_smaller_file",
+        )
+
+
+def _validate_authorized_audio_input(authority: IngestFileAuthority) -> None:
+    if authority.byte_count <= 0:
+        raise AudioIngestError(
+            "audio input is empty",
+            next_step="choose_supported_file",
+        )
+    if authority.byte_count > _MAX_AUDIO_INPUT_BYTES:
         raise AudioIngestError(
             "audio input exceeds supported limits",
             next_step="choose_smaller_file",
