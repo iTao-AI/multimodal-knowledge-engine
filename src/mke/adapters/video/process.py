@@ -210,6 +210,7 @@ class ActiveProcessController:
             dict[subprocess.Popen[bytes], ProcessTerminator],
         ] = {}
         self._cancelled_operations: set[ProcessOperationId] = set()
+        self._committing_operations: set[ProcessOperationId] = set()
         self._shutdown_requested = False
 
     def begin_operation(self) -> ProcessOperationId:
@@ -229,6 +230,18 @@ class ActiveProcessController:
                 raise RuntimeError("process controller operation still has active children")
             del self._processes[operation_id]
             self._cancelled_operations.discard(operation_id)
+            self._committing_operations.discard(operation_id)
+
+    def begin_publication_commit(self, operation_id: ProcessOperationId) -> bool:
+        """Atomically claim commit ownership unless cancellation already won."""
+
+        with self._lock:
+            if operation_id not in self._processes:
+                raise RuntimeError("process controller operation is not active")
+            if operation_id in self._cancelled_operations:
+                return False
+            self._committing_operations.add(operation_id)
+            return True
 
     def register(
         self,
@@ -260,15 +273,18 @@ class ActiveProcessController:
             if processes is not None:
                 processes.pop(process, None)
 
-    def cancel_operation(self, operation_id: ProcessOperationId) -> None:
+    def cancel_operation(self, operation_id: ProcessOperationId) -> bool:
         with self._lock:
             processes = self._processes.get(operation_id)
             if processes is None:
                 raise RuntimeError("process controller operation is not active")
+            if operation_id in self._committing_operations:
+                return False
             self._cancelled_operations.add(operation_id)
             active = tuple(processes.items())
         for process, terminator in active:
             terminator(process)
+        return True
 
     def shutdown(self) -> None:
         with self._lock:

@@ -188,6 +188,10 @@ class IngestFileAuthorityError(ValueError):
     """Raised when a bound interface input cannot be materialized unchanged."""
 
 
+class _PublicationCommitCancelled(RuntimeError):
+    """Raised when interface cancellation wins before Publication commit."""
+
+
 class AskValidationError(ValueError):
     """Raised when an Ask request cannot be evaluated safely."""
 
@@ -210,6 +214,7 @@ class KnowledgeEngine:
         audio_provider: AudioProvider | None = None,
         audio_transcription_config: object | None = None,
         audio_preflight: Callable[[], None] | None = None,
+        publication_commit: Callable[[], bool] | None = None,
         admission_controller: BoundedAdmissionController | None = None,
         query_policy: RetrievalQueryPolicy | None = None,
         retrieval_strategy: RetrievalStrategy | None = None,
@@ -237,6 +242,7 @@ class KnowledgeEngine:
         self._audio_provider = audio_provider
         self._audio_transcription_config = audio_transcription_config
         self._audio_preflight = audio_preflight
+        self._publication_commit = publication_commit
         self._admission_controller = admission_controller or BoundedAdmissionController(
             capacity=1,
             max_waiters=1,
@@ -286,6 +292,10 @@ class KnowledgeEngine:
         if self.get_run(run_id).state is RunState.QUEUED:
             self._store.mark_run_running(run_id)
         self._store.persist_validated_candidate(run_id, evidence, manifest)
+
+    def _begin_publication_commit(self) -> None:
+        if self._publication_commit is not None and not self._publication_commit():
+            raise _PublicationCommitCancelled
 
     def activate_publication(
         self, run_id: str, failure_point: FailurePoint | None = None
@@ -495,6 +505,8 @@ class KnowledgeEngine:
                 extractor_fingerprint=PYMUPDF_TEXT_FINGERPRINT,
                 asset_sha256=asset_sha256,
             )
+            if activate:
+                self._begin_publication_commit()
             self._store.persist_validated_candidate(
                 run.run_id,
                 evidence,
@@ -528,6 +540,7 @@ class KnowledgeEngine:
             ManifestValidationError,
             InjectedStorageFailure,
             IngestFileAuthorityError,
+            _PublicationCommitCancelled,
         ) as error:
             if run is None:
                 raise PdfIngestError(str(error)) from error
@@ -607,6 +620,7 @@ class KnowledgeEngine:
                 extractor_fingerprint=transcript.extractor_fingerprint,
                 asset_sha256=asset_sha256,
             )
+            self._begin_publication_commit()
             self._store.persist_validated_candidate(run.run_id, evidence, manifest)
             activation = self._store.activate_publication(
                 run.run_id,
@@ -734,6 +748,7 @@ class KnowledgeEngine:
                 validate_manifest(manifest, evidence)
                 cleanup_audio_snapshot(snapshot)
                 snapshot = None
+            self._begin_publication_commit()
             publication_started = True
             self._store.persist_validated_candidate(run.run_id, evidence, manifest)
             activation = self._store.activate_publication(

@@ -1,16 +1,22 @@
 from __future__ import annotations
 
 import asyncio
+import sqlite3
 import threading
 from pathlib import Path
 
 import pytest
 
+import mke.application
+import mke.runtime
+from mke.adapters.sqlite import SQLiteStore
 from mke.adapters.video.faster_whisper import ReadinessCheck, TranscriptionReadiness
 from mke.adapters.video.process import ProcessOperationId
+from mke.application import KnowledgeEngine
 from mke.interfaces.mcp_contract import McpRuntimeConfig
 from mke.interfaces.mcp_server import ingest_with_cancellation_for_test, run_mcp_server
 from mke.runtime import FasterWhisperTranscriptionConfig, RuntimeConfig
+from tests.application.test_audio_publication import AUDIO_FIXTURES, FakeAudioProvider
 
 
 def _config(tmp_path: Path) -> McpRuntimeConfig:
@@ -21,6 +27,36 @@ def _config(tmp_path: Path) -> McpRuntimeConfig:
         ),
         allowed_root=tmp_path,
     )
+
+
+def _direct_audio_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> McpRuntimeConfig:
+    def build_provider(_config: RuntimeConfig) -> FakeAudioProvider:
+        return FakeAudioProvider()
+
+    def build_preflight(_config: RuntimeConfig) -> object:
+        return lambda: None
+
+    monkeypatch.setattr(mke.runtime, "_build_audio_provider", build_provider)
+    monkeypatch.setattr(mke.runtime, "_build_audio_preflight", build_preflight)
+    return McpRuntimeConfig(
+        runtime=RuntimeConfig(
+            tmp_path / "mke.sqlite",
+            transcription=FasterWhisperTranscriptionConfig(),
+            direct_audio_footprint_bytes=1,
+            direct_audio_footprint_budget_mode="baseline_plus",
+        ),
+        allowed_root=AUDIO_FIXTURES,
+    )
+
+
+def _active_publication_count(config: McpRuntimeConfig) -> int:
+    engine = KnowledgeEngine(config.db_path, recover_unfinished_runs=False)
+    try:
+        return engine.observe_active_publications().active_publication_count
+    finally:
+        engine.close()
 
 
 def test_mcp_preflight_stops_before_stdio_startup(
@@ -93,6 +129,69 @@ def test_async_ingest_cancellation_waits_for_worker_cleanup(
 
     assert cancelled_process.is_set()
     assert worker_finished.is_set()
+
+
+def test_async_ingest_cancellation_wins_before_candidate_persistence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = _direct_audio_config(tmp_path, monkeypatch)
+    before_persist = threading.Event()
+    release_worker = threading.Event()
+    original_validate = mke.application.validate_manifest
+
+    def block_before_persist(*args: object, **kwargs: object) -> None:
+        original_validate(*args, **kwargs)  # type: ignore[arg-type]
+        before_persist.set()
+        assert release_worker.wait(timeout=2)
+
+    monkeypatch.setattr(mke.application, "validate_manifest", block_before_persist)
+
+    async def exercise() -> None:
+        task = asyncio.create_task(
+            ingest_with_cancellation_for_test(config, "direct-audio.mp3")
+        )
+        assert await asyncio.to_thread(before_persist.wait, 2)
+        task.cancel()
+        release_worker.set()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(task, timeout=2)
+
+    asyncio.run(exercise())
+
+    assert _active_publication_count(config) == 0
+    with sqlite3.connect(config.db_path) as connection:
+        assert connection.execute("SELECT state FROM runs").fetchall() == [("failed",)]
+
+
+def test_async_ingest_commit_wins_at_candidate_persistence_boundary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = _direct_audio_config(tmp_path, monkeypatch)
+    commit_started = threading.Event()
+    release_commit = threading.Event()
+    original_persist = SQLiteStore.persist_validated_candidate
+
+    def block_commit(self: SQLiteStore, *args: object, **kwargs: object) -> None:
+        commit_started.set()
+        assert release_commit.wait(timeout=2)
+        original_persist(self, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(SQLiteStore, "persist_validated_candidate", block_commit)
+
+    async def exercise() -> dict[str, object]:
+        task = asyncio.create_task(
+            ingest_with_cancellation_for_test(config, "direct-audio.wav")
+        )
+        assert await asyncio.to_thread(commit_started.wait, 2)
+        task.cancel()
+        release_commit.set()
+        return await asyncio.wait_for(task, timeout=2)
+
+    result = asyncio.run(exercise())
+
+    assert result["ok"] is True
+    assert result["run_state"] == "published"
+    assert _active_publication_count(config) == 1
 
 
 def test_async_ingest_cancellation_kills_process_registered_after_cancel(

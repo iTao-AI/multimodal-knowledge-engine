@@ -168,24 +168,30 @@ async def _ingest_with_cancellation(
         )
         try:
             return await asyncio.shield(worker)
-        except asyncio.CancelledError:
-            controller.cancel_operation(operation_id)
-            await _wait_for_worker_cleanup(worker)
-            raise
+        except asyncio.CancelledError as cancellation:
+            cancellation_won = controller.cancel_operation(operation_id) is not False
+            try:
+                result = await _wait_for_worker_cleanup(worker)
+            except Exception:
+                if cancellation_won:
+                    raise cancellation
+                raise
+            if not cancellation_won:
+                return result
+            raise cancellation
     finally:
         controller.end_operation(operation_id)
 
 
-async def _wait_for_worker_cleanup(worker: asyncio.Task[dict[str, Any]]) -> None:
+async def _wait_for_worker_cleanup(
+    worker: asyncio.Task[dict[str, Any]],
+) -> dict[str, Any]:
     while True:
         try:
-            await asyncio.shield(worker)
-            return
+            return await asyncio.shield(worker)
         except asyncio.CancelledError:
             if worker.done():
-                return
-        except Exception:
-            return
+                return worker.result()
 
 
 def _safe_tool(fn: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any]]:

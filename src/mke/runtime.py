@@ -341,6 +341,14 @@ def _build_audio_preflight(
 
 
 def build_engine(config: RuntimeConfig) -> KnowledgeEngine:
+    publication_commit: Callable[[], bool] | None = None
+    operation_id = config.process_operation_id
+    if operation_id is not None:
+
+        def begin_publication_commit() -> bool:
+            return config.process_controller.begin_publication_commit(operation_id)
+
+        publication_commit = begin_publication_commit
     engine = KnowledgeEngine(
         config.db_path,
         transcript_provider=build_transcript_provider(config),
@@ -351,6 +359,7 @@ def build_engine(config: RuntimeConfig) -> KnowledgeEngine:
             else None
         ),
         audio_preflight=_build_audio_preflight(config),
+        publication_commit=publication_commit,
         admission_controller=config.admission_controller,
         query_policy=config.retrieval_query_policy,
         retrieval_strategy=cast(RetrievalStrategy, config.retrieval_strategy),

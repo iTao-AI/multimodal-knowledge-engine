@@ -112,7 +112,8 @@ def bind_optional_allowed_file(allowed_root: Path, path: str) -> BoundInputFile 
 def _materialize_bound_input(bound: BoundInputFile) -> Generator[Path, None, None]:
     if bound._closed:  # pyright: ignore[reportPrivateUsage]
         raise IngestFileAuthorityError(_CHANGED_CAUSE)
-    root = Path(tempfile.mkdtemp(prefix="mke-bound-ingest-"))
+    allocated_root = Path(tempfile.mkdtemp(prefix="mke-bound-ingest-"))
+    root = allocated_root.parent.resolve(strict=True) / allocated_root.name
     root_stat = root.lstat()
     root_identity = _directory_identity(root_stat)
     entries: list[tuple[Path, tuple[int, int, int, int, int, int]]] = []

@@ -72,6 +72,35 @@ def test_bound_input_materializes_companion_and_cleans_owned_root(
         bound.close()
 
 
+def test_bound_input_materialization_canonicalizes_allocator_symlink_parent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "voice.mp3"
+    canonical_parent = tmp_path / "canonical-parent"
+    linked_parent = tmp_path / "linked-parent"
+    allocated = canonical_parent / "owned"
+    source.write_bytes(b"original")
+    canonical_parent.mkdir()
+    linked_parent.symlink_to(canonical_parent, target_is_directory=True)
+    bound = bind_allowed_file(tmp_path, source.name)
+
+    def allocate(*, prefix: str) -> str:
+        assert prefix == "mke-bound-ingest-"
+        allocated.mkdir(mode=0o700)
+        return str(linked_parent / allocated.name)
+
+    monkeypatch.setattr(mke.interfaces.input_authority.tempfile, "mkdtemp", allocate)
+
+    try:
+        with bound.materialize() as materialized:
+            assert materialized == allocated.resolve() / source.name
+            assert materialized.read_bytes() == b"original"
+        assert not allocated.exists()
+    finally:
+        bound.close()
+
+
 def test_bound_input_cleanup_preserves_replacement_root(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

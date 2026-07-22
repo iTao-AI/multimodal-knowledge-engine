@@ -1,6 +1,7 @@
 import asyncio
 import inspect
 import json
+import sys
 from pathlib import Path
 from typing import Any, cast
 
@@ -25,11 +26,13 @@ from mke.interfaces.mcp_contract import (
 )
 from mke.interfaces.mcp_server import build_mcp_server
 from mke.retrieval.cjk_active_scan import CjkActiveScanError
-from mke.runtime import RuntimeConfig
+from mke.runtime import FasterWhisperTranscriptionConfig, RuntimeConfig
+from tests.application.test_audio_publication import FakeAudioProvider
 from tests.application.test_video_provider_injection import FakeFasterWhisperProvider
 from tests.conftest import PDF_FIXTURES, VIDEO_FIXTURES
 
 NUMERIC_FIXTURES = Path("tests/fixtures/retrieval-numeric-v1")
+AUDIO_FIXTURES = Path(__file__).parents[1] / "fixtures" / "audio"
 
 
 def _config(tmp_path: Path, allowed_root: Path) -> McpRuntimeConfig:
@@ -294,6 +297,55 @@ def test_mcp_audio_uses_canonical_dispatcher(
     assert calls == [input_path.resolve()]
     assert result["ok"] is True
     assert result["media_type"] == media_type
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Darwin tempfile alias regression")
+@pytest.mark.parametrize(
+    ("name", "media_type"),
+    [
+        ("direct-audio.mp3", "audio/mpeg"),
+        ("direct-audio.wav", "audio/wav"),
+        ("direct-audio.m4a", "audio/mp4"),
+    ],
+)
+def test_mcp_materialized_audio_reaches_real_publication_on_darwin(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+    media_type: str,
+) -> None:
+    import mke.runtime
+
+    def build_provider(_config: RuntimeConfig) -> FakeAudioProvider:
+        return FakeAudioProvider()
+
+    def build_preflight(_config: RuntimeConfig) -> object:
+        return lambda: None
+
+    monkeypatch.setattr(mke.runtime, "_build_audio_provider", build_provider)
+    monkeypatch.setattr(mke.runtime, "_build_audio_preflight", build_preflight)
+    config = McpRuntimeConfig(
+        runtime=RuntimeConfig(
+            tmp_path / "mke.sqlite",
+            transcription=FasterWhisperTranscriptionConfig(),
+            direct_audio_footprint_bytes=1,
+            direct_audio_footprint_budget_mode="baseline_plus",
+        ),
+        allowed_root=AUDIO_FIXTURES,
+    )
+
+    result = ingest_file(config, name)
+
+    assert result["ok"] is True
+    assert result["run_state"] == "published"
+    assert result["media_type"] == media_type
+    engine = KnowledgeEngine(config.db_path, recover_unfinished_runs=False)
+    try:
+        observation = engine.observe_active_publications()
+        assert observation.active_publication_count == 1
+        assert observation.active_evidence_count == 1
+    finally:
+        engine.close()
 
 
 def test_mcp_audio_preserves_operation_local_safe_error(
