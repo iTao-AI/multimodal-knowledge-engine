@@ -151,8 +151,10 @@ recommendation, or cross-platform fact.
 
 ## Final Implementation Review Result
 
-- Exact reviewed HEAD: `ecb9593fc0549caa1cebf90e677a4060602f2a10`.
-- Verdict: `CLEAN / Task 10 Step 6 ACCEPTED`.
+- Exact current reviewed HEAD: `a44347bf3c655626cf7e83a8c9b6432b8165f42d`.
+- Verdict: `CLEAN / direct deployment proof entrypoint repair ACCEPTED`.
+- The earlier whole-branch verdict at `ecb9593fc0549caa1cebf90e677a4060602f2a10` remains accepted;
+  the targeted repair amends that durable result without reopening the whole-branch review.
 - All five returned findings are closed. No further whole-branch review is required before the
   next planned gate.
 
@@ -175,9 +177,26 @@ The closed findings are:
 The presentation audit remains a bounded public-claim guard, not a general natural-language
 classifier.
 
+The authorization-only preflight after the original Step 7 read-back exposed one additional
+direct-entry operability defect before any real provider execution. The documented command
+`python scripts/direct_audio_deployment_proof.py` could not resolve
+`direct_audio_dependency_receipt` without `PYTHONPATH`, although package import and
+`python -m scripts.direct_audio_deployment_proof` remained valid. The accepted repair range is
+`bf20425b3920969ef6558a5ace81587ffaa7e844..a44347bf3c655626cf7e83a8c9b6432b8165f42d`.
+It changed exactly:
+
+- `scripts/direct_audio_deployment_proof.py`; and
+- `tests/scripts/test_direct_audio_deployment_proof.py`.
+
+The repair is a narrow dual-mode sibling import with no `sys.path` mutation, fallback controller,
+dependency, workflow, public-contract, or evaluation-artifact change. Direct script execution
+uses the sibling module; package import and module execution preserve the existing `scripts.*`
+authority. The exact diff is `30 insertions, 2 deletions`.
+
 ## Verification Identity
 
-Independent targeted verification on the exact reviewed HEAD established:
+The earlier whole-branch targeted verification on `ecb9593fc0549caa1cebf90e677a4060602f2a10`
+established:
 
 - exact residual repair scope: two files;
 - focused presentation and direct-audio documentation suite: `214 passed`;
@@ -186,17 +205,31 @@ Independent targeted verification on the exact reviewed HEAD established:
 - incremental `git diff --check`: passed; and
 - tracked worktree: clean.
 
-Accepted execution evidence for the same reviewed HEAD is:
+Targeted re-review and accepted execution evidence for current exact HEAD
+`a44347bf3c655626cf7e83a8c9b6432b8165f42d` established:
 
-- full pytest: `2984 passed, 14 skipped, 5 warnings`;
+- exact substantive scope: two files, `30 insertions, 2 deletions`;
+- direct-path and module-path `--help`: passed with identical CLI help;
+- focused direct-path regression: `1 passed, 23 deselected, 5 warnings`;
+- full pytest: `2985 passed, 14 skipped, 5 warnings`;
 - Ruff: passed;
 - Pyright: `0 errors, 0 warnings`;
 - canonical E1 through E3-E validators: `7/7 passed`; and
-- no evaluation identity refresh was required for `ecb9593`.
+- no evaluation identity refresh was required for `a44347b`; commit scope and
+  `git diff --check` were clean.
+
+## Historical Terminal Evidence Boundary
+
+The pre-repair Step 8 wheel
+`8a9269593e7846b9142e70c897279ae52fe82607dd24dcbecd5965d8e4192dbb` and authorization manifest
+`dc7df6ff38323d12c3e81627d0a4c201baafd498449e137e2a38e1f0b15e03c8` remain retained historical
+evidence, but they are prohibited as final authority because the tracked repair changed the source
+HEAD. A fresh Step 8 wheel and terminal-input binding are required before Step 9 can proceed.
 
 ## Next Gate And Non-Claims
 
 Task 10 Step 7 records this returned result. Step 8 is the next incomplete gate. This record does
-not claim that the final wheel was rebuilt, real ASR ran, external inputs were acquired, packages
-or native binaries may be redistributed, or any push, PR, merge, release, deployment, production
-readiness, accuracy, SLA, or cross-platform authority exists.
+not claim that a post-repair final wheel was rebuilt, authorization-only validation was rerun, real
+ASR, model, or provider execution occurred, external inputs were acquired, packages or native
+binaries may be redistributed, or any push, PR, merge, release, deployment, production readiness,
+accuracy, SLA, or cross-platform authority exists.

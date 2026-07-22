@@ -2243,6 +2243,31 @@ targeted read-back does not rerun the whole review. Any substantive mismatch or 
 change returns to Step 6. This review/status commit is the final planned tracked write before the
 terminal MKE wheel is built.
 
+The first authorization-only terminal preflight after that read-back exposed one concrete
+operability defect in the documented direct script-path command: the controller resolved its
+sibling dependency only through the `scripts` package and failed before argument handling when
+invoked as `python scripts/direct_audio_deployment_proof.py` without `PYTHONPATH`. The bounded
+repair range
+`bf20425b3920969ef6558a5ace81587ffaa7e844..a44347bf3c655626cf7e83a8c9b6432b8165f42d`
+changed only `scripts/direct_audio_deployment_proof.py` and
+`tests/scripts/test_direct_audio_deployment_proof.py` (`30 insertions, 2 deletions`). It uses one
+dual-mode sibling import without mutating `sys.path`: direct script execution imports the sibling
+module, while package import and `python -m scripts.direct_audio_deployment_proof` retain the
+existing `scripts.*` authority.
+
+Targeted re-review of exact HEAD `a44347bf3c655626cf7e83a8c9b6432b8165f42d` returned
+`CLEAN / direct deployment proof entrypoint repair ACCEPTED`. The direct-path regression passed,
+direct-path and module-path help output matched, full pytest reported
+`2985 passed, 14 skipped, 5 warnings`, Ruff passed, Pyright reported `0 errors, 0 warnings`, and
+the seven canonical validators passed without an identity refresh. Steps 6 and 7 remain accepted
+and complete; Step 8 is again the next incomplete gate.
+
+The pre-repair Step 8 wheel
+`8a9269593e7846b9142e70c897279ae52fe82607dd24dcbecd5965d8e4192dbb` and terminal authorization
+manifest `dc7df6ff38323d12c3e81627d0a4c201baafd498449e137e2a38e1f0b15e03c8` are historical evidence
+only and are prohibited as final authority. The tracked repair and this durable read-back require
+a fresh Step 8 wheel and terminal-input binding before any later Step 9 authorization.
+
 - [ ] **Step 8: Build the final MKE wheel and bind the terminal proof inputs**
 
 After PR C implementation, documentation, plan/review status, and any conditional identity closure
