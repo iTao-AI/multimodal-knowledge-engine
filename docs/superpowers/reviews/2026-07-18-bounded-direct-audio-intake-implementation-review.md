@@ -151,10 +151,10 @@ recommendation, or cross-platform fact.
 
 ## Final Implementation Review Result
 
-- Exact current reviewed HEAD: `a44347bf3c655626cf7e83a8c9b6432b8165f42d`.
-- Verdict: `CLEAN / direct deployment proof entrypoint repair ACCEPTED`.
+- Exact current reviewed HEAD: `28e0e8e01e132ea9318a2ee2c73e56b1276fdf05`.
+- Verdict: `CLEAN / compiled export proof canonical temp-root repair ACCEPTED`.
 - The earlier whole-branch verdict at `ecb9593fc0549caa1cebf90e677a4060602f2a10` remains accepted;
-  the targeted repair amends that durable result without reopening the whole-branch review.
+  the targeted repairs amend that durable result without reopening the whole-branch review.
 - All five returned findings are closed. No further whole-branch review is required before the
   next planned gate.
 
@@ -193,6 +193,24 @@ dependency, workflow, public-contract, or evaluation-artifact change. Direct scr
 uses the sibling module; package import and module execution preserve the existing `scripts.*`
 authority. The exact diff is `30 insertions, 2 deletions`.
 
+The first terminal repository sequence then exposed a Darwin call-owned path defect in the
+Compiled Library Export proof controller. `tempfile.mkdtemp()` returned the owned directory through
+the `/var` alias while direct-audio snapshot authority correctly rejected that symlink-bearing
+parent before model-free audio ingestion. The accepted repair range is
+`ce3a3b2aa7d74eca2aec0231d691dd82277a2f11..28e0e8e01e132ea9318a2ee2c73e56b1276fdf05`.
+It changed exactly:
+
+- `scripts/compiled_library_export_proof.py`; and
+- `tests/scripts/test_compiled_library_export_proof.py`.
+
+The controller now resolves the freshly allocated root with `strict=True`, verifies that the
+unresolved and resolved paths are directories with equal `(st_dev, st_ino)` identity, and passes
+the canonical path to candidate preparation, interpreter workspaces, the publisher, and normal
+cleanup. The audio snapshot symlink policy and all production `src/mke` paths are unchanged. The
+exact diff is `83 insertions`. Targeted review returned
+`CLEAN / compiled export proof canonical temp-root repair ACCEPTED` without reopening the accepted
+whole-branch review.
+
 ## Verification Identity
 
 The earlier whole-branch targeted verification on `ecb9593fc0549caa1cebf90e677a4060602f2a10`
@@ -218,13 +236,33 @@ Targeted re-review and accepted execution evidence for current exact HEAD
 - no evaluation identity refresh was required for `a44347b`; commit scope and
   `git diff --check` were clean.
 
+Targeted re-review and accepted execution evidence for exact HEAD
+`28e0e8e01e132ea9318a2ee2c73e56b1276fdf05` established:
+
+- exact substantive scope: two files, `83 insertions`;
+- focused symlink-parent regression RED on the unresolved alias and GREEN with `1 passed`;
+- full Compiled Library Export proof controller suite: `51 passed`;
+- adjacent audio snapshot, Publication, and export-documentation slices: `79 passed, 5 warnings`;
+- full pytest: `2986 passed, 14 skipped, 5 warnings`;
+- Ruff: passed;
+- Pyright: `0 errors, 0 warnings`;
+- canonical E1 through E3-E validators: `7/7 passed`; and
+- no evaluation identity refresh was required; commit scope and `git diff --check` were clean.
+
+The one historical same-wheel diagnostic attempted before the repair was committed returned
+`candidate_artifact_invalid` because candidate-source authority requires a clean Git snapshot. It
+is inconclusive execution-order evidence, was not rerun, and is not passing same-wheel authority.
+
 ## Historical Terminal Evidence Boundary
 
-The pre-repair Step 8 wheel
-`8a9269593e7846b9142e70c897279ae52fe82607dd24dcbecd5965d8e4192dbb` and authorization manifest
-`dc7df6ff38323d12c3e81627d0a4c201baafd498449e137e2a38e1f0b15e03c8` remain retained historical
-evidence, but they are prohibited as final authority because the tracked repair changed the source
-HEAD. A fresh Step 8 wheel and terminal-input binding are required before Step 9 can proceed.
+All earlier Step 8 wheels, binding reports, and authorization manifests are retained historical
+evidence only. This includes wheel digest
+`8a9269593e7846b9142e70c897279ae52fe82607dd24dcbecd5965d8e4192dbb`, binding-report digests
+`f42d27810f7f6eef9a8d2ee20c00cca338d0a0d09549f2bf4b1915259d8d910b` and
+`840286cd333dccffe34b9fc3e4385a65afb0d36d39156856f19ee6573cb8b225`, and authorization-manifest
+digest `dc7df6ff38323d12c3e81627d0a4c201baafd498449e137e2a38e1f0b15e03c8`. They are prohibited as
+final authority because later tracked repairs changed the source HEAD. A fresh Step 8 wheel,
+terminal-input binding, and authorization-only result are required before Step 9 can proceed.
 
 ## Next Gate And Non-Claims
 
@@ -232,4 +270,5 @@ Task 10 Step 7 records this returned result. Step 8 is the next incomplete gate.
 not claim that a post-repair final wheel was rebuilt, authorization-only validation was rerun, real
 ASR, model, or provider execution occurred, external inputs were acquired, packages or native
 binaries may be redistributed, or any push, PR, merge, release, deployment, production readiness,
-accuracy, SLA, or cross-platform authority exists.
+accuracy, SLA, or cross-platform authority exists. The real deployment controller invocation count
+remains zero.

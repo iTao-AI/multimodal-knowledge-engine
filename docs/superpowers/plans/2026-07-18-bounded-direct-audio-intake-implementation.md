@@ -2262,11 +2262,36 @@ direct-path and module-path help output matched, full pytest reported
 the seven canonical validators passed without an identity refresh. Steps 6 and 7 remain accepted
 and complete; Step 8 is again the next incomplete gate.
 
-The pre-repair Step 8 wheel
-`8a9269593e7846b9142e70c897279ae52fe82607dd24dcbecd5965d8e4192dbb` and terminal authorization
-manifest `dc7df6ff38323d12c3e81627d0a4c201baafd498449e137e2a38e1f0b15e03c8` are historical evidence
-only and are prohibited as final authority. The tracked repair and this durable read-back require
-a fresh Step 8 wheel and terminal-input binding before any later Step 9 authorization.
+The first terminal repository sequence then exposed a Darwin alias defect in the Compiled Library
+Export proof controller: the call-owned `tempfile.mkdtemp()` directory reached model-free audio
+ingestion through `/var` rather than its canonical `/private/var` identity, and the audio snapshot
+correctly failed closed on the symlink-bearing parent. The bounded repair range
+`ce3a3b2aa7d74eca2aec0231d691dd82277a2f11..28e0e8e01e132ea9318a2ee2c73e56b1276fdf05`
+changed only `scripts/compiled_library_export_proof.py` and
+`tests/scripts/test_compiled_library_export_proof.py` (`83 insertions`). It resolves the fresh
+call-owned root with `strict=True`, verifies directory type and equal `(st_dev, st_ino)` identity,
+and uses the canonical path for candidate preparation, workspaces, publishing, and normal cleanup.
+Production `src/mke` paths and audio snapshot symlink rejection remain unchanged.
+
+Targeted actual-diff re-review of exact HEAD
+`28e0e8e01e132ea9318a2ee2c73e56b1276fdf05` returned
+`CLEAN / compiled export proof canonical temp-root repair ACCEPTED` without reopening the accepted
+whole-branch review. The focused regression completed RED then GREEN with `1 passed`, the complete
+controller suite reported `51 passed`, adjacent slices reported `79 passed, 5 warnings`, full
+pytest reported `2986 passed, 14 skipped, 5 warnings`, Ruff passed, Pyright reported
+`0 errors, 0 warnings`, `git diff --check` passed, and all seven canonical validators passed
+without an identity refresh. The one dirty-source historical same-wheel diagnostic is inconclusive,
+was not rerun, and is not passing evidence. Steps 6 and 7 remain accepted and complete; Step 8 is
+again the next incomplete gate. The real deployment controller invocation count remains zero.
+
+All earlier Step 8 wheels, binding reports, and authorization manifests are historical evidence
+only and are prohibited as final authority. This includes wheel digest
+`8a9269593e7846b9142e70c897279ae52fe82607dd24dcbecd5965d8e4192dbb`, binding-report digests
+`f42d27810f7f6eef9a8d2ee20c00cca338d0a0d09549f2bf4b1915259d8d910b` and
+`840286cd333dccffe34b9fc3e4385a65afb0d36d39156856f19ee6573cb8b225`, and authorization-manifest
+digest `dc7df6ff38323d12c3e81627d0a4c201baafd498449e137e2a38e1f0b15e03c8`. A fresh Step 8 wheel,
+terminal-input binding, and authorization-only result are required before any later Step 9
+execution.
 
 - [ ] **Step 8: Build the final MKE wheel and bind the terminal proof inputs**
 
@@ -2397,7 +2422,10 @@ UV_OFFLINE=1 uv run mke proof run
 UV_OFFLINE=1 uv run mke demo --verify
 UV_OFFLINE=1 uv run python scripts/local_knowledge_proof.py --json
 UV_OFFLINE=1 uv run python scripts/evidence_provenance_proof.py --json
-UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py --json
+UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
+  --python "$PYTHON312" \
+  --python "$PYTHON313" \
+  --json
 UV_OFFLINE=1 uv run python scripts/compiled_library_export_proof.py \
   --python "$PYTHON312" \
   --python "$PYTHON313" \
