@@ -2153,7 +2153,7 @@ UV_OFFLINE=1 uv run python scripts/release_presentation_audit.py --json
 
 Expected: all tests pass and audit returns `{"status":"ok","violations":[]}`.
 
-- [ ] **Step 5: Run canonical evaluation validators before writing artifacts**
+- [x] **Step 5: Run canonical evaluation validators before writing artifacts**
 
 Run the repository's exact E1, E2, E3-A, E3-B, E3-C, E3-D, and E3-E validators from the current CI
 workflow. If all pass, do not create an identity commit. If only source/scope/dependency identities
