@@ -174,7 +174,7 @@ async def _ingest_with_cancellation(
                 result = await _wait_for_worker_cleanup(worker)
             except Exception:
                 if cancellation_won:
-                    raise cancellation
+                    raise cancellation from None
                 raise
             if not cancellation_won:
                 return result

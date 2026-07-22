@@ -1,7 +1,7 @@
 import threading
 from typing import Any, cast
 
-from mke.adapters.video.process import ActiveProcessController
+from mke.adapters.video.process import ActiveProcessController, ProcessOperationId
 
 
 class FakeProcess:
@@ -91,6 +91,26 @@ def test_late_group_registration_observes_cancellation_latch() -> None:
     assert terminated == [process]
 
 
+def _begin_commit_after_barrier(
+    controller: ActiveProcessController,
+    operation_id: ProcessOperationId,
+    barrier: threading.Barrier,
+    results: dict[str, bool],
+) -> None:
+    barrier.wait()
+    results["commit"] = controller.begin_publication_commit(operation_id)
+
+
+def _cancel_after_barrier(
+    controller: ActiveProcessController,
+    operation_id: ProcessOperationId,
+    barrier: threading.Barrier,
+    results: dict[str, bool],
+) -> None:
+    barrier.wait()
+    results["cancel"] = controller.cancel_operation(operation_id)
+
+
 def test_publication_commit_and_cancellation_have_one_atomic_winner() -> None:
     for _iteration in range(100):
         controller = ActiveProcessController()
@@ -98,16 +118,11 @@ def test_publication_commit_and_cancellation_have_one_atomic_winner() -> None:
         barrier = threading.Barrier(3)
         results: dict[str, bool] = {}
 
-        def commit() -> None:
-            barrier.wait()
-            results["commit"] = controller.begin_publication_commit(operation_id)
-
-        def cancel() -> None:
-            barrier.wait()
-            results["cancel"] = controller.cancel_operation(operation_id)
-
-        commit_thread = threading.Thread(target=commit)
-        cancel_thread = threading.Thread(target=cancel)
+        race_args = (controller, operation_id, barrier, results)
+        commit_thread = threading.Thread(
+            target=_begin_commit_after_barrier, args=race_args
+        )
+        cancel_thread = threading.Thread(target=_cancel_after_barrier, args=race_args)
         commit_thread.start()
         cancel_thread.start()
         barrier.wait()
