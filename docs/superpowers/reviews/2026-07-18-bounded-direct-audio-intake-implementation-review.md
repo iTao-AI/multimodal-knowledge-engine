@@ -441,6 +441,29 @@ diagnostic, and related artifact remains historical evidence and cannot be reuse
 authority. The real deployment-controller invocation count remains four and retry count remains
 three. A fifth invocation did not occur.
 
+## Candidate-Only Canonical Receipt Rebind In Progress
+
+The accepted external dependency and license projection does not follow ordinary MKE source or
+documentation commits. The static validator continues to require one exact candidate MKE wheel and
+the same candidate binding in both interpreter cells. When the final candidate wheel bytes change,
+one bounded replay through the existing reviewed receipt controller is therefore permitted without
+weakening that cross-binding.
+
+The replay must use a call-owned wheelhouse composed of byte-identical copies of the accepted 60
+external wheels and the fresh candidate wheel. The accepted interpreters, lockfile, constraints,
+fixtures, descriptor bootstrap, offline nested-pip contract, and controller bytes remain unchanged.
+Only the candidate wheel bytes/SHA, the three candidate installed-row SHA bindings, the two
+preflight digests, the receipt self-digest, and corresponding mechanically derived durable digest
+references may change. Candidate filename/version and every external dependency, PyAV/FFmpeg,
+component, fixture, license, redistribution, and non-claim field must remain equal. Any other drift
+fails closed.
+
+This record preserves the prior receipt and every previous Step 8/Step 9 artifact as historical
+evidence. It does not complete Step 8 or authorize authorization-only, Step 9, manual MCP replay,
+model, ASR, provider or product execution, download, release, redistribution, or deployment. The
+historical real deployment-controller invocation and retry counts remain four and three; a fifth
+invocation did not occur.
+
 ## Next Gate And Non-Claims
 
 The next incomplete gate is a fresh Step 8, which requires separate execution authority. This

@@ -2432,6 +2432,34 @@ three; a fifth invocation did not occur. This acceptance does not claim or autho
 replay, model load, ASR, provider or product-path execution, real-ASR success, accuracy, SLA,
 production readiness, external-binary redistribution, release, or deployment.
 
+#### Candidate-Only Canonical Receipt Rebind Authority
+
+The PR A external dependency and license projection remains frozen across ordinary MKE source and
+documentation commits. The static receipt validator must nevertheless retain its strict requirement
+that exactly one candidate MKE wheel is present and identically bound across the wheel inventory and
+both interpreter-cell installed projections. A final candidate-wheel byte change therefore permits
+one bounded replay through the existing reviewed receipt controller; the strict cross-binding is
+not weakened or removed.
+
+The replay uses a call-owned wheelhouse containing byte-identical copies of the accepted 60 external
+wheels plus the one fresh candidate wheel. It reuses the accepted CPython 3.12 and 3.13 cells,
+constraints, lockfile, and fixtures under the existing offline, binary-only, hashed, no-index
+controller contract. It may change only:
+
+- candidate wheel bytes and SHA-256 in `wheel_inventory`;
+- candidate `source_wheel_sha256` rows for cells `3.12` and `3.13` in each cell projection and the
+  top-level installed projection, while filename and version remain fixed;
+- `preflight_observed_digest`, `generation_preflight_observed_digest`, and `receipt_sha256`; and
+- the mechanically derived canonical payload, committed-file, and wheelhouse-manifest references
+  in the durable evidence record.
+
+Every external wheel row, constraint, PyAV/FFmpeg/component, fixture, license, redistribution, and
+non-claim authority, plus every other receipt semantic field, must remain byte- or
+projection-equal. Unexpected drift is a hard stop. The prior receipt and all prior Step 8/Step 9
+artifacts remain historical evidence only. This rebind does not complete Step 8, authorize
+authorization-only or Step 9, or change the historical real deployment-controller invocation and
+retry counts of four and three. A fifth real invocation remains outside this authority.
+
 - [ ] **Step 8: Build the final MKE wheel and bind the terminal proof inputs**
 
 After PR C implementation, documentation, plan/review status, and any conditional identity closure
