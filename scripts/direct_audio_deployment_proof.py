@@ -43,6 +43,15 @@ _COMMAND_TIMEOUT_SECONDS = 300.0
 _PROVIDER_TIMEOUT_SECONDS = 900.0
 _MAX_STDOUT_BYTES = 2 * 1024 * 1024
 _MAX_STDERR_BYTES = 512 * 1024
+_MAX_INSTALL_DIAGNOSTIC_TEXT_BYTES = 64 * 1024
+_INSTALL_DIAGNOSTIC_STEPS = frozenset(
+    {
+        "pip-install-3.12",
+        "pip-check-3.12",
+        "pip-install-3.13",
+        "pip-check-3.13",
+    }
+)
 _DENY_NETWORK_PROFILE = "(version 1)(allow default)(deny network*)"
 _PRODUCT_HELPER_SOURCE = r'''
 from __future__ import annotations
@@ -228,6 +237,7 @@ class DirectAudioProofConfig:
     direct_audio_footprint_bytes: int
     direct_audio_footprint_budget_mode: Literal["baseline_plus"]
     provider_timeout_seconds: float = _PROVIDER_TIMEOUT_SECONDS
+    install_diagnostic: Path | None = None
 
     def __post_init__(self) -> None:
         if len(self.interpreters) != 2:
@@ -844,6 +854,135 @@ def _run_ok(runner: CommandRunner, call: CommandCall, code: str) -> None:
     result = runner.run(call)
     if result.returncode != 0:
         raise DirectAudioDeploymentProofError(code)
+
+
+def _utf8_preview(value: bytes) -> tuple[str, bool]:
+    encoded = value.decode("utf-8", errors="replace").encode("utf-8")
+    if len(encoded) <= _MAX_INSTALL_DIAGNOSTIC_TEXT_BYTES:
+        return encoded.decode("utf-8", errors="strict"), False
+    bounded = encoded[:_MAX_INSTALL_DIAGNOSTIC_TEXT_BYTES]
+    while True:
+        try:
+            return bounded.decode("utf-8", errors="strict"), True
+        except UnicodeDecodeError as error:
+            bounded = bounded[: error.start]
+
+
+def _diagnostic_stream(value: bytes) -> dict[str, object]:
+    text, truncated = _utf8_preview(value)
+    return {
+        "bytes": len(value),
+        "sha256": _sha256(value),
+        "text": text,
+        "truncated": truncated,
+    }
+
+
+def _write_install_diagnostic(
+    path: Path,
+    *,
+    step: str,
+    result: CommandResult,
+) -> None:
+    if step not in _INSTALL_DIAGNOSTIC_STEPS or path.name in {"", ".", ".."}:
+        raise DirectAudioDeploymentProofError("install_diagnostic_write_failed")
+    payload = {
+        "schema_version": "mke.direct_audio_install_diagnostic.v1",
+        "status": "failed",
+        "failure": "install_failed",
+        "step": step,
+        "returncode": result.returncode,
+        "stdout": _diagnostic_stream(result.stdout),
+        "stderr": _diagnostic_stream(result.stderr),
+    }
+    value = (
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("ascii")
+        + b"\n"
+    )
+    parent_descriptor: int | None = None
+    descriptor: int | None = None
+    created_identity: tuple[int, int] | None = None
+    failure: BaseException | None = None
+    try:
+        if not path.is_absolute() or path != Path(os.path.normpath(os.fspath(path))):
+            raise OSError("diagnostic path is not absolute and normalized")
+        parent = path.parent.resolve(strict=True)
+        if path != parent / path.name:
+            raise OSError("diagnostic path is not canonical")
+        parent_descriptor = os.open(
+            parent,
+            os.O_RDONLY
+            | getattr(os, "O_DIRECTORY", 0)
+            | getattr(os, "O_NOFOLLOW", 0),
+        )
+        descriptor = os.open(
+            path.name,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+            dir_fd=parent_descriptor,
+        )
+        observed = os.fstat(descriptor)
+        if not stat.S_ISREG(observed.st_mode) or observed.st_nlink != 1:
+            raise OSError("diagnostic target is not an owned regular file")
+        created_identity = (observed.st_dev, observed.st_ino)
+        os.fchmod(descriptor, 0o600)
+        remaining = memoryview(value)
+        while remaining:
+            written = os.write(descriptor, remaining)
+            if written <= 0:
+                raise OSError("diagnostic write made no progress")
+            remaining = remaining[written:]
+        os.fsync(descriptor)
+    except (OSError, RuntimeError) as error:
+        failure = error
+    if descriptor is not None:
+        try:
+            os.close(descriptor)
+        except OSError as error:
+            if failure is None:
+                failure = error
+    if failure is not None and parent_descriptor is not None and created_identity is not None:
+        try:
+            current = os.stat(
+                path.name,
+                dir_fd=parent_descriptor,
+                follow_symlinks=False,
+            )
+            if (
+                stat.S_ISREG(current.st_mode)
+                and (current.st_dev, current.st_ino) == created_identity
+            ):
+                os.unlink(path.name, dir_fd=parent_descriptor)
+        except OSError:
+            pass
+    if parent_descriptor is not None:
+        try:
+            os.close(parent_descriptor)
+        except OSError as error:
+            if failure is None:
+                failure = error
+    if failure is not None:
+        raise DirectAudioDeploymentProofError(
+            "install_diagnostic_write_failed"
+        ) from failure
+
+
+def _run_install_gate(
+    runner: CommandRunner,
+    call: CommandCall,
+    diagnostic: Path | None,
+) -> None:
+    if call.step not in _INSTALL_DIAGNOSTIC_STEPS:
+        raise DirectAudioDeploymentProofError("bounded_execution_failed")
+    result = runner.run(call)
+    if result.returncode == 0:
+        return
+    if diagnostic is not None:
+        try:
+            _write_install_diagnostic(diagnostic, step=call.step, result=result)
+        except DirectAudioDeploymentProofError as error:
+            raise DirectAudioDeploymentProofError("install_failed") from error
+    raise DirectAudioDeploymentProofError("install_failed")
 
 
 def _validate_installed_candidate(
@@ -1492,10 +1631,10 @@ def _run_direct_audio_deployment_proof_impl(
                 "--requirement",
                 str(stage / "root-requirements.txt"),
             )
-            _run_ok(
+            _run_install_gate(
                 runner,
                 CommandCall(f"pip-install-{version}", pip_argv, pip_env, cell),
-                "install_failed",
+                config.install_diagnostic,
             )
             _validate_staged_inputs(
                 config=config,
@@ -1515,7 +1654,7 @@ def _run_direct_audio_deployment_proof_impl(
                     raise DirectAudioDeploymentProofError(
                         "installed_identity_failed"
                     ) from error
-            _run_ok(
+            _run_install_gate(
                 runner,
                 CommandCall(
                     f"pip-check-{version}",
@@ -1523,7 +1662,7 @@ def _run_direct_audio_deployment_proof_impl(
                     pip_env,
                     cell,
                 ),
-                "install_failed",
+                config.install_diagnostic,
             )
             if isinstance(runner, _RealRunner):
                 try:
@@ -1844,6 +1983,7 @@ def _parser() -> argparse.ArgumentParser:
         required=True,
     )
     parser.add_argument("--receipt", type=Path)
+    parser.add_argument("--install-diagnostic", type=Path)
     parser.add_argument("--authorization-only", action="store_true")
     parser.add_argument("--json", action="store_true")
     return parser
@@ -1898,6 +2038,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             fixture_root=args.fixture_root,
             direct_audio_footprint_bytes=args.direct_audio_footprint_bytes,
             direct_audio_footprint_budget_mode=args.direct_audio_footprint_budget_mode,
+            install_diagnostic=args.install_diagnostic,
         )
         report = (
             build_direct_audio_authorization_manifest(config)

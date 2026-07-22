@@ -203,6 +203,16 @@ class FakeRunner:
         return proof.CommandResult(0, b"{}", b"")
 
 
+class InstallGateRunner:
+    def __init__(self, result: proof.CommandResult) -> None:
+        self.result = result
+        self.calls: list[proof.CommandCall] = []
+
+    def run(self, call: proof.CommandCall) -> proof.CommandResult:
+        self.calls.append(call)
+        return self.result
+
+
 def _product_result(step: str) -> dict[str, object]:
     lane, fixture = step.split("-", 1)
     source_sha256 = hashlib.sha256(f"direct-audio.{fixture}".encode("ascii")).hexdigest()
@@ -387,6 +397,333 @@ def test_cli_has_no_download_flag_and_requires_owner_pair() -> None:
     assert "--direct-audio-footprint-bytes" in help_text
     assert "--direct-audio-footprint-budget-mode" in help_text
     assert "--authorization-only" in help_text
+
+
+@pytest.mark.parametrize(
+    "step",
+    (
+        "pip-install-3.12",
+        "pip-check-3.12",
+        "pip-install-3.13",
+        "pip-check-3.13",
+    ),
+)
+def test_failed_install_gate_writes_bounded_operator_diagnostic(
+    tmp_path: Path,
+    step: str,
+) -> None:
+    stdout = ("ok-\N{SNOWMAN}".encode() + b"\xff") * 20_000
+    stderr = ("bad-\N{SNOWMAN}".encode() + b"\xfe") * 20_000
+    diagnostic = tmp_path / "install-diagnostic.json"
+    runner = InstallGateRunner(proof.CommandResult(23, stdout, stderr))
+    call = proof.CommandCall(step, ("not-executed",), {}, tmp_path)
+
+    with pytest.raises(proof.DirectAudioDeploymentProofError, match="^install_failed$"):
+        proof._run_install_gate(  # pyright: ignore[reportPrivateUsage]
+            runner,
+            call,
+            diagnostic,
+        )
+
+    payload = json.loads(diagnostic.read_text(encoding="utf-8"))
+    assert payload == {
+        "schema_version": "mke.direct_audio_install_diagnostic.v1",
+        "status": "failed",
+        "failure": "install_failed",
+        "step": step,
+        "returncode": 23,
+        "stdout": {
+            "bytes": len(stdout),
+            "sha256": hashlib.sha256(stdout).hexdigest(),
+            "text": payload["stdout"]["text"],
+            "truncated": True,
+        },
+        "stderr": {
+            "bytes": len(stderr),
+            "sha256": hashlib.sha256(stderr).hexdigest(),
+            "text": payload["stderr"]["text"],
+            "truncated": True,
+        },
+    }
+    assert len(payload["stdout"]["text"].encode("utf-8")) <= 64 * 1024
+    assert len(payload["stderr"]["text"].encode("utf-8")) <= 64 * 1024
+    assert set(payload) == {
+        "schema_version",
+        "status",
+        "failure",
+        "step",
+        "returncode",
+        "stdout",
+        "stderr",
+    }
+    assert diagnostic.stat().st_mode & 0o777 == 0o600
+
+
+def test_successful_install_gate_does_not_create_diagnostic(tmp_path: Path) -> None:
+    diagnostic = tmp_path / "install-diagnostic.json"
+    runner = InstallGateRunner(proof.CommandResult(0, b"success", b""))
+
+    proof._run_install_gate(  # pyright: ignore[reportPrivateUsage]
+        runner,
+        proof.CommandCall("pip-check-3.12", ("not-executed",), {}, tmp_path),
+        diagnostic,
+    )
+
+    assert not diagnostic.exists()
+
+
+@pytest.mark.parametrize("destination_kind", ("file", "symlink"))
+def test_install_diagnostic_rejects_existing_destination_without_clobber(
+    tmp_path: Path,
+    destination_kind: str,
+) -> None:
+    operator_state = tmp_path / "operator-state"
+    operator_state.write_bytes(b"preserve-operator-state")
+    diagnostic = tmp_path / "install-diagnostic.json"
+    if destination_kind == "file":
+        diagnostic.write_bytes(b"preserve-existing-diagnostic")
+    else:
+        diagnostic.symlink_to(operator_state)
+    runner = InstallGateRunner(proof.CommandResult(9, b"out", b"err"))
+
+    with pytest.raises(proof.DirectAudioDeploymentProofError, match="^install_failed$"):
+        proof._run_install_gate(  # pyright: ignore[reportPrivateUsage]
+            runner,
+            proof.CommandCall("pip-install-3.13", ("not-executed",), {}, tmp_path),
+            diagnostic,
+        )
+
+    assert operator_state.read_bytes() == b"preserve-operator-state"
+    if destination_kind == "file":
+        assert diagnostic.read_bytes() == b"preserve-existing-diagnostic"
+    else:
+        assert diagnostic.is_symlink()
+
+
+@pytest.mark.parametrize("nested", (False, True))
+def test_install_diagnostic_rejects_symlink_parent_without_touching_operator_state(
+    tmp_path: Path,
+    nested: bool,
+) -> None:
+    operator_root = tmp_path / "operator-root"
+    operator_root.mkdir()
+    operator_state = operator_root / "state"
+    operator_state.write_bytes(b"preserve-operator-state")
+    target_before = operator_root.stat()
+    alias_root = tmp_path / "call-owned"
+    if nested:
+        alias_root.mkdir()
+        diagnostic_parent = alias_root / "nested"
+    else:
+        diagnostic_parent = alias_root
+    diagnostic_parent.symlink_to(operator_root, target_is_directory=True)
+    diagnostic = diagnostic_parent / "install-diagnostic.json"
+    runner = InstallGateRunner(proof.CommandResult(9, b"out", b"err"))
+
+    with pytest.raises(proof.DirectAudioDeploymentProofError, match="^install_failed$"):
+        proof._run_install_gate(  # pyright: ignore[reportPrivateUsage]
+            runner,
+            proof.CommandCall("pip-install-3.12", ("not-executed",), {}, tmp_path),
+            diagnostic,
+        )
+
+    target_after = operator_root.stat()
+    assert operator_state.read_bytes() == b"preserve-operator-state"
+    assert not (operator_root / diagnostic.name).exists()
+    assert (
+        target_after.st_dev,
+        target_after.st_ino,
+        target_after.st_mode,
+        target_after.st_mtime_ns,
+        target_after.st_ctime_ns,
+    ) == (
+        target_before.st_dev,
+        target_before.st_ino,
+        target_before.st_mode,
+        target_before.st_mtime_ns,
+        target_before.st_ctime_ns,
+    )
+
+
+def test_install_diagnostic_rejects_parent_traversal_before_creation(
+    tmp_path: Path,
+) -> None:
+    traversal_parent = tmp_path / "traversal"
+    traversal_parent.mkdir()
+    diagnostic = traversal_parent / ".." / "install-diagnostic.json"
+    runner = InstallGateRunner(proof.CommandResult(9, b"out", b"err"))
+
+    with pytest.raises(proof.DirectAudioDeploymentProofError, match="^install_failed$"):
+        proof._run_install_gate(  # pyright: ignore[reportPrivateUsage]
+            runner,
+            proof.CommandCall("pip-check-3.12", ("not-executed",), {}, tmp_path),
+            diagnostic,
+        )
+
+    assert not (tmp_path / diagnostic.name).exists()
+
+
+@pytest.mark.parametrize("failing_close", ("file", "parent"))
+def test_install_diagnostic_maps_descriptor_close_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failing_close: str,
+) -> None:
+    diagnostic = tmp_path / "install-diagnostic.json"
+    real_close = os.close
+    closed: list[int] = []
+
+    def close_with_failure(descriptor: int) -> None:
+        closed.append(descriptor)
+        real_close(descriptor)
+        failure_index = 1 if failing_close == "file" else 2
+        if len(closed) == failure_index:
+            raise OSError("synthetic close failure")
+
+    monkeypatch.setattr(proof.os, "close", close_with_failure)
+
+    with pytest.raises(
+        proof.DirectAudioDeploymentProofError,
+        match="^install_diagnostic_write_failed$",
+    ):
+        proof._write_install_diagnostic(  # pyright: ignore[reportPrivateUsage]
+            diagnostic,
+            step="pip-check-3.13",
+            result=proof.CommandResult(17, b"out", b"err"),
+        )
+
+    assert len(closed) == 2
+    assert len(set(closed)) == 2
+
+
+def test_install_gate_keeps_public_code_when_descriptor_close_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    diagnostic = tmp_path / "install-diagnostic.json"
+    real_close = os.close
+    close_count = 0
+
+    def fail_first_close(descriptor: int) -> None:
+        nonlocal close_count
+        close_count += 1
+        real_close(descriptor)
+        if close_count == 1:
+            raise OSError("synthetic close failure")
+
+    monkeypatch.setattr(proof.os, "close", fail_first_close)
+
+    with pytest.raises(proof.DirectAudioDeploymentProofError, match="^install_failed$"):
+        proof._run_install_gate(  # pyright: ignore[reportPrivateUsage]
+            InstallGateRunner(proof.CommandResult(17, b"out", b"err")),
+            proof.CommandCall("pip-install-3.13", ("not-executed",), {}, tmp_path),
+            diagnostic,
+        )
+
+    assert close_count == 2
+
+
+def test_close_failure_cleanup_preserves_operator_replacement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    diagnostic = tmp_path / "install-diagnostic.json"
+    real_close = os.close
+    closed: list[int] = []
+
+    def replace_then_fail_close(descriptor: int) -> None:
+        closed.append(descriptor)
+        if len(closed) == 1:
+            diagnostic.unlink()
+            diagnostic.write_bytes(b"operator-replacement")
+        real_close(descriptor)
+        if len(closed) == 1:
+            raise OSError("synthetic close failure")
+
+    monkeypatch.setattr(proof.os, "close", replace_then_fail_close)
+
+    with pytest.raises(
+        proof.DirectAudioDeploymentProofError,
+        match="^install_diagnostic_write_failed$",
+    ):
+        proof._write_install_diagnostic(  # pyright: ignore[reportPrivateUsage]
+            diagnostic,
+            step="pip-install-3.12",
+            result=proof.CommandResult(17, b"out", b"err"),
+        )
+
+    assert diagnostic.read_bytes() == b"operator-replacement"
+    assert len(closed) == 2
+    assert len(set(closed)) == 2
+
+
+def test_install_diagnostic_write_failure_preserves_public_classification(
+    tmp_path: Path,
+) -> None:
+    runner = InstallGateRunner(proof.CommandResult(7, b"out", b"err"))
+    diagnostic = tmp_path / "missing" / "install-diagnostic.json"
+
+    with pytest.raises(proof.DirectAudioDeploymentProofError, match="^install_failed$"):
+        proof._run_install_gate(  # pyright: ignore[reportPrivateUsage]
+            runner,
+            proof.CommandCall("pip-check-3.13", ("not-executed",), {}, tmp_path),
+            diagnostic,
+        )
+
+    assert not diagnostic.exists()
+
+
+def test_unrelated_failure_does_not_create_install_diagnostic(tmp_path: Path) -> None:
+    diagnostic = tmp_path / "install-diagnostic.json"
+    config = replace(_config(tmp_path), install_diagnostic=diagnostic)
+
+    class EnsurePipFailure(FakeRunner):
+        def run(self, call: proof.CommandCall) -> proof.CommandResult:
+            if call.step == "ensurepip-3.12":
+                return proof.CommandResult(4, b"out", b"err")
+            return super().run(call)
+
+    with pytest.raises(
+        proof.DirectAudioDeploymentProofError,
+        match="^environment_create_failed$",
+    ):
+        proof._run_direct_audio_deployment_proof(  # pyright: ignore[reportPrivateUsage]
+            config,
+            _manifest(config),
+            EnsurePipFailure(),
+        )
+
+    assert not diagnostic.exists()
+
+
+def test_cli_install_diagnostic_keeps_public_failure_aggregate_exact(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config = _config(tmp_path)
+    diagnostic = tmp_path / "install-diagnostic.json"
+
+    def fail(value: proof.DirectAudioProofConfig) -> dict[str, object]:
+        assert value.install_diagnostic == diagnostic
+        raise proof.DirectAudioDeploymentProofError("install_failed")
+
+    monkeypatch.setattr(proof, "run_direct_audio_deployment_proof", fail)
+
+    assert proof.main(
+        [
+            *_cli_args(config),
+            "--install-diagnostic",
+            str(diagnostic),
+            "--json",
+        ]
+    ) == 1
+    assert json.loads(capsys.readouterr().out) == {
+        "schema_version": "mke.direct_audio_deployment_proof.v1",
+        "status": "failed",
+        "canonical": False,
+        "failure": "install_failed",
+    }
 
 
 def test_authorization_only_cli_never_starts_terminal_product_path(
