@@ -801,6 +801,74 @@ def _wheel_compatible(entry: WheelEntry, cell: Cell) -> bool:
     return _wheel_python_abi_compatible(entry, cell) and platform_ok
 
 
+def _wheel_preference(entry: WheelEntry, cell: Cell) -> tuple[int, int] | None:
+    """Return a closed deterministic tag rank for one supported target cell."""
+    if not _wheel_compatible(entry, cell):
+        return None
+    compact = int(cell.python_tag.removeprefix("cp"))
+    if cell.python_tag in entry.python_tags and cell.python_tag in entry.abi_tags:
+        python_rank = 0
+    elif cell.python_tag in entry.python_tags and "abi3" in entry.abi_tags:
+        python_rank = 1
+    elif "abi3" in entry.abi_tags:
+        compatible = [
+            int(tag.removeprefix("cp"))
+            for tag in entry.python_tags
+            if tag.startswith("cp")
+            and tag.removeprefix("cp").isdigit()
+            and int(tag.removeprefix("cp")) <= compact
+        ]
+        if not compatible:
+            raise ReceiptError("wheel_tag_authority_invalid")
+        python_rank = 10 + compact - max(compatible)
+    elif "py3" in entry.python_tags and "none" in entry.abi_tags:
+        python_rank = 100
+    else:
+        raise ReceiptError("wheel_tag_authority_invalid")
+
+    if cell.platform_tag in entry.platform_tags:
+        platform_rank = 0
+    elif "any" in entry.platform_tags:
+        platform_rank = 1000
+    else:
+        cell_match = re.fullmatch(r"macosx_(\d+)_(\d+)_arm64", cell.platform_tag)
+        compatible_platforms: list[tuple[int, int]] = []
+        if cell_match is None:
+            raise ReceiptError("wheel_tag_authority_invalid")
+        cell_version = (int(cell_match[1]), int(cell_match[2]))
+        for tag in entry.platform_tags:
+            match = re.fullmatch(r"macosx_(\d+)_(\d+)_(arm64|universal2)", tag)
+            if match is not None:
+                version = (int(match[1]), int(match[2]))
+                if version <= cell_version:
+                    distance = (cell_version[0] - version[0]) * 100 + (
+                        cell_version[1] - version[1]
+                    )
+                    compatible_platforms.append(
+                        (distance, 1 if match[3] == "universal2" else 0)
+                    )
+        if not compatible_platforms:
+            raise ReceiptError("wheel_tag_authority_invalid")
+        distance, universal = min(compatible_platforms)
+        platform_rank = 1 + distance * 2 + universal
+    return python_rank, platform_rank
+
+
+def _preferred_wheel(candidates: list[WheelEntry], cell: Cell) -> WheelEntry:
+    ranked = [
+        (rank, entry)
+        for entry in candidates
+        if (rank := _wheel_preference(entry, cell)) is not None
+    ]
+    if not ranked:
+        raise ReceiptError("lock_projection_invalid")
+    best_rank = min(rank for rank, _ in ranked)
+    best = [entry for rank, entry in ranked if rank == best_rank]
+    if len(best) != 1:
+        raise ReceiptError("lock_projection_invalid")
+    return best[0]
+
+
 def _platform_tag_compatible(wheel_tag: str, cell_tag: str) -> bool:
     if wheel_tag == cell_tag:
         return True
@@ -965,28 +1033,43 @@ def _derive_transcription_projection(lock_value: bytes, cells: tuple[Cell, ...])
     roots_value = cast(dict[str, object], optional_value).get("transcription")
     if not isinstance(roots_value, list) or not roots_value:
         raise ReceiptError("lock_projection_invalid")
+    core_value = project.get("dependencies", [])
+    if not isinstance(core_value, list):
+        raise ReceiptError("lock_projection_invalid")
     roots: list[dict[str, object]] = []
-    for root_value in cast(list[object], roots_value):
+    for root_value in [*cast(list[object], core_value), *cast(list[object], roots_value)]:
         if not isinstance(root_value, dict):
             raise ReceiptError("lock_projection_invalid")
         root = cast(dict[str, object], root_value)
         name = root.get("name")
-        if not isinstance(name, str) or name not in by_name:
+        extras = root.get("extra", [])
+        extras_items = cast(list[object], extras) if isinstance(extras, list) else []
+        if (
+            not isinstance(name, str)
+            or name not in by_name
+            or not isinstance(extras, list)
+            or any(not isinstance(item, str) or not item for item in extras_items)
+        ):
             raise ReceiptError("lock_projection_invalid")
         roots.append(root)
     selected_by_cell: dict[str, set[str]] = {}
     for cell in cells:
-        root_names = {
-            cast(str, item.get("name"))
+        pending: list[tuple[str, tuple[str, ...]]] = [
+            (
+                cast(str, item.get("name")),
+                tuple(sorted(cast(list[str], item.get("extra", [])))),
+            )
             for item in roots
             if _marker_applies(item.get("marker"), (cell,))
-        }
-        pending = list(root_names)
+        ]
         selected: set[str] = set()
+        processed: set[tuple[str, tuple[str, ...]]] = set()
         while pending:
-            name = pending.pop()
-            if name in selected:
+            name, extras = pending.pop()
+            state = (name, extras)
+            if state in processed:
                 continue
+            processed.add(state)
             package = by_name.get(name)
             if package is None:
                 raise ReceiptError("lock_projection_invalid")
@@ -997,17 +1080,40 @@ def _derive_transcription_projection(lock_value: bytes, cells: tuple[Cell, ...])
                 raise ReceiptError("lock_projection_invalid")
             selected.add(name)
             dependencies_value = package.get("dependencies", [])
-            if not isinstance(dependencies_value, list):
+            optional_dependencies = package.get("optional-dependencies", {})
+            if not isinstance(dependencies_value, list) or not isinstance(
+                optional_dependencies, dict
+            ):
                 raise ReceiptError("lock_projection_invalid")
-            for dependency_value in cast(list[object], dependencies_value):
+            dependencies = list(cast(list[object], dependencies_value))
+            for extra in extras:
+                if not extra:
+                    raise ReceiptError("lock_projection_invalid")
+                extra_dependencies = cast(dict[str, object], optional_dependencies).get(extra)
+                if not isinstance(extra_dependencies, list):
+                    raise ReceiptError("lock_projection_invalid")
+                dependencies.extend(cast(list[object], extra_dependencies))
+            for dependency_value in dependencies:
                 if not isinstance(dependency_value, dict):
                     raise ReceiptError("lock_projection_invalid")
                 dependency = cast(dict[str, object], dependency_value)
                 dependency_name = dependency.get("name")
                 if not isinstance(dependency_name, str) or dependency_name not in by_name:
                     raise ReceiptError("lock_projection_invalid")
+                dependency_extras = dependency.get("extra", [])
+                dependency_extra_items = (
+                    cast(list[object], dependency_extras)
+                    if isinstance(dependency_extras, list)
+                    else []
+                )
+                if not isinstance(dependency_extras, list) or any(
+                    not isinstance(item, str) or not item for item in dependency_extra_items
+                ):
+                    raise ReceiptError("lock_projection_invalid")
                 if _marker_applies(dependency.get("marker"), (cell,)):
-                    pending.append(dependency_name)
+                    pending.append(
+                        (dependency_name, tuple(sorted(cast(list[str], dependency_extras))))
+                    )
         selected_by_cell[cell.version] = selected
     selected_union: set[str] = set()
     for selected in selected_by_cell.values():
@@ -1030,7 +1136,7 @@ def _derive_transcription_projection(lock_value: bytes, cells: tuple[Cell, ...])
         ):
             raise ReceiptError("lock_projection_invalid")
         wheels = cast(list[object], wheels_value)
-        hashes: set[str] = set()
+        candidates: list[WheelEntry] = []
         for wheel_value in wheels:
             if not isinstance(wheel_value, dict):
                 raise ReceiptError("lock_projection_invalid")
@@ -1070,8 +1176,13 @@ def _derive_transcription_projection(lock_value: bytes, cells: tuple[Cell, ...])
             if parsed_wheel[0] != _normal_name(name) or parsed_wheel[1] != version:
                 raise ReceiptError("lock_projection_invalid")
             locked_filenames.add(filename)
-            locked_wheels.append(WheelEntry(filename, *parsed_wheel, size, digest))
-            hashes.add(digest)
+            candidates.append(WheelEntry(filename, *parsed_wheel, size, digest))
+        active_cells = [
+            cell for cell in cells if name in selected_by_cell[cell.version]
+        ]
+        selected_wheels = {_preferred_wheel(candidates, cell) for cell in active_cells}
+        locked_wheels.extend(selected_wheels)
+        hashes = {entry.sha256 for entry in selected_wheels}
         normal = _normal_name(name)
         requirement = Requirement(normal, version)
         requirements.append(requirement)
@@ -1080,13 +1191,20 @@ def _derive_transcription_projection(lock_value: bytes, cells: tuple[Cell, ...])
             f"--hash=sha256:{digest}" for digest in sorted(hashes)
         )
         lines_by_name[name] = line
-    lines = [lines_by_name[name] for name in sorted(selected_union)]
-    root_lines = [lines_by_name[name] for name in sorted(selected_union)]
-    root_encoded = ("\n".join(sorted(root_lines)) + "\n").encode("ascii")
+    canonical_names = sorted(selected_union, key=lambda name: lines_by_name[name])
+    requirements = [requirement_by_name[name] for name in canonical_names]
+    lines = [lines_by_name[name] for name in canonical_names]
+    root_encoded = ("\n".join(lines) + "\n").encode("ascii")
     requirements_by_cell = tuple(
         (
             cell.version,
-            tuple(requirement_by_name[name] for name in sorted(selected_by_cell[cell.version])),
+            tuple(
+                requirement_by_name[name]
+                for name in sorted(
+                    selected_by_cell[cell.version],
+                    key=lambda name: lines_by_name[name].split(" ", 1)[0],
+                )
+            ),
         )
         for cell in cells
     )
@@ -1100,7 +1218,13 @@ def _derive_transcription_projection(lock_value: bytes, cells: tuple[Cell, ...])
         (
             cell.version,
             (
-                "\n".join(lines_by_name[name] for name in sorted(selected_by_cell[cell.version]))
+                "\n".join(
+                    lines_by_name[name]
+                    for name in sorted(
+                        selected_by_cell[cell.version],
+                        key=lambda name: lines_by_name[name],
+                    )
+                )
                 + "\n"
             ).encode("ascii"),
         )

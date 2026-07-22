@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import base64
 import csv
+import email.parser
 import hashlib
 import io
 import json
@@ -420,7 +421,22 @@ def _read_regular(path: Path) -> bytes:
         raise DirectAudioDeploymentProofError("input_authority_invalid") from error
 
 
-def _wheel_metadata(value: bytes) -> tuple[str, str]:
+def _candidate_requirement(value: str) -> tuple[str, str, str | None]:
+    match = re.fullmatch(
+        r"([A-Za-z0-9][A-Za-z0-9._-]*)(?:\[([A-Za-z0-9._,-]+)\])?"
+        r"((?:(?:==|!=|<=|>=|<|>)[0-9]+(?:\.[0-9]+)*(?:,(?:==|!=|<=|>=|<|>)"
+        r"[0-9]+(?:\.[0-9]+)*)*)?)(?:;\s*(.+))?",
+        value,
+    )
+    if match is None or match[2] is not None:
+        raise DirectAudioDeploymentProofError("candidate_artifact_invalid")
+    marker = match[4]
+    if marker not in {None, "extra == 'embedding'", "extra == 'transcription'"}:
+        raise DirectAudioDeploymentProofError("candidate_artifact_invalid")
+    return dependency_authority._normal_name(match[1]), match[3], marker  # pyright: ignore[reportPrivateUsage]
+
+
+def _wheel_metadata(value: bytes) -> tuple[str, str, tuple[tuple[str, str], ...]]:
     try:
         with zipfile.ZipFile(io.BytesIO(value)) as archive:
             metadata_names = [
@@ -431,15 +447,53 @@ def _wheel_metadata(value: bytes) -> tuple[str, str]:
             metadata = archive.read(metadata_names[0]).decode("utf-8", errors="strict")
     except (OSError, UnicodeError, zipfile.BadZipFile, KeyError) as error:
         raise DirectAudioDeploymentProofError("candidate_artifact_invalid") from error
-    fields: dict[str, str] = {}
-    for line in metadata.splitlines():
-        if ": " in line:
-            key, item = line.split(": ", 1)
-            if key in {"Name", "Version"}:
-                fields[key] = item
-    if fields.get("Name") != "multimodal-knowledge-engine" or not fields.get("Version"):
+    message = email.parser.Parser().parsestr(metadata)
+    names = cast(list[str], message.get_all("Name", []))
+    versions = cast(list[str], message.get_all("Version", []))
+    extras = cast(list[str], message.get_all("Provides-Extra", []))
+    raw_requirements = cast(list[str], message.get_all("Requires-Dist", []))
+    if (
+        names != ["multimodal-knowledge-engine"]
+        or len(versions) != 1
+        or re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", versions[0]) is None
+        or sorted(extras) != ["embedding", "transcription"]
+        or not raw_requirements
+    ):
         raise DirectAudioDeploymentProofError("candidate_artifact_invalid")
-    return fields["Name"], fields["Version"]
+    parsed = [_candidate_requirement(item) for item in raw_requirements]
+    active = sorted(
+        (name, specifier)
+        for name, specifier, marker in parsed
+        if marker in {None, "extra == 'transcription'"}
+    )
+    if not active or len(active) != len(set(active)):
+        raise DirectAudioDeploymentProofError("candidate_artifact_invalid")
+    return names[0], versions[0], tuple(active)
+
+
+def _version_satisfies(version: str, specifier: str) -> bool:
+    if re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", version) is None or not specifier:
+        return False
+    observed = tuple(int(item) for item in version.split("."))
+    for clause in specifier.split(","):
+        match = re.fullmatch(r"(==|!=|<=|>=|<|>)([0-9]+(?:\.[0-9]+)*)", clause)
+        if match is None:
+            return False
+        expected = tuple(int(item) for item in match[2].split("."))
+        width = max(len(observed), len(expected))
+        left = observed + (0,) * (width - len(observed))
+        right = expected + (0,) * (width - len(expected))
+        comparisons = {
+            "==": left == right,
+            "!=": left != right,
+            "<=": left <= right,
+            ">=": left >= right,
+            "<": left < right,
+            ">": left > right,
+        }
+        if not comparisons[match[1]]:
+            return False
+    return True
 
 
 def _receipt_payload(path: Path) -> tuple[dict[str, object], bytes]:
@@ -501,7 +555,7 @@ def _receipt_cell_digest(payload: Mapping[str, object], field: str) -> str:
         raise DirectAudioDeploymentProofError("dependency_authority_invalid")
     values: set[str] = set()
     names: set[str] = set()
-    for raw in raw_cells:
+    for raw in cast(list[object], raw_cells):
         if not isinstance(raw, dict):
             raise DirectAudioDeploymentProofError("dependency_authority_invalid")
         cell = cast(dict[str, object], raw)
@@ -655,7 +709,9 @@ def _interpreter_manifest(
 
 
 def _package_sets(
-    payload: Mapping[str, object], candidate_version: str
+    payload: Mapping[str, object],
+    candidate_version: str,
+    candidate_requirements: tuple[tuple[str, str], ...],
 ) -> tuple[tuple[str, tuple[tuple[str, str], ...]], ...]:
     raw_cells = payload.get("cells")
     if not isinstance(raw_cells, list):
@@ -670,14 +726,30 @@ def _package_sets(
         if not isinstance(name, str) or not isinstance(raw_distributions, list):
             raise DirectAudioDeploymentProofError("dependency_authority_invalid")
         distributions: list[tuple[str, str]] = []
-        for item in raw_distributions:
+        for item in cast(list[object], raw_distributions):
             if not isinstance(item, dict):
                 raise DirectAudioDeploymentProofError("dependency_authority_invalid")
             distribution = item.get("distribution")
             version = item.get("version")
-            if not isinstance(distribution, str) or not isinstance(version, str):
+            filename = item.get("source_wheel_filename")
+            digest = item.get("source_wheel_sha256")
+            if (
+                not isinstance(distribution, str)
+                or not isinstance(version, str)
+                or not isinstance(filename, str)
+                or not filename.endswith(".whl")
+                or not isinstance(digest, str)
+                or _DIGEST_RE.fullmatch(digest) is None
+            ):
                 raise DirectAudioDeploymentProofError("dependency_authority_invalid")
             distributions.append((distribution, version))
+        authority = dict(distributions)
+        if len(authority) != len(distributions) or any(
+            (locked := authority.get(requirement)) is None
+            or not _version_satisfies(locked, specifier)
+            for requirement, specifier in candidate_requirements
+        ):
+            raise DirectAudioDeploymentProofError("dependency_authority_invalid")
         distributions.append(("multimodal-knowledge-engine", candidate_version))
         ordered = tuple(sorted(distributions))
         if len(set(ordered)) != len(ordered):
@@ -736,7 +808,7 @@ def _validate_inputs(config: DirectAudioProofConfig) -> AuthorizationManifest:
     if not stat.S_ISREG(sandbox_stat.st_mode) or not os.access(sandbox, os.X_OK):
         raise DirectAudioDeploymentProofError("network_boundary_failed")
     wheel = _read_regular(config.mke_wheel)
-    _, candidate_version = _wheel_metadata(wheel)
+    _, candidate_version, candidate_requirements = _wheel_metadata(wheel)
     payload, receipt_bytes = _receipt_payload(config.dependency_receipt)
     constraints = _read_regular(config.constraints)
     constraints_sha = _sha256(constraints)
@@ -750,21 +822,22 @@ def _validate_inputs(config: DirectAudioProofConfig) -> AuthorizationManifest:
     wheelhouse_sha = _sha256(_canonical(list(observed_wheels)))
     if wheelhouse_sha != _receipt_cell_digest(payload, "wheelhouse_manifest_sha256"):
         raise DirectAudioDeploymentProofError("dependency_authority_invalid")
+    package_sets = _package_sets(payload, candidate_version, candidate_requirements)
     model_files = _tree_manifest(
         _model_snapshot_root(config.model_root),
         authority_root=config.model_root,
     )
     fixtures = _fixture_manifest(config.fixture_root, payload)
     interpreters = _interpreter_manifest(config, payload)
-    package_sets = _package_sets(payload, candidate_version)
     consumer_path = Path(__file__).resolve().parent / "compiled_library_export_consumer_v2.py"
     consumer_sha = _sha256(_read_regular(consumer_path))
+    model_tree_sha = _sha256(_canonical(model_files))
     retained = {
         "mke_wheel": _sha256(wheel),
         "dependency_receipt": _sha256(receipt_bytes),
         "constraints": constraints_sha,
         "wheelhouse": wheelhouse_sha,
-        "model_tree": _sha256(_canonical(model_files)),
+        "model_tree": model_tree_sha,
         "fixtures": fixtures,
         "interpreters": interpreters,
         "package_sets": package_sets,
@@ -802,7 +875,7 @@ def _validate_inputs(config: DirectAudioProofConfig) -> AuthorizationManifest:
         package_sets=package_sets,
         model_identifier=_MODEL_IDENTIFIER,
         model_revision=DEFAULT_MODEL_REVISION,
-        model_tree_sha256=retained["model_tree"],
+        model_tree_sha256=model_tree_sha,
         model_files=model_files,
         consumer_sha256=consumer_sha,
         fixtures=fixtures,

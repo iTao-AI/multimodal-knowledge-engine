@@ -81,6 +81,138 @@ def _write_single_package_lock(
     return lock, constraints
 
 
+def test_projection_includes_candidate_core_and_requested_dependency_extras(
+    tmp_path: Path,
+) -> None:
+    receipt = _module()
+    lock = tmp_path / "uv.lock"
+    digest = "a" * 64
+    lock.write_text(
+        "version = 1\n"
+        'requires-python = ">=3.12, <3.14"\n'
+        "[[package]]\n"
+        'name = "cryptography"\n'
+        'version = "49.0.0"\n'
+        'source = { registry = "https://pypi.org/simple" }\n'
+        'wheels = [{ url = "https://files.pythonhosted.org/cryptography-49.0.0-'
+        'cp311-abi3-macosx_11_0_arm64.whl", hash = "sha256:'
+        f'{digest}", size = 1 }}]\n'
+        "[[package]]\n"
+        'name = "demo"\n'
+        'version = "1.0"\n'
+        'source = { registry = "https://pypi.org/simple" }\n'
+        'wheels = [{ url = "https://files.pythonhosted.org/demo-1.0-py3-none-any.whl", '
+        f'hash = "sha256:{digest}", size = 1 }}]\n'
+        "[[package]]\n"
+        'name = "mcp"\n'
+        'version = "1.0"\n'
+        'source = { registry = "https://pypi.org/simple" }\n'
+        'dependencies = [{ name = "pyjwt", extra = ["crypto"] }]\n'
+        'wheels = [{ url = "https://files.pythonhosted.org/mcp-1.0-py3-none-any.whl", '
+        f'hash = "sha256:{digest}", size = 1 }}]\n'
+        "[[package]]\n"
+        'name = "multimodal-knowledge-engine"\n'
+        'version = "0.1.3"\n'
+        'source = { editable = "." }\n'
+        'dependencies = [{ name = "mcp" }]\n'
+        "[package.optional-dependencies]\n"
+        'transcription = [{ name = "demo" }]\n'
+        "[[package]]\n"
+        'name = "pyjwt"\n'
+        'version = "2.0"\n'
+        'source = { registry = "https://pypi.org/simple" }\n'
+        'wheels = [{ url = "https://files.pythonhosted.org/pyjwt-2.0-py3-none-any.whl", '
+        f'hash = "sha256:{digest}", size = 1 }}]\n'
+        "[package.optional-dependencies]\n"
+        'crypto = [{ name = "cryptography" }]\n',
+        encoding="utf-8",
+    )
+
+    projection = receipt.derive_transcription_projection(lock, _cells())
+
+    assert {item.name for item in projection.requirements} == {
+        "cryptography",
+        "demo",
+        "mcp",
+        "pyjwt",
+    }
+
+
+def test_projection_selects_one_highest_priority_abi3_wheel_per_cell(
+    tmp_path: Path,
+) -> None:
+    receipt = _module()
+    lock = tmp_path / "uv.lock"
+    lock.write_text(
+        "version = 1\n"
+        'requires-python = ">=3.12, <3.14"\n'
+        "[[package]]\n"
+        'name = "cryptography"\n'
+        'version = "49.0.0"\n'
+        'source = { registry = "https://pypi.org/simple" }\n'
+        "wheels = [\n"
+        '  { url = "https://files.pythonhosted.org/cryptography-49.0.0-'
+        'cp311-abi3-macosx_11_0_arm64.whl", hash = "sha256:'
+        + "a" * 64
+        + '", size = 11 },\n'
+        '  { url = "https://files.pythonhosted.org/cryptography-49.0.0-'
+        'cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:'
+        + "b" * 64
+        + '", size = 9 },\n'
+        "]\n"
+        "[[package]]\n"
+        'name = "multimodal-knowledge-engine"\n'
+        'version = "0.1.3"\n'
+        'source = { editable = "." }\n'
+        "[package.optional-dependencies]\n"
+        'transcription = [{ name = "cryptography" }]\n',
+        encoding="utf-8",
+    )
+
+    projection = receipt.derive_transcription_projection(lock, _cells())
+
+    assert [item.filename for item in projection.locked_wheels] == [
+        "cryptography-49.0.0-cp311-abi3-macosx_11_0_arm64.whl"
+    ]
+
+
+def test_projection_renders_prefix_distribution_names_in_canonical_line_order(
+    tmp_path: Path,
+) -> None:
+    receipt = _module()
+    lock = tmp_path / "uv.lock"
+    digest = "a" * 64
+    lock.write_text(
+        "version = 1\n"
+        'requires-python = ">=3.12, <3.14"\n'
+        "[[package]]\n"
+        'name = "httpx"\nversion = "1.0"\n'
+        'source = { registry = "https://pypi.org/simple" }\n'
+        'wheels = [{ url = "https://example.invalid/httpx-1.0-py3-none-any.whl", '
+        f'hash = "sha256:{digest}", size = 1 }}]\n'
+        "[[package]]\n"
+        'name = "httpx-sse"\nversion = "1.0"\n'
+        'source = { registry = "https://pypi.org/simple" }\n'
+        'wheels = [{ url = "https://example.invalid/httpx_sse-1.0-py3-none-any.whl", '
+        f'hash = "sha256:{digest}", size = 1 }}]\n'
+        "[[package]]\n"
+        'name = "multimodal-knowledge-engine"\nversion = "0.1.3"\n'
+        'source = { editable = "." }\n'
+        'dependencies = [{ name = "httpx" }]\n'
+        "[package.optional-dependencies]\n"
+        'transcription = [{ name = "httpx-sse" }]\n',
+        encoding="utf-8",
+    )
+
+    projection = receipt.derive_transcription_projection(lock, _cells())
+
+    parsed, _, by_cell = receipt._parse_constraints(  # pyright: ignore[reportPrivateUsage]
+        projection.constraints
+    )
+    assert parsed == projection.requirements
+    assert by_cell == projection.requirements_by_cell
+
+
 def _copy_audio_fixture_root(tmp_path: Path) -> Path:
     source = Path(__file__).parents[1] / "fixtures" / "audio"
     target = tmp_path / "audio-fixtures"

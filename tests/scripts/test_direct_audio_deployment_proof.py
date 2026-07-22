@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import inspect
+import io
 import json
 import os
 import subprocess
 import sys
+import zipfile
 from dataclasses import replace
 from pathlib import Path
 from typing import cast
@@ -147,6 +149,120 @@ def _manifest(config: proof.DirectAudioProofConfig) -> proof.AuthorizationManife
         direct_audio_footprint_bytes=4096,
         direct_audio_footprint_budget_mode="baseline_plus",
     )
+
+
+def test_package_sets_reject_old_receipt_without_candidate_wheel_identity() -> None:
+    payload = {
+        "cells": [
+            {
+                "cell": cell,
+                "installed_distributions": [
+                    {
+                        "distribution": "faster-whisper",
+                        "version": "1.2.1",
+                        "source_wheel_filename": "faster_whisper-1.2.1-py3-none-any.whl",
+                        "source_wheel_sha256": "a" * 64,
+                    }
+                ],
+            }
+            for cell in ("3.12", "3.13")
+        ]
+    }
+
+    with pytest.raises(
+        proof.DirectAudioDeploymentProofError,
+        match="dependency_authority_invalid",
+    ):
+        proof._package_sets(  # pyright: ignore[reportPrivateUsage]
+            payload,
+            "0.1.3",
+            (("mcp", ">=1,<2"),),
+        )
+
+
+def _candidate_wheel(metadata: str) -> bytes:
+    output = io.BytesIO()
+    with zipfile.ZipFile(output, "w") as archive:
+        archive.writestr(
+            "multimodal_knowledge_engine-0.1.3.dist-info/METADATA",
+            metadata,
+        )
+    return output.getvalue()
+
+
+def test_candidate_metadata_closes_core_and_transcription_requirements() -> None:
+    value = _candidate_wheel(
+        "Metadata-Version: 2.4\n"
+        "Name: multimodal-knowledge-engine\n"
+        "Version: 0.1.3\n"
+        "Requires-Dist: mcp<2,>=1.28.1\n"
+        "Provides-Extra: embedding\n"
+        "Requires-Dist: ignored==1; extra == 'embedding'\n"
+        "Provides-Extra: transcription\n"
+        "Requires-Dist: av<18,>=11; extra == 'transcription'\n"
+    )
+
+    assert proof._wheel_metadata(value) == (  # pyright: ignore[reportPrivateUsage]
+        "multimodal-knowledge-engine",
+        "0.1.3",
+        (("av", "<18,>=11"), ("mcp", "<2,>=1.28.1")),
+    )
+
+
+@pytest.mark.parametrize(
+    "requires_dist",
+    (
+        "mcp>=1; python_version >= '3.12'",
+        "mcp[cli]>=1",
+        "mcp>=candidate",
+    ),
+)
+def test_candidate_metadata_rejects_unclosed_requirement_authority(
+    requires_dist: str,
+) -> None:
+    value = _candidate_wheel(
+        "Metadata-Version: 2.4\n"
+        "Name: multimodal-knowledge-engine\n"
+        "Version: 0.1.3\n"
+        f"Requires-Dist: {requires_dist}\n"
+        "Provides-Extra: embedding\n"
+        "Provides-Extra: transcription\n"
+    )
+
+    with pytest.raises(
+        proof.DirectAudioDeploymentProofError,
+        match="^candidate_artifact_invalid$",
+    ):
+        proof._wheel_metadata(value)  # pyright: ignore[reportPrivateUsage]
+
+
+def test_package_sets_reject_candidate_direct_version_drift() -> None:
+    payload = {
+        "cells": [
+            {
+                "cell": cell,
+                "installed_distributions": [
+                    {
+                        "distribution": "mcp",
+                        "version": "1.27.0",
+                        "source_wheel_filename": "mcp-1.27.0-py3-none-any.whl",
+                        "source_wheel_sha256": "a" * 64,
+                    }
+                ],
+            }
+            for cell in ("3.12", "3.13")
+        ]
+    }
+
+    with pytest.raises(
+        proof.DirectAudioDeploymentProofError,
+        match="^dependency_authority_invalid$",
+    ):
+        proof._package_sets(  # pyright: ignore[reportPrivateUsage]
+            payload,
+            "0.1.3",
+            (("mcp", ">=1.28.1,<2"),),
+        )
 
 
 class FakeRunner:
