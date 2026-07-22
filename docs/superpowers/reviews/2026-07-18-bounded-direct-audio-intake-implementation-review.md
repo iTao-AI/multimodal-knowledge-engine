@@ -1,9 +1,10 @@
 # Bounded Direct-Audio Intake Implementation Review
 
-Status: **PR C IMPLEMENTATION IN PROGRESS**
+Status: **CLEAN — TASK 10 STEP 6 ACCEPTED**
 
-This record captures the approved PR C entry-gate reconciliation before Task 5. It is not a final
-implementation acceptance, release claim, or deployment claim.
+This record captures the approved PR C entry-gate reconciliation and the returned implementation
+review result. The review acceptance clears only Task 10 Step 8 as the next gate; it is not a
+real-ASR, release, redistribution, production-readiness, or deployment claim.
 
 ## Frozen v1 Downstream Authority
 
@@ -147,3 +148,55 @@ Tasks 9 and 10 bind the configured pair in the terminal authorization manifest. 
 record configured bytes/mode, baseline, observed peak, effective budget, and overshoot only as
 fixed-fixture Darwin arm64 observations; it does not establish a production ceiling, SLA,
 recommendation, or cross-platform fact.
+
+## Final Implementation Review Result
+
+- Exact reviewed HEAD: `ecb9593fc0549caa1cebf90e677a4060602f2a10`.
+- Verdict: `CLEAN / Task 10 Step 6 ACCEPTED`.
+- All five returned findings are closed. No further whole-branch review is required before the
+  next planned gate.
+
+The closed findings are:
+
+1. Darwin MCP materialization now preserves canonical call-owned path authority through the real
+   MP3, WAV, and M4A lifecycle while retaining descriptor, no-follow, cleanup, and symlink-escape
+   protections.
+2. MCP cancellation and Publication commit use one atomic handshake, excluding the terminal state
+   `CancelledError` with a newly active Publication.
+3. The standalone v2 consumer accepts the producer's 64 MiB per-rendered-file authority while the
+   frozen v1 consumer bytes remain unchanged.
+4. The closed direct-audio proof reports `proof_mode="model_free"` and
+   `asr_execution="not_performed"`; terminal real-ASR authority remains separate.
+5. The presentation audit rejects affirmative terminal real-ASR completion and external
+   wheel/native-binary redistribution or bundling claims in the bounded English and Chinese forms.
+   The residual ordinary ran/executed and bundles/packages forms were closed by `ecb9593`; safe
+   negations remain accepted and cannot mask a later affirmative clause.
+
+The presentation audit remains a bounded public-claim guard, not a general natural-language
+classifier.
+
+## Verification Identity
+
+Independent targeted verification on the exact reviewed HEAD established:
+
+- exact residual repair scope: two files;
+- focused presentation and direct-audio documentation suite: `214 passed`;
+- live presentation audit: `status=ok, violations=[]`;
+- affirmative and safe-negation probe: `8/8 passed`;
+- incremental `git diff --check`: passed; and
+- tracked worktree: clean.
+
+Accepted execution evidence for the same reviewed HEAD is:
+
+- full pytest: `2984 passed, 14 skipped, 5 warnings`;
+- Ruff: passed;
+- Pyright: `0 errors, 0 warnings`;
+- canonical E1 through E3-E validators: `7/7 passed`; and
+- no evaluation identity refresh was required for `ecb9593`.
+
+## Next Gate And Non-Claims
+
+Task 10 Step 7 records this returned result. Step 8 is the next incomplete gate. This record does
+not claim that the final wheel was rebuilt, real ASR ran, external inputs were acquired, packages
+or native binaries may be redistributed, or any push, PR, merge, release, deployment, production
+readiness, accuracy, SLA, or cross-platform authority exists.

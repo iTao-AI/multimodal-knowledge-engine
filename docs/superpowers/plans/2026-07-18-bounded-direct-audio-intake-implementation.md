@@ -2024,6 +2024,8 @@ Do not commit model weights, caches, venvs, wheelhouses, candidate wheels, datab
 
 ### Task 10 (PR C): Document The Contract, Close Conditional Identity, And Run Final Gates
 
+Status: Steps 1-7 complete. Step 8 is the next authorized gate; Steps 8-10 remain incomplete.
+
 **Files:**
 - Create: `docs/decisions/0011-bounded-direct-audio-intake.md`
 - Create: `docs/how-to/use-direct-audio.md`
@@ -2172,7 +2174,7 @@ Before refresh, capture exact allowed paths and semantic projections. After refr
 If the transaction fails, run only its documented recovery command, verify no partial diff, and
 stop for authority review. Do not hand-edit generated evaluation artifacts.
 
-- [ ] **Step 6: Run the final actual-diff review and bounded fix loop**
+- [x] **Step 6: Run the final actual-diff review and bounded fix loop**
 
 Commit the implementation/docs candidate before whole-branch review, without yet creating the
 durable implementation-review record or claiming a final review verdict:
@@ -2222,7 +2224,7 @@ repository. Step 7 persists only that returned durable result. A substantive dis
 record or status restarts this review step; a mechanical public-neutral transcription receives one
 targeted read-back, not another full whole-branch review.
 
-- [ ] **Step 7: Persist and commit the returned durable review result**
+- [x] **Step 7: Persist and commit the returned durable review result**
 
 After a clean verdict, write the exact reviewed HEAD, verdict, verification identity, durable
 public-neutral findings, and final plan status to the implementation review record and plan. Then
