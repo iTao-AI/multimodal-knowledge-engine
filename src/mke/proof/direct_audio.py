@@ -184,6 +184,8 @@ class DirectAudioProofReport:
     markdown_format: Literal["mke.compiled_markdown.v2"]
     consumer_status: Literal["passed", "failed"]
     network_access: Literal["not_used"]
+    proof_mode: Literal["model_free"]
+    asr_execution: Literal["not_performed"]
     cleanup: bool
     failure_code: DirectAudioProofFailureCode | None = None
     next_step: DirectAudioProofNextStep | None = None
@@ -196,6 +198,8 @@ class DirectAudioProofReport:
             and self.export_schema == "mke.compiled_library_export.v2"
             and self.markdown_format == "mke.compiled_markdown.v2"
             and self.network_access == "not_used"
+            and self.proof_mode == "model_free"
+            and self.asr_execution == "not_performed"
             and type(self.published_run_count) is int
             and self.published_run_count >= 0
             and type(self.evidence_count) is int
@@ -946,6 +950,8 @@ def _execute_direct_audio_proof(
         "mke.compiled_markdown.v2",
         "passed",
         "not_used",
+        "model_free",
+        "not_performed",
         True,
     )
 
@@ -966,6 +972,8 @@ def _failed_report(
         "mke.compiled_markdown.v2",
         "failed",
         "not_used",
+        "model_free",
+        "not_performed",
         cleanup,
         code,
         DIRECT_AUDIO_PROOF_FAILURE_NEXT_STEPS[code],

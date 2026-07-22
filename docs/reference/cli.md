@@ -57,7 +57,8 @@ The accepted v0.1.4 candidate also exposes a deterministic model-free proof:
 UV_OFFLINE=1 uv run mke proof direct-audio --json
 ```
 
-Its closed schema is `mke.direct_audio_proof.v1`. It does not load a real model or authorize the
+Its closed schema is `mke.direct_audio_proof.v1` and records `proof_mode=model_free` plus
+`asr_execution=not_performed`. It does not load a real model or authorize the
 separate installed-wheel terminal proof.
 
 ## Compiled Library Export

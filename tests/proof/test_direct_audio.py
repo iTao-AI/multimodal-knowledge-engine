@@ -103,6 +103,8 @@ def test_direct_audio_proof_covers_all_formats_and_product_path(
     assert report.markdown_format == "mke.compiled_markdown.v2"
     assert report.consumer_status == "passed"
     assert report.network_access == "not_used"
+    assert report.proof_mode == "model_free"
+    assert report.asr_execution == "not_performed"
     assert report.cleanup is True
     assert provider.inspect_count == 3
     assert provider.transcribe_count == 3
@@ -123,6 +125,8 @@ def test_direct_audio_proof_covers_all_formats_and_product_path(
         "markdown_format",
         "consumer_status",
         "network_access",
+        "proof_mode",
+        "asr_execution",
         "cleanup",
     }
     assert "failure_code" not in payload and "next_step" not in payload
@@ -172,6 +176,8 @@ def test_report_rejects_unknown_status_and_non_boolean_contract_fields() -> None
         "markdown_format": "mke.compiled_markdown.v2",
         "consumer_status": "failed",
         "network_access": "not_used",
+        "proof_mode": "model_free",
+        "asr_execution": "not_performed",
         "cleanup": True,
         "failure_code": "consumer_failed",
         "next_step": "check_export_consumer",
@@ -181,6 +187,14 @@ def test_report_rejects_unknown_status_and_non_boolean_contract_fields() -> None
     with pytest.raises(ValueError):
         DirectAudioProofReport(
             **{**values, "timestamp_evidence": 0}  # type: ignore[arg-type]
+        )
+    with pytest.raises(ValueError):
+        DirectAudioProofReport(
+            **{**values, "proof_mode": "real_asr"}  # type: ignore[arg-type]
+        )
+    with pytest.raises(ValueError):
+        DirectAudioProofReport(
+            **{**values, "asr_execution": "performed"}  # type: ignore[arg-type]
         )
 
 
@@ -272,6 +286,8 @@ def test_direct_audio_proof_failure_codes_have_exact_next_steps_and_closed_paylo
         "markdown_format",
         "consumer_status",
         "network_access",
+        "proof_mode",
+        "asr_execution",
         "cleanup",
         "failure_code",
         "next_step",

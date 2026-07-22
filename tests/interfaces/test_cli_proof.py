@@ -61,6 +61,8 @@ def _direct_audio_report(status: Literal["passed", "failed"]) -> DirectAudioProo
         markdown_format="mke.compiled_markdown.v2",
         consumer_status="passed" if status == "passed" else "failed",
         network_access="not_used",
+        proof_mode="model_free",
+        asr_execution="not_performed",
         cleanup=True,
         failure_code=None if status == "passed" else "consumer_failed",
         next_step=None if status == "passed" else "check_export_consumer",
@@ -88,11 +90,32 @@ def test_cli_direct_audio_proof_is_one_closed_json_object(
     assert captured.err == ""
     assert payload["schema_version"] == "mke.direct_audio_proof.v1"
     assert payload["status"] == status
+    assert payload["proof_mode"] == "model_free"
+    assert payload["asr_execution"] == "not_performed"
     if status == "passed":
         assert "failure_code" not in payload and "next_step" not in payload
     else:
         assert payload["failure_code"] == "consumer_failed"
         assert payload["next_step"] == "check_export_consumer"
+
+
+def test_cli_direct_audio_human_output_identifies_model_free_boundary(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: CaptureFixture[str],
+) -> None:
+    def fake_run(**_kwargs: object) -> DirectAudioProofReport:
+        return _direct_audio_report("passed")
+
+    monkeypatch.setattr(
+        "mke.cli.run_direct_audio_proof",
+        fake_run,
+    )
+
+    assert main(["proof", "direct-audio"]) == 0
+
+    captured = capsys.readouterr()
+    assert "proof_mode=model_free" in captured.out
+    assert "asr_execution=not_performed" in captured.out
 
 
 def _transcription_report(

@@ -1121,10 +1121,17 @@ APPROVED_DIRECT_AUDIO_CLAIM = (
         "MKE provides cross-platform direct-audio coverage.",
         "MKE has official OpenAI direct-audio integration.",
         "MKE has official LLM Wiki direct-audio integration.",
+        "The terminal real ASR proof passed.",
+        "MKE verified real ASR in the terminal proof.",
+        "MKE redistributes external wheels and native binaries.",
+        "MKE redistributes external wheels/native binaries.",
         "MKE 支持任意音频编解码器。",
         "MKE 支持完整会议、访谈和讲座处理。",
         "MKE 会自动下载转写模型。",
         "Direct audio 支持所有平台。",
+        "终端真实 ASR 证明已通过。",
+        "MKE 已验证真实 ASR。",
+        "MKE 重新分发外部 wheels 和原生二进制文件。",
     ],
 )
 def test_audit_rejects_direct_audio_overclaims(tmp_path: Path, claim: str) -> None:
@@ -1156,6 +1163,33 @@ def test_audit_rejects_wrapped_direct_audio_overclaim_once(tmp_path: Path) -> No
 
 
 @pytest.mark.parametrize(
+    "wrapped_claim",
+    [
+        "The terminal real ASR proof\npassed and was verified.",
+        "MKE redistributes external wheels\nand native binaries.",
+        "终端真实 ASR 证明\n已通过并完成验证。",
+        "MKE 重新分发外部 wheels\n和原生二进制文件。",
+    ],
+)
+def test_audit_rejects_wrapped_audio_authority_overclaim_once(
+    tmp_path: Path, wrapped_claim: str
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "README.md"
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{wrapped_claim}\n",
+        encoding="utf-8",
+    )
+
+    violations = [
+        violation
+        for violation in audit_release_presentation(tmp_path)
+        if violation.rule == "direct_audio_overclaim"
+    ]
+    assert len(violations) == 1
+
+
+@pytest.mark.parametrize(
     "claim",
     [
         APPROVED_DIRECT_AUDIO_CLAIM,
@@ -1173,6 +1207,12 @@ def test_audit_rejects_wrapped_direct_audio_overclaim_once(tmp_path: Path) -> No
             "This candidate does not claim cross-platform support, transcript accuracy, an SLA, "
             "or production deployment."
         ),
+        "The terminal real ASR proof has not been performed.",
+        "MKE has not verified real ASR.",
+        "MKE does not redistribute external wheels or native binaries.",
+        "尚未运行终端真实 ASR 证明。",
+        "MKE 未验证真实 ASR。",
+        "MKE 不重新分发外部 wheels 或原生二进制文件。",
     ],
 )
 def test_audit_accepts_approved_or_negated_direct_audio_boundaries(
@@ -1187,6 +1227,31 @@ def test_audit_accepts_approved_or_negated_direct_audio_boundaries(
     )
 
     assert "direct_audio_overclaim" not in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        (
+            "MKE does not redistribute external wheels or native binaries and "
+            "MKE redistributes external wheels/native binaries."
+        ),
+        "MKE has not verified real ASR and MKE verified real ASR in the terminal proof.",
+        "MKE 不重新分发外部 wheels，但 MKE 重新分发外部 wheels 和原生二进制文件。",
+        "MKE 未验证真实 ASR，但 MKE 已验证真实 ASR。",
+    ],
+)
+def test_audio_authority_negation_does_not_mask_contradictory_overclaim(
+    tmp_path: Path, claim: str
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "README.md"
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{claim}\n",
+        encoding="utf-8",
+    )
+
+    assert "direct_audio_overclaim" in _rules(tmp_path)
 
 
 def test_audit_rejects_private_paths_gstack_artifacts_credentials_and_tracebacks(

@@ -1573,6 +1573,8 @@ def _proof_direct_audio(*, json_output: bool) -> int:
             f"published_run_count={report.published_run_count}",
             f"evidence_count={report.evidence_count}",
             f"consumer_status={report.consumer_status}",
+            f"proof_mode={report.proof_mode}",
+            f"asr_execution={report.asr_execution}",
             f"cleanup={'passed' if report.cleanup else 'failed'}",
         ]
         if report.failure_code is not None:

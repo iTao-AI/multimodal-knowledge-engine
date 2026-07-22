@@ -612,6 +612,36 @@ def _audit_compiled_library_claim_boundary(root: Path, files: Iterable[str]) -> 
 
 def _line_overclaims_direct_audio(line: str) -> bool:
     lowered = " ".join(line.casefold().split())
+    clauses = re.split(
+        r"(?:[;!?；！？。]+|\.\s+|,\s+but\s+|(?:，|,)\s*(?:但|但是)\s*|"
+        r"\s+(?:but|while|although|但|但是)\s+|"
+        r"\s+and\s+(?=(?:mke|direct[- ]audio|terminal|has|is|offers?|provides?|supports?|"
+        r"process(?:es|ing)?|downloads?|produces?|deploys?|verified|redistribut(?:e|es|ed|ing))\b|"
+        r"(?:终端|已验证|重新分发)))",
+        lowered,
+    )
+    authority_affirmatives = (
+        r"\bterminal\b.*\breal\s+asr\b.*\bproof\b.*\b(?:passed|verified|completed|successful)\b",
+        r"\b(?:verified|validated|proved)\b.*\breal\s+asr\b",
+        r"\bredistribut(?:e|es|ed|ing)\b.*\bexternal\b.*\b(?:wheels?|native binaries)\b",
+        r"终端.*真实\s*asr.*(?:证明|验证).*(?:已通过|通过|完成|已验证)",
+        r"已验证.*真实\s*asr",
+        r"重新分发.*外部.*(?:wheels?|原生二进制)",
+    )
+    authority_negations = (
+        r"\b(?:does not|do not)\s+(?:run|perform|verify|redistribute)\b",
+        r"\b(?:has|have|was|is)\s+not\s+(?:been\s+)?(?:run|performed|verified|redistributed)\b",
+        r"\bnot\s+(?:run|performed|verified|redistributed)\b",
+        r"(?:尚未|没有|未)(?:运行|执行|完成|验证|重新分发)",
+        r"不重新分发",
+    )
+    if any(
+        re.search(pattern, clause) is not None
+        and not any(re.search(marker, clause) for marker in authority_negations)
+        for clause in clauses
+        for pattern in authority_affirmatives
+    ):
+        return True
     bounded_adverb = r"(?:currently|automatically|implicitly|explicitly|yet)"
     negated_verb_prefix = rf"(?:does not|do not|not)(?:\s+{bounded_adverb})*\s+$"
     explicit_affirmatives = (
@@ -687,12 +717,6 @@ def _line_overclaims_direct_audio(line: str) -> bool:
         r"(?:direct[- ]audio|音频).*sla",
         r"(?:direct[- ]audio|音频).*(?:生产部署|部署到生产)",
         r"openai.*官方.*(?:集成|支持)",
-    )
-    clauses = re.split(
-        r"(?:[;!?；！？。]+|\.\s+|,\s+but\s+|\s+(?:but|while|although)\s+|"
-        r"\s+and\s+(?=(?:mke|direct[- ]audio|has|is|offers?|provides?|supports?|"
-        r"process(?:es|ing)?|downloads?|produces?|deploys?)\b))",
-        lowered,
     )
     return any(
         re.search(pattern, clause) is not None

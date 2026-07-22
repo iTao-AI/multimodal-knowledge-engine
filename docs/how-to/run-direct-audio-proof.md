@@ -8,9 +8,10 @@ Start with the offline deterministic proof:
 UV_OFFLINE=1 uv run mke proof direct-audio --json
 ```
 
-The closed result is `mke.direct_audio_proof.v1`. It uses a deterministic application-port
-provider, does not run ASR, does not load a model, and does not use the network. Passing this
-checkpoint proves product wiring only.
+The closed result is `mke.direct_audio_proof.v1`. Its machine-readable and human-readable output
+always records `proof_mode=model_free` and `asr_execution=not_performed`. It uses a deterministic
+application-port provider, does not run ASR, does not load a model, and does not use the network.
+Passing this checkpoint proves product wiring only.
 
 ## Installed-wheel authorization and terminal proof
 

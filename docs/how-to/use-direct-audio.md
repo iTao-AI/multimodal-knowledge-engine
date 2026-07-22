@@ -24,7 +24,8 @@ UV_OFFLINE=1 uv run mke proof direct-audio --json
 
 Checkpoint: model-free product wiring passed. This deterministic proof exercises inspection,
 Publication, Search/Ask, timestamp EvidenceRef, Export v2, and the independent consumer with a
-fake application-port provider. It does not establish real-ASR readiness.
+fake application-port provider. Its closed output records `proof_mode=model_free` and
+`asr_execution=not_performed`; it does not establish real-ASR readiness.
 
 ## 2. Prepare and check the owner
 
