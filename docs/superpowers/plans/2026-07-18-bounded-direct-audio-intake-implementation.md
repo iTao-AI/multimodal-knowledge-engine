@@ -2540,6 +2540,44 @@ deployment. All earlier Step 8 and Step 9 material remains historical evidence o
 historical real deployment-controller invocation count remains five and the retry count remains
 four; a sixth invocation did not occur.
 
+#### Circular Terminal Candidate Authority Repair — Targeted Authority Re-Review Pending
+
+The static receipt validator continues to prove its complete historical artifact, including one
+internally consistent candidate MKE wheel and the matching two-cell installed rows. The deployment
+controller had separately promoted that historical candidate's bytes, SHA-256, and root digest to
+the current terminal candidate authority. That coupling contradicted the approved split in which
+the receipt owns external dependency, constraint, platform, interpreter, supervisor, fixture, and
+external installed-distribution authority while Step 8 independently binds one fresh MKE wheel.
+It also required a circular receipt replay after ordinary source changes.
+
+Repair commit `0200089` keeps `validate_committed_receipt()` unchanged and separates the terminal
+candidate authority. The receipt still validates its own historical candidate and complete closed
+schema. The deployment controller then removes that historical candidate from the external
+projection, requires the remaining wheel and installed-distribution authority to remain exact,
+and independently validates the fresh candidate's distribution, version, filename tags, METADATA
+requirements, live lock projection, constraints, compatible two-cell root requirements, bytes,
+and SHA-256. The authorization manifest binds the fresh bytes and SHA-256. Staging and installed
+identity checks continue to bind that same fresh wheel. The serialized
+`mke.direct_audio_terminal_authorization.v1` schema is unchanged.
+
+Focused TDD recorded the two original circular comparisons failing before the repair and passing
+after it. A second RED set recorded seven missing structural-boundary cases before the shared
+candidate structure validator was added. Focused candidate authority tests reported `11 passed`;
+the complete deployment-proof and receipt-adjacency suites reported `329 passed, 5 warnings`.
+The committed candidate passed `3089 passed, 14 skipped, 5 warnings`, Ruff, Pyright with
+`0 errors, 0 warnings, 0 informations`, the offline build, `git diff --check`, and all seven
+canonical validators. No evaluation identity closure was required. Descriptor-bootstrap static
+receipt validation passed with payload SHA-256
+`3dca3bc7737728ef49376f11d40e9611cf62552147840a0026b7ded5218a681a` and unchanged file SHA-256
+`1fe3cd6fddd1bb07a949192c64fcf90ee2b9ac5fd22df1e8a334a5d446a611af`.
+
+This repair is `TARGETED AUTHORITY RE-REVIEW PENDING`. Steps 8-10 remain incomplete, and every
+earlier Step 8/Step 9 wheel, authorization, aggregate, diagnostic, and observation remains
+historical evidence only. The real deployment-controller invocation and retry counts remain
+five and four; a sixth invocation did not occur. No receipt replay, authorization-only execution,
+manual MCP replay, model load, ASR, provider or product-path execution, download, redistribution,
+production, accuracy, SLA, release, or deployment claim is made.
+
 - [ ] **Step 8: Build the final MKE wheel and bind the terminal proof inputs**
 
 After PR C implementation, documentation, plan/review status, and any conditional identity closure

@@ -1,12 +1,13 @@
 # Bounded Direct-Audio Intake Implementation Review
 
-Status: **CLEAN / ACCEPTED**
+Status: **TARGETED AUTHORITY RE-REVIEW PENDING**
 
 This record captures the approved PR C entry-gate reconciliation, the returned implementation
 review result, the accepted bounded install-projection repair, and the accepted MCP diagnostic
-authority repair. The earlier Task 10 Step 6 acceptance remains recorded. The latest targeted
-acceptance clears only the gate to begin a fresh Step 8; it does not complete Steps 8-10 or
-authorize real-ASR, release, redistribution, production-readiness, or deployment activity.
+authority repair. The earlier Task 10 Step 6 acceptance remains recorded. A later bounded repair
+that removes circular terminal-candidate authority is awaiting targeted actual-diff re-review. It
+does not complete Steps 8-10 or authorize real-ASR, release, redistribution,
+production-readiness, or deployment activity.
 
 ## Frozen v1 Downstream Authority
 
@@ -548,13 +549,57 @@ and retry count remains four; a sixth invocation did not occur. No manual MCP re
 ASR, provider or product execution, download, redistribution, production, accuracy, SLA, release,
 or deployment claim is made.
 
+## Circular Terminal Candidate Authority Repair — Targeted Authority Re-Review Pending
+
+The canonical receipt remains a closed historical artifact. Its static validator still requires
+one exact candidate MKE wheel, the matching installed rows for Python 3.12 and Python 3.13, and all
+existing internal cross-bindings. The deployment controller had additionally required the current
+terminal candidate to equal that historical candidate's bytes, SHA-256, and candidate-inclusive
+root digest. This created circular receipt replay authority after ordinary source changes even
+though the accepted plan assigns current wheel identity to Step 8 and assigns external
+dependency/license authority to the receipt.
+
+Repair commit `0200089` changes only:
+
+- `scripts/direct_audio_deployment_proof.py`; and
+- `tests/scripts/test_direct_audio_deployment_proof.py`.
+
+The repair preserves complete `validate_committed_receipt()` validation, the external 60-wheel
+inventory, constraints, two interpreter cells, supervisor and fixture authority, and exact
+external installed-distribution rows. It independently validates the fresh candidate's
+distribution, version, filename tags, METADATA requirements, live lock projection, constraints,
+two-cell candidate-aware root requirements, bytes, and SHA-256. Package-set projection preserves
+the receipt's external rows and replaces only the historical candidate source identity with the
+fresh candidate authority already bound by the authorization manifest, staging checks, and
+installed identity. The serialized `mke.direct_audio_terminal_authorization.v1` schema and public
+four-field deployment aggregate are unchanged.
+
+The two original circular comparisons failed at RED and passed at GREEN. Seven structural
+candidate-boundary cases then failed before their shared validator existed and passed after the
+minimum implementation. Focused candidate tests reported `11 passed`; complete deployment-proof
+and receipt-adjacency suites reported `329 passed, 5 warnings`; and the committed candidate
+reported `3089 passed, 14 skipped, 5 warnings`. Ruff passed. Pyright reported
+`0 errors, 0 warnings, 0 informations`. The offline build and `git diff --check` passed. Fresh
+E1 through E3-E validation passed `7/7`, so no evaluation identity closure was created.
+
+Descriptor-bootstrap static receipt validation passed with canonical payload SHA-256
+`3dca3bc7737728ef49376f11d40e9611cf62552147840a0026b7ded5218a681a` and file SHA-256
+`1fe3cd6fddd1bb07a949192c64fcf90ee2b9ac5fd22df1e8a334a5d446a611af`; the receipt bytes were not
+changed or regenerated. This repair remains `TARGETED AUTHORITY RE-REVIEW PENDING`. Steps 8-10
+remain incomplete. Historical Step 8/Step 9 evidence cannot serve as final authority. The real
+deployment-controller invocation and retry counts remain five and four; a sixth invocation did
+not occur. No authorization-only execution, manual MCP replay, model load, ASR, provider or
+product-path execution, download, redistribution, production, accuracy, SLA, release, or
+deployment claim is made.
+
 ## Next Gate And Non-Claims
 
-Fresh Step 8 is the next incomplete implementation step and requires separate authorization. This
-record does not claim that a post-repair final wheel was rebuilt, authorization-only validation
-was rerun, a manual MCP replay occurred, real ASR, model, provider, or product-path execution
-occurred, external inputs were acquired, packages or native binaries may be redistributed, or any
-push, PR, merge, release, deployment, production readiness, accuracy, SLA, or cross-platform
-authority exists. The historical deployment-controller invocations are not model, ASR, provider,
-or product success. The current real deployment-controller invocation count is five and the retry
-count is four; a sixth invocation did not occur.
+Targeted actual-diff re-review of the circular-authority repair is the next gate. Fresh Step 8
+cannot begin before that result is returned and durably recorded. This record does not claim that
+authorization-only validation was rerun, a manual MCP replay occurred, real ASR, model, provider,
+or product-path execution occurred, external inputs were acquired, packages or native binaries
+may be redistributed, or any push, PR, merge, release, deployment, production readiness,
+accuracy, SLA, or cross-platform authority exists. The historical deployment-controller
+invocations are not model, ASR, provider, or product success. The current real
+deployment-controller invocation count is five and the retry count is four; a sixth invocation
+did not occur.
