@@ -2491,7 +2491,7 @@ invocation remains outside this authority. It does not establish real ASR, model
 product success, redistribution authority, production readiness, accuracy, SLA, release, or
 deployment authority.
 
-#### MCP Gate Operator Diagnostic Repair — Targeted Authority Re-Review Pending
+#### MCP Gate Operator Diagnostic Repair — Clean / Accepted
 
 A later authorized Step 9 run failed closed with the unchanged public `mcp_failed` aggregate.
 Provider-free investigation did not establish a specific MCP product failure. It instead proved
@@ -2521,12 +2521,24 @@ passed all seven canonical validators, the focused evaluation artifact suite rep
 semantic projections, metrics, results, diagnostics, thresholds, statuses, and verdicts remained
 unchanged. E3-B remained byte-identical.
 
-This repair is `TARGETED AUTHORITY RE-REVIEW PENDING`. Steps 8-10 remain incomplete, and this record
-does not clear a fresh Step 8 or authorize authorization-only, Step 9, Step 10, a sixth real
-deployment-controller invocation, manual MCP replay, model load, ASR, provider or product-path
-execution, download, push, PR, merge, release, redistribution, or deployment. All earlier Step 8
-and Step 9 material remains historical evidence only. The historical real deployment-controller
-invocation count remains five and the retry count remains four; a sixth invocation did not occur.
+Targeted actual-diff re-review of
+`c19eee0ab79a2f0df130235483f587d827145fd8..aca8057602c3491de2ff1bb923c7f6e10dc43cf2`
+at reviewed HEAD `aca8057602c3491de2ff1bb923c7f6e10dc43cf2` returned
+`CLEAN / ACCEPTED` with no Critical, Important, or Minor finding. Fresh verification reported
+`120 passed, 5 warnings` for the complete MCP client/deployment suites, four-file Ruff passed,
+repository Pyright reported `0 errors, 0 warnings, 0 informations`, and `git diff --check` passed.
+All 16 identity paths remained byte-equal to the retained detached mirror. The semantic-equality
+report has SHA-256
+`c20df765f1d5c95224a464c71d2eb396827d814f530b5d93a8184c67cd66a878` and
+`status=passed`.
+
+Steps 8-10 remain incomplete. This acceptance clears only the prerequisite review gate for a
+separately authorized fresh Step 8; it does not itself authorize authorization-only, Step 9,
+Step 10, a sixth real deployment-controller invocation, manual MCP replay, model load, ASR,
+provider or product-path execution, download, push, PR, merge, release, redistribution, or
+deployment. All earlier Step 8 and Step 9 material remains historical evidence only. The
+historical real deployment-controller invocation count remains five and the retry count remains
+four; a sixth invocation did not occur.
 
 - [ ] **Step 8: Build the final MKE wheel and bind the terminal proof inputs**
 
