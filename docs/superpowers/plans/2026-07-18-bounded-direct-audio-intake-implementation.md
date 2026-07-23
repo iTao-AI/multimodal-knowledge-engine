@@ -2540,7 +2540,7 @@ deployment. All earlier Step 8 and Step 9 material remains historical evidence o
 historical real deployment-controller invocation count remains five and the retry count remains
 four; a sixth invocation did not occur.
 
-#### Circular Terminal Candidate Authority Repair — Targeted Authority Re-Review Pending
+#### Circular Terminal Candidate Authority Repair — Clean / Accepted
 
 The static receipt validator continues to prove its complete historical artifact, including one
 internally consistent candidate MKE wheel and the matching two-cell installed rows. The deployment
@@ -2571,12 +2571,25 @@ receipt validation passed with payload SHA-256
 `3dca3bc7737728ef49376f11d40e9611cf62552147840a0026b7ded5218a681a` and unchanged file SHA-256
 `1fe3cd6fddd1bb07a949192c64fcf90ee2b9ac5fd22df1e8a334a5d446a611af`.
 
-This repair is `TARGETED AUTHORITY RE-REVIEW PENDING`. Steps 8-10 remain incomplete, and every
-earlier Step 8/Step 9 wheel, authorization, aggregate, diagnostic, and observation remains
-historical evidence only. The real deployment-controller invocation and retry counts remain
-five and four; a sixth invocation did not occur. No receipt replay, authorization-only execution,
-manual MCP replay, model load, ASR, provider or product-path execution, download, redistribution,
-production, accuracy, SLA, release, or deployment claim is made.
+Targeted actual-diff re-review covered
+`760bfdc4fbf7d965d0ca5bef9ab67d4a5e19ee06..ba4f8d59af544c78e77d2946230ce7542dd4a700`
+at reviewed HEAD `ba4f8d59af544c78e77d2946230ce7542dd4a700` and returned
+`CLEAN / ACCEPTED`, with no Critical, Important, or Minor finding. Independent verification
+confirmed complete `validate_committed_receipt()` validation, independent fresh-candidate
+distribution/version/tag/METADATA/live-lock/constraints/two-cell-root authority, and fresh
+bytes/SHA binding through `AuthorizationManifest`, staged-input validation, and installed
+`RECORD` identity. The serialized authorization schema and public aggregate remain unchanged.
+Fresh focused evidence reported `543 passed, 5 warnings`; Ruff passed; repository-authoritative
+`uv run --frozen --no-sync pyright` reported `0 errors`; the receipt file SHA-256 remained
+`1fe3cd6fddd1bb07a949192c64fcf90ee2b9ac5fd22df1e8a334a5d446a611af`; and
+`git diff --check` passed.
+
+This repair is `CLEAN / ACCEPTED`. Steps 8-10 remain incomplete, and every earlier Step 8/Step 9
+wheel, authorization, aggregate, diagnostic, and observation remains historical evidence only.
+The real deployment-controller invocation and retry counts remain five and four; a sixth
+invocation did not occur. No receipt replay, authorization-only execution, manual MCP replay,
+model load, ASR, provider or product-path execution, download, redistribution, production,
+accuracy, SLA, release, or deployment claim is made.
 
 - [ ] **Step 8: Build the final MKE wheel and bind the terminal proof inputs**
 
