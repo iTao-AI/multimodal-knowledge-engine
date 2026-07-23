@@ -726,8 +726,6 @@ def _package_sets(
     payload: Mapping[str, object],
     candidate_version: str,
     candidate_requirements: tuple[tuple[str, str], ...],
-    candidate_filename: str,
-    candidate_sha256: str,
 ) -> tuple[tuple[str, tuple[tuple[str, str], ...]], ...]:
     raw_cells = payload.get("cells")
     if not isinstance(raw_cells, list):
@@ -762,11 +760,7 @@ def _package_sets(
             distributions.append((distribution, version))
             if distribution == "multimodal-knowledge-engine":
                 candidate_rows += 1
-                if (
-                    version != candidate_version
-                    or filename != candidate_filename
-                    or digest != candidate_sha256
-                ):
+                if version != candidate_version:
                     raise DirectAudioDeploymentProofError("dependency_authority_invalid")
         authority = dict(distributions)
         if candidate_rows != 1 or len(authority) != len(distributions) or any(
@@ -825,7 +819,6 @@ def _candidate_root_authority(
     *,
     candidate: Path,
     constraints: bytes,
-    payload: Mapping[str, object],
     projection: dependency_authority.LockProjection,
 ) -> tuple[tuple[str, bytes], ...]:
     try:
@@ -835,12 +828,12 @@ def _candidate_root_authority(
             candidate,
             projection,
         )
-        expected_digest = _receipt_cell_digest(payload, "root_requirements_sha256")
         root_map = dict(roots)
         if (
             len(root_map) != len(roots)
             or set(root_map) != {"3.12", "3.13"}
-            or any(_sha256(value) != expected_digest for value in root_map.values())
+            or any(not value for value in root_map.values())
+            or len({_sha256(value) for value in root_map.values()}) != 1
         ):
             raise dependency_authority.ReceiptError("candidate_root_authority_invalid")
         return roots
@@ -850,6 +843,37 @@ def _candidate_root_authority(
         TypeError,
         dependency_authority.ReceiptError,
     ) as error:
+        raise DirectAudioDeploymentProofError("dependency_authority_invalid") from error
+
+
+def _validate_candidate_receipt_structure(
+    *,
+    candidate_name: str,
+    candidate_version: str,
+    candidate_rows: Sequence[Mapping[str, object]],
+    observed_candidate: Mapping[str, object],
+) -> None:
+    structure_fields = (
+        "filename",
+        "distribution",
+        "version",
+        "build",
+        "python_tags",
+        "abi_tags",
+        "platform_tags",
+    )
+    try:
+        if (
+            candidate_name != observed_candidate["distribution"]
+            or candidate_version != observed_candidate["version"]
+            or len(candidate_rows) != 1
+            or {
+                field: candidate_rows[0][field] for field in structure_fields
+            }
+            != {field: observed_candidate[field] for field in structure_fields}
+        ):
+            raise DirectAudioDeploymentProofError("dependency_authority_invalid")
+    except (KeyError, TypeError) as error:
         raise DirectAudioDeploymentProofError("dependency_authority_invalid") from error
 
 
@@ -893,8 +917,12 @@ def _validate_inputs(config: DirectAudioProofConfig) -> AuthorizationManifest:
         "bytes": len(wheel),
         "sha256": _sha256(wheel),
     }
-    if candidate_rows != [observed_candidate]:
-        raise DirectAudioDeploymentProofError("dependency_authority_invalid")
+    _validate_candidate_receipt_structure(
+        candidate_name=candidate_name,
+        candidate_version=candidate_version,
+        candidate_rows=candidate_rows,
+        observed_candidate=observed_candidate,
+    )
     try:
         projection = dependency_authority.derive_transcription_projection(
             Path(__file__).resolve().parent.parent / "uv.lock",
@@ -905,7 +933,6 @@ def _validate_inputs(config: DirectAudioProofConfig) -> AuthorizationManifest:
     root_requirements_by_cell = _candidate_root_authority(
         candidate=config.mke_wheel,
         constraints=constraints,
-        payload=payload,
         projection=projection,
     )
     expected_wheels = _expected_wheel_manifest(payload)
@@ -923,8 +950,6 @@ def _validate_inputs(config: DirectAudioProofConfig) -> AuthorizationManifest:
         payload,
         candidate_version,
         candidate_requirements,
-        config.mke_wheel.name,
-        _sha256(wheel),
     )
     model_files = _tree_manifest(
         _model_snapshot_root(config.model_root),

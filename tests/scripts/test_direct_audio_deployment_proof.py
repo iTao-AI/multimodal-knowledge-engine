@@ -287,8 +287,6 @@ def test_package_sets_reject_old_receipt_without_candidate_wheel_identity() -> N
             payload,
             "0.1.3",
             (("mcp", ">=1,<2"),),
-            "multimodal_knowledge_engine-0.1.3-py3-none-any.whl",
-            "b" * 64,
         )
 
 
@@ -385,15 +383,19 @@ def _candidate_root_fixture(
     return candidate, projection, payload, roots
 
 
-def test_candidate_root_projection_reuses_receipt_authority_for_both_cells(
+def test_candidate_root_projection_uses_fresh_candidate_not_historical_receipt_digest(
     tmp_path: Path,
 ) -> None:
     candidate, projection, payload, expected = _candidate_root_fixture(tmp_path)
+    cells = cast(list[dict[str, object]], payload["cells"])
+    for cell in cells:
+        pip = cast(dict[str, object], cell["pip"])
+        staging = cast(dict[str, object], pip["staging"])
+        staging["root_requirements_sha256"] = "d" * 64
 
     observed = proof._candidate_root_authority(  # pyright: ignore[reportPrivateUsage]
         candidate=candidate,
         constraints=projection.constraints,
-        payload=payload,
         projection=projection,
     )
 
@@ -405,7 +407,7 @@ def test_candidate_root_projection_reuses_receipt_authority_for_both_cells(
 def test_candidate_root_projection_rejects_candidate_metadata_dependency_drift(
     tmp_path: Path,
 ) -> None:
-    candidate, projection, payload, _ = _candidate_root_fixture(
+    candidate, projection, _, _ = _candidate_root_fixture(
         tmp_path,
         extra_candidate_requirement="anyio<5,>=4",
     )
@@ -417,7 +419,6 @@ def test_candidate_root_projection_rejects_candidate_metadata_dependency_drift(
         proof._candidate_root_authority(  # pyright: ignore[reportPrivateUsage]
             candidate=candidate,
             constraints=projection.constraints,
-            payload=payload,
             projection=projection,
         )
 
@@ -494,12 +495,10 @@ def test_package_sets_reject_candidate_direct_version_drift() -> None:
             payload,
             "0.1.3",
             (("mcp", ">=1.28.1,<2"),),
-            "multimodal_knowledge_engine-0.1.3-py3-none-any.whl",
-            "b" * 64,
         )
 
 
-def test_package_sets_bind_exact_candidate_wheel_row() -> None:
+def test_package_sets_replace_historical_candidate_source_identity() -> None:
     filename = "multimodal_knowledge_engine-0.1.3-py3-none-any.whl"
     payload = {
         "cells": [
@@ -528,8 +527,6 @@ def test_package_sets_bind_exact_candidate_wheel_row() -> None:
         payload,
         "0.1.3",
         (("mcp", ">=1.28.1,<2"),),
-        filename,
-        "b" * 64,
     ) == (
         (
             "3.12",
@@ -540,6 +537,86 @@ def test_package_sets_bind_exact_candidate_wheel_row() -> None:
             (("mcp", "1.28.1"), ("multimodal-knowledge-engine", "0.1.3")),
         ),
     )
+
+
+def test_authorization_manifest_binds_fresh_candidate_bytes_and_digest(
+    tmp_path: Path,
+) -> None:
+    config = _config(tmp_path)
+    config.mke_wheel.write_bytes(b"fresh-candidate-after-ordinary-source-change")
+
+    rendered = _manifest(config).as_dict()
+
+    assert rendered["mke_wheel_bytes"] == len(config.mke_wheel.read_bytes())
+    assert rendered["mke_wheel_sha256"] == hashlib.sha256(
+        config.mke_wheel.read_bytes()
+    ).hexdigest()
+
+
+def test_canonical_dependency_receipt_remains_byte_identical() -> None:
+    repository = Path(__file__).parents[2]
+    receipt = repository / "benchmarks/audio/dependency-artifacts.json"
+
+    assert hashlib.sha256(receipt.read_bytes()).hexdigest() == (
+        "1fe3cd6fddd1bb07a949192c64fcf90ee2b9ac5fd22df1e8a334a5d446a611af"
+    )
+
+
+def _candidate_inventory_row(*, size: int, digest: str) -> dict[str, object]:
+    return {
+        "filename": "multimodal_knowledge_engine-0.1.3-py3-none-any.whl",
+        "distribution": "multimodal-knowledge-engine",
+        "version": "0.1.3",
+        "build": None,
+        "python_tags": ["py3"],
+        "abi_tags": ["none"],
+        "platform_tags": ["any"],
+        "bytes": size,
+        "sha256": digest,
+    }
+
+
+def test_candidate_receipt_structure_accepts_fresh_bytes_and_digest() -> None:
+    historical = _candidate_inventory_row(size=350589, digest="a" * 64)
+    fresh = _candidate_inventory_row(size=353257, digest="b" * 64)
+
+    proof._validate_candidate_receipt_structure(  # pyright: ignore[reportPrivateUsage]
+        candidate_name="multimodal-knowledge-engine",
+        candidate_version="0.1.3",
+        candidate_rows=[historical],
+        observed_candidate=fresh,
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("filename", "multimodal_knowledge_engine-0.1.4-py3-none-any.whl"),
+        ("distribution", "other-engine"),
+        ("version", "0.1.4"),
+        ("python_tags", ["cp313"]),
+        ("abi_tags", ["cp313"]),
+        ("platform_tags", ["macosx_11_0_arm64"]),
+    ),
+)
+def test_candidate_receipt_structure_rejects_distribution_version_or_tag_drift(
+    field: str,
+    value: object,
+) -> None:
+    historical = _candidate_inventory_row(size=350589, digest="a" * 64)
+    fresh = _candidate_inventory_row(size=353257, digest="b" * 64)
+    fresh[field] = value
+
+    with pytest.raises(
+        proof.DirectAudioDeploymentProofError,
+        match="^dependency_authority_invalid$",
+    ):
+        proof._validate_candidate_receipt_structure(  # pyright: ignore[reportPrivateUsage]
+            candidate_name="multimodal-knowledge-engine",
+            candidate_version="0.1.3",
+            candidate_rows=[historical],
+            observed_candidate=fresh,
+        )
 
 
 class FakeRunner:
