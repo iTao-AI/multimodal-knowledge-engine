@@ -48,9 +48,9 @@ Canonical identities:
 - Protocol lock SHA-256:
   `c351302566691b6cf0e1cf302d917068994e61d249c6fe440cef9f41dd714f7b`
 - Canonical E3-C dense artifact SHA-256:
-  `d5f27d97f41fcac4469f1675872d7d1f322d1d38af0d73df6951d6747ba37899`
+  `935431ce7a549f43216d78c2186e2c62c3aad2f67b84fc404e26e03156e519cc`
 - Canonical E3-D RRF artifact SHA-256:
-  `3f2e8fbc9c774ef7fe06d1774c61b1da77ccba88aba63bb4a01aec4655361d11`
+  `581decff2c271150f7e9bd80b289b23963e1b5ed9fc6a23977241a18f414270e`
 
 ## Run Development
 
