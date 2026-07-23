@@ -2628,6 +2628,41 @@ release, or deployment, and it does not authorize Step 8, Step 9, another contro
 manual MCP replay, model load, ASR, provider or product-path execution, download, push, PR, merge,
 release, or deployment.
 
+#### Export Native Boundary Repair — Clean / Accepted
+
+第七次 terminal run 在 Export gate fail closed。后续 provider-free installed-wheel A/B 证明，
+proof controller 使用 `cwd=cell` 并向 `--output` 传递 absolute/nested path，违反既有 native
+Export contract：output parent 必须已存在，当前工作目录必须是该 parent，`--output` 必须是
+leaf name。这是 proof controller 的 command-shape 缺陷，不是第二个 Export product defect。
+旧形态稳定返回 v2 `output_path_invalid`；在 owned `export_root` 中使用
+`--output first` / `--output second` 后，两次 Export 均成功，first/second tree equality、
+portable copy 和 standalone v2 consumer 也全部通过。
+
+此前 FakeRunner 将错误的 cwd/argv 假设直接硬编码为成功，未覆盖真实 native boundary。
+Proof/controller tests 必须验证真实 CLI contract，不能只依赖自写 wrapper 或 FakeRunner。
+Repair commit `a03d165290ff7942d602cfce8466817ccf1813e9` 仅创建 call-owned
+`export_root`，让两次 CLI call 使用 `cwd=export_root`，并只传 leaf `first` / `second`。
+Public schema、canonical receipt、diagnostic taxonomy 和产品 Export contract 均未改变。
+
+Targeted actual-diff re-review 覆盖
+`0b353f56754264451c4c771e9f62d5edd5bfb99d..a03d165290ff7942d602cfce8466817ccf1813e9`
+并绑定 reviewed tree `5080dcf8180707c5f9bae6213511c98b2ce60ff0`，结论为
+`CLEAN / ACCEPTED`，无 Critical、Important、Minor 或 Informational finding。Scope、
+intent、correctness、cleanup ownership 和 test layering 均通过。
+
+Execution verification 记录 RED `2 failed`、GREEN `2 passed`、adjacent suites
+`166 passed, 5 warnings`、full pytest `3093 passed, 14 skipped, 5 warnings`、Ruff passed、
+Pyright `0 errors`、offline build passed、product proof `8/8`、demo passed，以及 E1–E3-E
+`7/7` 且无 identity drift；`git diff --check` 和 bounded near-field review 也通过。
+Independent focused verification 再次报告两个 exact regressions `2 passed, 5 warnings`，
+targeted Ruff passed。
+
+Steps 6 和 7 保持 accepted and complete。Steps 8–10 仍未完成，fresh Step 8 是下一道且需
+另行授权的 gate；所有旧 Step 8/Step 9 artifacts 仅为 historical evidence。历史 real
+deployment-controller invocation/retry 保持 `7/6`，第八次调用未发生。本记录不证明
+terminal deployment success、完整 footprint、跨平台 production、ASR quality、external
+binary redistribution、release 或 deployment。
+
 - [ ] **Step 8: Build the final MKE wheel and bind the terminal proof inputs**
 
 After PR C implementation, documentation, plan/review status, and any conditional identity closure

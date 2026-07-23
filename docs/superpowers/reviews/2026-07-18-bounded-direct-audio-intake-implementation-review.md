@@ -641,6 +641,44 @@ retry count is five; a seventh invocation did not occur. This record makes no cl
 success, accuracy, SLA, production readiness, cross-platform authority, external-binary
 redistribution, release, or deployment.
 
+## Export Native Boundary Repair — Clean / Accepted
+
+第七次 terminal run 的 closed `export_failed` 经 provider-free installed-wheel A/B 定位为
+proof controller command-shape 缺陷。Controller 使用 `cwd=cell`，同时向 `--output`
+传递 absolute/nested path；native Export contract 则要求 existing parent/cwd 与 leaf
+output name。旧调用稳定返回 v2 `output_path_invalid`。同一合法 v2 DB/snapshot 改为
+owned `export_root`、`cwd=export_root` 与 leaf `first` / `second` 后，两次 Export 成功，
+first/second tree equality、portable copy 与 standalone v2 consumer 均通过。因此没有
+观察到第二个 Export product defect。
+
+原测试层只让 FakeRunner 对错误 cwd/argv 假设返回成功，遗漏真实 native boundary。
+Repair commit `a03d165290ff7942d602cfce8466817ccf1813e9` 仅创建 call-owned
+`export_root`，将两次 Export CLI call 的 cwd 切换到该目录，并将 `--output` 限定为 leaf
+`first` / `second`。Public schema、canonical receipt、diagnostic taxonomy 和产品 Export
+contract 保持不变。新的测试层分别使用真实 CLI 验证 native contract，并使用 FakeRunner
+验证两 interpreter cells 的 orchestration shape；proof/controller tests 不再只依赖 wrapper
+或 FakeRunner 假设。
+
+Targeted actual-diff re-review 覆盖
+`0b353f56754264451c4c771e9f62d5edd5bfb99d..a03d165290ff7942d602cfce8466817ccf1813e9`
+at reviewed HEAD `a03d165290ff7942d602cfce8466817ccf1813e9` and tree
+`5080dcf8180707c5f9bae6213511c98b2ce60ff0`，结论为 `CLEAN / ACCEPTED`。Scope、
+intent、correctness、cleanup ownership 和 test layering 均通过，无 Critical、
+Important、Minor 或 Informational finding。
+
+Execution verification 记录 RED `2 failed`、GREEN `2 passed`、adjacent suites
+`166 passed, 5 warnings`、full pytest `3093 passed, 14 skipped, 5 warnings`、Ruff passed、
+Pyright `0 errors`、offline build passed、product proof `8/8`、demo passed，以及 E1–E3-E
+`7/7` 且无 identity drift。`git diff --check` 与 bounded near-field review 通过。
+Independent focused verification 报告两个 exact regressions `2 passed, 5 warnings`，
+targeted Ruff passed。
+
+Steps 6 和 7 保持 accepted and complete。Steps 8–10 仍未完成；fresh Step 8 是唯一下一道
+且需另行授权的 gate。所有旧 Step 8/Step 9 artifacts 仅为 historical evidence，不能作为
+新的 terminal authority。历史 real deployment-controller invocation/retry 保持 `7/6`，
+第八次调用未发生。本记录不证明 terminal deployment success、完整 footprint、跨平台
+production、ASR quality、external binary redistribution、release 或 deployment。
+
 ## Next Gate And Non-Claims
 
 Fresh Step 8 is the next incomplete gate and requires separate authorization. This record does not
