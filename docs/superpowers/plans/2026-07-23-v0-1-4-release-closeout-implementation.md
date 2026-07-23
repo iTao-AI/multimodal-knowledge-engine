@@ -147,7 +147,7 @@ dependency-closed subset produced through `artifact_refresh` and a detached vali
 
 **Files:** the approved release design and plan only.
 
-- [ ] **Step 1: Reconcile live entry authority**
+- [x] **Step 1: Reconcile live entry authority**
 
 Run read-only entry checks:
 
@@ -167,7 +167,7 @@ Also read current exact-main check-runs and open Dependabot/code-scanning alerts
 
 Expected: clean/equal baseline, no v0.1.4 tag/Release, no open PR, no open security alert.
 
-- [ ] **Step 2: Create one isolated release worktree**
+- [x] **Step 2: Create one isolated release worktree**
 
 Create:
 
@@ -179,7 +179,7 @@ worktree: .worktrees/v0-1-4-release-closeout
 Do not modify the primary checkout or the pre-existing detached historical-source evidence
 worktree.
 
-- [ ] **Step 3: Mechanically land the approved design and plan**
+- [x] **Step 3: Mechanically land the approved design and plan**
 
 Copy the approved public-neutral sources byte-for-byte into their destination paths. Do not edit,
 reinterpret, abbreviate, or add private source paths.
@@ -193,7 +193,7 @@ git status --short
 
 Require exact two-file scope and balanced Markdown fences.
 
-- [ ] **Step 4: Commit and hard stop for actual-diff review**
+- [x] **Step 4: Commit and hard stop for actual-diff review**
 
 Stage only the two new files and commit:
 
@@ -210,7 +210,7 @@ Do not start Task 2 until the authoritative reviewer accepts the landed bytes.
 
 **Files:** current version and installed-smoke group.
 
-- [ ] **Step 1: Write current-version RED tests**
+- [x] **Step 1: Write current-version RED tests**
 
 Update current identity assertions to require:
 
@@ -238,7 +238,7 @@ UV_OFFLINE=1 uv run --frozen --no-sync pytest -q \
 
 Expected RED: only current version/wheel identity mismatches.
 
-- [ ] **Step 2: Bump current package identity**
+- [x] **Step 2: Bump current package identity**
 
 Set `0.1.4` only in:
 
@@ -256,7 +256,7 @@ Parse old and new `uv.lock` files. Require only root
 `multimodal-knowledge-engine 0.1.3 -> 0.1.4`; all dependency names, versions, sources, markers,
 hashes, extras, and resolution graphs remain equal.
 
-- [ ] **Step 3: Run GREEN and commit**
+- [x] **Step 3: Run GREEN and commit**
 
 Run the focused tests again, then:
 
@@ -428,7 +428,7 @@ git commit -m "docs(release): prepare v0.1.4 candidate"
 
 **Files:** validator-proven subset of the established 21-path allowlist only.
 
-- [ ] **Step 1: Run all seven canonical validators before writing**
+- [x] **Step 1: Run all seven canonical validators before writing**
 
 Generate fresh E1, E2, E3-A, and E3-B observations. E2 uses an exclusive call-owned protocol copy
 whose scope is refreshed before observation.
@@ -445,7 +445,7 @@ Run canonical validators for:
 
 Record exact failures. If all pass, skip refresh and do not create an empty identity commit.
 
-- [ ] **Step 2: Run the accepted transaction only when required**
+- [x] **Step 2: Run the accepted transaction only when required**
 
 Use `artifact_refresh`, deterministic builders, and a detached validation mirror. Do not manually
 edit generated artifacts.
@@ -453,7 +453,7 @@ edit generated artifacts.
 Begin with the smallest failing dependency set. Expand only when a downstream validator proves a
 new identity dependency. Hard stop if the closure exceeds the established 21-path allowlist.
 
-- [ ] **Step 3: Prove byte and semantic equality**
+- [x] **Step 3: Prove byte and semantic equality**
 
 Require:
 
@@ -464,7 +464,7 @@ Require:
   or verdict change; and
 - no corpus, qrels, query, fixture, runtime selector, or quality conclusion change.
 
-- [ ] **Step 4: Commit only a real closure**
+- [x] **Step 4: Commit only a real closure**
 
 Commit:
 
@@ -484,7 +484,7 @@ Skip the commit when no path changed.
 - new
   `docs/superpowers/reviews/2026-07-23-v0-1-4-release-implementation-review.md`.
 
-- [ ] **Step 1: Freeze historical authority**
+- [x] **Step 1: Freeze historical authority**
 
 Descriptor-read and record without modification:
 
@@ -496,7 +496,7 @@ Descriptor-read and record without modification:
 - historical v0.1.3 release note SHA-256; and
 - complete changed-file and version/lock semantic audits.
 
-- [ ] **Step 2: Write durable pre-review state**
+- [x] **Step 2: Write durable pre-review state**
 
 Record:
 
@@ -513,7 +513,7 @@ Record:
 
 Do not mark proof, PR, merge, tag, Release, archive, or cleanup complete.
 
-- [ ] **Step 3: Commit and hard stop**
+- [x] **Step 3: Commit and hard stop**
 
 Commit:
 
