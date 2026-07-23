@@ -41,7 +41,7 @@
     "revision": 1
   },
   "source": {
-    "sha256": "aa4f4623914ceb07bae0c2fae4838e09b82da5b6033e5189738aa6b707829c30",
+    "sha256": "fcc22fc1ad32375023dc04b0641e47cddde74439eb88ef44bd55f2116c86b092",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -440,8 +440,8 @@
       },
       {
         "path": "src/mke/interfaces/input_authority.py",
-        "bytes": 11312,
-        "sha256": "431665647986bb315abae3004e7b572b6e97f6fb23116754d260b243ad984c04"
+        "bytes": 11388,
+        "sha256": "2edbefd99ac3c60cf26af34ab0f43d5bea32a8286deaf9c8c87fd275043977c3"
       },
       {
         "path": "src/mke/interfaces/library_export.py",

@@ -32,7 +32,7 @@
     "main_merge_base": "721784eabcb9fbb737166578010c9e1a46a25fef",
     "implementation_start": "3992b0e9371d1a8c9e019d3bbe2b32aac9665914",
     "evaluation_commit": "79bafb07ac592b684e6ceab15dc389dc33702978",
-    "evaluation_content_sha256": "aa4f4623914ceb07bae0c2fae4838e09b82da5b6033e5189738aa6b707829c30",
+    "evaluation_content_sha256": "fcc22fc1ad32375023dc04b0641e47cddde74439eb88ef44bd55f2116c86b092",
     "evaluation_content_files": [
       {
         "path": "src/mke/__init__.py",
@@ -431,8 +431,8 @@
       },
       {
         "path": "src/mke/interfaces/input_authority.py",
-        "bytes": 11312,
-        "sha256": "431665647986bb315abae3004e7b572b6e97f6fb23116754d260b243ad984c04"
+        "bytes": 11388,
+        "sha256": "2edbefd99ac3c60cf26af34ab0f43d5bea32a8286deaf9c8c87fd275043977c3"
       },
       {
         "path": "src/mke/interfaces/library_export.py",
