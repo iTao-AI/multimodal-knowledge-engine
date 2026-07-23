@@ -48,7 +48,7 @@
     "integrity_claim": "adjudication_record_integrity"
   },
   "source_identity": {
-    "sha256": "3667c7ab724b5399f3d57faae103524d1ab49090b2647519a6b0f14db75de962",
+    "sha256": "e82711950c81fe38b5d0fd25c7086693b2473859aef4f7d4a3fe266200df0349",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -502,8 +502,8 @@
       },
       {
         "path": "src/mke/proof/mcp_deployment_client.py",
-        "bytes": 29174,
-        "sha256": "84a62f73403cdc239ac9ff01bcefd79d542b644956dd2c4ea8b6e0d1a7490bf6"
+        "bytes": 29464,
+        "sha256": "1c863b981d66632e8efb097fc943d94890bd1d710f23c9aa38f464e8cb57a597"
       },
       {
         "path": "src/mke/proof/report.py",
