@@ -1,6 +1,7 @@
 # v0.1.4 Release Closeout Implementation Plan
 
-Status: Tasks 1-7 complete; `CLEAN / ACCEPTED`; Task 8 remains unstarted.
+Status: Tasks 1-11 complete; Task 12 Steps 1-3 complete; authoritative actual-diff review,
+PR/merge, immutable-state verification, and cleanup remain pending.
 
 > **For implementers:** Use `superpowers:executing-plans` as the primary implementation
 > controller, `superpowers:test-driven-development` for current-identity and presentation changes,
@@ -648,7 +649,7 @@ acceptance closure.
 
 **Files:** no tracked changes.
 
-- [ ] **Step 1: Verify clean candidate and retained inputs**
+- [x] **Step 1: Verify clean candidate and retained inputs**
 
 Require:
 
@@ -666,7 +667,7 @@ Require:
 
 If an input is absent or drifting, stop. Do not acquire or regenerate it.
 
-- [ ] **Step 2: Run repository gates**
+- [x] **Step 2: Run repository gates**
 
 ```bash
 UV_OFFLINE=1 UV_PYTHON_DOWNLOADS=never uv run --frozen --no-sync pytest -q
@@ -688,7 +689,7 @@ git status --short
 Also regenerate fresh observations and run all seven canonical validators on the exact accepted
 HEAD. Remove the exclusive E2 protocol copy and prove it absent.
 
-- [ ] **Step 3: Generate one strict candidate output**
+- [x] **Step 3: Generate one strict candidate output**
 
 Run:
 
@@ -718,7 +719,7 @@ Independently descriptor-read the directory, wheel, and canonical receipt. Requi
 - `proof_input_wheel_sha256 == wheel_sha256`; and
 - receipt self-digest valid.
 
-- [ ] **Step 4: Co-bind installed proof surfaces**
+- [x] **Step 4: Co-bind installed proof surfaces**
 
 Use the exact candidate-output wheel:
 
@@ -744,7 +745,7 @@ Require:
 - model-free direct-audio reports
   `proof_mode=model_free` and `asr_execution=not_performed`.
 
-- [ ] **Step 5: Run authorization-only**
+- [x] **Step 5: Run authorization-only**
 
 Validate the dependency receipt statically without modifying it. Run the direct-audio controller
 with `--authorization-only`, the exact fresh wheel, explicit retained inputs, and:
@@ -779,7 +780,7 @@ Require `mke.direct_audio_terminal_authorization.v1`, `status=ready`, exact mani
 equality, complete input binding, deny-network method, cleanup owner, and no venv/model/ASR/product
 execution.
 
-- [ ] **Step 6: Run one real terminal invocation**
+- [x] **Step 6: Run one real terminal invocation**
 
 Invoke the accepted controller exactly once with the frozen authorization inputs:
 
@@ -820,12 +821,27 @@ accuracy, production, SLA, hard sandboxing, cross-platform behavior, or redistri
 
 On failure, hard stop. Do not retry, replay manually, or expand diagnostics without new authority.
 
-- [ ] **Step 7: Stop without tracked writes**
+- [x] **Step 7: Stop without tracked writes**
 
 Report exact HEAD, tree, commit series, changed files, diff stat, test counts, candidate receipt,
 wheel, all proof identities, terminal aggregate, non-claims, and retained evidence ownership.
 
 Do not update a checkbox or review after this point.
+
+### Task 8 Completion Record
+
+Task 8 completed from reviewed HEAD `0a60ff6b63ed497cc570456ad0e1b13a99b56e6d` and tree
+`b1d5a0c767e04dd4d402163f16f3ebdce8b1a787` without a tracked write. The candidate wheel was
+`multimodal_knowledge_engine-0.1.4-py3-none-any.whl`, 353324 bytes, SHA-256
+`3b3c19fd87d015762a6d446e0e47f8719c87218734faa141915a17cca1fa72e3`. Its candidate receipt
+canonical digest was `0fa08409121c52b17cf44daaa0618d998ad6ce11740487eaa25458908528a2ee`.
+
+The one authorized terminal controller invocation returned
+`mke.direct_audio_deployment_proof.v1`, `status=passed`, and `canonical=true`. Both interpreter
+cells passed 14 total Python/CLI/MCP product paths, published timestamp Evidence, Search/Ask,
+equal Export v2 trees, standalone consumption, cache-only model use, network denial, bounded
+supervision, and cleanup. The terminal receipt SHA-256 was
+`91f3bfcb5e8ef1d1b12d4a31724e0f92f3507ea25c7afaa940e5c430777339fc`.
 
 ---
 
@@ -833,11 +849,11 @@ Do not update a checkbox or review after this point.
 
 **Files:** no tracked changes.
 
-- [ ] **Step 1: Obtain separate push/PR authorization**
+- [x] **Step 1: Obtain separate push/PR authorization**
 
 Do not infer authorization from local acceptance.
 
-- [ ] **Step 2: Push normally and create Draft PR**
+- [x] **Step 2: Push normally and create Draft PR**
 
 Use no force, rebase, amend, or base merge. PR title:
 
@@ -861,7 +877,7 @@ The Simplified Chinese body must include:
 Read back title, body, base, head, Draft state, mergeability, comments, reviews, threads, and one
 checks snapshot. Stop without polling.
 
-- [ ] **Step 3: Repair only event-backed failures**
+- [x] **Step 3: Repair only event-backed failures (not required)**
 
 Any code/docs change invalidates Task 8. After an authorized repair:
 
@@ -878,7 +894,7 @@ Any code/docs change invalidates Task 8. After an authorized repair:
 
 **Files:** no tracked changes.
 
-- [ ] **Step 1: Verify exact-head merge authority**
+- [x] **Step 1: Verify exact-head merge authority**
 
 Require:
 
@@ -889,14 +905,14 @@ Require:
 - mergeable state clean; and
 - separate Ready/merge authorization.
 
-- [ ] **Step 2: Ordinary squash merge**
+- [x] **Step 2: Ordinary squash merge**
 
 Mark Ready only after rechecking authority. Use ordinary squash merge, never admin/force.
 
 Record PR, reviewed head/tree, merge SHA/parent/tree, author, and time. Require reviewed tree equals
 merge tree.
 
-- [ ] **Step 3: Verify exact-main hosted state**
+- [x] **Step 3: Verify exact-main hosted state**
 
 Synchronize primary `main` and require:
 
@@ -908,7 +924,7 @@ primary worktree clean
 Observe exact-main checks through one bounded snapshot. Keep release worktree/branch until all
 expected checks succeed.
 
-- [ ] **Step 4: Build exact-main candidate authority**
+- [x] **Step 4: Build exact-main candidate authority**
 
 From clean exact main:
 
@@ -923,9 +939,24 @@ Do not rerun real ASR when reviewed/merge tree equality and exact wheel equality
 If the wheel digest differs, hard stop before tag. Do not silently substitute it or rerun the
 controller.
 
-- [ ] **Step 5: Hard stop before publication**
+- [x] **Step 5: Hard stop before publication**
 
 Report exact merged-main authority and request separate tag/GitHub Release authorization.
+
+### Tasks 9-10 Completion Record
+
+Release-candidate PR #88 used exact reviewed head
+`0a60ff6b63ed497cc570456ad0e1b13a99b56e6d` and was normally squash-merged as
+`84fb533072a965b2ad833d12723e6ac0fff19d55`. The reviewed tree and merge tree are both
+`b1d5a0c767e04dd4d402163f16f3ebdce8b1a787`. Nine observed exact-main hosted checks completed
+successfully.
+
+Fresh exact-main gates produced the same 353324-byte wheel with SHA-256
+`3b3c19fd87d015762a6d446e0e47f8719c87218734faa141915a17cca1fa72e3`; real ASR was not rerun.
+The exact-main candidate receipt binds the merge commit with canonical digest
+`5b20bbbc829eeb4fa4d066fa83bd1d97f8544ba7865f2db563f1405a0b628b4f` and file SHA-256
+`f7ceae28989bae12d568a611513a3fac6f848967a3eac923398bb5110de934c2`. The exact-main sdist
+SHA-256 is `0cdb711be8a47ac0016df005af9f9bb6257c5001e0ce7cdf70d57a8e35ff39be`.
 
 ---
 
@@ -933,7 +964,7 @@ Report exact merged-main authority and request separate tag/GitHub Release autho
 
 **Files:** no tracked changes before publication.
 
-- [ ] **Step 1: Reconcile publication preconditions**
+- [x] **Step 1: Reconcile publication preconditions**
 
 Require:
 
@@ -944,7 +975,7 @@ Require:
 - release notes match actual diff and non-claims; and
 - separate publication authorization.
 
-- [ ] **Step 2: Create and push one annotated tag**
+- [x] **Step 2: Create and push one annotated tag**
 
 Create annotated `v0.1.4` at the exact merge SHA and push only the tag.
 
@@ -956,7 +987,7 @@ Read back:
 - annotation; and
 - local/remote equality.
 
-- [ ] **Step 3: Create the GitHub Release**
+- [x] **Step 3: Create the GitHub Release**
 
 Create:
 
@@ -972,7 +1003,7 @@ Use the reviewed release note content. Do not upload local artifacts.
 
 Read back persisted Release metadata and confirm it is latest.
 
-- [ ] **Step 4: Public source-archive smoke**
+- [x] **Step 4: Public source-archive smoke**
 
 Download the public GitHub-generated source archive into a call-owned root. Descriptor-read and
 record bytes/SHA-256, extract safely, and prove the source tree is the tag target.
@@ -986,20 +1017,49 @@ uv run mke demo --verify
 uv run python scripts/local_knowledge_proof.py --json
 uv run python scripts/evidence_provenance_proof.py --json
 uv run mke proof direct-audio --json
-uv run python scripts/compiled_library_export_proof.py \
-  --python "$PYTHON312" \
-  --python "$PYTHON313" \
-  --json
 uv run python scripts/release_presentation_audit.py --root . --json
 ```
 
-Run the standalone Compiled Library consumer against the generated output. Do not run real ASR,
-download a model, or introduce operator-only inputs into the public archive smoke.
+Run the archive-safe real Export and standalone standard-library consumer documented in
+`docs/how-to/verify-release.md`: copy only the public PDF/video proof fixtures into a call-owned
+runtime, ingest both through `uv run --project "$ARCHIVE_ROOT"`, execute
+`mke ... library export`, and validate the generated tree with
+`scripts/compiled_library_export_consumer.py`. Require exact v1 portable schemas, two Sources,
+three Evidence records, and `status=passed`.
 
-- [ ] **Step 5: Preserve immutable publication evidence**
+Do not run `scripts/compiled_library_export_proof.py` from the Git-less archive. Its supplied-wheel
+path binds a clean Git snapshot before opening or copying the wheel; `--mke-wheel` changes wheel
+source, not source authority. Do not synthesize Git metadata. Do not run real ASR, download a
+model, or introduce operator-only inputs into the public archive smoke.
+
+- [x] **Step 5: Preserve immutable publication evidence**
 
 Record tag, Release, archive, smoke, and exact-main identities outside tracked files. Do not mutate
 the tag or Release after successful readback.
+
+### Task 11 Completion Record And Gate Correction
+
+Annotated tag `v0.1.4` has object `5453f2d787185a318794d47f084c0f952939946e` and peels to
+`84fb533072a965b2ad833d12723e6ac0fff19d55`. The GitHub Release is public, non-draft,
+non-prerelease, latest at publication, and has zero additional assets. The public archive
+`multimodal-knowledge-engine-v0.1.4.tar.gz` was observed at 4214296 bytes with SHA-256
+`e9492e5115110c5fa421c565c51226ba0e25d16a62230f92760f13b1ec1a76ce`; its reconstructed tree
+equals the tagged tree.
+
+Locked sync, product proof 8/8, demo, local knowledge, Evidence provenance, and model-free direct
+audio passed. The archive-safe native Export produced two Sources and three Evidence records with
+manifest SHA-256 `dd273ce0ee94095a3fa120b5b3cc0444462fb7a3c344c49703f2dbd024ce082b`.
+The standalone consumer returned `status=passed`, and the presentation audit returned
+`status=ok` with zero violations.
+
+Two generic-controller invocations failed closed with `candidate_artifact_invalid`. The first
+omitted `--mke-wheel`; the second supplied an archive-built wheel that exactly matched the
+reviewed wheel. Read-only investigation confirmed that `_supplied_candidate()` still calls
+`_candidate_source()` and requires a clean Git source snapshot before the supplied wheel copy
+boundary; on the archive side, the wheel was not opened, copied, or validated. No third generic
+proof was run. These failures remain real historical evidence and are not promoted to success.
+The missing native regression for a Git-less public archive plus an exact supplied wheel is a
+future-version controller limitation, not a `v0.1.4` product fix.
 
 ---
 
@@ -1013,7 +1073,7 @@ the tag or Release after successful readback.
 - new
   `docs/superpowers/reviews/2026-07-23-v0-1-4-post-release-closeout.md`.
 
-- [ ] **Step 1: Create isolated docs-only branch**
+- [x] **Step 1: Create isolated docs-only branch**
 
 Branch from exact post-release `main`:
 
@@ -1023,7 +1083,7 @@ codex/v0-1-4-post-release-closeout
 
 Require clean/equal primary and unchanged tag/Release.
 
-- [ ] **Step 2: Write immutable release record**
+- [x] **Step 2: Write immutable release record**
 
 Record:
 
@@ -1039,9 +1099,11 @@ Record:
 - PyPI/registry/deploy not performed; and
 - retained evidence and cleanup boundaries.
 
-Mark design/plan complete without rewriting historical v0.1.3 or implementation evidence.
+Record the current completion state without rewriting historical v0.1.3 or implementation
+evidence. Do not mark the entire closeout complete before the docs-only review/merge,
+immutable-state verification, and cleanup gates have actually completed.
 
-- [ ] **Step 3: Verify docs-only diff**
+- [x] **Step 3: Verify docs-only diff**
 
 Run focused release documentation/presentation tests, live presentation audit, Markdown checks,
 public-neutral/private-path/secret scans, `git diff --check`, and exact file-scope audit.

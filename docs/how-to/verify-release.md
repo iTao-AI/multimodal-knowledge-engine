@@ -13,6 +13,46 @@ identity and archive-smoke evidence. The current four-stage workflow adds an exa
 receipt and a separate final-main gate; those newer requirements are not retroactively attributed
 to the earlier releases.
 
+## Completed v0.1.4 Release Record
+
+- Release-candidate PR: <https://github.com/iTao-AI/multimodal-knowledge-engine/pull/88>
+- Reviewed head: `0a60ff6b63ed497cc570456ad0e1b13a99b56e6d`
+- Squash merge commit: `84fb533072a965b2ad833d12723e6ac0fff19d55`
+- Reviewed feature tree and merge tree:
+  `b1d5a0c767e04dd4d402163f16f3ebdce8b1a787`
+- Exact-main hosted checks: 9 completed successfully on the merge commit
+- Tag: `v0.1.4`
+- Annotated tag object SHA: `5453f2d787185a318794d47f084c0f952939946e`
+- Tag target commit: `84fb533072a965b2ad833d12723e6ac0fff19d55`
+- GitHub Release:
+  <https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.4>
+- Published: `2026-07-23T19:07:19Z` by `iTao-AI`
+- Release state: latest at publication, non-draft, non-prerelease, with zero extra assets
+- Release archive: `multimodal-knowledge-engine-v0.1.4.tar.gz`
+- Release archive bytes: `4214296`
+- Release archive SHA-256:
+  `e9492e5115110c5fa421c565c51226ba0e25d16a62230f92760f13b1ec1a76ce`
+- Exact-main candidate wheel: `multimodal_knowledge_engine-0.1.4-py3-none-any.whl`, `353324`
+  bytes, SHA-256 `3b3c19fd87d015762a6d446e0e47f8719c87218734faa141915a17cca1fa72e3`.
+- Exact-main candidate receipt canonical digest:
+  `5b20bbbc829eeb4fa4d066fa83bd1d97f8544ba7865f2db563f1405a0b628b4f`; receipt file
+  SHA-256: `f7ceae28989bae12d568a611513a3fac6f848967a3eac923398bb5110de934c2`.
+- Reviewed terminal receipt SHA-256:
+  `91f3bfcb5e8ef1d1b12d4a31724e0f92f3507ea25c7afaa940e5c430777339fc`.
+- Public archive smoke: locked sync, product proof `8/8`, demo `result=passed`, local-knowledge
+  proof `status=passed`, Evidence-provenance proof `status=passed`, model-free direct-audio
+  `status=passed` with `asr_execution=not_performed`, native Compiled Library Export plus
+  standalone consumption with two Sources and three Evidence records, and presentation audit
+  `status=ok` with zero violations.
+- PyPI and other package registries: not published.
+- Deployment: not performed.
+
+The native Export and standalone consumer are the archive-safe Compiled Library authority.
+`scripts/compiled_library_export_proof.py` requires clean Git source authority even when
+`--mke-wheel` is supplied, so it must not be used as a passing gate from a GitHub source archive
+without `.git`. Two such invocations failed closed with `candidate_artifact_invalid`; they remain
+failure evidence and were not retried as the successful native lane.
+
 ## Completed v0.1.3 Release Record
 
 - Release-candidate PR: <https://github.com/iTao-AI/multimodal-knowledge-engine/pull/73>
@@ -301,13 +341,15 @@ authorization. Then verify the public archive from a clean temporary directory:
 archive_dir="$(mktemp -d)"
 cd "$archive_dir"
 gh release download v0.1.4 --repo iTao-AI/multimodal-knowledge-engine --archive=tar.gz
-tar -xzf multimodal-knowledge-engine-0.1.4.tar.gz
+tar -xzf multimodal-knowledge-engine-v0.1.4.tar.gz
 cd multimodal-knowledge-engine-0.1.4
 uv sync --locked
 uv run mke proof run
 uv run mke demo --verify
 UV_OFFLINE=1 uv run python scripts/local_knowledge_proof.py
 UV_OFFLINE=1 uv run python scripts/evidence_provenance_proof.py
+UV_OFFLINE=1 uv run mke proof direct-audio --json
+UV_OFFLINE=1 uv run python scripts/release_presentation_audit.py --root . --json
 ```
 
 Run a real Compiled Library Export and the standalone standard-library consumer against the public
@@ -336,6 +378,11 @@ uv run --project "${archive_root}" python \
 Require `status="passed"`, exact portable schemas, two sources, and three Evidence records. Remove
 only the call-owned archive and runtime directories after recording their identities.
 
-The completed `v0.1.3` record above is the durable result of this procedure. Future releases must
-record their own tag object SHA, target commit, publication timestamp, archive filename, archive
-SHA-256, and smoke result after those facts exist.
+Do not substitute `scripts/compiled_library_export_proof.py` for this native lane in a GitHub
+source archive. That controller binds a clean Git snapshot before it handles a supplied wheel, so
+`--mke-wheel` does not replace source authority. Do not synthesize `.git` metadata for archive
+smoke.
+
+The completed `v0.1.4` and `v0.1.3` records above are durable results of this procedure. Future
+releases must record their own tag object SHA, target commit, publication timestamp, archive
+filename, archive SHA-256, and smoke result after those facts exist.
