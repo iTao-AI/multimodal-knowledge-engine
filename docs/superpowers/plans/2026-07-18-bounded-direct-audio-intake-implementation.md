@@ -2491,6 +2491,43 @@ invocation remains outside this authority. It does not establish real ASR, model
 product success, redistribution authority, production readiness, accuracy, SLA, release, or
 deployment authority.
 
+#### MCP Gate Operator Diagnostic Repair — Targeted Authority Re-Review Pending
+
+A later authorized Step 9 run failed closed with the unchanged public `mcp_failed` aggregate.
+Provider-free investigation did not establish a specific MCP product failure. It instead proved
+two operator-observability gaps: the installed MCP child silently discarded failure to persist its
+diagnostic, and a successful child response rejected by parent result validation or exact fixture
+source identity produced no operator diagnostic.
+
+Repair commit `bf9fa248381c5edac6b6a77996288d36fa7d1ad9` changes exactly the MCP deployment
+client, the deployment controller, and their two test files. The MCP child now writes only a
+call-owned intermediate diagnostic. The parent retains sole authority over the final operator
+diagnostic and reuses the existing descriptor-bound `mke.mcp_deployment_diagnostic.v1` writer and
+validator. A valid child diagnostic preserves its exact child stage; child diagnostic absence or
+persistence failure maps to `child_diagnostic_unavailable`; a successful child rejected by parent
+result validation maps to `parent_result_validation`; and an exact source digest mismatch maps to
+`source_identity`. Child diagnostic persistence failure has a distinct closed exit status, while
+its generic failure payload and the deployment controller's public four-field aggregate remain
+unchanged. No raw MCP payload, path, stderr, transcript, credential, or secret is added to operator
+evidence.
+
+Focused RED reported `11 failed, 4 passed`; focused GREEN reported `15 passed`; and the complete MCP
+client/deployment proof suites reported `120 passed, 5 warnings`. The first full-suite run reported
+`3068 passed, 14 skipped, 5 warnings` plus 12 evaluation failures that all identified stale source
+identity. Identity-only commit `80f83181588710ff4b2b7faca5717465499adddd` is the resulting
+validator-proven 16-path mechanical closure. The detached validation mirror and real worktree each
+passed all seven canonical validators, the focused evaluation artifact suite reported
+`191 passed, 5 warnings`, feature/mirror bytes were equal for all 16 paths, and normalized
+semantic projections, metrics, results, diagnostics, thresholds, statuses, and verdicts remained
+unchanged. E3-B remained byte-identical.
+
+This repair is `TARGETED AUTHORITY RE-REVIEW PENDING`. Steps 8-10 remain incomplete, and this record
+does not clear a fresh Step 8 or authorize authorization-only, Step 9, Step 10, a sixth real
+deployment-controller invocation, manual MCP replay, model load, ASR, provider or product-path
+execution, download, push, PR, merge, release, redistribution, or deployment. All earlier Step 8
+and Step 9 material remains historical evidence only. The historical real deployment-controller
+invocation count remains five and the retry count remains four; a sixth invocation did not occur.
+
 - [ ] **Step 8: Build the final MKE wheel and bind the terminal proof inputs**
 
 After PR C implementation, documentation, plan/review status, and any conditional identity closure

@@ -496,14 +496,56 @@ does not establish real-ASR success, production readiness, accuracy, or SLA auth
 historical real deployment-controller invocation and retry counts remain four and three; a fifth
 invocation did not occur.
 
+## MCP Gate Operator Diagnostic Repair — Targeted Authority Re-Review Pending
+
+The later authorized Step 9 run failed closed with the unchanged public `mcp_failed` aggregate.
+Provider-free investigation did not identify a specific product-flow defect. It proved that the
+installed MCP child silently discarded diagnostic persistence failure and that parent rejection of
+an otherwise successful child result or exact source identity generated no operator diagnostic.
+
+Repair commit `bf9fa248381c5edac6b6a77996288d36fa7d1ad9` changes exactly:
+
+- `src/mke/proof/mcp_deployment_client.py`;
+- `scripts/direct_audio_deployment_proof.py`;
+- `tests/proof/test_mcp_deployment_client.py`; and
+- `tests/scripts/test_direct_audio_deployment_proof.py`.
+
+The child now writes a call-owned intermediate diagnostic, while the parent exclusively writes the
+final operator diagnostic through the existing descriptor-bound
+`mke.mcp_deployment_diagnostic.v1` authority. Valid child diagnostics retain their exact stage.
+Missing or unpersisted child evidence maps to `child_diagnostic_unavailable`; successful-child
+result rejection maps to `parent_result_validation`; and exact fixture source rejection maps to
+`source_identity`. Diagnostic persistence failure has a distinct closed child exit status. The
+public deployment aggregate remains exactly `schema_version`, `status`, `canonical`, and `failure`,
+with `failure=mcp_failed`; no raw payload, private path, stderr, transcript, credential, token, or
+secret is added.
+
+TDD recorded `11 failed, 4 passed` at RED, `15 passed` at focused GREEN, and
+`120 passed, 5 warnings` for the complete MCP client/deployment suites. The initial full suite
+reported `3068 passed, 14 skipped, 5 warnings` plus 12 stale evaluation-source identity failures.
+Identity-only commit `80f83181588710ff4b2b7faca5717465499adddd` mechanically refreshes the
+16 validator-proven paths. Both the detached validation mirror and the actual worktree passed all
+seven canonical validators. The focused artifact suite reported `191 passed, 5 warnings`;
+feature/mirror bytes matched for all 16 paths; JSON path inventories and normalized semantic
+projections were equal; metrics, results, diagnostics, thresholds, statuses, and verdicts were
+unchanged; and E3-B remained byte-identical.
+
+The repair remains `TARGETED AUTHORITY RE-REVIEW PENDING`. Steps 6 and 7 remain accepted; Steps
+8-10 remain incomplete and no new Step 8 authority has been created. Every prior Step 8/Step 9
+wheel, authorization, aggregate, diagnostic, and observation remains historical evidence only.
+The real deployment-controller invocation count remains five and retry count remains four; a sixth
+invocation did not occur. No manual MCP replay, model load, ASR, provider or product execution,
+download, redistribution, production, accuracy, SLA, release, or deployment claim is made.
+
 ## Next Gate And Non-Claims
 
-The next incomplete gate is a fresh Step 8, which requires separate execution authority. This
-record does not claim that a post-repair final wheel was rebuilt, authorization-only validation was
-rerun, a manual MCP replay occurred, real ASR, model, provider, or product-path execution occurred,
-external inputs were acquired, packages or native binaries may be redistributed, or any push, PR,
-merge, release, deployment, production readiness, accuracy, SLA, or cross-platform authority
-exists. The historical deployment-controller invocations failed before real ASR and are not model,
-ASR, provider, or product success. This record does not claim release, redistribution authority,
-production readiness, SLA, deployment, or retry success. The current real deployment-controller
-invocation count is four and the retry count is three; a fifth invocation did not occur.
+The next gate is Career targeted actual-diff re-review of the pending MCP operator-diagnostic
+repair. Fresh Step 8 remains the next incomplete implementation step only after that review is
+accepted and separately authorized. This record does not claim that a post-repair final wheel was
+rebuilt, authorization-only validation was rerun, a manual MCP replay occurred, real ASR, model,
+provider, or product-path execution occurred, external inputs were acquired, packages or native
+binaries may be redistributed, or any push, PR, merge, release, deployment, production readiness,
+accuracy, SLA, or cross-platform authority exists. The historical deployment-controller
+invocations are not model, ASR, provider, or product success. The current real
+deployment-controller invocation count is five and the retry count is four; a sixth invocation did
+not occur.
