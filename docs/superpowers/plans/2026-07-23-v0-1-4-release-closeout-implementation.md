@@ -1,6 +1,6 @@
 # v0.1.4 Release Closeout Implementation Plan
 
-Status: approved plan source; pending mechanical landing, actual-diff review, and staged execution.
+Status: Tasks 1-7 complete; `CLEAN / ACCEPTED`; Task 8 remains unstarted.
 
 > **For implementers:** Use `superpowers:executing-plans` as the primary implementation
 > controller, `superpowers:test-driven-development` for current-identity and presentation changes,
@@ -537,10 +537,16 @@ whole-branch actual-diff review.
 > distinguishes the external 60-wheel manifest from the complete historical 61-wheel manifest.
 > Worktree-bound full-suite verification additionally closes the same stale 0.1.3 current
 > installed-metadata assertion in the MCP deployment-client proof test.
-> Status: `TARGETED AUTHORITY RE-REVIEW PENDING`. Task 7 remains unaccepted and Task 8 remains
-> entirely unstarted.
+> Career targeted authority re-review accepted exact repair HEAD
+> `f9c5c3b5211337a0d2d86b3332697ad3755d4420` and range
+> `3c60c1dfa18aba65a402e0be1d12207a55fba329..f9c5c3b5211337a0d2d86b3332697ad3755d4420`
+> as `CLEAN`, with no residual finding. Independent read-back returned `266 passed, 5 warnings`,
+> live presentation `status=ok`, exact 14-path scope, passing diff/check, and unchanged frozen
+> receipt, v0.1.3, OCR, and evaluation authority. Status: `CLEAN / ACCEPTED`. The docs-only
+> acceptance commit becomes the sole authority for later candidate work. Task 8 remains entirely
+> unstarted and requires separate authorization.
 
-- [ ] **Step 1: Review the complete branch**
+- [x] **Step 1: Review the complete branch**
 
 Review:
 
@@ -556,7 +562,7 @@ Review:
 
 Use one whole-branch review. Do not run a competing full review in parallel.
 
-- [ ] **Step 2: Return findings to the execution controller**
+- [x] **Step 2: Return findings to the execution controller**
 
 For every finding:
 
@@ -569,12 +575,12 @@ For every finding:
 Use `superpowers:receiving-code-review` for repairs. Findings do not automatically authorize a
 broader design.
 
-- [ ] **Step 3: Targeted re-review**
+- [x] **Step 3: Targeted re-review**
 
 Default to targeted actual-diff re-review. Repeat full review only for a material scope,
 architecture, authority, or public-claim change.
 
-- [ ] **Step 4: Commit final acceptance before candidate work**
+- [x] **Step 4: Commit final acceptance before candidate work**
 
 Update the review to `CLEAN / ACCEPTED`, record exact reviewed HEAD/range and verification, and
 ensure every tracked implementation/review write is complete.

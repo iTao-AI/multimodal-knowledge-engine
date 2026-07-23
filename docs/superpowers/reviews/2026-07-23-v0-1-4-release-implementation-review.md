@@ -1,11 +1,12 @@
 # v0.1.4 Release Implementation Review
 
-Status: **TARGETED AUTHORITY RE-REVIEW PENDING**
+Status: **CLEAN / ACCEPTED**
 
-This record freezes the local pre-review candidate state after implementation Tasks 1-6. It is
-an evidence handoff to the independent Career actual-diff reviewer, not an acceptance verdict.
-Task 7 remains open. No final candidate was built, no terminal real-ASR proof was run, and no
-push, PR, merge, tag, GitHub Release, archive proof, publication, or cleanup was performed.
+This record freezes the accepted local candidate state after implementation Tasks 1-7. Career
+accepted the bounded repair at exact HEAD `f9c5c3b5211337a0d2d86b3332697ad3755d4420`
+with no residual finding. Task 8 remains entirely unstarted. No final candidate was built, no
+terminal real-ASR proof was run, and no push, PR, merge, tag, GitHub Release, archive proof,
+publication, or cleanup was performed.
 
 ## Candidate Identity
 
@@ -33,7 +34,7 @@ scripts, 1 module-version file, 7 focused tests, 4 evaluation protocol locks, 2 
 tests, and `uv.lock`.
 
 Task 6 adds only this review and updates the existing implementation plan checklist. The resulting
-branch diff is exactly 59 paths, 2,216 insertions, and 258 deletions. Its scope is:
+branch diff is exactly 59 paths, 2,237 insertions, and 258 deletions. Its scope is:
 
 - current release entry points: `CHANGELOG.md`, `README.md`, `README_CN.md`, `docs/README.md`,
   `docs/releases/v0.1.4.md`, and the affected current tutorial, how-to, reference, and ADR files;
@@ -199,8 +200,9 @@ Career reviewed exact HEAD `3c60c1dfa18aba65a402e0be1d12207a55fba329` and return
    The relationship is 60 external wheels plus one historical MKE 0.1.3 candidate; canonical
    receipt/evidence bytes are unchanged.
 
-The repair is pending Career targeted authority re-review. It does not accept Task 7 or authorize
-Task 8.
+Career targeted authority re-review accepted repair range
+`3c60c1dfa18aba65a402e0be1d12207a55fba329..f9c5c3b5211337a0d2d86b3332697ad3755d4420`
+as `CLEAN`, with no residual finding. This closes Task 7 but does not authorize Task 8.
 
 Targeted repair verification:
 
@@ -218,11 +220,25 @@ Targeted repair verification:
 - fresh E1, E2, E3-A, E3-B, E3-C, E3-D, and E3-E validators: `7/7 passed`;
   `identity_refresh=not_required`.
 
+Career independently read back the targeted repair in the correct isolated worktree environment:
+
+- focused targeted suite: `266 passed, 5 warnings`;
+- live presentation audit: `status=ok`;
+- repair diff/check and exact 14-path scope: passed;
+- canonical retrieval digests and current 0.1.4 wheel-guide contract: passed;
+- external 60-wheel and complete historical 61-wheel manifests: independently recomputed and
+  matched the recorded values; and
+- frozen direct-audio receipt, v0.1.3 release note, OCR authority, and evaluation artifacts:
+  unchanged.
+
+The docs-only commit containing this acceptance record becomes the sole accepted HEAD for any
+later Task 8 candidate work. Any later tracked write invalidates that candidate authority and
+requires renewed review.
+
 ## Explicit Non-Claims And Next Gate
 
 This state does not claim:
 
-- authoritative whole-branch acceptance;
 - a built or installed final v0.1.4 wheel;
 - terminal authorization readiness or real-ASR execution;
 - model accuracy, cross-platform support, production resource defaults, uptime, throughput, SLA,
@@ -231,6 +247,5 @@ This state does not claim:
 - a pushed branch, PR, hosted checks, merge, tag, GitHub Release, source-archive smoke, immutable
   publication evidence, post-release documentation closeout, or cleanup.
 
-The only next gate is Career targeted authority re-review of this repair. Candidate generation and
-terminal proof remain prohibited until that review returns an accepted verdict bound to the
-reviewed branch state.
+The next gate is separate Task 8 authorization against the exact docs-only acceptance commit.
+Candidate generation and terminal proof remain prohibited in this closure.
