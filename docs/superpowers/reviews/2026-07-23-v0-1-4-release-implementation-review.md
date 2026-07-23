@@ -2,11 +2,12 @@
 
 Status: **CLEAN / ACCEPTED**
 
-This record freezes the accepted local candidate state after implementation Tasks 1-7. Career
-accepted the bounded repair at exact HEAD `f9c5c3b5211337a0d2d86b3332697ad3755d4420`
-with no residual finding. Task 8 remains entirely unstarted. No final candidate was built, no
-terminal real-ASR proof was run, and no push, PR, merge, tag, GitHub Release, archive proof,
-publication, or cleanup was performed.
+This record freezes the accepted local candidate state after implementation Tasks 1-7 and the
+accepted dependency-authority version-boundary repair. Independent targeted actual-diff review
+accepted exact repair HEAD `a921f2a2f5dea9e27512b67e521f758fc899f9cb` and tree
+`1dbd9a8b80c7077e3104ce144da8066dae2f0e6c` with zero findings. Task 8 Steps 1-7 remain entirely
+unstarted. No final candidate was built, no terminal real-ASR proof was run, and no push, PR,
+merge, tag, GitHub Release, archive proof, publication, or cleanup was performed.
 
 ## Candidate Identity
 
@@ -16,6 +17,9 @@ publication, or cleanup was performed.
 - Atomic presentation and release-documentation commit:
   `b65f3f72343ae6ba6c6f26116dcba71d12777a97`.
 - Evaluation identity closure commit: `b0e5c4949613db11f032c033abaef46527bd211f`.
+- Initial docs-only acceptance commit: `4fffc3e3941475ccf7d8ff7ceb5d6ea9010ff42c`.
+- Accepted dependency-authority repair commit:
+  `a921f2a2f5dea9e27512b67e521f758fc899f9cb`.
 - Branch: `codex/v0-1-4-release-closeout`.
 - Package identity: `0.1.4` in project metadata, module metadata, lock root, and release-consumer
   smoke authority.
@@ -33,8 +37,9 @@ documentation surfaces, 2 approved Superpowers authority documents, 1 package ma
 scripts, 1 module-version file, 7 focused tests, 4 evaluation protocol locks, 2 root identity
 tests, and `uv.lock`.
 
-Task 6 adds only this review and updates the existing implementation plan checklist. The resulting
-branch diff is exactly 59 paths, 2,237 insertions, and 258 deletions. Its scope is:
+Task 6 added only this review and updated the existing implementation plan checklist. At that
+durable-state checkpoint, the resulting branch diff was exactly 59 paths, 2,237 insertions, and
+258 deletions. Its scope was:
 
 - current release entry points: `CHANGELOG.md`, `README.md`, `README_CN.md`, `docs/README.md`,
   `docs/releases/v0.1.4.md`, and the affected current tutorial, how-to, reference, and ADR files;
@@ -235,6 +240,61 @@ The docs-only commit containing this acceptance record becomes the sole accepted
 later Task 8 candidate work. Any later tracked write invalidates that candidate authority and
 requires renewed review.
 
+## Accepted Dependency-Authority Version-Boundary Repair
+
+The first Task 8 attempt stopped before terminal execution because two controller checks coupled
+the fresh candidate identity to the canonical receipt's unique historical MKE version:
+
+1. candidate receipt structure validation required the fresh filename and version to equal the
+   historical `0.1.3` candidate row; and
+2. package-set projection required each historical installed MKE row's version to equal the fresh
+   candidate version instead of replacing exactly that source identity.
+
+The accepted TDD repair is exact range
+`4fffc3e3941475ccf7d8ff7ceb5d6ea9010ff42c..a921f2a2f5dea9e27512b67e521f758fc899f9cb`,
+with final tree `1dbd9a8b80c7077e3104ce144da8066dae2f0e6c`. Its scope is exactly
+`scripts/direct_audio_deployment_proof.py` and
+`tests/scripts/test_direct_audio_deployment_proof.py`.
+
+The repair leaves `validate_committed_receipt()` and the canonical receipt internally strict and
+unchanged. It validates the fresh universal candidate independently, preserves every historical
+external distribution/version row, and replaces exactly one historical MKE row per Python cell
+with candidate version `0.1.4` for the authorization projection. The canonical receipt remains
+historical `0.1.3`.
+
+Execution-window evidence:
+
+- two focused regressions reproduced the stale-version couplings as RED and passed after repair;
+- committed repair diff: exactly two files, 78 insertions, and 15 deletions;
+- deployment-proof/receipt adjacency: `357 passed, 5 warnings`;
+- full pytest: `3100 passed, 14 skipped, 5 warnings`;
+- Ruff: passed;
+- Pyright: `0 errors, 0 warnings`;
+- model-free product proof: `8/8 passed`;
+- live presentation audit: `status=ok`, `violations=[]`;
+- canonical retrieval validators: `7/7 passed`, `identity_refresh=not_required`; and
+- canonical receipt SHA-256:
+  `49196028327ba0d34be5bcabfeb55bd6d455f4e68e88a35e858e7c30db8ef111`.
+
+Independent targeted verification:
+
+- committed focused receipt/deployment suites: `333 passed, 5 warnings`;
+- fresh candidate structure, historical-to-fresh package projection, and current
+  lock/constraints two-cell roots all passed;
+- Python 3.12 and 3.13 roots are each 5,819 bytes with SHA-256
+  `f0ac3270d71054d6879175637d197f5fa0fe52546bf94b7319967891aa3e133e`;
+- both projected package sets use `0.1.4` while the canonical receipt remains `0.1.3`;
+- missing or duplicate historical rows, missing or duplicate projected candidate rows,
+  non-universal fresh tags, and unsatisfied candidate requirements remain fail-closed;
+- Ruff, Pyright, diff/check, exact two-file scope, and clean worktree/index passed; and
+- receipt bytes, external dependency authority, authorization schema, and the public four-field
+  aggregate are unchanged.
+
+The targeted review verdict is `CLEAN / ACCEPTED` with zero findings. All candidate,
+authorization, or terminal evidence produced before accepted repair HEAD
+`a921f2a2f5dea9e27512b67e521f758fc899f9cb` is historical only and is not final candidate
+authority.
+
 ## Explicit Non-Claims And Next Gate
 
 This state does not claim:
@@ -247,5 +307,8 @@ This state does not claim:
 - a pushed branch, PR, hosted checks, merge, tag, GitHub Release, source-archive smoke, immutable
   publication evidence, post-release documentation closeout, or cleanup.
 
-The next gate is separate Task 8 authorization against the exact docs-only acceptance commit.
-Candidate generation and terminal proof remain prohibited in this closure.
+The next gate is a separately authorized fresh Task 8. It must restart retained-input and
+repository verification with accepted repair HEAD
+`a921f2a2f5dea9e27512b67e521f758fc899f9cb` as the reviewed repair authority and the new docs-only
+acceptance commit as the repository authority. Candidate generation, authorization-only, and real
+terminal execution remain prohibited in this closure.

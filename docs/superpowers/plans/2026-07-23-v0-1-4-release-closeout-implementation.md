@@ -593,6 +593,55 @@ git commit -m "docs(release): accept v0.1.4 candidate review"
 
 After this commit, a new tracked write invalidates Task 8 evidence.
 
+### Accepted Dependency-Authority Version-Boundary Repair
+
+The first Task 8 attempt exposed a deterministic controller defect before terminal execution. Two
+checks incorrectly required a fresh release candidate to keep the version of the canonical
+receipt's unique historical MKE row:
+
+- candidate receipt structure validation coupled the fresh wheel filename and version to the
+  historical `0.1.3` candidate row; and
+- package-set projection required each historical installed MKE row's version to equal the fresh
+  candidate version instead of replacing that one source identity for authorization.
+
+The bounded TDD repair preserves `validate_committed_receipt()` and the complete historical
+receipt while independently validating the fresh universal wheel. For each Python cell, the
+authorization projection preserves every external distribution/version row and replaces exactly
+one historical MKE row with the independently validated fresh version. Missing, duplicate,
+malformed, non-universal, or dependency-incomplete inputs remain closed failures.
+
+Independent targeted actual-diff review accepted exact range
+`4fffc3e3941475ccf7d8ff7ceb5d6ea9010ff42c..a921f2a2f5dea9e27512b67e521f758fc899f9cb`,
+HEAD `a921f2a2f5dea9e27512b67e521f758fc899f9cb`, and tree
+`1dbd9a8b80c7077e3104ce144da8066dae2f0e6c` as `CLEAN / ACCEPTED` with zero findings. The repair
+scope is exactly:
+
+- `scripts/direct_audio_deployment_proof.py`; and
+- `tests/scripts/test_direct_audio_deployment_proof.py`.
+
+The execution window recorded reproducible RED in the two stale-version couplings, then GREEN with
+`357 passed` across deployment-proof/receipt adjacency, `3100 passed, 14 skipped` in full pytest,
+Ruff and Pyright clean, model-free proof `8/8 passed`, presentation `status=ok`, and all seven
+canonical retrieval validators passing with `identity_refresh=not_required`. The canonical receipt
+remained
+`49196028327ba0d34be5bcabfeb55bd6d455f4e68e88a35e858e7c30db8ef111`.
+
+Independent verification returned `333 passed, 5 warnings` and proved all three retained-input
+layers: fresh candidate structure, historical-to-fresh package projection, and current
+lock/constraints roots for Python 3.12 and 3.13. Both roots are 5,819 bytes with SHA-256
+`f0ac3270d71054d6879175637d197f5fa0fe52546bf94b7319967891aa3e133e`. The historical receipt
+remains `0.1.3`, while both projected package sets use fresh candidate version `0.1.4`. The
+negative matrix confirmed that missing or duplicate historical rows, missing or duplicate package
+candidate rows, non-universal fresh tags, and unsatisfied candidate requirements remain
+fail-closed.
+
+Task 8 Steps 1-7 remain entirely unstarted. All candidate, authorization, and terminal evidence
+produced before accepted repair HEAD `a921f2a2f5dea9e27512b67e521f758fc899f9cb` is historical only
+and cannot become final candidate authority. The next gate requires separate authorization and a
+fresh Task 8 beginning with retained-input and repository verification anchored to that accepted
+repair. Authorization-only and real terminal execution remain prohibited during this docs-only
+acceptance closure.
+
 ---
 
 ## Task 8: Build And Prove The Reviewed Candidate
