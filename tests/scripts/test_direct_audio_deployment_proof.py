@@ -5,6 +5,7 @@ import inspect
 import io
 import json
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -15,7 +16,9 @@ from typing import cast
 
 import pytest
 
+from mke.application import KnowledgeEngine
 from scripts import direct_audio_deployment_proof as proof
+from tests.conftest import PDF_FIXTURES
 
 
 def test_documented_direct_script_path_runs_without_pythonpath() -> None:
@@ -622,6 +625,7 @@ def test_candidate_receipt_structure_rejects_distribution_version_or_tag_drift(
 class FakeRunner:
     def __init__(self) -> None:
         self.calls: list[proof.CommandCall] = []
+        self.export_cwd_existed: list[bool] = []
 
     def run(self, call: proof.CommandCall) -> proof.CommandResult:
         self.calls.append(call)
@@ -650,6 +654,7 @@ class FakeRunner:
         if step.startswith(("python-", "cli-", "mcp-")):
             return proof.CommandResult(0, json.dumps(_product_result(step)).encode(), b"")
         if step.startswith("export-"):
+            self.export_cwd_existed.append(call.cwd.is_dir())
             return proof.CommandResult(
                 0,
                 json.dumps(
@@ -786,6 +791,12 @@ def test_private_orchestration_freezes_two_cells_and_real_product_call_plan(
     assert all(steps.count(f"cli-{suffix}") == 2 for suffix in ("mp3", "wav", "m4a"))
     assert steps.count("export-first") == 2
     assert steps.count("export-second") == 2
+    export_calls = [call for call in runner.calls if call.step.startswith("export-")]
+    assert runner.export_cwd_existed == [True, True, True, True]
+    assert all(call.cwd.name == "export" for call in export_calls)
+    assert [
+        call.argv[call.argv.index("--output") + 1] for call in export_calls
+    ] == ["first", "second", "first", "second"]
     assert steps.count("consumer-original") == 2
     assert steps.count("consumer-copy") == 2
     assert not any("v1" in argument for call in runner.calls for argument in call.argv)
@@ -817,6 +828,129 @@ def test_private_orchestration_freezes_two_cells_and_real_product_call_plan(
         for call in runner.calls
         for key in ("PIP_INDEX_URL", "HTTP_PROXY", "HTTPS_PROXY", "PYTHONHOME", "VIRTUAL_ENV")
     )
+
+
+def test_export_controller_matches_real_cli_leaf_name_and_cwd_contract(
+    tmp_path: Path,
+) -> None:
+    native_root = tmp_path / "native-boundary"
+    native_root.mkdir()
+    database = native_root / "library.sqlite"
+    engine = KnowledgeEngine(database)
+    try:
+        engine.ingest_pdf(PDF_FIXTURES / "text-layer.pdf")
+    finally:
+        engine.close()
+
+    mke = Path(sys.executable).with_name("mke")
+    assert mke.is_file()
+    export_root = native_root / "export"
+
+    def run_export(*, cwd: Path, output: str) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.run(
+            [
+                str(mke),
+                "--db",
+                str(database),
+                "library",
+                "export",
+                "--output",
+                output,
+                "--format-version",
+                "v2",
+                "--json",
+            ],
+            cwd=cwd,
+            env={
+                "HOME": str(native_root),
+                "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+                "PYTHONDONTWRITEBYTECODE": "1",
+                "UV_OFFLINE": "1",
+            },
+            capture_output=True,
+            check=False,
+            timeout=30,
+        )
+
+    invalid = run_export(cwd=native_root, output=str(export_root / "first"))
+    assert invalid.returncode == 1
+    assert invalid.stderr == b""
+    assert json.loads(invalid.stdout) == {
+        "active_publication_impact": "unchanged",
+        "cause": "output parent is invalid",
+        "next_step": "choose_valid_output_parent",
+        "ok": False,
+        "problem": "output_path_invalid",
+        "schema_version": "mke.compiled_library_export_response.v2",
+    }
+
+    export_root.mkdir(mode=0o700)
+    first_result = run_export(cwd=export_root, output="first")
+    second_result = run_export(cwd=export_root, output="second")
+    assert first_result.returncode == second_result.returncode == 0
+    assert first_result.stderr == second_result.stderr == b""
+    first_payload = json.loads(first_result.stdout)
+    second_payload = json.loads(second_result.stdout)
+    assert first_payload == second_payload
+    assert first_payload["schema_version"] == "mke.compiled_library_export_response.v2"
+    assert first_payload["ok"] is True
+
+    first = export_root / "first"
+    second = export_root / "second"
+    first_tree = proof._export_tree_digest(first)  # pyright: ignore[reportPrivateUsage]
+    assert proof._export_tree_digest(second) == first_tree  # pyright: ignore[reportPrivateUsage]
+    portable = export_root / "copy"
+    shutil.copytree(first, portable)
+    assert proof._export_tree_digest(portable) == first_tree  # pyright: ignore[reportPrivateUsage]
+
+    consumer = Path(proof.__file__).with_name("compiled_library_export_consumer_v2.py")
+    for candidate in (first, portable):
+        consumed = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                "-B",
+                str(consumer),
+                "--export",
+                str(candidate),
+                "--json",
+            ],
+            cwd=export_root,
+            env={
+                "HOME": str(native_root),
+                "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+                "PYTHONDONTWRITEBYTECODE": "1",
+                "UV_OFFLINE": "1",
+            },
+            capture_output=True,
+            check=False,
+            timeout=30,
+        )
+        assert consumed.returncode == 0
+        assert consumed.stderr == b""
+        assert json.loads(consumed.stdout) == {
+            "evidence_schema": "mke.evidence_ref.v1",
+            "export_schema": "mke.compiled_library_export.v2",
+            "markdown_format": "mke.compiled_markdown.v2",
+            "schema_version": "mke.compiled_library_export_consumer.v2",
+            "status": "passed",
+        }
+
+    controller_root = tmp_path / "controller"
+    controller_root.mkdir()
+    config = _config(controller_root)
+    runner = FakeRunner()
+    proof._run_direct_audio_deployment_proof(  # pyright: ignore[reportPrivateUsage]
+        config,
+        _manifest(config),
+        runner,
+    )
+    export_calls = [call for call in runner.calls if call.step.startswith("export-")]
+    assert runner.export_cwd_existed == [True, True, True, True]
+    assert all(call.cwd.name == "export" for call in export_calls)
+    assert [
+        call.argv[call.argv.index("--output") + 1] for call in export_calls
+    ] == ["first", "second", "first", "second"]
 
 
 def test_product_result_rejects_publication_or_evidence_drift() -> None:

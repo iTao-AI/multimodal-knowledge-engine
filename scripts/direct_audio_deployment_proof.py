@@ -2206,6 +2206,10 @@ def _run_direct_audio_deployment_proof_impl(
                 expected_source_sha256=fixture_digests["direct-audio.m4a"],
             )
             export_root = cell / "export"
+            try:
+                export_root.mkdir(mode=0o700)
+            except OSError as error:
+                raise DirectAudioDeploymentProofError("export_failed") from error
             export_results: list[dict[str, object]] = []
             for name in ("first", "second"):
                 export = _run_json(
@@ -2219,13 +2223,13 @@ def _run_direct_audio_deployment_proof_impl(
                             "library",
                             "export",
                             "--output",
-                            str(export_root / name),
+                            name,
                             "--format-version",
                             "v2",
                             "--json",
                         ),
                         env,
-                        cell,
+                        export_root,
                     ),
                     "export_failed",
                 )
