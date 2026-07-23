@@ -2591,6 +2591,43 @@ invocation did not occur. No receipt replay, authorization-only execution, manua
 model load, ASR, provider or product-path execution, download, redistribution, production,
 accuracy, SLA, release, or deployment claim is made.
 
+#### MCP Module Startup Repair — Clean / Accepted
+
+The sixth authorized terminal run failed closed at the MCP gate. Provider-free reproduction proved
+that the module entry point completed successfully but emitted the standard `runpy` warning because
+the public proof import chain eagerly loaded `mke.proof.local_knowledge`, which in turn loaded
+`mke.proof.mcp_deployment_client` before `python -m` executed that target. The deployment
+controller's unchanged outer-stderr policy therefore rejected the child rather than waiving or
+filtering the warning.
+
+Repair commit `8b903ba014b3b182e6887176d645495ba2c40e26` moves the shared MCP helper import
+into the local-knowledge MCP flow. It preserves the existing `mke.proof` public exports and
+local-knowledge proof behavior, and unknown or nonempty outer stderr continues to fail closed.
+Identity-only commit `c8581085afbec6279504422913ce850122a8c18d` mechanically refreshes the 16
+validator-proven evaluation paths. The semantic-equality report has SHA-256
+`adacd1fc536de10d24d79bdc276cb12ad341bfe0a4a5d2a7be6910966eed408f`; every
+normalized semantic projection is equal and E3-B remains byte-identical.
+
+Targeted actual-diff re-review covered
+`2f2baa40d19dbf9f12f63001a6055e3f27aefbb8..c8581085afbec6279504422913ce850122a8c18d`
+at reviewed HEAD `c8581085afbec6279504422913ce850122a8c18d` and returned `CLEAN` with no
+findings. Independent verification reported `returncode=0`, 2,404 stdout bytes, and zero stderr
+bytes for the direct isolated module help command. TDD recorded `2 failed, 1 passed` at RED and
+`3 passed, 5 warnings` at focused GREEN. The complete suite reported
+`3092 passed, 14 skipped, 5 warnings`; Ruff passed; Pyright reported
+`0 errors, 0 warnings, 0 informations`; `git diff --check` passed; and all seven canonical
+validators passed.
+
+Steps 6 and 7 remain accepted and complete. Step 8 is the next incomplete gate, and Steps 8-10
+remain incomplete. Every earlier Step 8 or Step 9 wheel, authorization, aggregate, diagnostic,
+observation, and related artifact remains historical evidence only and cannot serve as fresh
+terminal authority. The historical real deployment-controller invocation and retry counts are six
+and five; a seventh invocation did not occur. This acceptance does not claim real-ASR success,
+accuracy, SLA, production readiness, cross-platform authority, external-binary redistribution,
+release, or deployment, and it does not authorize Step 8, Step 9, another controller invocation,
+manual MCP replay, model load, ASR, provider or product-path execution, download, push, PR, merge,
+release, or deployment.
+
 - [ ] **Step 8: Build the final MKE wheel and bind the terminal proof inputs**
 
 After PR C implementation, documentation, plan/review status, and any conditional identity closure

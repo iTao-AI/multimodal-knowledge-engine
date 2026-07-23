@@ -606,6 +606,41 @@ five and four; a sixth invocation did not occur. No authorization-only execution
 replay, model load, ASR, provider or product-path execution, download, redistribution, production,
 accuracy, SLA, release, or deployment claim is made.
 
+## MCP Module Startup Repair — Clean / Accepted
+
+The sixth authorized terminal run failed closed at the MCP gate. Provider-free reproduction proved
+that the direct module entry point returned success while emitting the standard `runpy` warning.
+The warning was caused by the public proof import chain eagerly loading
+`mke.proof.local_knowledge`, which loaded `mke.proof.mcp_deployment_client` before `python -m`
+executed that target. The unchanged deployment-controller policy correctly treats any outer stderr
+as failure; the repair does not add a warning allowlist or weaken that boundary.
+
+Repair commit `8b903ba014b3b182e6887176d645495ba2c40e26` performs the minimum lazy import
+inside the local-knowledge MCP flow. The existing public exports remain available, local-knowledge
+proof behavior remains unchanged, and unknown or nonempty outer stderr remains fail closed.
+Identity-only commit `c8581085afbec6279504422913ce850122a8c18d` mechanically refreshes the 16
+validator-proven evaluation paths. Its semantic-equality report has SHA-256
+`adacd1fc536de10d24d79bdc276cb12ad341bfe0a4a5d2a7be6910966eed408f`; all
+normalized semantic projections are equal and E3-B is byte-identical.
+
+Targeted actual-diff re-review covered
+`2f2baa40d19dbf9f12f63001a6055e3f27aefbb8..c8581085afbec6279504422913ce850122a8c18d`
+at reviewed HEAD `c8581085afbec6279504422913ce850122a8c18d` and returned `CLEAN`, with zero
+Critical and zero Informational findings. Independent verification reported `returncode=0`, 2,404
+stdout bytes, and zero stderr bytes for the direct isolated module help command. TDD reported
+`2 failed, 1 passed` at RED and `3 passed, 5 warnings` at focused GREEN. The complete suite
+reported `3092 passed, 14 skipped, 5 warnings`; Ruff passed; Pyright reported
+`0 errors, 0 warnings, 0 informations`; `git diff --check` passed; and all seven canonical
+validators passed.
+
+Steps 6 and 7 remain accepted and complete. Step 8 is again the next incomplete gate; Steps 8-10
+remain incomplete. All earlier Step 8 and Step 9 wheels, authorizations, aggregates, diagnostics,
+observations, and related artifacts remain historical evidence only and cannot be reused as fresh
+terminal authority. The historical real deployment-controller invocation count is six and the
+retry count is five; a seventh invocation did not occur. This record makes no claim of real-ASR
+success, accuracy, SLA, production readiness, cross-platform authority, external-binary
+redistribution, release, or deployment.
+
 ## Next Gate And Non-Claims
 
 Fresh Step 8 is the next incomplete gate and requires separate authorization. This record does not
@@ -614,5 +649,5 @@ provider, or product-path execution occurred, external inputs were acquired, pac
 binaries may be redistributed, or any push, PR, merge, release, deployment, production readiness,
 accuracy, SLA, or cross-platform authority exists. The historical deployment-controller
 invocations are not model, ASR, provider, or product success. The current real
-deployment-controller invocation count is five and the retry count is four; a sixth invocation
+deployment-controller invocation count is six and the retry count is five; a seventh invocation
 did not occur.
