@@ -76,6 +76,9 @@ _MCP_FAILURE_STAGES = frozenset(
         "flow_validation",
         "portable_validation",
         "stderr",
+        "child_diagnostic_unavailable",
+        "parent_result_validation",
+        "source_identity",
     }
 )
 McpFailureStage = Literal[
@@ -91,6 +94,9 @@ McpFailureStage = Literal[
     "flow_validation",
     "portable_validation",
     "stderr",
+    "child_diagnostic_unavailable",
+    "parent_result_validation",
+    "source_identity",
 ]
 
 
@@ -797,16 +803,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         try:
             write_mcp_diagnostic(args.diagnostic, failure)
         except McpDiagnosticWriteError:
-            pass
+            status = 2
+        else:
+            status = 1
         print(json.dumps({"status": "failed", "reason": "mcp_deployment_failed"}))
-        return 1
+        return status
     except Exception:
         try:
             write_mcp_diagnostic(args.diagnostic, McpDeploymentFailure("startup"))
         except McpDiagnosticWriteError:
-            pass
+            status = 2
+        else:
+            status = 1
         print(json.dumps({"status": "failed", "reason": "mcp_deployment_failed"}))
-        return 1
+        return status
     print(json.dumps(report, sort_keys=True))
     return 0
 

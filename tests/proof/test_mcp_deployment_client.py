@@ -1090,6 +1090,88 @@ def test_client_failure_writes_closed_operator_diagnostic(
     assert "private server warning" not in diagnostic.read_text(encoding="ascii")
 
 
+def test_client_diagnostic_write_failure_has_distinct_closed_exit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from mke.proof import mcp_deployment_client as client
+
+    monkeypatch.chdir(tmp_path)
+    for name in ("home", "tmp", "cache"):
+        (tmp_path / name).mkdir()
+    for key, value in {
+        "HOME": str(tmp_path / "home"),
+        "TMPDIR": str(tmp_path / "tmp"),
+        "XDG_CACHE_HOME": str(tmp_path / "cache"),
+        "PIP_CONFIG_FILE": os.devnull,
+        "HF_HUB_OFFLINE": "1",
+        "TRANSFORMERS_OFFLINE": "1",
+        "UV_OFFLINE": "1",
+    }.items():
+        monkeypatch.setenv(key, value)
+
+    def fail(*args: object, **kwargs: object) -> dict[str, object]:
+        del args, kwargs
+        raise client.McpDeploymentFailure("search")
+
+    def fail_write(path: Path, failure: client.McpDeploymentFailure) -> None:
+        del path, failure
+        raise client.McpDiagnosticWriteError("mcp_diagnostic_write_failed")
+
+    monkeypatch.setattr(client, "run_mcp_flow_sync", fail)
+    monkeypatch.setattr(client, "write_mcp_diagnostic", fail_write)
+
+    result = client.main(
+        [
+            "--mke-command",
+            "/tmp/installed-mke",
+            "--fixture-name",
+            "direct-audio.wav",
+            "--db",
+            str(tmp_path / "mcp.sqlite"),
+            "--allowed-root",
+            str(tmp_path),
+            "--child-cwd",
+            str(tmp_path),
+            "--diagnostic",
+            str(tmp_path / "mcp-diagnostic.json"),
+            "--model-revision",
+            "a" * 40,
+        ]
+    )
+
+    assert result == 2
+    assert json.loads(capsys.readouterr().out) == {
+        "status": "failed",
+        "reason": "mcp_deployment_failed",
+    }
+
+
+@pytest.mark.parametrize(
+    "stage",
+    (
+        "child_diagnostic_unavailable",
+        "parent_result_validation",
+        "source_identity",
+    ),
+)
+def test_parent_diagnostic_stages_are_closed_mcp_failures(stage: str) -> None:
+    from mke.proof import mcp_deployment_client as client
+
+    failure = client.McpDeploymentFailure(
+        stage,  # pyright: ignore[reportArgumentType]
+    )
+
+    assert failure.stage == stage
+    assert failure.stderr == {
+        "bytes": 0,
+        "sha256": hashlib.sha256(b"").hexdigest(),
+        "overflow": False,
+        "capture_failed": False,
+    }
+
+
 def test_client_diagnostic_rejects_symlink_parent_without_operator_write(
     tmp_path: Path,
 ) -> None:

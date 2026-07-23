@@ -49,6 +49,7 @@ _MAX_INSTALL_DIAGNOSTIC_TEXT_BYTES = 64 * 1024
 _MAX_MCP_DIAGNOSTIC_BYTES = 4096
 _MAX_MCP_SERVER_STDERR_BYTES = mcp_diagnostic_authority._MAX_SERVER_STDERR_BYTES  # pyright: ignore[reportPrivateUsage]
 _MCP_DIAGNOSTIC_STAGES = mcp_diagnostic_authority._MCP_FAILURE_STAGES  # pyright: ignore[reportPrivateUsage]
+_MCP_CHILD_DIAGNOSTIC_NAME = "mcp-child-diagnostic.json"
 _INSTALL_DIAGNOSTIC_STEPS = frozenset(
     {
         "pip-install-3.12",
@@ -1154,6 +1155,9 @@ def _run_mcp_gate(
     runner: CommandRunner,
     call: CommandCall,
     diagnostic: Path | None,
+    *,
+    fixture: str,
+    expected_source_sha256: str,
 ) -> dict[str, object]:
     if call.step != "mcp-m4a" or diagnostic is None:
         raise DirectAudioDeploymentProofError("mcp_failed")
@@ -1165,19 +1169,66 @@ def _run_mcp_gate(
         raise DirectAudioDeploymentProofError("mcp_failed") from error
     else:
         raise DirectAudioDeploymentProofError("mcp_failed")
+    child_diagnostic = call.cwd / _MCP_CHILD_DIAGNOSTIC_NAME
+    try:
+        child_diagnostic.lstat()
+    except FileNotFoundError:
+        pass
+    except OSError as error:
+        raise DirectAudioDeploymentProofError("mcp_failed") from error
+    else:
+        raise DirectAudioDeploymentProofError("mcp_failed")
+
+    def persist_failure(
+        stage: mcp_diagnostic_authority.McpFailureStage,
+        stderr: Mapping[str, object] | None = None,
+    ) -> None:
+        try:
+            mcp_diagnostic_authority.write_mcp_diagnostic(
+                diagnostic,
+                mcp_diagnostic_authority.McpDeploymentFailure(stage, stderr),
+            )
+        except (
+            ValueError,
+            mcp_diagnostic_authority.McpDiagnosticWriteError,
+        ) as error:
+            raise DirectAudioDeploymentProofError("mcp_failed") from error
+
     result = runner.run(call)
     if result.returncode == 0 and not result.stderr:
         try:
-            diagnostic.lstat()
+            child_diagnostic.lstat()
         except FileNotFoundError:
-            return _json_result(result, "mcp_failed")
+            pass
         except OSError as error:
+            persist_failure("child_diagnostic_unavailable")
             raise DirectAudioDeploymentProofError("mcp_failed") from error
-        raise DirectAudioDeploymentProofError("mcp_failed")
+        else:
+            persist_failure("child_diagnostic_unavailable")
+            raise DirectAudioDeploymentProofError("mcp_failed")
+        try:
+            payload = _json_result(result, "mcp_failed")
+            validate_product_result(payload, fixture=fixture)
+        except DirectAudioDeploymentProofError as error:
+            persist_failure("parent_result_validation")
+            raise DirectAudioDeploymentProofError("mcp_failed") from error
+        if payload.get("source_sha256") != expected_source_sha256:
+            persist_failure("source_identity")
+            raise DirectAudioDeploymentProofError("mcp_failed")
+        return payload
+
     try:
-        _validate_mcp_diagnostic(diagnostic)
-    except DirectAudioDeploymentProofError as error:
-        raise DirectAudioDeploymentProofError("mcp_failed") from error
+        child_payload = _validate_mcp_diagnostic(child_diagnostic)
+    except DirectAudioDeploymentProofError:
+        persist_failure("child_diagnostic_unavailable")
+    else:
+        persist_failure(
+            cast(
+                mcp_diagnostic_authority.McpFailureStage,
+                child_payload["stage"],
+            ),
+            cast(Mapping[str, object], child_payload["stderr"]),
+        )
     raise DirectAudioDeploymentProofError("mcp_failed")
 
 
@@ -1553,7 +1604,7 @@ def _product_call(
             "--child-cwd",
             str(root),
             "--diagnostic",
-            str(config.mcp_diagnostic),
+            str(root / _MCP_CHILD_DIAGNOSTIC_NAME),
             "--model-revision",
             DEFAULT_MODEL_REVISION,
             "--model-cache",
@@ -2126,13 +2177,9 @@ def _run_direct_audio_deployment_proof_impl(
                     config=config,
                 ),
                 config.mcp_diagnostic,
+                fixture="m4a",
+                expected_source_sha256=fixture_digests["direct-audio.m4a"],
             )
-            try:
-                validate_product_result(mcp, fixture="m4a")
-            except DirectAudioDeploymentProofError as error:
-                raise DirectAudioDeploymentProofError("mcp_failed") from error
-            if mcp.get("source_sha256") != fixture_digests["direct-audio.m4a"]:
-                raise DirectAudioDeploymentProofError("mcp_failed")
             export_root = cell / "export"
             export_results: list[dict[str, object]] = []
             for name in ("first", "second"):

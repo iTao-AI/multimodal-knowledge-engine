@@ -721,7 +721,8 @@ def test_private_orchestration_freezes_two_cells_and_real_product_call_plan(
     assert "--child-cwd" in mcp.argv
     assert str(mcp.cwd) in mcp.argv
     assert "--diagnostic" in mcp.argv
-    assert str(config.mcp_diagnostic) in mcp.argv
+    assert str(mcp.cwd / proof._MCP_CHILD_DIAGNOSTIC_NAME) in mcp.argv  # pyright: ignore[reportPrivateUsage]
+    assert str(config.mcp_diagnostic) not in mcp.argv
     assert mcp.env["UV_OFFLINE"] == "1"
     assert mcp.env["PATH"] == "/usr/bin:/bin:/usr/sbin:/sbin"
     assert all("PYTHONPATH" not in call.env for call in runner.calls)
@@ -1161,17 +1162,36 @@ def _mcp_diagnostic_payload(
     }
 
 
+def _mcp_child_diagnostic(tmp_path: Path) -> Path:
+    return tmp_path / "mcp-child-diagnostic.json"
+
+
+def _run_mcp_gate_for_m4a(
+    runner: proof.CommandRunner,
+    tmp_path: Path,
+    diagnostic: Path,
+) -> dict[str, object]:
+    return proof._run_mcp_gate(  # pyright: ignore[reportPrivateUsage]
+        runner,
+        proof.CommandCall("mcp-m4a", ("not-executed",), {}, tmp_path),
+        diagnostic,
+        fixture="m4a",
+        expected_source_sha256=hashlib.sha256(b"direct-audio.m4a").hexdigest(),
+    )
+
+
 def test_mcp_gate_preserves_valid_bounded_operator_diagnostic(tmp_path: Path) -> None:
     diagnostic = tmp_path / "mcp-diagnostic.json"
+    child_diagnostic = _mcp_child_diagnostic(tmp_path)
 
     class FailedMcpRunner:
         def run(self, call: proof.CommandCall) -> proof.CommandResult:
             del call
-            diagnostic.write_text(
+            child_diagnostic.write_text(
                 json.dumps(_mcp_diagnostic_payload(), sort_keys=True) + "\n",
                 encoding="ascii",
             )
-            diagnostic.chmod(0o600)
+            child_diagnostic.chmod(0o600)
             return proof.CommandResult(
                 1,
                 b'{"status":"failed","reason":"mcp_deployment_failed"}\n',
@@ -1179,9 +1199,9 @@ def test_mcp_gate_preserves_valid_bounded_operator_diagnostic(tmp_path: Path) ->
             )
 
     with pytest.raises(proof.DirectAudioDeploymentProofError, match="^mcp_failed$"):
-        proof._run_mcp_gate(  # pyright: ignore[reportPrivateUsage]
+        _run_mcp_gate_for_m4a(
             FailedMcpRunner(),
-            proof.CommandCall("mcp-m4a", ("not-executed",), {}, tmp_path),
+            tmp_path,
             diagnostic,
         )
 
@@ -1190,19 +1210,67 @@ def test_mcp_gate_preserves_valid_bounded_operator_diagnostic(tmp_path: Path) ->
     )
 
 
+def test_mcp_gate_writes_parent_result_validation_diagnostic(tmp_path: Path) -> None:
+    diagnostic = tmp_path / "mcp-diagnostic.json"
+    payload = _product_result("mcp-m4a")
+    payload["status"] = "failed"
+
+    with pytest.raises(proof.DirectAudioDeploymentProofError, match="^mcp_failed$"):
+        _run_mcp_gate_for_m4a(
+            InstallGateRunner(proof.CommandResult(0, json.dumps(payload).encode(), b"")),
+            tmp_path,
+            diagnostic,
+        )
+
+    observed = proof._validate_mcp_diagnostic(  # pyright: ignore[reportPrivateUsage]
+        diagnostic
+    )
+    assert observed["stage"] == "parent_result_validation"
+    assert "/private" not in diagnostic.read_text(encoding="ascii")
+
+
+def test_mcp_gate_writes_exact_source_identity_diagnostic(tmp_path: Path) -> None:
+    diagnostic = tmp_path / "mcp-diagnostic.json"
+    payload = _product_result("mcp-m4a")
+    payload["source_sha256"] = "0" * 64
+    evidence = cast(dict[str, object], payload["evidence_ref"])
+    evidence["content_fingerprint"] = "sha256:" + "0" * 64
+
+    with pytest.raises(proof.DirectAudioDeploymentProofError, match="^mcp_failed$"):
+        _run_mcp_gate_for_m4a(
+            InstallGateRunner(proof.CommandResult(0, json.dumps(payload).encode(), b"")),
+            tmp_path,
+            diagnostic,
+        )
+
+    observed = proof._validate_mcp_diagnostic(  # pyright: ignore[reportPrivateUsage]
+        diagnostic
+    )
+    assert observed["stage"] == "source_identity"
+    assert "0" * 64 not in diagnostic.read_text(encoding="ascii")
+
+
 def test_mcp_diagnostic_binds_policy_and_bytes_to_same_inode(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     diagnostic = tmp_path / "mcp-diagnostic.json"
     diagnostic.write_text(
-        json.dumps(_mcp_diagnostic_payload(), sort_keys=True) + "\n",
+        json.dumps(
+            _mcp_diagnostic_payload(stage="parent_result_validation"),
+            sort_keys=True,
+        )
+        + "\n",
         encoding="ascii",
     )
     diagnostic.chmod(0o600)
     replacement = tmp_path / "replacement.json"
     replacement.write_text(
-        json.dumps(_mcp_diagnostic_payload(), sort_keys=True) + "\n",
+        json.dumps(
+            _mcp_diagnostic_payload(stage="parent_result_validation"),
+            sort_keys=True,
+        )
+        + "\n",
         encoding="ascii",
     )
     replacement.chmod(0o644)
@@ -1306,7 +1374,11 @@ def test_mcp_diagnostic_rejects_same_inode_content_drift(
 ) -> None:
     diagnostic = tmp_path / "mcp-diagnostic.json"
     value = (
-        json.dumps(_mcp_diagnostic_payload(), sort_keys=True) + "\n"
+        json.dumps(
+            _mcp_diagnostic_payload(stage="parent_result_validation"),
+            sort_keys=True,
+        )
+        + "\n"
     ).encode("ascii")
     mutated = value.replace(b'"sha256": "', b'"sha256": "f', 1)[:-1]
     assert len(mutated) == len(value)
@@ -1335,42 +1407,94 @@ def test_mcp_diagnostic_rejects_same_inode_content_drift(
 
 
 @pytest.mark.parametrize("diagnostic_state", ("missing", "malformed", "ambiguous"))
-def test_mcp_gate_fails_closed_when_diagnostic_is_not_valid(
+def test_mcp_gate_writes_unavailable_reason_when_child_diagnostic_is_not_valid(
     tmp_path: Path,
     diagnostic_state: str,
 ) -> None:
     diagnostic = tmp_path / "mcp-diagnostic.json"
+    child_diagnostic = _mcp_child_diagnostic(tmp_path)
 
     class FailedMcpRunner:
         def run(self, call: proof.CommandCall) -> proof.CommandResult:
             del call
             if diagnostic_state == "malformed":
-                diagnostic.write_bytes(b'{"stage":"/private/raw-secret"}\n')
-                diagnostic.chmod(0o600)
+                child_diagnostic.write_bytes(b'{"stage":"/private/raw-secret"}\n')
+                child_diagnostic.chmod(0o600)
             elif diagnostic_state == "ambiguous":
                 payload = _mcp_diagnostic_payload(stage="unknown")
-                diagnostic.write_text(json.dumps(payload) + "\n", encoding="ascii")
-                diagnostic.chmod(0o600)
-            return proof.CommandResult(1, b"{}", b"client stderr must stay private")
+                child_diagnostic.write_text(
+                    json.dumps(payload) + "\n", encoding="ascii"
+                )
+                child_diagnostic.chmod(0o600)
+            return proof.CommandResult(2, b"{}", b"client stderr must stay private")
 
     with pytest.raises(proof.DirectAudioDeploymentProofError, match="^mcp_failed$"):
-        proof._run_mcp_gate(  # pyright: ignore[reportPrivateUsage]
+        _run_mcp_gate_for_m4a(
             FailedMcpRunner(),
-            proof.CommandCall("mcp-m4a", ("not-executed",), {}, tmp_path),
+            tmp_path,
             diagnostic,
         )
+
+    observed = proof._validate_mcp_diagnostic(  # pyright: ignore[reportPrivateUsage]
+        diagnostic
+    )
+    assert observed["stage"] == "child_diagnostic_unavailable"
+    rendered = diagnostic.read_text(encoding="ascii")
+    assert "client stderr" not in rendered
+    assert "/private" not in rendered
 
 
 def test_successful_mcp_gate_rejects_spurious_diagnostic(tmp_path: Path) -> None:
     diagnostic = tmp_path / "mcp-diagnostic.json"
-    diagnostic.write_text(json.dumps(_mcp_diagnostic_payload()) + "\n", encoding="ascii")
-    diagnostic.chmod(0o600)
+    child_diagnostic = _mcp_child_diagnostic(tmp_path)
+
+    class SpuriousDiagnosticRunner:
+        def run(self, call: proof.CommandCall) -> proof.CommandResult:
+            del call
+            child_diagnostic.write_text(
+                json.dumps(_mcp_diagnostic_payload()) + "\n",
+                encoding="ascii",
+            )
+            child_diagnostic.chmod(0o600)
+            return proof.CommandResult(0, b'{"status":"passed"}', b"")
 
     with pytest.raises(proof.DirectAudioDeploymentProofError, match="^mcp_failed$"):
-        proof._run_mcp_gate(  # pyright: ignore[reportPrivateUsage]
-            InstallGateRunner(proof.CommandResult(0, b'{"status":"passed"}', b"")),
-            proof.CommandCall("mcp-m4a", ("not-executed",), {}, tmp_path),
+        _run_mcp_gate_for_m4a(
+            SpuriousDiagnosticRunner(),
+            tmp_path,
             diagnostic,
+        )
+
+    observed = proof._validate_mcp_diagnostic(  # pyright: ignore[reportPrivateUsage]
+        diagnostic
+    )
+    assert observed["stage"] == "child_diagnostic_unavailable"
+
+
+@pytest.mark.parametrize("state", ("missing", "malformed", "mode", "directory"))
+def test_extended_operator_diagnostic_rejects_invalid_authority(
+    tmp_path: Path,
+    state: str,
+) -> None:
+    diagnostic = tmp_path / "mcp-diagnostic.json"
+    if state == "malformed":
+        diagnostic.write_bytes(b'{"stage":"parent_result_validation"}\n')
+        diagnostic.chmod(0o600)
+    elif state == "mode":
+        diagnostic.write_text(
+            json.dumps(
+                _mcp_diagnostic_payload(stage="parent_result_validation")
+            )
+            + "\n",
+            encoding="ascii",
+        )
+        diagnostic.chmod(0o644)
+    elif state == "directory":
+        diagnostic.mkdir()
+
+    with pytest.raises(proof.DirectAudioDeploymentProofError, match="^mcp_failed$"):
+        proof._validate_mcp_diagnostic(  # pyright: ignore[reportPrivateUsage]
+            diagnostic
         )
 
 
