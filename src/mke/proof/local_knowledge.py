@@ -14,8 +14,6 @@ from typing import cast
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-from mke.proof.mcp_deployment_client import assert_public_tool_schemas, tool_payload
-
 _FIXTURE_PACK = Path("tests/fixtures/local-knowledge-v1")
 _TIMEOUT_SECONDS = 60.0
 _SEARCH_EVIDENCE_TEXT_SHA256 = (
@@ -62,6 +60,8 @@ async def _run_mcp_proof(
     server: StdioServerParameters,
     manifest: Mapping[str, object],
 ) -> dict[str, object]:
+    from mke.proof.mcp_deployment_client import assert_public_tool_schemas, tool_payload
+
     files = _manifest_files(manifest)
     queries = _manifest_queries(manifest)
     published_runs = 0

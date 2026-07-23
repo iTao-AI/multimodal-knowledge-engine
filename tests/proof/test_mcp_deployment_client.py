@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import subprocess
 import sys
 from collections.abc import AsyncGenerator, Mapping
 from contextlib import asynccontextmanager
@@ -13,6 +14,66 @@ from typing import Any, TextIO
 
 import pytest
 from mcp import StdioServerParameters
+
+
+def test_installed_mcp_module_help_has_no_outer_stderr(tmp_path: Path) -> None:
+    repository = Path(__file__).parents[2].resolve()
+    environment = {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin:/usr/sbin:/sbin"),
+        "PYTHONDONTWRITEBYTECODE": "1",
+    }
+    identity_probe = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-B",
+            "-c",
+            (
+                "import json, mke; "
+                "from importlib.metadata import distribution; "
+                "candidate=distribution('multimodal-knowledge-engine'); "
+                "print(json.dumps({"
+                "'mke_file':mke.__file__,"
+                "'metadata_root':str(candidate.locate_file('')),"
+                "'version':candidate.version"
+                "},sort_keys=True))"
+            ),
+        ],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        check=False,
+        timeout=10,
+    )
+
+    assert identity_probe.returncode == 0, identity_probe.stderr
+    assert identity_probe.stderr == b""
+    identity = json.loads(identity_probe.stdout)
+    assert Path(identity["mke_file"]).resolve() == repository / "src/mke/__init__.py"
+    assert Path(identity["metadata_root"]).resolve().is_relative_to(
+        Path(sys.prefix).resolve()
+    )
+    assert identity["version"] == "0.1.3"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-B",
+            "-m",
+            "mke.proof.mcp_deployment_client",
+            "--help",
+        ],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        check=False,
+        timeout=10,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == b""
+    assert b"usage: python -m mke.proof.mcp_deployment_client" in result.stdout
 
 
 def _tool(name: str, properties: dict[str, object]) -> SimpleNamespace:

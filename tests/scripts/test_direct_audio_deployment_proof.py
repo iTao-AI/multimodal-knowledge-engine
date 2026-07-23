@@ -1521,6 +1521,29 @@ def test_mcp_gate_writes_unavailable_reason_when_child_diagnostic_is_not_valid(
     assert "/private" not in rendered
 
 
+def test_mcp_gate_keeps_unknown_outer_stderr_fail_closed(tmp_path: Path) -> None:
+    diagnostic = tmp_path / "mcp-diagnostic.json"
+    payload = _product_result("mcp-m4a")
+
+    with pytest.raises(proof.DirectAudioDeploymentProofError, match="^mcp_failed$"):
+        _run_mcp_gate_for_m4a(
+            InstallGateRunner(
+                proof.CommandResult(
+                    0,
+                    json.dumps(payload).encode("ascii"),
+                    b"unknown outer warning",
+                )
+            ),
+            tmp_path,
+            diagnostic,
+        )
+
+    observed = proof._validate_mcp_diagnostic(  # pyright: ignore[reportPrivateUsage]
+        diagnostic
+    )
+    assert observed["stage"] == "child_diagnostic_unavailable"
+
+
 def test_successful_mcp_gate_rejects_spurious_diagnostic(tmp_path: Path) -> None:
     diagnostic = tmp_path / "mcp-diagnostic.json"
     child_diagnostic = _mcp_child_diagnostic(tmp_path)
