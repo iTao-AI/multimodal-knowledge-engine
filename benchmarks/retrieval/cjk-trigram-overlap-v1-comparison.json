@@ -57,7 +57,7 @@
     "max_results": 10
   },
   "source": {
-    "sha256": "957f87c1168162ac238b639e100a926e28b3e15514cb5c90cdc27640a1aa0d62",
+    "sha256": "2949eb51ccf8b9151b7839ebceb98bec54485676056d91427cc4d67c95299dac",
     "files": [
       {
         "path": "pyproject.toml",
@@ -67,7 +67,7 @@
       {
         "path": "uv.lock",
         "bytes": 207835,
-        "sha256": "31be8fe6302a844634306eea2ec6e891540e8006e45ece9f8cd6db7b53d308a1"
+        "sha256": "667a33f130afa89a1aa531ba0fd1a93724d21c6385ffcbfafdffcf87ed09de8d"
       },
       {
         "path": "src/mke/adapters/sqlite/__init__.py",

@@ -14,7 +14,7 @@
       },
       {
         "arm_id": "cjk-trigram-overlap-v1",
-        "semantic_digest": "9a3d7c58e52db5351f895fa7fe5463b66346dfed355b4a3f6794aafe189558e2"
+        "semantic_digest": "33ddc7cc05772068f01101353f26f522c99ac0b39a1b6d6142d6126c1e6ff88c"
       },
       {
         "arm_id": "cjk-active-scan-overlap-v1",
@@ -4346,7 +4346,7 @@
     "e3b": {
       "bytes": 196145,
       "path": "benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json",
-      "sha256": "9a3d7c58e52db5351f895fa7fe5463b66346dfed355b4a3f6794aafe189558e2"
+      "sha256": "33ddc7cc05772068f01101353f26f522c99ac0b39a1b6d6142d6126c1e6ff88c"
     }
   },
   "holdout_candidate": {
@@ -9493,7 +9493,7 @@
   "protocol": {
     "bytes": 5127,
     "path": "tests/fixtures/retrieval-dense-v1/protocol-lock.json",
-    "sha256": "e4b6eb93cc51d772d074696ff6cfcc6ef1e17b9b79b990c6b0f6fd8e6fe8b23c"
+    "sha256": "f8cebf76c47d69fe5eee118cc4de35b59e019ace3e0d6eec20eec81ef36ad433"
   },
   "schema_version": "mke.dense_comparison_artifact.v1",
   "source": {
@@ -9506,7 +9506,7 @@
       {
         "bytes": 207835,
         "path": "uv.lock",
-        "sha256": "31be8fe6302a844634306eea2ec6e891540e8006e45ece9f8cd6db7b53d308a1"
+        "sha256": "667a33f130afa89a1aa531ba0fd1a93724d21c6385ffcbfafdffcf87ed09de8d"
       },
       {
         "bytes": 12027,
@@ -9564,7 +9564,7 @@
         "sha256": "1c838b1464be9426c67887bfe5e0ff082d5a81d0addaf6addb4e7b7317c3627b"
       }
     ],
-    "sha256": "sha256:3a9017f4bcea08475872d2d18b943b0df451f0fe2b05b268f055aa9f94ed47aa"
+    "sha256": "sha256:71a26af21d737ad2391e48419b7166a686f05fa439e44f524f77545f54dff10f"
   },
   "state": {
     "development_freeze_sha256": "49bc7b7cda958d1034a6be77080f252ee4f937fd6bb4e969e1c8ab7ad936c1ef",

@@ -561,7 +561,7 @@ def test_canonical_dependency_receipt_remains_byte_identical() -> None:
     receipt = repository / "benchmarks/audio/dependency-artifacts.json"
 
     assert hashlib.sha256(receipt.read_bytes()).hexdigest() == (
-        "1fe3cd6fddd1bb07a949192c64fcf90ee2b9ac5fd22df1e8a334a5d446a611af"
+        "49196028327ba0d34be5bcabfeb55bd6d455f4e68e88a35e858e7c30db8ef111"
     )
 
 
