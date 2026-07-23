@@ -1,6 +1,6 @@
 # v0.1.4 Release Implementation Review
 
-Status: **PENDING AUTHORITATIVE ACTUAL-DIFF REVIEW**
+Status: **TARGETED AUTHORITY RE-REVIEW PENDING**
 
 This record freezes the local pre-review candidate state after implementation Tasks 1-6. It is
 an evidence handoff to the independent Career actual-diff reviewer, not an acceptance verdict.
@@ -33,7 +33,7 @@ scripts, 1 module-version file, 7 focused tests, 4 evaluation protocol locks, 2 
 tests, and `uv.lock`.
 
 Task 6 adds only this review and updates the existing implementation plan checklist. The resulting
-branch diff is exactly 52 paths, 2,058 insertions, and 232 deletions. Its scope is:
+branch diff is exactly 59 paths, 2,216 insertions, and 258 deletions. Its scope is:
 
 - current release entry points: `CHANGELOG.md`, `README.md`, `README_CN.md`, `docs/README.md`,
   `docs/releases/v0.1.4.md`, and the affected current tutorial, how-to, reference, and ADR files;
@@ -110,9 +110,11 @@ The following values were descriptor-read without modifying retained authority:
   `f76c6f29ceeea5fa6f6a21d3baa7d6e3455f7cf596cc292b8da7c0ca7ef941e4`;
 - root requirements SHA-256:
   `f563f67887a798e698754e2312e1fa35e9c2dc3516260f9d287cfe9f12280034`;
-- external wheelhouse manifest SHA-256:
+- external 60-wheel manifest SHA-256:
+  `67c7e3ba11c08eef9712deb79ad94d1bc801b87c894eda8ac4a46b44b2244bc5`;
+- complete historical 61-wheel manifest SHA-256:
   `205ea864294ae9351a2eede8b0bac7d1cfd6ac6b627ee3bb5db764532f800404`;
-- receipt inventory: 61 local-runtime-only wheels, including the historical MKE 0.1.3 wheel;
+- inventory relationship: 60 external wheels plus the historical MKE 0.1.3 candidate wheel;
 - CPython 3.12 executable SHA-256:
   `e2605291e058fdbe3102e8185d0ac5fe0e063398de617010a6af3a42a78f05e3`;
 - CPython 3.13 executable SHA-256:
@@ -176,6 +178,46 @@ Historical direct-audio authority remains byte-identical:
 - Fresh canonical validators: E1, E2, E3-A, E3-B, E3-C, E3-D, and E3-E all passed.
 - Staged and committed whitespace gates for each implementation commit passed.
 
+## Authoritative Review Findings And Bounded Repair
+
+Career reviewed exact HEAD `3c60c1dfa18aba65a402e0be1d12207a55fba329` and returned
+`ISSUES FOUND`. Task 7 was not accepted. The bounded repair closes three findings:
+
+1. The three canonical retrieval guides now publish every current comparison, development-freeze,
+   holdout-receipt, and protocol-lock digest that they name. Documentation tests compute each
+   digest from committed bytes and require the corresponding guide value.
+2. The five current guides that build and then consume the release wheel now name only
+   `multimodal_knowledge_engine-0.1.4-py3-none-any.whl`. The release presentation audit owns this
+   exact file inventory and rejects the stale 0.1.3 wheel while historical records, canonical
+   receipt contents, and synthetic historical tests remain unchanged. Worktree-bound full-suite
+   verification also exposed and repaired the same stale current installed-metadata assertion in
+   the MCP deployment-client proof test.
+3. Direct-audio wheelhouse authority now distinguishes the external 60-wheel manifest
+   `67c7e3ba11c08eef9712deb79ad94d1bc801b87c894eda8ac4a46b44b2244bc5`
+   from the complete historical 61-wheel manifest
+   `205ea864294ae9351a2eede8b0bac7d1cfd6ac6b627ee3bb5db764532f800404`.
+   The relationship is 60 external wheels plus one historical MKE 0.1.3 candidate; canonical
+   receipt/evidence bytes are unchanged.
+
+The repair is pending Career targeted authority re-review. It does not accept Task 7 or authorize
+Task 8.
+
+Targeted repair verification:
+
+- reviewer reproduction: `2 failed, 8 passed`;
+- expanded repair RED: `7 failed, 213 passed`, limited to the accepted digest and wheel identity
+  findings;
+- repair GREEN: `220 passed`;
+- final combined retrieval, Chinese, release-documentation, presentation, and installed-metadata
+  suite: `270 passed`;
+- worktree-bound installed-MCP/environment regression: `14 passed, 5 warnings`;
+- full pytest: `3108 passed, 4 skipped, 5 warnings`;
+- Ruff: passed;
+- Pyright: `0 errors, 0 warnings`;
+- live presentation audit: `status=ok`, `violations=[]`; and
+- fresh E1, E2, E3-A, E3-B, E3-C, E3-D, and E3-E validators: `7/7 passed`;
+  `identity_refresh=not_required`.
+
 ## Explicit Non-Claims And Next Gate
 
 This state does not claim:
@@ -189,6 +231,6 @@ This state does not claim:
 - a pushed branch, PR, hosted checks, merge, tag, GitHub Release, source-archive smoke, immutable
   publication evidence, post-release documentation closeout, or cleanup.
 
-The only next gate is Task 7 authoritative whole-branch actual-diff review. Candidate generation
-and terminal proof remain prohibited until that review returns an accepted verdict bound to the
+The only next gate is Career targeted authority re-review of this repair. Candidate generation and
+terminal proof remain prohibited until that review returns an accepted verdict bound to the
 reviewed branch state.

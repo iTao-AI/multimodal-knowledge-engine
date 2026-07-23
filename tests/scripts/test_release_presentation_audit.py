@@ -20,6 +20,35 @@ def test_audit_targets_v0_1_4_release_identity() -> None:
     assert "docs/releases/v0.1.1.md" not in audit.RELEASE_FACING_FILES
 
 
+def test_audit_targets_current_build_wheel_command_docs() -> None:
+    from scripts import release_presentation_audit as audit
+
+    assert audit.CURRENT_BUILD_WHEEL_COMMAND_FILES == (
+        "docs/how-to/prepare-local-embeddings.md",
+        "docs/how-to/evaluate-dense-retrieval.md",
+        "docs/how-to/enable-cjk-retrieval.md",
+        "docs/how-to/evaluate-numeric-retrieval.md",
+        "docs/how-to/run-chinese-retrieval-evaluation.md",
+    )
+
+
+def test_current_build_wheel_command_docs_use_v0_1_4() -> None:
+    current_wheel = "multimodal_knowledge_engine-0.1.4-py3-none-any.whl"
+    stale_wheel = "multimodal_knowledge_engine-0.1.3-py3-none-any.whl"
+    paths = (
+        "docs/how-to/prepare-local-embeddings.md",
+        "docs/how-to/evaluate-dense-retrieval.md",
+        "docs/how-to/enable-cjk-retrieval.md",
+        "docs/how-to/evaluate-numeric-retrieval.md",
+        "docs/how-to/run-chinese-retrieval-evaluation.md",
+    )
+
+    for relative in paths:
+        text = (ROOT / relative).read_text(encoding="utf-8")
+        assert current_wheel in text
+        assert stale_wheel not in text
+
+
 def _write_release_tree(root: Path) -> None:
     (root / "src/mke").mkdir(parents=True)
     (root / "docs/releases").mkdir(parents=True)
@@ -655,6 +684,18 @@ def test_audit_rejects_old_exact_consumer_smoke_wheel(tmp_path: Path) -> None:
     )
 
     assert "consumer_smoke_wheel_selection" in _rules(tmp_path)
+
+
+def test_audit_rejects_old_current_build_wheel(tmp_path: Path) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "docs/how-to/prepare-local-embeddings.md"
+    target.write_text(
+        "uv pip install "
+        "\"dist/multimodal_knowledge_engine-0.1.3-py3-none-any.whl[embedding]\"\n",
+        encoding="utf-8",
+    )
+
+    assert "current_build_wheel_selection" in _rules(tmp_path)
 
 
 def test_audit_does_not_apply_current_wheel_rule_to_v0_1_0_history(

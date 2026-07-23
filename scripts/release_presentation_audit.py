@@ -69,6 +69,13 @@ CONSUMER_SMOKE_COMMAND_FILES = (
     "docs/releases/v0.1.4.md",
     "docs/how-to/verify-release.md",
 )
+CURRENT_BUILD_WHEEL_COMMAND_FILES = (
+    "docs/how-to/prepare-local-embeddings.md",
+    "docs/how-to/evaluate-dense-retrieval.md",
+    "docs/how-to/enable-cjk-retrieval.md",
+    "docs/how-to/evaluate-numeric-retrieval.md",
+    "docs/how-to/run-chinese-retrieval-evaluation.md",
+)
 
 
 @dataclass(frozen=True)
@@ -845,7 +852,9 @@ def _audit_v014_contract(root: Path) -> list[Violation]:
         Violation(
             file=file_name,
             rule="v014_release_contract",
-            message="v0.1.4 release notes must preserve bounded direct-audio and release boundaries",
+            message=(
+                "v0.1.4 release notes must preserve bounded direct-audio and release boundaries"
+            ),
         )
     ]
 
@@ -927,6 +936,25 @@ def _audit_consumer_smoke_wheel_selection(
                     file=file_name,
                     rule="consumer_smoke_wheel_selection",
                     message="consumer smoke must name the single current release wheel",
+                )
+            )
+    return violations
+
+
+def _audit_current_build_wheel_selection(root: Path) -> list[Violation]:
+    violations: list[Violation] = []
+    current_wheel = "multimodal_knowledge_engine-0.1.4-py3-none-any.whl"
+    stale_wheel = "multimodal_knowledge_engine-0.1.3-py3-none-any.whl"
+    for file_name in CURRENT_BUILD_WHEEL_COMMAND_FILES:
+        text = _read_text(root, file_name)
+        if not text:
+            continue
+        if current_wheel not in text or stale_wheel in text:
+            violations.append(
+                Violation(
+                    file=file_name,
+                    rule="current_build_wheel_selection",
+                    message=f"current build command must name {current_wheel}",
                 )
             )
     return violations
@@ -1037,6 +1065,7 @@ def audit_release_presentation(root: Path) -> list[Violation]:
     violations.extend(_audit_v014_contract(root))
     violations.extend(_audit_stale_status(root, release_files))
     violations.extend(_audit_consumer_smoke_wheel_selection(root, CONSUMER_SMOKE_COMMAND_FILES))
+    violations.extend(_audit_current_build_wheel_selection(root))
     violations.extend(_audit_downstream_candidate_boundary(root))
     violations.extend(_audit_public_boundary(root, release_files))
     return violations

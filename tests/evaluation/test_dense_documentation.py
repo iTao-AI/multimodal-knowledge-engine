@@ -7,6 +7,18 @@ from pathlib import Path
 ROOT = Path(__file__).parents[2]
 HOW_TO = ROOT / "docs/how-to/prepare-local-embeddings.md"
 COMPARISON_HOW_TO = ROOT / "docs/how-to/evaluate-dense-retrieval.md"
+COMPARISON = (
+    ROOT
+    / "benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json"
+)
+FREEZE = (
+    ROOT
+    / "benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-development-freeze.json"
+)
+RECEIPT = (
+    ROOT
+    / "benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-holdout-receipt.json"
+)
 REVIEW = (
     ROOT
     / "docs/superpowers/reviews/2026-06-28-local-dense-prerequisites-review.md"
@@ -52,7 +64,7 @@ def test_dense_how_to_documents_install_prepare_doctor_and_offline_proof() -> No
     for snippet in (
         "uv sync --locked --extra embedding",
         "uv build",
-        "\"dist/multimodal_knowledge_engine-0.1.3-py3-none-any.whl[embedding]\"",
+        "\"dist/multimodal_knowledge_engine-0.1.4-py3-none-any.whl[embedding]\"",
         "uv pip install --offline",
         "mke embedding prepare --allow-model-download",
         "--model qwen3-embedding-0.6b",
@@ -184,9 +196,5 @@ def test_dense_comparison_docs_record_actual_pr2_result_and_limits() -> None:
     assert comparison["e3d_status"] in public_docs
     assert "evaluate-dense-retrieval.md" in public_docs
     assert "runtime_promotion_status=not_evaluated" in public_docs
-    assert sha256(
-        (
-            ROOT
-            / "benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json"
-        ).read_bytes()
-    ).hexdigest() in guide
+    for canonical in (COMPARISON, FREEZE, RECEIPT):
+        assert sha256(canonical.read_bytes()).hexdigest() in guide

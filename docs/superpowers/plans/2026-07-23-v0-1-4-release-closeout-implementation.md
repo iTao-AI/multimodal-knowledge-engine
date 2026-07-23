@@ -530,6 +530,16 @@ whole-branch actual-diff review.
 
 **Files:** only files required by accepted findings plus the plan/review.
 
+> **Career authoritative review (2026-07-23):** Whole-branch review of
+> `3c60c1dfa18aba65a402e0be1d12207a55fba329` returned `ISSUES FOUND`. The bounded TDD repair
+> synchronizes every public canonical retrieval digest consumer, changes the five current
+> build-wheel command guides from the stale 0.1.3 filename to the exact 0.1.4 filename, and
+> distinguishes the external 60-wheel manifest from the complete historical 61-wheel manifest.
+> Worktree-bound full-suite verification additionally closes the same stale 0.1.3 current
+> installed-metadata assertion in the MCP deployment-client proof test.
+> Status: `TARGETED AUTHORITY RE-REVIEW PENDING`. Task 7 remains unaccepted and Task 8 remains
+> entirely unstarted.
+
 - [ ] **Step 1: Review the complete branch**
 
 Review:
