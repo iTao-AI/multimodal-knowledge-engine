@@ -29,7 +29,7 @@
     "dense_artifact": {
       "bytes": 403821,
       "path": "benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json",
-      "sha256": "d5f27d97f41fcac4469f1675872d7d1f322d1d38af0d73df6951d6747ba37899"
+      "sha256": "935431ce7a549f43216d78c2186e2c62c3aad2f67b84fc404e26e03156e519cc"
     },
     "metrics_source": {
       "bytes": 8849,
@@ -49,7 +49,7 @@
     "rrf_artifact": {
       "bytes": 117521,
       "path": "benchmarks/retrieval/cjk-active-scan-qwen3-rrf-v1-comparison.json",
-      "sha256": "3f2e8fbc9c774ef7fe06d1774c61b1da77ccba88aba63bb4a01aec4655361d11"
+      "sha256": "581decff2c271150f7e9bd80b289b23963e1b5ed9fc6a23977241a18f414270e"
     }
   },
   "profiles": [

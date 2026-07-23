@@ -17,6 +17,9 @@ RECEIPT = (
     ROOT
     / "benchmarks/retrieval/cjk-relevance-gate-reranker-v1-holdout-receipt.json"
 )
+PROTOCOL_LOCK = (
+    ROOT / "tests/fixtures/retrieval-relevance-gate-v1/protocol-lock.json"
+)
 REVIEW = (
     ROOT
     / "docs/superpowers/reviews/2026-06-30-cjk-relevance-gate-reranker-review.md"
@@ -90,9 +93,8 @@ def test_relevance_gate_guide_matches_canonical_holdout_result() -> None:
     ):
         assert f"`{key}={development['diagnostics'][key]}`" in guide
 
-    assert hashlib.sha256(ARTIFACT.read_bytes()).hexdigest() in guide
-    assert hashlib.sha256(FREEZE.read_bytes()).hexdigest() in guide
-    assert hashlib.sha256(RECEIPT.read_bytes()).hexdigest() in guide
+    for canonical in (ARTIFACT, FREEZE, RECEIPT, PROTOCOL_LOCK):
+        assert hashlib.sha256(canonical.read_bytes()).hexdigest() in guide
 
 
 def test_relevance_gate_docs_are_discoverable_reviewed_and_runtime_neutral() -> None:

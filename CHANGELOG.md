@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.1.4] - 2026-07-23
+
+### Added
+
+- Bounded direct-audio intake for MP3, WAV/PCM, and M4A/AAC clips up to 15 minutes and 100 MiB
+  through an explicitly supervised cache-only faster-whisper owner on Darwin arm64.
+- Python, CLI, and stdio MCP paths publish timestamp Evidence to active Publications for Search,
+  Ask, and Compiled Library Export v2.
+
+### Verified
+
+- Model-free direct-audio product wiring, strict media validation, active-Publication behavior,
+  portable Export v2 schemas, and Export v1 compatibility for PDF/video-only Libraries.
+- `cjk-active-scan-overlap-v1` remains the runtime default.
+- Dense, RRF, and reranker artifacts remain comparison-only evidence.
+
+### Not included
+
+- No implicit model download, cloud fallback, production SLA, transcript-accuracy guarantee,
+  cross-platform claim, hosted deployment, PyPI publication, or extra GitHub Release assets.
+- External wheels and native binaries are not redistributed. LLM Wiki remains an isolated
+  downstream compatibility surface, not an MKE dependency or Evidence authority.
+
 ## [0.1.3] - 2026-07-17
 
 ### Added

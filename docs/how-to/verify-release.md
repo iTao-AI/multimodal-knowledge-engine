@@ -104,9 +104,9 @@ git diff --check origin/main...HEAD
 
 The presentation audit checks that package version identity, README posture, release notes,
 Compiled Library Export, OCR Phase 0 boundaries, and comparison-only retrieval wording agree on
-`v0.1.3`.
+`v0.1.4`.
 
-The accepted v0.1.4 direct-audio candidate adds a model-free pre-authorization gate:
+Bounded direct audio adds a model-free pre-authorization gate:
 
 ```bash
 UV_OFFLINE=1 uv run mke proof direct-audio --json
@@ -114,7 +114,7 @@ UV_OFFLINE=1 uv run mke proof direct-audio --json
 
 This does not run real ASR. The terminal installed-wheel proof, final candidate wheel, exact owner
 footprint value, and fixed-fixture Darwin arm64 observations remain separately authorized later
-gates. They are not completed by the v0.1.3 release procedure on this page.
+gates. They are not completed by the repository-readiness procedure on this page.
 
 ## Stage 2 Clean Candidate Verification
 
@@ -127,10 +127,10 @@ Run:
 ```bash
 UV_OFFLINE=1 uv build
 uv run python scripts/release_consumer_smoke.py \
-  --wheel dist/multimodal_knowledge_engine-0.1.3-py3-none-any.whl --json
+  --wheel dist/multimodal_knowledge_engine-0.1.4-py3-none-any.whl --json
 
 candidate_parent="$(mktemp -d)"
-candidate_output="${candidate_parent}/mke-v0.1.3-candidate"
+candidate_output="${candidate_parent}/mke-v0.1.4-candidate"
 UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
   --python "$(command -v python3.12)" \
   --python "$(command -v python3.13)" \
@@ -157,7 +157,7 @@ assert len(entries) == 2
 assert all(not entry.is_symlink() and entry.is_file(follow_symlinks=False) for entry in entries)
 
 receipt_name = "candidate-artifact-receipt.json"
-expected_wheel_name = "multimodal_knowledge_engine-0.1.3-py3-none-any.whl"
+expected_wheel_name = "multimodal_knowledge_engine-0.1.4-py3-none-any.whl"
 assert {entry.name for entry in entries} == {receipt_name, expected_wheel_name}
 receipt_bytes = (root / receipt_name).read_bytes()
 receipt = json.loads(receipt_bytes)
@@ -182,7 +182,7 @@ assert receipt["schema_version"] == "mke.candidate_artifact_receipt.v1"
 assert receipt["repository"] == "iTao-AI/multimodal-knowledge-engine"
 assert receipt["source_commit"] == head
 assert receipt["package_name"] == project["name"] == "multimodal-knowledge-engine"
-assert receipt["package_version"] == project["version"] == "0.1.3"
+assert receipt["package_version"] == project["version"] == "0.1.4"
 assert receipt["requires_python"] == project["requires-python"]
 assert receipt["wheel_filename"] == expected_wheel_name
 assert receipt["consumer_proof_schema"] == "mke.consumer_source_pack_proof.v1"
@@ -260,7 +260,7 @@ The consumer smoke should:
 - install the wheel into a fresh temporary environment outside the repository;
 - clear source-tree import state such as `PYTHONPATH`, `PYTHONHOME`, and `VIRTUAL_ENV`;
 - verify `mke.__file__` resolves inside installed site-packages, not `src/mke`;
-- verify installed `mke.__version__` and package metadata both equal `0.1.3`;
+- verify installed `mke.__version__` and package metadata both equal `0.1.4`;
 - run `mke proof run`;
 - run `mke demo --verify`;
 - run a lightweight CLI Search/Ask path;
@@ -300,9 +300,9 @@ authorization. Then verify the public archive from a clean temporary directory:
 ```bash
 archive_dir="$(mktemp -d)"
 cd "$archive_dir"
-gh release download v0.1.3 --repo iTao-AI/multimodal-knowledge-engine --archive=tar.gz
-tar -xzf multimodal-knowledge-engine-0.1.3.tar.gz
-cd multimodal-knowledge-engine-0.1.3
+gh release download v0.1.4 --repo iTao-AI/multimodal-knowledge-engine --archive=tar.gz
+tar -xzf multimodal-knowledge-engine-0.1.4.tar.gz
+cd multimodal-knowledge-engine-0.1.4
 uv sync --locked
 uv run mke proof run
 uv run mke demo --verify

@@ -153,7 +153,7 @@ then compares the canonical artifact.
 
 ```bash
 uv build
-wheel=dist/multimodal_knowledge_engine-0.1.3-py3-none-any.whl
+wheel=dist/multimodal_knowledge_engine-0.1.4-py3-none-any.whl
 UV_OFFLINE=1 uv run python scripts/chinese_retrieval_deployment_proof.py \
   --wheel "$wheel" \
   --protocol tests/fixtures/retrieval-chinese-v1/protocol.json \

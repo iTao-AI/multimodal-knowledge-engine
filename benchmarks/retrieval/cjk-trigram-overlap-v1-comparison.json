@@ -57,17 +57,17 @@
     "max_results": 10
   },
   "source": {
-    "sha256": "2949eb51ccf8b9151b7839ebceb98bec54485676056d91427cc4d67c95299dac",
+    "sha256": "e9f9cb5e020f5af471a4991a42a87da64a8272425f8327ec91a107ce2b4cef1c",
     "files": [
       {
         "path": "pyproject.toml",
         "bytes": 1167,
-        "sha256": "d7ae898d7c9f951ab51dc73a802b1d7120bf8eda059fbcefec0cd248253ad23c"
+        "sha256": "6af79da0d303f9b8a8f9737f38bc8f4c5cb4634bef759851d9d6baa8650285e1"
       },
       {
         "path": "uv.lock",
         "bytes": 207835,
-        "sha256": "667a33f130afa89a1aa531ba0fd1a93724d21c6385ffcbfafdffcf87ed09de8d"
+        "sha256": "315ec71fcdd0161af5b0d748b6665e431729bd06f8caf4993519509ddf29c3ac"
       },
       {
         "path": "src/mke/adapters/sqlite/__init__.py",

@@ -6,6 +6,7 @@ auditing implementation history.
 
 ## Release And First Run
 
+- [v0.1.4 Release Notes](./releases/v0.1.4.md)
 - [v0.1.3 Release Notes](./releases/v0.1.3.md)
 - [v0.1.2 Release Notes](./releases/v0.1.2.md)
 - [v0.1.1 Release Notes](./releases/v0.1.1.md)
@@ -18,12 +19,13 @@ auditing implementation history.
 - [MCP Contract Reference](./reference/mcp-contract.md)
 - [Run The Evidence Provenance Proof](./how-to/run-evidence-provenance-proof.md)
 - [Run The Consumer Source-Pack Proof](./how-to/run-consumer-source-pack-proof.md) documents a
-  source-built proof for the current source checkout as a `v0.1.3` release-candidate verification
+  source-built proof for the current source checkout as a `v0.1.4` release-candidate verification
   gate.
 
-`v0.1.3` leads with Compiled Library Export through `mke.compiled_library_export.v1`, readable
-`mke.compiled_markdown.v1`, and authoritative `mke.evidence_ref.v1` JSONL. It retains the external
-same-wheel Python 3.12/3.13 source-pack proof and owner lifecycle hardening while keeping
+`v0.1.4` adds bounded direct-audio MP3, WAV/PCM, and M4A/AAC intake with timestamp Evidence and
+Compiled Library Export v2. It retains `mke.compiled_library_export.v1`, readable
+`mke.compiled_markdown.v1`, authoritative `mke.evidence_ref.v1` JSONL, the external same-wheel
+Python 3.12/3.13 source-pack proof, and owner lifecycle hardening while keeping
 `cjk-active-scan-overlap-v1` as the current owner-startup CJK runtime strategy.
 E3-C dense, E3-D RRF, and E3-E relevance-gate/reranker records are comparison-only evidence and
 do not change Search, Ask, MCP, owner startup, Publication, ingestion, or runtime defaults.
@@ -34,13 +36,12 @@ do not change Search, Ask, MCP, owner startup, Publication, ingestion, or runtim
 - [Public Contracts](./reference/contracts.md)
 - [CLI Reference](./reference/cli.md)
 - [Direct-Audio Dependency And License Evidence](./reference/direct-audio-dependency-and-license-evidence.md)
-  records the PR A dependency, license, and synthetic-fixture feasibility receipt; the accepted
-  PR C product candidate is documented separately.
+  records the PR A dependency, license, and synthetic-fixture feasibility receipt.
 - [Enable Bounded CJK Retrieval](./how-to/enable-cjk-retrieval.md)
 - [Use Local Transcription](./how-to/use-local-transcription.md)
 - [Export A Compiled Library](./how-to/export-compiled-library.md)
 - [Run The Compiled Library Export Proof](./how-to/run-compiled-library-export-proof.md)
-- [Use bounded direct audio](./how-to/use-direct-audio.md) — accepted v0.1.4 candidate golden paths
+- [Use bounded direct audio](./how-to/use-direct-audio.md) — v0.1.4 golden paths
 - [Run the direct-audio proof](./how-to/run-direct-audio-proof.md) — model-free first; terminal proof requires separate authorization
 
 The architecture guide is the shortest path to the Evidence lifecycle, active Publication
@@ -64,7 +65,7 @@ outside MKE runtime and Evidence authority.
   does not combine raw lexical and dense scores.
 - [Evaluate The Relevance Gate Reranker Candidate](./how-to/evaluate-relevance-gate-reranker.md)
 
-The runtime boundary remains fixed for `v0.1.3`: only E3-F changes the default retrieval strategy.
+The runtime boundary remains fixed for `v0.1.4`: only E3-F changes the default retrieval strategy.
 Comparison-only dense preparation does not change normal Search, Ask, MCP, or the runtime default.
 Dense, RRF, and relevance-gate/reranker artifacts remain evaluation artifacts, not runtime
 features.
@@ -98,7 +99,7 @@ private planning notes do not belong in this repository.
 - [ADR-0008](./decisions/0008-cjk-active-scan-retrieval-strategy.md) defines `cjk-active-scan-overlap-v1`.
 - [ADR-0009](./decisions/0009-versioned-evidence-provenance-contract.md) defines the additive strict Evidence provenance read contract.
 - [ADR-0010](./decisions/0010-pdf-ocr-evaluation-manifest-fingerprint.md) defines the evaluation-only PDF OCR manifest fingerprint and its non-production boundary.
-- [ADR-0011](./decisions/0011-bounded-direct-audio-intake.md) defines the accepted v0.1.4 candidate's bounded audio authority and rollback.
+- [ADR-0011](./decisions/0011-bounded-direct-audio-intake.md) defines v0.1.4 bounded audio authority and rollback.
 
 ## Implementation History
 

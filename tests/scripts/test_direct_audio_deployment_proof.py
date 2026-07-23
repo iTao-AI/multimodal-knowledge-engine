@@ -528,16 +528,16 @@ def test_package_sets_replace_historical_candidate_source_identity() -> None:
 
     assert proof._package_sets(  # pyright: ignore[reportPrivateUsage]
         payload,
-        "0.1.3",
+        "0.1.4",
         (("mcp", ">=1.28.1,<2"),),
     ) == (
         (
             "3.12",
-            (("mcp", "1.28.1"), ("multimodal-knowledge-engine", "0.1.3")),
+            (("mcp", "1.28.1"), ("multimodal-knowledge-engine", "0.1.4")),
         ),
         (
             "3.13",
-            (("mcp", "1.28.1"), ("multimodal-knowledge-engine", "0.1.3")),
+            (("mcp", "1.28.1"), ("multimodal-knowledge-engine", "0.1.4")),
         ),
     )
 
@@ -591,12 +591,27 @@ def test_candidate_receipt_structure_accepts_fresh_bytes_and_digest() -> None:
     )
 
 
+def test_candidate_receipt_structure_accepts_fresh_release_version() -> None:
+    historical = _candidate_inventory_row(size=350589, digest="a" * 64)
+    fresh = _candidate_inventory_row(size=353257, digest="b" * 64)
+    fresh["filename"] = "multimodal_knowledge_engine-0.1.4-py3-none-any.whl"
+    fresh["version"] = "0.1.4"
+
+    proof._validate_candidate_receipt_structure(  # pyright: ignore[reportPrivateUsage]
+        candidate_name="multimodal-knowledge-engine",
+        candidate_version="0.1.4",
+        candidate_rows=[historical],
+        observed_candidate=fresh,
+    )
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     (
-        ("filename", "multimodal_knowledge_engine-0.1.4-py3-none-any.whl"),
+        ("filename", "multimodal_knowledge_engine-0.1.5-py3-none-any.whl"),
         ("distribution", "other-engine"),
-        ("version", "0.1.4"),
+        ("version", "0.1.5"),
+        ("build", "1"),
         ("python_tags", ["cp313"]),
         ("abi_tags", ["cp313"]),
         ("platform_tags", ["macosx_11_0_arm64"]),
@@ -608,6 +623,8 @@ def test_candidate_receipt_structure_rejects_distribution_version_or_tag_drift(
 ) -> None:
     historical = _candidate_inventory_row(size=350589, digest="a" * 64)
     fresh = _candidate_inventory_row(size=353257, digest="b" * 64)
+    fresh["filename"] = "multimodal_knowledge_engine-0.1.4-py3-none-any.whl"
+    fresh["version"] = "0.1.4"
     fresh[field] = value
 
     with pytest.raises(
@@ -616,7 +633,7 @@ def test_candidate_receipt_structure_rejects_distribution_version_or_tag_drift(
     ):
         proof._validate_candidate_receipt_structure(  # pyright: ignore[reportPrivateUsage]
             candidate_name="multimodal-knowledge-engine",
-            candidate_version="0.1.3",
+            candidate_version="0.1.4",
             candidate_rows=[historical],
             observed_candidate=fresh,
         )

@@ -757,11 +757,23 @@ def _package_sets(
                 or _DIGEST_RE.fullmatch(digest) is None
             ):
                 raise DirectAudioDeploymentProofError("dependency_authority_invalid")
-            distributions.append((distribution, version))
+            try:
+                parsed_distribution, parsed_version, *_ = (
+                    dependency_authority._parse_wheel_filename(  # pyright: ignore[reportPrivateUsage]
+                        filename
+                    )
+                )
+            except dependency_authority.ReceiptError as error:
+                raise DirectAudioDeploymentProofError(
+                    "dependency_authority_invalid"
+                ) from error
+            if parsed_distribution != distribution or parsed_version != version:
+                raise DirectAudioDeploymentProofError("dependency_authority_invalid")
             if distribution == "multimodal-knowledge-engine":
                 candidate_rows += 1
-                if version != candidate_version:
-                    raise DirectAudioDeploymentProofError("dependency_authority_invalid")
+                distributions.append((distribution, candidate_version))
+            else:
+                distributions.append((distribution, version))
         authority = dict(distributions)
         if candidate_rows != 1 or len(authority) != len(distributions) or any(
             (locked := authority.get(requirement)) is None
@@ -863,17 +875,51 @@ def _validate_candidate_receipt_structure(
         "platform_tags",
     )
     try:
+        if len(candidate_rows) != 1:
+            raise DirectAudioDeploymentProofError("dependency_authority_invalid")
+
+        def parsed_structure(row: Mapping[str, object]) -> dict[str, object]:
+            filename = row["filename"]
+            if not isinstance(filename, str):
+                raise TypeError
+            distribution, version, build, python_tags, abi_tags, platform_tags = (
+                dependency_authority._parse_wheel_filename(  # pyright: ignore[reportPrivateUsage]
+                    filename
+                )
+            )
+            return {
+                "filename": filename,
+                "distribution": distribution,
+                "version": version,
+                "build": build,
+                "python_tags": list(python_tags),
+                "abi_tags": list(abi_tags),
+                "platform_tags": list(platform_tags),
+            }
+
+        historical_structure = {
+            field: candidate_rows[0][field] for field in structure_fields
+        }
+        observed_structure = {
+            field: observed_candidate[field] for field in structure_fields
+        }
         if (
             candidate_name != observed_candidate["distribution"]
             or candidate_version != observed_candidate["version"]
-            or len(candidate_rows) != 1
-            or {
-                field: candidate_rows[0][field] for field in structure_fields
-            }
-            != {field: observed_candidate[field] for field in structure_fields}
+            or historical_structure != parsed_structure(candidate_rows[0])
+            or observed_structure != parsed_structure(observed_candidate)
+            or historical_structure["distribution"] != candidate_name
+            or historical_structure["build"] is not None
+            or historical_structure["python_tags"] != ["py3"]
+            or historical_structure["abi_tags"] != ["none"]
+            or historical_structure["platform_tags"] != ["any"]
+            or observed_structure["build"] is not None
+            or observed_structure["python_tags"] != ["py3"]
+            or observed_structure["abi_tags"] != ["none"]
+            or observed_structure["platform_tags"] != ["any"]
         ):
             raise DirectAudioDeploymentProofError("dependency_authority_invalid")
-    except (KeyError, TypeError) as error:
+    except (KeyError, TypeError, dependency_authority.ReceiptError) as error:
         raise DirectAudioDeploymentProofError("dependency_authority_invalid") from error
 
 

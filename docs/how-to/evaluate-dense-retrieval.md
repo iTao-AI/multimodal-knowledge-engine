@@ -39,9 +39,9 @@ Artifact identities:
 
 - Comparison artifact:
   `benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json`
-- Artifact SHA-256: `d5f27d97f41fcac4469f1675872d7d1f322d1d38af0d73df6951d6747ba37899`
-- Development freeze SHA-256: `49bc7b7cda958d1034a6be77080f252ee4f937fd6bb4e969e1c8ab7ad936c1ef`
-- Holdout receipt SHA-256: `80c779eae4640364b350ee0126af50e047b4879c3f21655abdaeb0776b9c95e9`
+- Artifact SHA-256: `935431ce7a549f43216d78c2186e2c62c3aad2f67b84fc404e26e03156e519cc`
+- Development freeze SHA-256: `3f78d9672dc6318319c6cd2255cae0a5059342b78ae3eecfe7d36138fc04ff5a`
+- Holdout receipt SHA-256: `2f131aa1facfdb65c3e6556b1cddba18a702365aecae9f17f2c46c24a0aa7634`
 - Current runtime semantic digest: `sha256:b32dc4a1479cb3ea8e0ebedf2c27b04a10a6d91eee96e0cd0308bcf921e97959`
 
 This result is not a production-quality or statistical-significance claim. The corpus is small,
@@ -72,7 +72,7 @@ network:
 ```bash
 uv build
 uv pip install --offline \
-  "dist/multimodal_knowledge_engine-0.1.3-py3-none-any.whl[embedding]"
+  "dist/multimodal_knowledge_engine-0.1.4-py3-none-any.whl[embedding]"
 ```
 
 MKE never deletes model caches. Failed-candidate cleanup uses the package manager's normal

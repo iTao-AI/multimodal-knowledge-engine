@@ -19,7 +19,7 @@ def test_consumer_smoke_orchestrates_core_wheel_flow_outside_source_tree(
 
     repo = tmp_path / "repo"
     _write_public_fixtures(repo)
-    wheel = repo / "dist" / "multimodal_knowledge_engine-0.1.3-py3-none-any.whl"
+    wheel = repo / "dist" / "multimodal_knowledge_engine-0.1.4-py3-none-any.whl"
     wheel.parent.mkdir()
     wheel.write_bytes(b"wheel")
     runtime_root = tmp_path / "runtime"
@@ -71,8 +71,8 @@ def test_consumer_smoke_orchestrates_core_wheel_flow_outside_source_tree(
                 _json(
                     {
                         "mke_file": str(module),
-                        "mke_version": "0.1.3",
-                        "metadata_version": "0.1.3",
+                        "mke_version": "0.1.4",
+                        "metadata_version": "0.1.4",
                         "sys_executable": str(installed_python),
                     }
                 ),
@@ -128,7 +128,7 @@ def test_consumer_smoke_orchestrates_core_wheel_flow_outside_source_tree(
     result = smoke.run_consumer_smoke(smoke.ConsumerSmokeConfig(wheel=wheel))
 
     assert result["status"] == "passed"
-    assert result["version"] == "0.1.3"
+    assert result["version"] == "0.1.4"
     assert cast(dict[str, object], result["identity"]) == {
         "installed_site_packages": True,
         "venv_executable": True,
@@ -194,8 +194,8 @@ def test_source_checkout_import_identity_is_rejected(
                 _json(
                     {
                         "mke_file": str(repo / "src" / "mke" / "__init__.py"),
-                        "mke_version": "0.1.3",
-                        "metadata_version": "0.1.3",
+                        "mke_version": "0.1.4",
+                        "metadata_version": "0.1.4",
                         "sys_executable": str(installed_python),
                     }
                 ),
@@ -249,8 +249,8 @@ def test_installed_version_identity_drift_is_rejected(
             module.write_text("")
             identity: dict[str, object] = {
                 "mke_file": str(module),
-                "mke_version": "0.1.3",
-                "metadata_version": "0.1.3",
+                "mke_version": "0.1.4",
+                "metadata_version": "0.1.4",
                 "sys_executable": str(installed_python),
             }
             identity.update(identity_override)
@@ -354,7 +354,7 @@ def test_unexpected_errors_are_redacted(
 def _repo_wheel_runtime(tmp_path: Path) -> tuple[Path, Path, Path]:
     repo = tmp_path / "repo"
     _write_public_fixtures(repo)
-    wheel = repo / "dist" / "multimodal_knowledge_engine-0.1.3-py3-none-any.whl"
+    wheel = repo / "dist" / "multimodal_knowledge_engine-0.1.4-py3-none-any.whl"
     wheel.parent.mkdir(parents=True)
     wheel.write_bytes(b"wheel")
     return repo, wheel, tmp_path / "runtime"
@@ -422,8 +422,8 @@ def _fake_run_with_failure(
                 _json(
                     {
                         "mke_file": str(module),
-                        "mke_version": "0.1.3",
-                        "metadata_version": "0.1.3",
+                        "mke_version": "0.1.4",
+                        "metadata_version": "0.1.4",
                         "sys_executable": str(installed_python),
                     }
                 ),

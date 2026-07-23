@@ -3,7 +3,7 @@
   "protocol": {
     "id": "retrieval-numeric-v1",
     "path": "tests/fixtures/retrieval-numeric-v1/protocol-lock.json",
-    "sha256": "3cf1369f5328d71d82ce9959e680a56976a502b81d35ad4b60d70f7818a09366"
+    "sha256": "3946c975b7e7991b1a40bcd811b93fc7b3402837c713a3731342c82c9feffc2e"
   },
   "manifests": {
     "development": {
@@ -41,12 +41,12 @@
     "revision": 1
   },
   "source": {
-    "sha256": "fcc22fc1ad32375023dc04b0641e47cddde74439eb88ef44bd55f2116c86b092",
+    "sha256": "711d9a406205e026bf509fe373ac0df9b36ce1581bc6b1d4b2c8d953b87ed4a4",
     "files": [
       {
         "path": "src/mke/__init__.py",
         "bytes": 58,
-        "sha256": "05a8ced7d4e3b51f21dc75ae662f8e3e8c5b9a9c2b9a16ed9717d27eecc9eb74"
+        "sha256": "89d74681edc7b9d9727b56b8391e9e94e31e1c614f140a6c93f318a21391cd5f"
       },
       {
         "path": "src/mke/adapters/audio/__init__.py",

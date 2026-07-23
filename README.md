@@ -7,17 +7,16 @@ searching, and asking questions over documents and media. It keeps source proces
 activation, retrieval, and Agent-facing interfaces inside one verifiable local application boundary.
 
 The [Run The Consumer Source-Pack Proof](./docs/how-to/run-consumer-source-pack-proof.md) guide
-documents a source-built proof for the current source checkout as a `v0.1.3` release-candidate
+documents a source-built proof for the current source checkout as a `v0.1.4` release-candidate
 verification gate.
 
-`v0.1.3` leads with Compiled Library Export: a deterministic, read-only export of active
-Publications as portable Markdown plus strict EvidenceRef JSONL. It retains the strict Evidence
-provenance and external source-pack proof using the same wheel on Python 3.12/3.13 while keeping the
-same narrow runtime boundary: observable ingest Runs, active Publication Search, evidence-only Ask,
-retrieval evaluation artifacts, and one application service contract shared by the CLI and stdio
-MCP server. It is not a hosted RAG platform.
+`v0.1.4` adds bounded direct-audio intake for local MP3, WAV/PCM, and M4A/AAC clips while retaining
+Compiled Library Export, strict Evidence provenance, and the external source-pack proof using the
+same wheel on Python 3.12/3.13. The runtime boundary remains narrow: observable ingest Runs, active
+Publication Search, evidence-only Ask, retrieval evaluation artifacts, and one application service
+contract shared by Python, CLI, and stdio MCP. It is not a hosted RAG platform.
 
-## Verified in v0.1.3
+## Verified in v0.1.4
 
 | Capability | Evidence |
 |---|---|
@@ -33,6 +32,7 @@ MCP server. It is not a hosted RAG platform.
 | external source-pack proof | One wheel is proven through the official MCP SDK in fresh Python 3.12 and Python 3.13 environments. |
 | owner lifecycle and runtime hardening | Deadlines, bounded output, cancellation, subprocess cleanup, stable redacted failures, and atomic transitions are hardened. |
 | Compiled Library Export | Active Publications export through `mke.compiled_library_export.v1`, readable `mke.compiled_markdown.v1`, and authoritative `mke.evidence_ref.v1` JSONL. |
+| Bounded direct audio | Cache-only MP3, WAV/PCM, and M4A/AAC clips up to 15 minutes and 100 MiB publish timestamp Evidence on an explicitly supervised Darwin arm64 owner. |
 | PDF OCR Phase 0 evidence | PP-OCRv6 medium is the selected production-planning baseline; PaddleOCR-VL 1.6 is a validated comparison candidate. This is not production OCR. |
 
 ```mermaid
@@ -116,18 +116,19 @@ Assets and Artifacts are immutable, and Search/Ask read only active Publications
 
 ## What this release proves
 
-`v0.1.3` is small by product surface, but it exercises the parts that make the system auditable:
+`v0.1.4` is small by product surface, but it exercises the parts that make the system auditable:
 the Evidence lifecycle, active Publication switching, a CLI/MCP application service contract,
 Evidence provenance, the external source-pack proof, same-wheel Python 3.12/3.13 verification,
-owner lifecycle and runtime hardening, and retrieval evaluation artifacts that record accepted
-and rejected retrieval candidates. PDF OCR Phase 0 is bounded planning evidence, not production
-OCR, a public OCR runtime, or a provider promotion. OCR remains excluded from production behavior.
+owner lifecycle and runtime hardening, bounded direct-audio timestamp Evidence, Compiled Library
+Export v2, and retrieval evaluation artifacts that record accepted and rejected retrieval
+candidates. PDF OCR Phase 0 is bounded planning evidence, not production OCR, a public OCR runtime,
+or a provider promotion. OCR remains excluded from production behavior.
 
-| Retrieval evidence | v0.1.3 status | Boundary |
+| Retrieval evidence | v0.1.4 status | Boundary |
 |---|---|---|
 | Shipped runtime | lexical search plus `cjk-active-scan-overlap-v1` for owner-startup CJK active scan. | Search/Ask/MCP read active Publication Evidence through the same application service. |
 | Comparison-only evidence | dense exact-cosine, RRF fusion, and relevance gate / reranker artifacts are recorded. | This does not change normal Search, Ask, MCP, or the runtime default. |
-| Not included | query rewrite, HyDE, production OCR, HTTP/UI, and API adapters are not included. | They are not `v0.1.3` runtime behavior or release claims. |
+| Not included | query rewrite, HyDE, production OCR, HTTP/UI, and API adapters are not included. | They are not `v0.1.4` runtime behavior or release claims. |
 
 ## Quick Verify
 
@@ -148,7 +149,7 @@ uv run mke proof run
 uv run mke demo --verify
 uv run python scripts/release_presentation_audit.py --root .
 uv run python scripts/release_consumer_smoke.py \
-  --wheel dist/multimodal_knowledge_engine-0.1.3-py3-none-any.whl --json
+  --wheel dist/multimodal_knowledge_engine-0.1.4-py3-none-any.whl --json
 ```
 
 ## Local Knowledge Proof
@@ -269,21 +270,21 @@ local viability evidence and is not production OCR.
 See [Export A Compiled Library](./docs/how-to/export-compiled-library.md) and
 [Run The Compiled Library Export Proof](./docs/how-to/run-compiled-library-export-proof.md).
 
-## Direct Audio Candidate
+## Bounded Direct Audio
 
-Direct audio is an accepted v0.1.4 candidate, not a released capability. It adds bounded MP3,
-WAV/PCM, and M4A/AAC voice-note and clip/excerpt intake through an explicitly prepared cache-only
-owner on Darwin arm64. The owner must supply a positive supervision value; MKE provides no runtime
-budget default, recommendation, or SLA.
+Direct audio is a bounded v0.1.4 capability. It adds MP3, WAV/PCM, and M4A/AAC voice-note and
+clip/excerpt intake through an explicitly prepared cache-only owner on Darwin arm64. The owner
+must supply a positive supervision value; MKE provides no runtime budget default, recommendation,
+or SLA.
 
 Start with the offline model-free proof, then follow the Python, CLI, stdio MCP, and explicit
 Export v2 golden paths in [Use bounded direct audio](docs/how-to/use-direct-audio.md). The separate
 [installed-wheel proof guide](docs/how-to/run-direct-audio-proof.md) remains an authorization gate;
-this candidate does not claim that terminal real ASR has run.
+this release does not claim that terminal real ASR has run.
 
 ## Documentation
 
-- [Release notes](./docs/releases/v0.1.3.md)
+- [Release notes](./docs/releases/v0.1.4.md)
 - [Verify The Release](./docs/how-to/verify-release.md)
 - [Documentation index](./docs/README.md)
 - [Run The Local Product Proof](./docs/how-to/run-local-product-proof.md)

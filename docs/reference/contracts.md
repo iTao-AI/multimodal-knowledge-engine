@@ -237,7 +237,7 @@ or a missing/invalid final manifest.
 
 ## Bounded Direct Audio
 
-The accepted candidate adds `audio/mpeg`, `audio/wav`, and `audio/mp4` Source rows through the
+The v0.1.4 bounded direct-audio contract adds `audio/mpeg`, `audio/wav`, and `audio/mp4` Source rows through the
 canonical dispatcher. The profile is MP3, WAV/PCM, or M4A/AAC up to 15 minutes and 100 MiB. Its
 extractor fingerprint is `faster-whisper-audio-v1:<64 lowercase hex>`, required stages are the
 closed audio transcription stages, and Evidence locators use `timestamp_ms`. Evidence remains

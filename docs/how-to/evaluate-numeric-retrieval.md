@@ -26,10 +26,10 @@ Build the wheel, then run the isolated proof for both supported Python lines:
 ```bash
 uv build
 uv run python scripts/numeric_retrieval_deployment_proof.py \
-  --wheel dist/multimodal_knowledge_engine-0.1.3-py3-none-any.whl \
+  --wheel dist/multimodal_knowledge_engine-0.1.4-py3-none-any.whl \
   --python 3.12
 uv run python scripts/numeric_retrieval_deployment_proof.py \
-  --wheel dist/multimodal_knowledge_engine-0.1.3-py3-none-any.whl \
+  --wheel dist/multimodal_knowledge_engine-0.1.4-py3-none-any.whl \
   --python 3.13
 ```
 

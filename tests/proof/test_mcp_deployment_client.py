@@ -53,7 +53,7 @@ def test_installed_mcp_module_help_has_no_outer_stderr(tmp_path: Path) -> None:
     assert Path(identity["metadata_root"]).resolve().is_relative_to(
         Path(sys.prefix).resolve()
     )
-    assert identity["version"] == "0.1.3"
+    assert identity["version"] == "0.1.4"
 
     result = subprocess.run(
         [

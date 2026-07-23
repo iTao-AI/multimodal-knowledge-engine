@@ -32,7 +32,7 @@ result=passed duration_ms=<milliseconds>
 The demo uses a temporary SQLite workspace, cleans it up before exit, and is expected to complete
 in a few seconds on a local development machine. It makes no network calls.
 
-For the accepted v0.1.4 candidate, the first direct-audio checkpoint is also model-free:
+For bounded v0.1.4 direct audio, the first checkpoint is also model-free:
 
 ```bash
 UV_OFFLINE=1 uv run mke proof direct-audio --json
