@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import types
 from pathlib import Path
 
 import pytest
@@ -101,6 +102,59 @@ def test_bound_input_materialization_canonicalizes_allocator_symlink_parent(
         bound.close()
 
 
+def test_bound_input_linux_cleanup_ignores_regular_sibling(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_root = tmp_path / "source"
+    materialized_parent = tmp_path / "materialized"
+    owned_root = materialized_parent / "owned"
+    sibling = materialized_parent / "operator.txt"
+    source_root.mkdir()
+    materialized_parent.mkdir()
+    source = source_root / "voice.mp3"
+    source.write_bytes(b"original")
+    sibling.write_bytes(b"operator state")
+    sibling_before = sibling.stat()
+    bound = bind_allowed_file(source_root, source.name)
+
+    def allocate(*, prefix: str) -> str:
+        assert prefix == "mke-bound-ingest-"
+        owned_root.mkdir(mode=0o700)
+        return str(owned_root)
+
+    monkeypatch.setattr(mke.interfaces.input_authority.tempfile, "mkdtemp", allocate)
+    monkeypatch.setattr(
+        mke.interfaces.input_authority,
+        "sys",
+        types.SimpleNamespace(platform="linux"),
+    )
+
+    try:
+        with bound.materialize() as materialized:
+            assert materialized.read_bytes() == b"original"
+        assert not owned_root.exists()
+        assert sibling.read_bytes() == b"operator state"
+        sibling_after = sibling.stat()
+        assert (
+            sibling_after.st_dev,
+            sibling_after.st_ino,
+            sibling_after.st_mode,
+            sibling_after.st_size,
+            sibling_after.st_mtime_ns,
+            sibling_after.st_ctime_ns,
+        ) == (
+            sibling_before.st_dev,
+            sibling_before.st_ino,
+            sibling_before.st_mode,
+            sibling_before.st_size,
+            sibling_before.st_mtime_ns,
+            sibling_before.st_ctime_ns,
+        )
+    finally:
+        bound.close()
+
+
 def test_bound_input_cleanup_preserves_replacement_root(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -127,6 +181,11 @@ def test_bound_input_cleanup_preserves_replacement_root(
         return original_remove(root, root_identity, root_descriptor)
 
     monkeypatch.setattr(mke.interfaces.input_authority.tempfile, "mkdtemp", allocate)
+    monkeypatch.setattr(
+        mke.interfaces.input_authority,
+        "sys",
+        types.SimpleNamespace(platform="linux"),
+    )
     monkeypatch.setattr(
         mke.interfaces.input_authority,
         "_remove_owned_root_entry",

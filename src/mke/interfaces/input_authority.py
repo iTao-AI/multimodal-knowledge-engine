@@ -287,6 +287,8 @@ def _remove_owned_root_entry(
         owned_name: str | None = None
         for name in os.listdir(parent_descriptor):
             observed = os.stat(name, dir_fd=parent_descriptor, follow_symlinks=False)
+            if not stat.S_ISDIR(observed.st_mode):
+                continue
             if _directory_identity(observed) == root_identity:
                 if owned_name is not None:
                     raise IngestFileAuthorityError(_CHANGED_CAUSE)
