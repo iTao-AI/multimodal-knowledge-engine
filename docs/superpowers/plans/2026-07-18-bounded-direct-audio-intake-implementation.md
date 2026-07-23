@@ -59,6 +59,22 @@ The superseding feasibility-authority amendments are recorded in
   PR C separately binds its fresh final MKE wheel to the accepted PR A receipt digest, installed
   package set, and prepared model tree.
 - Numeric ceilings observed on the fixed proof corpus are evidence, not a production SLA or cross-platform performance claim.
+- Direct audio is composed only on Darwin arm64 when the owner explicitly configures both
+  `RuntimeConfig.direct_audio_footprint_bytes` and
+  `RuntimeConfig.direct_audio_footprint_budget_mode="baseline_plus"`. The bytes value is a positive
+  non-boolean integer with no default or recommended value. The pair is absent by default, applies
+  identically to the supervised inspection and transcription children, and never appears in the
+  path-only `ingest_file` request.
+- PR A's `24 MiB baseline_plus` controlled-allocator value proves only the supervisory mechanism;
+  it is not a PyAV/faster-whisper runtime budget. `1 GiB absolute` has no authority. PR C does not
+  change the PR A/PR B mechanism or refresh the PR A receipt. The direct-audio composition boundary
+  accepts only `baseline_plus` without narrowing the generic `SupervisedProcessProfile` contract.
+- Missing direct-audio supervision fails before Source, Run, snapshot, child, or model work with
+  `direct audio supervision is not configured / configure_direct_audio_supervision`. A non-Darwin
+  arm64 runtime fails at the same boundary with
+  `direct audio runtime is supported only on Darwin arm64 / run_on_supported_darwin_arm64`. Both
+  conditions disable only direct audio; PDF, video, and the historical faster-whisper video owner
+  remain compatible.
 - PR A owns Task 1, PR B owns Tasks 2-4, and PR C owns Tasks 5-10. A v0.1.4
   version/tag/Release/archive-smoke closeout is a separate post-merge PR and separate authorization.
 - Full-length meetings, interviews, lectures, long-audio workers, chunking, resume, and streaming
@@ -1171,7 +1187,7 @@ consumer contract is a design hard stop.
 - Consumes: accepted/merged PR B immutable snapshot/media authority and internal audio provider.
 - Produces: `AudioIngestError`, `IngestDispatchError`, `KnowledgeEngine.ingest_audio()`, canonical `KnowledgeEngine.ingest_file()`, audio Run/Publication lifecycle, and active timestamp Evidence.
 
-- [ ] **Step 1: Write lifecycle and dispatcher RED tests**
+- [x] **Step 1: Write lifecycle and dispatcher RED tests**
 
 Cover suffix dispatch, uppercase suffixes, unsupported suffix, sidecar-owner rejection before Source
 and Run, exact snapshot hash, Run states, candidate/manifest/report atomicity, Search/Ask,
@@ -1203,7 +1219,7 @@ def test_ingest_file_uses_one_closed_suffix_dispatcher(
     assert calls == [(method, Path(name))]
 ```
 
-- [ ] **Step 2: Run RED tests**
+- [x] **Step 2: Run RED tests**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1215,12 +1231,15 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: missing audio ingest/dispatcher and audio activation behavior.
 
-- [ ] **Step 3: Add the canonical application surface**
+- [x] **Step 3: Add the canonical application surface**
 
 First compose the accepted internal inspection/transcription providers at the owner boundary only for the existing
-faster-whisper owner. The default sidecar owner continues to reject direct audio before Source or
-Run creation. Bind the current interpreter, existing owner configuration, operation controller,
-timeout, bounded capture, accepted PR A Darwin arm64 supervisory cell, lightweight
+faster-whisper owner on Darwin arm64 when the owner explicitly supplies the paired
+`direct_audio_footprint_bytes` and `direct_audio_footprint_budget_mode="baseline_plus"` startup
+policy. The default sidecar owner and an unconfigured or unsupported-platform faster-whisper owner
+continue to reject direct audio before Source or Run creation. Bind the current interpreter,
+existing owner configuration, operation controller, timeout, bounded capture, the explicit owner
+pair through the accepted PR A/PR B Darwin arm64 supervisory mechanism, lightweight
 non-model-constructing audio
 preflight, and existing `RuntimeConfig.admission_controller`; add no request-time controls or public
 child command. Existing explicit `transcription doctor` and owner-startup diagnostics retain their
@@ -1274,7 +1293,7 @@ def ingest_file(self, path: Path) -> IngestResult:
 
 The dispatcher does not resolve the path and does not accept MIME hints from callers.
 
-- [ ] **Step 4: Implement fail-closed audio lifecycle**
+- [x] **Step 4: Implement fail-closed audio lifecycle**
 
 `ingest_audio()` must order authority as follows:
 
@@ -1309,14 +1328,14 @@ If cleanup cannot prove removal of the call-owned snapshot, return a stable fail
 publish. If a failure occurs after Run creation, mark only that Run failed or superseded and keep
 the prior active Publication. Do not fabricate a transcript report for failed or unavailable runs.
 
-- [ ] **Step 5: Extend atomic report activation for audio fingerprints**
+- [x] **Step 5: Extend atomic report activation for audio fingerprints**
 
 SQLite recognizes either historical `faster-whisper-v1:[0-9a-f]{64}` with video stages or new
 `faster-whisper-audio-v1:[0-9a-f]{64}` with audio stages as report-requiring. Validate report media
 duration/segment counts/provenance against the audio manifest and candidate Evidence in the same
 transaction. No new table or migration is required unless a real schema mismatch is proven.
 
-- [ ] **Step 6: Run GREEN, lifecycle races, and regressions**
+- [x] **Step 6: Run GREEN, lifecycle races, and regressions**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1336,7 +1355,7 @@ UV_OFFLINE=1 uv run pyright
 
 Expected: all pass; active Publication changes only on complete success.
 
-- [ ] **Step 7: Review and commit Task 5**
+- [x] **Step 7: Review and commit Task 5**
 
 ```bash
 git diff --check
@@ -1368,7 +1387,7 @@ git commit -m "feat(audio): publish direct audio evidence"
 - Consumes: Task 5 `KnowledgeEngine.ingest_file()` and `AudioIngestError`.
 - Produces: CLI and MCP direct-audio flows with stable operation-local public errors and unchanged request schemas.
 
-- [ ] **Step 1: Write parser/schema/error RED tests**
+- [x] **Step 1: Write parser/schema/error RED tests**
 
 ```python
 def test_mcp_ingest_file_schema_remains_path_only(server: FastMCP) -> None:
@@ -1396,7 +1415,7 @@ exits 20-50, unknown exit, unexpected exception, cancellation, and all forbidden
 controls. Run the retarget regression through audio, PDF, and video dispatch so the canonical
 dispatcher cannot weaken existing containment. Assert every pre-Run row omits `run_id`.
 
-- [ ] **Step 2: Run RED tests**
+- [x] **Step 2: Run RED tests**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1410,7 +1429,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: audio routes unsupported or bypass the canonical dispatcher; legacy schema assertions pass.
 
-- [ ] **Step 3: Validate MCP path identity before resolution**
+- [x] **Step 3: Validate MCP path identity before resolution**
 
 `mcp_contract.ingest_file()` must preserve the exact path-only schema but reject a symlinked final
 component before calling `resolve(strict=True)`. Keep the unresolved spelling only for this
@@ -1433,7 +1452,7 @@ if not stat.S_ISREG(resolved_stat.st_mode):
 # After the resolved allowed-root containment check, dispatch `resolved` plus its bound identity.
 ```
 
-- [ ] **Step 4: Use command-local error mappings**
+- [x] **Step 4: Use command-local error mappings**
 
 CLI and MCP route success through `engine.ingest_file(candidate)`. Direct-audio failures serialize
 only these problems: `input_path_rejected`, `unsupported_media_type`, `transcription_not_ready`,
@@ -1442,11 +1461,19 @@ next steps, and `run_id` presence frozen in the design. Unknown errors use the e
 generic cause. Do not add the audio causes to shared
 `_ALLOWLISTED_CAUSES` or the read-tool consumer fixture.
 
-- [ ] **Step 5: Preserve owner-only transcription controls**
+- [x] **Step 5: Preserve owner-only transcription controls**
 
 The existing global trusted-owner transcription configuration remains the only model/cache/device/
-language input. `ingest` accepts a file plus existing presentation flags; stdio MCP tool input stays
-`{"path": string}`. The default sidecar owner returns:
+language input. The owner-startup CLI/MCP composition adds only:
+
+```text
+--direct-audio-footprint-bytes <positive-int>
+--direct-audio-footprint-budget-mode baseline_plus
+```
+
+The pair must be supplied together and does not enter an ingest request. `ingest` accepts a file
+plus existing presentation flags; stdio MCP tool input stays `{"path": string}`. The default
+sidecar owner returns:
 
 ```json
 {
@@ -1459,7 +1486,13 @@ language input. `ingest` accepts a file plus existing presentation flags; stdio 
 
 No Source or Run may exist after this rejection.
 
-- [ ] **Step 6: Run GREEN and contract regressions**
+An unconfigured faster-whisper owner returns
+`direct audio supervision is not configured / configure_direct_audio_supervision`; a non-Darwin
+arm64 owner returns
+`direct audio runtime is supported only on Darwin arm64 / run_on_supported_darwin_arm64`. These are
+operation-local closed errors and do not expand the shared `PublicError` allowlist.
+
+- [x] **Step 6: Run GREEN and contract regressions**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1478,7 +1511,7 @@ UV_OFFLINE=1 uv run pyright
 
 Expected: all pass; frozen MCP/read-tool/source-pack schemas remain exact.
 
-- [ ] **Step 7: Review and commit Task 6**
+- [x] **Step 7: Review and commit Task 6**
 
 ```bash
 git diff --check
@@ -1516,7 +1549,7 @@ git commit -m "feat(audio): route direct audio interfaces"
   from accepted PR B plus Tasks 5-6.
 - Produces: explicit v2 manifest/Markdown/response, default v1 compatibility, v2 standalone consumer, and same-wheel v2 proof.
 
-- [ ] **Step 1: Freeze v1 bytes and write reconciled v2 RED tests**
+- [x] **Step 1: Freeze v1 bytes and write reconciled v2 RED tests**
 
 Build committed in-memory/golden snapshots for a v1-compatible PDF/video Library and a v2 mixed
 Library containing PDF text, current comparison-only PDF OCR, video, MP3, WAV, and M4A Sources.
@@ -1539,7 +1572,7 @@ The v2 tests must reject missing/extra Sources, unsupported media, wrong locator
 mismatch, stale Publication, evidence graph mismatch, tampered Markdown/JSONL/manifest, symlinks,
 unknown schema, and v1/v2 cross-consumption.
 
-- [ ] **Step 2: Run RED tests**
+- [x] **Step 2: Run RED tests**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1553,7 +1586,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: v2 symbols/flag/consumer are missing; v1 golden passes until the explicit audio snapshot case.
 
-- [ ] **Step 3: Add the reconciled closed version-selected domain models**
+- [x] **Step 3: Add the reconciled closed version-selected domain models**
 
 Preserve the current v1 `CompiledSourceSnapshot` and `CompiledLibrarySnapshot` accepted literals
 and validation byte-for-byte. Add separate closed v2 snapshot/source types, or an equivalently
@@ -1593,7 +1626,7 @@ typed `unsupported_active_media_type` result. The public v1 failure directs the 
 the complete export with `--format-version v2`; it never reports generic provenance drift or omits
 the Source.
 
-- [ ] **Step 4: Implement explicit deterministic reconciled v2 rendering and response**
+- [x] **Step 4: Implement explicit deterministic reconciled v2 rendering and response**
 
 `export_library(store, output, format_version=format_version)` chooses constants from this closed map:
 
@@ -1618,7 +1651,7 @@ content fingerprints, exact active Publication/revision/Run/manifest ownership, 
 post-commit tree revalidation. Add `--format-version {v1,v2}` with default `v1`; reject the option
 outside `library export` and preserve existing retrieval-option guards.
 
-- [ ] **Step 5: Add a standard-library-only v2 consumer**
+- [x] **Step 5: Add a standard-library-only v2 consumer**
 
 `compiled_library_export_consumer_v2.py` must independently parse and validate only v2. It accepts
 one export root, checks exact inventory, manifest self-digest, JSONL/source/Markdown digests,
@@ -1637,7 +1670,7 @@ Stable success output:
 }
 ```
 
-- [ ] **Step 6: Extend same-wheel proof without weakening v1 proof**
+- [x] **Step 6: Extend same-wheel proof without weakening v1 proof**
 
 The proof accepts either a call-owned wheel it builds for task verification or an explicit
 descriptor-verified `--mke-wheel` supplied by terminal verification. It installs the same wheel
@@ -1645,7 +1678,7 @@ under explicit Python 3.12 and 3.13 interpreters, creates a
 mixed active Library through installed MKE, exports v2 twice, compares exact trees, invokes the
 standalone v2 consumer, and reports the same wheel digest. Existing v1 proof cases remain unchanged.
 
-- [ ] **Step 7: Run GREEN and full export regressions**
+- [x] **Step 7: Run GREEN and full export regressions**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1665,7 +1698,7 @@ UV_OFFLINE=1 uv run pyright
 
 Expected: all pass; legacy v1 tree and consumer remain exact; v2 exports every active Source once.
 
-- [ ] **Step 8: Review and commit Task 7**
+- [x] **Step 8: Review and commit Task 7**
 
 ```bash
 git diff --check
@@ -1700,7 +1733,7 @@ Task review must separately approve v1 byte compatibility and v2 completeness.
   Publication/Search/Ask, reconciled export v2, and independent v2 consumer.
 - Produces: deterministic model-free direct-audio product proof and bounded required CI coverage.
 
-- [ ] **Step 1: Write model-free product-proof RED tests**
+- [x] **Step 1: Write model-free product-proof RED tests**
 
 The proof injects a project-owned fake audio provider at the application port but exercises the
 real snapshot, inspection, Run/Publication, Search/Ask, EvidenceRef, export v2, consumer, and
@@ -1735,7 +1768,7 @@ def test_direct_audio_proof_covers_all_formats_and_product_path(tmp_path: Path) 
     assert report.cleanup is True
 ```
 
-- [ ] **Step 2: Run RED tests**
+- [x] **Step 2: Run RED tests**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1745,7 +1778,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: missing product-proof module and CLI contract.
 
-- [ ] **Step 3: Implement the deterministic proof report**
+- [x] **Step 3: Implement the deterministic proof report**
 
 ```python
 DirectAudioProofFailureCode = Literal[
@@ -1798,7 +1831,7 @@ Freeze the exact failure-code-to-next-step map and require both fields to be abs
 present/matched on failure. Unknown exceptions map to a closed redacted failure; no path, exception,
 stderr, or arbitrary string crosses the proof boundary.
 
-- [ ] **Step 4: Run model-free GREEN**
+- [x] **Step 4: Run model-free GREEN**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1812,7 +1845,7 @@ UV_OFFLINE=1 uv run pyright
 
 Expected: all model-free tests pass.
 
-- [ ] **Step 5: Bind required CI without model downloads**
+- [x] **Step 5: Bind required CI without model downloads**
 
 Prefer the existing Python 3.12/3.13 transcription-extra jobs. Add exact tests for fixture decode,
 fake-model audio child, model-free proof, accepted PR A receipt validator, `pip check`, empty-cache
@@ -1821,7 +1854,7 @@ executed.
 Do not add a model download, hosted cache mutation, system FFmpeg requirement, or arbitrary short
 job timeout.
 
-- [ ] **Step 6: Review and commit Task 8**
+- [x] **Step 6: Review and commit Task 8**
 
 ```bash
 git diff --check
@@ -1850,7 +1883,7 @@ receipt but does not regenerate or reinterpret its license evidence.
   model tree, three fixtures, installed CLI/MCP, and the reconciled export v2 consumer.
 - Produces: `mke.direct_audio_deployment_proof.v1` aggregate bound to wheel, package set, model tree, fixtures, Publications, Evidence, export, consumer, network denial, and cleanup.
 
-- [ ] **Step 1: Write controller RED tests with fake subprocess boundaries**
+- [x] **Step 1: Write controller RED tests with fake subprocess boundaries**
 
 Cover exact two interpreters, same wheel, receipt binding, isolated venvs, the accepted PR A
 nested-pip argv/environment contract, descriptor-verified per-cell wheel compatibility and
@@ -1877,7 +1910,7 @@ Public `run_direct_audio_deployment_proof()` must not accept fake provider, sand
 or footprint seams. Test-only orchestration lives behind a private controller function and cannot publish
 canonical evidence.
 
-- [ ] **Step 2: Run RED tests**
+- [x] **Step 2: Run RED tests**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1887,7 +1920,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: missing controller/schema and MCP audio orchestration.
 
-- [ ] **Step 3: Implement bounded installed-wheel orchestration**
+- [x] **Step 3: Implement bounded installed-wheel orchestration**
 
 The public CLI is:
 
@@ -1909,7 +1942,7 @@ GitHub-style interpreter symlinks are valid while missing, dangling, directory, 
 targets fail closed. Every external command uses bounded stdout/stderr, a process group, timeout,
 parent wait, descendant cleanup, and a call-owned environment/home/cache/temp root.
 
-- [ ] **Step 4: Bind installed package and model authority before inference**
+- [x] **Step 4: Bind installed package and model authority before inference**
 
 For each environment:
 
@@ -1927,7 +1960,7 @@ For each environment:
 6. run the network canary under the same deny-network boundary as doctor and provider commands; and
 7. delete call-owned bytecode before installed-module identity checks and execution.
 
-- [ ] **Step 5: Execute the real product path**
+- [x] **Step 5: Execute the real product path**
 
 Using installed code only:
 
@@ -1944,7 +1977,7 @@ Using installed code only:
 Do not require exact full transcript equality across runtimes. Bind a stable expected keyword,
 non-empty normalized transcript, exact publication graph, locator integrity, and Source identity.
 
-- [ ] **Step 6: Run controller GREEN tests**
+- [x] **Step 6: Run controller GREEN tests**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1959,16 +1992,20 @@ UV_OFFLINE=1 uv run pyright
 
 Expected: all model-free controller tests pass and the historical video deployment proof remains valid.
 
-- [ ] **Step 7: Freeze the terminal proof authorization manifest without running real ASR**
+- [x] **Step 7: Freeze the terminal proof authorization manifest without running real ASR**
 
 The controller tests freeze the exact inputs that Task 10 must report before authorization: final
 MKE wheel SHA-256, PR A receipt digest, canonical wheelhouse-manifest and constraints digests,
 prepared model identifier,
 revision and tree digest, interpreter versions, retained inputs, estimated temporary disk use,
-deny-network method, and cleanup ownership. If any input is absent, Task 10 stops; nothing downloads
-or repairs it. Do not run a non-terminal real ASR checkpoint in this Task.
+deny-network method, cleanup ownership, and the exact owner-configured
+`direct_audio_footprint_bytes` plus `baseline_plus` mode. If any input is absent, Task 10 stops;
+nothing downloads or repairs it. The later real proof records configured bytes/mode, baseline,
+observed peak, effective budget, and overshoot as fixed-fixture Darwin arm64 observations only. Do
+not run a non-terminal real ASR checkpoint in this Task or promote those observations to a default,
+recommendation, product ceiling, SLA, or cross-platform fact.
 
-- [ ] **Step 8: Review and commit Task 9**
+- [x] **Step 8: Review and commit Task 9**
 
 The controller, tests, and proof-schema documentation are committed; raw proof output remains
 external evidence and volatile timings are not frozen as thresholds. Then:
@@ -1986,6 +2023,10 @@ Do not commit model weights, caches, venvs, wheelhouses, candidate wheels, datab
 ---
 
 ### Task 10 (PR C): Document The Contract, Close Conditional Identity, And Run Final Gates
+
+Status: Steps 1-7 remain complete. The locked-root install-projection repair is
+`CLEAN / ACCEPTED` after targeted actual-diff re-review. Steps 8-10 remain incomplete; only the
+gate to begin a fresh Step 8 is cleared by that acceptance.
 
 **Files:**
 - Create: `docs/decisions/0011-bounded-direct-audio-intake.md`
@@ -2014,7 +2055,7 @@ Do not commit model weights, caches, venvs, wheelhouses, candidate wheels, datab
 - Consumes: reviewed actual behavior and proof identities from Tasks 1-9.
 - Produces: accepted ADR/docs/claims, canonical evaluation provenance, clean reviewed feature branch, and final evidence for independent authority review.
 
-- [ ] **Step 1: Write documentation and overclaim RED tests**
+- [x] **Step 1: Write documentation and overclaim RED tests**
 
 The contract test requires bounded MP3/WAV-PCM/M4A-AAC, 15 minutes, 100 MiB, voice notes and clips
 or excerpts rather than full-length meeting/interview/lecture support, owner-configured cache-only
@@ -2061,7 +2102,7 @@ fixture, plus unqualified `meetings`, `interviews`, and `lectures` claims as fai
 audit must distinguish bounded clips/excerpts from full-length support rather than banning the
 approved nouns mechanically.
 
-- [ ] **Step 2: Run documentation RED tests**
+- [x] **Step 2: Run documentation RED tests**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -2072,7 +2113,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: direct-audio docs and overclaim rules are missing.
 
-- [ ] **Step 3: Add ADR-0011 and public documentation**
+- [x] **Step 3: Add ADR-0011 and public documentation**
 
 ADR-0011 records the accepted bounded-audio decision, immutable snapshot, additive audio protocol,
 cache-only owner policy, canonical dispatcher, command-local errors, export v2, proof and license
@@ -2103,7 +2144,7 @@ Do not rewrite or refresh PR A license evidence merely because MKE source/docs c
 copy local paths, environment dumps, or infer redistribution permission from package metadata
 alone.
 
-- [ ] **Step 4: Make docs and audit GREEN**
+- [x] **Step 4: Make docs and audit GREEN**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -2116,7 +2157,7 @@ UV_OFFLINE=1 uv run python scripts/release_presentation_audit.py --json
 
 Expected: all tests pass and audit returns `{"status":"ok","violations":[]}`.
 
-- [ ] **Step 5: Run canonical evaluation validators before writing artifacts**
+- [x] **Step 5: Run canonical evaluation validators before writing artifacts**
 
 Run the repository's exact E1, E2, E3-A, E3-B, E3-C, E3-D, and E3-E validators from the current CI
 workflow. If all pass, do not create an identity commit. If only source/scope/dependency identities
@@ -2135,7 +2176,7 @@ Before refresh, capture exact allowed paths and semantic projections. After refr
 If the transaction fails, run only its documented recovery command, verify no partial diff, and
 stop for authority review. Do not hand-edit generated evaluation artifacts.
 
-- [ ] **Step 6: Run the final actual-diff review and bounded fix loop**
+- [x] **Step 6: Run the final actual-diff review and bounded fix loop**
 
 Commit the implementation/docs candidate before whole-branch review, without yet creating the
 durable implementation-review record or claiming a final review verdict:
@@ -2185,7 +2226,7 @@ repository. Step 7 persists only that returned durable result. A substantive dis
 record or status restarts this review step; a mechanical public-neutral transcription receives one
 targeted read-back, not another full whole-branch review.
 
-- [ ] **Step 7: Persist and commit the returned durable review result**
+- [x] **Step 7: Persist and commit the returned durable review result**
 
 After a clean verdict, write the exact reviewed HEAD, verdict, verification identity, durable
 public-neutral findings, and final plan status to the implementation review record and plan. Then
@@ -2203,6 +2244,424 @@ Read back both committed files and compare them with the returned review result.
 targeted read-back does not rerun the whole review. Any substantive mismatch or new implementation
 change returns to Step 6. This review/status commit is the final planned tracked write before the
 terminal MKE wheel is built.
+
+The first authorization-only terminal preflight after that read-back exposed one concrete
+operability defect in the documented direct script-path command: the controller resolved its
+sibling dependency only through the `scripts` package and failed before argument handling when
+invoked as `python scripts/direct_audio_deployment_proof.py` without `PYTHONPATH`. The bounded
+repair range
+`bf20425b3920969ef6558a5ace81587ffaa7e844..a44347bf3c655626cf7e83a8c9b6432b8165f42d`
+changed only `scripts/direct_audio_deployment_proof.py` and
+`tests/scripts/test_direct_audio_deployment_proof.py` (`30 insertions, 2 deletions`). It uses one
+dual-mode sibling import without mutating `sys.path`: direct script execution imports the sibling
+module, while package import and `python -m scripts.direct_audio_deployment_proof` retain the
+existing `scripts.*` authority.
+
+Targeted re-review of exact HEAD `a44347bf3c655626cf7e83a8c9b6432b8165f42d` returned
+`CLEAN / direct deployment proof entrypoint repair ACCEPTED`. The direct-path regression passed,
+direct-path and module-path help output matched, full pytest reported
+`2985 passed, 14 skipped, 5 warnings`, Ruff passed, Pyright reported `0 errors, 0 warnings`, and
+the seven canonical validators passed without an identity refresh. Steps 6 and 7 remain accepted
+and complete; Step 8 is again the next incomplete gate.
+
+The first terminal repository sequence then exposed a Darwin alias defect in the Compiled Library
+Export proof controller: the call-owned `tempfile.mkdtemp()` directory reached model-free audio
+ingestion through `/var` rather than its canonical `/private/var` identity, and the audio snapshot
+correctly failed closed on the symlink-bearing parent. The bounded repair range
+`ce3a3b2aa7d74eca2aec0231d691dd82277a2f11..28e0e8e01e132ea9318a2ee2c73e56b1276fdf05`
+changed only `scripts/compiled_library_export_proof.py` and
+`tests/scripts/test_compiled_library_export_proof.py` (`83 insertions`). It resolves the fresh
+call-owned root with `strict=True`, verifies directory type and equal `(st_dev, st_ino)` identity,
+and uses the canonical path for candidate preparation, workspaces, publishing, and normal cleanup.
+Production `src/mke` paths and audio snapshot symlink rejection remain unchanged.
+
+Targeted actual-diff re-review of exact HEAD
+`28e0e8e01e132ea9318a2ee2c73e56b1276fdf05` returned
+`CLEAN / compiled export proof canonical temp-root repair ACCEPTED` without reopening the accepted
+whole-branch review. The focused regression completed RED then GREEN with `1 passed`, the complete
+controller suite reported `51 passed`, adjacent slices reported `79 passed, 5 warnings`, full
+pytest reported `2986 passed, 14 skipped, 5 warnings`, Ruff passed, Pyright reported
+`0 errors, 0 warnings`, `git diff --check` passed, and all seven canonical validators passed
+without an identity refresh. The one dirty-source historical same-wheel diagnostic is inconclusive,
+was not rerun, and is not passing evidence. Steps 6 and 7 remain accepted and complete; Step 8 is
+again the next incomplete gate. The real deployment controller invocation count remains zero.
+
+The first authorized real deployment-controller invocation later failed closed with the public
+`install_failed` aggregate. A bounded observability repair was reviewed at exact HEAD
+`45c1895a9fc4e40284450825bca16fc71193c439`, with parent
+`bbcf107ea3fbcea7c9695f4a07024e5b86957b07`, and returned
+`CLEAN / bounded install-diagnostic repair ACCEPTED`. The repair changed exactly
+`scripts/direct_audio_deployment_proof.py` and
+`tests/scripts/test_direct_audio_deployment_proof.py` (`482 insertions, 4 deletions`). It rejects
+non-absolute, non-normalized, parent-traversing, alias, and symlink-parent diagnostic destinations
+before file creation while accepting the canonical Darwin `/private/var` path. It also converts
+file-descriptor and parent-descriptor close failures to the closed internal diagnostic-write error,
+preserves the public `install_failed` classification, closes each descriptor once, and removes only
+the same created inode during best-effort cleanup.
+
+Accepted verification for that exact repair reported: focused findings `7 passed`; the complete
+diagnostic set `17 passed`; the deployment-proof file `41 passed`; documentation and presentation
+tests `214 passed`; committed combined read-back `255 passed`; full pytest `3003 passed, 14 skipped,
+5 warnings`; Ruff passed; Pyright reported `0 errors, 0 warnings`; all seven canonical validators
+passed without an identity refresh; and `git diff --check` passed. The public failure aggregate
+remains exactly:
+
+```json
+{"canonical":false,"failure":"install_failed","schema_version":"mke.direct_audio_deployment_proof.v1","status":"failed"}
+```
+
+The real deployment-controller invocation count is exactly one, that invocation failed
+`install_failed`, and the retry count remains zero. Its failure receipt and bounded operator
+failure summary are historical evidence only. They do not establish the failing install substep
+and must not be reinterpreted as ASR, provider, model, or product success. Steps 6 and 7 remain
+accepted and complete; Step 8 is again the next incomplete gate.
+
+All earlier Step 8 wheels, binding reports, and authorization manifests are historical evidence
+only and are prohibited as final authority. This includes wheel digest
+`8a9269593e7846b9142e70c897279ae52fe82607dd24dcbecd5965d8e4192dbb`, binding-report digests
+`f42d27810f7f6eef9a8d2ee20c00cca338d0a0d09549f2bf4b1915259d8d910b` and
+`840286cd333dccffe34b9fc3e4385a65afb0d36d39156856f19ee6573cb8b225`, and authorization-manifest
+digest `dc7df6ff38323d12c3e81627d0a4c201baafd498449e137e2a38e1f0b15e03c8`. A fresh Step 8 wheel,
+terminal-input binding, and authorization-only result are required before any later Step 9
+execution.
+
+All Step 8 material created before the docs-only acceptance commit recording the bounded
+install-diagnostic verdict is likewise historical and prohibited as final authority. Only a fresh
+wheel, sdist, binding report, and authorization-only manifest built from that acceptance commit may
+clear the next Step 8 gate. This acceptance does not claim real ASR, provider or model success,
+release, redistribution authority, production readiness, accuracy, SLA, deployment, or retry.
+
+The later full locked dependency closure exposed one remaining static receipt-validation gap:
+after recomputing the wheelhouse manifest and receipt self-digest, an artifact could omit the MKE
+candidate entirely, omit it from one interpreter cell, or bind the two cells to different candidate
+wheels while `--validate-receipt` still returned passed. Repair commit
+`a158a4d50ef2ffa315538f3b6a6f242a1c5c56bc` requires exactly one
+`multimodal-knowledge-engine` wheel, exactly two top-level candidate installed rows for cells
+`3.12` and `3.13`, and identical filename, version, and SHA-256 bindings to that unique wheel. The
+existing per-cell installed projections remain exactly equal to the top-level rows.
+
+Career targeted re-review of range
+`893d520a83d82454f44516dc6815f50a8efca520..a158a4d50ef2ffa315538f3b6a6f242a1c5c56bc`
+returned CLEAN with no new finding. The exact repair scope is four files with `143 insertions, 4
+deletions`. Independent mutation replay accepted the positive canonical artifact and rejected the
+absent, one-cell-only, and two-different-candidate forms as `committed_receipt_invalid`; malformed
+candidate-cell input through the descriptor bootstrap also failed closed without a traceback. The
+canonical validation CLI exited zero with empty stderr, focused receipt, deployment, documentation,
+and proof tests reported `311 passed, 5 warnings`, focused Ruff passed, focused Pyright reported
+`0 errors`, and `git diff --check` passed.
+
+The refreshed canonical dependency receipt binds payload SHA-256
+`fd369d35cb97754839f62ed6ee72dbb69f4cedc85eae40f3c0891d314e0dc61e`, file SHA-256
+`befc901781c597b8e80f380cf5e29a183c672132c31590efff7d9ff1dad373b7`, and controller script
+SHA-256 `932c9e17733e343f15fa558f1e54d21248da8f3f13ce4e52acc344b8f7ca2257`.
+Its inventory remains 60 locked external wheels plus one candidate MKE wheel, 108 installed rows,
+and 54 packages per interpreter cell. Steps 6 and 7 remain accepted and complete; Step 8 remains
+the next incomplete gate. The real deployment-controller invocation count remains two and the retry
+count remains one. No third deployment-controller invocation, model, ASR, provider, or product-path
+execution occurred, and this closure does not establish redistribution, production, SLA, release,
+or deployment authority.
+
+The next authorized Step 9 execution reached the real deployment controller once and failed
+closed at `pip-install-3.12`. The public aggregate remained `install_failed`; the bounded operator
+diagnostic showed that the deployment controller had replaced the receipt-backed 54-line root
+closure with one candidate-only direct-URL requirement. Under the unchanged `--require-hashes`
+contract, ranged candidate metadata such as `mcp<2,>=1.28.1` therefore lacked an explicit pinned,
+hashed root line. This was a deployment-controller install-projection defect, not dependency,
+wheel-metadata, receipt, constraints, wheelhouse, or pip drift.
+
+Targeted repair commit `9398f169348188ead18c082b28d20211cf293695` changes only
+`scripts/direct_audio_deployment_proof.py` and
+`tests/scripts/test_direct_audio_deployment_proof.py`. It reuses the existing PR A
+`_candidate_wheel_authority()` projection, carries the two exact per-cell root byte sequences only
+inside the non-serialized authorization object, writes the selected canonical bytes into the
+call-owned stage, and requires exact staged content before and after pip. The serialized
+`mke.direct_audio_terminal_authorization.v1` schema and the binary-only, no-index, constraints,
+hash-checking, isolated-environment contract remain unchanged. Against the retained accepted
+inputs, both Python cells reproduce 54 lines, 5,819 bytes, and root SHA-256
+`e653870bfb252d22309bbe6b66bf7790bd89d167e41094dd5a358a20f876aebf`.
+
+Career targeted actual-diff re-review of range
+`91993c658a81a9a1afb1bef4b3499731bfb9fb22..2f8af9eb481e7852337dae272ce4646beeec6434`
+at reviewed HEAD `2f8af9eb481e7852337dae272ce4646beeec6434` returned `CLEAN`, with no Critical,
+Important, or Minor finding. Independent review confirmed the exact four-file scope; reuse of PR A
+`_candidate_wheel_authority()` without a second resolver; identical 54-line, 5,819-byte roots with
+SHA-256 `e653870bfb252d22309bbe6b66bf7790bd89d167e41094dd5a358a20f876aebf` for both
+interpreter cells; fixed-hash `mcp==1.28.1` and the unique candidate wheel; exact staged-root checks
+before and after pip; preservation of `--require-hashes`, `--no-index`,
+`--only-binary=:all:`, constraints, isolated configuration, and dependency installation; and an
+unchanged serialized `mke.direct_audio_terminal_authorization.v1` schema. The fresh targeted
+12-test slice, Ruff, canonical full Pyright, and `git diff --check` passed.
+
+The repair is `CLEAN / ACCEPTED`. This acceptance clears only the gate to begin a fresh Step 8.
+Steps 8-10 remain incomplete. The prior Step 8 material and failed Step 9 wheel, authorization,
+repository-gate observations, controller aggregate, and install diagnostic remain historical
+evidence and cannot be reused as final authority. The real deployment-controller invocation count
+remains three and the retry count remains two. This record does not authorize a fourth controller
+invocation, a Step 8 build, authorization-only execution, manual pip replay, model load, ASR,
+provider or product-path execution, downloads, push, PR, merge, release, or deployment.
+
+The subsequent MCP diagnostic authority repair addressed a descriptor-binding gap in the retained
+operator diagnostic. The prior validator could check mode and link count through `lstat()` and then
+parse bytes through a separate open, and it accepted stage, overflow, and capture-failure
+combinations that the producer could not generate. Repair commit
+`67ffa385614f1f9f3fe2583aff3e9cfdc35520c3` binds regular-file type, mode `0600`, link count, size,
+bytes, final-path identity, and pre/post metadata to one descriptor-read inode. It also applies one
+shared semantic rule to producer and validator authority. Identity-closure commit
+`d9364668d73b8ad1b2e1669b7cd52dcf83ac9923` mechanically refreshes 16 validator-proven evaluation
+paths with normalized semantic equality, including unchanged E3-B behavior.
+
+Targeted actual-diff re-review of range
+`a9814f0429437ec229ed9eede27afe3c7c5e59aa..d9364668d73b8ad1b2e1669b7cd52dcf83ac9923`
+at reviewed HEAD `d9364668d73b8ad1b2e1669b7cd52dcf83ac9923` returned `CLEAN / ACCEPTED` with
+no remaining Critical, Important, or Minor finding. The substantive scope is exactly the MCP
+client, deployment controller, and their two test files; the remaining 16 paths are the
+validator-proven identity closure. Fresh focused suites reported `110 passed, 5 warnings`.
+Independent mutation checks rejected a checked `0600` inode replaced by a `0644` file, rejected
+same-inode mode drift, and rejected all four generator-impossible stage/overflow/capture-failure
+combinations as `mcp_failed`. Exact-limit stderr, overflow, and capture-failure positive cases were
+accepted, and invalid producer combinations normalized to `stage=stderr` with
+`capture_failed=true`. The descriptor validator bound regular-file type, `0600`, `nlink=1`, size,
+bytes, final-path identity, and pre/post metadata to the same inode. Semantic-equality evidence
+reported `true` for all 16 refreshed paths and unchanged E3-B behavior.
+
+Steps 6 and 7 remain accepted and complete. Step 8 is again the next incomplete gate, and Steps
+8-10 remain incomplete. Every earlier Step 8 or Step 9 wheel, authorization, aggregate,
+diagnostic, and related artifact remains historical evidence and cannot be reused as final
+authority. The real deployment-controller invocation count remains four and retry count remains
+three; a fifth invocation did not occur. This acceptance does not claim or authorize a manual MCP
+replay, model load, ASR, provider or product-path execution, real-ASR success, accuracy, SLA,
+production readiness, external-binary redistribution, release, or deployment.
+
+#### Bounded Offline Receipt Replay Closure — Clean / Accepted
+
+The PR A external dependency and license projection remains frozen across ordinary MKE source and
+documentation commits. The static receipt validator must nevertheless retain its strict requirement
+that exactly one candidate MKE wheel is present and identically bound across the wheel inventory and
+both interpreter-cell installed projections. A final candidate-wheel byte change therefore permits
+one bounded offline replay through the existing reviewed receipt controller; the strict
+cross-binding is not weakened or removed.
+
+The replay uses a call-owned wheelhouse containing byte-identical copies of the accepted 60 external
+wheels plus the one fresh candidate wheel. It reuses the accepted CPython 3.12 and 3.13 cells,
+constraints, lockfile, and fixtures under the existing offline, binary-only, hashed, no-index
+controller contract. The preserved replay generated exactly 17 changed leaves. Thirteen are
+candidate-derived:
+
+- four candidate `source_wheel_sha256` installed rows across the two cell projections and two
+  top-level rows;
+- two per-cell `root_requirements_sha256` values and two per-cell full
+  `wheelhouse_manifest_sha256` values;
+- `preflight_observed_digest`, `generation_preflight_observed_digest`, and `receipt_sha256`; and
+- candidate wheel bytes and SHA-256 in `wheel_inventory`.
+
+The other four leaves are a fresh controlled-supervisor observation. Baseline changed from
+`213064` to `196680`, budget from `25378888` to `25362504`, observed maximum from `27591136` to
+`27607520`, and overshoot from `2212248` to `2245016`. The observation remains valid only because
+budget minus baseline is exactly 24 MiB, observed maximum exceeds budget, overshoot equals observed
+maximum minus budget, `budget_outcome=exceeded_terminated`, and cleanup still records
+`sigterm_sent=true`, `waited=true`, and `process_group_absent=true`. Every other supervisor field
+is equal. This is a controlled allocator feasibility observation, not a direct-audio runtime
+budget, real-provider budget, production ceiling, SLA, or deployment approval.
+
+Every external wheel row, constraint, PyAV/FFmpeg/component, fixture, license, redistribution, and
+non-claim authority, plus every other receipt semantic field, must remain byte- or
+projection-equal. The exact 17-leaf comparison proved that equality. The historical receipt bound
+payload `fd369d35cb97754839f62ed6ee72dbb69f4cedc85eae40f3c0891d314e0dc61e` and file
+`befc901781c597b8e80f380cf5e29a183c672132c31590efff7d9ff1dad373b7`; the bounded replay binds
+payload `3dca3bc7737728ef49376f11d40e9611cf62552147840a0026b7ded5218a681a` and file
+`1fe3cd6fddd1bb07a949192c64fcf90ee2b9ac5fd22df1e8a334a5d446a611af`. The prior receipt and all
+prior Step 8/Step 9 artifacts remain historical evidence only.
+
+Targeted actual-diff re-review covered
+`1b784eb10c279113c8299e404fa0dd35ef2be7a5..794bbde8cbf9a65f57d76840b924089c9948aab9`
+at reviewed HEAD `794bbde8cbf9a65f57d76840b924089c9948aab9` and returned `CLEAN / ACCEPTED`
+with no Critical, Important, or Minor finding. Independent review confirmed byte identity with the
+preserved generated replay, an unchanged JSON path inventory, the exact 13 candidate-derived plus
+four bounded-observation leaves and invariants above, and external 60-wheel manifest SHA-256
+`04960db80c29a372f7d29028cf4a9f646845df0c207ca39b1eb618b232624d06`. The fresh candidate wheel
+remained 353200 bytes with SHA-256
+`e3abdf24589be880aa2c135cd8687ed6c21e0ea0ed2ec5fe1742703ef665c3d0` and contained the exact
+current `mcp_deployment_client.py` bytes. Static receipt validation plus the direct-audio
+documentation and presentation suite reported `215 passed`; the live presentation audit returned
+`status=ok`.
+
+This acceptance does not complete Step 8, authorize authorization-only or Step 9, or change the
+historical real deployment-controller invocation and retry counts of four and three. A fifth real
+invocation remains outside this authority. It does not establish real ASR, model, provider, or
+product success, redistribution authority, production readiness, accuracy, SLA, release, or
+deployment authority.
+
+#### MCP Gate Operator Diagnostic Repair — Clean / Accepted
+
+A later authorized Step 9 run failed closed with the unchanged public `mcp_failed` aggregate.
+Provider-free investigation did not establish a specific MCP product failure. It instead proved
+two operator-observability gaps: the installed MCP child silently discarded failure to persist its
+diagnostic, and a successful child response rejected by parent result validation or exact fixture
+source identity produced no operator diagnostic.
+
+Repair commit `bf9fa248381c5edac6b6a77996288d36fa7d1ad9` changes exactly the MCP deployment
+client, the deployment controller, and their two test files. The MCP child now writes only a
+call-owned intermediate diagnostic. The parent retains sole authority over the final operator
+diagnostic and reuses the existing descriptor-bound `mke.mcp_deployment_diagnostic.v1` writer and
+validator. A valid child diagnostic preserves its exact child stage; child diagnostic absence or
+persistence failure maps to `child_diagnostic_unavailable`; a successful child rejected by parent
+result validation maps to `parent_result_validation`; and an exact source digest mismatch maps to
+`source_identity`. Child diagnostic persistence failure has a distinct closed exit status, while
+its generic failure payload and the deployment controller's public four-field aggregate remain
+unchanged. No raw MCP payload, path, stderr, transcript, credential, or secret is added to operator
+evidence.
+
+Focused RED reported `11 failed, 4 passed`; focused GREEN reported `15 passed`; and the complete MCP
+client/deployment proof suites reported `120 passed, 5 warnings`. The first full-suite run reported
+`3068 passed, 14 skipped, 5 warnings` plus 12 evaluation failures that all identified stale source
+identity. Identity-only commit `80f83181588710ff4b2b7faca5717465499adddd` is the resulting
+validator-proven 16-path mechanical closure. The detached validation mirror and real worktree each
+passed all seven canonical validators, the focused evaluation artifact suite reported
+`191 passed, 5 warnings`, feature/mirror bytes were equal for all 16 paths, and normalized
+semantic projections, metrics, results, diagnostics, thresholds, statuses, and verdicts remained
+unchanged. E3-B remained byte-identical.
+
+Targeted actual-diff re-review of
+`c19eee0ab79a2f0df130235483f587d827145fd8..aca8057602c3491de2ff1bb923c7f6e10dc43cf2`
+at reviewed HEAD `aca8057602c3491de2ff1bb923c7f6e10dc43cf2` returned
+`CLEAN / ACCEPTED` with no Critical, Important, or Minor finding. Fresh verification reported
+`120 passed, 5 warnings` for the complete MCP client/deployment suites, four-file Ruff passed,
+repository Pyright reported `0 errors, 0 warnings, 0 informations`, and `git diff --check` passed.
+All 16 identity paths remained byte-equal to the retained detached mirror. The semantic-equality
+report has SHA-256
+`c20df765f1d5c95224a464c71d2eb396827d814f530b5d93a8184c67cd66a878` and
+`status=passed`.
+
+Steps 8-10 remain incomplete. This acceptance clears only the prerequisite review gate for a
+separately authorized fresh Step 8; it does not itself authorize authorization-only, Step 9,
+Step 10, a sixth real deployment-controller invocation, manual MCP replay, model load, ASR,
+provider or product-path execution, download, push, PR, merge, release, redistribution, or
+deployment. All earlier Step 8 and Step 9 material remains historical evidence only. The
+historical real deployment-controller invocation count remains five and the retry count remains
+four; a sixth invocation did not occur.
+
+#### Circular Terminal Candidate Authority Repair — Clean / Accepted
+
+The static receipt validator continues to prove its complete historical artifact, including one
+internally consistent candidate MKE wheel and the matching two-cell installed rows. The deployment
+controller had separately promoted that historical candidate's bytes, SHA-256, and root digest to
+the current terminal candidate authority. That coupling contradicted the approved split in which
+the receipt owns external dependency, constraint, platform, interpreter, supervisor, fixture, and
+external installed-distribution authority while Step 8 independently binds one fresh MKE wheel.
+It also required a circular receipt replay after ordinary source changes.
+
+Repair commit `0200089` keeps `validate_committed_receipt()` unchanged and separates the terminal
+candidate authority. The receipt still validates its own historical candidate and complete closed
+schema. The deployment controller then removes that historical candidate from the external
+projection, requires the remaining wheel and installed-distribution authority to remain exact,
+and independently validates the fresh candidate's distribution, version, filename tags, METADATA
+requirements, live lock projection, constraints, compatible two-cell root requirements, bytes,
+and SHA-256. The authorization manifest binds the fresh bytes and SHA-256. Staging and installed
+identity checks continue to bind that same fresh wheel. The serialized
+`mke.direct_audio_terminal_authorization.v1` schema is unchanged.
+
+Focused TDD recorded the two original circular comparisons failing before the repair and passing
+after it. A second RED set recorded seven missing structural-boundary cases before the shared
+candidate structure validator was added. Focused candidate authority tests reported `11 passed`;
+the complete deployment-proof and receipt-adjacency suites reported `329 passed, 5 warnings`.
+The committed candidate passed `3089 passed, 14 skipped, 5 warnings`, Ruff, Pyright with
+`0 errors, 0 warnings, 0 informations`, the offline build, `git diff --check`, and all seven
+canonical validators. No evaluation identity closure was required. Descriptor-bootstrap static
+receipt validation passed with payload SHA-256
+`3dca3bc7737728ef49376f11d40e9611cf62552147840a0026b7ded5218a681a` and unchanged file SHA-256
+`1fe3cd6fddd1bb07a949192c64fcf90ee2b9ac5fd22df1e8a334a5d446a611af`.
+
+Targeted actual-diff re-review covered
+`760bfdc4fbf7d965d0ca5bef9ab67d4a5e19ee06..ba4f8d59af544c78e77d2946230ce7542dd4a700`
+at reviewed HEAD `ba4f8d59af544c78e77d2946230ce7542dd4a700` and returned
+`CLEAN / ACCEPTED`, with no Critical, Important, or Minor finding. Independent verification
+confirmed complete `validate_committed_receipt()` validation, independent fresh-candidate
+distribution/version/tag/METADATA/live-lock/constraints/two-cell-root authority, and fresh
+bytes/SHA binding through `AuthorizationManifest`, staged-input validation, and installed
+`RECORD` identity. The serialized authorization schema and public aggregate remain unchanged.
+Fresh focused evidence reported `543 passed, 5 warnings`; Ruff passed; repository-authoritative
+`uv run --frozen --no-sync pyright` reported `0 errors`; the receipt file SHA-256 remained
+`1fe3cd6fddd1bb07a949192c64fcf90ee2b9ac5fd22df1e8a334a5d446a611af`; and
+`git diff --check` passed.
+
+This repair is `CLEAN / ACCEPTED`. Steps 8-10 remain incomplete, and every earlier Step 8/Step 9
+wheel, authorization, aggregate, diagnostic, and observation remains historical evidence only.
+The real deployment-controller invocation and retry counts remain five and four; a sixth
+invocation did not occur. No receipt replay, authorization-only execution, manual MCP replay,
+model load, ASR, provider or product-path execution, download, redistribution, production,
+accuracy, SLA, release, or deployment claim is made.
+
+#### MCP Module Startup Repair — Clean / Accepted
+
+The sixth authorized terminal run failed closed at the MCP gate. Provider-free reproduction proved
+that the module entry point completed successfully but emitted the standard `runpy` warning because
+the public proof import chain eagerly loaded `mke.proof.local_knowledge`, which in turn loaded
+`mke.proof.mcp_deployment_client` before `python -m` executed that target. The deployment
+controller's unchanged outer-stderr policy therefore rejected the child rather than waiving or
+filtering the warning.
+
+Repair commit `8b903ba014b3b182e6887176d645495ba2c40e26` moves the shared MCP helper import
+into the local-knowledge MCP flow. It preserves the existing `mke.proof` public exports and
+local-knowledge proof behavior, and unknown or nonempty outer stderr continues to fail closed.
+Identity-only commit `c8581085afbec6279504422913ce850122a8c18d` mechanically refreshes the 16
+validator-proven evaluation paths. The semantic-equality report has SHA-256
+`adacd1fc536de10d24d79bdc276cb12ad341bfe0a4a5d2a7be6910966eed408f`; every
+normalized semantic projection is equal and E3-B remains byte-identical.
+
+Targeted actual-diff re-review covered
+`2f2baa40d19dbf9f12f63001a6055e3f27aefbb8..c8581085afbec6279504422913ce850122a8c18d`
+at reviewed HEAD `c8581085afbec6279504422913ce850122a8c18d` and returned `CLEAN` with no
+findings. Independent verification reported `returncode=0`, 2,404 stdout bytes, and zero stderr
+bytes for the direct isolated module help command. TDD recorded `2 failed, 1 passed` at RED and
+`3 passed, 5 warnings` at focused GREEN. The complete suite reported
+`3092 passed, 14 skipped, 5 warnings`; Ruff passed; Pyright reported
+`0 errors, 0 warnings, 0 informations`; `git diff --check` passed; and all seven canonical
+validators passed.
+
+Steps 6 and 7 remain accepted and complete. Step 8 is the next incomplete gate, and Steps 8-10
+remain incomplete. Every earlier Step 8 or Step 9 wheel, authorization, aggregate, diagnostic,
+observation, and related artifact remains historical evidence only and cannot serve as fresh
+terminal authority. The historical real deployment-controller invocation and retry counts are six
+and five; a seventh invocation did not occur. This acceptance does not claim real-ASR success,
+accuracy, SLA, production readiness, cross-platform authority, external-binary redistribution,
+release, or deployment, and it does not authorize Step 8, Step 9, another controller invocation,
+manual MCP replay, model load, ASR, provider or product-path execution, download, push, PR, merge,
+release, or deployment.
+
+#### Export Native Boundary Repair — Clean / Accepted
+
+第七次 terminal run 在 Export gate fail closed。后续 provider-free installed-wheel A/B 证明，
+proof controller 使用 `cwd=cell` 并向 `--output` 传递 absolute/nested path，违反既有 native
+Export contract：output parent 必须已存在，当前工作目录必须是该 parent，`--output` 必须是
+leaf name。这是 proof controller 的 command-shape 缺陷，不是第二个 Export product defect。
+旧形态稳定返回 v2 `output_path_invalid`；在 owned `export_root` 中使用
+`--output first` / `--output second` 后，两次 Export 均成功，first/second tree equality、
+portable copy 和 standalone v2 consumer 也全部通过。
+
+此前 FakeRunner 将错误的 cwd/argv 假设直接硬编码为成功，未覆盖真实 native boundary。
+Proof/controller tests 必须验证真实 CLI contract，不能只依赖自写 wrapper 或 FakeRunner。
+Repair commit `a03d165290ff7942d602cfce8466817ccf1813e9` 仅创建 call-owned
+`export_root`，让两次 CLI call 使用 `cwd=export_root`，并只传 leaf `first` / `second`。
+Public schema、canonical receipt、diagnostic taxonomy 和产品 Export contract 均未改变。
+
+Targeted actual-diff re-review 覆盖
+`0b353f56754264451c4c771e9f62d5edd5bfb99d..a03d165290ff7942d602cfce8466817ccf1813e9`
+并绑定 reviewed tree `5080dcf8180707c5f9bae6213511c98b2ce60ff0`，结论为
+`CLEAN / ACCEPTED`，无 Critical、Important、Minor 或 Informational finding。Scope、
+intent、correctness、cleanup ownership 和 test layering 均通过。
+
+Execution verification 记录 RED `2 failed`、GREEN `2 passed`、adjacent suites
+`166 passed, 5 warnings`、full pytest `3093 passed, 14 skipped, 5 warnings`、Ruff passed、
+Pyright `0 errors`、offline build passed、product proof `8/8`、demo passed，以及 E1–E3-E
+`7/7` 且无 identity drift；`git diff --check` 和 bounded near-field review 也通过。
+Independent focused verification 再次报告两个 exact regressions `2 passed, 5 warnings`，
+targeted Ruff passed。
+
+Steps 6 和 7 保持 accepted and complete。Steps 8–10 仍未完成，fresh Step 8 是下一道且需
+另行授权的 gate；所有旧 Step 8/Step 9 artifacts 仅为 historical evidence。历史 real
+deployment-controller invocation/retry 保持 `7/6`，第八次调用未发生。本记录不证明
+terminal deployment success、完整 footprint、跨平台 production、ASR quality、external
+binary redistribution、release 或 deployment。
 
 - [ ] **Step 8: Build the final MKE wheel and bind the terminal proof inputs**
 
@@ -2333,7 +2792,10 @@ UV_OFFLINE=1 uv run mke proof run
 UV_OFFLINE=1 uv run mke demo --verify
 UV_OFFLINE=1 uv run python scripts/local_knowledge_proof.py --json
 UV_OFFLINE=1 uv run python scripts/evidence_provenance_proof.py --json
-UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py --json
+UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
+  --python "$PYTHON312" \
+  --python "$PYTHON313" \
+  --json
 UV_OFFLINE=1 uv run python scripts/compiled_library_export_proof.py \
   --python "$PYTHON312" \
   --python "$PYTHON313" \

@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from mke.adapters.audio.contracts import audio_extractor_fingerprint
 from mke.adapters.sqlite import (
     AssetMediaTypeMismatchError,
     InjectedStorageFailure,
@@ -9,6 +10,7 @@ from mke.adapters.sqlite import (
 )
 from mke.domain import (
     LOCAL_COMMAND_VIDEO_TRANSCRIPT_FINGERPRINT,
+    REQUIRED_AUDIO_STAGES,
     REQUIRED_PDF_STAGES,
     REQUIRED_VIDEO_STAGES,
     VIDEO_TRANSCRIPT_FINGERPRINT,
@@ -18,6 +20,7 @@ from mke.domain import (
     RunManifest,
     RunState,
     TranscriptIntakeReport,
+    TranscriptionProvenance,
 )
 
 _FASTER_WHISPER_FINGERPRINT = "faster-whisper-v1:" + ("a" * 64)
@@ -60,6 +63,23 @@ def _report() -> TranscriptIntakeReport:
     )
 
 
+def _audio_fingerprint(report: TranscriptIntakeReport) -> str:
+    return audio_extractor_fingerprint(
+        TranscriptionProvenance(
+            provider=report.provider,
+            model=report.model,
+            model_revision=report.model_revision,
+            library_version=report.library_version,
+            device=report.device,
+            compute_type=report.compute_type,
+            language=report.language,
+            detected_language=report.detected_language,
+            model_source=report.model_source,
+            transcription_duration_ms=report.transcription_duration_ms,
+        )
+    )
+
+
 def _validated_video_run(
     store: SQLiteStore,
     *,
@@ -82,6 +102,90 @@ def _validated_video_run(
         ),
     )
     return run.run_id
+
+
+def _validated_audio_run(
+    store: SQLiteStore,
+    *,
+    source_id: str,
+    fingerprint: str | None = None,
+) -> str:
+    run = store.create_run(source_id)
+    store.mark_run_running(run.run_id)
+    evidence = [CandidateEvidence(f"ev_{run.run_id}", "timestamp_ms", 0, 1000, "audio")]
+    store.persist_validated_candidate(
+        run.run_id,
+        evidence,
+        RunManifest(
+            run_id=run.run_id,
+            evidence_count=1,
+            required_stages=tuple(sorted(REQUIRED_AUDIO_STAGES)),
+            extractor_fingerprint=fingerprint or _audio_fingerprint(_report()),
+            asset_sha256="b" * 64,
+        ),
+    )
+    return run.run_id
+
+
+def test_audio_activation_requires_successful_transcript_report(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "mke.sqlite")
+    source = store.ensure_source("voice.mp3", "b" * 64, media_type="audio/mpeg")
+    run_id = _validated_audio_run(store, source_id=source.source_id)
+
+    with pytest.raises(
+        ManifestValidationError,
+        match="requires a successful transcript intake report",
+    ):
+        store.activate_publication(run_id)
+
+    assert store.get_run(run_id).state is RunState.VALIDATED
+    assert store.get_transcript_intake_report(run_id) is None
+
+
+def test_audio_report_must_match_candidate_segment_count_and_duration(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "mke.sqlite")
+    source = store.ensure_source("voice.wav", "b" * 64, media_type="audio/wav")
+    run_id = _validated_audio_run(store, source_id=source.source_id)
+    report = _report()
+    mismatched = TranscriptIntakeReport(
+        provider=report.provider,
+        model=report.model,
+        model_revision=report.model_revision,
+        library_version=report.library_version,
+        device=report.device,
+        compute_type=report.compute_type,
+        language=report.language,
+        detected_language=report.detected_language,
+        media_duration_ms=999,
+        transcription_duration_ms=report.transcription_duration_ms,
+        segment_count=2,
+        model_source=report.model_source,
+    )
+
+    with pytest.raises(ManifestValidationError, match="report does not match candidate Evidence"):
+        store.activate_publication(run_id, transcript_intake_report=mismatched)
+
+    assert store.get_run(run_id).state is RunState.VALIDATED
+    assert store.get_transcript_intake_report(run_id) is None
+
+
+def test_audio_report_identity_must_match_manifest_fingerprint(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "mke.sqlite")
+    source = store.ensure_source("voice.m4a", "b" * 64, media_type="audio/mp4")
+    run_id = _validated_audio_run(
+        store,
+        source_id=source.source_id,
+        fingerprint="faster-whisper-audio-v1:" + ("c" * 64),
+    )
+
+    with pytest.raises(
+        ManifestValidationError,
+        match="report provenance does not match RunManifest",
+    ):
+        store.activate_publication(run_id, transcript_intake_report=_report())
+
+    assert store.get_run(run_id).state is RunState.VALIDATED
+    assert store.get_transcript_intake_report(run_id) is None
 
 
 def _store_with_active_video(tmp_path: Path) -> tuple[SQLiteStore, str]:

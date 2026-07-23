@@ -586,7 +586,10 @@ from .library_export import (  # noqa: E402
     DEFAULT_EXPORT_LIMITS,
     CompiledEvidenceSnapshot,
     CompiledLibrarySnapshot,
+    CompiledLibrarySnapshotV2,
     CompiledSourceSnapshot,
+    CompiledSourceSnapshotV2,
+    ExportFormatVersion,
     ExportLimits,
     LibraryExportDataError,
 )
@@ -595,7 +598,10 @@ _LIBRARY_EXPORT_CONTRACTS = (
     DEFAULT_EXPORT_LIMITS,
     CompiledEvidenceSnapshot,
     CompiledLibrarySnapshot,
+    CompiledLibrarySnapshotV2,
     CompiledSourceSnapshot,
+    CompiledSourceSnapshotV2,
+    ExportFormatVersion,
     ExportLimits,
     LibraryExportDataError,
 )

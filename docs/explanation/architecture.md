@@ -74,6 +74,18 @@ integer millisecond media duration, stable timestamp ranges within that duration
 strings, and exact provider/model revision rules. Application preflight rejects missing, empty,
 non-MP4, or over-100-MiB inputs before hashing, provider execution, or Run creation.
 
+Direct audio uses the additive `mke.audio_transcript.v1` protocol and the
+`faster-whisper-audio-v1:<64 lowercase hex>` extractor authority; it does not reinterpret
+`mke.video_transcript.v1`. MP3, WAV/PCM, and M4A/AAC inputs are bounded to 15 minutes and 100 MiB.
+The canonical dispatcher creates an immutable snapshot and routes Python, CLI, and stdio MCP into
+the same lifecycle. A complete Run switches the active Publication atomically; failure or partial
+output leaves the previous active Publication unchanged.
+
+Direct audio is composed only for a cache-only faster-whisper owner on Darwin arm64 with an
+explicit positive `direct_audio_footprint_bytes` and `baseline_plus` mode. The pair has no default,
+recommendation, or SLA. Missing policy and unsupported platforms stop before Source and Run before
+model work while the PDF and video owners remain usable.
+
 ## Current Runtime Shape
 
 The runtime is an in-process CLI plus a project-owned application service. SQLite remains the

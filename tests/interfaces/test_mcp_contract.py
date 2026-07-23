@@ -1,13 +1,21 @@
 import asyncio
 import inspect
 import json
+import sys
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
 
 import mke.interfaces.mcp_contract
-from mke.application import KnowledgeEngine, VideoIngestError
+from mke.application import (
+    AudioIngestError,
+    IngestDispatchError,
+    IngestFileAuthority,
+    KnowledgeEngine,
+    VideoIngestError,
+)
+from mke.domain import IngestResult, RunState
 from mke.interfaces.mcp_contract import (
     McpRuntimeConfig,
     ask_library,
@@ -18,11 +26,13 @@ from mke.interfaces.mcp_contract import (
 )
 from mke.interfaces.mcp_server import build_mcp_server
 from mke.retrieval.cjk_active_scan import CjkActiveScanError
-from mke.runtime import RuntimeConfig
+from mke.runtime import FasterWhisperTranscriptionConfig, RuntimeConfig
+from tests.application.test_audio_publication import FakeAudioProvider
 from tests.application.test_video_provider_injection import FakeFasterWhisperProvider
 from tests.conftest import PDF_FIXTURES, VIDEO_FIXTURES
 
 NUMERIC_FIXTURES = Path("tests/fixtures/retrieval-numeric-v1")
+AUDIO_FIXTURES = Path(__file__).parents[1] / "fixtures" / "audio"
 
 
 def _config(tmp_path: Path, allowed_root: Path) -> McpRuntimeConfig:
@@ -242,6 +252,136 @@ def test_mcp_ingest_file_tool_schema_has_no_provider_runtime_overrides(tmp_path:
         assert forbidden not in schema
 
 
+@pytest.mark.parametrize(
+    ("name", "media_type"),
+    [
+        ("voice.mp3", "audio/mpeg"),
+        ("voice.WAV", "audio/wav"),
+        ("voice.M4A", "audio/mp4"),
+    ],
+)
+def test_mcp_audio_uses_canonical_dispatcher(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+    media_type: str,
+) -> None:
+    input_path = tmp_path / name
+    input_path.write_bytes(b"fixture")
+    calls: list[Path] = []
+
+    class EngineSpy:
+        def ingest_file(
+            self,
+            path: Path,
+            *,
+            input_authority: IngestFileAuthority | None = None,
+        ) -> IngestResult:
+            calls.append(path)
+            return IngestResult("run_audio", RunState.PUBLISHED, 1)
+
+        def close(self) -> None:
+            return None
+
+    def build(_config: RuntimeConfig) -> EngineSpy:
+        return EngineSpy()
+
+    monkeypatch.setattr(
+        mke.interfaces.mcp_contract,
+        "build_engine",
+        build,
+    )
+
+    result = ingest_file(_config(tmp_path, tmp_path), name)
+
+    assert calls == [input_path.resolve()]
+    assert result["ok"] is True
+    assert result["media_type"] == media_type
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Darwin tempfile alias regression")
+@pytest.mark.parametrize(
+    ("name", "media_type"),
+    [
+        ("direct-audio.mp3", "audio/mpeg"),
+        ("direct-audio.wav", "audio/wav"),
+        ("direct-audio.m4a", "audio/mp4"),
+    ],
+)
+def test_mcp_materialized_audio_reaches_real_publication_on_darwin(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+    media_type: str,
+) -> None:
+    import mke.runtime
+
+    def build_provider(_config: RuntimeConfig) -> FakeAudioProvider:
+        return FakeAudioProvider()
+
+    def build_preflight(_config: RuntimeConfig) -> object:
+        return lambda: None
+
+    monkeypatch.setattr(mke.runtime, "_build_audio_provider", build_provider)
+    monkeypatch.setattr(mke.runtime, "_build_audio_preflight", build_preflight)
+    config = McpRuntimeConfig(
+        runtime=RuntimeConfig(
+            tmp_path / "mke.sqlite",
+            transcription=FasterWhisperTranscriptionConfig(),
+            direct_audio_footprint_bytes=1,
+            direct_audio_footprint_budget_mode="baseline_plus",
+        ),
+        allowed_root=AUDIO_FIXTURES,
+    )
+
+    result = ingest_file(config, name)
+
+    assert result["ok"] is True
+    assert result["run_state"] == "published"
+    assert result["media_type"] == media_type
+    engine = KnowledgeEngine(config.db_path, recover_unfinished_runs=False)
+    try:
+        observation = engine.observe_active_publications()
+        assert observation.active_publication_count == 1
+        assert observation.active_evidence_count == 1
+    finally:
+        engine.close()
+
+
+def test_mcp_audio_preserves_operation_local_safe_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_path = tmp_path / "voice.mp3"
+    input_path.write_bytes(b"fixture")
+
+    def fail(
+        self: KnowledgeEngine,
+        path: Path,
+        *,
+        input_authority: IngestFileAuthority | None = None,
+    ) -> object:
+        raise AudioIngestError(
+            "audio inspection timed out",
+            "run_audio",
+            problem="audio_ingest_failed",
+            next_step="retry_with_supported_file",
+        )
+
+    monkeypatch.setattr(KnowledgeEngine, "ingest_file", fail)
+
+    result = ingest_file(_config(tmp_path, tmp_path), "voice.mp3")
+
+    assert result == {
+        "ok": False,
+        "problem": "audio_ingest_failed",
+        "cause": "audio inspection timed out",
+        "active_publication_impact": "unchanged",
+        "next_step": "retry_with_supported_file",
+        "run_id": "run_audio",
+    }
+
+
 def test_mcp_search_and_ask_tool_schemas_have_no_request_time_strategy(
     tmp_path: Path,
 ) -> None:
@@ -306,7 +446,12 @@ def test_mcp_video_failure_preserves_typed_recovery_action(
     video.write_bytes(b"fake mp4 bytes")
     config = _config(tmp_path, tmp_path)
 
-    def fail_with_typed_error(self: KnowledgeEngine, path: Path) -> object:
+    def fail_with_typed_error(
+        self: KnowledgeEngine,
+        path: Path,
+        *,
+        input_authority: IngestFileAuthority | None = None,
+    ) -> object:
         raise VideoIngestError(
             "configured transcription model is not cached",
             problem="video_ingest_failed",
@@ -327,6 +472,149 @@ def test_ingest_file_rejects_paths_outside_allowed_root(tmp_path: Path) -> None:
     config = _config(tmp_path, PDF_FIXTURES)
 
     result = ingest_file(config, str(outside))
+
+    assert result == {
+        "ok": False,
+        "problem": "input_path_rejected",
+        "cause": "input path must be under allowed root",
+        "active_publication_impact": "unchanged",
+        "next_step": "choose_file_under_allowed_root",
+    }
+
+
+def test_ingest_file_rejects_symlink_final_component(tmp_path: Path) -> None:
+    target = tmp_path / "voice.mp3"
+    target.write_bytes(b"fixture")
+    link = tmp_path / "linked.mp3"
+    link.symlink_to(target)
+
+    result = ingest_file(_config(tmp_path, tmp_path), "linked.mp3")
+
+    assert result == {
+        "ok": False,
+        "problem": "input_path_rejected",
+        "cause": "input path must not be a symlink",
+        "active_publication_impact": "unchanged",
+        "next_step": "choose_file_under_allowed_root",
+    }
+
+
+@pytest.mark.parametrize("suffix", [".mp3", ".pdf", ".mp4"])
+def test_ingest_file_uses_resolved_target_after_parent_symlink_retarget(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    suffix: str,
+) -> None:
+    allowed_root = tmp_path / "allowed"
+    original_parent = allowed_root / "original"
+    outside_parent = tmp_path / "outside"
+    original_parent.mkdir(parents=True)
+    outside_parent.mkdir()
+    original = original_parent / f"fixture{suffix}"
+    outside = outside_parent / f"fixture{suffix}"
+    original.write_bytes(b"original")
+    outside.write_bytes(b"outside")
+    linked_parent = allowed_root / "current"
+    linked_parent.symlink_to(original_parent, target_is_directory=True)
+    observed: list[tuple[Path, bytes]] = []
+
+    class EngineSpy:
+        def ingest_file(
+            self,
+            path: Path,
+            *,
+            input_authority: IngestFileAuthority | None = None,
+        ) -> IngestResult:
+            linked_parent.unlink()
+            linked_parent.symlink_to(outside_parent, target_is_directory=True)
+            assert input_authority is not None
+            with input_authority.materialize() as stable_path:
+                observed.append((path, stable_path.read_bytes()))
+            return IngestResult("run", RunState.PUBLISHED, 1)
+
+        def close(self) -> None:
+            return None
+
+    def build(_config: RuntimeConfig) -> EngineSpy:
+        return EngineSpy()
+
+    monkeypatch.setattr(
+        mke.interfaces.mcp_contract,
+        "build_engine",
+        build,
+    )
+
+    result = ingest_file(
+        _config(tmp_path, allowed_root),
+        f"current/fixture{suffix}",
+    )
+
+    assert result["ok"] is True
+    assert observed == [(original.resolve(), b"original")]
+
+
+@pytest.mark.parametrize("suffix", [".mp3", ".pdf", ".mp4"])
+def test_ingest_file_canonical_parent_replacement_cannot_escape_bound_input(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    suffix: str,
+) -> None:
+    allowed_root = tmp_path / "allowed"
+    canonical_parent = allowed_root / "canonical"
+    moved_parent = allowed_root / "moved"
+    outside_parent = tmp_path / "outside"
+    canonical_parent.mkdir(parents=True)
+    outside_parent.mkdir()
+    original = canonical_parent / f"fixture{suffix}"
+    outside = outside_parent / f"fixture{suffix}"
+    original.write_bytes(b"original")
+    outside.write_bytes(b"outside")
+    observed: list[bytes] = []
+
+    class EngineSpy:
+        def ingest_file(
+            self,
+            path: Path,
+            *,
+            input_authority: IngestFileAuthority | None = None,
+        ) -> IngestResult:
+            canonical_parent.rename(moved_parent)
+            canonical_parent.symlink_to(outside_parent, target_is_directory=True)
+            assert input_authority is not None
+            with input_authority.materialize() as stable_path:
+                observed.append(stable_path.read_bytes())
+            return IngestResult("run", RunState.PUBLISHED, 1)
+
+        def close(self) -> None:
+            return None
+
+    def build(_config: RuntimeConfig) -> EngineSpy:
+        return EngineSpy()
+
+    monkeypatch.setattr(mke.interfaces.mcp_contract, "build_engine", build)
+
+    result = ingest_file(
+        _config(tmp_path, allowed_root),
+        f"canonical/fixture{suffix}",
+    )
+
+    assert result["ok"] is True
+    assert observed == [b"original"]
+
+
+def test_ingest_file_rejects_symlink_parent_escape(tmp_path: Path) -> None:
+    allowed_root = tmp_path / "allowed"
+    outside_parent = tmp_path / "outside"
+    allowed_root.mkdir()
+    outside_parent.mkdir()
+    outside = outside_parent / "voice.mp3"
+    outside.write_bytes(b"outside")
+    (allowed_root / "current").symlink_to(outside_parent, target_is_directory=True)
+
+    result = ingest_file(
+        _config(tmp_path, allowed_root),
+        "current/voice.mp3",
+    )
 
     assert result == {
         "ok": False,
@@ -391,7 +679,47 @@ def test_ingest_file_rejects_unsupported_media_type(tmp_path: Path) -> None:
     assert result == {
         "ok": False,
         "problem": "unsupported_media_type",
-        "cause": "supported suffixes are .pdf and .mp4",
+        "cause": "supported suffixes are .pdf, .mp4, .mp3, .wav, and .m4a",
+        "active_publication_impact": "unchanged",
+        "next_step": "choose_supported_file",
+    }
+
+
+def test_ingest_file_unsupported_suffix_is_owned_by_application_dispatcher(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    note = tmp_path / "note.txt"
+    note.write_text("not supported")
+    calls: list[Path] = []
+
+    class EngineSpy:
+        def ingest_file(
+            self,
+            path: Path,
+            *,
+            input_authority: IngestFileAuthority | None = None,
+        ) -> IngestResult:
+            calls.append(path)
+            raise IngestDispatchError(
+                "supported suffixes are .pdf, .mp4, .mp3, .wav, and .m4a"
+            )
+
+        def close(self) -> None:
+            return None
+
+    def build(_config: RuntimeConfig) -> EngineSpy:
+        return EngineSpy()
+
+    monkeypatch.setattr(mke.interfaces.mcp_contract, "build_engine", build)
+
+    result = ingest_file(_config(tmp_path, tmp_path), "note.txt")
+
+    assert calls == [note.resolve()]
+    assert result == {
+        "ok": False,
+        "problem": "unsupported_media_type",
+        "cause": "supported suffixes are .pdf, .mp4, .mp3, .wav, and .m4a",
         "active_publication_impact": "unchanged",
         "next_step": "choose_supported_file",
     }

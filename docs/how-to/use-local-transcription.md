@@ -73,5 +73,19 @@ If the model is absent, run preparation explicitly. Failed or cancelled ingest l
 Publication unchanged. Omit `--transcript-provider` to return to deterministic sidecar ingest.
 
 Normal doctor, ingest, proof, and MCP execution never enable model download. HTTP, remote or vendor
-ASR, long-video support, audio-only ingest, diarization, GPU scheduling, and quality benchmarking
-remain outside this workflow.
+ASR, long-video support, diarization, GPU scheduling, and quality benchmarking remain outside this
+workflow.
+
+## Direct Audio Candidate
+
+The accepted v0.1.4 candidate reuses the same explicitly prepared cache-only owner for bounded MP3,
+WAV/PCM, and M4A/AAC voice notes and clips/excerpts. Direct audio additionally requires Darwin
+arm64 plus both owner-startup controls:
+
+```bash
+--direct-audio-footprint-bytes "$DIRECT_AUDIO_FOOTPRINT_BYTES" \
+--direct-audio-footprint-budget-mode baseline_plus
+```
+
+The positive byte value is owner selected and has no default, recommendation, or SLA. See
+[Use bounded direct audio](./use-direct-audio.md) for the complete Python, CLI, and MCP paths.

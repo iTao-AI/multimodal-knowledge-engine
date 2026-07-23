@@ -3,12 +3,23 @@
 from __future__ import annotations
 
 import re
+import stat
+import tempfile
 from collections.abc import Callable
+from contextlib import AbstractContextManager, ExitStack
 from hashlib import sha256
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol, overload
 from uuid import uuid4
 
+from mke.adapters.audio import AudioProviderError
+from mke.adapters.audio.contracts import audio_extractor_fingerprint
+from mke.adapters.audio.inspection import (
+    AudioSnapshotError,
+    AudioSourceSnapshot,
+    cleanup_audio_snapshot,
+    snapshot_audio_source,
+)
 from mke.adapters.pdf import PdfExtractionError, PyMuPDFPdfExtractor
 from mke.adapters.sqlite import InjectedStorageFailure, SQLiteStore
 from mke.adapters.video import SidecarTranscriptProvider
@@ -19,6 +30,7 @@ from mke.adapters.video.contracts import (
 )
 from mke.domain import (
     PYMUPDF_TEXT_FINGERPRINT,
+    REQUIRED_AUDIO_STAGES,
     REQUIRED_PDF_STAGES,
     REQUIRED_VIDEO_STAGES,
     ActivationResult,
@@ -26,8 +38,12 @@ from mke.domain import (
     ActivePublicationObservation,
     AskResult,
     AskSnapshot,
+    AudioMediaInfo,
+    AudioTranscriptExtractionResult,
     CandidateEvidence,
     CompiledLibrarySnapshot,
+    CompiledLibrarySnapshotV2,
+    ExportFormatVersion,
     FailurePoint,
     IngestResult,
     ManifestValidationError,
@@ -43,6 +59,8 @@ from mke.domain import (
     SourceRecord,
     TranscriptExtractionResult,
     TranscriptIntakeReport,
+    is_recognized_audio_fingerprint,
+    validate_manifest,
 )
 from mke.retrieval import (
     DEFAULT_RETRIEVAL_STRATEGY,
@@ -52,6 +70,7 @@ from mke.retrieval import (
 from mke.retrieval.cjk_active_scan import CjkActiveScanError, compile_cjk_overlap_terms
 from mke.retrieval.query_policy import require_retrieval_query_policy
 from mke.retrieval.strategy import require_retrieval_strategy
+from mke.runtime_owner import AdmissionOverloadedError, BoundedAdmissionController
 
 _SHA256_CHUNK_BYTES = 1024 * 1024
 DEFAULT_ASK_LIMIT = 5
@@ -64,6 +83,19 @@ _COUNT_ONLY_LIMITATION = (
     "The summary is deterministic and only reports matched Evidence count."
 )
 _VIDEO_TRANSCRIPTION_LIMITS = VideoTranscriptionLimits()
+_MAX_AUDIO_INPUT_BYTES = 100 * 1024 * 1024
+_INGEST_SUFFIXES = {
+    ".pdf": "pdf",
+    ".mp4": "video",
+    ".mp3": "audio",
+    ".wav": "audio",
+    ".m4a": "audio",
+}
+_AUDIO_MEDIA_TYPES = {
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".m4a": "audio/mp4",
+}
 
 
 class PdfExtractor(Protocol):
@@ -73,6 +105,29 @@ class PdfExtractor(Protocol):
 
 class TranscriptProvider(Protocol):
     def extract(self, path: Path) -> TranscriptExtractionResult:
+        raise NotImplementedError
+
+
+class AudioProvider(Protocol):
+    def inspect(self, snapshot: AudioSourceSnapshot, *, suffix: str) -> AudioMediaInfo:
+        raise NotImplementedError
+
+    def transcribe(
+        self,
+        snapshot: AudioSourceSnapshot,
+        media: AudioMediaInfo,
+        config: object,
+    ) -> AudioTranscriptExtractionResult:
+        raise NotImplementedError
+
+
+class IngestFileAuthority(Protocol):
+    """Lazy descriptor-bound materialization for a trusted interface boundary."""
+
+    path: Path
+    byte_count: int
+
+    def materialize(self) -> AbstractContextManager[Path]:
         raise NotImplementedError
 
 
@@ -101,6 +156,42 @@ class VideoIngestError(ValueError):
         self.next_step = next_step
 
 
+class AudioIngestError(ValueError):
+    """Raised when direct audio cannot produce publishable Evidence."""
+
+    def __init__(
+        self,
+        cause: str,
+        run_id: str | None = None,
+        *,
+        problem: str = "audio_ingest_failed",
+        next_step: str = "fix_input_or_retry",
+    ) -> None:
+        super().__init__(cause)
+        self.cause = cause
+        self.run_id = run_id
+        self.problem = problem
+        self.next_step = next_step
+
+
+class IngestDispatchError(ValueError):
+    """Raised when the canonical file dispatcher rejects a suffix."""
+
+    def __init__(self, cause: str, next_step: str = "choose_supported_file") -> None:
+        super().__init__(cause)
+        self.problem = "unsupported_media_type"
+        self.cause = cause
+        self.next_step = next_step
+
+
+class IngestFileAuthorityError(ValueError):
+    """Raised when a bound interface input cannot be materialized unchanged."""
+
+
+class _PublicationCommitCancelled(RuntimeError):
+    """Raised when interface cancellation wins before Publication commit."""
+
+
 class AskValidationError(ValueError):
     """Raised when an Ask request cannot be evaluated safely."""
 
@@ -120,6 +211,11 @@ class KnowledgeEngine:
         pdf_extractor: PdfExtractor | None = None,
         transcript_provider: TranscriptProvider | None = None,
         *,
+        audio_provider: AudioProvider | None = None,
+        audio_transcription_config: object | None = None,
+        audio_preflight: Callable[[], None] | None = None,
+        publication_commit: Callable[[], bool] | None = None,
+        admission_controller: BoundedAdmissionController | None = None,
         query_policy: RetrievalQueryPolicy | None = None,
         retrieval_strategy: RetrievalStrategy | None = None,
         search_observer: Callable[[int], None] | None = None,
@@ -143,6 +239,14 @@ class KnowledgeEngine:
         self._retrieval_strategy: RetrievalStrategy = selected_strategy
         self._pdf_extractor = pdf_extractor or PyMuPDFPdfExtractor()
         self._transcript_provider = transcript_provider or SidecarTranscriptProvider()
+        self._audio_provider = audio_provider
+        self._audio_transcription_config = audio_transcription_config
+        self._audio_preflight = audio_preflight
+        self._publication_commit = publication_commit
+        self._admission_controller = admission_controller or BoundedAdmissionController(
+            capacity=1,
+            max_waiters=1,
+        )
         if recover_unfinished_runs:
             self.recover_unfinished_runs()
 
@@ -189,6 +293,10 @@ class KnowledgeEngine:
             self._store.mark_run_running(run_id)
         self._store.persist_validated_candidate(run_id, evidence, manifest)
 
+    def _begin_publication_commit(self) -> None:
+        if self._publication_commit is not None and not self._publication_commit():
+            raise _PublicationCommitCancelled
+
     def activate_publication(
         self, run_id: str, failure_point: FailurePoint | None = None
     ) -> ActivationResult:
@@ -204,8 +312,20 @@ class KnowledgeEngine:
     def observe_active_publications(self) -> ActivePublicationObservation:
         return self._store.observe_active_publications()
 
-    def compiled_library_snapshot(self) -> CompiledLibrarySnapshot:
-        return self._store.compiled_library_snapshot()
+    @overload
+    def compiled_library_snapshot(
+        self, *, format_version: Literal["v1"] = "v1"
+    ) -> CompiledLibrarySnapshot: ...
+
+    @overload
+    def compiled_library_snapshot(
+        self, *, format_version: Literal["v2"]
+    ) -> CompiledLibrarySnapshotV2: ...
+
+    def compiled_library_snapshot(
+        self, *, format_version: ExportFormatVersion = "v1"
+    ) -> CompiledLibrarySnapshot | CompiledLibrarySnapshotV2:
+        return self._store.compiled_library_snapshot(format_version=format_version)
 
     def search_provenance_snapshot(
         self, query: str, limit: int | None = None
@@ -245,11 +365,59 @@ class KnowledgeEngine:
         )
         return AskSnapshot(snapshot.observation, result, snapshot.results)
 
-    def ingest_pdf(self, path: Path) -> IngestResult:
-        return self._process_pdf(path, retry_of_run_id=None, failure_point=None)
+    def ingest_pdf(
+        self,
+        path: Path,
+        *,
+        input_authority: IngestFileAuthority | None = None,
+    ) -> IngestResult:
+        return self._process_pdf(
+            path,
+            retry_of_run_id=None,
+            failure_point=None,
+            input_authority=input_authority,
+        )
 
-    def ingest_video(self, path: Path) -> IngestResult:
-        return self._process_video(path)
+    def ingest_video(
+        self,
+        path: Path,
+        *,
+        input_authority: IngestFileAuthority | None = None,
+    ) -> IngestResult:
+        return self._process_video(path, input_authority=input_authority)
+
+    def ingest_audio(
+        self,
+        path: Path,
+        *,
+        input_authority: IngestFileAuthority | None = None,
+    ) -> IngestResult:
+        return self._process_audio(path, input_authority=input_authority)
+
+    def ingest_file(
+        self,
+        path: Path,
+        *,
+        input_authority: IngestFileAuthority | None = None,
+    ) -> IngestResult:
+        if input_authority is not None and input_authority.path != path:
+            raise IngestFileAuthorityError("input path changed during validation")
+        route = _INGEST_SUFFIXES.get(path.suffix.lower())
+        if route == "pdf":
+            if input_authority is None:
+                return self.ingest_pdf(path)
+            return self.ingest_pdf(path, input_authority=input_authority)
+        if route == "video":
+            if input_authority is None:
+                return self.ingest_video(path)
+            return self.ingest_video(path, input_authority=input_authority)
+        if route == "audio":
+            if input_authority is None:
+                return self.ingest_audio(path)
+            return self.ingest_audio(path, input_authority=input_authority)
+        raise IngestDispatchError(
+            "supported suffixes are .pdf, .mp4, .mp3, .wav, and .m4a"
+        )
 
     def reprocess_pdf(
         self, path: Path, failure_point: FailurePoint | None = None
@@ -296,17 +464,30 @@ class KnowledgeEngine:
         activate: bool = True,
         leave_running_for_test: bool = False,
         reuse_existing_source: bool = False,
+        input_authority: IngestFileAuthority | None = None,
     ) -> IngestResult:
-        asset_sha256 = _sha256_file(path)
-        source = self._select_source(path, asset_sha256, source_id, reuse_existing_source)
-        run = self.create_run(source.source_id, retry_of_run_id=retry_of_run_id)
-        self._store.mark_run_running(run.run_id)
-        if leave_running_for_test:
-            return IngestResult(run.run_id, RunState.RUNNING, 0, retry_of_run_id)
+        run: RunRecord | None = None
         try:
-            if failure_point == FailurePoint.BEFORE_VALIDATION:
-                raise InjectedStorageFailure(failure_point.value)
-            extraction = self._pdf_extractor.extract(path)
+            with ExitStack() as stack:
+                stable_path = (
+                    stack.enter_context(input_authority.materialize())
+                    if input_authority is not None
+                    else path
+                )
+                asset_sha256 = _sha256_file(stable_path)
+                source = self._select_source(
+                    path,
+                    asset_sha256,
+                    source_id,
+                    reuse_existing_source,
+                )
+                run = self.create_run(source.source_id, retry_of_run_id=retry_of_run_id)
+                self._store.mark_run_running(run.run_id)
+                if leave_running_for_test:
+                    return IngestResult(run.run_id, RunState.RUNNING, 0, retry_of_run_id)
+                if failure_point == FailurePoint.BEFORE_VALIDATION:
+                    raise InjectedStorageFailure(failure_point.value)
+                extraction = self._pdf_extractor.extract(stable_path)
             evidence = [
                 CandidateEvidence(
                     evidence_id=f"ev_{uuid4().hex}",
@@ -324,6 +505,8 @@ class KnowledgeEngine:
                 extractor_fingerprint=PYMUPDF_TEXT_FINGERPRINT,
                 asset_sha256=asset_sha256,
             )
+            if activate:
+                self._begin_publication_commit()
             self._store.persist_validated_candidate(
                 run.run_id,
                 evidence,
@@ -350,8 +533,17 @@ class KnowledgeEngine:
                 intake_report=extraction.report,
             )
         except RunTransitionError as error:
+            assert run is not None
             raise PdfIngestError(str(error), run.run_id) from error
-        except (PdfExtractionError, ManifestValidationError, InjectedStorageFailure) as error:
+        except (
+            PdfExtractionError,
+            ManifestValidationError,
+            InjectedStorageFailure,
+            IngestFileAuthorityError,
+            _PublicationCommitCancelled,
+        ) as error:
+            if run is None:
+                raise PdfIngestError(str(error)) from error
             if isinstance(error, PdfExtractionError) and error.report is not None:
                 self._store.persist_pdf_intake_report(run.run_id, error.report)
             if failure_point in {
@@ -381,25 +573,36 @@ class KnowledgeEngine:
                 return existing
         return self.ensure_source(display_name=path.name, asset_sha256=asset_sha256)
 
-    def _process_video(self, path: Path) -> IngestResult:
+    def _process_video(
+        self,
+        path: Path,
+        *,
+        input_authority: IngestFileAuthority | None = None,
+    ) -> IngestResult:
         run: RunRecord | None = None
         try:
-            try:
-                _validate_video_input(path, _VIDEO_TRANSCRIPTION_LIMITS)
-                asset_sha256 = _sha256_file(path)
-            except VideoIngestError:
-                raise
-            except OSError as error:
-                raise VideoIngestError("input video could not be read") from error
-            source = self.ensure_source(
-                display_name=path.name,
-                asset_sha256=asset_sha256,
-                media_type="video/mp4",
-            )
-            run = self.create_run(source.source_id)
-            self._store.mark_run_running(run.run_id)
-            transcript = self._transcript_provider.extract(path)
-            _validate_transcript_extraction_result(transcript)
+            with ExitStack() as stack:
+                stable_path = (
+                    stack.enter_context(input_authority.materialize())
+                    if input_authority is not None
+                    else path
+                )
+                try:
+                    _validate_video_input(stable_path, _VIDEO_TRANSCRIPTION_LIMITS)
+                    asset_sha256 = _sha256_file(stable_path)
+                except VideoIngestError:
+                    raise
+                except OSError as error:
+                    raise VideoIngestError("input video could not be read") from error
+                source = self.ensure_source(
+                    display_name=path.name,
+                    asset_sha256=asset_sha256,
+                    media_type="video/mp4",
+                )
+                run = self.create_run(source.source_id)
+                self._store.mark_run_running(run.run_id)
+                transcript = self._transcript_provider.extract(stable_path)
+                _validate_transcript_extraction_result(transcript)
             evidence = [
                 CandidateEvidence(
                     evidence_id=f"ev_{uuid4().hex}",
@@ -417,6 +620,7 @@ class KnowledgeEngine:
                 extractor_fingerprint=transcript.extractor_fingerprint,
                 asset_sha256=asset_sha256,
             )
+            self._begin_publication_commit()
             self._store.persist_validated_candidate(run.run_id, evidence, manifest)
             activation = self._store.activate_publication(
                 run.run_id,
@@ -451,6 +655,174 @@ class KnowledgeEngine:
                 str(error),
                 run.run_id,
                 problem=getattr(error, "problem", "video_ingest_failed"),
+                next_step=getattr(error, "next_step", "fix_input_or_retry"),
+            ) from error
+
+    def _process_audio(
+        self,
+        path: Path,
+        *,
+        input_authority: IngestFileAuthority | None = None,
+    ) -> IngestResult:
+        suffix = path.suffix.lower()
+        media_type = _AUDIO_MEDIA_TYPES.get(suffix)
+        if media_type is None:
+            raise IngestDispatchError(
+                "supported suffixes are .pdf, .mp4, .mp3, .wav, and .m4a"
+            )
+        if input_authority is None:
+            _validate_audio_input_path(path)
+        else:
+            _validate_authorized_audio_input(input_authority)
+        if self._audio_transcription_config is None or self._audio_preflight is None:
+            raise AudioIngestError(
+                "direct audio requires faster-whisper owner",
+                problem="transcription_not_ready",
+                next_step="configure_faster_whisper_owner",
+            )
+        self._audio_preflight()
+        if self._audio_provider is None:
+            raise AudioIngestError(
+                "direct audio requires faster-whisper owner",
+                problem="transcription_not_ready",
+                next_step="configure_faster_whisper_owner",
+            )
+        try:
+            lease = self._admission_controller.acquire(timeout_seconds=0.0)
+        except AdmissionOverloadedError as error:
+            raise AudioIngestError(
+                "direct audio owner capacity is busy",
+                problem="transcription_busy",
+                next_step="retry_when_owner_ready",
+            ) from error
+
+        snapshot: AudioSourceSnapshot | None = None
+        run: RunRecord | None = None
+        publication_started = False
+        try:
+            with lease, ExitStack() as stack:
+                stable_path = (
+                    stack.enter_context(input_authority.materialize())
+                    if input_authority is not None
+                    else path
+                )
+                owned_root = (
+                    Path(tempfile.gettempdir()).resolve()
+                    / f".mke-audio-{uuid4().hex}"
+                )
+                snapshot = snapshot_audio_source(stable_path, owned_root)
+                media = self._audio_provider.inspect(snapshot, suffix=suffix)
+                asset_sha256 = snapshot.owned_identity.sha256
+                source = self.ensure_source(
+                    display_name=path.name,
+                    asset_sha256=asset_sha256,
+                    media_type=media_type,
+                )
+                run = self.create_run(source.source_id)
+                self._store.mark_run_running(run.run_id)
+                transcript = self._audio_provider.transcribe(
+                    snapshot,
+                    media,
+                    self._audio_transcription_config,
+                )
+                _validate_audio_extraction_result(transcript, media)
+                snapshot.verify_source_path()
+                snapshot.verify_owned_path()
+                evidence = [
+                    CandidateEvidence(
+                        evidence_id=f"ev_{uuid4().hex}",
+                        locator_kind="timestamp_ms",
+                        locator_start=segment.start_ms,
+                        locator_end=segment.end_ms,
+                        text=segment.text,
+                    )
+                    for segment in transcript.segments
+                ]
+                manifest = RunManifest(
+                    run_id=run.run_id,
+                    evidence_count=len(evidence),
+                    required_stages=tuple(sorted(REQUIRED_AUDIO_STAGES)),
+                    extractor_fingerprint=transcript.extractor_fingerprint,
+                    asset_sha256=asset_sha256,
+                )
+                validate_manifest(manifest, evidence)
+                cleanup_audio_snapshot(snapshot)
+                snapshot = None
+            self._begin_publication_commit()
+            publication_started = True
+            self._store.persist_validated_candidate(run.run_id, evidence, manifest)
+            activation = self._store.activate_publication(
+                run.run_id,
+                transcript_intake_report=transcript.transcript_intake_report,
+            )
+            return IngestResult(
+                run_id=run.run_id,
+                run_state=activation.run_state,
+                evidence_count=len(evidence) if activation.published else 0,
+                transcript_intake_report=(
+                    transcript.transcript_intake_report
+                    if activation.published
+                    else None
+                ),
+            )
+        except Exception as error:
+            cleanup_failed = False
+            if snapshot is not None:
+                try:
+                    cleanup_audio_snapshot(snapshot)
+                except Exception:
+                    cleanup_failed = True
+            if run is not None:
+                try:
+                    if self._store.get_run(run.run_id).state is RunState.VALIDATED:
+                        self._store.mark_validated_run_failed(run.run_id)
+                    else:
+                        self._store.mark_run_failed(run.run_id)
+                except RunTransitionError:
+                    pass
+            if cleanup_failed:
+                raise AudioIngestError(
+                    "audio intake cleanup failed",
+                    run.run_id if run is not None else None,
+                    next_step="check_server_logs",
+                ) from error
+            if isinstance(error, AudioIngestError):
+                raise
+            if isinstance(error, AudioProviderError):
+                raise AudioIngestError(
+                    str(error),
+                    run.run_id if run is not None else None,
+                    problem=error.problem,
+                    next_step=error.next_step,
+                ) from error
+            if isinstance(error, AudioSnapshotError):
+                raise AudioIngestError(
+                    "audio source identity changed during intake",
+                    run.run_id if run is not None else None,
+                    next_step="retry_with_stable_file",
+                ) from error
+            if isinstance(error, IngestFileAuthorityError):
+                raise AudioIngestError(
+                    "audio source identity changed during intake",
+                    run.run_id if run is not None else None,
+                    next_step="retry_with_stable_file",
+                ) from error
+            if run is not None and isinstance(error, ManifestValidationError):
+                raise AudioIngestError(
+                    "audio publication failed",
+                    run.run_id,
+                    next_step="retry_when_owner_ready",
+                ) from error
+            if publication_started:
+                raise AudioIngestError(
+                    "audio publication failed",
+                    run.run_id if run is not None else None,
+                    next_step="retry_when_owner_ready",
+                ) from error
+            raise AudioIngestError(
+                "audio ingest failed",
+                run.run_id if run is not None else None,
+                problem=getattr(error, "problem", "audio_ingest_failed"),
                 next_step=getattr(error, "next_step", "fix_input_or_retry"),
             ) from error
 
@@ -490,6 +862,46 @@ def _validate_video_input(path: Path, limits: VideoTranscriptionLimits) -> None:
         raise VideoIngestError("video input exceeds 100 MiB limit")
 
 
+def _validate_audio_input_path(path: Path) -> None:
+    try:
+        observed = path.lstat()
+    except OSError as error:
+        raise AudioIngestError(
+            "input path must exist and be readable",
+            problem="input_path_rejected",
+            next_step="choose_file_under_allowed_root",
+        ) from error
+    if stat.S_ISLNK(observed.st_mode) or not stat.S_ISREG(observed.st_mode):
+        raise AudioIngestError(
+            "input path must be a regular file and not a symlink",
+            problem="input_path_rejected",
+            next_step="choose_file_under_allowed_root",
+        )
+    if observed.st_size <= 0:
+        raise AudioIngestError(
+            "audio input is empty",
+            next_step="choose_supported_file",
+        )
+    if observed.st_size > _MAX_AUDIO_INPUT_BYTES:
+        raise AudioIngestError(
+            "audio input exceeds supported limits",
+            next_step="choose_smaller_file",
+        )
+
+
+def _validate_authorized_audio_input(authority: IngestFileAuthority) -> None:
+    if authority.byte_count <= 0:
+        raise AudioIngestError(
+            "audio input is empty",
+            next_step="choose_supported_file",
+        )
+    if authority.byte_count > _MAX_AUDIO_INPUT_BYTES:
+        raise AudioIngestError(
+            "audio input exceeds supported limits",
+            next_step="choose_smaller_file",
+        )
+
+
 def _validate_transcript_extraction_result(
     result: TranscriptExtractionResult,
 ) -> None:
@@ -511,6 +923,45 @@ def _validate_transcript_extraction_result(
     if result.extractor_fingerprint != faster_whisper_fingerprint(provenance):
         raise ManifestValidationError(
             "transcript extractor fingerprint does not match provenance"
+        )
+
+
+def _validate_audio_extraction_result(
+    result: AudioTranscriptExtractionResult,
+    media: AudioMediaInfo,
+) -> None:
+    if result.parsed_transcript.media != media:
+        raise ManifestValidationError("audio transcript media does not match inspection")
+    provenance = result.parsed_transcript.transcription_provenance
+    report = result.transcript_intake_report
+    if provenance is None or report is None:
+        raise ManifestValidationError(
+            "successful audio transcript requires validated provenance and report"
+        )
+    expected_report = TranscriptIntakeReport(
+        provider=provenance.provider,
+        model=provenance.model,
+        model_revision=provenance.model_revision,
+        library_version=provenance.library_version,
+        device=provenance.device,
+        compute_type=provenance.compute_type,
+        language=provenance.language,
+        detected_language=provenance.detected_language,
+        media_duration_ms=media.duration_ms,
+        transcription_duration_ms=provenance.transcription_duration_ms,
+        segment_count=len(result.segments),
+        model_source=provenance.model_source,
+    )
+    if report != expected_report:
+        raise ManifestValidationError(
+            "audio transcript intake report does not match parsed transcript"
+        )
+    if (
+        not is_recognized_audio_fingerprint(result.extractor_fingerprint)
+        or result.extractor_fingerprint != audio_extractor_fingerprint(provenance)
+    ):
+        raise ManifestValidationError(
+            "audio extractor fingerprint does not match provenance"
         )
 
 

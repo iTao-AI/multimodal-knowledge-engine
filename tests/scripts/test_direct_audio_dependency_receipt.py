@@ -33,6 +33,36 @@ def _wheel(root: Path, name: str, payload: bytes | None = None) -> Path:
     return path
 
 
+def _candidate_wheel_bytes(*, mcp_specifier: str = "<2,>=1.28.1") -> bytes:
+    receipt = _module()
+    output = io.BytesIO()
+    with receipt.zipfile.ZipFile(output, "w") as archive:
+        archive.writestr(
+            "multimodal_knowledge_engine-0.1.3.dist-info/METADATA",
+            "Metadata-Version: 2.4\n"
+            "Name: multimodal-knowledge-engine\n"
+            "Version: 0.1.3\n"
+            f"Requires-Dist: mcp{mcp_specifier}\n"
+            "Provides-Extra: embedding\n"
+            "Requires-Dist: sentence-transformers<6,>=3; extra == 'embedding'\n"
+            "Provides-Extra: transcription\n"
+            "Requires-Dist: av<18,>=11; extra == 'transcription'\n",
+        )
+    return output.getvalue()
+
+
+def test_candidate_metadata_closes_core_and_transcription_roots() -> None:
+    receipt = _module()
+
+    assert receipt._candidate_wheel_metadata(  # pyright: ignore[reportPrivateUsage]
+        _candidate_wheel_bytes()
+    ) == (
+        "multimodal-knowledge-engine",
+        "0.1.3",
+        (("av", "<18,>=11"), ("mcp", "<2,>=1.28.1")),
+    )
+
+
 def _cells():
     receipt = _module()
     return (
@@ -79,6 +109,138 @@ def _write_single_package_lock(
     projection = _module().derive_transcription_projection(lock, _cells())
     constraints.write_bytes(projection.constraints)
     return lock, constraints
+
+
+def test_projection_includes_candidate_core_and_requested_dependency_extras(
+    tmp_path: Path,
+) -> None:
+    receipt = _module()
+    lock = tmp_path / "uv.lock"
+    digest = "a" * 64
+    lock.write_text(
+        "version = 1\n"
+        'requires-python = ">=3.12, <3.14"\n'
+        "[[package]]\n"
+        'name = "cryptography"\n'
+        'version = "49.0.0"\n'
+        'source = { registry = "https://pypi.org/simple" }\n'
+        'wheels = [{ url = "https://files.pythonhosted.org/cryptography-49.0.0-'
+        'cp311-abi3-macosx_11_0_arm64.whl", hash = "sha256:'
+        f'{digest}", size = 1 }}]\n'
+        "[[package]]\n"
+        'name = "demo"\n'
+        'version = "1.0"\n'
+        'source = { registry = "https://pypi.org/simple" }\n'
+        'wheels = [{ url = "https://files.pythonhosted.org/demo-1.0-py3-none-any.whl", '
+        f'hash = "sha256:{digest}", size = 1 }}]\n'
+        "[[package]]\n"
+        'name = "mcp"\n'
+        'version = "1.0"\n'
+        'source = { registry = "https://pypi.org/simple" }\n'
+        'dependencies = [{ name = "pyjwt", extra = ["crypto"] }]\n'
+        'wheels = [{ url = "https://files.pythonhosted.org/mcp-1.0-py3-none-any.whl", '
+        f'hash = "sha256:{digest}", size = 1 }}]\n'
+        "[[package]]\n"
+        'name = "multimodal-knowledge-engine"\n'
+        'version = "0.1.3"\n'
+        'source = { editable = "." }\n'
+        'dependencies = [{ name = "mcp" }]\n'
+        "[package.optional-dependencies]\n"
+        'transcription = [{ name = "demo" }]\n'
+        "[[package]]\n"
+        'name = "pyjwt"\n'
+        'version = "2.0"\n'
+        'source = { registry = "https://pypi.org/simple" }\n'
+        'wheels = [{ url = "https://files.pythonhosted.org/pyjwt-2.0-py3-none-any.whl", '
+        f'hash = "sha256:{digest}", size = 1 }}]\n'
+        "[package.optional-dependencies]\n"
+        'crypto = [{ name = "cryptography" }]\n',
+        encoding="utf-8",
+    )
+
+    projection = receipt.derive_transcription_projection(lock, _cells())
+
+    assert {item.name for item in projection.requirements} == {
+        "cryptography",
+        "demo",
+        "mcp",
+        "pyjwt",
+    }
+
+
+def test_projection_selects_one_highest_priority_abi3_wheel_per_cell(
+    tmp_path: Path,
+) -> None:
+    receipt = _module()
+    lock = tmp_path / "uv.lock"
+    lock.write_text(
+        "version = 1\n"
+        'requires-python = ">=3.12, <3.14"\n'
+        "[[package]]\n"
+        'name = "cryptography"\n'
+        'version = "49.0.0"\n'
+        'source = { registry = "https://pypi.org/simple" }\n'
+        "wheels = [\n"
+        '  { url = "https://files.pythonhosted.org/cryptography-49.0.0-'
+        'cp311-abi3-macosx_11_0_arm64.whl", hash = "sha256:'
+        + "a" * 64
+        + '", size = 11 },\n'
+        '  { url = "https://files.pythonhosted.org/cryptography-49.0.0-'
+        'cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:'
+        + "b" * 64
+        + '", size = 9 },\n'
+        "]\n"
+        "[[package]]\n"
+        'name = "multimodal-knowledge-engine"\n'
+        'version = "0.1.3"\n'
+        'source = { editable = "." }\n'
+        "[package.optional-dependencies]\n"
+        'transcription = [{ name = "cryptography" }]\n',
+        encoding="utf-8",
+    )
+
+    projection = receipt.derive_transcription_projection(lock, _cells())
+
+    assert [item.filename for item in projection.locked_wheels] == [
+        "cryptography-49.0.0-cp311-abi3-macosx_11_0_arm64.whl"
+    ]
+
+
+def test_projection_renders_prefix_distribution_names_in_canonical_line_order(
+    tmp_path: Path,
+) -> None:
+    receipt = _module()
+    lock = tmp_path / "uv.lock"
+    digest = "a" * 64
+    lock.write_text(
+        "version = 1\n"
+        'requires-python = ">=3.12, <3.14"\n'
+        "[[package]]\n"
+        'name = "httpx"\nversion = "1.0"\n'
+        'source = { registry = "https://pypi.org/simple" }\n'
+        'wheels = [{ url = "https://example.invalid/httpx-1.0-py3-none-any.whl", '
+        f'hash = "sha256:{digest}", size = 1 }}]\n'
+        "[[package]]\n"
+        'name = "httpx-sse"\nversion = "1.0"\n'
+        'source = { registry = "https://pypi.org/simple" }\n'
+        'wheels = [{ url = "https://example.invalid/httpx_sse-1.0-py3-none-any.whl", '
+        f'hash = "sha256:{digest}", size = 1 }}]\n'
+        "[[package]]\n"
+        'name = "multimodal-knowledge-engine"\nversion = "0.1.3"\n'
+        'source = { editable = "." }\n'
+        'dependencies = [{ name = "httpx" }]\n'
+        "[package.optional-dependencies]\n"
+        'transcription = [{ name = "httpx-sse" }]\n',
+        encoding="utf-8",
+    )
+
+    projection = receipt.derive_transcription_projection(lock, _cells())
+
+    parsed, _, by_cell = receipt._parse_constraints(  # pyright: ignore[reportPrivateUsage]
+        projection.constraints
+    )
+    assert parsed == projection.requirements
+    assert by_cell == projection.requirements_by_cell
 
 
 def _copy_audio_fixture_root(tmp_path: Path) -> Path:
@@ -2815,6 +2977,16 @@ def _refresh_receipt_digest(evidence: dict[str, object]) -> None:
     )
 
 
+def _refresh_static_wheelhouse_manifest(evidence: dict[str, object]) -> None:
+    manifest_sha256 = _wheel_manifest_digest(
+        cast(list[dict[str, object]], evidence["wheel_inventory"])
+    )
+    for cell in cast(list[dict[str, object]], evidence["cells"]):
+        pip = cast(dict[str, object], cell["pip"])
+        staging = cast(dict[str, object], pip["staging"])
+        staging["wheelhouse_manifest_sha256"] = manifest_sha256
+
+
 def _interpreter_rows() -> list[dict[str, object]]:
     return [
         {
@@ -2860,6 +3032,12 @@ def _complete_preflight_payload(evidence: dict[str, object]) -> dict[str, object
     fixture_rows = cast(list[dict[str, object]], evidence["fixtures"])
     installed_rows = cast(list[dict[str, object]], evidence["installed_distributions"])
     wheel_by_filename = {item["filename"]: item for item in wheel_rows}
+    candidate_rows = [
+        item
+        for item in wheel_rows
+        if item["distribution"] == "multimodal-knowledge-engine"
+    ]
+    assert len(candidate_rows) == 1
     digest = "9" * 64
     payload: dict[str, object] = {
         "schema": "mke.direct_audio_dependency_input_check.v1",
@@ -2882,7 +3060,12 @@ def _complete_preflight_payload(evidence: dict[str, object]) -> dict[str, object
         "lock_sha256": "5" * 64,
         "constraints_sha256": "4" * 64,
         "root_requirements_sha256": "3" * 64,
-        "wheelhouse": [dict(item) for item in wheel_rows],
+        "wheelhouse": [
+            dict(item)
+            for item in wheel_rows
+            if item["distribution"] != "multimodal-knowledge-engine"
+        ],
+        "candidate_wheel": dict(candidate_rows[0]),
         "wheel_resolution": [
             {
                 "cell": item["cell"],
@@ -2984,6 +3167,18 @@ def _complete_generation_evidence() -> dict[str, object]:
             "sha256": "e" * 64,
             "artifact_scope": "local_runtime_only",
         },
+        {
+            "filename": "multimodal_knowledge_engine-0.1.3-py3-none-any.whl",
+            "distribution": "multimodal-knowledge-engine",
+            "version": "0.1.3",
+            "build": None,
+            "python_tags": ["py3"],
+            "abi_tags": ["none"],
+            "platform_tags": ["any"],
+            "bytes": 105,
+            "sha256": "b" * 64,
+            "artifact_scope": "local_runtime_only",
+        },
     ]
     wheels_by_name = {cast(str, item["filename"]): item for item in wheels}
     installed: list[dict[str, object]] = []
@@ -2996,6 +3191,7 @@ def _complete_generation_evidence() -> dict[str, object]:
             ),
             "faster_whisper-1.2.1-py3-none-any.whl",
             "huggingface_hub-1.0-py3-none-any.whl",
+            "multimodal_knowledge_engine-0.1.3-py3-none-any.whl",
         )
         for filename in filenames:
             wheel = wheels_by_name[filename]
@@ -3368,6 +3564,112 @@ def test_complete_generation_evidence_passes_independent_static_validation() -> 
         "redistribution_authority": "not_claimed",
         "retained_runtime_replay": "not_performed",
         "status": "passed",
+    }
+
+
+def test_static_receipt_rejects_absent_candidate_with_recomputed_digests() -> None:
+    receipt = _module()
+    evidence = _complete_generation_evidence()
+    wheels = cast(list[dict[str, object]], evidence["wheel_inventory"])
+    wheels[:] = [
+        row for row in wheels if row["distribution"] != "multimodal-knowledge-engine"
+    ]
+    installed = cast(list[dict[str, object]], evidence["installed_distributions"])
+    installed[:] = [
+        row for row in installed if row["distribution"] != "multimodal-knowledge-engine"
+    ]
+    for cell in cast(list[dict[str, object]], evidence["cells"]):
+        cell_installed = cast(list[dict[str, object]], cell["installed_distributions"])
+        cell_installed[:] = [
+            row
+            for row in cell_installed
+            if row["distribution"] != "multimodal-knowledge-engine"
+        ]
+    _refresh_static_wheelhouse_manifest(evidence)
+    _refresh_receipt_digest(evidence)
+
+    assert receipt.validate_committed_receipt(evidence) == {
+        "failure": "committed_receipt_invalid",
+        "status": "failed",
+    }
+
+
+def test_static_receipt_rejects_candidate_missing_from_one_cell() -> None:
+    receipt = _module()
+    evidence = _complete_generation_evidence()
+    installed = cast(list[dict[str, object]], evidence["installed_distributions"])
+    installed[:] = [
+        row
+        for row in installed
+        if not (
+            row["cell"] == "3.13"
+            and row["distribution"] == "multimodal-knowledge-engine"
+        )
+    ]
+    cells = cast(list[dict[str, object]], evidence["cells"])
+    cell_313 = next(row for row in cells if row["cell"] == "3.13")
+    cell_installed = cast(list[dict[str, object]], cell_313["installed_distributions"])
+    cell_installed[:] = [
+        row for row in cell_installed if row["distribution"] != "multimodal-knowledge-engine"
+    ]
+    _refresh_receipt_digest(evidence)
+
+    assert receipt.validate_committed_receipt(evidence) == {
+        "failure": "committed_receipt_invalid",
+        "status": "failed",
+    }
+
+
+def test_static_receipt_rejects_different_candidates_across_cells() -> None:
+    receipt = _module()
+    evidence = _complete_generation_evidence()
+    second_candidate: dict[str, object] = {
+        "filename": "multimodal_knowledge_engine-0.1.4-py3-none-any.whl",
+        "distribution": "multimodal-knowledge-engine",
+        "version": "0.1.4",
+        "build": None,
+        "python_tags": ["py3"],
+        "abi_tags": ["none"],
+        "platform_tags": ["any"],
+        "bytes": 106,
+        "sha256": "f" * 64,
+        "artifact_scope": "local_runtime_only",
+    }
+    cast(list[dict[str, object]], evidence["wheel_inventory"]).append(second_candidate)
+    installed = cast(list[dict[str, object]], evidence["installed_distributions"])
+    top_level_candidate = next(
+        row
+        for row in installed
+        if row["cell"] == "3.13"
+        and row["distribution"] == "multimodal-knowledge-engine"
+    )
+    top_level_candidate.update(
+        {
+            "version": second_candidate["version"],
+            "source_wheel_filename": second_candidate["filename"],
+            "source_wheel_sha256": second_candidate["sha256"],
+        }
+    )
+    cells = cast(list[dict[str, object]], evidence["cells"])
+    cell_313 = next(row for row in cells if row["cell"] == "3.13")
+    cell_candidate = next(
+        row
+        for row in cast(list[dict[str, object]], cell_313["installed_distributions"])
+        if row["distribution"] == "multimodal-knowledge-engine"
+    )
+    cell_candidate.update(
+        {
+            "version": second_candidate["version"],
+            "source_wheel_filename": second_candidate["filename"],
+            "source_wheel_sha256": second_candidate["sha256"],
+        }
+    )
+    _refresh_static_wheelhouse_manifest(evidence)
+    _refresh_receipt_digest(evidence)
+
+    assert receipt.validate_committed_receipt(evidence) == {
+        "failure": "committed_receipt_invalid",
+        "status": "failed",
     }
 
 

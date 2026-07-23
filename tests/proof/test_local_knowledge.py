@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import subprocess
 import sys
 import tempfile
 from collections.abc import AsyncGenerator
@@ -20,6 +22,49 @@ _EXPECTED_SEARCH_TEXT = (
     "Cedar Relay maintenance window begins Tuesday at 14:00 UTC. Operators complete\n"
     "checklist KITE-17 before restart."
 )
+
+
+def test_public_proof_import_preserves_local_knowledge_without_preloading_mcp_client(
+    tmp_path: Path,
+) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-B",
+            "-c",
+            (
+                "import json, sys, mke.proof; "
+                "from mke.proof.local_knowledge import "
+                "render_local_knowledge_report, run_local_knowledge_proof; "
+                "print(json.dumps({"
+                "'mcp_client_preloaded':"
+                "'mke.proof.mcp_deployment_client' in sys.modules,"
+                "'render_export_preserved':"
+                "mke.proof.render_local_knowledge_report "
+                "is render_local_knowledge_report,"
+                "'run_export_preserved':"
+                "mke.proof.run_local_knowledge_proof is run_local_knowledge_proof"
+                "},sort_keys=True))"
+            ),
+        ],
+        cwd=tmp_path,
+        env={
+            "PATH": os.environ.get("PATH", "/usr/bin:/bin:/usr/sbin:/sbin"),
+            "PYTHONDONTWRITEBYTECODE": "1",
+        },
+        capture_output=True,
+        check=False,
+        timeout=10,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == b""
+    assert json.loads(result.stdout) == {
+        "mcp_client_preloaded": False,
+        "render_export_preserved": True,
+        "run_export_preserved": True,
+    }
 
 
 def _page_evidence(

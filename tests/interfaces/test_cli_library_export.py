@@ -16,7 +16,10 @@ from mke.adapters.filesystem import OutputPublicationError
 from mke.application import KnowledgeEngine
 from mke.cli import main
 from mke.domain import LibraryExportDataError
+from tests.application.test_audio_publication import FakeAudioProvider
 from tests.conftest import PDF_FIXTURES, VIDEO_FIXTURES
+
+AUDIO_FIXTURES = Path(__file__).parents[1] / "fixtures" / "audio"
 
 
 def _ingest_library(db_path: Path, capsys: CaptureFixture[str]) -> None:
@@ -48,6 +51,19 @@ def _active_state_rows(db_path: Path) -> tuple[tuple[object, ...], ...]:
 def _initialize_empty_library(db_path: Path) -> None:
     engine = KnowledgeEngine(db_path)
     engine.close()
+
+
+def _ingest_audio(db_path: Path) -> None:
+    engine = KnowledgeEngine(
+        db_path,
+        audio_provider=FakeAudioProvider(),
+        audio_transcription_config=object(),
+        audio_preflight=lambda: None,
+    )
+    try:
+        engine.ingest_file(AUDIO_FIXTURES / "direct-audio.mp3")
+    finally:
+        engine.close()
 
 
 def _assert_closed_error(
@@ -212,13 +228,144 @@ def test_library_export_json_and_human_success_are_closed(
     assert _active_state_rows(db_path) == before
 
 
+def test_default_and_explicit_v1_cli_outputs_are_exactly_equal(
+    tmp_path: Path, monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "mke.sqlite"
+    _ingest_library(db_path, capsys)
+    monkeypatch.chdir(tmp_path)
+
+    assert main(
+        ["--db", str(db_path), "library", "export", "--output", "default", "--json"]
+    ) == 0
+    default_response = capsys.readouterr().out
+    assert main(
+        [
+            "--db",
+            str(db_path),
+            "library",
+            "export",
+            "--format-version",
+            "v1",
+            "--output",
+            "explicit",
+            "--json",
+        ]
+    ) == 0
+    explicit_response = capsys.readouterr().out
+
+    def tree(root: Path) -> dict[str, bytes]:
+        return {
+            str(path.relative_to(root)): path.read_bytes()
+            for path in root.rglob("*")
+            if path.is_file()
+        }
+
+    assert default_response == explicit_response
+    assert tree(tmp_path / "default") == tree(tmp_path / "explicit")
+
+
+def test_v2_cli_response_and_tree_are_version_matched(
+    tmp_path: Path, monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "mke.sqlite"
+    _ingest_library(db_path, capsys)
+    monkeypatch.chdir(tmp_path)
+
+    assert main(
+        [
+            "--db",
+            str(db_path),
+            "library",
+            "export",
+            "--format-version",
+            "v2",
+            "--output",
+            "v2-export",
+            "--json",
+        ]
+    ) == 0
+    response = json.loads(capsys.readouterr().out)
+    manifest = json.loads((tmp_path / "v2-export/export-manifest.json").read_bytes())
+    assert response["schema_version"] == "mke.compiled_library_export_response.v2"
+    assert set(response) == {
+        "schema_version",
+        "ok",
+        "library_id",
+        "source_count",
+        "evidence_count",
+        "manifest_sha256",
+    }
+    assert manifest["schema_version"] == "mke.compiled_library_export.v2"
+    assert manifest["markdown_format"] == "mke.compiled_markdown.v2"
+    assert manifest["evidence_schema"] == "mke.evidence_ref.v1"
+
+
+def test_v1_mixed_audio_failure_is_exact_and_v2_exports_complete_library(
+    tmp_path: Path, monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "mke.sqlite"
+    owner = KnowledgeEngine(db_path)
+    try:
+        owner.ingest_pdf(PDF_FIXTURES / "text-layer.pdf")
+    finally:
+        owner.close()
+    _ingest_audio(db_path)
+    monkeypatch.chdir(tmp_path)
+
+    for version_args in ([], ["--format-version", "v1"]):
+        assert main(
+            [
+                "--db",
+                str(db_path),
+                "library",
+                "export",
+                *version_args,
+                "--output",
+                f"v1-failed-{len(version_args)}",
+                "--json",
+            ]
+        ) == 1
+        _assert_closed_error(
+            capsys.readouterr().out,
+            (
+                "unsupported_active_media_type",
+                "active Library contains media unsupported by export v1",
+                "rerun_library_export_with_format_version_v2",
+            ),
+        )
+
+    assert main(
+        [
+            "--db",
+            str(db_path),
+            "library",
+            "export",
+            "--format-version",
+            "v2",
+            "--output",
+            "complete-v2",
+            "--json",
+        ]
+    ) == 0
+    response = json.loads(capsys.readouterr().out)
+    assert response["source_count"] == 2
+    manifest = json.loads((tmp_path / "complete-v2/export-manifest.json").read_bytes())
+    assert {source["media_type"] for source in manifest["sources"]} == {
+        "application/pdf",
+        "audio/mpeg",
+    }
+
+
+
 def test_library_export_help_is_closed(capsys: CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as raised:
         main(["library", "export", "--help"])
     assert raised.value.code == 0
     help_text = capsys.readouterr().out
     assert "--output" in help_text and "--json" in help_text
-    for forbidden in ("library-id", "source", "format", "extractor", "provider", "mcp", "parent"):
+    assert "--format-version" in help_text and "{v1,v2}" in help_text
+    for forbidden in ("library-id", "source", "extractor", "provider", "mcp", "parent"):
         assert forbidden not in help_text.casefold()
 
 
@@ -272,13 +419,35 @@ def test_library_export_rejects_retrieval_options_before_runtime(
     assert message in capsys.readouterr().err
 
 
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["search", "query", "--format-version", "v2"],
+        ["ingest", "missing.pdf", "--format-version", "v2"],
+    ],
+)
+def test_format_version_is_rejected_outside_library_export(
+    argv: list[str], monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]
+) -> None:
+    def fail_build(_config: object) -> object:
+        pytest.fail("runtime must not be built")
+
+    monkeypatch.setattr(mke.cli, "build_engine", fail_build)
+    with pytest.raises(SystemExit) as raised:
+        main(argv)
+    assert raised.value.code == 2
+    assert "--format-version" in capsys.readouterr().err
+
+
 class _FakeEngine:
     def __init__(self, snapshot: object = object(), error: Exception | None = None) -> None:
         self.snapshot = snapshot
         self.error = error
         self.closed = False
+        self.format_versions: list[str] = []
 
-    def compiled_library_snapshot(self) -> object:
+    def compiled_library_snapshot(self, *, format_version: str = "v1") -> object:
+        self.format_versions.append(format_version)
         if self.error is not None:
             raise self.error
         return self.snapshot
@@ -295,10 +464,10 @@ def test_library_export_base_exception_unwind_closes_and_propagates(
     interrupt_phase: str,
 ) -> None:
     class InterruptEngine(_FakeEngine):
-        def compiled_library_snapshot(self) -> object:
+        def compiled_library_snapshot(self, *, format_version: str = "v1") -> object:
             if interrupt_phase == "snapshot":
                 raise KeyboardInterrupt(f"SECRET Traceback {tmp_path}/mke.sqlite")
-            return super().compiled_library_snapshot()
+            return super().compiled_library_snapshot(format_version=format_version)
 
     engine = InterruptEngine()
 
@@ -499,6 +668,33 @@ def test_library_export_missing_database_is_stable_and_runtime_is_not_built(
     assert not (Path.cwd() / "out").exists()
 
 
+def test_v2_error_response_reuses_exact_v1_error_fields(
+    tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    assert main(
+        [
+            "--db",
+            str(tmp_path / "missing.sqlite"),
+            "library",
+            "export",
+            "--format-version",
+            "v2",
+            "--output",
+            "out",
+            "--json",
+        ]
+    ) == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {
+        "active_publication_impact": "unchanged",
+        "cause": "local Library database is unavailable or incompatible",
+        "next_step": "open_current_library_database",
+        "ok": False,
+        "problem": "library_export_invalid",
+        "schema_version": "mke.compiled_library_export_response.v2",
+    }
+
+
 def test_library_export_schema_missing_library_name_is_database_incompatible(
     tmp_path: Path, capsys: CaptureFixture[str]
 ) -> None:
@@ -657,7 +853,9 @@ def test_library_export_real_read_only_over_limit_preserves_active_state(
     _ingest_library(db_path, capsys)
     before = _active_state_rows(db_path)
 
-    def reject_over_limit(_engine: KnowledgeEngine) -> object:
+    def reject_over_limit(
+        _engine: KnowledgeEngine, *, format_version: str = "v1"
+    ) -> object:
         raise LibraryExportDataError("too_large")
 
     monkeypatch.setattr(KnowledgeEngine, "compiled_library_snapshot", reject_over_limit)

@@ -23,6 +23,33 @@ first, then atomically publishes the manifest as the final artifact operation. A
 a valid manifest is incomplete and must not be consumed. Re-running against the same active
 database snapshot and contract in a different new output directory produces the same bytes.
 
+## V1 To V2 Migration
+
+| Library state | Command | Result |
+|---|---|---|
+| PDF/video only | omit `--format-version` or use explicit v1 | Default v1 and explicit v1 are byte-identical for the same snapshot. |
+| Active audio Source | default or explicit v1 | Fails closed without omitting a Source. |
+| Active audio Source | `--format-version v2` | Exports the complete mixed Library. |
+
+The stable v1 failure is
+`problem=unsupported_active_media_type`,
+`cause=active Library contains media unsupported by export v1`,
+`active_publication_impact=unchanged`, and
+`next_step=rerun_library_export_with_format_version_v2`. Rerun the complete export:
+
+```bash
+uv run mke --db "$MKE_DB" library export \
+  --output compiled-library-v2 --format-version v2 --json
+uv run python scripts/compiled_library_export_consumer_v2.py \
+  --export compiled-library-v2 --json
+```
+
+V2 uses `mke.compiled_library_export.v2`, `mke.compiled_markdown.v2`, and
+`mke.compiled_library_export_response.v2`; Evidence stays `mke.evidence_ref.v1`. The standalone
+success schema is `mke.compiled_library_export_consumer.v2`. The v1 and v2 consumers do not
+cross-consume. Rollback preserves v1: omit or remove audio from the active snapshot, never widen
+the v1 validator.
+
 ## Authority And Safety Boundaries
 
 The command opens SQLite read-only, performs no migration or unfinished-Run recovery, and does not

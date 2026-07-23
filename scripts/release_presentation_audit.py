@@ -29,6 +29,22 @@ COMPILED_LIBRARY_CLAIM_FILES = (
     "docs/reference/cli.md",
     "docs/reference/contracts.md",
 )
+DIRECT_AUDIO_CLAIM_FILES = (
+    "README.md",
+    "README_CN.md",
+    "docs/README.md",
+    "docs/decisions/0011-bounded-direct-audio-intake.md",
+    "docs/explanation/architecture.md",
+    "docs/how-to/use-direct-audio.md",
+    "docs/how-to/run-direct-audio-proof.md",
+    "docs/how-to/use-local-transcription.md",
+    "docs/how-to/use-mke-mcp.md",
+    "docs/how-to/export-compiled-library.md",
+    "docs/reference/cli.md",
+    "docs/reference/contracts.md",
+    "docs/reference/mcp-contract.md",
+    "docs/tutorials/getting-started.md",
+)
 ENTRY_POINT_FILES = (
     "README.md",
     "README_CN.md",
@@ -98,9 +114,11 @@ def _audit_version_identity(root: Path) -> list[Violation]:
     pyproject_version = None
     init_version = None
     if pyproject_path.exists():
-        pyproject_version = tomllib.loads(pyproject_path.read_text(encoding="utf-8")).get(
-            "project", {}
-        ).get("version")
+        pyproject_version = (
+            tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+            .get("project", {})
+            .get("version")
+        )
     if init_path.exists():
         init_version = _version_from_init(init_path.read_text(encoding="utf-8"))
     versions = {
@@ -398,9 +416,7 @@ def _audit_comparison_boundary(root: Path, files: Iterable[str]) -> list[Violati
                 )
         lowered = text.lower()
         mentions_candidate = all(term in lowered for term in ("e3-c", "e3-d", "e3-e"))
-        mentions_retrieval_family = all(
-            term in lowered for term in ("dense", "rrf", "reranker")
-        )
+        mentions_retrieval_family = all(term in lowered for term in ("dense", "rrf", "reranker"))
         if (mentions_candidate or mentions_retrieval_family) and "comparison-only" not in lowered:
             violations.append(
                 Violation(
@@ -578,9 +594,7 @@ def _markdown_claim_contexts(text: str) -> list[tuple[int, str]]:
     return contexts
 
 
-def _audit_compiled_library_claim_boundary(
-    root: Path, files: Iterable[str]
-) -> list[Violation]:
+def _audit_compiled_library_claim_boundary(root: Path, files: Iterable[str]) -> list[Violation]:
     violations: list[Violation] = []
     for file_name in files:
         text = _read_text(root, file_name)
@@ -591,6 +605,145 @@ def _audit_compiled_library_claim_boundary(
                         file=file_name,
                         rule="compiled_library_overclaim",
                         message=f"line {line_number} exceeds the compiled Library claim boundary",
+                    )
+                )
+    return violations
+
+
+def _line_overclaims_direct_audio(line: str) -> bool:
+    lowered = " ".join(line.casefold().split())
+    clauses = re.split(
+        r"(?:[;!?；！？。]+|\.\s+|,\s+but\s+|(?:，|,)\s*(?:但|但是)\s*|"
+        r"\s+(?:but|while|although|但|但是)\s+|"
+        r"\s+and\s+(?=(?:mke|direct[- ]audio|terminal|has|is|offers?|provides?|supports?|"
+        r"process(?:es|ing)?|downloads?|produces?|deploys?|verified|redistribut(?:e|es|ed|ing))\b|"
+        r"(?:终端|已验证|重新分发)))",
+        lowered,
+    )
+    authority_affirmatives = (
+        r"\bterminal\b.*\breal\s+asr\b.*\bproof\b.*\b(?:passed|verified|completed|successful)\b",
+        r"\bterminal\b.*\bproof\b.*\b(?:ran|performed|executed)\b.*\breal\s+asr\b",
+        r"\b(?:verified|validated|proved)\b.*\breal\s+asr\b",
+        r"\bredistribut(?:e|es|ed|ing)\b.*\bexternal\b.*\b(?:wheels?|native binaries)\b",
+        r"\bmke\b.*\b(?:bundl(?:e|es|ed|ing)|packag(?:e|es|ed|ing))\b.*"
+        r"\bexternal\b.*\b(?:wheels?|native binaries)\b",
+        r"终端.*真实\s*asr.*(?:证明|验证).*(?:已通过|通过|完成|已验证)",
+        r"终端.*证明.*(?:运行|执行|完成)(?:了)?.*真实\s*asr",
+        r"已验证.*真实\s*asr",
+        r"重新分发.*外部.*(?:wheels?|原生二进制)",
+        r"mke.*(?:打包|捆绑).*外部.*(?:wheels?|原生二进制)",
+    )
+    authority_negations = (
+        r"\b(?:does not|do not|did not)\s+"
+        r"(?:run|perform|execute|verify|redistribute|bundle|package)\b",
+        r"\b(?:has|have|was|is)\s+not\s+(?:been\s+)?"
+        r"(?:run|performed|executed|verified|redistributed|bundled|packaged)\b",
+        r"\bnot\s+(?:run|performed|executed|verified|redistributed|bundled|packaged)\b",
+        r"(?:尚未|没有|未)(?:运行|执行|完成|验证|重新分发|打包|捆绑)",
+        r"不(?:重新分发|打包|捆绑)",
+    )
+    if any(
+        re.search(pattern, clause) is not None
+        and not any(re.search(marker, clause) for marker in authority_negations)
+        for clause in clauses
+        for pattern in authority_affirmatives
+    ):
+        return True
+    bounded_adverb = r"(?:currently|automatically|implicitly|explicitly|yet)"
+    negated_verb_prefix = rf"(?:does not|do not|not)(?:\s+{bounded_adverb})*\s+$"
+    explicit_affirmatives = (
+        r"\bsupports?\s+arbitrary\b.*\b(?:audio|container|codec)s?\b",
+        r"\b(?:supports?|process(?:es|ing))\s+full[- ]length\b",
+        r"\b(?:supports?|process(?:es|ing))\s+long[- ]audio\b",
+        r"\bautomatically downloads?\b.*\b(?:model|weights?)s?\b",
+        r"\bprovides?\s+(?:a\s+)?cloud\s+asr\s+fallback\b",
+        r"\bproduces?\s+accurate transcripts?\b",
+    )
+    for pattern in explicit_affirmatives:
+        for match in re.finditer(pattern, lowered):
+            prefix = lowered[max(0, match.start() - 64) : match.start()]
+            if not re.search(negated_verb_prefix, prefix):
+                return True
+    safe_marker_patterns = (
+        rf"\bdoes not(?:\s+{bounded_adverb})*\s+"
+        r"(?:support|provide|offer|download|fall back|claim|authorize)\b",
+        rf"\bnot(?:\s+{bounded_adverb})*\s+(?:supported|production ready|included)\b",
+        r"\bare excluded\b",
+        r"\bremain excluded\b",
+        r"\boutside\b",
+        r"\bno automatic\b",
+        r"\bno implicit\b",
+        r"\bclips (?:or|and) excerpts\b",
+        r"并非",
+        r"不提供",
+        r"不声明",
+        r"排除",
+        r"之外",
+    )
+    patterns = (
+        r"\barbitrary\b.*\b(?:audio|container|codec)s?\b",
+        r"\bfull[- ]length\b.*\b(?:meeting|interview|lecture)s?\b",
+        (
+            r"\bmke\b.*\b(?:supports?|process(?:es|ing)|transcribes?|ingests?)\b.*"
+            r"\b(?:meetings|interviews|lectures)\b"
+        ),
+        r"\b(?:supports?|process(?:es|ing))\b.*\blong[- ]audio\b",
+        (
+            r"\bmke\b.*\b(?:chunks?|resumes?|stream(?:s|ing)?|"
+            r"diari[sz](?:e|ation)|microphone capture)\b"
+        ),
+        r"\bdownloads?\b.*\b(?:model|weights?)s?\b.*\bautomatically\b",
+        r"\bautomatically downloads?\b.*\b(?:model|weights?)s?\b",
+        r"\b(?:falls? back|fallback)\b.*\bcloud\b.*\basr\b",
+        r"\bprovides?\b.*\bcloud\b.*\basr\b.*\bfallback\b",
+        r"\bautomatically syncs?\b.*\bllm wiki\b",
+        r"\b(?:across|on) all platforms\b",
+        r"\bguarantees?\b.*\btranscript accuracy\b",
+        r"\bproduces?\b.*\baccurate transcripts?\b",
+        r"\b(?:audio|direct[- ]audio)\b.*\bsla\b",
+        r"\bdeploys?\b.*\bdirect[- ]audio\b.*\bproduction\b",
+        r"\bproduction adoption\b",
+        r"\bbusiness[- ]impact\b",
+        r"\b(?:published|available)\b.*\b(?:on|from) pypi\b",
+        r"\bhosted\b.*\btranscription\b.*\bfallback\b",
+        r"\b(?:offers?|provides?)\b.*\bcloud transcription\b.*\blocal asr fails\b",
+        r"\b(?:direct[- ]audio|audio)\b.*\b(?:is|are) production[- ]ready\b",
+        r"\bcross[- ]platform\b.*\b(?:coverage|support)\b",
+        r"\bofficial\b.*\bopenai\b.*\b(?:integration|support)\b",
+        r"\bofficial\b.*\bllm wiki\b.*\b(?:integration|support)\b",
+        r"任意.*(?:音频|容器|编解码)",
+        r"(?:完整|全长).*(?:会议|访谈|采访|讲座)",
+        r"mke.*(?:支持|处理|转写|摄取).*(?:会议|访谈|采访|讲座)",
+        r"(?:支持|处理).*长音频",
+        r"mke.*(?:分块|断点续传|流式|说话人分离|麦克风)",
+        r"自动下载.*模型",
+        r"(?:云端|云).*(?:asr|转写|回退)",
+        r"自动.*llm wiki",
+        r"(?:所有平台|全平台|跨平台支持)",
+        r"(?:保证.*转写|转写.*保证)",
+        r"(?:direct[- ]audio|音频).*sla",
+        r"(?:direct[- ]audio|音频).*(?:生产部署|部署到生产)",
+        r"openai.*官方.*(?:集成|支持)",
+    )
+    return any(
+        re.search(pattern, clause) is not None
+        and not any(re.search(marker, clause) for marker in safe_marker_patterns)
+        for clause in clauses
+        for pattern in patterns
+    )
+
+
+def _audit_direct_audio_claim_boundary(root: Path, files: Iterable[str]) -> list[Violation]:
+    violations: list[Violation] = []
+    for file_name in files:
+        text = _read_text(root, file_name)
+        for line_number, context in _markdown_claim_contexts(text):
+            if _line_overclaims_direct_audio(context):
+                violations.append(
+                    Violation(
+                        file=file_name,
+                        rule="direct_audio_overclaim",
+                        message=f"line {line_number} exceeds the direct-audio claim boundary",
                     )
                 )
     return violations
@@ -794,7 +947,7 @@ def _audit_public_boundary(root: Path, files: Iterable[str]) -> list[Violation]:
         "credential": re.compile(r"(token|secret|password|cookie|api[_-]?key)\s*=", re.IGNORECASE),
         "stack trace": re.compile(r"Traceback \(most recent call last\):"),
         "non-neutral public positioning": re.compile(
-            r"\b(Career|portfolio|resume|interview|showcase)\b",
+            r"\b(Career|portfolio|resume|showcase|interview artifact)\b",
             re.IGNORECASE,
         ),
     }
@@ -821,15 +974,12 @@ def audit_release_presentation(root: Path) -> list[Violation]:
     violations.extend(_audit_runtime_default(root))
     violations.extend(_audit_readme_presentation(root))
     violations.extend(_audit_comparison_boundary(root, release_files))
-    violations.extend(
-        _audit_compiled_library_claim_boundary(root, COMPILED_LIBRARY_CLAIM_FILES)
-    )
+    violations.extend(_audit_compiled_library_claim_boundary(root, COMPILED_LIBRARY_CLAIM_FILES))
+    violations.extend(_audit_direct_audio_claim_boundary(root, DIRECT_AUDIO_CLAIM_FILES))
     violations.extend(_audit_release_notes_links(root))
     violations.extend(_audit_v013_contract(root))
     violations.extend(_audit_stale_status(root, release_files))
-    violations.extend(
-        _audit_consumer_smoke_wheel_selection(root, CONSUMER_SMOKE_COMMAND_FILES)
-    )
+    violations.extend(_audit_consumer_smoke_wheel_selection(root, CONSUMER_SMOKE_COMMAND_FILES))
     violations.extend(_audit_downstream_candidate_boundary(root))
     violations.extend(_audit_public_boundary(root, release_files))
     return violations
@@ -838,6 +988,7 @@ def audit_release_presentation(root: Path) -> list[Violation]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Audit v0.1.3 release presentation docs.")
     parser.add_argument("--root", type=Path, default=Path("."))
+    parser.add_argument("--json", action="store_true", help="emit the closed JSON result")
     args = parser.parse_args(argv)
 
     violations = audit_release_presentation(args.root)

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import platform
 import re
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, cast
@@ -13,13 +15,17 @@ from mke.adapters.video.contracts import (
     AdapterFailureSpec,
     VideoTranscriptionLimits,
 )
-from mke.adapters.video.process import ActiveProcessController, ProcessOperationId
+from mke.adapters.video.process import (
+    ActiveProcessController,
+    ProcessOperationId,
+    SupervisedProcessProfile,
+)
 from mke.adapters.video.providers import (
     LocalCommandTranscriptConfig,
     LocalCommandTranscriptProvider,
     SidecarTranscriptProvider,
 )
-from mke.application import KnowledgeEngine, TranscriptProvider
+from mke.application import AudioIngestError, AudioProvider, KnowledgeEngine, TranscriptProvider
 from mke.retrieval import (
     DEFAULT_RETRIEVAL_STRATEGY,
     RetrievalQueryPolicy,
@@ -148,6 +154,8 @@ class RuntimeConfig:
         default=None,
         compare=False,
     )
+    direct_audio_footprint_bytes: int | None = None
+    direct_audio_footprint_budget_mode: Literal["baseline_plus"] | None = None
 
     def __post_init__(self) -> None:
         query_policy = (
@@ -169,6 +177,19 @@ class RuntimeConfig:
             FasterWhisperTranscriptionConfig,
         }:
             raise TypeError("transcription config must be a typed configuration")
+        footprint_bytes = self.direct_audio_footprint_bytes
+        footprint_mode = self.direct_audio_footprint_budget_mode
+        if (footprint_bytes is None) != (footprint_mode is None):
+            raise ValueError(
+                "direct audio supervision fields must be configured together"
+            )
+        if footprint_bytes is not None:
+            if type(footprint_bytes) is not int:
+                raise TypeError("direct audio footprint bytes must be a positive integer")
+            if footprint_bytes <= 0:
+                raise ValueError("direct audio footprint bytes must be a positive integer")
+            if footprint_mode != "baseline_plus":
+                raise ValueError("direct audio footprint budget mode must be baseline_plus")
         if type(self.process_controller) is not ActiveProcessController:
             raise TypeError("process controller must be ActiveProcessController")
         if type(self.owner_state) is not OwnerRuntimeState:
@@ -243,10 +264,103 @@ def build_transcript_provider(config: RuntimeConfig) -> TranscriptProvider:
     )
 
 
+def audio_transcription_preflight(config: FasterWhisperTranscriptionConfig) -> object:
+    from mke.adapters.video.faster_whisper import (
+        audio_transcription_preflight as run_preflight,
+    )
+
+    return run_preflight(config)
+
+
+def _build_audio_provider(config: RuntimeConfig) -> AudioProvider | None:
+    if isinstance(config.transcription, SidecarTranscriptionConfig):
+        return None
+    if (
+        config.direct_audio_footprint_bytes is None
+        or config.direct_audio_footprint_budget_mode is None
+        or platform.system() != "Darwin"
+        or platform.machine() != "arm64"
+    ):
+        return None
+    from mke.adapters.audio import InternalAudioProvider
+
+    profile = SupervisedProcessProfile(
+        wall_seconds=config.transcription.limits.timeout_seconds,
+        stdout_bytes=config.transcription.limits.max_stdout_bytes,
+        stderr_bytes=config.transcription.limits.max_stderr_bytes,
+        footprint_bytes=config.direct_audio_footprint_bytes,
+        footprint_budget_mode=config.direct_audio_footprint_budget_mode,
+    )
+    return cast(
+        AudioProvider,
+        InternalAudioProvider(
+            profile=profile,
+            process_controller=config.process_controller,
+            process_operation_id=config.process_operation_id,
+        ),
+    )
+
+
+def _build_audio_preflight(
+    config: RuntimeConfig,
+) -> Callable[[], None] | None:
+    if isinstance(config.transcription, SidecarTranscriptionConfig):
+        return None
+    transcription = config.transcription
+
+    def preflight() -> None:
+        if (
+            config.direct_audio_footprint_bytes is None
+            or config.direct_audio_footprint_budget_mode is None
+        ):
+            raise AudioIngestError(
+                "direct audio supervision is not configured",
+                problem="transcription_not_ready",
+                next_step="configure_direct_audio_supervision",
+            )
+        if platform.system() != "Darwin" or platform.machine() != "arm64":
+            raise AudioIngestError(
+                "direct audio runtime is supported only on Darwin arm64",
+                problem="transcription_not_ready",
+                next_step="run_on_supported_darwin_arm64",
+            )
+        readiness = audio_transcription_preflight(transcription)
+        if getattr(readiness, "status", None) == "ready":
+            return
+        cause = getattr(readiness, "cause", None)
+        next_step = getattr(readiness, "next_step", None)
+        raise AudioIngestError(
+            cause if isinstance(cause, str) else "transcription is not ready",
+            problem="transcription_not_ready",
+            next_step=(
+                next_step if isinstance(next_step, str) else "run_transcription_doctor"
+            ),
+        )
+
+    return preflight
+
+
 def build_engine(config: RuntimeConfig) -> KnowledgeEngine:
+    publication_commit: Callable[[], bool] | None = None
+    operation_id = config.process_operation_id
+    if operation_id is not None:
+
+        def begin_publication_commit() -> bool:
+            return config.process_controller.begin_publication_commit(operation_id)
+
+        publication_commit = begin_publication_commit
     engine = KnowledgeEngine(
         config.db_path,
         transcript_provider=build_transcript_provider(config),
+        audio_provider=_build_audio_provider(config),
+        audio_transcription_config=(
+            config.transcription
+            if isinstance(config.transcription, FasterWhisperTranscriptionConfig)
+            else None
+        ),
+        audio_preflight=_build_audio_preflight(config),
+        publication_commit=publication_commit,
+        admission_controller=config.admission_controller,
         query_policy=config.retrieval_query_policy,
         retrieval_strategy=cast(RetrievalStrategy, config.retrieval_strategy),
         recover_unfinished_runs=False,

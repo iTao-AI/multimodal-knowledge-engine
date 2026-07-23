@@ -19,7 +19,14 @@ from mke.adapters.video.faster_whisper import (
     doctor_transcription,
     prepare_model,
 )
-from mke.application import AskValidationError, KnowledgeEngine, PdfIngestError, VideoIngestError
+from mke.application import (
+    AskValidationError,
+    AudioIngestError,
+    IngestDispatchError,
+    KnowledgeEngine,
+    PdfIngestError,
+    VideoIngestError,
+)
 from mke.domain import FailurePoint, PdfIntakeReport, SearchResult, TranscriptIntakeReport
 from mke.embeddings.contracts import CANDIDATE_ID as DENSE_CANDIDATE_ID
 from mke.embeddings.contracts import MODEL_ID as EMBEDDING_MODEL_ID
@@ -75,15 +82,19 @@ from mke.evaluation.relevance_gate_workflow import (
     run_relevance_gate_holdout,
 )
 from mke.evaluation.report import RetrievalEvaluationReport
+from mke.interfaces.audio_errors import DIRECT_AUDIO_SAFE_CAUSES
 from mke.interfaces.library_export import run_library_export
 from mke.interfaces.mcp_contract import McpRuntimeConfig, transcript_intake_report_payload
 from mke.interfaces.mcp_server import run_mcp_server
 from mke.interfaces.public_errors import public_error_from_cause, render_public_error_line
 from mke.proof import (
+    DeterministicAudioProvider,
+    direct_audio_report_payload,
     render_human_report,
     render_json_report,
     render_transcription_proof_human,
     render_transcription_proof_json,
+    run_direct_audio_proof,
     run_product_proof,
     run_transcription_proof,
 )
@@ -107,6 +118,11 @@ _DEFAULT_PDF_FIXTURE = Path("tests/fixtures/pdf/text-layer.pdf")
 _DEFAULT_REVISED_PDF_FIXTURE = Path("tests/fixtures/pdf/text-layer-revised.pdf")
 _DEFAULT_VIDEO_FIXTURE = Path("tests/fixtures/video/short-audio.mp4")
 _DEFAULT_TRANSCRIPTION_PROOF_FIXTURE = Path("tests/fixtures/video/spoken-evidence.mp4")
+_DEFAULT_DIRECT_AUDIO_FIXTURE_ROOT = Path("tests/fixtures/audio")
+_DEFAULT_DIRECT_AUDIO_RECEIPT = Path("benchmarks/audio/dependency-artifacts.json")
+_DEFAULT_COMPILED_LIBRARY_CONSUMER_V2 = Path(
+    "scripts/compiled_library_export_consumer_v2.py"
+)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -132,6 +148,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     ingest.add_argument("file", type=Path)
     ingest.add_argument("--json", action="store_true", dest="json_output")
     add_transcription_runtime_arguments(ingest, default_provider="sidecar")
+    add_direct_audio_supervision_arguments(ingest)
 
     search = subcommands.add_parser("search")
     search.add_argument("query", nargs="+")
@@ -143,6 +160,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     library_commands = library.add_subparsers(dest="library_command", required=True)
     library_export = library_commands.add_parser("export")
     library_export.add_argument("--output", required=True)
+    library_export.add_argument(
+        "--format-version", choices=("v1", "v2"), default="v1"
+    )
     library_export.add_argument("--json", action="store_true", dest="json_output")
 
     retrieval_admin = subcommands.add_parser("retrieval")
@@ -176,6 +196,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     proof_subcommands = proof.add_subparsers(dest="proof_command", required=True)
     proof_run = proof_subcommands.add_parser("run")
     proof_run.add_argument("--json", action="store_true", dest="json_output")
+    proof_direct_audio = proof_subcommands.add_parser("direct-audio")
+    proof_direct_audio.add_argument("--json", action="store_true", dest="json_output")
     proof_transcription = proof_subcommands.add_parser("transcription-run")
     proof_transcription.add_argument(
         "--fixture",
@@ -340,6 +362,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     mcp = subcommands.add_parser("mcp")
     mcp.add_argument("--allowed-root", type=Path, default=Path.cwd())
     add_transcription_runtime_arguments(mcp, default_provider="sidecar")
+    add_direct_audio_supervision_arguments(mcp)
 
     transcription = subcommands.add_parser("transcription")
     transcription_subcommands = transcription.add_subparsers(
@@ -377,6 +400,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.db,
             args.output,
             json_output=args.json_output,
+            format_version=args.format_version,
         )
     if args.command == "eval" and any(
         item == "--db" or item.startswith("--db=") for item in raw_argv
@@ -674,6 +698,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "proof":
         if args.proof_command == "run":
             return _proof_run(json_output=args.json_output)
+        if args.proof_command == "direct-audio":
+            return _proof_direct_audio(json_output=args.json_output)
         if args.proof_command == "transcription-run":
             try:
                 config = _faster_whisper_config_from_args(args)
@@ -1295,10 +1321,7 @@ def _render_cjk_lexical_comparison_safely(
 
 def _ingest(engine: KnowledgeEngine, path: Path, *, json_output: bool = False) -> int:
     try:
-        if path.suffix.lower() == ".mp4":
-            result = engine.ingest_video(path)
-        else:
-            result = engine.ingest_pdf(path)
+        result = engine.ingest_file(path)
     except PdfIngestError as error:
         _print_error_contract(str(error), json_output=json_output)
         return 1
@@ -1308,6 +1331,25 @@ def _ingest(engine: KnowledgeEngine, path: Path, *, json_output: bool = False) -
             problem=error.problem,
             next_step=error.next_step,
             json_output=json_output,
+        )
+        return 1
+    except AudioIngestError as error:
+        _print_error_contract(
+            error.cause,
+            problem=error.problem,
+            next_step=error.next_step,
+            json_output=json_output,
+            run_id=error.run_id,
+            safe_causes=DIRECT_AUDIO_SAFE_CAUSES,
+        )
+        return 1
+    except IngestDispatchError as error:
+        _print_error_contract(
+            error.cause,
+            problem=error.problem,
+            next_step=error.next_step,
+            json_output=json_output,
+            safe_causes=DIRECT_AUDIO_SAFE_CAUSES,
         )
         return 1
     if json_output:
@@ -1512,6 +1554,40 @@ def _proof_run(*, json_output: bool) -> int:
     return 0 if report.status == "passed" else 1
 
 
+def _proof_direct_audio(*, json_output: bool) -> int:
+    with tempfile.TemporaryDirectory(prefix="mke-direct-audio-proof-") as temp_dir:
+        report = run_direct_audio_proof(
+            fixture_root=_DEFAULT_DIRECT_AUDIO_FIXTURE_ROOT.resolve(),
+            receipt_path=_DEFAULT_DIRECT_AUDIO_RECEIPT.resolve(),
+            consumer_path=_DEFAULT_COMPILED_LIBRARY_CONSUMER_V2.resolve(),
+            workspace=Path(temp_dir).resolve() / "proof",
+            provider=DeterministicAudioProvider(),
+        )
+    payload = direct_audio_report_payload(report)
+    if json_output:
+        print(json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True))
+    else:
+        fields = [
+            "proof=direct_audio",
+            f"status={report.status}",
+            f"published_run_count={report.published_run_count}",
+            f"evidence_count={report.evidence_count}",
+            f"consumer_status={report.consumer_status}",
+            f"proof_mode={report.proof_mode}",
+            f"asr_execution={report.asr_execution}",
+            f"cleanup={'passed' if report.cleanup else 'failed'}",
+        ]
+        if report.failure_code is not None:
+            fields.extend(
+                (
+                    f"failure_code={report.failure_code}",
+                    f"next_step={report.next_step}",
+                )
+            )
+        print(" ".join(fields))
+    return 0 if report.status == "passed" else 1
+
+
 def _proof_transcription_run(
     fixture: Path,
     config: FasterWhisperTranscriptionConfig,
@@ -1574,11 +1650,15 @@ def _print_error_contract(
     problem: str = "pdf_ingest_failed",
     next_step: str = "fix_input_or_retry",
     json_output: bool = False,
+    run_id: str | None = None,
+    safe_causes: frozenset[str] = frozenset(),
 ) -> None:
     error = public_error_from_cause(
         cause,
         problem=problem,
         next_step=next_step,
+        run_id=run_id,
+        safe_causes=safe_causes,
     )
     if json_output:
         print(json.dumps(error.payload()))
@@ -1609,6 +1689,27 @@ def add_faster_whisper_runtime_arguments(parser: argparse.ArgumentParser) -> Non
     parser.add_argument("--transcription-timeout-seconds", type=float, default=900.0)
 
 
+def add_direct_audio_supervision_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--direct-audio-footprint-bytes",
+        type=_positive_int,
+    )
+    parser.add_argument(
+        "--direct-audio-footprint-budget-mode",
+        choices=("baseline_plus",),
+    )
+
+
+def _positive_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("value must be a positive integer") from error
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("value must be a positive integer")
+    return parsed
+
+
 def add_embedding_runtime_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--model",
@@ -1635,6 +1736,12 @@ def runtime_config_from_args(args: argparse.Namespace) -> RuntimeConfig:
         retrieval_query_policy=args.retrieval_query_policy,
         retrieval_strategy=args.retrieval_strategy,
         transcription=transcription,
+        direct_audio_footprint_bytes=getattr(args, "direct_audio_footprint_bytes", None),
+        direct_audio_footprint_budget_mode=getattr(
+            args,
+            "direct_audio_footprint_budget_mode",
+            None,
+        ),
     )
 
 

@@ -12,11 +12,15 @@ from mke.domain import (
     REQUIRED_PDF_STAGES,
     REQUIRED_VIDEO_STAGES,
     CompiledLibrarySnapshot,
+    CompiledLibrarySnapshotV2,
     ExportLimits,
     LibraryExportDataError,
     RunState,
 )
+from tests.application.test_audio_publication import FakeAudioProvider
 from tests.conftest import PDF_FIXTURES, VIDEO_FIXTURES
+
+AUDIO_FIXTURES = Path(__file__).parents[1] / "fixtures" / "audio"
 
 
 def _copy_fixture(source: Path, target: Path) -> Path:
@@ -47,6 +51,21 @@ def _published_database(tmp_path: Path, *, active_sources: int = 2) -> Path:
         engine.close()
     for path in tmp_path.glob("renamed.*"):
         path.rename(path.with_name("unavailable-" + path.name))
+    return db_path
+
+
+def _audio_database(tmp_path: Path) -> Path:
+    db_path = tmp_path / "audio.sqlite"
+    engine = KnowledgeEngine(
+        db_path,
+        audio_provider=FakeAudioProvider(),
+        audio_transcription_config=object(),
+        audio_preflight=lambda: None,
+    )
+    try:
+        engine.ingest_file(AUDIO_FIXTURES / "direct-audio.mp3")
+    finally:
+        engine.close()
     return db_path
 
 
@@ -279,6 +298,51 @@ def test_compiled_snapshot_reads_complete_active_pdf_and_video_from_sqlite(
         )
         for source in snapshot.sources
     )
+
+
+def test_default_and_explicit_v1_snapshot_are_exactly_equal(tmp_path: Path) -> None:
+    db_path = _published_database(tmp_path)
+    store = SQLiteStore.open_read_only_export(db_path)
+    try:
+        default = store.compiled_library_snapshot()
+        explicit = store.compiled_library_snapshot(format_version="v1")
+    finally:
+        store.close()
+
+    assert type(default) is CompiledLibrarySnapshot
+    assert default == explicit
+
+
+def test_v1_rejects_active_audio_with_typed_reason(tmp_path: Path) -> None:
+    store = SQLiteStore.open_read_only_export(_audio_database(tmp_path))
+    try:
+        with pytest.raises(LibraryExportDataError) as raised:
+            store.compiled_library_snapshot(format_version="v1")
+    finally:
+        store.close()
+
+    assert raised.value.reason == "unsupported_active_media_type"
+
+
+def test_v2_snapshot_reads_active_audio_without_widening_v1(tmp_path: Path) -> None:
+    store = SQLiteStore.open_read_only_export(_audio_database(tmp_path))
+    try:
+        snapshot = store.compiled_library_snapshot(format_version="v2")
+    finally:
+        store.close()
+
+    assert type(snapshot) is CompiledLibrarySnapshotV2
+    assert tuple(source.media_type for source in snapshot.sources) == ("audio/mpeg",)
+    assert snapshot.sources[0].evidence[0].locator_kind == "timestamp_ms"
+
+
+def test_sqlite_snapshot_rejects_unknown_export_version(tmp_path: Path) -> None:
+    store = SQLiteStore.open_read_only_export(_published_database(tmp_path))
+    try:
+        with pytest.raises(ValueError, match="format version"):
+            store.compiled_library_snapshot(format_version="v3")  # type: ignore[arg-type]
+    finally:
+        store.close()
 
 
 def test_pdf_and_video_export_preserves_comma_joined_manifest_storage(

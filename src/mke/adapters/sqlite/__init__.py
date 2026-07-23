@@ -7,9 +7,10 @@ import sqlite3
 from collections.abc import Callable
 from hashlib import sha256
 from pathlib import Path
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Literal, Self, cast, overload
 from uuid import uuid4
 
+from mke.adapters.audio.contracts import audio_extractor_fingerprint
 from mke.domain import (
     DEFAULT_EXPORT_LIMITS,
     ActivationResult,
@@ -18,7 +19,10 @@ from mke.domain import (
     CandidateEvidence,
     CompiledEvidenceSnapshot,
     CompiledLibrarySnapshot,
+    CompiledLibrarySnapshotV2,
     CompiledSourceSnapshot,
+    CompiledSourceSnapshotV2,
+    ExportFormatVersion,
     ExportLimits,
     FailurePoint,
     LibraryExportDataError,
@@ -35,6 +39,8 @@ from mke.domain import (
     SearchSnapshot,
     SourceRecord,
     TranscriptIntakeReport,
+    TranscriptionProvenance,
+    is_recognized_audio_fingerprint,
     is_recognized_video_fingerprint,
     validate_manifest,
 )
@@ -542,6 +548,15 @@ class SQLiteStore:
                 event_type=RunEventType.RUN_FAILED,
             )
 
+    def mark_validated_run_failed(self, run_id: str) -> None:
+        with self._connection:
+            self._transition_run(
+                run_id,
+                expected=(RunState.VALIDATED,),
+                target=RunState.FAILED,
+                event_type=RunEventType.RUN_FAILED,
+            )
+
     def mark_run_running(self, run_id: str) -> None:
         with self._connection:
             self._transition_run(
@@ -662,7 +677,10 @@ class SQLiteStore:
                 fingerprint.startswith("faster-whisper-v1:")
                 and is_recognized_video_fingerprint(fingerprint)
             )
-            if is_faster_whisper and transcript_intake_report is None:
+            is_faster_whisper_audio = is_recognized_audio_fingerprint(fingerprint)
+            if (
+                is_faster_whisper or is_faster_whisper_audio
+            ) and transcript_intake_report is None:
                 raise ManifestValidationError(
                     "faster-whisper Publication requires a successful transcript intake report"
                 )
@@ -678,6 +696,39 @@ class SQLiteStore:
                 "SELECT * FROM evidence WHERE run_id = ? ORDER BY locator_start, evidence_id",
                 (run_id,),
             ).fetchall()
+            if is_faster_whisper_audio and transcript_intake_report is not None:
+                report_fingerprint = audio_extractor_fingerprint(
+                    TranscriptionProvenance(
+                        provider=transcript_intake_report.provider,
+                        model=transcript_intake_report.model,
+                        model_revision=transcript_intake_report.model_revision,
+                        library_version=transcript_intake_report.library_version,
+                        device=transcript_intake_report.device,
+                        compute_type=transcript_intake_report.compute_type,
+                        language=transcript_intake_report.language,
+                        detected_language=transcript_intake_report.detected_language,
+                        model_source=transcript_intake_report.model_source,
+                        transcription_duration_ms=(
+                            transcript_intake_report.transcription_duration_ms
+                        ),
+                    )
+                )
+                if report_fingerprint != fingerprint:
+                    raise ManifestValidationError(
+                        "transcript intake report provenance does not match RunManifest"
+                    )
+                if (
+                    transcript_intake_report.segment_count != len(evidence_rows)
+                    or any(
+                        str(row["locator_kind"]) != "timestamp_ms"
+                        or int(row["locator_end"])
+                        > transcript_intake_report.media_duration_ms
+                        for row in evidence_rows
+                    )
+                ):
+                    raise ManifestValidationError(
+                        "transcript intake report does not match candidate Evidence"
+                    )
             publication_id = _new_id("pub")
             next_revision = source.active_revision + 1
             self._connection.execute(
@@ -1169,16 +1220,37 @@ class SQLiteStore:
             "local", state, source_count, active_publication_count, active_evidence_count
         ), rows
 
+    @overload
     def compiled_library_snapshot(
-        self, *, limits: ExportLimits = DEFAULT_EXPORT_LIMITS
-    ) -> CompiledLibrarySnapshot:
+        self,
+        *,
+        format_version: Literal["v1"] = "v1",
+        limits: ExportLimits = DEFAULT_EXPORT_LIMITS,
+    ) -> CompiledLibrarySnapshot: ...
+
+    @overload
+    def compiled_library_snapshot(
+        self,
+        *,
+        format_version: Literal["v2"],
+        limits: ExportLimits = DEFAULT_EXPORT_LIMITS,
+    ) -> CompiledLibrarySnapshotV2: ...
+
+    def compiled_library_snapshot(
+        self,
+        *,
+        format_version: ExportFormatVersion = "v1",
+        limits: ExportLimits = DEFAULT_EXPORT_LIMITS,
+    ) -> CompiledLibrarySnapshot | CompiledLibrarySnapshotV2:
+        if format_version not in ("v1", "v2"):
+            raise ValueError("unsupported export format version")
         try:
             observation, active_rows = self._read_and_validate_active_publication_rows()
             if observation.state != "active":
                 raise LibraryExportDataError("empty")
             if len(active_rows) > limits.max_active_publications:
                 raise LibraryExportDataError("too_large")
-            self._validate_export_metadata(active_rows)
+            self._validate_export_metadata(active_rows, format_version=format_version)
             evidence_count, evidence_utf8_bytes = self._preflight_export_evidence()
             if evidence_count > limits.max_active_evidence or (
                 evidence_utf8_bytes > limits.max_evidence_utf8_bytes
@@ -1186,7 +1258,10 @@ class SQLiteStore:
                 raise LibraryExportDataError("too_large")
             evidence_rows = self._read_export_evidence_rows()
             snapshot = self._build_compiled_library_snapshot(
-                observation, active_rows, evidence_rows
+                observation,
+                active_rows,
+                evidence_rows,
+                format_version=format_version,
             )
             self._connection.commit()
             return snapshot
@@ -1200,10 +1275,25 @@ class SQLiteStore:
             self._connection.rollback()
             raise
 
-    def _validate_export_metadata(self, active_rows: list[sqlite3.Row]) -> None:
+    def _validate_export_metadata(
+        self,
+        active_rows: list[sqlite3.Row],
+        *,
+        format_version: ExportFormatVersion,
+    ) -> None:
         fingerprints: set[str] = set()
         for row in active_rows:
-            if row["media_type"] not in {"application/pdf", "video/mp4"}:
+            media_type = row["media_type"]
+            if format_version == "v1" and media_type in {
+                "audio/mpeg",
+                "audio/wav",
+                "audio/mp4",
+            }:
+                raise LibraryExportDataError("unsupported_active_media_type")
+            allowed_media_types = {"application/pdf", "video/mp4"}
+            if format_version == "v2":
+                allowed_media_types.update({"audio/mpeg", "audio/wav", "audio/mp4"})
+            if media_type not in allowed_media_types:
                 raise LibraryExportDataError("provenance")
             self._parse_export_required_stages(row["required_stages"])
             fingerprint = self._require_sqlite_text(
@@ -1271,14 +1361,19 @@ class SQLiteStore:
         observation: ActivePublicationObservation,
         active_rows: list[sqlite3.Row],
         evidence_rows: list[sqlite3.Row],
-    ) -> CompiledLibrarySnapshot:
+        *,
+        format_version: ExportFormatVersion,
+    ) -> CompiledLibrarySnapshot | CompiledLibrarySnapshotV2:
         evidence_by_run: dict[str, list[sqlite3.Row]] = {}
         for evidence_row in evidence_rows:
             run_id = self._require_sqlite_text(
                 evidence_row["run_id"], "active Publication provenance graph is invalid"
             )
             evidence_by_run.setdefault(run_id, []).append(evidence_row)
-        sources: list[CompiledSourceSnapshot] = []
+        sources: list[CompiledSourceSnapshot | CompiledSourceSnapshotV2] = []
+        source_type = (
+            CompiledSourceSnapshot if format_version == "v1" else CompiledSourceSnapshotV2
+        )
         for row in active_rows:
             error = "active Publication provenance graph is invalid"
             run_id = self._require_sqlite_text(row["run_id"], error)
@@ -1312,7 +1407,7 @@ class SQLiteStore:
                 for evidence_row in evidence_by_run.get(run_id, [])
             )
             sources.append(
-                CompiledSourceSnapshot(
+                source_type(
                     source_id=self._require_sqlite_text(row["source_id"], error),
                     display_name=self._require_sqlite_text(row["display_name"], error),
                     content_fingerprint=content_fingerprint,
@@ -1331,9 +1426,17 @@ class SQLiteStore:
                     evidence=evidence,
                 )
             )
-        return CompiledLibrarySnapshot(
+        sorted_sources = tuple(
+            sorted(sources, key=lambda item: (item.content_fingerprint, item.source_id))
+        )
+        if format_version == "v1":
+            return CompiledLibrarySnapshot(
+                observation,
+                cast(tuple[CompiledSourceSnapshot, ...], sorted_sources),
+            )
+        return CompiledLibrarySnapshotV2(
             observation,
-            tuple(sorted(sources, key=lambda item: (item.content_fingerprint, item.source_id))),
+            cast(tuple[CompiledSourceSnapshotV2, ...], sorted_sources),
         )
 
     @staticmethod

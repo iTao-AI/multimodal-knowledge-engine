@@ -11,7 +11,9 @@ from __future__ import annotations
 import argparse
 import ast
 import ctypes
+import email.parser
 import hashlib
+import io
 import json
 import os
 import platform
@@ -26,6 +28,7 @@ import sysconfig
 import tempfile
 import time
 import tomllib
+import zipfile
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -278,6 +281,7 @@ class LockProjection:
     constraints: bytes
     root_requirements: bytes
     root_requirements_by_cell: tuple[tuple[str, bytes], ...]
+    direct_requirements_by_cell: tuple[tuple[str, tuple[str, ...]], ...]
     locked_wheels: tuple[WheelEntry, ...]
     cells: tuple[Cell, ...]
 
@@ -801,6 +805,74 @@ def _wheel_compatible(entry: WheelEntry, cell: Cell) -> bool:
     return _wheel_python_abi_compatible(entry, cell) and platform_ok
 
 
+def _wheel_preference(entry: WheelEntry, cell: Cell) -> tuple[int, int] | None:
+    """Return a closed deterministic tag rank for one supported target cell."""
+    if not _wheel_compatible(entry, cell):
+        return None
+    compact = int(cell.python_tag.removeprefix("cp"))
+    if cell.python_tag in entry.python_tags and cell.python_tag in entry.abi_tags:
+        python_rank = 0
+    elif cell.python_tag in entry.python_tags and "abi3" in entry.abi_tags:
+        python_rank = 1
+    elif "abi3" in entry.abi_tags:
+        compatible = [
+            int(tag.removeprefix("cp"))
+            for tag in entry.python_tags
+            if tag.startswith("cp")
+            and tag.removeprefix("cp").isdigit()
+            and int(tag.removeprefix("cp")) <= compact
+        ]
+        if not compatible:
+            raise ReceiptError("wheel_tag_authority_invalid")
+        python_rank = 10 + compact - max(compatible)
+    elif "py3" in entry.python_tags and "none" in entry.abi_tags:
+        python_rank = 100
+    else:
+        raise ReceiptError("wheel_tag_authority_invalid")
+
+    if cell.platform_tag in entry.platform_tags:
+        platform_rank = 0
+    elif "any" in entry.platform_tags:
+        platform_rank = 1000
+    else:
+        cell_match = re.fullmatch(r"macosx_(\d+)_(\d+)_arm64", cell.platform_tag)
+        compatible_platforms: list[tuple[int, int]] = []
+        if cell_match is None:
+            raise ReceiptError("wheel_tag_authority_invalid")
+        cell_version = (int(cell_match[1]), int(cell_match[2]))
+        for tag in entry.platform_tags:
+            match = re.fullmatch(r"macosx_(\d+)_(\d+)_(arm64|universal2)", tag)
+            if match is not None:
+                version = (int(match[1]), int(match[2]))
+                if version <= cell_version:
+                    distance = (cell_version[0] - version[0]) * 100 + (
+                        cell_version[1] - version[1]
+                    )
+                    compatible_platforms.append(
+                        (distance, 1 if match[3] == "universal2" else 0)
+                    )
+        if not compatible_platforms:
+            raise ReceiptError("wheel_tag_authority_invalid")
+        distance, universal = min(compatible_platforms)
+        platform_rank = 1 + distance * 2 + universal
+    return python_rank, platform_rank
+
+
+def _preferred_wheel(candidates: list[WheelEntry], cell: Cell) -> WheelEntry:
+    ranked = [
+        (rank, entry)
+        for entry in candidates
+        if (rank := _wheel_preference(entry, cell)) is not None
+    ]
+    if not ranked:
+        raise ReceiptError("lock_projection_invalid")
+    best_rank = min(rank for rank, _ in ranked)
+    best = [entry for rank, entry in ranked if rank == best_rank]
+    if len(best) != 1:
+        raise ReceiptError("lock_projection_invalid")
+    return best[0]
+
+
 def _platform_tag_compatible(wheel_tag: str, cell_tag: str) -> bool:
     if wheel_tag == cell_tag:
         return True
@@ -965,28 +1037,58 @@ def _derive_transcription_projection(lock_value: bytes, cells: tuple[Cell, ...])
     roots_value = cast(dict[str, object], optional_value).get("transcription")
     if not isinstance(roots_value, list) or not roots_value:
         raise ReceiptError("lock_projection_invalid")
+    core_value = project.get("dependencies", [])
+    if not isinstance(core_value, list):
+        raise ReceiptError("lock_projection_invalid")
     roots: list[dict[str, object]] = []
-    for root_value in cast(list[object], roots_value):
+    for root_value in [*cast(list[object], core_value), *cast(list[object], roots_value)]:
         if not isinstance(root_value, dict):
             raise ReceiptError("lock_projection_invalid")
         root = cast(dict[str, object], root_value)
         name = root.get("name")
-        if not isinstance(name, str) or name not in by_name:
+        extras = root.get("extra", [])
+        extras_items = cast(list[object], extras) if isinstance(extras, list) else []
+        if (
+            not isinstance(name, str)
+            or name not in by_name
+            or not isinstance(extras, list)
+            or any(not isinstance(item, str) or not item for item in extras_items)
+        ):
             raise ReceiptError("lock_projection_invalid")
         roots.append(root)
+    direct_requirements_by_cell = tuple(
+        (
+            cell.version,
+            tuple(
+                sorted(
+                    {
+                        _normal_name(cast(str, item["name"]))
+                        for item in roots
+                        if _marker_applies(item.get("marker"), (cell,))
+                    }
+                )
+            ),
+        )
+        for cell in cells
+    )
     selected_by_cell: dict[str, set[str]] = {}
     for cell in cells:
-        root_names = {
-            cast(str, item.get("name"))
+        pending: list[tuple[str, tuple[str, ...]]] = [
+            (
+                cast(str, item.get("name")),
+                tuple(sorted(cast(list[str], item.get("extra", [])))),
+            )
             for item in roots
             if _marker_applies(item.get("marker"), (cell,))
-        }
-        pending = list(root_names)
+        ]
         selected: set[str] = set()
+        processed: set[tuple[str, tuple[str, ...]]] = set()
         while pending:
-            name = pending.pop()
-            if name in selected:
+            name, extras = pending.pop()
+            state = (name, extras)
+            if state in processed:
                 continue
+            processed.add(state)
             package = by_name.get(name)
             if package is None:
                 raise ReceiptError("lock_projection_invalid")
@@ -997,17 +1099,40 @@ def _derive_transcription_projection(lock_value: bytes, cells: tuple[Cell, ...])
                 raise ReceiptError("lock_projection_invalid")
             selected.add(name)
             dependencies_value = package.get("dependencies", [])
-            if not isinstance(dependencies_value, list):
+            optional_dependencies = package.get("optional-dependencies", {})
+            if not isinstance(dependencies_value, list) or not isinstance(
+                optional_dependencies, dict
+            ):
                 raise ReceiptError("lock_projection_invalid")
-            for dependency_value in cast(list[object], dependencies_value):
+            dependencies = list(cast(list[object], dependencies_value))
+            for extra in extras:
+                if not extra:
+                    raise ReceiptError("lock_projection_invalid")
+                extra_dependencies = cast(dict[str, object], optional_dependencies).get(extra)
+                if not isinstance(extra_dependencies, list):
+                    raise ReceiptError("lock_projection_invalid")
+                dependencies.extend(cast(list[object], extra_dependencies))
+            for dependency_value in dependencies:
                 if not isinstance(dependency_value, dict):
                     raise ReceiptError("lock_projection_invalid")
                 dependency = cast(dict[str, object], dependency_value)
                 dependency_name = dependency.get("name")
                 if not isinstance(dependency_name, str) or dependency_name not in by_name:
                     raise ReceiptError("lock_projection_invalid")
+                dependency_extras = dependency.get("extra", [])
+                dependency_extra_items = (
+                    cast(list[object], dependency_extras)
+                    if isinstance(dependency_extras, list)
+                    else []
+                )
+                if not isinstance(dependency_extras, list) or any(
+                    not isinstance(item, str) or not item for item in dependency_extra_items
+                ):
+                    raise ReceiptError("lock_projection_invalid")
                 if _marker_applies(dependency.get("marker"), (cell,)):
-                    pending.append(dependency_name)
+                    pending.append(
+                        (dependency_name, tuple(sorted(cast(list[str], dependency_extras))))
+                    )
         selected_by_cell[cell.version] = selected
     selected_union: set[str] = set()
     for selected in selected_by_cell.values():
@@ -1030,7 +1155,7 @@ def _derive_transcription_projection(lock_value: bytes, cells: tuple[Cell, ...])
         ):
             raise ReceiptError("lock_projection_invalid")
         wheels = cast(list[object], wheels_value)
-        hashes: set[str] = set()
+        candidates: list[WheelEntry] = []
         for wheel_value in wheels:
             if not isinstance(wheel_value, dict):
                 raise ReceiptError("lock_projection_invalid")
@@ -1070,8 +1195,13 @@ def _derive_transcription_projection(lock_value: bytes, cells: tuple[Cell, ...])
             if parsed_wheel[0] != _normal_name(name) or parsed_wheel[1] != version:
                 raise ReceiptError("lock_projection_invalid")
             locked_filenames.add(filename)
-            locked_wheels.append(WheelEntry(filename, *parsed_wheel, size, digest))
-            hashes.add(digest)
+            candidates.append(WheelEntry(filename, *parsed_wheel, size, digest))
+        active_cells = [
+            cell for cell in cells if name in selected_by_cell[cell.version]
+        ]
+        selected_wheels = {_preferred_wheel(candidates, cell) for cell in active_cells}
+        locked_wheels.extend(selected_wheels)
+        hashes = {entry.sha256 for entry in selected_wheels}
         normal = _normal_name(name)
         requirement = Requirement(normal, version)
         requirements.append(requirement)
@@ -1080,13 +1210,20 @@ def _derive_transcription_projection(lock_value: bytes, cells: tuple[Cell, ...])
             f"--hash=sha256:{digest}" for digest in sorted(hashes)
         )
         lines_by_name[name] = line
-    lines = [lines_by_name[name] for name in sorted(selected_union)]
-    root_lines = [lines_by_name[name] for name in sorted(selected_union)]
-    root_encoded = ("\n".join(sorted(root_lines)) + "\n").encode("ascii")
+    canonical_names = sorted(selected_union, key=lambda name: lines_by_name[name])
+    requirements = [requirement_by_name[name] for name in canonical_names]
+    lines = [lines_by_name[name] for name in canonical_names]
+    root_encoded = ("\n".join(lines) + "\n").encode("ascii")
     requirements_by_cell = tuple(
         (
             cell.version,
-            tuple(requirement_by_name[name] for name in sorted(selected_by_cell[cell.version])),
+            tuple(
+                requirement_by_name[name]
+                for name in sorted(
+                    selected_by_cell[cell.version],
+                    key=lambda name: lines_by_name[name].split(" ", 1)[0],
+                )
+            ),
         )
         for cell in cells
     )
@@ -1100,7 +1237,13 @@ def _derive_transcription_projection(lock_value: bytes, cells: tuple[Cell, ...])
         (
             cell.version,
             (
-                "\n".join(lines_by_name[name] for name in sorted(selected_by_cell[cell.version]))
+                "\n".join(
+                    lines_by_name[name]
+                    for name in sorted(
+                        selected_by_cell[cell.version],
+                        key=lambda name: lines_by_name[name],
+                    )
+                )
                 + "\n"
             ).encode("ascii"),
         )
@@ -1112,9 +1255,142 @@ def _derive_transcription_projection(lock_value: bytes, cells: tuple[Cell, ...])
         encoded,
         root_encoded,
         roots_by_cell,
+        direct_requirements_by_cell,
         tuple(sorted(locked_wheels, key=lambda item: item.filename)),
         cells,
     )
+
+
+def _candidate_requirement(value: str) -> tuple[str, str, str | None]:
+    match = re.fullmatch(
+        r"([A-Za-z0-9][A-Za-z0-9._-]*)(?:\[([A-Za-z0-9._,-]+)\])?"
+        r"((?:(?:==|!=|<=|>=|<|>)[0-9]+(?:\.[0-9]+)*(?:,(?:==|!=|<=|>=|<|>)"
+        r"[0-9]+(?:\.[0-9]+)*)*)?)(?:;\s*(.+))?",
+        value,
+    )
+    if match is None or match[2] is not None:
+        raise ReceiptError("candidate_artifact_invalid")
+    marker = match[4]
+    if marker not in {None, "extra == 'embedding'", "extra == 'transcription'"}:
+        raise ReceiptError("candidate_artifact_invalid")
+    return _normal_name(match[1]), match[3], marker
+
+
+def _candidate_wheel_metadata(value: bytes) -> tuple[str, str, tuple[tuple[str, str], ...]]:
+    try:
+        with zipfile.ZipFile(io.BytesIO(value)) as archive:
+            metadata_names = [
+                name for name in archive.namelist() if name.endswith(".dist-info/METADATA")
+            ]
+            if len(metadata_names) != 1:
+                raise ReceiptError("candidate_artifact_invalid")
+            metadata = archive.read(metadata_names[0]).decode("utf-8", errors="strict")
+    except ReceiptError:
+        raise
+    except (OSError, UnicodeError, zipfile.BadZipFile, KeyError) as error:
+        raise ReceiptError("candidate_artifact_invalid") from error
+    message = email.parser.Parser().parsestr(metadata)
+    names = message.get_all("Name", [])
+    versions = message.get_all("Version", [])
+    extras = message.get_all("Provides-Extra", [])
+    raw_requirements = message.get_all("Requires-Dist", [])
+    if (
+        names != ["multimodal-knowledge-engine"]
+        or len(versions) != 1
+        or re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", versions[0]) is None
+        or sorted(extras) != ["embedding", "transcription"]
+        or not raw_requirements
+    ):
+        raise ReceiptError("candidate_artifact_invalid")
+    parsed = [_candidate_requirement(item) for item in raw_requirements]
+    active = sorted(
+        (name, specifier)
+        for name, specifier, marker in parsed
+        if marker in {None, "extra == 'transcription'"}
+    )
+    if not active or len(active) != len(set(active)):
+        raise ReceiptError("candidate_artifact_invalid")
+    return names[0], versions[0], tuple(active)
+
+
+def _version_satisfies(version: str, specifier: str) -> bool:
+    if re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", version) is None or not specifier:
+        return False
+    observed = tuple(int(item) for item in version.split("."))
+    for clause in specifier.split(","):
+        match = re.fullmatch(r"(==|!=|<=|>=|<|>)([0-9]+(?:\.[0-9]+)*)", clause)
+        if match is None:
+            return False
+        expected = tuple(int(item) for item in match[2].split("."))
+        width = max(len(observed), len(expected))
+        left = observed + (0,) * (width - len(observed))
+        right = expected + (0,) * (width - len(expected))
+        comparisons = {
+            "==": left == right,
+            "!=": left != right,
+            "<=": left <= right,
+            ">=": left >= right,
+            "<": left < right,
+            ">": left > right,
+        }
+        if not comparisons[match[1]]:
+            return False
+    return True
+
+
+def _candidate_wheel_authority(
+    path: Path,
+    projection: LockProjection,
+) -> tuple[WheelEntry, tuple[tuple[str, bytes], ...]]:
+    value = _read_regular(path)
+    try:
+        parsed = _parse_wheel_filename(path.name)
+    except ReceiptError as error:
+        raise ReceiptError("candidate_artifact_invalid") from error
+    entry = WheelEntry(
+        path.name,
+        *parsed,
+        len(value),
+        hashlib.sha256(value).hexdigest(),
+    )
+    name, version, requirements = _candidate_wheel_metadata(value)
+    if name != entry.distribution or version != entry.version:
+        raise ReceiptError("candidate_artifact_invalid")
+    requirements_by_name = dict(requirements)
+    if len(requirements_by_name) != len(requirements):
+        raise ReceiptError("candidate_artifact_invalid")
+    direct_by_cell = dict(projection.direct_requirements_by_cell)
+    locked_by_cell = {
+        cell: {item.name: item.version for item in rows}
+        for cell, rows in projection.requirements_by_cell
+    }
+    for cell in projection.cells:
+        if not _wheel_compatible(entry, cell):
+            raise ReceiptError("candidate_artifact_invalid")
+        direct = direct_by_cell.get(cell.version)
+        locked = locked_by_cell.get(cell.version)
+        if (
+            direct is None
+            or locked is None
+            or set(requirements_by_name) != set(direct)
+            or any(
+                (locked_version := locked.get(requirement)) is None
+                or not _version_satisfies(locked_version, specifier)
+                for requirement, specifier in requirements
+            )
+        ):
+            raise ReceiptError("candidate_dependency_drift")
+    line = (
+        f"multimodal-knowledge-engine[transcription]=={entry.version} "
+        f"--hash=sha256:{entry.sha256}"
+    )
+    roots: list[tuple[str, bytes]] = []
+    for cell, external in projection.root_requirements_by_cell:
+        lines = [*external.decode("ascii").splitlines(), line]
+        roots.append((cell, ("\n".join(sorted(lines)) + "\n").encode("ascii")))
+    if len({hashlib.sha256(value).hexdigest() for _, value in roots}) != 1:
+        raise ReceiptError("candidate_root_authority_invalid")
+    return entry, tuple(roots)
 
 
 class _DarwinRusageInfoV4(ctypes.Structure):
@@ -2809,6 +3085,7 @@ def check_inputs(
     wheelhouse: Path,
     constraints: Path,
     fixture_root: Path,
+    require_candidate: bool = False,
     lock_path: Path | None = None,
     controller_executable: Path | None = None,
     require_controller_authority: bool = False,
@@ -2845,6 +3122,8 @@ def check_inputs(
     lock_sha: str | None = None
     lock_authority: FileAuthority | None = None
     root_requirements_sha: str | None = None
+    candidate_entry: WheelEntry | None = None
+    candidate_roots_by_cell: tuple[tuple[str, bytes], ...] = ()
     projection_hash_authority: dict[tuple[str, str], frozenset[str]] = {}
     try:
         if lock_path is None:
@@ -2889,6 +3168,29 @@ def check_inputs(
     try:
         wheelhouse_authority = _directory_authority(wheelhouse, code="wheel_input_invalid")
         manifest = build_wheelhouse_manifest(wheelhouse)
+        resolution_manifest = manifest
+        if require_candidate:
+            candidate_entries = tuple(
+                entry
+                for entry in manifest
+                if entry.distribution == "multimodal-knowledge-engine"
+            )
+            if len(candidate_entries) != 1 or projection is None:
+                raise ReceiptError("candidate_artifact_invalid")
+            candidate_entry, candidate_roots_by_cell = _candidate_wheel_authority(
+                wheelhouse / candidate_entries[0].filename,
+                projection,
+            )
+            if candidate_entry != candidate_entries[0]:
+                raise ReceiptError("candidate_identity_drift")
+            root_requirements_sha = hashlib.sha256(
+                candidate_roots_by_cell[0][1]
+            ).hexdigest()
+            resolution_manifest = tuple(
+                entry
+                for entry in manifest
+                if entry.distribution != "multimodal-knowledge-engine"
+            )
         if not manifest:
             issues.append(_issue("wheelhouse_empty", "external-wheelhouse"))
         if projection is None:
@@ -2900,9 +3202,16 @@ def check_inputs(
                     )
                 )
         else:
-            issues.extend(_wheel_resolution_issues(manifest, projection, projection_hash_authority))
+            issues.extend(
+                _wheel_resolution_issues(
+                    resolution_manifest,
+                    projection,
+                    projection_hash_authority,
+                )
+            )
     except ReceiptError as error:
         manifest = ()
+        resolution_manifest = ()
         wheelhouse_authority = None
         code = str(error)
         if code in {"wheel_input_invalid", "input_invalid", "input_identity_drift"}:
@@ -2915,8 +3224,24 @@ def check_inputs(
         if projection is not None:
             issues.extend(_wheel_resolution_issues((), projection, projection_hash_authority))
     wheel_resolution = (
-        _wheel_resolution_rows(manifest, projection) if projection is not None else []
+        _wheel_resolution_rows(resolution_manifest, projection)
+        if projection is not None
+        else []
     )
+    if candidate_entry is not None:
+        wheel_resolution.extend(
+            {
+                "cell": cell.version,
+                "distribution": candidate_entry.distribution,
+                "version": candidate_entry.version,
+                "filename": candidate_entry.filename,
+                "sha256": candidate_entry.sha256,
+            }
+            for cell in cells
+        )
+        wheel_resolution.sort(
+            key=lambda item: (cast(str, item["cell"]), cast(str, item["distribution"]))
+        )
     fixture_root_authority: tuple[int, ...] | None = None
     try:
         fixture_root_authority = _directory_authority(
@@ -3011,12 +3336,29 @@ def check_inputs(
                 "platform_tags": list(entry.platform_tags),
                 "artifact_scope": "local_runtime_only",
             }
-            for entry in manifest
+            for entry in resolution_manifest
         ],
         "wheel_resolution": wheel_resolution,
         "fixtures": fixture_receipts,
         "issues": issues,
     }
+    if require_candidate:
+        result["candidate_wheel"] = (
+            None
+            if candidate_entry is None
+            else {
+                "filename": candidate_entry.filename,
+                "bytes": candidate_entry.bytes,
+                "sha256": candidate_entry.sha256,
+                "distribution": candidate_entry.distribution,
+                "version": candidate_entry.version,
+                "build": candidate_entry.build,
+                "python_tags": list(candidate_entry.python_tags),
+                "abi_tags": list(candidate_entry.abi_tags),
+                "platform_tags": list(candidate_entry.platform_tags),
+                "artifact_scope": "local_runtime_only",
+            }
+        )
     observed = {
         key: value for key, value in result.items() if key not in {"issues", "status", "gate"}
     }
@@ -3218,6 +3560,7 @@ def _passed_preflight_authority(
         "constraints_sha256",
         "root_requirements_sha256",
         "wheelhouse",
+        "candidate_wheel",
         "wheel_resolution",
         "fixtures",
         "issues",
@@ -3285,6 +3628,21 @@ def _passed_preflight_authority(
             "artifact_scope",
         },
     )
+    candidate = _exact_mapping(
+        payload["candidate_wheel"],
+        {
+            "filename",
+            "bytes",
+            "sha256",
+            "distribution",
+            "version",
+            "build",
+            "python_tags",
+            "abi_tags",
+            "platform_tags",
+            "artifact_scope",
+        },
+    )
     resolution = _inventory_rows(
         payload["wheel_resolution"],
         {"cell", "distribution", "version", "filename", "sha256"},
@@ -3325,6 +3683,7 @@ def _passed_preflight_authority(
         or not _canonical_inventory(interpreters, ("label",))
         or wheelhouse is None
         or not _canonical_inventory(wheelhouse, ("filename",))
+        or candidate is None
         or resolution is None
         or not _canonical_inventory(resolution, ("cell", "distribution"))
         or fixtures is None
@@ -3358,11 +3717,21 @@ def _passed_preflight_authority(
     ):
         return None
     wheel_entries = [_wheel_evidence_entry(item) for item in wheelhouse]
+    candidate_entry = _wheel_evidence_entry(candidate)
     if any(item is None for item in wheel_entries):
+        return None
+    if (
+        candidate_entry is None
+        or candidate_entry.distribution != "multimodal-knowledge-engine"
+        or any(item["filename"] == candidate_entry.filename for item in wheelhouse)
+    ):
         return None
     if len({item["filename"] for item in wheelhouse}) != len(wheelhouse):
         return None
-    entries_by_filename = {entry.filename: entry for entry in cast(list[WheelEntry], wheel_entries)}
+    entries_by_filename = {
+        entry.filename: entry
+        for entry in [*cast(list[WheelEntry], wheel_entries), candidate_entry]
+    }
     resolution_keys: set[tuple[object, object]] = set()
     used_filenames: set[str] = set()
     live_cells = {cell.version: cell for cell in _supported_cells()}
@@ -3434,6 +3803,7 @@ def _passed_preflight_authority(
         "root_requirements_sha256": payload["root_requirements_sha256"],
         "interpreters": {f"python-{version}": row for version, (_, row) in interpreter_map.items()},
         "wheelhouse": sorted(wheelhouse, key=lambda item: cast(str, item["filename"])),
+        "candidate_wheel": dict(candidate),
         "wheel_resolution": sorted(
             resolution,
             key=lambda item: (
@@ -3828,7 +4198,13 @@ def _build_generation_evidence(
         "external_binary_redistribution": "not_performed",
         "redistribution_authority": "not_claimed",
         "binary_source_provenance": "not_claimed",
-        "wheel_inventory": authority["wheelhouse"],
+        "wheel_inventory": sorted(
+            [
+                *cast(list[dict[str, object]], authority["wheelhouse"]),
+                cast(dict[str, object], authority["candidate_wheel"]),
+            ],
+            key=lambda item: cast(str, item["filename"]),
+        ),
         "installed_distributions": installed,
         "cells": cells,
         "darwin_supervisor": supervisor,
@@ -3911,6 +4287,7 @@ def generate_dependency_receipt(
         lock_path=lock_path,
         constraints=constraints,
         fixture_root=fixture_root,
+        require_candidate=True,
         require_controller_authority=True,
     )
     authority = _passed_preflight_authority(preflight)
@@ -3918,6 +4295,15 @@ def generate_dependency_receipt(
         raise ReceiptError("generation_inputs_invalid")
     projection = _derive_transcription_projection(_read_regular(lock_path), _supported_cells())
     manifest = build_wheelhouse_manifest(wheelhouse)
+    candidate_entries = tuple(
+        entry for entry in manifest if entry.distribution == "multimodal-knowledge-engine"
+    )
+    if len(candidate_entries) != 1:
+        raise ReceiptError("candidate_artifact_invalid")
+    candidate_entry, candidate_roots_by_cell = _candidate_wheel_authority(
+        wheelhouse / candidate_entries[0].filename,
+        projection,
+    )
     snapshots = [_snapshot_executable(path) for path in pythons]
     interpreters = cast(dict[str, dict[str, object]], authority["interpreters"])
     if len(snapshots) != 2 or any(
@@ -3937,7 +4323,7 @@ def generate_dependency_receipt(
     cell_runs: list[tuple[str, dict[str, object], dict[str, object]]] = []
     try:
         requirements_by_cell = dict(projection.requirements_by_cell)
-        root_by_cell = dict(projection.root_requirements_by_cell)
+        root_by_cell = dict(candidate_roots_by_cell)
         for index, cell in enumerate(projection.cells):
             root_requirements = runtime_root / f"root-requirements-{cell.version}.txt"
             root_value = root_by_cell[cell.version]
@@ -3955,7 +4341,14 @@ def generate_dependency_receipt(
                 preflight_interpreter=interpreters[f"python-{cell.version}"],
                 preflight_file_identity=snapshots[index].identity,
                 fixture_root=fixture_root,
-                requirements=requirements_by_cell[cell.version],
+                requirements=tuple(
+                    sorted(
+                        (
+                            *requirements_by_cell[cell.version],
+                            Requirement(candidate_entry.distribution, candidate_entry.version),
+                        )
+                    )
+                ),
             )
             runtime_evidence = pip_result.get("runtime_evidence")
             if not isinstance(runtime_evidence, dict):
@@ -3968,6 +4361,7 @@ def generate_dependency_receipt(
             lock_path=lock_path,
             constraints=constraints,
             fixture_root=fixture_root,
+            require_candidate=True,
             require_controller_authority=True,
         )
         evidence = _build_generation_evidence(
@@ -4157,6 +4551,29 @@ def validate_generation_evidence(
             )
             for item in installed
         }
+        candidate_wheels = [
+            entry
+            for entry in wheel_authority.values()
+            if entry.distribution == "multimodal-knowledge-engine"
+        ]
+        candidate_installed = [
+            item
+            for item in installed
+            if item["distribution"] == "multimodal-knowledge-engine"
+        ]
+        candidate_wheel = candidate_wheels[0] if len(candidate_wheels) == 1 else None
+        valid = (
+            valid
+            and candidate_wheel is not None
+            and len(candidate_installed) == 2
+            and {item["cell"] for item in candidate_installed} == {"3.12", "3.13"}
+            and all(
+                item["version"] == candidate_wheel.version
+                and item["source_wheel_filename"] == candidate_wheel.filename
+                and item["source_wheel_sha256"] == candidate_wheel.sha256
+                for item in candidate_installed
+            )
+        )
         expected_installed: set[tuple[object, object, object, object, object]]
         if _static:
             expected_installed = installed_authority
@@ -4180,7 +4597,19 @@ def validate_generation_evidence(
                 or (
                     preflight_authority is not None
                     and sorted(wheels, key=lambda item: cast(str, item["filename"]))
-                    == preflight_authority["wheelhouse"]
+                    == sorted(
+                        [
+                            *cast(
+                                list[dict[str, object]],
+                                preflight_authority["wheelhouse"],
+                            ),
+                            cast(
+                                dict[str, object],
+                                preflight_authority["candidate_wheel"],
+                            ),
+                        ],
+                        key=lambda item: cast(str, item["filename"]),
+                    )
                 )
             )
             and installed_authority == expected_installed
@@ -4842,6 +5271,7 @@ def main(argv: list[str] | None = None) -> int:
                 lock_path=cast(Path, args.lock),
                 constraints=cast(Path, args.constraints),
                 fixture_root=cast(Path, args.fixture_root),
+                require_candidate=True,
                 require_controller_authority=True,
             )
         else:

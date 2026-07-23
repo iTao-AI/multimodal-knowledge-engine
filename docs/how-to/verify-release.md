@@ -106,6 +106,16 @@ The presentation audit checks that package version identity, README posture, rel
 Compiled Library Export, OCR Phase 0 boundaries, and comparison-only retrieval wording agree on
 `v0.1.3`.
 
+The accepted v0.1.4 direct-audio candidate adds a model-free pre-authorization gate:
+
+```bash
+UV_OFFLINE=1 uv run mke proof direct-audio --json
+```
+
+This does not run real ASR. The terminal installed-wheel proof, final candidate wheel, exact owner
+footprint value, and fixed-fixture Darwin arm64 observations remain separately authorized later
+gates. They are not completed by the v0.1.3 release procedure on this page.
+
 ## Stage 2 Clean Candidate Verification
 
 Stage 2 runs only from a clean committed release candidate. `uv build` remains the ordinary

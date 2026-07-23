@@ -42,6 +42,21 @@ uv run mke --db .tmp/mke.sqlite mcp --allowed-root ./library \
 Startup runs the same read-only checks as `mke transcription doctor`. See
 [Use Local Transcription](./use-local-transcription.md).
 
+For the accepted direct-audio candidate on Darwin arm64, start the owner with the same prepared
+cache and the explicit supervision pair:
+
+```bash
+uv run mke --db .tmp/mke.sqlite mcp --allowed-root ./library \
+  --transcript-provider faster-whisper \
+  --model-cache "$MKE_MODEL_CACHE" \
+  --direct-audio-footprint-bytes "$DIRECT_AUDIO_FOOTPRINT_BYTES" \
+  --direct-audio-footprint-budget-mode baseline_plus
+```
+
+Changing either owner setting requires a controlled server restart. `ingest_file` remains
+path-only; a direct-audio request is `{"path":"interview-excerpt.m4a"}` and contains no runtime
+control.
+
 To verify the installed wheel rather than the repository environment, use the cache-only deployment
 proof:
 
@@ -78,7 +93,7 @@ Example client configuration shape:
 ## Available Tools
 
 - `list_libraries`: returns the implicit local library.
-- `ingest_file`: ingests a supported `.pdf` or `.mp4` under `--allowed-root`; PDF success includes
+- `ingest_file`: ingests a supported `.pdf`, `.mp4`, `.mp3`, `.wav`, or `.m4a` under `--allowed-root`; PDF success includes
   `intake_report`.
 - `get_run`: returns Run state, append-only Run events, and PDF `intake_report` when present.
 - `search_library`: searches active Publication Evidence.
@@ -120,8 +135,8 @@ timestamp Evidence when active Search matches the question terms.
 
 - HTTP and workspace UI are not implemented yet.
 - Generative Ask, model providers, prompt templates, and model retries are not implemented yet.
-- Scanned-PDF OCR, arbitrary or long videos, audio-only ingest, bundled model weights, and external
-  providers are outside this MCP slice.
+- Scanned-PDF OCR, arbitrary or long media, full-length audio, bundled model weights, and external
+  providers are outside this MCP slice. Direct audio is bounded and candidate-scoped.
 - MCP `ingest_file(config, path)` cannot accept provider, model, cache, download, endpoint,
   credential, command argv, or retrieval-policy overrides. Provider and retrieval policy are
   owner startup configuration.

@@ -269,6 +269,18 @@ local viability evidence and is not production OCR.
 See [Export A Compiled Library](./docs/how-to/export-compiled-library.md) and
 [Run The Compiled Library Export Proof](./docs/how-to/run-compiled-library-export-proof.md).
 
+## Direct Audio Candidate
+
+Direct audio is an accepted v0.1.4 candidate, not a released capability. It adds bounded MP3,
+WAV/PCM, and M4A/AAC voice-note and clip/excerpt intake through an explicitly prepared cache-only
+owner on Darwin arm64. The owner must supply a positive supervision value; MKE provides no runtime
+budget default, recommendation, or SLA.
+
+Start with the offline model-free proof, then follow the Python, CLI, stdio MCP, and explicit
+Export v2 golden paths in [Use bounded direct audio](docs/how-to/use-direct-audio.md). The separate
+[installed-wheel proof guide](docs/how-to/run-direct-audio-proof.md) remains an authorization gate;
+this candidate does not claim that terminal real ASR has run.
+
 ## Documentation
 
 - [Release notes](./docs/releases/v0.1.3.md)

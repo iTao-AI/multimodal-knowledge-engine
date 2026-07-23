@@ -12,6 +12,9 @@ from mke.application import (
     MAX_ASK_LIMIT,
     MIN_ASK_LIMIT,
     AskValidationError,
+    AudioIngestError,
+    IngestDispatchError,
+    IngestFileAuthorityError,
     KnowledgeEngine,
     PdfIngestError,
     VideoIngestError,
@@ -22,6 +25,12 @@ from mke.domain import (
     SearchResult,
     SearchResultProvenance,
     TranscriptIntakeReport,
+)
+from mke.interfaces.audio_errors import DIRECT_AUDIO_SAFE_CAUSES
+from mke.interfaces.input_authority import (
+    BoundInputFile,
+    bind_allowed_file,
+    bind_optional_allowed_file,
 )
 from mke.interfaces.mcp_schemas import (
     ActivePublicationObservationV1,
@@ -39,7 +48,7 @@ from mke.interfaces.mcp_schemas import (
 )
 from mke.interfaces.public_errors import public_error_from_cause
 from mke.retrieval.cjk_active_scan import CjkActiveScanError
-from mke.runtime import RuntimeConfig, build_engine
+from mke.runtime import RuntimeConfig, SidecarTranscriptionConfig, build_engine
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +57,13 @@ _MAX_PDF_INPUT_BYTES = 100 * 1024 * 1024
 _SUPPORTED_SUFFIX_MEDIA_TYPES = {
     ".pdf": "application/pdf",
     ".mp4": "video/mp4",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".m4a": "audio/mp4",
 }
+_INGEST_LOCAL_SAFE_CAUSES = DIRECT_AUDIO_SAFE_CAUSES | frozenset(
+    {"input path must not be a symlink"}
+)
 
 
 @dataclass(frozen=True)
@@ -76,50 +91,42 @@ def list_libraries() -> dict[str, Any]:
 
 def ingest_file(config: McpRuntimeConfig, path: str) -> dict[str, Any]:
     try:
-        input_path = _resolve_allowed_file(config, path)
+        bound_input = _resolve_allowed_file(config, path)
     except ValueError as error:
-        return _failure(
+        return _ingest_failure(
             "input_path_rejected",
             str(error),
             "choose_file_under_allowed_root",
         )
     except OSError:
         logger.exception("path resolution failed")
-        return _failure(
+        return _ingest_failure(
             "input_path_rejected",
             "file path cannot be resolved",
             "choose_file_under_allowed_root",
         )
 
-    suffix = input_path.suffix.lower()
-    media_type = _SUPPORTED_SUFFIX_MEDIA_TYPES.get(suffix)
-    if media_type is None:
-        return _failure(
-            "unsupported_media_type",
-            "supported suffixes are .pdf and .mp4",
-            "choose_supported_file",
-        )
-    if suffix == ".pdf" and input_path.stat().st_size > _MAX_PDF_INPUT_BYTES:
-        return _failure(
-            "input_file_too_large",
-            "PDF input exceeds 100 MB limit",
-            "choose_smaller_file",
-        )
-
     engine: KnowledgeEngine | None = None
     try:
+        suffix = bound_input.path.suffix.lower()
+        if suffix == ".pdf" and bound_input.byte_count > _MAX_PDF_INPUT_BYTES:
+            return _ingest_failure(
+                "input_file_too_large",
+                "PDF input exceeds 100 MB limit",
+                "choose_smaller_file",
+            )
         engine = build_engine(config.runtime)
         try:
-            if suffix == ".mp4":
-                result = engine.ingest_video(input_path)
-            elif suffix == ".pdf":
-                result = engine.ingest_pdf(input_path)
-            else:
-                return _failure(
-                    "unsupported_media_type",
-                    "supported suffixes are .pdf and .mp4",
-                    "choose_supported_file",
-                )
+            result = engine.ingest_file(
+                bound_input.path,
+                input_authority=bound_input,
+            )
+        except IngestFileAuthorityError:
+            return _ingest_failure(
+                "input_path_rejected",
+                "input path changed during validation",
+                "choose_file_under_allowed_root",
+            )
         except PdfIngestError as error:
             return _failure(
                 "pdf_ingest_failed",
@@ -128,11 +135,31 @@ def ingest_file(config: McpRuntimeConfig, path: str) -> dict[str, Any]:
                 run_id=error.run_id,
             )
         except VideoIngestError as error:
-            return _failure(
+            return _ingest_failure(
                 error.problem,
                 str(error),
                 error.next_step,
                 run_id=error.run_id,
+            )
+        except AudioIngestError as error:
+            return _ingest_failure(
+                error.problem,
+                error.cause,
+                error.next_step,
+                run_id=error.run_id,
+            )
+        except IngestDispatchError as error:
+            return _ingest_failure(
+                error.problem,
+                error.cause,
+                error.next_step,
+            )
+        media_type = _SUPPORTED_SUFFIX_MEDIA_TYPES.get(suffix)
+        if media_type is None:
+            return _ingest_failure(
+                "unsupported_media_type",
+                "supported suffixes are .pdf, .mp4, .mp3, .wav, and .m4a",
+                "choose_supported_file",
             )
         payload: dict[str, Any] = {
             "ok": True,
@@ -152,8 +179,11 @@ def ingest_file(config: McpRuntimeConfig, path: str) -> dict[str, Any]:
             )
         return payload
     finally:
-        if engine is not None:
-            engine.close()
+        try:
+            if engine is not None:
+                engine.close()
+        finally:
+            bound_input.close()
 
 
 def get_run(config: McpRuntimeConfig, run_id: str) -> dict[str, Any]:
@@ -436,24 +466,39 @@ def transcript_intake_report_payload(
     }
 
 
-def _resolve_allowed_file(config: McpRuntimeConfig, path: str) -> Path:
-    stripped_path = path.strip()
-    if not stripped_path:
-        raise ValueError("input path must not be empty")
-
-    allowed_root = config.allowed_root.resolve()
-    requested = Path(stripped_path)
-    candidate = requested if requested.is_absolute() else allowed_root / requested
-    resolved = candidate.resolve()
+def _resolve_allowed_file(config: McpRuntimeConfig, path: str) -> BoundInputFile:
+    bound = bind_allowed_file(config.allowed_root, path)
     try:
-        resolved.relative_to(allowed_root)
-    except ValueError as error:
-        raise ValueError("input path must be under allowed root") from error
-    if not resolved.exists():
-        raise ValueError("input file does not exist")
-    if not resolved.is_file():
-        raise ValueError("input path must be a file")
-    return resolved
+        if (
+            bound.path.suffix.lower() == ".mp4"
+            and isinstance(config.runtime.transcription, SidecarTranscriptionConfig)
+        ):
+            companion = bind_optional_allowed_file(
+                config.allowed_root,
+                f"{path.strip()}.mke-transcript.json",
+            )
+            if companion is not None:
+                bound.add_companion(companion)
+        return bound
+    except Exception:
+        bound.close()
+        raise
+
+
+def _ingest_failure(
+    problem: str,
+    cause: str,
+    next_step: str,
+    *,
+    run_id: str | None = None,
+) -> dict[str, Any]:
+    return _failure(
+        problem,
+        cause,
+        next_step,
+        run_id=run_id,
+        safe_causes=_INGEST_LOCAL_SAFE_CAUSES,
+    )
 
 
 def _failure(
@@ -462,10 +507,12 @@ def _failure(
     next_step: str,
     *,
     run_id: str | None = None,
+    safe_causes: frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
     return public_error_from_cause(
         cause,
         problem=problem,
         next_step=next_step,
         run_id=run_id,
+        safe_causes=safe_causes,
     ).payload()

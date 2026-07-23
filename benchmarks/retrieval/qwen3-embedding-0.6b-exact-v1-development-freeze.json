@@ -3909,7 +3909,7 @@
   "protocol": {
     "bytes": 5127,
     "path": "protocol-lock.json",
-    "sha256": "74a0b2b0c92f610fe98f12f837935052f7946661d4df01d9b60e1808a654e15b"
+    "sha256": "e4b6eb93cc51d772d074696ff6cfcc6ef1e17b9b79b990c6b0f6fd8e6fe8b23c"
   },
   "schema_version": "mke.dense_development_freeze.v1",
   "source": {
@@ -3917,7 +3917,7 @@
       {
         "bytes": 1167,
         "path": "pyproject.toml",
-        "sha256": "d4200f549e9a612b469df6c3e696743cdd7b117b0e1f874d4b43cf8efc2d60ff"
+        "sha256": "d7ae898d7c9f951ab51dc73a802b1d7120bf8eda059fbcefec0cd248253ad23c"
       },
       {
         "bytes": 207835,
@@ -3925,14 +3925,14 @@
         "sha256": "31be8fe6302a844634306eea2ec6e891540e8006e45ece9f8cd6db7b53d308a1"
       },
       {
-        "bytes": 10868,
+        "bytes": 12027,
         "path": ".github/workflows/ci.yml",
-        "sha256": "7371e0219dd654705dd7df0bf4211eee48eff8779e1c04810ea1bb4a704d6b3b"
+        "sha256": "de23f4d8c489178b3fecc37c58bbb866c82c07927b5a5be0f139f87615551ccd"
       },
       {
-        "bytes": 72001,
+        "bytes": 76830,
         "path": "src/mke/cli.py",
-        "sha256": "59013a0a3853e41fe3f4aefa8fd48c01b5426d69948d71659644abc7c44271fa"
+        "sha256": "da8dc062ba32ab3f427392583283be6cd651d948f0bb25ea0be5475fcd42ce99"
       },
       {
         "bytes": 28723,
@@ -3980,7 +3980,7 @@
         "sha256": "1c838b1464be9426c67887bfe5e0ff082d5a81d0addaf6addb4e7b7317c3627b"
       }
     ],
-    "sha256": "sha256:c673067d0d4c85a42840d6e4a8a8c4435bd2682a196ff679248184adb133579a"
+    "sha256": "sha256:3a9017f4bcea08475872d2d18b943b0df451f0fe2b05b268f055aa9f94ed47aa"
   },
   "threshold_report": {
     "candidate_status": "not_evaluated",

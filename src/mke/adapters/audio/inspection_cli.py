@@ -8,7 +8,7 @@ import json
 import os
 import stat
 import sys
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import BinaryIO, Protocol, cast
 
@@ -61,7 +61,11 @@ class _Container(Protocol):
     def close(self) -> None: ...
 
 
-def inspect_audio(request: AudioInspectionRequest) -> AudioInspectionResult:
+def inspect_audio(
+    request: AudioInspectionRequest,
+    *,
+    _stream_inspector: Callable[[BinaryIO], AudioInspectionObservation] | None = None,
+) -> AudioInspectionResult:
     validated = validate_audio_inspection_request(request)
     path = Path(validated["path"])
     descriptor: int | None = None
@@ -80,7 +84,11 @@ def inspect_audio(request: AudioInspectionRequest) -> AudioInspectionResult:
         _require_expected(validated, observed_bytes, observed_sha256)
         os.lseek(descriptor, 0, os.SEEK_SET)
         with os.fdopen(os.dup(descriptor), "rb", closefd=True) as stream:
-            observation = _inspect_audio_stream(stream)
+            observation = (
+                _inspect_audio_stream(stream)
+                if _stream_inspector is None
+                else _stream_inspector(stream)
+            )
         after_bytes, after_sha256 = _hash_descriptor(descriptor)
         after = os.fstat(descriptor)
         path_after = path.lstat()

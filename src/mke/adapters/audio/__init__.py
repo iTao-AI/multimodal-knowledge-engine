@@ -6,7 +6,7 @@ import json
 import platform
 import sys
 from dataclasses import dataclass
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from mke.adapters.audio.contracts import AudioTranscriptionLimits, audio_extractor_fingerprint
 from mke.adapters.audio.inspection import (
@@ -36,7 +36,9 @@ from mke.domain import (
     AudioTranscriptExtractionResult,
     TranscriptIntakeReport,
 )
-from mke.runtime import FasterWhisperTranscriptionConfig
+
+if TYPE_CHECKING:
+    from mke.runtime import FasterWhisperTranscriptionConfig
 
 AUDIO_INSPECTION_COMMAND = (
     sys.executable,
@@ -110,10 +112,15 @@ class InternalAudioProvider:
                     "expected_bytes": snapshot.owned_identity.bytes,
                 }
             )
-        except (AudioInspectionError, AudioSnapshotError, TypeError, ValueError) as error:
+        except AudioSnapshotError as error:
             raise AudioProviderError(
-                "audio transcript schema validation failed",
-                next_step="check_server_logs",
+                "audio source identity changed during intake",
+                next_step="retry_with_stable_file",
+            ) from error
+        except (AudioInspectionError, TypeError, ValueError) as error:
+            raise AudioProviderError(
+                "audio inspection failed",
+                next_step="choose_supported_file",
             ) from error
         command = AUDIO_INSPECTION_COMMAND + (
             "--path",
@@ -125,7 +132,7 @@ class InternalAudioProvider:
             "--expected-bytes",
             str(request["expected_bytes"]),
         )
-        payload = self._run_child(command)
+        payload = self._run_child(command, phase="inspection")
         try:
             result = parse_audio_inspection_result(payload, request=request)
             media = result["media"]
@@ -138,10 +145,15 @@ class InternalAudioProvider:
             )
             snapshot.verify_owned_path()
             return parsed
-        except (AudioInspectionError, AudioSnapshotError, TypeError, ValueError) as error:
+        except AudioSnapshotError as error:
             raise AudioProviderError(
-                "audio transcript schema validation failed",
-                next_step="check_server_logs",
+                "audio source identity changed during intake",
+                next_step="retry_with_stable_file",
+            ) from error
+        except (AudioInspectionError, TypeError, ValueError) as error:
+            raise AudioProviderError(
+                "audio inspection failed",
+                next_step="choose_supported_file",
             ) from error
 
     def transcribe(
@@ -154,8 +166,8 @@ class InternalAudioProvider:
             snapshot.verify_owned_path()
         except AudioSnapshotError as error:
             raise AudioProviderError(
-                "audio transcript schema validation failed",
-                next_step="check_server_logs",
+                "audio source identity changed during intake",
+                next_step="retry_with_stable_file",
             ) from error
         command = AUDIO_TRANSCRIPTION_COMMAND + (
             "--path",
@@ -187,13 +199,18 @@ class InternalAudioProvider:
         )
         if config.cache_dir is not None:
             command += ("--cache-dir", str(config.cache_dir))
-        payload = self._run_child(command)
+        payload = self._run_child(command, phase="transcription")
         try:
             parsed = parse_audio_transcript_payload(payload)
             if parsed.media != media or parsed.transcription_provenance is None:
                 raise AudioTranscriptValidationError("audio child media identity mismatch")
             snapshot.verify_owned_path()
-        except (AudioSnapshotError, AudioTranscriptValidationError, TypeError, ValueError) as error:
+        except AudioSnapshotError as error:
+            raise AudioProviderError(
+                "audio source identity changed during intake",
+                next_step="retry_with_stable_file",
+            ) from error
+        except (AudioTranscriptValidationError, TypeError, ValueError) as error:
             raise AudioProviderError(
                 "audio transcript schema validation failed",
                 next_step="check_server_logs",
@@ -218,7 +235,12 @@ class InternalAudioProvider:
             ),
         )
 
-    def _run_child(self, command: tuple[str, ...]) -> object:
+    def _run_child(
+        self,
+        command: tuple[str, ...],
+        *,
+        phase: str,
+    ) -> object:
         try:
             completed = run_supervised_process(
                 command,
@@ -228,6 +250,18 @@ class InternalAudioProvider:
                 process_operation_id=self.process_operation_id,
             )
         except SupervisedProcessError as error:
+            if phase == "inspection":
+                cause = (
+                    "audio inspection timed out"
+                    if error.code == "process_timeout"
+                    else "audio inspection failed"
+                )
+                next_step = (
+                    "retry_with_supported_file"
+                    if error.code == "process_timeout"
+                    else "choose_supported_file"
+                )
+                raise AudioProviderError(cause, next_step=next_step) from error
             raise AudioProviderError(
                 "audio ingest failed", next_step="check_server_logs"
             ) from error

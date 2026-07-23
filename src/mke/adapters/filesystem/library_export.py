@@ -17,7 +17,12 @@ from mke.application.library_export import (
     render_evidence_jsonl,
     render_export_manifest,
 )
-from mke.domain import CompiledLibrarySnapshot, LibraryExportDataError
+from mke.domain import (
+    CompiledLibrarySnapshot,
+    CompiledLibrarySnapshotV2,
+    ExportFormatVersion,
+    LibraryExportDataError,
+)
 
 _MANIFEST_NAME = "export-manifest.json"
 _TEMP_MANIFEST_NAME = ".export-manifest.json.tmp"
@@ -442,13 +447,23 @@ def _cleanup_target_only(
 
 
 def publish_compiled_library(
-    snapshot: CompiledLibrarySnapshot,
+    snapshot: CompiledLibrarySnapshot | CompiledLibrarySnapshotV2,
     *,
+    format_version: ExportFormatVersion = "v1",
     output_name: str,
     parent: Path = Path("."),
 ) -> LibraryExportResult:
     """Publish a new compiled Library directory with the manifest as commit marker."""
 
+    if format_version not in ("v1", "v2"):
+        raise ValueError("unsupported export format version")
+    expected_type = (
+        CompiledLibrarySnapshot
+        if format_version == "v1"
+        else CompiledLibrarySnapshotV2
+    )
+    if type(snapshot) is not expected_type:
+        raise LibraryExportDataError("provenance")
     _validate_output_name(output_name)
     snapshot.__post_init__()
     parent_fd = _open_parent(parent)
@@ -497,8 +512,8 @@ def publish_compiled_library(
         evidence_count = 0
         for source in snapshot.sources:
             digest = source.content_fingerprint.removeprefix("sha256:")
-            evidence = render_evidence_jsonl(source)
-            markdown = render_compiled_markdown(source)
+            evidence = render_evidence_jsonl(source, format_version=format_version)
+            markdown = render_compiled_markdown(source, format_version=format_version)
             evidence_name = f"{digest}.jsonl"
             markdown_name = f"{digest}.md"
             _write_content_file(
@@ -545,7 +560,9 @@ def publish_compiled_library(
         evidence_fd = None
         _validate_exact_inventory(target_fd, expected)
         _revalidate_owned_files(target_fd, owned)
-        manifest = render_export_manifest(snapshot, entries)
+        manifest = render_export_manifest(
+            snapshot, entries, format_version=format_version
+        )
         result = LibraryExportResult(
             library_id=snapshot.observation.library_id,
             source_count=len(snapshot.sources),
