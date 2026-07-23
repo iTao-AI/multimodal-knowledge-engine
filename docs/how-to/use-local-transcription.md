@@ -76,9 +76,9 @@ Normal doctor, ingest, proof, and MCP execution never enable model download. HTT
 ASR, long-video support, diarization, GPU scheduling, and quality benchmarking remain outside this
 workflow.
 
-## Direct Audio Candidate
+## Bounded Direct Audio
 
-The accepted v0.1.4 candidate reuses the same explicitly prepared cache-only owner for bounded MP3,
+The v0.1.4 direct-audio path reuses the same explicitly prepared cache-only owner for bounded MP3,
 WAV/PCM, and M4A/AAC voice notes and clips/excerpts. Direct audio additionally requires Darwin
 arm64 plus both owner-startup controls:
 

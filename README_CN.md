@@ -6,13 +6,13 @@ Multimodal Knowledge Engine 是一个本地优先、可被 Agent 调用的 Evide
 source processing、Publication activation、retrieval 和 Agent-facing interfaces 收在同一个可验证的本地
 application boundary 内。
 
-`v0.1.3` 以 Compiled Library Export 为首要结果：把 active Publications 确定性、只读地导出为
-portable Markdown 与 strict EvidenceRef JSONL。它保留 strict Evidence provenance 和 external
-same-wheel Python 3.12/3.13 source-pack proof，同时保持同一条收窄的
-runtime 边界：可观察 ingest Runs、active Publication Search、evidence-only Ask、retrieval evaluation
-artifacts，以及 CLI 和 stdio MCP server 共享的一套 application service contract。它不是托管 RAG 平台。
+`v0.1.4` 增加有界 direct-audio intake：本地 MP3、WAV/PCM 和 M4A/AAC clips 可进入同一 Evidence
+生命周期。它保留 Compiled Library Export、strict Evidence provenance 和 external same-wheel
+Python 3.12/3.13 source-pack proof，同时保持同一条收窄的 runtime 边界：可观察 ingest Runs、active
+Publication Search、evidence-only Ask、retrieval evaluation artifacts，以及 Python、CLI 和 stdio
+MCP server 共享的一套 application service contract。它不是托管 RAG 平台。
 
-## v0.1.3 已验证能力
+## v0.1.4 已验证能力
 
 | 能力 | 验证证据 |
 |---|---|
@@ -28,6 +28,7 @@ artifacts，以及 CLI 和 stdio MCP server 共享的一套 application service 
 | external source-pack proof | same wheel on Python 3.12/3.13，通过 official MCP SDK 在 fresh environments 中完成证明。 |
 | owner lifecycle and runtime hardening | deadlines、bounded output、cancellation、subprocess cleanup、stable redacted failures 和 atomic transitions 已加固。 |
 | Compiled Library Export | Active Publications 通过 `mke.compiled_library_export.v1`、readable `mke.compiled_markdown.v1` 和 authoritative `mke.evidence_ref.v1` JSONL 导出。 |
+| Bounded direct audio | Cache-only MP3、WAV/PCM 和 M4A/AAC clips 在 15 minutes、100 MiB 上限内，通过显式 supervised Darwin arm64 owner 发布 timestamp Evidence。 |
 | PDF OCR Phase 0 evidence | PP-OCRv6 medium 是 selected production-planning baseline；PaddleOCR-VL 1.6 是 validated comparison candidate。This is not production OCR。 |
 
 ```mermaid
@@ -109,19 +110,20 @@ flowchart TB
 SQLite 是 first Pilot 的 domain truth。Retrieval indexes 是可重建 projections，Assets 和
 Artifacts 不可变，Search/Ask 只读取 active Publications。
 
-## v0.1.3 工程深度
+## v0.1.4 工程深度
 
-`v0.1.3` 的产品面很小，但它验证了系统可审计性的关键部分：Evidence 生命周期、active Publication
+`v0.1.4` 的产品面很小，但它验证了系统可审计性的关键部分：Evidence 生命周期、active Publication
 切换、CLI/MCP application service contract、Evidence provenance、external source-pack proof、
 same-wheel Python 3.12/3.13 verification、owner lifecycle and runtime hardening，以及记录已接受和已拒绝
-retrieval candidates 的 retrieval evaluation artifacts。PDF OCR Phase 0 是 bounded planning
-evidence；this is not production OCR、public OCR runtime 或 provider promotion。OCR 仍排除。
+retrieval candidates 的 retrieval evaluation artifacts；还包括 bounded direct-audio timestamp
+Evidence 与 Compiled Library Export v2。PDF OCR Phase 0 是 bounded planning evidence；this is not
+production OCR、public OCR runtime 或 provider promotion。OCR 仍排除。
 
-| Retrieval evidence | v0.1.3 状态 | 边界 |
+| Retrieval evidence | v0.1.4 状态 | 边界 |
 |---|---|---|
 | 已发布 runtime | lexical search 加 `cjk-active-scan-overlap-v1` owner-startup CJK active scan。 | Search/Ask/MCP 通过同一 application service 读取 active Publication Evidence。 |
 | Comparison-only evidence | dense exact-cosine、RRF fusion、relevance gate / reranker artifacts 已记录。 | 它们不改变 normal Search、Ask、MCP 或 runtime default。 |
-| 不包含 | query rewrite、HyDE、HTTP/UI 和 API adapters。 | Production OCR remains excluded；它们不是 `v0.1.3` runtime behavior 或 release claims。 |
+| 不包含 | query rewrite、HyDE、HTTP/UI 和 API adapters。 | Production OCR remains excluded；它们不是 `v0.1.4` runtime behavior 或 release claims。 |
 
 ## 快速验证
 
@@ -142,7 +144,7 @@ uv run mke proof run
 uv run mke demo --verify
 uv run python scripts/release_presentation_audit.py --root .
 uv run python scripts/release_consumer_smoke.py \
-  --wheel dist/multimodal_knowledge_engine-0.1.3-py3-none-any.whl --json
+  --wheel dist/multimodal_knowledge_engine-0.1.4-py3-none-any.whl --json
 ```
 
 ## Local Knowledge Proof
@@ -260,21 +262,20 @@ production OCR。
 参见 [Export A Compiled Library](./docs/how-to/export-compiled-library.md) 和
 [Run The Compiled Library Export Proof](./docs/how-to/run-compiled-library-export-proof.md)。
 
-## Direct Audio Candidate
+## Bounded Direct Audio
 
-Direct audio 是 accepted v0.1.4 candidate，并非已发布能力。它在 Darwin arm64 上通过显式
-准备的 cache-only owner，增加 bounded MP3、WAV/PCM、M4A/AAC voice note 与 clip/excerpt
-摄取。owner 必须提供正整数 supervision value；MKE 不提供 runtime budget 默认值、推荐值或
-SLA。
+Direct audio 是有界的 v0.1.4 capability。它在 Darwin arm64 上通过显式准备的 cache-only
+owner，增加 MP3、WAV/PCM、M4A/AAC voice note 与 clip/excerpt 摄取。owner 必须提供正整数
+supervision value；MKE 不提供 runtime budget 默认值、推荐值或 SLA。
 
 先运行 offline model-free proof，再按 [Use bounded direct audio](docs/how-to/use-direct-audio.md)
 完成 Python、CLI、stdio MCP 与 explicit Export v2 golden paths。独立的
-[installed-wheel proof guide](docs/how-to/run-direct-audio-proof.md) 仍是授权 gate；当前 candidate
+[installed-wheel proof guide](docs/how-to/run-direct-audio-proof.md) 仍是授权 gate；当前 release
 不声明 terminal real ASR 已运行。
 
 ## 文档
 
-- [Release notes](./docs/releases/v0.1.3.md)
+- [Release notes](./docs/releases/v0.1.4.md)
 - [Verify The Release](./docs/how-to/verify-release.md)
 - [Documentation index](./docs/README.md)
 - [Run The Local Product Proof](./docs/how-to/run-local-product-proof.md)

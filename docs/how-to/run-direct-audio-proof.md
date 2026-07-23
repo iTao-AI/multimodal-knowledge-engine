@@ -22,7 +22,7 @@ Darwin arm64 interpreters have been independently authorized.
 
 The value of `DIRECT_AUDIO_FOOTPRINT_BYTES` is an owner-selected proof input. MKE provides no
 default, recommendation, production ceiling, or SLA for it. The only accepted direct-audio budget
-mode in this release candidate is `baseline_plus`.
+mode in v0.1.4 is `baseline_plus`.
 
 Before terminal authorization, add `--authorization-only` to the command below. That mode validates
 and freezes the complete input manifest without creating a venv, loading a model, or running ASR.

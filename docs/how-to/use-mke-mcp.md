@@ -42,7 +42,7 @@ uv run mke --db .tmp/mke.sqlite mcp --allowed-root ./library \
 Startup runs the same read-only checks as `mke transcription doctor`. See
 [Use Local Transcription](./use-local-transcription.md).
 
-For the accepted direct-audio candidate on Darwin arm64, start the owner with the same prepared
+For bounded v0.1.4 direct audio on Darwin arm64, start the owner with the same prepared
 cache and the explicit supervision pair:
 
 ```bash
@@ -136,7 +136,7 @@ timestamp Evidence when active Search matches the question terms.
 - HTTP and workspace UI are not implemented yet.
 - Generative Ask, model providers, prompt templates, and model retries are not implemented yet.
 - Scanned-PDF OCR, arbitrary or long media, full-length audio, bundled model weights, and external
-  providers are outside this MCP slice. Direct audio is bounded and candidate-scoped.
+  providers are outside this MCP slice. Direct audio is bounded to the v0.1.4 profile.
 - MCP `ingest_file(config, path)` cannot accept provider, model, cache, download, endpoint,
   credential, command argv, or retrieval-policy overrides. Provider and retrieval policy are
   owner startup configuration.

@@ -37,7 +37,7 @@ The v1 Search/Ask snapshot calls unchanged retrieval first, then perform one bul
 the same SQLite PEP 249 transaction. They do not change `SearchResult`, ranking, CLI, evaluation,
 or legacy MCP behavior and do not issue a nested `BEGIN` or per-result provenance query.
 
-The accepted direct-audio candidate keeps `ingest_file` path-only. The request remains exactly
+The v0.1.4 bounded direct-audio contract keeps `ingest_file` path-only. The request remains exactly
 `{"path":"interview-excerpt.m4a"}`; media type, provider, model, cache, download, and supervision
 controls are not request fields. The owner starts on Darwin arm64 with both
 `--direct-audio-footprint-bytes <owner-selected-positive-int>` and

@@ -160,7 +160,7 @@ def test_docs_index_links_governance_and_completed_authorities() -> None:
     assert "[ADR-0010](./decisions/0010-pdf-ocr-evaluation-manifest-fingerprint.md)" in text
     assert "post-merge operational gate pending" not in text
     assert "source-built proof for the current source checkout" in text
-    assert "`v0.1.3` release-candidate verification gate" in normalized
+    assert "`v0.1.4` release-candidate verification gate" in normalized
 
 
 def test_docs_index_links_all_current_documentation_areas() -> None:

@@ -51,7 +51,7 @@ Exit codes:
 
 Expected duration: a few seconds on a local development machine.
 
-The accepted v0.1.4 candidate also exposes a deterministic model-free proof:
+Bounded v0.1.4 direct audio also exposes a deterministic model-free proof:
 
 ```bash
 UV_OFFLINE=1 uv run mke proof direct-audio --json
@@ -98,7 +98,7 @@ same snapshot. An active audio Source fails default or explicit v1 with
 The output tree and schema details are in [Public Contracts](./contracts.md). Operational steps are
 in [Export A Compiled Library](../how-to/export-compiled-library.md).
 
-## Direct Audio Candidate
+## Bounded Direct Audio
 
 Direct audio accepts bounded MP3, WAV/PCM, and M4A/AAC inputs up to 15 minutes and 100 MiB on an
 explicitly configured Darwin arm64 owner:
@@ -545,7 +545,7 @@ uv sync --locked --extra embedding
 uv build
 uv venv /tmp/mke-embedding-wheel --python 3.13
 uv pip install --python /tmp/mke-embedding-wheel/bin/python \
-  "dist/multimodal_knowledge_engine-0.1.3-py3-none-any.whl[embedding]"
+  "dist/multimodal_knowledge_engine-0.1.4-py3-none-any.whl[embedding]"
 ```
 
 ```bash
@@ -609,7 +609,7 @@ exist; it remains offline and cache-only:
 ```bash
 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 UV_OFFLINE=1 \
 python scripts/dense_retrieval_deployment_proof.py \
-  --wheel dist/multimodal_knowledge_engine-0.1.3-py3-none-any.whl \
+  --wheel dist/multimodal_knowledge_engine-0.1.4-py3-none-any.whl \
   --corpus-lock tests/fixtures/retrieval-dense-v1/corpus-lock.json \
   --model-cache "$HOME/Library/Caches/mke/embedding" \
   --python 3.13 \

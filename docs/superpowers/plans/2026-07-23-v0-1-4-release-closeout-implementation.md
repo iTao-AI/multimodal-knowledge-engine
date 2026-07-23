@@ -276,7 +276,14 @@ git commit -m "chore(release): set v0.1.4 identity"
 
 **Files:** release presentation contract group.
 
-- [ ] **Step 1: Add RED tests for current release surfaces**
+> **Career authority amendment (2026-07-23):** Tasks 3 and 4 are one atomic
+> RED -> docs -> GREEN lane because the presentation audit must reject an incomplete live
+> repository while the current v0.1.4 release note and entry-point documentation do not exist.
+> The reproducible RED may therefore include both missing Task 4 release surfaces and stale
+> candidate wording. No RED intermediate commit is permitted; the combined lane lands only after
+> all Task 3/4 documentation and live-audit gates are GREEN.
+
+- [x] **Step 1: Add RED tests for current release surfaces**
 
 Require:
 
@@ -315,14 +322,14 @@ UV_OFFLINE=1 uv run --frozen --no-sync pytest -q \
 
 Expected RED: missing v0.1.4 current release surfaces and stale candidate wording.
 
-- [ ] **Step 2: Update the audit minimally**
+- [x] **Step 2: Update the audit minimally**
 
 Change current-release constants and release-facing file inventory to v0.1.4. Preserve historical
 v0.1.3 checks. Add only the narrow claim guards proven RED.
 
 Do not replace the audit with a generic natural-language classifier.
 
-- [ ] **Step 3: Run GREEN and commit**
+- [x] **Step 3: Run GREEN without an intermediate commit**
 
 Run the focused suite plus:
 
@@ -333,19 +340,15 @@ UV_OFFLINE=1 uv run --frozen --no-sync python \
 
 Require `status=ok` and zero violations on live repository content.
 
-Commit:
-
-```bash
-git commit -m "test(release): define v0.1.4 presentation contract"
-```
+Do not commit at this point. Continue in the same uncommitted worktree through Task 4.
 
 ---
 
-## Task 4: Write Current v0.1.4 Release Documentation
+## Task 4: Write Current v0.1.4 Release Documentation (Atomic With Task 3)
 
 **Files:** current release documentation group.
 
-- [ ] **Step 1: Inventory current versus historical version text**
+- [x] **Step 1: Inventory current versus historical version text**
 
 Run exact scans for:
 
@@ -367,7 +370,7 @@ Classify every match:
 
 Do not global-replace.
 
-- [ ] **Step 2: Add `docs/releases/v0.1.4.md`**
+- [x] **Step 2: Add `docs/releases/v0.1.4.md`**
 
 The release note must contain:
 
@@ -384,7 +387,7 @@ The release note must contain:
 It must not contain private paths, transient IDs, raw transcripts, model output, unverified metrics,
 or retained evidence locations.
 
-- [ ] **Step 3: Update current entry points**
+- [x] **Step 3: Update current entry points**
 
 Update README, README_CN, changelog, docs index, verification guides, direct-audio guides,
 getting-started, CLI/MCP/contracts, and ADR-0011 only where they describe current release state.
@@ -397,7 +400,7 @@ Keep:
 - OCR evaluation-only wording; and
 - direct-audio dependency/license evidence as external historical authority.
 
-- [ ] **Step 4: Run documentation and presentation gates**
+- [x] **Step 4: Run documentation and presentation gates**
 
 Run the focused suites from Task 3, all release documentation contract tests, Markdown fence/link
 checks available in the repository, and:
@@ -411,7 +414,7 @@ git diff --check
 Run `document-release` as a report/audit controller. It may identify required documentation gaps,
 but must not push, publish, alter version choice, or create a PR.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Commit:
 

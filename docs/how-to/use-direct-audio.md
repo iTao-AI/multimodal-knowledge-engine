@@ -1,8 +1,8 @@
 # Use bounded direct audio
 
-Direct audio is an accepted v0.1.4 candidate, not a released capability. It is bounded to local
-voice notes and clips or excerpts encoded as MP3, WAV/PCM, or M4A/AAC, with a 15 minutes and
-100 MiB maximum. The prepared runtime is cache-only and currently proved only on Darwin arm64.
+Direct audio is a bounded v0.1.4 capability for local voice notes and clips or excerpts encoded as
+MP3, WAV/PCM, or M4A/AAC, with a 15 minutes and 100 MiB maximum. The prepared runtime is cache-only
+and currently proved only on Darwin arm64.
 
 The exact profiles are MP3/MPEG Layer III, RIFF-WAVE signed 16-bit little-endian PCM, and M4A
 AAC-LC. Each file contains exactly one decodable audio stream and no other stream, uses one or two
@@ -186,7 +186,7 @@ failures retain the existing `run_id`.
 
 ## Boundaries
 
-This candidate does not support arbitrary codecs or full-length meetings, interviews, or lectures.
+This bounded release does not support arbitrary codecs or full-length meetings, interviews, or lectures.
 Long audio, chunking, resume, streaming, diarization, microphone capture, cloud fallback, implicit
 download, transcript-accuracy guarantees, all-platform coverage, hosted deployment, production
 SLA, automatic LLM Wiki sync, and official OpenAI integration are excluded.

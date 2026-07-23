@@ -21,7 +21,7 @@ def _normalized(relative: str) -> str:
     return " ".join(_text(relative).split())
 
 
-def test_entry_docs_discover_the_candidate_and_lead_with_model_free_proof() -> None:
+def test_entry_docs_discover_the_release_and_lead_with_model_free_proof() -> None:
     targets = {
         "README.md": "docs/how-to/use-direct-audio.md",
         "README_CN.md": "docs/how-to/use-direct-audio.md",
@@ -31,7 +31,8 @@ def test_entry_docs_discover_the_candidate_and_lead_with_model_free_proof() -> N
     for relative, link in targets.items():
         text = _text(relative)
         assert link in text
-        assert "accepted v0.1.4 candidate" in text
+        assert "v0.1.4" in text
+        assert "accepted v0.1.4 candidate" not in text
 
     how_to = _text("docs/how-to/use-direct-audio.md")
     proof = "UV_OFFLINE=1 uv run mke proof direct-audio --json"
@@ -377,7 +378,7 @@ def test_proof_and_dependency_docs_preserve_authority_and_non_claims() -> None:
 def test_adr_records_rollback_and_explicit_non_goals() -> None:
     text = _normalized("docs/decisions/0011-bounded-direct-audio-intake.md")
     for term in (
-        "Status: Accepted candidate",
+        "Status: Accepted for v0.1.4",
         "additive audio protocol",
         "command-local errors",
         "Compiled Library Export v2",

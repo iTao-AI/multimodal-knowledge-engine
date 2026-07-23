@@ -1,11 +1,11 @@
 # ADR-0011: Bounded direct-audio intake
 
-Status: Accepted candidate
+Status: Accepted for v0.1.4
 
 ## Context
 
 MKE already publishes page Evidence from text-layer PDFs and timestamp Evidence from the bounded
-video path. The accepted v0.1.4 candidate adds downloaded spoken audio without changing SQLite,
+video path. v0.1.4 adds downloaded spoken audio without changing SQLite,
 Run, Publication, or Evidence authority. It supersedes only the historical deferral of direct
 audio; ADR-0003, ADR-0005, and ADR-0006 remain in force.
 
