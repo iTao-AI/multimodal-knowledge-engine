@@ -1,6 +1,7 @@
 # v0.1.4 Release Closeout Design
 
-Status: approved design source; pending mechanical landing and actual-diff review.
+Status: release published and public archive verified; post-release docs-only closeout pending
+authoritative actual-diff review, merge, immutable-state verification, and cleanup.
 
 Date: 2026-07-23
 
@@ -296,8 +297,16 @@ Publication remains separately authorized. After the exact-main gate:
 - run a public source-archive smoke in a call-owned directory.
 
 Archive smoke includes locked sync, product proof, demo, local knowledge, Evidence provenance,
-model-free direct audio, Compiled Library Export, and standalone consumption. It does not rerun
-real ASR or require the non-distributed wheelhouse/model inputs.
+model-free direct audio, a native real Compiled Library Export, standalone standard-library
+consumption, and the release-presentation audit. The archive-safe Export lane ingests the public
+PDF and video proof fixtures, runs `mke ... library export`, and validates the result through
+`scripts/compiled_library_export_consumer.py`.
+
+`scripts/compiled_library_export_proof.py` is a Git-checkout proof controller: even with
+`--mke-wheel`, its supplied-candidate path first binds a clean Git source snapshot. A GitHub source
+archive has no `.git`, so that controller is not archive-smoke authority. Archive smoke does not
+construct synthetic Git metadata, rerun real ASR, or require the non-distributed wheelhouse/model
+inputs.
 
 ### Stage 5: Post-Release Docs-Only Closeout
 
@@ -361,6 +370,43 @@ external wheelhouse, and proof logs are evidence, not release assets.
 
 PyPI, package registries, deployment, Docker publication, model publication, OCR execution,
 external-binary redistribution, and service operation remain outside this closeout.
+
+## Published Authority
+
+The release-candidate PR was squash-merged as
+`84fb533072a965b2ad833d12723e6ac0fff19d55`. Its merge tree
+`b1d5a0c767e04dd4d402163f16f3ebdce8b1a787` exactly equals the reviewed feature tree, and all nine
+observed exact-main hosted checks completed successfully.
+
+The exact-main wheel is
+`multimodal_knowledge_engine-0.1.4-py3-none-any.whl`, 353324 bytes, SHA-256
+`3b3c19fd87d015762a6d446e0e47f8719c87218734faa141915a17cca1fa72e3`. It equals the reviewed
+terminal wheel byte-for-byte. The exact-main candidate receipt binds the merge commit with
+canonical digest `5b20bbbc829eeb4fa4d066fa83bd1d97f8544ba7865f2db563f1405a0b628b4f`
+and file SHA-256 `f7ceae28989bae12d568a611513a3fac6f848967a3eac923398bb5110de934c2`.
+The reviewed real direct-audio terminal receipt has SHA-256
+`91f3bfcb5e8ef1d1b12d4a31724e0f92f3507ea25c7afaa940e5c430777339fc`.
+
+Annotated tag `v0.1.4` has tag object
+`5453f2d787185a318794d47f084c0f952939946e` and peels to the exact merge commit. The public,
+non-draft, non-prerelease GitHub Release was published with zero additional assets. Its
+GitHub-generated source archive was observed at 4214296 bytes with SHA-256
+`e9492e5115110c5fa421c565c51226ba0e25d16a62230f92760f13b1ec1a76ce`, and its reconstructed
+source tree equals the tagged tree.
+
+The archive's locked product proof, demo, local-knowledge proof, Evidence-provenance proof, and
+model-free direct-audio proof passed. The archive-safe native Export produced two Sources and three
+Evidence records with `mke.compiled_library_export.v1`; the standalone consumer returned
+`status=passed`, and the presentation audit returned `status=ok` with zero violations.
+
+Two attempts to use the Git-checkout proof controller from the Git-less archive failed closed with
+`candidate_artifact_invalid`. The first omitted `--mke-wheel`; the second supplied an
+archive-built wheel that exactly equaled the reviewed wheel. Investigation confirmed that
+`_supplied_candidate()` requests Git source authority before opening or copying that wheel. These
+failures remain recorded and are not rewritten as successful retries. Native Export plus
+standalone consumption is the archive-smoke authority for this release. A native regression for a
+Git-less archive plus an exact supplied wheel is a future-version controller follow-up, not a
+`v0.1.4` fix.
 
 ## Rollback
 
