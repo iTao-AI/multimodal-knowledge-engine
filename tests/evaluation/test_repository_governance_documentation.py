@@ -231,6 +231,11 @@ def test_v014_post_release_review_records_final_authority_without_rewriting_pr89
         "independent follow-up",
         "Task-owned release-candidate and post-release branches/worktrees were cleaned",
         "detached historical-source worktree remains retained and untouched",
+        "3dc372adca32191b4708681daf100cdc57e3ac1f",
+        "nine-file truth-repair scope",
+        "targeted actual-diff review: `clean`",
+        "required four-module suite: `254 passed`",
+        "ACCEPTED / CLEARED FOR PR HANDOFF",
     ):
         assert fact.lower() in text
 

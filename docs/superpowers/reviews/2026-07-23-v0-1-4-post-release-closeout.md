@@ -206,3 +206,19 @@ and external compatibility evidence.
 No post-release closeout gate remains for PR #89. Immutable tag and Release identity remain the
 PR #88 release commit; the independent truth-repair candidate must receive its own review and
 verification and makes no publication, tag, or release mutation.
+
+## Independent Truth-Reconciliation Acceptance
+
+This is an independent docs/tests-only follow-up after PR #89. It preserves PR #89's original
+four-file scope and history; it does not rewrite that diff. The immutable `v0.1.4` tag and public
+GitHub Release remain bound to the PR #88 release commit.
+
+- Reviewed implementation head: `3dc372adca32191b4708681daf100cdc57e3ac1f`.
+- Scope: nine-file truth-repair scope covering release-facing documentation, the presentation
+  audit, and their documentation contracts.
+- Targeted actual-diff review: `CLEAN`.
+- Required four-module suite: `254 passed`; release-presentation audit: `status=ok`, zero
+  violations; Ruff passed; Pyright reported 0 errors and 0 warnings; Markdown link, Mermaid, and
+  public-boundary checks passed.
+
+Status: `ACCEPTED / CLEARED FOR PR HANDOFF`.
