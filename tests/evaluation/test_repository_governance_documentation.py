@@ -18,6 +18,9 @@ RELEASE_REVIEW = (
 POST_RELEASE_REVIEW = (
     ROOT / "docs/superpowers/reviews/2026-07-17-v0-1-3-post-release-closeout.md"
 )
+V014_POST_RELEASE_REVIEW = (
+    ROOT / "docs/superpowers/reviews/2026-07-23-v0-1-4-post-release-closeout.md"
+)
 
 
 def _text(path: Path) -> str:
@@ -159,8 +162,8 @@ def test_docs_index_links_governance_and_completed_authorities() -> None:
     assert "[Superpowers Workspace](./superpowers/README.md)" in text
     assert "[ADR-0010](./decisions/0010-pdf-ocr-evaluation-manifest-fingerprint.md)" in text
     assert "post-merge operational gate pending" not in text
-    assert "source-built proof for the current source checkout" in text
-    assert "`v0.1.4` release-candidate verification gate" in normalized
+    assert "source-built regression and consumer proof for the current source checkout" in text
+    assert "historical `v0.1.4` release-candidate verification gate" in normalized
 
 
 def test_docs_index_links_all_current_documentation_areas() -> None:
@@ -206,6 +209,44 @@ def test_v013_closeout_docs_record_completed_docs_merge_and_cleanup() -> None:
         assert stale not in combined
     assert "- [x] **Step 7: Land docs-only post-release closeout**" in _text(RELEASE_PLAN)
     assert "- [x] **Step 8: Perform safe task-owned cleanup**" in _text(RELEASE_PLAN)
+
+
+def test_v014_post_release_review_records_final_authority_without_rewriting_pr89_scope() -> None:
+    text = _normalized(V014_POST_RELEASE_REVIEW).lower()
+
+    for fact in (
+        "Status: `FINAL POST-RELEASE CLOSEOUT RECORD`",
+        "Release-candidate PR:",
+        "pull/88",
+        "Post-release PR:",
+        "pull/89",
+        "6a03765b25edd5a0b2c432ad3b3bf705ca36b7d4",
+        "071100feb51dd041c41020f71426b75ebffd7654",
+        "dbecc45b51e0b884c6c34a329e147310b1e3f83b",
+        "5453f2d787185a318794d47f084c0f952939946e",
+        "84fb533072a965b2ad833d12723e6ac0fff19d55",
+        "exact-head 9/9",
+        "exact-main 8/8",
+        "`uv graph` is an exact-head check only",
+        "independent follow-up",
+        "Task-owned release-candidate and post-release branches/worktrees were cleaned",
+        "detached historical-source worktree remains retained and untouched",
+        "3dc372adca32191b4708681daf100cdc57e3ac1f",
+        "nine-file truth-repair scope",
+        "targeted actual-diff review: `clean`",
+        "required four-module suite: `254 passed`",
+        "ACCEPTED / CLEARED FOR PR HANDOFF",
+    ):
+        assert fact.lower() in text
+
+    for stale in (
+        "PENDING AUTHORITATIVE ACTUAL-DIFF REVIEW",
+        "The remaining gates are:",
+        "this review remains pending",
+        "worktree/branch remain retained",
+        "Nine observed exact-main check runs",
+    ):
+        assert stale.lower() not in text
 
 
 def test_relative_markdown_links_in_governance_docs_resolve() -> None:

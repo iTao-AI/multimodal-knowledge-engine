@@ -19,8 +19,8 @@ auditing implementation history.
 - [MCP Contract Reference](./reference/mcp-contract.md)
 - [Run The Evidence Provenance Proof](./how-to/run-evidence-provenance-proof.md)
 - [Run The Consumer Source-Pack Proof](./how-to/run-consumer-source-pack-proof.md) documents a
-  source-built proof for the current source checkout as a `v0.1.4` release-candidate verification
-  gate.
+  source-built regression and consumer proof for the current source checkout; it was a historical
+  `v0.1.4` release-candidate verification gate.
 
 `v0.1.4` adds bounded direct-audio MP3, WAV/PCM, and M4A/AAC intake with timestamp Evidence and
 Compiled Library Export v2. It retains `mke.compiled_library_export.v1`, readable

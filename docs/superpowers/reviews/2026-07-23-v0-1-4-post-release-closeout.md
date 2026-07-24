@@ -1,6 +1,6 @@
 # v0.1.4 Post-Release Closeout
 
-Status: `PENDING AUTHORITATIVE ACTUAL-DIFF REVIEW`
+Status: `FINAL POST-RELEASE CLOSEOUT RECORD`
 
 Date: 2026-07-24
 
@@ -14,9 +14,27 @@ Date: 2026-07-24
 - Merged at: `2026-07-23T18:35:15Z`
 
 The exact-head merge gates were reconciled before the ordinary squash merge. The reviewed tree
-and merge tree are equal. Nine observed exact-main check runs completed successfully on the merge
-commit: Python 3.12 and 3.13, both embedding-extra cells, uv graph, both CodeQL analyses,
-consumer source-pack proof, and Compiled Library Export proof.
+and merge tree are equal. Exact-head 9/9 check runs completed successfully: Python 3.12 and 3.13,
+both embedding-extra cells, uv graph, both CodeQL analyses, consumer source-pack proof, and
+Compiled Library Export proof. Fresh exact-main 8/8 check runs completed successfully: Python
+3.12 and 3.13, both embedding-extra cells, both CodeQL analyses, consumer source-pack proof, and
+Compiled Library Export proof. `uv graph` is an exact-head check only, not an exact-main check-run
+on the merge SHA.
+
+PR #88 is the release-candidate authority. Its immutable `v0.1.4` tag and public GitHub Release
+continue to point to release commit `84fb533072a965b2ad833d12723e6ac0fff19d55`; they do not point
+to the later documentation work.
+
+## Post-Release Documentation Authority
+
+- Post-release PR: <https://github.com/iTao-AI/multimodal-knowledge-engine/pull/89>
+- Reviewed head: `6a03765b25edd5a0b2c432ad3b3bf705ca36b7d4`
+- Reviewed tree: `071100feb51dd041c41020f71426b75ebffd7654`
+- Squash merge commit: `dbecc45b51e0b884c6c34a329e147310b1e3f83b`
+
+PR #89's reviewed tree equals its squash-merge tree. Its original four-file scope remains
+historical PR #89 scope; this later truth-repair candidate is an independent follow-up and is not
+retroactively described as part of PR #89's diff.
 
 ## Exact-Main Verification
 
@@ -138,9 +156,9 @@ supplied wheel. A future version may add an explicit, non-circular source-author
 corresponding regression, or keep archive verification on the archive-safe native consumer lane.
 `v0.1.4` did not change the controller and does not claim this limitation is fixed.
 
-## Docs-Only Candidate Scope
+## PR #89 Docs-Only Scope And Verification
 
-This post-release candidate changes exactly:
+PR #89 changed exactly:
 
 - the approved v0.1.4 release-closeout design;
 - the v0.1.4 release-closeout implementation plan;
@@ -151,7 +169,7 @@ It records immutable publication facts and corrects the durable archive-smoke co
 not change product/controller code, tests, version identity, dependency receipts, evaluation
 artifacts, release notes, historical v0.1.3 records, tag, Release, or public archive.
 
-## Docs-Only Verification
+Its docs-only verification recorded:
 
 - Focused release documentation and presentation suite: `271 passed`.
 - Live release-presentation audit: `status=ok`, zero violations.
@@ -165,9 +183,9 @@ The `document-release` audit found no new public behavior and no missing release
 quadrant. The immutable record has reference coverage in this review, task-oriented archive
 instructions in `docs/how-to/verify-release.md`, and rationale/history in the design and plan.
 Existing tutorials remain accurate because the docs-only closeout adds no user workflow.
-README, architecture, contribution, changelog, and release-note content remain consistent with the
-published release. No architecture diagram changed or drifted, and no VERSION or TODOS file
-requires an update.
+No architecture diagram changed or drifted, and no VERSION or TODOS file required an update. A
+later independent truth-repair candidate corrects release-facing README and consumer-proof framing
+without changing PR #89 history or immutable publication identity.
 
 ## Distribution And Non-Claims
 
@@ -176,21 +194,31 @@ deployed or published outside the zero-asset GitHub Release. The release does no
 readiness, adoption, business impact, transcript accuracy, hostile-media containment, a hard
 aggregate RSS ceiling, or cross-platform provider support.
 
-## Retained Evidence And Remaining Gates
+## Retained Evidence And Cleanup
 
 Call-owned private publication, archive-smoke, exact-main, and Task 8 evidence remain retained
-outside the repository. The existing release-candidate worktree/branch and this docs-only
-worktree/branch remain retained. Operator-owned dependency wheelhouse, model, direct-audio
-evidence, the detached historical-source worktree, unrelated worktrees/branches, caches, Docker
-resources, and external compatibility evidence remain untouched.
+outside the repository. Task-owned release-candidate and post-release branches/worktrees were
+cleaned after their retained merged history and verification evidence were confirmed. The detached
+historical-source worktree remains retained and untouched, as do operator-owned dependency
+wheelhouse, model, direct-audio evidence, unrelated worktrees/branches, caches, Docker resources,
+and external compatibility evidence.
 
-The remaining gates are:
+No post-release closeout gate remains for PR #89. Immutable tag and Release identity remain the
+PR #88 release commit; the independent truth-repair candidate must receive its own review and
+verification and makes no publication, tag, or release mutation.
 
-1. authoritative actual-diff review of this exact four-file docs-only candidate;
-2. normal push, Draft docs-only PR, exact-head checks, and ordinary squash merge;
-3. reviewed/merge tree equality and exact-main hosted checks;
-4. fresh immutable tag/Release/presentation/main verification; and
-5. exact task-owned branch/worktree cleanup.
+## Independent Truth-Reconciliation Acceptance
 
-Until those gates complete, this review remains pending and the overall release-closeout plan is
-not marked fully complete.
+This is an independent docs/tests-only follow-up after PR #89. It preserves PR #89's original
+four-file scope and history; it does not rewrite that diff. The immutable `v0.1.4` tag and public
+GitHub Release remain bound to the PR #88 release commit.
+
+- Reviewed implementation head: `3dc372adca32191b4708681daf100cdc57e3ac1f`.
+- Scope: nine-file truth-repair scope covering release-facing documentation, the presentation
+  audit, and their documentation contracts.
+- Targeted actual-diff review: `CLEAN`.
+- Required four-module suite: `254 passed`; release-presentation audit: `status=ok`, zero
+  violations; Ruff passed; Pyright reported 0 errors and 0 warnings; Markdown link, Mermaid, and
+  public-boundary checks passed.
+
+Status: `ACCEPTED / CLEARED FOR PR HANDOFF`.

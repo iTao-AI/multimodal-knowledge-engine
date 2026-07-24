@@ -7,8 +7,8 @@ searching, and asking questions over documents and media. It keeps source proces
 activation, retrieval, and Agent-facing interfaces inside one verifiable local application boundary.
 
 The [Run The Consumer Source-Pack Proof](./docs/how-to/run-consumer-source-pack-proof.md) guide
-documents a source-built proof for the current source checkout as a `v0.1.4` release-candidate
-verification gate.
+documents a source-built regression and consumer proof for the current source checkout. It was a
+historical `v0.1.4` release-candidate verification gate.
 
 `v0.1.4` adds bounded direct-audio intake for local MP3, WAV/PCM, and M4A/AAC clips while retaining
 Compiled Library Export, strict Evidence provenance, and the external source-pack proof using the
@@ -279,8 +279,13 @@ or SLA.
 
 Start with the offline model-free proof, then follow the Python, CLI, stdio MCP, and explicit
 Export v2 golden paths in [Use bounded direct audio](docs/how-to/use-direct-audio.md). The separate
-[installed-wheel proof guide](docs/how-to/run-direct-audio-proof.md) remains an authorization gate;
-this release does not claim that terminal real ASR has run.
+[installed-wheel proof guide](docs/how-to/run-direct-audio-proof.md) records a separately
+authorized terminal observation. It used fixed MP3, WAV, and M4A fixtures on Darwin arm64 with a
+prepared cache-only faster-whisper model and bounded supervision. It returned `status=passed` and
+`canonical=true` across Python, CLI, stdio MCP, published Runs, timestamp Evidence, Search/Ask,
+Export v2, network denial, and cleanup. This does not prove transcript accuracy, a production SLA,
+hosted production, cross-platform support, arbitrary media support, hostile-media sandboxing,
+business adoption, or real-user outcomes.
 
 ## Documentation
 

@@ -3,7 +3,8 @@
 This how-to runs a source-built proof against the current source checkout. The controller builds
 the current source checkout once, installs that same wheel into two fresh environments for Python
 3.12 and Python 3.13, and runs a copied standalone client through the official MCP SDK. This
-source-built proof is a `v0.1.4` release-candidate verification gate.
+source-built regression and consumer proof is for the current source checkout. It was a historical
+`v0.1.4` release-candidate verification gate.
 
 ## Prerequisites
 
