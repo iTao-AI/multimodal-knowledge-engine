@@ -643,6 +643,74 @@ def _audit_compiled_library_claim_boundary(root: Path, files: Iterable[str]) -> 
 
 def _line_overclaims_direct_audio(line: str) -> bool:
     lowered = " ".join(line.casefold().split())
+    english_bounded_markers = (
+        "separately authorized",
+        "fixed mp3, wav, and m4a fixtures",
+        "darwin arm64",
+        "prepared cache-only faster-whisper model",
+        "bounded supervision",
+        "status=passed",
+        "canonical=true",
+        "python, cli, stdio mcp",
+        "published runs",
+        "timestamp evidence",
+        "search/ask",
+        "export v2",
+        "network denial",
+        "cleanup",
+        "does not prove transcript accuracy",
+        "production sla",
+        "hosted production",
+        "cross-platform support",
+        "arbitrary media support",
+        "hostile-media sandboxing",
+        "business adoption",
+        "real-user outcomes",
+    )
+    chinese_bounded_markers = (
+        "单独授权",
+        "fixed mp3、wav 和 m4a fixtures",
+        "darwin arm64",
+        "prepared cache-only faster-whisper model",
+        "bounded supervision",
+        "status=passed",
+        "canonical=true",
+        "python、cli、stdio mcp",
+        "published runs",
+        "timestamp evidence",
+        "search/ask",
+        "export v2",
+        "network denial",
+        "cleanup",
+        "不证明 transcript accuracy",
+        "production sla",
+        "hosted production",
+        "cross-platform support",
+        "arbitrary media support",
+        "hostile-media sandbox",
+        "business adoption",
+        "real-user outcomes",
+    )
+    fully_bounded_terminal_observation = any(
+        all(marker in lowered for marker in markers)
+        for markers in (english_bounded_markers, chinese_bounded_markers)
+    )
+    terminal_observation_affirmatives = (
+        r"\bterminal\b.*\b(?:proof|observation)\b.*"
+        r"\b(?:status\s*=\s*passed|canonical\s*=\s*true|passed|real\s+asr)\b",
+        r"(?:终端|terminal).*(?:证明|观察|proof|observation).*"
+        r"(?:status\s*=\s*passed|canonical\s*=\s*true|通过|真实\s*asr)",
+    )
+    terminal_observation_negations = (
+        r"\bterminal\b.*\b(?:proof|observation)\b.*\b(?:did not|has not|does not)\b",
+        r"(?:终端|terminal).*(?:证明|观察|proof|observation).*(?:未|不|没有)",
+    )
+    if (
+        any(re.search(pattern, lowered) for pattern in terminal_observation_affirmatives)
+        and not any(re.search(pattern, lowered) for pattern in terminal_observation_negations)
+        and not fully_bounded_terminal_observation
+    ):
+        return True
     clauses = re.split(
         r"(?:[;!?；！？。]+|\.\s+|,\s+but\s+|(?:，|,)\s*(?:但|但是)\s*|"
         r"\s+(?:but|while|although|但|但是)\s+|"

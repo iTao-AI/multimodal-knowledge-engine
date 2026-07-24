@@ -1163,6 +1163,28 @@ def test_audit_accepts_fully_bounded_terminal_asr_observation(tmp_path: Path) ->
 
 
 @pytest.mark.parametrize(
+    "claim",
+    (
+        "A terminal observation returned status=passed.",
+        "A separately authorized terminal observation returned status=passed and canonical=true.",
+        "The terminal proof returned status=passed and canonical=true.",
+        "一次 terminal observation 返回 status=passed。",
+    ),
+)
+def test_audit_rejects_incomplete_affirmative_terminal_observation(
+    tmp_path: Path, claim: str
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "README.md"
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{claim}\n",
+        encoding="utf-8",
+    )
+
+    assert "direct_audio_overclaim" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
     "contradiction",
     (
         "MKE verified real ASR in the terminal proof.",
