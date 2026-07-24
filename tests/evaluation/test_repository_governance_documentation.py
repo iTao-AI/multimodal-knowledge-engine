@@ -212,7 +212,7 @@ def test_v013_closeout_docs_record_completed_docs_merge_and_cleanup() -> None:
 
 
 def test_v014_post_release_review_records_final_authority_without_rewriting_pr89_scope() -> None:
-    text = _normalized(V014_POST_RELEASE_REVIEW)
+    text = _normalized(V014_POST_RELEASE_REVIEW).lower()
 
     for fact in (
         "Status: `FINAL POST-RELEASE CLOSEOUT RECORD`",
@@ -225,19 +225,23 @@ def test_v014_post_release_review_records_final_authority_without_rewriting_pr89
         "dbecc45b51e0b884c6c34a329e147310b1e3f83b",
         "5453f2d787185a318794d47f084c0f952939946e",
         "84fb533072a965b2ad833d12723e6ac0fff19d55",
+        "exact-head 9/9",
+        "exact-main 8/8",
+        "`uv graph` is an exact-head check only",
         "independent follow-up",
         "Task-owned release-candidate and post-release branches/worktrees were cleaned",
         "detached historical-source worktree remains retained and untouched",
     ):
-        assert fact in text
+        assert fact.lower() in text
 
     for stale in (
         "PENDING AUTHORITATIVE ACTUAL-DIFF REVIEW",
         "The remaining gates are:",
         "this review remains pending",
         "worktree/branch remain retained",
+        "Nine observed exact-main check runs",
     ):
-        assert stale not in text
+        assert stale.lower() not in text
 
 
 def test_relative_markdown_links_in_governance_docs_resolve() -> None:

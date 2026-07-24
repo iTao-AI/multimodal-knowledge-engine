@@ -14,9 +14,12 @@ Date: 2026-07-24
 - Merged at: `2026-07-23T18:35:15Z`
 
 The exact-head merge gates were reconciled before the ordinary squash merge. The reviewed tree
-and merge tree are equal. Nine observed exact-main check runs completed successfully on the merge
-commit: Python 3.12 and 3.13, both embedding-extra cells, uv graph, both CodeQL analyses,
-consumer source-pack proof, and Compiled Library Export proof.
+and merge tree are equal. Exact-head 9/9 check runs completed successfully: Python 3.12 and 3.13,
+both embedding-extra cells, uv graph, both CodeQL analyses, consumer source-pack proof, and
+Compiled Library Export proof. Fresh exact-main 8/8 check runs completed successfully: Python
+3.12 and 3.13, both embedding-extra cells, both CodeQL analyses, consumer source-pack proof, and
+Compiled Library Export proof. `uv graph` is an exact-head check only, not an exact-main check-run
+on the merge SHA.
 
 PR #88 is the release-candidate authority. Its immutable `v0.1.4` tag and public GitHub Release
 continue to point to release commit `84fb533072a965b2ad833d12723e6ac0fff19d55`; they do not point

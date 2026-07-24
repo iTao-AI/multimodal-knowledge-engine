@@ -1109,13 +1109,20 @@ def test_release_presentation_audit_accepts_current_repository() -> None:
     assert audit_release_presentation(ROOT) == []
 
 
-def test_audit_rejects_stale_terminal_asr_denial_only_in_current_readmes(
-    tmp_path: Path,
+@pytest.mark.parametrize(
+    ("readme", "stale"),
+    (
+        ("README.md", "this release does not claim that terminal real ASR has run"),
+        ("README_CN.md", "当前 release 不声明 terminal real ASR 已运行"),
+    ),
+)
+def test_audit_rejects_exact_stale_terminal_asr_denial_only_in_current_readmes(
+    tmp_path: Path, readme: str, stale: str
 ) -> None:
     _write_release_tree(tmp_path)
-    stale = "The terminal real ASR proof has not been performed."
-    (tmp_path / "README.md").write_text(
-        f"{(tmp_path / 'README.md').read_text(encoding='utf-8').rstrip()}\n\n{stale}\n",
+    current = tmp_path / readme
+    current.write_text(
+        f"{current.read_text(encoding='utf-8').rstrip()}\n\n{stale}\n",
         encoding="utf-8",
     )
     historical = tmp_path / "docs/releases/v0.1.3.md"
@@ -1125,7 +1132,7 @@ def test_audit_rejects_stale_terminal_asr_denial_only_in_current_readmes(
     violations = audit_release_presentation(tmp_path)
 
     assert any(
-        violation.file == "README.md" and violation.rule == "stale_terminal_asr_denial"
+        violation.file == readme and violation.rule == "stale_terminal_asr_denial"
         for violation in violations
     )
     assert not any(
@@ -1153,6 +1160,35 @@ def test_audit_accepts_fully_bounded_terminal_asr_observation(tmp_path: Path) ->
     )
 
     assert "direct_audio_overclaim" not in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "contradiction",
+    (
+        "MKE verified real ASR in the terminal proof.",
+        "The terminal real ASR proof passed.",
+    ),
+)
+def test_audit_rejects_unbounded_real_asr_affirmative_after_bounded_observation(
+    tmp_path: Path, contradiction: str
+) -> None:
+    _write_release_tree(tmp_path)
+    bounded = (
+        "A separately authorized terminal observation used fixed MP3, WAV, and M4A fixtures on "
+        "Darwin arm64 with a prepared cache-only faster-whisper model and bounded supervision. "
+        "It returned status=passed and canonical=true across Python, CLI, stdio MCP, published "
+        "Runs, timestamp Evidence, Search/Ask, Export v2, network denial, and cleanup. This does "
+        "not prove transcript accuracy, a production SLA, hosted production, cross-platform "
+        "support, arbitrary media support, hostile-media sandboxing, business adoption, or "
+        "real-user outcomes."
+    )
+    target = tmp_path / "README.md"
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{bounded} {contradiction}\n",
+        encoding="utf-8",
+    )
+
+    assert "direct_audio_overclaim" in _rules(tmp_path)
 
 
 def test_verify_release_co_binds_compiled_export_proof_to_validated_candidate() -> None:

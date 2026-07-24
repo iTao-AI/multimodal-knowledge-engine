@@ -62,6 +62,8 @@ STALE_TERMINAL_ASR_DENIAL_PATTERNS = (
     r"尚未运行终端真实\s*asr\s*证明",
     r"mke\s*未验证真实\s*asr",
     r"终端证明未执行真实\s*asr",
+    r"\bthis\s+release\s+does\s+not\s+claim\s+that\s+terminal\s+real\s+asr\s+has\s+run\b",
+    r"当前\s*release\s*不声明\s*terminal\s+real\s*asr\s*已运行",
 )
 RELEASE_NOTE_FILES = (
     "CHANGELOG.md",
@@ -641,33 +643,6 @@ def _audit_compiled_library_claim_boundary(root: Path, files: Iterable[str]) -> 
 
 def _line_overclaims_direct_audio(line: str) -> bool:
     lowered = " ".join(line.casefold().split())
-    bounded_terminal_observation_markers = (
-        "separately authorized",
-        "fixed mp3, wav, and m4a fixtures",
-        "darwin arm64",
-        "prepared cache-only faster-whisper model",
-        "bounded supervision",
-        "status=passed",
-        "canonical=true",
-        "python, cli, stdio mcp",
-        "published runs",
-        "timestamp evidence",
-        "search/ask",
-        "export v2",
-        "network denial",
-        "cleanup",
-        "does not prove transcript accuracy",
-        "production sla",
-        "hosted production",
-        "cross-platform support",
-        "arbitrary media support",
-        "hostile-media sandboxing",
-        "business adoption",
-        "real-user outcomes",
-    )
-    bounded_terminal_observation = all(
-        marker in lowered for marker in bounded_terminal_observation_markers
-    )
     clauses = re.split(
         r"(?:[;!?；！？。]+|\.\s+|,\s+but\s+|(?:，|,)\s*(?:但|但是)\s*|"
         r"\s+(?:but|while|although|但|但是)\s+|"
@@ -698,7 +673,7 @@ def _line_overclaims_direct_audio(line: str) -> bool:
         r"(?:尚未|没有|未)(?:运行|执行|完成|验证|重新分发|打包|捆绑)",
         r"不(?:重新分发|打包|捆绑)",
     )
-    if not bounded_terminal_observation and any(
+    if any(
         re.search(pattern, clause) is not None
         and not any(re.search(marker, clause) for marker in authority_negations)
         for clause in clauses
