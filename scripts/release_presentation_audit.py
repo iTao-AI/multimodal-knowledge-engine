@@ -55,6 +55,14 @@ README_FILES = (
     "README.md",
     "README_CN.md",
 )
+STALE_TERMINAL_ASR_DENIAL_PATTERNS = (
+    r"\bterminal\s+real\s+asr\s+proof\s+(?:has\s+)?not\s+been\s+performed\b",
+    r"\bmke\s+has\s+not\s+verified\s+real\s+asr\b",
+    r"\bterminal\s+proof\s+did\s+not\s+run\s+real\s+asr\b",
+    r"尚未运行终端真实\s*asr\s*证明",
+    r"mke\s*未验证真实\s*asr",
+    r"终端证明未执行真实\s*asr",
+)
 RELEASE_NOTE_FILES = (
     "CHANGELOG.md",
     "docs/releases/v0.1.4.md",
@@ -633,6 +641,33 @@ def _audit_compiled_library_claim_boundary(root: Path, files: Iterable[str]) -> 
 
 def _line_overclaims_direct_audio(line: str) -> bool:
     lowered = " ".join(line.casefold().split())
+    bounded_terminal_observation_markers = (
+        "separately authorized",
+        "fixed mp3, wav, and m4a fixtures",
+        "darwin arm64",
+        "prepared cache-only faster-whisper model",
+        "bounded supervision",
+        "status=passed",
+        "canonical=true",
+        "python, cli, stdio mcp",
+        "published runs",
+        "timestamp evidence",
+        "search/ask",
+        "export v2",
+        "network denial",
+        "cleanup",
+        "does not prove transcript accuracy",
+        "production sla",
+        "hosted production",
+        "cross-platform support",
+        "arbitrary media support",
+        "hostile-media sandboxing",
+        "business adoption",
+        "real-user outcomes",
+    )
+    bounded_terminal_observation = all(
+        marker in lowered for marker in bounded_terminal_observation_markers
+    )
     clauses = re.split(
         r"(?:[;!?；！？。]+|\.\s+|,\s+but\s+|(?:，|,)\s*(?:但|但是)\s*|"
         r"\s+(?:but|while|although|但|但是)\s+|"
@@ -663,7 +698,7 @@ def _line_overclaims_direct_audio(line: str) -> bool:
         r"(?:尚未|没有|未)(?:运行|执行|完成|验证|重新分发|打包|捆绑)",
         r"不(?:重新分发|打包|捆绑)",
     )
-    if any(
+    if not bounded_terminal_observation and any(
         re.search(pattern, clause) is not None
         and not any(re.search(marker, clause) for marker in authority_negations)
         for clause in clauses
@@ -694,10 +729,12 @@ def _line_overclaims_direct_audio(line: str) -> bool:
         r"\boutside\b",
         r"\bno automatic\b",
         r"\bno implicit\b",
+        r"\bdoes not prove\b",
         r"\bclips (?:or|and) excerpts\b",
         r"并非",
         r"不提供",
         r"不声明",
+        r"不证明",
         r"排除",
         r"之外",
     )
@@ -752,6 +789,26 @@ def _line_overclaims_direct_audio(line: str) -> bool:
         for clause in clauses
         for pattern in patterns
     )
+
+
+def _audit_stale_terminal_asr_denial(root: Path) -> list[Violation]:
+    violations: list[Violation] = []
+    for file_name in README_FILES:
+        text = _read_text(root, file_name)
+        for line_number, context in _markdown_claim_contexts(text):
+            lowered = " ".join(context.casefold().split())
+            if any(re.search(pattern, lowered) for pattern in STALE_TERMINAL_ASR_DENIAL_PATTERNS):
+                violations.append(
+                    Violation(
+                        file=file_name,
+                        rule="stale_terminal_asr_denial",
+                        message=(
+                            f"line {line_number} denies the separately authorized terminal "
+                            "ASR observation"
+                        ),
+                    )
+                )
+    return violations
 
 
 def _audit_direct_audio_claim_boundary(root: Path, files: Iterable[str]) -> list[Violation]:
@@ -1060,6 +1117,7 @@ def audit_release_presentation(root: Path) -> list[Violation]:
     violations.extend(_audit_comparison_boundary(root, release_files))
     violations.extend(_audit_compiled_library_claim_boundary(root, COMPILED_LIBRARY_CLAIM_FILES))
     violations.extend(_audit_direct_audio_claim_boundary(root, DIRECT_AUDIO_CLAIM_FILES))
+    violations.extend(_audit_stale_terminal_asr_denial(root))
     violations.extend(_audit_release_notes_links(root))
     violations.extend(_audit_v013_contract(root))
     violations.extend(_audit_v014_contract(root))

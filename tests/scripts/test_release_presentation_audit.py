@@ -1109,6 +1109,52 @@ def test_release_presentation_audit_accepts_current_repository() -> None:
     assert audit_release_presentation(ROOT) == []
 
 
+def test_audit_rejects_stale_terminal_asr_denial_only_in_current_readmes(
+    tmp_path: Path,
+) -> None:
+    _write_release_tree(tmp_path)
+    stale = "The terminal real ASR proof has not been performed."
+    (tmp_path / "README.md").write_text(
+        f"{(tmp_path / 'README.md').read_text(encoding='utf-8').rstrip()}\n\n{stale}\n",
+        encoding="utf-8",
+    )
+    historical = tmp_path / "docs/releases/v0.1.3.md"
+    historical.parent.mkdir(parents=True, exist_ok=True)
+    historical.write_text(f"# v0.1.3\n\n{stale}\n", encoding="utf-8")
+
+    violations = audit_release_presentation(tmp_path)
+
+    assert any(
+        violation.file == "README.md" and violation.rule == "stale_terminal_asr_denial"
+        for violation in violations
+    )
+    assert not any(
+        violation.file == "docs/releases/v0.1.3.md"
+        and violation.rule == "stale_terminal_asr_denial"
+        for violation in violations
+    )
+
+
+def test_audit_accepts_fully_bounded_terminal_asr_observation(tmp_path: Path) -> None:
+    _write_release_tree(tmp_path)
+    claim = (
+        "A separately authorized terminal observation used fixed MP3, WAV, and M4A fixtures on "
+        "Darwin arm64 with a prepared cache-only faster-whisper model and bounded supervision. "
+        "It returned status=passed and canonical=true across Python, CLI, stdio MCP, published "
+        "Runs, timestamp Evidence, Search/Ask, Export v2, network denial, and cleanup. This does "
+        "not prove transcript accuracy, a production SLA, hosted production, cross-platform "
+        "support, arbitrary media support, hostile-media sandboxing, business adoption, or "
+        "real-user outcomes."
+    )
+    target = tmp_path / "README.md"
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{claim}\n",
+        encoding="utf-8",
+    )
+
+    assert "direct_audio_overclaim" not in _rules(tmp_path)
+
+
 def test_verify_release_co_binds_compiled_export_proof_to_validated_candidate() -> None:
     text = Path("docs/how-to/verify-release.md").read_text(encoding="utf-8")
 
@@ -1205,6 +1251,10 @@ APPROVED_DIRECT_AUDIO_CLAIM = (
         "The terminal real ASR proof passed.",
         "MKE verified real ASR in the terminal proof.",
         "The terminal proof ran real ASR.",
+        (
+            "The terminal real ASR proof passed with production verified transcript accuracy, "
+            "an SLA, and cross-platform support."
+        ),
         "MKE redistributes external wheels and native binaries.",
         "MKE redistributes external wheels/native binaries.",
         "MKE bundles external wheels and native binaries.",

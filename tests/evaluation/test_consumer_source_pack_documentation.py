@@ -112,7 +112,7 @@ def documentation_violations(how_to: str, readme: str, docs_index: str) -> list[
     if len(docs_navigation) != 1:
         violations.append("docs_navigation")
 
-    gate = "a `v0.1.4` release-candidate verification gate"
+    gate = "historical `v0.1.4` release-candidate verification gate"
     if gate not in normalized(how_to).lower():
         violations.append("how_to_release_candidate_gate")
     if any(gate not in normalized(paragraph).lower() for paragraph in readme_navigation):
@@ -130,7 +130,7 @@ def documentation_violations(how_to: str, readme: str, docs_index: str) -> list[
         )
     ).lower()
     for label, required in (
-        ("release_candidate_gate", "`v0.1.4` release-candidate verification gate"),
+        ("release_candidate_gate", "historical `v0.1.4` release-candidate verification gate"),
         ("final_wheel_boundary", "not the final tagged `v0.1.4` release wheel"),
         ("release_asset_boundary", "not a github release asset"),
         ("pypi_boundary", "not a pypi artifact"),
@@ -140,7 +140,7 @@ def documentation_violations(how_to: str, readme: str, docs_index: str) -> list[
         if required not in scoped_text:
             violations.append(label)
     for allowed_boundary in (
-        "`v0.1.4` release-candidate verification gate",
+        "historical `v0.1.4` release-candidate verification gate",
         "not the final tagged `v0.1.4` release wheel",
         "not a github release asset",
         "not a release or pypi artifact",
@@ -180,9 +180,10 @@ def _claim_final_release_wheel(text: str) -> str:
 
 
 def _remove_release_candidate_gate(text: str) -> str:
-    return text.replace(
-        "a `v0.1.4` release-candidate verification gate",
+    return re.sub(
+        r"a historical\s+`v0\.1\.4`\s+release-candidate\s+verification\s+gate",
         "an optional local check",
+        text,
     )
 
 
@@ -323,12 +324,15 @@ def test_consumer_source_pack_navigation_is_minimal_and_discoverable() -> None:
     docs_index = DOCS_INDEX.read_text(encoding="utf-8")
 
     assert f"[Run The Consumer Source-Pack Proof](./{HOW_TO_LINK})" in readme
-    assert "source-built proof for the current source checkout" in readme
+    assert "source-built regression and consumer proof for the current source checkout" in readme
     assert (
         "[Run The Consumer Source-Pack Proof](./how-to/run-consumer-source-pack-proof.md)"
         in docs_index
     )
-    assert "source-built proof for the current source checkout" in docs_index
+    assert (
+        "source-built regression and consumer proof for the current source checkout"
+        in docs_index
+    )
 
 
 def test_consumer_source_pack_docs_preserve_release_candidate_boundary() -> None:
@@ -343,7 +347,7 @@ def test_consumer_source_pack_docs_preserve_release_candidate_boundary() -> None
     )
 
     for required_boundary in (
-        "a `v0.1.4` release-candidate verification gate",
+        "a historical `v0.1.4` release-candidate verification gate",
         "not the final tagged `v0.1.4` Release wheel",
         "not a GitHub Release asset",
         "not a PyPI artifact",
@@ -403,7 +407,7 @@ def test_current_documentation_contract_has_no_violations() -> None:
 def test_navigation_contract_rejects_affirmative_claims(surface: Path, claim: str) -> None:
     original = surface.read_text(encoding="utf-8")
     mutated = re.sub(
-        r"as a `v0\.1\.4` release-candidate\s+verification\s+gate\.",
+        r"historical\s+`v0\.1\.4`\s+release-candidate\s+verification\s+gate\.",
         claim,
         original,
     )

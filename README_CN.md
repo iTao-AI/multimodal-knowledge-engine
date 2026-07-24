@@ -270,8 +270,12 @@ supervision value；MKE 不提供 runtime budget 默认值、推荐值或 SLA。
 
 先运行 offline model-free proof，再按 [Use bounded direct audio](docs/how-to/use-direct-audio.md)
 完成 Python、CLI、stdio MCP 与 explicit Export v2 golden paths。独立的
-[installed-wheel proof guide](docs/how-to/run-direct-audio-proof.md) 仍是授权 gate；当前 release
-不声明 terminal real ASR 已运行。
+[installed-wheel proof guide](docs/how-to/run-direct-audio-proof.md) 记录了一次单独授权的 terminal
+observation：它在 Darwin arm64 上使用 fixed MP3、WAV 和 M4A fixtures、prepared cache-only
+faster-whisper model 与 bounded supervision，返回 `status=passed` / `canonical=true`，覆盖 Python、
+CLI、stdio MCP、published Runs、timestamp Evidence、Search/Ask、Export v2、network denial 与 cleanup。
+这不证明 transcript accuracy、production SLA、hosted production、cross-platform support、arbitrary
+media support、hostile-media sandbox、business adoption 或 real-user outcomes。
 
 ## 文档
 
