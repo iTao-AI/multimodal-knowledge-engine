@@ -6,7 +6,7 @@ the local uv cache. The proof runs with `UV_OFFLINE=1`; it does not install glob
 dependencies.
 
 ```bash
-uv export --locked --no-dev --no-emit-project \
+uv export --locked --no-dev --no-emit-project --no-header \
   --output-file /ABSOLUTE/PATH/TO/mke-core-requirements.txt
 
 UV_OFFLINE=1 uv run python scripts/mcp_context_completeness_proof.py \
@@ -24,9 +24,14 @@ and `sys.executable` belong to the external environment, not the source checkout
 environments are removed when the controller exits; the requested candidate output remains
 available for inspection.
 
+Before building the wheel, the controller independently runs the same no-header locked export and
+requires its exact bytes to equal `--constraints`. A missing, stale, empty, or arbitrary constraints
+file fails before build or installation.
+
 A successful closed receipt reports `source_import="installed_wheel"`,
-`network_access="not_used"`, both Python versions, ten tools, contract proof-point statuses, and
-the greatest observed canonical and SDK result byte counts. A failure prints only
+`network_access="not_used"`, `dependency_constraints="uv_lock_exact"`, both Python versions, ten
+tools, contract proof-point statuses, and the greatest observed canonical and SDK result byte
+counts. A failure prints only
 `{"status":"failed","code":"<stable-machine-code>"}`.
 
 The proof covers exact discovery, structured/compatibility text equality, Search continuation,

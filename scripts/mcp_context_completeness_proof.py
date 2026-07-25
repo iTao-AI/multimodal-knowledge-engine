@@ -200,6 +200,21 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         raise ProofFailure("python_interpreter_unavailable")
     if not constraints.is_file():
         raise ProofFailure("locked_constraints_unavailable")
+    locked_export = command(
+        [
+            "uv",
+            "export",
+            "--locked",
+            "--no-dev",
+            "--no-emit-project",
+            "--no-header",
+        ],
+        cwd=repository,
+    )
+    if locked_export.returncode != 0:
+        raise ProofFailure("locked_constraints_unavailable")
+    if constraints.read_bytes() != locked_export.stdout.encode("utf-8"):
+        raise ProofFailure("locked_constraints_mismatch")
     args.candidate_output.mkdir(parents=True, exist_ok=True)
     build = command(
         ["uv", "build", "--wheel", "--out-dir", str(args.candidate_output)],
@@ -242,6 +257,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "max_sdk_result_bytes": max(result["max_sdk_result_bytes"] for result in results),
         "source_import": "installed_wheel",
         "network_access": "not_used",
+        "dependency_constraints": "uv_lock_exact",
     }
 
 

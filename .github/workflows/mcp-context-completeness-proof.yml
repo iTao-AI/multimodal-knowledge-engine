@@ -40,7 +40,7 @@ jobs:
       - name: Provision locked cache for controller and both interpreters
         run: |
           uv sync --locked
-          uv export --locked --no-dev --no-emit-project \
+          uv export --locked --no-dev --no-emit-project --no-header \
             --output-file "$RUNNER_TEMP/mke-core-requirements.txt"
           uv venv "$RUNNER_TEMP/mke-prewarm-312" \
             --python "${{ steps.python312.outputs.python-path }}" \
