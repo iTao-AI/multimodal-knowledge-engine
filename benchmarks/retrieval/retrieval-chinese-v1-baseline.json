@@ -48,7 +48,7 @@
     "integrity_claim": "adjudication_record_integrity"
   },
   "source_identity": {
-    "sha256": "7033bc8eb7efb04e9af1d700154bb30fda32f92e89eef9a14d2713c4876476d7",
+    "sha256": "2ee2c1401903690220021c0ac47700ee8b88dfecbb65746ce8194345f308bdaa",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -197,8 +197,8 @@
       },
       {
         "path": "src/mke/application/mcp_cursor.py",
-        "bytes": 5352,
-        "sha256": "05a3a7bd0e29e2e6d0c7b7596579e5372a2d4170adedda9edd9e0cfaacaafa62"
+        "bytes": 5396,
+        "sha256": "a5e4c4cbbb3730a9b4b91efcefe810dfa5196845ee53ff82f364231152562e68"
       },
       {
         "path": "src/mke/cli.py",
@@ -472,8 +472,8 @@
       },
       {
         "path": "src/mke/interfaces/mcp_completeness_contract.py",
-        "bytes": 13927,
-        "sha256": "0bcca7d56dc751d6a68e0518ef7d48bc223b0d00c88aae9465751fd90fe673f6"
+        "bytes": 14012,
+        "sha256": "2afeded8982c544fbacba3f5e61d78576f1f98ed84a21d357030088f1d2a78f8"
       },
       {
         "path": "src/mke/interfaces/mcp_contract.py",
@@ -482,8 +482,8 @@
       },
       {
         "path": "src/mke/interfaces/mcp_schemas.py",
-        "bytes": 12466,
-        "sha256": "8c62bb12026e10a91857c4be57a82e4ace4710080855f4914afa9fe8bf241405"
+        "bytes": 12534,
+        "sha256": "a58accfb5b1502490b9b1a3ad2c7f1917fc97c97634430b532fcc19d8891d112"
       },
       {
         "path": "src/mke/interfaces/mcp_server.py",

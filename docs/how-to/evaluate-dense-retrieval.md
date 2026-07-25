@@ -39,7 +39,7 @@ Artifact identities:
 
 - Comparison artifact:
   `benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json`
-- Artifact SHA-256: `0a96a4555b9a6ca127b0b9b3f18d7c06d75f50f47886163415a345dd17b4cfd6`
+- Artifact SHA-256: `0b32f80bff11561759db9bb45c3d1851aaeee36734ceb703e7c8e2ae34d0ef4c`
 - Development freeze SHA-256: `75212f51c9e457a986ad792d1983ca9836eedcb4aa6257f3dc9d460e9c472813`
 - Holdout receipt SHA-256: `60b914f3e469e90aca4198e63ef38fadaa9ec53cfaa07f3747a5f053a93dcfc6`
 - Current runtime semantic digest: `sha256:b32dc4a1479cb3ea8e0ebedf2c27b04a10a6d91eee96e0cd0308bcf921e97959`
