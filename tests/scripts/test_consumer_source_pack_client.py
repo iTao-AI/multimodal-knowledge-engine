@@ -21,6 +21,9 @@ from scripts.consumer_source_pack_client import DiscoveredTool
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "tests/fixtures/consumer-source-pack-v1/manifest.json"
 SCHEMAS = ROOT / "tests/fixtures/consumer-source-pack-v1/mcp-tool-schemas.json"
+CURRENT_SCHEMAS = (
+    ROOT / "tests/fixtures/mcp-context-completeness-v1/mcp-tool-schemas.json"
+)
 LOCAL_FIXTURE_ROOT = ROOT / "tests/fixtures/local-knowledge-v1"
 
 
@@ -422,6 +425,50 @@ def _fixture_tools() -> list[FakeTool]:
         FakeTool(name, schema["inputSchema"], schema["outputSchema"])
         for name, schema in tools.items()
     ]
+
+
+def _current_schema_expectations() -> dict[str, object]:
+    return client.load_current_schema_expectations(CURRENT_SCHEMAS)
+
+
+def _current_fixture_tools() -> list[FakeTool]:
+    tools = cast(
+        dict[str, dict[str, object]],
+        _current_schema_expectations()["tools"],
+    )
+    return [
+        FakeTool(name, schema["inputSchema"], schema["outputSchema"])
+        for name, schema in tools.items()
+    ]
+
+
+def test_tool_schema_validation_accepts_release_subset_and_exact_current_inventory() -> None:
+    release = client.load_schema_expectations(SCHEMAS)
+    current = _current_schema_expectations()
+    tools = _current_fixture_tools()
+
+    client.validate_tool_schemas(tools, release, current)
+
+
+@pytest.mark.parametrize("mutation", ["missing_current", "unknown", "release_drift"])
+def test_tool_schema_validation_rejects_current_and_release_contract_drift(
+    mutation: str,
+) -> None:
+    release = client.load_schema_expectations(SCHEMAS)
+    current = _current_schema_expectations()
+    tools = _current_fixture_tools()
+    if mutation == "missing_current":
+        tools = [tool for tool in tools if tool.name != "read_evidence_v1"]
+    elif mutation == "unknown":
+        tools.append(FakeTool("unknown_eleventh_tool", {}, {}))
+    else:
+        release_tool = next(tool for tool in tools if tool.name == "search_library_v1")
+        cast(dict[str, object], release_tool.inputSchema)["release_drift"] = True
+
+    with pytest.raises(client.ProofError) as exc_info:
+        client.validate_tool_schemas(tools, release, current)
+
+    assert exc_info.value.code == "consumer_schema_invalid"
 
 
 def test_tool_schema_protocol_and_exact_fixture_validation() -> None:
