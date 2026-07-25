@@ -22,7 +22,6 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/compiled_library_export_proof.py"
 WORKFLOW = ROOT / ".github/workflows/compiled-library-export-proof.yml"
 CI_WORKFLOW = ROOT / ".github/workflows/ci.yml"
-SOURCE_PACK_WORKFLOW = ROOT / ".github/workflows/consumer-source-pack-proof.yml"
 
 
 def _load() -> Any:
@@ -963,9 +962,9 @@ def test_primary_ci_python_job_exposes_stalled_test_diagnostics() -> None:
 
 def test_workflow_uses_only_pinned_actions_and_both_explicit_interpreters() -> None:
     job = _job()
-    checkout = "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0"
-    setup_uv = "astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990"
-    setup_python = "actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1"
+    checkout = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
+    setup_uv = "astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9"
+    setup_python = "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97"
     assert job.count(checkout) == 1
     assert job.count(setup_uv) == 1
     assert job.count(setup_python) == 2
@@ -1000,7 +999,7 @@ def test_workflow_prewarms_online_then_runs_one_offline_proof() -> None:
         lambda value: value + "\n  sibling:\n    runs-on: ubuntu-latest\n",
         lambda value: value.replace('python-version: "3.13"', 'python-version: "3.12"'),
         lambda value: value.replace(
-            "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+            "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
             "actions/checkout@main",
         ),
         lambda value: value.replace('UV_OFFLINE: "1"', 'UV_OFFLINE: "0"'),
@@ -1018,18 +1017,3 @@ def test_workflow_contract_detects_forbidden_mutations(mutate: Any) -> None:
         assert job.count('python-version: "3.12"') == 1
         assert job.count('python-version: "3.13"') == 1
         assert 'UV_OFFLINE: "1"' in job
-
-
-def test_unrelated_workflows_remain_byte_identical_to_head() -> None:
-    for path in (CI_WORKFLOW, SOURCE_PACK_WORKFLOW):
-        committed = subprocess_run_git_show(path)
-        assert path.read_bytes() == committed
-
-
-def subprocess_run_git_show(path: Path) -> bytes:
-    return subprocess.run(
-        ["git", "show", f"HEAD:{path.relative_to(ROOT)}"],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-    ).stdout

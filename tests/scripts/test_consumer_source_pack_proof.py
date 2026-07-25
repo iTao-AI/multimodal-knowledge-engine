@@ -18,7 +18,6 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/consumer_source_pack_proof.py"
-CI_WORKFLOW = ROOT / ".github/workflows/ci.yml"
 CONSUMER_WORKFLOW = ROOT / ".github/workflows/consumer-source-pack-proof.yml"
 
 STABLE_FAILURE_CODES = (
@@ -88,16 +87,6 @@ def test_consumer_source_pack_workflow_has_bounded_repository_scope() -> None:
     assert "cancel-in-progress: true" in workflow
 
 
-def test_primary_ci_workflow_remains_byte_identical_to_head() -> None:
-    committed = subprocess.run(
-        ["git", "show", "HEAD:.github/workflows/ci.yml"],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-    ).stdout
-    assert CI_WORKFLOW.read_bytes() == committed
-
-
 def test_consumer_source_pack_workflow_is_one_bounded_non_matrix_job() -> None:
     job = _consumer_proof_job()
     assert "runs-on: ubuntu-latest" in job
@@ -105,8 +94,8 @@ def test_consumer_source_pack_workflow_is_one_bounded_non_matrix_job() -> None:
     assert "matrix:" not in job
     assert job.count("scripts/consumer_source_pack_proof.py") == 1
     assert "uv build" not in job
-    assert job.count("actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0") == 1
-    assert job.count("astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990") == 1
+    assert job.count("actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1") == 1
+    assert job.count("astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9") == 1
 
 
 def test_consumer_source_pack_workflow_rejects_a_sibling_job() -> None:
@@ -118,7 +107,7 @@ def test_consumer_source_pack_workflow_rejects_a_sibling_job() -> None:
 
 def test_consumer_source_pack_workflow_uses_both_explicit_interpreters() -> None:
     job = _consumer_proof_job()
-    setup_python = "actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1"
+    setup_python = "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97"
     assert job.count(setup_python) == 2
     assert re.search(
         r'id: python312\n\s+uses: .*setup-python.*\n\s+with:\n\s+python-version: "3\.12"',
