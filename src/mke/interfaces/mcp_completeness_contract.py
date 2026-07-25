@@ -181,7 +181,7 @@ def read_evidence_v1(
         snapshot = engine.read_active_evidence(
             evidence_id,
             offset_bytes=position,
-            range_bytes=None if parsed is None else max_bytes,
+            range_bytes=max_bytes if parsed_cursor is not None else None,
             authority_validator=validate,
         )
 

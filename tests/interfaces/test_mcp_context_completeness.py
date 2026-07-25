@@ -267,6 +267,42 @@ def test_malformed_cursor_has_zero_engine_access(
     assert calls == 0
 
 
+def test_read_cursor_round_trip_continues_with_server_issued_token(
+    tmp_path: Path,
+) -> None:
+    from mke.interfaces.mcp_completeness_contract import read_evidence_v1
+    from mke.interfaces.mcp_schemas import (
+        ReadEvidenceSuccessV1,
+        ReadEvidenceV1Request,
+    )
+
+    config = McpRuntimeConfig(RuntimeConfig(tmp_path / "mke.sqlite"), tmp_path)
+    engine = KnowledgeEngine(config.db_path)
+    try:
+        _publish_text(engine, ("x" * 20_000,))
+    finally:
+        engine.close()
+
+    first = read_evidence_v1(
+        config,
+        ReadEvidenceV1Request(
+            root={"evidence_id": "ev_00000000000000000000000000000001"}
+        ),
+    )
+    assert isinstance(first.root, ReadEvidenceSuccessV1)
+    assert first.root.complete is False
+    assert first.root.next_cursor is not None
+
+    continued = read_evidence_v1(
+        config,
+        ReadEvidenceV1Request(root={"cursor": first.root.next_cursor}),
+    )
+
+    assert isinstance(continued.root, ReadEvidenceSuccessV1)
+    assert continued.root.content.offset_bytes == 16_384
+    assert continued.root.complete is True
+
+
 def _encode_b64(value: bytes) -> str:
     return base64.urlsafe_b64encode(value).rstrip(b"=").decode()
 
