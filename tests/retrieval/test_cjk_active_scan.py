@@ -8,6 +8,7 @@ from mke.retrieval.cjk_active_scan import (
     CjkActiveScanError,
     compile_cjk_overlap_terms,
     rank_cjk_active_scan_candidates,
+    select_cjk_active_scan_candidates,
 )
 
 
@@ -90,6 +91,30 @@ def test_candidate_pool_cap_returns_stable_error() -> None:
     assert raised.value.problem == "cjk_candidate_pool_capped"
     assert raised.value.cause == "CJK candidate pool exceeded the configured cap"
     assert raised.value.next_step == "narrow_query"
+
+
+@pytest.mark.parametrize(
+    ("eligible", "discarded"),
+    ((9, False), (10, False), (11, True)),
+)
+def test_strategy_cap_reports_only_actual_discard(
+    eligible: int, discarded: bool
+) -> None:
+    compiled = compile_cjk_overlap_terms("发布证据检索")
+    candidates = tuple(
+        _candidate(
+            f"ev_{index:032x}",
+            f"doc-{index:02d}",
+            1,
+            "发布证据检索 完整页面",
+        )
+        for index in range(eligible)
+    )
+
+    selection = select_cjk_active_scan_candidates(candidates, compiled.terms)
+
+    assert len(selection.results) == min(eligible, 10)
+    assert selection.discarded_by_strategy_cap is discarded
 
 
 def _candidate(

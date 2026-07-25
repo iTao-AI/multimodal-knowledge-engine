@@ -16,6 +16,17 @@ def test_prefix_fallback_is_explicit() -> None:
     assert excerpt.kind == "prefix_fallback"
 
 
+def test_query_window_maps_normalized_match_back_to_original_bytes() -> None:
+    text = "㍑" * 900 + " late authority marker " + "后缀" * 900
+
+    excerpt = build_excerpt(text, (MatchHint("late authority marker", 0, 0),))
+
+    assert excerpt.kind == "query_window"
+    assert "late authority marker" in excerpt.text
+    encoded = text.encode()
+    assert encoded[excerpt.start_utf8_byte : excerpt.end_utf8_byte].decode() == excerpt.text
+
+
 def test_utf8_chunks_reconstruct_exact_bytes() -> None:
     data = ("A中🙂e\u0301" * 100).encode()
     offset = 0

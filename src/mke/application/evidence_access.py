@@ -86,13 +86,15 @@ def build_excerpt(
     if max_bytes < 1:
         raise ValueError("excerpt byte limit must be positive")
     matches: list[tuple[int, int, int, int]] = []
-    normalized = unicodedata.normalize("NFKC", text).casefold()
+    normalized, original_spans = _normalized_with_original_spans(text)
     for hint in hints:
         needle = unicodedata.normalize("NFKC", hint.text).casefold()
         character = normalized.find(needle) if needle else -1
         if character >= 0:
-            byte_start = len(text[:character].encode())
-            byte_end = len(text[: character + len(hint.text)].encode())
+            original_start = original_spans[character][0]
+            original_end = original_spans[character + len(needle) - 1][1]
+            byte_start = len(text[:original_start].encode())
+            byte_end = len(text[:original_end].encode())
             matches.append((byte_start, hint.clause_order, hint.term_order, byte_end))
     if matches:
         start, _, _, end = min(matches)
@@ -125,6 +127,23 @@ def build_excerpt(
         complete=left == 0 and returned == len(data),
         returned_utf8_bytes=returned,
     )
+
+
+def _normalized_with_original_spans(
+    text: str,
+) -> tuple[str, tuple[tuple[int, int], ...]]:
+    normalized_parts: list[str] = []
+    spans: list[tuple[int, int]] = []
+    index = 0
+    while index < len(text):
+        end = index + 1
+        while end < len(text) and unicodedata.combining(text[end]):
+            end += 1
+        normalized = unicodedata.normalize("NFKC", text[index:end]).casefold()
+        normalized_parts.append(normalized)
+        spans.extend((index, end) for _ in normalized)
+        index = end
+    return "".join(normalized_parts), tuple(spans)
 
 
 def read_utf8_chunk(data: bytes, *, offset: int, max_bytes: int) -> Utf8Chunk:

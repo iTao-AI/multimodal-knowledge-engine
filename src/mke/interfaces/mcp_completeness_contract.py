@@ -15,12 +15,16 @@ from mke.application.evidence_access import (
 from mke.application.mcp_cursor import (
     CursorExpiredError,
     InvalidCursorError,
+    ParsedCursor,
     ReadCursorPayload,
     SearchCursorPayload,
-    decode_read_cursor,
-    decode_search_cursor,
     encode_read_cursor,
     encode_search_cursor,
+    parse_cursor_untrusted,
+    untrusted_read_route,
+    untrusted_search_route,
+    validate_read_cursor,
+    validate_search_cursor,
 )
 from mke.domain.evidence_access import ActiveAuthoritySnapshot
 from mke.interfaces.mcp_contract import McpRuntimeConfig
@@ -51,6 +55,8 @@ from mke.interfaces.mcp_schemas import (
     SearchSelectionMoreV2,
     TimestampLocatorV1,
 )
+from mke.retrieval.query_policy import QUERY_POLICY_REVISION
+from mke.retrieval.strategy import get_retrieval_strategy_descriptor
 from mke.runtime import build_engine
 
 
@@ -63,28 +69,34 @@ def search_library_v2(
     except ValidationError:
         return _search_error(*_classify_request(raw, search=True))
     material = config.runtime.owner_state.cursor_material()
+    parsed_cursor: ParsedCursor | None = None
     parsed: SearchCursorPayload | None = None
     if isinstance(branch, SearchContinuationV2):
         try:
-            parsed = decode_search_cursor(branch.cursor, material)
-        except (InvalidCursorError, CursorExpiredError) as error:
+            parsed_cursor = parse_cursor_untrusted(branch.cursor)
+        except InvalidCursorError as error:
             return _search_cursor_error(error)
-        query, limit, position = (
-            parsed.normalized_query,
-            parsed.page_size,
-            parsed.position,
-        )
+        query, limit, position = untrusted_search_route(parsed_cursor)
     else:
         query, limit, position = branch.query.strip(), branch.limit, 0
     engine = build_engine(config.runtime)
     try:
+        descriptor = get_retrieval_strategy_descriptor(
+            cast(str, config.runtime.retrieval_strategy)
+        )
 
         def validate(authority: ActiveAuthoritySnapshot) -> None:
-            if (
-                parsed is not None
-                and parsed.active_set_fingerprint != authority.active_set_fingerprint
-            ):
-                raise CursorExpiredError("active_set_changed")
+            nonlocal parsed
+            if parsed_cursor is not None:
+                parsed = validate_search_cursor(
+                    parsed_cursor,
+                    material,
+                    authority,
+                    strategy_id=descriptor.strategy_id,
+                    strategy_revision=descriptor.revision,
+                    query_policy=descriptor.base_query_policy,
+                    query_policy_revision=QUERY_POLICY_REVISION,
+                )
 
         snapshot = engine.search_evidence_page(
             query,
@@ -116,7 +128,7 @@ def search_library_v2(
         return _search_success(
             assemble_search_page(snapshot, page_size=limit, cursor_factory=cursor_factory)
         )
-    except CursorExpiredError as error:
+    except (InvalidCursorError, CursorExpiredError) as error:
         return _search_cursor_error(error)
     except ResponseTooLargeError:
         return _search_error(
@@ -144,24 +156,27 @@ def read_evidence_v1(
         problem, cause, next_step = _classify_request(raw, search=False)
         return _read_error(problem, cause, next_step)
     material = config.runtime.owner_state.cursor_material()
+    parsed_cursor: ParsedCursor | None = None
     parsed: ReadCursorPayload | None = None
     if isinstance(branch, ReadContinuationV1):
         try:
-            parsed = decode_read_cursor(branch.cursor, material)
-        except (InvalidCursorError, CursorExpiredError) as error:
+            parsed_cursor = parse_cursor_untrusted(branch.cursor)
+        except InvalidCursorError as error:
             return _read_cursor_error(error)
-        evidence_id, max_bytes, position = parsed.evidence_id, parsed.max_bytes, parsed.position
+        evidence_id, max_bytes, position = untrusted_read_route(parsed_cursor)
     else:
         evidence_id, max_bytes, position = branch.evidence_id, branch.max_bytes, 0
     engine = build_engine(config.runtime)
     try:
 
         def validate(authority: ActiveAuthoritySnapshot) -> None:
-            if (
-                parsed is not None
-                and parsed.active_set_fingerprint != authority.active_set_fingerprint
-            ):
-                raise CursorExpiredError("active_set_changed")
+            nonlocal parsed
+            if parsed_cursor is not None:
+                parsed = validate_read_cursor(
+                    parsed_cursor,
+                    material,
+                    authority,
+                )
 
         snapshot = engine.read_active_evidence(
             evidence_id,
@@ -221,7 +236,7 @@ def read_evidence_v1(
             "active Evidence exceeds the readable size limit",
             "reduce_query_scope_or_report_contract_limit",
         )
-    except CursorExpiredError as error:
+    except (InvalidCursorError, CursorExpiredError) as error:
         return _read_cursor_error(error)
     except Exception:
         return _read_error(
@@ -330,6 +345,12 @@ def _classify_request(raw: object, *, search: bool) -> tuple[str, str, str]:
                 "invalid_request",
                 "query exceeds 512 UTF-8 bytes",
                 "narrow_query_to_512_utf8_bytes",
+            )
+        if search and isinstance(query, str) and not query.strip():
+            return (
+                "invalid_request",
+                "query must not be empty",
+                "provide_non_blank_query",
             )
         if isinstance(cursor, str) and len(cursor.encode()) > 4096:
             return "invalid_cursor", "cursor exceeds 4096 UTF-8 bytes", "restart_from_initial_call"

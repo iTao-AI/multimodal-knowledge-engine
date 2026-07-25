@@ -1,12 +1,25 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import json
+from dataclasses import replace
 from pathlib import Path
 
+import pytest
+
 from mke.application import KnowledgeEngine
+from mke.application.mcp_cursor import (
+    ReadCursorPayload,
+    SearchCursorPayload,
+    encode_read_cursor,
+    encode_search_cursor,
+)
 from mke.domain import (
     PDF_EXTRACTOR_FINGERPRINT,
     REQUIRED_PDF_STAGES,
+    ActiveAuthoritySnapshot,
+    ActivePublicationObservation,
     CandidateEvidence,
     RunManifest,
 )
@@ -18,6 +31,7 @@ from mke.interfaces.mcp_schemas import (
 )
 from mke.interfaces.mcp_server import build_mcp_server
 from mke.runtime import RuntimeConfig
+from mke.runtime_owner import OwnerRuntimeState
 
 
 def test_search_exposes_selection_completeness(tmp_path: Path) -> None:
@@ -83,6 +97,182 @@ def test_cjk_cap_is_observable(tmp_path: Path) -> None:
 
     assert isinstance(response.root.selection, SearchSelectionCappedV2)
     assert response.root.selection.limit_reason == "retrieval_strategy_cap"
+
+
+def test_blank_search_v2_is_rejected_before_engine_access(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import mke.interfaces.mcp_completeness_contract as contract
+    from mke.interfaces.mcp_schemas import SearchLibraryV2Request
+
+    called = False
+
+    def fail_build(_runtime: RuntimeConfig) -> KnowledgeEngine:
+        nonlocal called
+        called = True
+        raise AssertionError("blank query must not open the engine")
+
+    monkeypatch.setattr(contract, "build_engine", fail_build)
+    response = contract.search_library_v2(
+        McpRuntimeConfig(RuntimeConfig(tmp_path / "mke.sqlite"), tmp_path),
+        SearchLibraryV2Request(root={"query": "   ", "limit": 1}),
+    )
+
+    assert response.root.problem == "invalid_request"  # type: ignore[union-attr]
+    assert called is False
+
+
+@pytest.mark.parametrize(
+    ("case", "expected_problem"),
+    (
+        ("bad_mac", "invalid_cursor"),
+        ("old_epoch", "cursor_expired"),
+        ("active_drift", "cursor_expired"),
+        ("policy_drift", "cursor_expired"),
+        ("query_fingerprint", "invalid_cursor"),
+        ("wrong_tool", "invalid_cursor"),
+        ("wrong_schema", "invalid_cursor"),
+    ),
+)
+def test_cursor_validation_observes_authority_before_trusted_bindings(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    case: str,
+    expected_problem: str,
+) -> None:
+    import mke.interfaces.mcp_completeness_contract as contract
+    from mke.interfaces.mcp_schemas import SearchLibraryV2Request
+
+    owner = OwnerRuntimeState(cursor_key=b"k" * 32, owner_epoch="a" * 32)
+    config = McpRuntimeConfig(
+        RuntimeConfig(tmp_path / "mke.sqlite", owner_state=owner),
+        tmp_path,
+    )
+    authority = ActiveAuthoritySnapshot(
+        ActivePublicationObservation("local", "active", 1, 1, 1),
+        "sha256:" + "b" * 64,
+    )
+    payload = SearchCursorPayload(
+        "mke.mcp_cursor.v1",
+        "search_library_v2",
+        owner.cursor_material().epoch,
+        authority.active_set_fingerprint,
+        "authority",
+        "sha256:" + __import__("hashlib").sha256(b"authority").hexdigest(),
+        "sqlite-fts-v1",
+        1,
+        "numeric-grouping-v1",
+        1,
+        1,
+        5,
+        "mke.search_library_response.v2",
+    )
+    if case == "old_epoch":
+        payload = replace(payload, owner_epoch="c" * 32)
+    elif case == "active_drift":
+        payload = replace(payload, active_set_fingerprint="sha256:" + "d" * 64)
+    elif case == "policy_drift":
+        payload = replace(payload, strategy_revision=2)
+    elif case == "query_fingerprint":
+        payload = replace(payload, query_fingerprint="sha256:" + "e" * 64)
+    elif case == "wrong_schema":
+        payload = replace(  # type: ignore[arg-type]
+            payload, response_schema="mke.search_library_response.v999"
+        )
+    if case == "wrong_tool":
+        read = ReadCursorPayload(
+            "mke.mcp_cursor.v1",
+            "read_evidence_v1",
+            owner.cursor_material().epoch,
+            authority.active_set_fingerprint,
+            "ev_" + "1" * 32,
+            "src_" + "2" * 32,
+            "sha256:" + "3" * 64,
+            "pub_" + "4" * 32,
+            1,
+            "run_" + "5" * 32,
+            "page",
+            1,
+            1,
+            "sha256:" + "6" * 64,
+            100,
+            4,
+            16,
+            "mke.read_evidence_response.v1",
+        )
+        token = encode_read_cursor(owner.cursor_material(), read)
+    else:
+        token = encode_search_cursor(owner.cursor_material(), payload)
+    if case == "bad_mac":
+        envelope = json.loads(_decode_b64(token))
+        envelope["mac"] = (
+            "A" if not str(envelope["mac"]).startswith("A") else "B"
+        ) + str(envelope["mac"])[1:]
+        token = _encode_b64(
+            json.dumps(envelope, separators=(",", ":"), sort_keys=True).encode()
+        )
+
+    class FakeEngine:
+        authority_calls = 0
+        selection_calls = 0
+
+        def search_evidence_page(self, *args: object, **kwargs: object) -> None:
+            del args
+            validator = kwargs["authority_validator"]
+            assert callable(validator)
+            self.authority_calls += 1
+            validator(authority)
+            self.selection_calls += 1
+            raise AssertionError("invalid continuation must not select")
+
+        def close(self) -> None:
+            pass
+
+    fake = FakeEngine()
+
+    def build_fake(_runtime: RuntimeConfig) -> FakeEngine:
+        return fake
+
+    monkeypatch.setattr(contract, "build_engine", build_fake)
+    response = contract.search_library_v2(
+        config,
+        SearchLibraryV2Request(root={"cursor": token}),
+    )
+
+    assert response.root.problem == expected_problem  # type: ignore[union-attr]
+    assert fake.authority_calls == 1
+    assert fake.selection_calls == 0
+
+
+def test_malformed_cursor_has_zero_engine_access(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import mke.interfaces.mcp_completeness_contract as contract
+    from mke.interfaces.mcp_schemas import SearchLibraryV2Request
+
+    calls = 0
+
+    def build(_runtime: RuntimeConfig) -> KnowledgeEngine:
+        nonlocal calls
+        calls += 1
+        raise AssertionError("malformed cursor must not open the engine")
+
+    monkeypatch.setattr(contract, "build_engine", build)
+    response = contract.search_library_v2(
+        McpRuntimeConfig(RuntimeConfig(tmp_path / "mke.sqlite"), tmp_path),
+        SearchLibraryV2Request(root={"cursor": "not-a-cursor"}),
+    )
+
+    assert response.root.problem == "invalid_cursor"  # type: ignore[union-attr]
+    assert calls == 0
+
+
+def _encode_b64(value: bytes) -> str:
+    return base64.urlsafe_b64encode(value).rstrip(b"=").decode()
+
+
+def _decode_b64(value: str) -> bytes:
+    return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
 
 
 def _publish_text(engine: KnowledgeEngine, pages: tuple[str, ...]) -> None:

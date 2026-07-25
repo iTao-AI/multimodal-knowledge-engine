@@ -1,3 +1,5 @@
+from hashlib import sha256
+
 import pytest
 
 from mke.application.mcp_cursor import (
@@ -17,7 +19,7 @@ def _payload() -> SearchCursorPayload:
         owner_epoch="a" * 32,
         active_set_fingerprint="sha256:" + "b" * 64,
         normalized_query="query",
-        query_fingerprint="sha256:" + "c" * 64,
+        query_fingerprint=f"sha256:{sha256(b'query').hexdigest()}",
         strategy_id="sqlite-fts-v1",
         strategy_revision=1,
         query_policy="numeric-grouping-v1",

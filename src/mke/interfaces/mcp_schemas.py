@@ -201,7 +201,15 @@ def _max_utf8_bytes(limit: int) -> Callable[[str], str]:
     return validate
 
 
-Utf8BoundedQuery = Annotated[str, AfterValidator(_max_utf8_bytes(512))]
+def _non_blank(value: str) -> str:
+    if not value.strip():
+        raise ValueError("value must not be blank")
+    return value
+
+
+Utf8BoundedQuery = Annotated[
+    str, AfterValidator(_max_utf8_bytes(512)), AfterValidator(_non_blank)
+]
 Utf8BoundedCursor = Annotated[str, AfterValidator(_max_utf8_bytes(4096))]
 
 
