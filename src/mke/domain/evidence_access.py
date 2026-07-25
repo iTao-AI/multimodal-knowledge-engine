@@ -100,6 +100,11 @@ class MatchHint:
     text: str
     clause_order: int
     term_order: int
+    normalization: Literal[
+        "nfkc_casefold",
+        "cjk_casefold_no_whitespace",
+        "fts5_ascii_tokens",
+    ] = "nfkc_casefold"
 
 
 @dataclass(frozen=True)

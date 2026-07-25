@@ -99,6 +99,81 @@ def test_cjk_cap_is_observable(tmp_path: Path) -> None:
     assert response.root.selection.limit_reason == "retrieval_strategy_cap"
 
 
+def test_cjk_query_window_maps_whitespace_insensitive_scorer_match(
+    tmp_path: Path,
+) -> None:
+    from mke.interfaces.mcp_completeness_contract import search_library_v2
+    from mke.interfaces.mcp_schemas import (
+        SearchLibrarySuccessV2,
+        SearchLibraryV2Request,
+    )
+
+    marker = "发 布 证 据 检 索"
+    text = "前缀" * 1500 + marker + "后缀" * 1500
+    config = McpRuntimeConfig(
+        RuntimeConfig(
+            tmp_path / "mke.sqlite",
+            retrieval_strategy="cjk-active-scan-overlap-v1",
+        ),
+        tmp_path,
+    )
+    engine = KnowledgeEngine(
+        config.db_path,
+        retrieval_strategy="cjk-active-scan-overlap-v1",
+    )
+    try:
+        _publish_text(engine, (text,))
+    finally:
+        engine.close()
+
+    response = search_library_v2(
+        config,
+        SearchLibraryV2Request(root={"query": "发布证据检索", "limit": 1}),
+    )
+
+    assert isinstance(response.root, SearchLibrarySuccessV2)
+    excerpt = response.root.matches[0].excerpt
+    assert excerpt.kind == "query_window"
+    assert marker in excerpt.text
+    assert (
+        text.encode()[excerpt.start_utf8_byte : excerpt.end_utf8_byte].decode()
+        == excerpt.text
+    )
+
+
+def test_fts_query_window_maps_token_separator_phrase_match(
+    tmp_path: Path,
+) -> None:
+    from mke.interfaces.mcp_completeness_contract import search_library_v2
+    from mke.interfaces.mcp_schemas import (
+        SearchLibrarySuccessV2,
+        SearchLibraryV2Request,
+    )
+
+    marker = "560,033,202,243"
+    text = "前缀" * 1500 + f" {marker} " + "后缀" * 1500
+    config = McpRuntimeConfig(RuntimeConfig(tmp_path / "mke.sqlite"), tmp_path)
+    engine = KnowledgeEngine(config.db_path)
+    try:
+        _publish_text(engine, (text,))
+    finally:
+        engine.close()
+
+    response = search_library_v2(
+        config,
+        SearchLibraryV2Request(root={"query": "560033202243", "limit": 1}),
+    )
+
+    assert isinstance(response.root, SearchLibrarySuccessV2)
+    excerpt = response.root.matches[0].excerpt
+    assert excerpt.kind == "query_window"
+    assert marker in excerpt.text
+    assert (
+        text.encode()[excerpt.start_utf8_byte : excerpt.end_utf8_byte].decode()
+        == excerpt.text
+    )
+
+
 def test_blank_search_v2_is_rejected_before_engine_access(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

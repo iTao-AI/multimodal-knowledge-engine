@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import unicodedata
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
@@ -86,9 +87,16 @@ def build_excerpt(
     if max_bytes < 1:
         raise ValueError("excerpt byte limit must be positive")
     matches: list[tuple[int, int, int, int]] = []
-    normalized, original_spans = _normalized_with_original_spans(text)
+    normalized_cache: dict[
+        str, tuple[str, tuple[tuple[int, int], ...]]
+    ] = {}
     for hint in hints:
-        needle = unicodedata.normalize("NFKC", hint.text).casefold()
+        if hint.normalization not in normalized_cache:
+            normalized_cache[hint.normalization] = _normalized_for_match_hint(
+                text, hint.normalization
+            )
+        normalized, original_spans = normalized_cache[hint.normalization]
+        needle = _normalize_match_hint_text(hint)
         character = normalized.find(needle) if needle else -1
         if character >= 0:
             original_start = original_spans[character][0]
@@ -127,6 +135,65 @@ def build_excerpt(
         complete=left == 0 and returned == len(data),
         returned_utf8_bytes=returned,
     )
+
+
+def _normalized_for_match_hint(
+    text: str,
+    normalization: str,
+) -> tuple[str, tuple[tuple[int, int], ...]]:
+    if normalization == "nfkc_casefold":
+        return _normalized_with_original_spans(text)
+    casefolded, spans = _casefold_with_original_spans(text)
+    if normalization == "cjk_casefold_no_whitespace":
+        kept = tuple(
+            (character, span)
+            for character, span in zip(casefolded, spans, strict=True)
+            if not character.isspace()
+        )
+        return (
+            "".join(character for character, _ in kept),
+            tuple(span for _, span in kept),
+        )
+    if normalization == "fts5_ascii_tokens":
+        parts: list[str] = []
+        token_spans: list[tuple[int, int]] = []
+        previous_end: int | None = None
+        for match in re.finditer(r"[a-z0-9_]+", casefolded):
+            if parts:
+                assert previous_end is not None
+                parts.append(" ")
+                token_spans.append((previous_end, spans[match.start()][0]))
+            parts.append(match.group())
+            token_spans.extend(spans[match.start() : match.end()])
+            previous_end = spans[match.end() - 1][1]
+        return "".join(parts), tuple(token_spans)
+    raise ValueError("unsupported match hint normalization")
+
+
+def _normalize_match_hint_text(hint: MatchHint) -> str:
+    if hint.normalization == "nfkc_casefold":
+        return unicodedata.normalize("NFKC", hint.text).casefold()
+    if hint.normalization == "cjk_casefold_no_whitespace":
+        return "".join(
+            character
+            for character in hint.text.casefold()
+            if not character.isspace()
+        )
+    if hint.normalization == "fts5_ascii_tokens":
+        return " ".join(re.findall(r"[a-z0-9_]+", hint.text.casefold()))
+    raise ValueError("unsupported match hint normalization")
+
+
+def _casefold_with_original_spans(
+    text: str,
+) -> tuple[str, tuple[tuple[int, int], ...]]:
+    normalized_parts: list[str] = []
+    spans: list[tuple[int, int]] = []
+    for index, character in enumerate(text):
+        normalized = character.casefold()
+        normalized_parts.append(normalized)
+        spans.extend((index, index + 1) for _ in normalized)
+    return "".join(normalized_parts), tuple(spans)
 
 
 def _normalized_with_original_spans(

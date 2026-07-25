@@ -1574,7 +1574,12 @@ class SQLiteStore:
                 page = self._load_fts_candidate_text(admitted_candidates)
                 enriched = self._bulk_enrich_provenance(page)
                 hints = tuple(
-                    MatchHint(alternative, clause_order, term_order)
+                    MatchHint(
+                        alternative,
+                        clause_order,
+                        term_order,
+                        "fts5_ascii_tokens",
+                    )
                     for clause_order, clause in enumerate(diagnostic.clauses)
                     for term_order, alternative in enumerate(clause.alternatives)
                 )
@@ -1613,7 +1618,12 @@ class SQLiteStore:
                     SelectedEvidence(
                         item,
                         tuple(
-                            MatchHint(term, term_order, 0)
+                            MatchHint(
+                                term,
+                                term_order,
+                                0,
+                                "cjk_casefold_no_whitespace",
+                            )
                             for term_order, term in enumerate(result.matched_terms)
                         ),
                     )
