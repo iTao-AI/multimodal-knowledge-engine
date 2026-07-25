@@ -1,0 +1,44 @@
+name: MCP Context Completeness Proof
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "scripts/mcp_context_completeness_*.py"
+      - "tests/fixtures/mcp-context-completeness-v1/**"
+      - "tests/fixtures/pdf/text-layer.pdf"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/mcp-context-completeness-proof.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mcp-context-completeness-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  installed-wheel:
+    runs-on: macos-14
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: astral-sh/setup-uv@b75a909f75acd358c2196fb9a5f1299a9a8868a4
+        with:
+          version: "0.8.22"
+          enable-cache: true
+      - name: Provision locked interpreters and dependencies
+        run: |
+          uv python install 3.12 3.13
+          uv sync --locked
+      - name: Run same-wheel offline proof
+        env:
+          UV_OFFLINE: "1"
+        run: |
+          uv run python scripts/mcp_context_completeness_proof.py \
+            --python "$(uv python find 3.12)" \
+            --python "$(uv python find 3.13)" \
+            --candidate-output "${RUNNER_TEMP}/mke-context-completeness-candidate" \
+            --json
