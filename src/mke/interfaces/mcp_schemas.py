@@ -2,9 +2,22 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from collections.abc import Callable
+from typing import Annotated, ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel, StringConstraints, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    RootModel,
+    StrictInt,
+    StringConstraints,
+    TypeAdapter,
+    model_validator,
+)
+from pydantic.json_schema import GetJsonSchemaHandler, JsonSchemaValue
+from pydantic_core import CoreSchema
 
 from mke.interfaces.public_errors import is_public_error_cause
 
@@ -174,5 +187,192 @@ class SearchLibraryResponseV1(
 
 class AskLibraryResponseV1(
     RootModel[Annotated[AskLibrarySuccessV1 | AskLibraryErrorV1, Field(discriminator="ok")]]
+):
+    pass
+
+
+def _max_utf8_bytes(limit: int) -> Callable[[str], str]:
+    def validate(value: str) -> str:
+        if len(value.encode()) > limit:
+            raise ValueError(f"value exceeds {limit} UTF-8 bytes")
+        return value
+
+    return validate
+
+
+Utf8BoundedQuery = Annotated[str, AfterValidator(_max_utf8_bytes(512))]
+Utf8BoundedCursor = Annotated[str, AfterValidator(_max_utf8_bytes(4096))]
+
+
+class SearchInitialV2(_StrictModel):
+    query: Utf8BoundedQuery
+    limit: StrictInt = Field(default=5, ge=1, le=20)
+
+
+class SearchContinuationV2(_StrictModel):
+    cursor: Utf8BoundedCursor
+
+
+SearchInputV2 = SearchInitialV2 | SearchContinuationV2
+SEARCH_INPUT_V2 = TypeAdapter(SearchInputV2)
+
+
+class ReadInitialV1(_StrictModel):
+    evidence_id: str
+    max_bytes: StrictInt = Field(default=16384, ge=4, le=16384)
+
+
+class ReadContinuationV1(_StrictModel):
+    cursor: Utf8BoundedCursor
+
+
+ReadInputV1 = ReadInitialV1 | ReadContinuationV1
+READ_INPUT_V1 = TypeAdapter(ReadInputV1)
+
+
+class _RequestCapture(RootModel[object]):
+    model_config = ConfigDict(frozen=True, strict=True)
+
+    branches: ClassVar[tuple[type[BaseModel], ...]] = ()
+
+    @classmethod
+    def __get_pydantic_json_schema__(
+        cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler
+    ) -> JsonSchemaValue:
+        del core_schema, handler
+        return {"oneOf": [branch.model_json_schema() for branch in cls.branches]}
+
+
+class SearchLibraryV2Request(_RequestCapture):
+    branches = (SearchInitialV2, SearchContinuationV2)
+
+
+class ReadEvidenceV1Request(_RequestCapture):
+    branches = (ReadInitialV1, ReadContinuationV1)
+
+
+class ActiveAuthoritySnapshotV1(_StrictModel):
+    schema_version: Literal["mke.active_authority_snapshot.v1"] = "mke.active_authority_snapshot.v1"
+    observation: ActivePublicationObservationV1
+    active_set_fingerprint: Fingerprint
+
+
+class EvidenceDescriptorV1(_StrictModel):
+    evidence_id: str
+    source_id: str
+    content_fingerprint: Fingerprint
+    publication_id: str
+    publication_revision: int = Field(gt=0)
+    run_id: str
+    locator: LocatorV1
+    evidence_text_sha256: Fingerprint
+    original_utf8_bytes: int = Field(gt=0)
+
+
+class EvidenceExcerptV1(_StrictModel):
+    kind: Literal["query_window", "prefix_fallback"]
+    text: str
+    start_utf8_byte: int = Field(ge=0)
+    end_utf8_byte: int = Field(gt=0)
+    prefix_omitted: bool
+    suffix_omitted: bool
+    complete: bool
+    returned_utf8_bytes: int = Field(gt=0, le=2048)
+    content_trust: Literal["untrusted_evidence"]
+
+
+class EvidenceReadAffordanceV1(_StrictModel):
+    tool: Literal["read_evidence_v1"] = "read_evidence_v1"
+    evidence_id: str
+
+
+class SearchMatchV2(_StrictModel):
+    evidence: EvidenceDescriptorV1
+    excerpt: EvidenceExcerptV1
+    read: EvidenceReadAffordanceV1
+
+
+class SearchSelectionCompleteV2(_StrictModel):
+    schema_version: Literal["mke.search_selection.v2"] = "mke.search_selection.v2"
+    status: Literal["complete"]
+    returned: int = Field(ge=0)
+
+
+class SearchSelectionMoreV2(_StrictModel):
+    schema_version: Literal["mke.search_selection.v2"] = "mke.search_selection.v2"
+    status: Literal["more_available"]
+    returned: int = Field(ge=0)
+    next_cursor: Utf8BoundedCursor
+
+
+class SearchSelectionCappedV2(_StrictModel):
+    schema_version: Literal["mke.search_selection.v2"] = "mke.search_selection.v2"
+    status: Literal["capped"]
+    returned: int = Field(ge=0)
+    limit_reason: Literal["retrieval_strategy_cap"]
+
+
+SearchSelectionV2 = Annotated[
+    SearchSelectionCompleteV2 | SearchSelectionMoreV2 | SearchSelectionCappedV2,
+    Field(discriminator="status"),
+]
+
+
+class SearchOutputBudgetV1(_StrictModel):
+    schema_version: Literal["mke.search_output_budget.v1"] = "mke.search_output_budget.v1"
+    incomplete_excerpt_count: int = Field(ge=0)
+    content_budget_bytes: Literal[16384] = 16384
+    envelope_budget_bytes: Literal[32768] = 32768
+
+
+class SearchLibrarySuccessV2(_StrictModel):
+    schema_version: Literal["mke.search_library_response.v2"] = "mke.search_library_response.v2"
+    ok: Literal[True] = True
+    authority_snapshot: ActiveAuthoritySnapshotV1
+    query: str
+    matches: list[SearchMatchV2] = Field(max_length=20)
+    selection: SearchSelectionV2
+    output: SearchOutputBudgetV1
+
+
+class SearchLibraryErrorV2(_PublicErrorV1):
+    schema_version: Literal["mke.search_library_response.v2"] = "mke.search_library_response.v2"
+
+
+class SearchLibraryResponseV2(
+    RootModel[Annotated[SearchLibrarySuccessV2 | SearchLibraryErrorV2, Field(discriminator="ok")]]
+):
+    pass
+
+
+class EvidenceContentV1(_StrictModel):
+    text: str
+    offset_bytes: int = Field(ge=0)
+    returned_utf8_bytes: int = Field(gt=0, le=16384)
+    content_trust: Literal["untrusted_evidence"] = "untrusted_evidence"
+
+
+class ReadEvidenceSuccessV1(_StrictModel):
+    schema_version: Literal["mke.read_evidence_response.v1"] = "mke.read_evidence_response.v1"
+    ok: Literal[True] = True
+    authority_snapshot: ActiveAuthoritySnapshotV1
+    evidence: EvidenceDescriptorV1
+    content: EvidenceContentV1
+    complete: bool
+    next_cursor: Utf8BoundedCursor | None = None
+
+    @model_validator(mode="after")
+    def validate_terminality(self) -> ReadEvidenceSuccessV1:
+        if self.complete == (self.next_cursor is not None):
+            raise ValueError("Read terminality does not match cursor")
+        return self
+
+
+class ReadEvidenceErrorV1(_PublicErrorV1):
+    schema_version: Literal["mke.read_evidence_response.v1"] = "mke.read_evidence_response.v1"
+
+
+class ReadEvidenceResponseV1(
+    RootModel[Annotated[ReadEvidenceSuccessV1 | ReadEvidenceErrorV1, Field(discriminator="ok")]]
 ):
     pass

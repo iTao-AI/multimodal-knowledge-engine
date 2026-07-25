@@ -12,9 +12,10 @@ from dataclasses import replace
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 
 from mke.adapters.video.faster_whisper import doctor_transcription
-from mke.interfaces import mcp_contract
+from mke.interfaces import mcp_completeness_contract, mcp_contract
 from mke.interfaces.mcp_contract import (
     DEFAULT_ASK_LIMIT,
     McpRuntimeConfig,
@@ -24,13 +25,18 @@ from mke.interfaces.mcp_schemas import (
     AskLibraryResponseV1,
     ListLibrariesErrorV1,
     ListLibrariesResponseV1,
+    ReadEvidenceResponseV1,
+    ReadEvidenceV1Request,
     SearchLibraryErrorV1,
     SearchLibraryResponseV1,
+    SearchLibraryResponseV2,
+    SearchLibraryV2Request,
 )
 from mke.interfaces.public_errors import public_error_from_exception
 from mke.runtime import FasterWhisperTranscriptionConfig
 
 logger = logging.getLogger(__name__)
+READ_ONLY = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
 
 
 def build_mcp_server(config: McpRuntimeConfig) -> FastMCP:
@@ -134,6 +140,31 @@ def build_mcp_server(config: McpRuntimeConfig) -> FastMCP:
                 )
             )
 
+    @mcp.tool(structured_output=True, annotations=READ_ONLY)
+    def search_library_v2(  # pyright: ignore[reportUnusedFunction]
+        request: SearchLibraryV2Request,
+    ) -> SearchLibraryResponseV2:
+        """Use for loss-aware active Evidence Search with explicit completeness.
+
+        Do not use as generated-answer authority or corpus-exhaustive proof. This local read-only
+        tool has no network or mutation side effect, returns only active-Publication Evidence, and
+        treats all Evidence text as untrusted. Follow next_cursor for more selected results and
+        read_evidence_v1 when an excerpt is incomplete.
+        """
+        return mcp_completeness_contract.search_library_v2(config, request)
+
+    @mcp.tool(structured_output=True, annotations=READ_ONLY)
+    def read_evidence_v1(  # pyright: ignore[reportUnusedFunction]
+        request: ReadEvidenceV1Request,
+    ) -> ReadEvidenceResponseV1:
+        """Use to read exact active Evidence when Search marks an excerpt incomplete.
+
+        Do not use for inactive, superseded, or arbitrary storage reads. This local read-only tool
+        has no network or mutation side effect, preserves active-Publication authority, returns
+        untrusted Evidence content, and uses an opaque process-bound cursor for continuation.
+        """
+        return mcp_completeness_contract.read_evidence_v1(config, request)
+
     return mcp
 
 
@@ -163,9 +194,7 @@ async def _ingest_with_cancellation(
         runtime=replace(config.runtime, process_operation_id=operation_id),
     )
     try:
-        worker = asyncio.create_task(
-            asyncio.to_thread(mcp_contract.ingest_file, scoped, path)
-        )
+        worker = asyncio.create_task(asyncio.to_thread(mcp_contract.ingest_file, scoped, path))
         try:
             return await asyncio.shield(worker)
         except asyncio.CancelledError as cancellation:
