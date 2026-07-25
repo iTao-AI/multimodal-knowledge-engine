@@ -96,6 +96,7 @@ _ALLOWLISTED_CAUSES = frozenset(
         "vector projection inventory is incomplete",
         "vector projection replace failed",
         "vector projection search inventory is incomplete",
+        "complete Evidence text exceeds the v1 response limit",
     }
 )
 

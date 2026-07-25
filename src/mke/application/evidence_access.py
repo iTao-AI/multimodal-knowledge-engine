@@ -2,8 +2,20 @@ from __future__ import annotations
 
 import json
 import unicodedata
+from collections.abc import Callable
+from dataclasses import asdict, dataclass
+from hashlib import sha256
+from typing import Literal
 
-from mke.domain.evidence_access import EvidenceExcerpt, MatchHint, Utf8Chunk
+from mke.domain.evidence_access import (
+    ActiveAuthoritySnapshot,
+    EvidenceDescriptor,
+    EvidenceExcerpt,
+    EvidenceReadSnapshot,
+    EvidenceSearchPage,
+    MatchHint,
+    Utf8Chunk,
+)
 
 MAX_EXCERPT_BYTES = 2048
 MAX_EXCERPT_CONTENT_BYTES = 16384
@@ -11,6 +23,45 @@ MAX_READ_CHUNK_BYTES = 16384
 MAX_CANONICAL_MODEL_BYTES = 32768
 MAX_READABLE_EVIDENCE_BYTES = 16 * 1024 * 1024
 MAX_SEARCH_PAGE_TEXT_BYTES = 16 * 1024 * 1024
+
+
+class ResponseTooLargeError(ValueError):
+    """Mandatory strict response metadata cannot fit the canonical budget."""
+
+
+@dataclass(frozen=True)
+class SearchMatchProjection:
+    descriptor: EvidenceDescriptor
+    excerpt: EvidenceExcerpt
+    read_evidence_id: str
+
+
+@dataclass(frozen=True)
+class SearchSelectionProjection:
+    status: Literal["complete", "more_available", "capped"]
+    returned: int
+    next_cursor: str | None = None
+    limit_reason: Literal["retrieval_strategy_cap"] | None = None
+
+
+@dataclass(frozen=True)
+class SearchPageProjection:
+    authority: ActiveAuthoritySnapshot
+    query: str
+    matches: tuple[SearchMatchProjection, ...]
+    selection: SearchSelectionProjection
+    incomplete_excerpt_count: int
+    content_budget_bytes: int = MAX_EXCERPT_CONTENT_BYTES
+    envelope_budget_bytes: int = MAX_CANONICAL_MODEL_BYTES
+
+
+@dataclass(frozen=True)
+class ReadChunkProjection:
+    authority: ActiveAuthoritySnapshot
+    descriptor: EvidenceDescriptor
+    chunk: Utf8Chunk
+    complete: bool
+    next_cursor: str | None
 
 
 def utf8_size(value: str) -> int:
@@ -91,3 +142,107 @@ def read_utf8_chunk(data: bytes, *, offset: int, max_bytes: int) -> Utf8Chunk:
     else:
         raise ValueError("chunk does not make positive progress")
     return Utf8Chunk(text, offset, end - offset, end)
+
+
+def assemble_search_page(
+    snapshot: EvidenceSearchPage,
+    *,
+    page_size: int,
+    cursor_factory: Callable[[int], str],
+) -> SearchPageProjection:
+    matches: list[SearchMatchProjection] = []
+    content_bytes = 0
+    for selected in snapshot.results[:page_size]:
+        result = selected.provenance.result
+        excerpt = build_excerpt(result.text, selected.hints)
+        if matches and content_bytes + excerpt.returned_utf8_bytes > MAX_EXCERPT_CONTENT_BYTES:
+            break
+        content_bytes += excerpt.returned_utf8_bytes
+        matches.append(
+            SearchMatchProjection(
+                descriptor=EvidenceDescriptor(
+                    evidence_id=result.evidence_id,
+                    source_id=result.source_id,
+                    content_fingerprint=selected.provenance.content_fingerprint,
+                    publication_id=result.publication_id,
+                    publication_revision=selected.provenance.publication_revision,
+                    run_id=selected.provenance.run_id,
+                    locator_kind=result.locator_kind,  # type: ignore[arg-type]
+                    locator_start=result.locator_start,
+                    locator_end=result.locator_end,
+                    evidence_text_sha256=f"sha256:{sha256(result.text.encode()).hexdigest()}",
+                    original_utf8_bytes=len(result.text.encode()),
+                ),
+                excerpt=excerpt,
+                read_evidence_id=result.evidence_id,
+            )
+        )
+    more = snapshot.more_in_selected_pool or len(matches) < len(snapshot.results)
+    if more:
+        selection = SearchSelectionProjection(
+            "more_available",
+            len(matches),
+            next_cursor=cursor_factory(snapshot.position + len(matches)),
+        )
+    elif snapshot.eligible_discarded_by_cap:
+        selection = SearchSelectionProjection(
+            "capped", len(matches), limit_reason="retrieval_strategy_cap"
+        )
+    else:
+        selection = SearchSelectionProjection("complete", len(matches))
+    projection = SearchPageProjection(
+        snapshot.authority,
+        snapshot.normalized_query,
+        tuple(matches),
+        selection,
+        sum(not item.excerpt.complete for item in matches),
+    )
+    if len(canonical_json_bytes(asdict(projection))) > MAX_CANONICAL_MODEL_BYTES:
+        raise ResponseTooLargeError
+    return projection
+
+
+def assemble_read_chunk(
+    snapshot: EvidenceReadSnapshot,
+    *,
+    max_bytes: int,
+    cursor_factory: Callable[[int, str], str],
+    bound_text_sha256: str | None = None,
+) -> ReadChunkProjection:
+    if snapshot.text is not None:
+        data = snapshot.text.encode()
+        digest = f"sha256:{sha256(data).hexdigest()}"
+    else:
+        data = snapshot.range_bytes
+        if bound_text_sha256 is None:
+            raise ValueError("continuation requires bound Evidence digest")
+        digest = bound_text_sha256
+    chunk = read_utf8_chunk(data, offset=0, max_bytes=max_bytes)
+    absolute = Utf8Chunk(
+        chunk.text,
+        snapshot.offset_bytes,
+        chunk.returned_utf8_bytes,
+        snapshot.offset_bytes + chunk.returned_utf8_bytes,
+    )
+    record = snapshot.record
+    descriptor = EvidenceDescriptor(
+        record.evidence_id,
+        record.source_id,
+        record.content_fingerprint,
+        record.publication_id,
+        record.publication_revision,
+        record.run_id,
+        record.locator_kind,
+        record.locator_start,
+        record.locator_end,
+        digest,
+        record.original_utf8_bytes,
+    )
+    complete = absolute.next_offset_bytes == record.original_utf8_bytes
+    return ReadChunkProjection(
+        snapshot.authority,
+        descriptor,
+        absolute,
+        complete,
+        None if complete else cursor_factory(absolute.next_offset_bytes, digest),
+    )
