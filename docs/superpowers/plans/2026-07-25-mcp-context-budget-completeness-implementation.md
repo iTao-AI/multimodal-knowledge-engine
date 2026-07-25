@@ -2054,6 +2054,32 @@ Return:
 Do not run a duplicate full review in the execution window. The independent authority window owns
 the single pre-PR review and returns findings for targeted repair.
 
+### Task 8R: Close evaluation identity compatibility
+
+The Task 8 compatibility suite reached the numeric evaluation integrity gate because this feature
+adds application and SQLite source bytes covered by the existing whole-file E1-E3-E provenance
+graph. Retrieval observations, results, metrics, thresholds, gates, diagnostics, selected
+candidate/profile, status, and verdict did not change.
+
+The compatibility closure reused the repository's supported atomic and recoverable identity
+refresh procedure:
+
+1. freeze the committed feature HEAD and generate fresh E1, refreshed-scope E2, E3-A, and E3-B
+   observations in call-owned paths;
+2. prove the checked-in failures are source, scope, or dependency identity drift only;
+3. run `python -m mke.evaluation.artifact_refresh` for its five canonical E1-E3-B targets;
+4. generate E3-C, E3-D, and E3-E identity candidates without a model or holdout re-observation;
+5. overlay the complete proposed graph into a detached validation mirror and require exact
+   candidate/mirror bytes, normalized semantic equality, and all seven canonical validators;
+6. apply and commit exactly the validator-proven 21-path identity allowlist used by the existing
+   compiled-export compatibility procedure.
+
+Validation requires the complete artifact regression suite, all seven canonical validators,
+Task 8 full tests, Ruff, Pyright, build, and the dual-version same-wheel installed proof. The
+identity closure does not change a corpus, fixture, query, qrel, observation, result, metric,
+threshold, gate, diagnostic, selected candidate/profile, status, verdict, or retrieval promotion.
+It makes no model, quality, performance, production, deployment, or adoption claim.
+
 ## Final Acceptance
 
 The implementation is READY for independent review only when:
