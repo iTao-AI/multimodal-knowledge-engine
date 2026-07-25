@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from hashlib import sha256
-from typing import Any
+from typing import Any, cast
 
 from pydantic import ValidationError
 
@@ -322,15 +322,18 @@ def _read_success(projection: Any) -> ReadEvidenceResponseV1:
 
 def _classify_request(raw: object, *, search: bool) -> tuple[str, str, str]:
     if isinstance(raw, dict):
-        if search and isinstance(raw.get("query"), str) and len(raw["query"].encode()) > 512:
+        data = cast(dict[str, object], raw)
+        query = data.get("query")
+        cursor = data.get("cursor")
+        if search and isinstance(query, str) and len(query.encode()) > 512:
             return (
                 "invalid_request",
                 "query exceeds 512 UTF-8 bytes",
                 "narrow_query_to_512_utf8_bytes",
             )
-        if isinstance(raw.get("cursor"), str) and len(raw["cursor"].encode()) > 4096:
+        if isinstance(cursor, str) and len(cursor.encode()) > 4096:
             return "invalid_cursor", "cursor exceeds 4096 UTF-8 bytes", "restart_from_initial_call"
-        if not search and "max_bytes" in raw:
+        if not search and "max_bytes" in data:
             return (
                 "invalid_request",
                 "max_bytes must be between 4 and 16384",

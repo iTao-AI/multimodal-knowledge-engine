@@ -10,13 +10,14 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    GetJsonSchemaHandler,
     RootModel,
     StrictInt,
     StringConstraints,
     TypeAdapter,
     model_validator,
 )
-from pydantic.json_schema import GetJsonSchemaHandler, JsonSchemaValue
+from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import CoreSchema
 
 from mke.interfaces.public_errors import is_public_error_cause
@@ -213,8 +214,8 @@ class SearchContinuationV2(_StrictModel):
     cursor: Utf8BoundedCursor
 
 
-SearchInputV2 = SearchInitialV2 | SearchContinuationV2
-SEARCH_INPUT_V2 = TypeAdapter(SearchInputV2)
+type SearchInputV2 = SearchInitialV2 | SearchContinuationV2
+SEARCH_INPUT_V2: TypeAdapter[SearchInputV2] = TypeAdapter(SearchInputV2)
 
 
 class ReadInitialV1(_StrictModel):
@@ -226,8 +227,8 @@ class ReadContinuationV1(_StrictModel):
     cursor: Utf8BoundedCursor
 
 
-ReadInputV1 = ReadInitialV1 | ReadContinuationV1
-READ_INPUT_V1 = TypeAdapter(ReadInputV1)
+type ReadInputV1 = ReadInitialV1 | ReadContinuationV1
+READ_INPUT_V1: TypeAdapter[ReadInputV1] = TypeAdapter(ReadInputV1)
 
 
 class _RequestCapture(RootModel[object]):

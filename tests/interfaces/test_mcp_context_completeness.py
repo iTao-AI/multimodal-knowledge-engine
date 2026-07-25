@@ -11,11 +11,16 @@ from mke.domain import (
     RunManifest,
 )
 from mke.interfaces.mcp_contract import McpRuntimeConfig, search_library_v1
+from mke.interfaces.mcp_schemas import (
+    SearchLibrarySuccessV2,
+    SearchSelectionCappedV2,
+    SearchSelectionMoreV2,
+)
 from mke.interfaces.mcp_server import build_mcp_server
 from mke.runtime import RuntimeConfig
 
 
-def test_red_search_has_no_selection_completeness(tmp_path: Path) -> None:
+def test_search_exposes_selection_completeness(tmp_path: Path) -> None:
     server = build_mcp_server(
         McpRuntimeConfig(RuntimeConfig(tmp_path / "mke.sqlite"), tmp_path)
     )
@@ -25,7 +30,7 @@ def test_red_search_has_no_selection_completeness(tmp_path: Path) -> None:
     assert "search_library_v2" in tools
 
 
-def test_red_oversized_v1_has_no_typed_exact_read(tmp_path: Path) -> None:
+def test_oversized_v1_has_typed_exact_read_recovery(tmp_path: Path) -> None:
     config = McpRuntimeConfig(RuntimeConfig(tmp_path / "mke.sqlite"), tmp_path)
     engine = KnowledgeEngine(config.db_path)
     try:
@@ -39,7 +44,7 @@ def test_red_oversized_v1_has_no_typed_exact_read(tmp_path: Path) -> None:
     assert search.root.next_step == "use_search_library_v2"  # type: ignore[union-attr]
 
 
-def test_red_cjk_cap_is_not_observable(tmp_path: Path) -> None:
+def test_cjk_cap_is_observable(tmp_path: Path) -> None:
     from mke.interfaces.mcp_completeness_contract import search_library_v2
     from mke.interfaces.mcp_schemas import SearchLibraryV2Request
 
@@ -66,15 +71,17 @@ def test_red_cjk_cap_is_not_observable(tmp_path: Path) -> None:
         config,
         SearchLibraryV2Request(root={"query": "完整性上下文预算", "limit": 5}),
     )
-    while response.root.selection.status == "more_available":
+    assert isinstance(response.root, SearchLibrarySuccessV2)
+    while isinstance(response.root.selection, SearchSelectionMoreV2):
         response = search_library_v2(
             config,
             SearchLibraryV2Request(
                 root={"cursor": response.root.selection.next_cursor}
             ),
         )
+        assert isinstance(response.root, SearchLibrarySuccessV2)
 
-    assert response.root.selection.status == "capped"
+    assert isinstance(response.root.selection, SearchSelectionCappedV2)
     assert response.root.selection.limit_reason == "retrieval_strategy_cap"
 
 

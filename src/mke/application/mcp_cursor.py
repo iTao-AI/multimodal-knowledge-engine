@@ -81,7 +81,10 @@ def _unb64(value: str) -> bytes:
     return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
 
 
-def _encode(material: CursorOwnerMaterial, payload: object) -> str:
+def _encode(
+    material: CursorOwnerMaterial,
+    payload: SearchCursorPayload | ReadCursorPayload,
+) -> str:
     payload_bytes = _canonical(asdict(payload))
     envelope = {
         "payload": _b64(payload_bytes),

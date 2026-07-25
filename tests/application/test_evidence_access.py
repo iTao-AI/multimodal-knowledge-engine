@@ -1,5 +1,5 @@
 from mke.application.evidence_access import build_excerpt, read_utf8_chunk
-from mke.domain.evidence_access import MatchHint
+from mke.domain.evidence_access import MatchHint, Utf8Chunk
 
 
 def test_query_window_finds_a_match_after_the_prefix() -> None:
@@ -19,7 +19,7 @@ def test_prefix_fallback_is_explicit() -> None:
 def test_utf8_chunks_reconstruct_exact_bytes() -> None:
     data = ("A中🙂e\u0301" * 100).encode()
     offset = 0
-    chunks = []
+    chunks: list[Utf8Chunk] = []
     while offset < len(data):
         chunk = read_utf8_chunk(data, offset=offset, max_bytes=4)
         chunks.append(chunk)

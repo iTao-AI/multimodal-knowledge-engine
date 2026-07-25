@@ -7,6 +7,7 @@ from mke.application import KnowledgeEngine
 from mke.domain import (
     PDF_EXTRACTOR_FINGERPRINT,
     REQUIRED_PDF_STAGES,
+    ActiveAuthoritySnapshot,
     CandidateEvidence,
     RunManifest,
 )
@@ -16,7 +17,7 @@ def test_search_page_and_read_share_active_authority(tmp_path: Path) -> None:
     engine = KnowledgeEngine(tmp_path / "mke.sqlite")
     try:
         evidence_id = _publish(engine, ("publication authority one", "publication authority two"))
-        observed = []
+        observed: list[ActiveAuthoritySnapshot] = []
         page = engine.search_evidence_page(
             "publication authority",
             position=0,
