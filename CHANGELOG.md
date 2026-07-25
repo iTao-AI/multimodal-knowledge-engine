@@ -1,5 +1,25 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Additive `search_library_v2` selection/excerpt completeness and bounded
+  `read_evidence_v1` exact active Evidence reads.
+- Exact current ten-tool discovery fixture and same-wheel offline Python 3.12/3.13 stdio proof.
+
+### Compatibility
+
+- Existing Python, CLI, legacy MCP, strict-v1 bounded success, Ask summary, retrieval, and Export
+  contracts remain unchanged. Oversized strict-v1 Search/Ask now returns a typed size error.
+- The immutable v0.1.4 eight-tool fixture remains release evidence; exact-inventory consumers must
+  migrate explicitly to ten tools.
+
+### Not included
+
+- No release, production deployment, hosted service, adoption, performance, exhaustive Search,
+  semantic summarization, SDK 2.x migration, or arbitrary-size Evidence claim.
+
 ## [0.1.4] - 2026-07-23
 
 ### Added

@@ -90,22 +90,43 @@ Example client configuration shape:
 }
 ```
 
-## Available Tools
+For an installed wheel, use absolute paths so the owner identity and file authority do not depend
+on a repository checkout or working directory:
 
-- `list_libraries`: returns the implicit local library.
-- `ingest_file`: ingests a supported `.pdf`, `.mp4`, `.mp3`, `.wav`, or `.m4a` under `--allowed-root`; PDF success includes
-  `intake_report`.
-- `get_run`: returns Run state, append-only Run events, and PDF `intake_report` when present.
-- `search_library`: searches active Publication Evidence.
-- `ask_library`: returns deterministic cited Evidence or an insufficient-Evidence state.
-- `list_libraries_v1`: returns a strict active-Publication observation.
-- `search_library_v1`: returns active Evidence with strict source-byte, Publication, and Run provenance.
-- `ask_library_v1`: returns the same strict Evidence projection as v1 Search.
+```json
+{
+  "command": "/ABSOLUTE/PATH/TO/INSTALLED/mke",
+  "args": [
+    "--db",
+    "/ABSOLUTE/PATH/TO/mke.sqlite",
+    "mcp",
+    "--allowed-root",
+    "/ABSOLUTE/PATH/TO/library"
+  ]
+}
+```
 
-The additive v1 responses use `mke.evidence_ref.v1` and distinguish `empty`,
-`no_active_publication`, and `active`. Existing tool names and schemas remain unchanged. See the
-[MCP contract reference](../reference/mcp-contract.md) and run the real consumer proof with
-`UV_OFFLINE=1 uv run python scripts/evidence_provenance_proof.py`.
+## Choose A Tool
+
+- Prefer `search_library_v2` for loss-aware active Evidence Search. Follow its opaque cursor while
+  selection is `more_available`.
+- Call `read_evidence_v1` when an excerpt is incomplete or an active Evidence ID is already known.
+- Use `search_library_v1` or legacy `search_library` only for compatibility.
+- Treat Ask as deterministic Evidence convenience, not generated or exhaustive answer authority.
+- Use Compiled Library Export as a separate bounded delivery contract.
+
+The [MCP contract reference](../reference/mcp-contract.md) is the sole complete inventory and
+schema authority. The immutable eight-tool release fixture remains historical evidence; exact
+inventory consumers must migrate to the current ten-tool expectation.
+
+Continuation calls contain only the opaque token:
+
+```json
+{"request":{"cursor":"<opaque-token>"}}
+```
+
+Do not decode, log, or edit it. A process restart, active Publication change, or retrieval-policy
+change can expire it; follow the reference recovery table and repeat the appropriate initial call.
 
 CLI names stay human-oriented (`ingest`, `search`, `run get`). MCP tool names are explicit for
 Agents (`ingest_file`, `search_library`, `ask_library`, `get_run`).

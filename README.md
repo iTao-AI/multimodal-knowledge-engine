@@ -325,3 +325,9 @@ for responsible vulnerability reporting.
 ## License
 
 MIT. See [LICENSE](./LICENSE).
+# MCP context completeness
+
+The canonical ten-tool inventory, completeness semantics, exact Evidence read contract, and stable
+recovery operations are documented in the
+[MCP contract reference](./docs/reference/mcp-contract.md). Run the installed-wheel verification
+with the [MCP context completeness proof](./docs/how-to/run-mcp-context-completeness-proof.md).
