@@ -3,7 +3,7 @@
   "protocol": {
     "id": "retrieval-numeric-v1",
     "path": "tests/fixtures/retrieval-numeric-v1/protocol-lock.json",
-    "sha256": "9a7836e53e3e402d446c5a6b7765424bad4548b87ce9836b02ccab41c304361c"
+    "sha256": "17c424e49237deba600fef70d47da803fb73f72d2ee65995fc155dc96e22da60"
   },
   "manifests": {
     "development": {
@@ -41,7 +41,7 @@
     "revision": 1
   },
   "source": {
-    "sha256": "eb19976ffce0f20cedb7101075774abfbb7ba063bed0aa617bbdbc831730d777",
+    "sha256": "c3cec8853547fd09d8fad10865666ce2bb1a507afe19a066a364ab2424064665",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -110,8 +110,8 @@
       },
       {
         "path": "src/mke/adapters/sqlite/__init__.py",
-        "bytes": 84446,
-        "sha256": "724083b072e4f5ff8fb9b37caf343444443f1ddd8f788dc6cb5ef8b4bf940c03"
+        "bytes": 84775,
+        "sha256": "734240da08c541fed11bc6c6f4cc460d9fd30742c8f2e85c5ff503e2685627f8"
       },
       {
         "path": "src/mke/adapters/vector/__init__.py",
@@ -180,8 +180,8 @@
       },
       {
         "path": "src/mke/application/evidence_access.py",
-        "bytes": 9001,
-        "sha256": "70cbc7b3ee4bfdee63dcd02b1a72a1bef32e1124385e94ad6a9a27f762ba4933"
+        "bytes": 11554,
+        "sha256": "d6e94911bf96bb65206c06799bb7363c5d0f1b3b270bf6043c64e99b05b46b3d"
       },
       {
         "path": "src/mke/application/library_export.py",
@@ -205,8 +205,8 @@
       },
       {
         "path": "src/mke/domain/evidence_access.py",
-        "bytes": 5201,
-        "sha256": "61a29ae45254e2817454a98a593a78ac6c8276e5a25a8cc11aa904a76fed2c42"
+        "bytes": 5345,
+        "sha256": "b0f9b9a80e2c88194a557144862bb8d789894b575d7972e8ae698d7e0b655a44"
       },
       {
         "path": "src/mke/domain/library_export.py",

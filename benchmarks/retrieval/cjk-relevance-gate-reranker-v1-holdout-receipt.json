@@ -3,10 +3,10 @@
     "candidate_id": "cjk-relevance-gate-reranker-v1",
     "candidate_revision": 1
   },
-  "dense_artifact_sha256": "381e8879339e7a5c5909ac654a5f265d71525b327a370b3dd122301545d38508",
-  "development_freeze_sha256": "d1968674eee149b84183c28060a0bae1665ab76da7432c8a55e30e234603d3b0",
-  "protocol_sha256": "d0d90d0860683a0d19d852a615f3d357d3628fae477f3be68460c230476963fb",
-  "rrf_artifact_sha256": "bcccf6460f19f1b19948bb4523e263dccb8592bcc3be61a7e45b11d775335596",
+  "dense_artifact_sha256": "09f995fb8bf9bdfce2ac8cbc8f61aab536971c272d5d4c5af530503c964fb963",
+  "development_freeze_sha256": "bcb3049dde69c4e3145ebda62f328941af7e26f344ee6b5fb2adcbe5f6bffdef",
+  "protocol_sha256": "a4df76fe712ad5784af1b6e8ea4f98606a6b0ed623dfd62a028acc3d1ac5e743",
+  "rrf_artifact_sha256": "a633140cc0f14350bea824fa1f1de73279068b2131643126e1722d6a26c86697",
   "schema_version": "mke.relevance_gate_holdout_receipt.v1",
   "selected_profile": "strict-constraint"
 }
