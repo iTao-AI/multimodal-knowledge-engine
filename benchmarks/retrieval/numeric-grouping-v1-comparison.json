@@ -3,7 +3,7 @@
   "protocol": {
     "id": "retrieval-numeric-v1",
     "path": "tests/fixtures/retrieval-numeric-v1/protocol-lock.json",
-    "sha256": "9fab84682c8b38da1f20ee847d25e517da712883f89a2c850c7e14f2aa6202d9"
+    "sha256": "9a7836e53e3e402d446c5a6b7765424bad4548b87ce9836b02ccab41c304361c"
   },
   "manifests": {
     "development": {
@@ -41,7 +41,7 @@
     "revision": 1
   },
   "source": {
-    "sha256": "2ee2c1401903690220021c0ac47700ee8b88dfecbb65746ce8194345f308bdaa",
+    "sha256": "564232d98c02d74dd4a92ebc8ce2494709878b5c3aad3d6efa01956f8c8c031f",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -110,8 +110,8 @@
       },
       {
         "path": "src/mke/adapters/sqlite/__init__.py",
-        "bytes": 75737,
-        "sha256": "4d67bdaab105b3a0a8b900966bc9e162b12fa29dc2a7a6c6bcf18e01a32daefd"
+        "bytes": 84446,
+        "sha256": "724083b072e4f5ff8fb9b37caf343444443f1ddd8f788dc6cb5ef8b4bf940c03"
       },
       {
         "path": "src/mke/adapters/vector/__init__.py",
@@ -180,8 +180,8 @@
       },
       {
         "path": "src/mke/application/evidence_access.py",
-        "bytes": 8292,
-        "sha256": "6e584b5bab0b733c001e2d5f75b2d1911decf66b870dfebdc873beae837f758e"
+        "bytes": 9001,
+        "sha256": "70cbc7b3ee4bfdee63dcd02b1a72a1bef32e1124385e94ad6a9a27f762ba4933"
       },
       {
         "path": "src/mke/application/library_export.py",
@@ -190,8 +190,8 @@
       },
       {
         "path": "src/mke/application/mcp_cursor.py",
-        "bytes": 5396,
-        "sha256": "a5e4c4cbbb3730a9b4b91efcefe810dfa5196845ee53ff82f364231152562e68"
+        "bytes": 12083,
+        "sha256": "2be966a1d773500e9e27a5829de84202b38ddb1815365b648fccf8025c06a1c5"
       },
       {
         "path": "src/mke/cli.py",
@@ -465,8 +465,8 @@
       },
       {
         "path": "src/mke/interfaces/mcp_completeness_contract.py",
-        "bytes": 14012,
-        "sha256": "2afeded8982c544fbacba3f5e61d78576f1f98ed84a21d357030088f1d2a78f8"
+        "bytes": 14872,
+        "sha256": "a6cb3d88c766c97ccd998c6935524f5430b909663e270411d3a6792a227cc9ae"
       },
       {
         "path": "src/mke/interfaces/mcp_contract.py",
@@ -475,8 +475,8 @@
       },
       {
         "path": "src/mke/interfaces/mcp_schemas.py",
-        "bytes": 12534,
-        "sha256": "a58accfb5b1502490b9b1a3ad2c7f1917fc97c97634430b532fcc19d8891d112"
+        "bytes": 12700,
+        "sha256": "113f7fa0b976dd593f20d5ea1f52b392f51988b41a7d295f00b4b2d33df62e32"
       },
       {
         "path": "src/mke/interfaces/mcp_server.py",

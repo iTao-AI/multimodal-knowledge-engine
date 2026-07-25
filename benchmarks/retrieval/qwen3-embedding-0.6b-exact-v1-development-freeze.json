@@ -3909,7 +3909,7 @@
   "protocol": {
     "bytes": 5127,
     "path": "protocol-lock.json",
-    "sha256": "7d31f44452a3d23c93f0a0666e9a2b0b927b8d67841bcb9bfcb282b3871e0ffd"
+    "sha256": "3c1f8b7c30cfb9bf89396480fdf771752b5a54a9407fe1eadbe32ae8be7071ff"
   },
   "schema_version": "mke.dense_development_freeze.v1",
   "source": {
