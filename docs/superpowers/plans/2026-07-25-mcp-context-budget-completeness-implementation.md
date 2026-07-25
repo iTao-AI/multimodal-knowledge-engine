@@ -351,7 +351,7 @@ FastMCP typed tool
 - Create: `tests/interfaces/test_mcp_context_completeness.py`
 - Modify later, not in this task: production files
 
-- [ ] **Step 1: Verify the exact execution base and clean ownership**
+- [x] **Step 1: Verify the exact execution base and clean ownership**
 
 Run:
 
@@ -365,7 +365,7 @@ git diff --name-status d0b3b8e3f73005851570cf8fcf546030a9e2ceb5..HEAD
 Expected: the existing isolated branch is clean; HEAD contains the approved spec and this plan;
 there are exactly those two task-owned documentation commits/paths before implementation.
 
-- [ ] **Step 2: Run the frozen baseline regressions**
+- [x] **Step 2: Run the frozen baseline regressions**
 
 Run:
 
@@ -382,7 +382,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: PASS with no fixture rewrite.
 
-- [ ] **Step 3: Write the three public-contract REDs**
+- [x] **Step 3: Write the three public-contract REDs**
 
 Create focused tests with these exact observable assertions:
 
@@ -413,7 +413,7 @@ def test_red_cjk_cap_is_not_observable(cjk_eleven_match_config):
 The helpers belong in the test file and must use public MCP contract functions, not adapter
 internals. Create deterministic state through existing test builders.
 
-- [ ] **Step 4: Run RED and retain the exact failure evidence**
+- [x] **Step 4: Run RED and retain the exact failure evidence**
 
 Run:
 
@@ -439,7 +439,7 @@ Do not commit a RED-only production branch state. Keep the failing tests for Tas
 - Create: `tests/application/test_evidence_access.py`
 - Modify: `src/mke/domain/__init__.py`
 
-- [ ] **Step 1: Write RED domain and byte-boundary tests**
+- [x] **Step 1: Write RED domain and byte-boundary tests**
 
 Cover:
 
@@ -481,7 +481,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: FAIL during collection because the new modules do not exist.
 
-- [ ] **Step 2: Implement immutable domain contracts**
+- [x] **Step 2: Implement immutable domain contracts**
 
 Implement and re-export these exact interfaces:
 
@@ -605,7 +605,7 @@ payload = {
 return f"sha256:{sha256(canonical_json(payload)).hexdigest()}"
 ```
 
-- [ ] **Step 3: Implement pure excerpt and chunk helpers**
+- [x] **Step 3: Implement pure excerpt and chunk helpers**
 
 Implement:
 
@@ -641,7 +641,7 @@ earliest UTF-8 byte match followed by clause and term order, balance the remaini
 around that span, and move both boundaries inward to code-point boundaries. Do not claim grapheme
 cluster safety.
 
-- [ ] **Step 4: Verify GREEN and commit**
+- [x] **Step 4: Verify GREEN and commit**
 
 Run:
 
@@ -675,7 +675,7 @@ Expected: focused tests and Ruff PASS; commit contains only Task 1 paths.
 - Modify: `src/mke/runtime_owner.py`
 - Modify: `tests/runtime/test_owner_runtime.py`
 
-- [ ] **Step 1: Write RED cursor and owner-lifecycle tests**
+- [x] **Step 1: Write RED cursor and owner-lifecycle tests**
 
 Cover canonical round-trip, no base64 padding, exact allowed fields, duplicate/unknown JSON fields,
 oversized tokens, malformed UTF-8/JSON/base64, Search/Read wrong-tool use, position and size bounds,
@@ -712,7 +712,7 @@ UV_OFFLINE=1 uv run pytest -q \
 Expected: new tests FAIL because cursor material and codec do not exist; existing owner tests remain
 GREEN.
 
-- [ ] **Step 2: Extend `OwnerRuntimeState` without changing recovery behavior**
+- [x] **Step 2: Extend `OwnerRuntimeState` without changing recovery behavior**
 
 Add:
 
@@ -744,7 +744,7 @@ class OwnerRuntimeState:
 Validate injected keys as exactly 32 bytes and injected epochs as lowercase 32-hex tokens. The
 default material is created once per owner runtime and is never persisted or logged.
 
-- [ ] **Step 3: Implement strict cursor payloads and validation phases**
+- [x] **Step 3: Implement strict cursor payloads and validation phases**
 
 Define separate frozen dataclasses with these exact bindings:
 
@@ -830,7 +830,7 @@ integer, and range checks without repository access. The interface contract obta
 pure validation functions in the approved epoch -> HMAC -> binding order. Authentication uses
 `hmac.compare_digest`. The public layer never renders parsed payloads.
 
-- [ ] **Step 4: Verify GREEN and commit**
+- [x] **Step 4: Verify GREEN and commit**
 
 Run:
 
@@ -868,7 +868,7 @@ Expected: focused tests and existing runtime composition PASS.
 - Modify: `tests/adapters/test_sqlite_cjk_active_scan.py`
 - Modify: `tests/adapters/test_sqlite_fts.py`
 
-- [ ] **Step 1: Write RED selection and authority tests**
+- [x] **Step 1: Write RED selection and authority tests**
 
 Require:
 
@@ -906,7 +906,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: new tests FAIL; legacy retrieval tests PASS.
 
-- [ ] **Step 2: Expose CJK selected-pool metadata without changing legacy ranking**
+- [x] **Step 2: Expose CJK selected-pool metadata without changing legacy ranking**
 
 Add:
 
@@ -938,7 +938,7 @@ scores, matched terms, and top-10 output exactly.
 
 Set `QUERY_POLICY_REVISION = 1` in `query_policy.py`; do not change either policy's compilation.
 
-- [ ] **Step 3: Derive active authority from existing validated rows**
+- [x] **Step 3: Derive active authority from existing validated rows**
 
 After `_read_and_validate_active_publication_rows()`, map each row to
 `ActiveAuthorityRecord`. Required stages are parsed as a sorted, unique tuple. Derive the
@@ -946,7 +946,7 @@ fingerprint before selection/read and return `ActiveAuthoritySnapshot`.
 
 Do not persist the fingerprint and do not add a table or column.
 
-- [ ] **Step 4: Implement bounded FTS/CJK pages**
+- [x] **Step 4: Implement bounded FTS/CJK pages**
 
 Add:
 
@@ -996,7 +996,7 @@ cursor error rolls back before selection.
 The existing `search()`, `_search_fts()`, and `search_cjk_active_scan()` outputs and query shapes
 must remain unchanged.
 
-- [ ] **Step 5: Implement active Evidence initial/range reads**
+- [x] **Step 5: Implement active Evidence initial/range reads**
 
 Add:
 
@@ -1032,7 +1032,7 @@ the Evidence join/range query.
 Map all absence/inactivity cases to one internal `EvidenceNotFoundError`; map empty/corrupt graph
 to a redacted internal failure; map the 16 MiB ceiling to `EvidenceResponseTooLargeError`.
 
-- [ ] **Step 6: Add façade methods and verify GREEN**
+- [x] **Step 6: Add façade methods and verify GREEN**
 
 `KnowledgeEngine` forwards:
 
@@ -1111,7 +1111,7 @@ Expected: all focused adapter/retrieval tests PASS with unchanged legacy ranking
 - Modify: `tests/interfaces/test_mcp_v1_schemas.py`
 - Modify: `tests/interfaces/test_mcp_contract.py`
 
-- [ ] **Step 1: Write RED budget, continuation, and v1 preflight tests**
+- [x] **Step 1: Write RED budget, continuation, and v1 preflight tests**
 
 Cover:
 
@@ -1137,7 +1137,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: new tests FAIL; existing bounded v1 tests PASS.
 
-- [ ] **Step 2: Implement deterministic page assembly**
+- [x] **Step 2: Implement deterministic page assembly**
 
 Add frozen application projections:
 
@@ -1224,7 +1224,7 @@ else:
     status = "complete"
 ```
 
-- [ ] **Step 3: Add explicit strict-v1 size preflight**
+- [x] **Step 3: Add explicit strict-v1 size preflight**
 
 Before constructing `EvidenceRefV1`, check every complete Evidence text with:
 
@@ -1243,7 +1243,7 @@ if len(result.result.text) > 1_000_000:
 Ask uses its own frozen response schema with the same cause and next step. Add exactly that cause to
 `_ALLOWLISTED_CAUSES`. Do not catch or relabel general Pydantic `ValidationError`.
 
-- [ ] **Step 4: Verify GREEN and commit**
+- [x] **Step 4: Verify GREEN and commit**
 
 Run:
 
@@ -1286,7 +1286,7 @@ Expected: focused application/contract tests PASS; frozen legacy schema remains 
 - Modify: `tests/interfaces/test_mcp_server.py`
 - Modify: `tests/interfaces/test_mcp_legacy_schema_snapshot.py`
 
-- [ ] **Step 1: Write RED strict-schema and SDK-output tests**
+- [x] **Step 1: Write RED strict-schema and SDK-output tests**
 
 Require:
 
@@ -1323,7 +1323,7 @@ UV_OFFLINE=1 uv run pytest -q \
 Expected: strict wire tests FAIL because the new tools/models are not registered; frozen legacy
 schema test remains GREEN.
 
-- [ ] **Step 2: Implement strict frozen Pydantic models**
+- [x] **Step 2: Implement strict frozen Pydantic models**
 
 Reuse:
 
@@ -1364,7 +1364,7 @@ Define:
 Each success/error RootModel uses `Annotated[Success | Error, Field(discriminator="ok")]`.
 Selection uses `status`; Read terminality uses `complete`.
 
-- [ ] **Step 3: Implement contract branch validation and cursor recovery**
+- [x] **Step 3: Implement contract branch validation and cursor recovery**
 
 Use strict branch models plus a request-capture RootModel:
 
@@ -1477,7 +1477,7 @@ Add the fixed Task 5 causes (`INVALID_CURSOR_CAUSE` through `INVALID_MAX_BYTES_C
 public-error allowlist. Keep `V1_TEXT_TOO_LARGE_CAUSE` from Task 4. No dynamic exception message is
 allowlisted.
 
-- [ ] **Step 4: Register exactly two structured tools with locked SDK syntax**
+- [x] **Step 4: Register exactly two structured tools with locked SDK syntax**
 
 Import `mcp_completeness_contract` beside the existing `mcp_contract`; do not move or rename any
 legacy/v1 contract function. Use the installed MCP 1.28.1 constructor fields exactly:
@@ -1523,7 +1523,7 @@ def read_evidence_v1(
 Upgrade all eight existing tool descriptions and add accurate annotations without changing their
 names, function parameters, return annotations, input schemas, or output schemas.
 
-- [ ] **Step 5: Run the original targeted REDs as GREEN**
+- [x] **Step 5: Run the original targeted REDs as GREEN**
 
 Run:
 
@@ -1536,7 +1536,7 @@ UV_OFFLINE=1 uv run pytest -q \
 Expected: the same three tests now PASS. Rename them by removing the `red_` prefix only after this
 GREEN evidence is captured.
 
-- [ ] **Step 6: Verify the complete wire and legacy boundary**
+- [x] **Step 6: Verify the complete wire and legacy boundary**
 
 Run:
 
@@ -1581,7 +1581,7 @@ Expected: exact ten-tool surface PASS; immutable eight-tool release fixture rema
 - Create: `tests/scripts/test_mcp_context_completeness_proof.py`
 - Create: `.github/workflows/mcp-context-completeness-proof.yml`
 
-- [ ] **Step 1: Freeze the exact current ten-tool expectation**
+- [x] **Step 1: Freeze the exact current ten-tool expectation**
 
 Generate the fixture once from `build_mcp_server(...).list_tools()` in the repository environment.
 Store a closed sorted mapping containing each tool's exact `inputSchema`, `outputSchema`,
@@ -1605,7 +1605,7 @@ assert set(expectation["tools"]) == {
 Do not copy, edit, or supersede `tests/fixtures/consumer-source-pack-v1/**`. The new consumer must
 reject missing and unknown discovered tools.
 
-- [ ] **Step 2: Write RED fixture, standalone client, and controller tests**
+- [x] **Step 2: Write RED fixture, standalone client, and controller tests**
 
 Static client restrictions:
 
@@ -1642,7 +1642,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: FAIL because scripts and fixture do not exist.
 
-- [ ] **Step 3: Implement the installed-package fixture producer**
+- [x] **Step 3: Implement the installed-package fixture producer**
 
 The copied fixture producer runs under the installed wheel's Python from an external cwd. It
 creates one database using `KnowledgeEngine`, `CandidateEvidence`, and `RunManifest`:
@@ -1668,7 +1668,7 @@ and a closed failure:
 {"status":"failed","code":"fixture_setup_failed"}
 ```
 
-- [ ] **Step 4: Implement the standalone consumer**
+- [x] **Step 4: Implement the standalone consumer**
 
 The client accepts absolute `--server-command`, `--database`, `--allowed-root`, and expectation
 paths. It uses one real stdio session for discovery and normal continuation, invokes
@@ -1715,7 +1715,7 @@ assert sdk_result_bytes < 96 * 1024
 The client never prints cursor, Evidence/query text, IDs, paths, stderr, stack traces, or
 environment values.
 
-- [ ] **Step 5: Implement the one-wheel proof controller**
+- [x] **Step 5: Implement the one-wheel proof controller**
 
 The controller:
 
@@ -1765,7 +1765,7 @@ is exactly:
 {"status":"failed","code":"stable_machine_code"}
 ```
 
-- [ ] **Step 6: Add a dedicated same-wheel workflow**
+- [x] **Step 6: Add a dedicated same-wheel workflow**
 
 Model `.github/workflows/mcp-context-completeness-proof.yml` on the existing consumer-source-pack
 proof workflow. Pin the same action SHAs, provision both explicit Python paths and locked caches in
@@ -1773,7 +1773,7 @@ an online step, then run one controller invocation with `UV_OFFLINE=1`. Use one 
 so both interpreters are bound to the same wheel. Set `contents: read`, concurrency cancellation,
 and a 15-minute timeout.
 
-- [ ] **Step 7: Verify proof code and run one local installed proof**
+- [x] **Step 7: Verify proof code and run one local installed proof**
 
 Run:
 
@@ -1800,7 +1800,7 @@ Expected: tests/Ruff PASS and the proof emits only the closed success receipt. I
 is unavailable, stop and report `python_interpreter_unavailable`; do not substitute another
 version.
 
-- [ ] **Step 8: Commit the proof pack**
+- [x] **Step 8: Commit the proof pack**
 
 Run:
 
@@ -1835,7 +1835,7 @@ tracked.
 - Modify: `docs/README.md`
 - Modify: `CHANGELOG.md`
 
-- [ ] **Step 1: Write RED documentation regressions**
+- [x] **Step 1: Write RED documentation regressions**
 
 Require one canonical complete inventory in `docs/reference/mcp-contract.md`; README files link to
 it without duplicating schemas. Require all of:
@@ -1865,7 +1865,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: FAIL because the new how-to and links do not exist.
 
-- [ ] **Step 2: Update the canonical reference and how-to**
+- [x] **Step 2: Update the canonical reference and how-to**
 
 Document exact inputs, strict success/error shapes, status tables, byte budgets, cursor lifecycle,
 recovery operations, descriptions, annotations, and all ten tool names only in
@@ -1888,7 +1888,7 @@ recovery operations, descriptions, annotations, and all ten tool names only in
 
 Add continuation examples with opaque placeholder tokens only; never include a real token.
 
-- [ ] **Step 3: Document proof, architecture, navigation, and unreleased change**
+- [x] **Step 3: Document proof, architecture, navigation, and unreleased change**
 
 The proof how-to states the exact command, interpreter/cache prerequisites, arbitrary-cwd and
 installed-identity checks, closed receipt, cleanup, proves/does-not-prove boundary, and safe
@@ -1899,7 +1899,7 @@ continuation observation, never a Publication. README files and `docs/README.md`
 Add an `[Unreleased]` CHANGELOG entry without a version/date and without claiming release,
 production deployment, adoption, or performance.
 
-- [ ] **Step 4: Verify docs and commit**
+- [x] **Step 4: Verify docs and commit**
 
 Run:
 
@@ -1933,7 +1933,7 @@ Expected: documentation tests and governance regressions PASS.
 - Do not create a public implementation review before the independent authority review is
   complete.
 
-- [ ] **Step 1: Run focused contract and proof gates**
+- [x] **Step 1: Run focused contract and proof gates**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1954,7 +1954,7 @@ UV_OFFLINE=1 uv run pytest -q \
 
 Expected: PASS.
 
-- [ ] **Step 2: Run compatibility suites**
+- [x] **Step 2: Run compatibility suites**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q \
@@ -1972,7 +1972,7 @@ UV_OFFLINE=1 uv run pytest -q \
 Expected: PASS; Python, CLI, legacy/v1 MCP, current installed consumer, Publication, Evidence,
 retrieval, Ask, and Export regressions remain GREEN.
 
-- [ ] **Step 3: Run full project quality gates**
+- [x] **Step 3: Run full project quality gates**
 
 ```bash
 UV_OFFLINE=1 uv run pytest -q
@@ -1985,7 +1985,7 @@ git diff --check
 Expected: full pytest PASS with only pre-existing documented skips/warnings; Ruff PASS; Pyright
 reports zero errors; sdist and wheel build.
 
-- [ ] **Step 4: Rebuild and rerun the terminal installed proof on committed HEAD**
+- [x] **Step 4: Rebuild and rerun the terminal installed proof on committed HEAD**
 
 Remove only the task-owned temporary candidate directory, then run:
 
@@ -2000,7 +2000,7 @@ UV_OFFLINE=1 uv run python scripts/mcp_context_completeness_proof.py \
 Expected: closed PASS receipt from the exact committed HEAD. Verify the proof imports the installed
 wheel, not the source tree.
 
-- [ ] **Step 5: Run boundary scans and inspect the complete diff**
+- [x] **Step 5: Run boundary scans and inspect the complete diff**
 
 ```bash
 git status --short --branch
@@ -2018,7 +2018,7 @@ rg -n \
 Inspect every match; allow only existing public technical uses after manual review. Expected: no
 credential, personal local-path, or non-project workflow disclosure.
 
-- [ ] **Step 6: Self-review against the approved spec**
+- [x] **Step 6: Self-review against the approved spec**
 
 Create an authority-review checklist outside the implementation diff mapping every section:
 
@@ -2038,7 +2038,7 @@ Create an authority-review checklist outside the implementation diff mapping eve
 
 Expected: no uncovered requirement and no implementation beyond the approved exclusions.
 
-- [ ] **Step 7: Handoff for one independent pre-PR authority review**
+- [x] **Step 7: Handoff for one independent pre-PR authority review**
 
 Return:
 
