@@ -6,18 +6,23 @@ the local uv cache. The proof runs with `UV_OFFLINE=1`; it does not install glob
 dependencies.
 
 ```bash
+uv export --locked --no-dev --no-emit-project \
+  --output-file /ABSOLUTE/PATH/TO/mke-core-requirements.txt
+
 UV_OFFLINE=1 uv run python scripts/mcp_context_completeness_proof.py \
   --python /ABSOLUTE/PATH/TO/python3.12 \
   --python /ABSOLUTE/PATH/TO/python3.13 \
+  --constraints /ABSOLUTE/PATH/TO/mke-core-requirements.txt \
   --candidate-output /ABSOLUTE/PATH/TO/candidate-output \
   --json
 ```
 
 The controller builds exactly one wheel, creates temporary external environments, installs that
-same wheel offline into both, and invokes the standalone consumer from an
-arbitrary external working directory. It verifies that `mke.__file__` and `sys.executable` belong to the external
-environment, not the source checkout. Temporary environments are removed when the controller
-exits; the requested candidate output remains available for inspection.
+same wheel under the exported lock-derived constraints offline into both, and invokes the
+standalone consumer from an arbitrary external working directory. It verifies that `mke.__file__`
+and `sys.executable` belong to the external environment, not the source checkout. Temporary
+environments are removed when the controller exits; the requested candidate output remains
+available for inspection.
 
 A successful closed receipt reports `source_import="installed_wheel"`,
 `network_access="not_used"`, both Python versions, ten tools, contract proof-point statuses, and

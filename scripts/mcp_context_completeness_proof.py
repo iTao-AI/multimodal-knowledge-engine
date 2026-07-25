@@ -70,6 +70,7 @@ def installed_case(
     *,
     interpreter: Path,
     wheel: Path,
+    constraints: Path,
     repository: Path,
     case_root: Path,
 ) -> dict[str, Any]:
@@ -104,6 +105,8 @@ def installed_case(
             "--offline",
             "--python",
             str(installed_python),
+            "--constraints",
+            str(constraints),
             str(wheel),
         ],
         cwd=case_root,
@@ -192,8 +195,11 @@ def installed_case(
 def run(args: argparse.Namespace) -> dict[str, object]:
     repository = Path(__file__).resolve().parent.parent
     interpreters = tuple(path.resolve() for path in args.python)
+    constraints = args.constraints.resolve()
     if len(interpreters) != 2:
         raise ProofFailure("python_interpreter_unavailable")
+    if not constraints.is_file():
+        raise ProofFailure("locked_constraints_unavailable")
     args.candidate_output.mkdir(parents=True, exist_ok=True)
     build = command(
         ["uv", "build", "--wheel", "--out-dir", str(args.candidate_output)],
@@ -211,6 +217,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             installed_case(
                 interpreter=interpreter,
                 wheel=wheels[0],
+                constraints=constraints,
                 repository=repository,
                 case_root=root / f"case-{index}",
             )
@@ -241,6 +248,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--python", type=Path, action="append", required=True)
+    parser.add_argument("--constraints", type=Path, required=True)
     parser.add_argument("--candidate-output", type=Path, required=True)
     parser.add_argument("--json", action="store_true")
     return parser.parse_args()

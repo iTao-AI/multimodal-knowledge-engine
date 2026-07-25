@@ -2080,6 +2080,24 @@ identity closure does not change a corpus, fixture, query, qrel, observation, re
 threshold, gate, diagnostic, selected candidate/profile, status, verdict, or retrieval promotion.
 It makes no model, quality, performance, production, deployment, or adoption claim.
 
+### Task 8S: Close reviewed contract-boundary findings
+
+The independent full-diff review identified bounded implementation gaps in SQLite page/range
+reads, retrieval match-hint preservation, normalized excerpt offsets, exact CJK cap reporting,
+blank-query validation, frozen release-error regression coverage, staged cursor validation, and
+lock-bound dual-interpreter proof provisioning. Each repair begins with a targeted failing
+regression and preserves the approved public schemas, ranking, active-Publication authority,
+ten-tool inventory, immutable v0.1.4 fixture, and one-wheel offline proof boundary.
+
+Completion requires bounded SQLite metadata preflight and range queries, FTS `LIMIT`/`OFFSET`
+lookahead, retrieval-owned hints, exact normalized-to-original byte mapping, strategy-reported cap
+state, zero-access malformed input rejection, authority-first authenticated continuation
+validation, producer-derived frozen error checks, lock-derived install constraints, Python
+3.12/3.13 cache prewarming, the complete Task 8 verification set, and supported identity closure
+when source-bound artifact validators require it. These repairs do not change ranking, add a tool
+or dependency, run a model, re-observe holdout data, alter an evaluation metric or verdict, or make
+performance, deployment, production, or adoption claims.
+
 ## Final Acceptance
 
 The implementation is READY for independent review only when:

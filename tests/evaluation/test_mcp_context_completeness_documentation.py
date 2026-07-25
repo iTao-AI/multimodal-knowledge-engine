@@ -50,6 +50,7 @@ def test_proof_how_to_is_safe_and_public_neutral() -> None:
         "Python 3.12",
         "Python 3.13",
         "UV_OFFLINE=1",
+        "--constraints /ABSOLUTE/PATH/TO/mke-core-requirements.txt",
         "arbitrary external working directory",
         "installed_wheel",
         "Evidence or query text",

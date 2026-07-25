@@ -29,16 +29,38 @@ jobs:
         with:
           version: "0.8.22"
           enable-cache: true
-      - name: Provision locked interpreters and dependencies
+      - id: python312
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+      - id: python313
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.13"
+      - name: Provision locked cache for controller and both interpreters
         run: |
-          uv python install 3.12 3.13
           uv sync --locked
+          uv export --locked --no-dev --no-emit-project \
+            --output-file "$RUNNER_TEMP/mke-core-requirements.txt"
+          uv venv "$RUNNER_TEMP/mke-prewarm-312" \
+            --python "${{ steps.python312.outputs.python-path }}" \
+            --no-python-downloads
+          uv pip install \
+            --python "$RUNNER_TEMP/mke-prewarm-312/bin/python" \
+            --requirement "$RUNNER_TEMP/mke-core-requirements.txt"
+          uv venv "$RUNNER_TEMP/mke-prewarm-313" \
+            --python "${{ steps.python313.outputs.python-path }}" \
+            --no-python-downloads
+          uv pip install \
+            --python "$RUNNER_TEMP/mke-prewarm-313/bin/python" \
+            --requirement "$RUNNER_TEMP/mke-core-requirements.txt"
       - name: Run same-wheel offline proof
         env:
           UV_OFFLINE: "1"
         run: |
           uv run python scripts/mcp_context_completeness_proof.py \
-            --python "$(uv python find 3.12)" \
-            --python "$(uv python find 3.13)" \
+            --python "${{ steps.python312.outputs.python-path }}" \
+            --python "${{ steps.python313.outputs.python-path }}" \
+            --constraints "${RUNNER_TEMP}/mke-core-requirements.txt" \
             --candidate-output "${RUNNER_TEMP}/mke-context-completeness-candidate" \
             --json
