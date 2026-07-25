@@ -66,6 +66,32 @@ def parse_receipt(result: subprocess.CompletedProcess[str], code: str) -> dict[s
     return payload
 
 
+def validate_installed_identity(
+    *,
+    module: Path,
+    executable: Path,
+    environment_root: Path,
+    repository: Path,
+) -> None:
+    resolved_module = module.resolve()
+    resolved_environment = environment_root.resolve()
+    resolved_repository = repository.resolve()
+    expected_executable = environment_root / "bin" / "python"
+    if (
+        not module.is_absolute()
+        or not executable.is_absolute()
+        or resolved_module == resolved_repository
+        or resolved_repository in resolved_module.parents
+        or (
+            resolved_module != resolved_environment
+            and resolved_environment not in resolved_module.parents
+        )
+        or executable.name != expected_executable.name
+        or executable.parent.resolve() != expected_executable.parent.resolve()
+    ):
+        raise ProofFailure("installed_identity_failed")
+
+
 def installed_case(
     *,
     interpreter: Path,
@@ -139,12 +165,12 @@ def installed_case(
         ),
         "installed_identity_failed",
     )
-    module = Path(identity_payload["module"]).resolve()
-    executable = Path(identity_payload["executable"]).absolute()
-    if repository.resolve() in module.parents or environment_root.resolve() not in module.parents:
-        raise ProofFailure("installed_identity_failed")
-    if environment_root.absolute() not in executable.parents:
-        raise ProofFailure("installed_identity_failed")
+    validate_installed_identity(
+        module=Path(identity_payload["module"]),
+        executable=Path(identity_payload["executable"]),
+        environment_root=environment_root,
+        repository=repository,
+    )
 
     fixture_script = case_root / "mcp_context_completeness_fixture.py"
     consumer_script = case_root / "mcp_context_completeness_consumer.py"
