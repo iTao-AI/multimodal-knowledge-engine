@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+import re
+import secrets
 import threading
 import time
 from collections.abc import Callable
@@ -21,6 +23,12 @@ class AdmissionSnapshot:
 class _AdmissionState:
     active: int = 0
     waiting: int = 0
+
+
+@dataclass(frozen=True)
+class CursorOwnerMaterial:
+    key: bytes
+    epoch: str
 
 
 class AdmissionOverloadedError(RuntimeError):
@@ -133,9 +141,24 @@ class BoundedAdmissionController:
 
 
 class OwnerRuntimeState:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        cursor_key: bytes | None = None,
+        owner_epoch: str | None = None,
+    ) -> None:
+        key = cursor_key if cursor_key is not None else secrets.token_bytes(32)
+        epoch = owner_epoch if owner_epoch is not None else secrets.token_hex(16)
+        if type(key) is not bytes or len(key) != 32:
+            raise ValueError("cursor key must contain exactly 32 bytes")
+        if re.fullmatch(r"[0-9a-f]{32}", epoch) is None:
+            raise ValueError("owner epoch must be a lowercase 32-hex token")
         self._lock = threading.Lock()
         self._recovered_databases: set[Path] = set()
+        self._cursor_material = CursorOwnerMaterial(key=key, epoch=epoch)
+
+    def cursor_material(self) -> CursorOwnerMaterial:
+        return self._cursor_material
 
     def recover_unfinished_runs_once(
         self,

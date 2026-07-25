@@ -10,11 +10,11 @@
     "arms": [
       {
         "arm_id": "e3a-historical-fts5-baseline",
-        "semantic_digest": "180f7fe4aba7b8dfb68b988139f1caf57351a0f02d5cc20ede7bfad44d81655d"
+        "semantic_digest": "7187d999fc98f2ed0f405756f0a4b02ab4dcbb14fdb8d49d8bfd1ad205295828"
       },
       {
         "arm_id": "cjk-trigram-overlap-v1",
-        "semantic_digest": "0f74d416c65ccd55025680ef94448c4e233e1a7076b78f588064ce6764b1506a"
+        "semantic_digest": "5cb54cc7baea939b439c617ee917badff64bface2f2fe5a85b128185fdf3ed3c"
       },
       {
         "arm_id": "cjk-active-scan-overlap-v1",
@@ -4339,14 +4339,14 @@
   },
   "historical_arms": {
     "e3a": {
-      "bytes": 119575,
+      "bytes": 120311,
       "path": "benchmarks/retrieval/retrieval-chinese-v1-baseline.json",
-      "sha256": "180f7fe4aba7b8dfb68b988139f1caf57351a0f02d5cc20ede7bfad44d81655d"
+      "sha256": "7187d999fc98f2ed0f405756f0a4b02ab4dcbb14fdb8d49d8bfd1ad205295828"
     },
     "e3b": {
       "bytes": 196145,
       "path": "benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json",
-      "sha256": "0f74d416c65ccd55025680ef94448c4e233e1a7076b78f588064ce6764b1506a"
+      "sha256": "5cb54cc7baea939b439c617ee917badff64bface2f2fe5a85b128185fdf3ed3c"
     }
   },
   "holdout_candidate": {
@@ -9493,7 +9493,7 @@
   "protocol": {
     "bytes": 5127,
     "path": "tests/fixtures/retrieval-dense-v1/protocol-lock.json",
-    "sha256": "13f7f7757ad9cc18a33141845bb94ae26ef859bf11decd9d557b3f468cd4002d"
+    "sha256": "afca992a7115fdb06e620168d14f8d09055f231c061b59f82c69f0be2a6e4251"
   },
   "schema_version": "mke.dense_comparison_artifact.v1",
   "source": {
@@ -9567,8 +9567,8 @@
     "sha256": "sha256:6f0d1e9a3ef019d0eaab18c64314f44590e549bed0a8fc8c5dbb54c021c257d8"
   },
   "state": {
-    "development_freeze_sha256": "3f78d9672dc6318319c6cd2255cae0a5059342b78ae3eecfe7d36138fc04ff5a",
-    "holdout_receipt_sha256": "2f131aa1facfdb65c3e6556b1cddba18a702365aecae9f17f2c46c24a0aa7634"
+    "development_freeze_sha256": "48474784f7c5062be6bf02fdbb6af10bb78d08acaaa22117c8c6f631384f945e",
+    "holdout_receipt_sha256": "53797f6d8806f6dd0ad77480a7ea1aef692042af6a3c2433ce32f3ff87bea1ee"
   },
   "threshold_report": {
     "candidate_status": "not_evaluated",

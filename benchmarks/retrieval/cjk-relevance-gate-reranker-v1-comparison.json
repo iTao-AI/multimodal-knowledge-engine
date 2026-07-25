@@ -10,7 +10,7 @@
       "candidate_revision": 1
     },
     "candidate_status": "completed",
-    "dense_artifact_sha256": "935431ce7a549f43216d78c2186e2c62c3aad2f67b84fc404e26e03156e519cc",
+    "dense_artifact_sha256": "09f995fb8bf9bdfce2ac8cbc8f61aab536971c272d5d4c5af530503c964fb963",
     "development_status": "passed",
     "diagnostics": {
       "allowed_count": 48,
@@ -977,8 +977,8 @@
         "value": 0.5
       }
     },
-    "protocol_sha256": "0a63340b2c49d2036b4341410e80d9610ce8c7d5f1f3591f5c45ce002b7e9019",
-    "rrf_artifact_sha256": "581decff2c271150f7e9bd80b289b23963e1b5ed9fc6a23977241a18f414270e",
+    "protocol_sha256": "a4df76fe712ad5784af1b6e8ea4f98606a6b0ed623dfd62a028acc3d1ac5e743",
+    "rrf_artifact_sha256": "a633140cc0f14350bea824fa1f1de73279068b2131643126e1722d6a26c86697",
     "runtime_promotion_status": "not_evaluated",
     "schema_version": "mke.relevance_gate_development_freeze.v1",
     "selected_profile": "strict-constraint"
@@ -11847,8 +11847,8 @@
   "selected_profile": "strict-constraint",
   "state": {
     "development_freeze_path": "benchmarks/retrieval/cjk-relevance-gate-reranker-v1-development-freeze.json",
-    "development_freeze_sha256": "369f7845e72685ce9fb30cd32e68ff926a6cd550e7f349c35c7d518fa05e3d1c",
+    "development_freeze_sha256": "bcb3049dde69c4e3145ebda62f328941af7e26f344ee6b5fb2adcbe5f6bffdef",
     "holdout_receipt_path": "benchmarks/retrieval/cjk-relevance-gate-reranker-v1-holdout-receipt.json",
-    "holdout_receipt_sha256": "ae654494cd2afadfb209571422a9b80e36ffefef4402364aa8f99774ca366593"
+    "holdout_receipt_sha256": "29c26abc3deae1e186d79bd7bd3402243114289cc1939a8511c5e6cc5f0efd4f"
   }
 }

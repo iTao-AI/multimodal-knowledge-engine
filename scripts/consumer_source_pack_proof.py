@@ -83,6 +83,9 @@ _CLIENT_FILES = (
     Path("tests/fixtures/local-knowledge-v1/operations-guide.pdf"),
     Path("tests/fixtures/local-knowledge-v1/incident-guide.pdf"),
 )
+_CURRENT_SCHEMAS = Path(
+    "tests/fixtures/mcp-context-completeness-v1/mcp-tool-schemas.json"
+)
 _CLIENT_KEYS = frozenset(
     {
         "status",
@@ -590,7 +593,9 @@ def _command(
     return result
 
 
-def _copy_inputs(repository: Path, workspace: Path) -> tuple[Path, Path, Path, Path]:
+def _copy_inputs(
+    repository: Path, workspace: Path
+) -> tuple[Path, Path, Path, Path, Path]:
     copied: dict[Path, Path] = {}
     try:
         for relative in _CLIENT_FILES:
@@ -598,6 +603,8 @@ def _copy_inputs(repository: Path, workspace: Path) -> tuple[Path, Path, Path, P
             target = workspace / relative.name
             shutil.copyfile(source, target)
             copied[relative] = target
+        current_schemas = workspace / "current-mcp-tool-schemas.json"
+        shutil.copyfile(repository / _CURRENT_SCHEMAS, current_schemas)
     except OSError as exc:
         raise ControllerError("external_isolation_failed") from exc
     source_root = workspace / "source-pack"
@@ -608,6 +615,7 @@ def _copy_inputs(repository: Path, workspace: Path) -> tuple[Path, Path, Path, P
         copied[_CLIENT_FILES[0]],
         copied[_CLIENT_FILES[1]],
         copied[_CLIENT_FILES[2]],
+        current_schemas,
         source_root,
     )
 
@@ -871,10 +879,19 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
                 raise ControllerError("installed_identity_failed") from exc
             _validate_identity(identity, environment, repository)
             package_versions.append(cast(str, identity["metadata_version"]))
-            client, manifest, schemas, source_root = _copy_inputs(source_repository, workspace)
+            client, manifest, schemas, current_schemas, source_root = _copy_inputs(
+                source_repository, workspace
+            )
             if any(
                 _within(path, repository)
-                for path in (workspace, client, manifest, schemas, source_root)
+                for path in (
+                    workspace,
+                    client,
+                    manifest,
+                    schemas,
+                    current_schemas,
+                    source_root,
+                )
             ):
                 raise ControllerError("external_isolation_failed")
             try:
@@ -886,6 +903,8 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
                         str(manifest),
                         "--schemas",
                         str(schemas),
+                        "--current-schemas",
+                        str(current_schemas),
                         "--source-root",
                         str(source_root),
                         "--mke",

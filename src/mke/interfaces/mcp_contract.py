@@ -331,6 +331,15 @@ def search_library_v1(
     try:
         engine = build_engine(config.runtime)
         snapshot = engine.search_provenance_snapshot(normalized_query, limit=limit)
+        if any(len(item.result.text) > 1_000_000 for item in snapshot.results):
+            return SearchLibraryResponseV1(
+                root=SearchLibraryErrorV1(
+                    ok=False,
+                    problem="response_too_large",
+                    cause="complete Evidence text exceeds the v1 response limit",
+                    next_step="use_search_library_v2",
+                )
+            )
         return SearchLibraryResponseV1(
             root=SearchLibrarySuccessV1(
                 query=normalized_query,
@@ -366,6 +375,15 @@ def ask_library_v1(
     try:
         engine = build_engine(config.runtime)
         snapshot = engine.ask_provenance_snapshot(normalized_question, limit=limit)
+        if any(len(item.result.text) > 1_000_000 for item in snapshot.evidence):
+            return AskLibraryResponseV1(
+                root=AskLibraryErrorV1(
+                    ok=False,
+                    problem="response_too_large",
+                    cause="complete Evidence text exceeds the v1 response limit",
+                    next_step="use_search_library_v2",
+                )
+            )
         return AskLibraryResponseV1(
             root=AskLibrarySuccessV1(
                 question=snapshot.result.question,

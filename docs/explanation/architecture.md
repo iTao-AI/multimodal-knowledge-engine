@@ -318,3 +318,21 @@ The snapshot does not read original Source files. SQLite owns active Publication
 `mke.evidence_ref.v1` JSONL owns portable provenance. Markdown remains derivative, and EvidenceRef
 JSONL remains authoritative for Source, Run, Publication, revision, fingerprint, locator, and
 Evidence text. A downstream compiler cannot replace that authority.
+# MCP completeness continuation
+
+The completeness-aware MCP path remains a thin local stdio adapter over the shared application and
+SQLite authority:
+
+```text
+MCP stdio request
+  -> strict request-envelope validation
+  -> shared owner runtime
+  -> active-Publication application/repository transaction
+  -> strategy selection or exact active Evidence range
+  -> deterministic UTF-8 and response budgeting
+  -> strict structured MCP result
+```
+
+`active_set_fingerprint` is derived inside the same validated read transaction and exists only as
+a continuation-invalidation observation. It is not stored, activated, or treated as a
+Publication. MCP adds no parallel SQLite authority, ranking path, Agent loop, or network service.

@@ -3,7 +3,7 @@
   "protocol": {
     "id": "retrieval-numeric-v1",
     "path": "tests/fixtures/retrieval-numeric-v1/protocol-lock.json",
-    "sha256": "3946c975b7e7991b1a40bcd811b93fc7b3402837c713a3731342c82c9feffc2e"
+    "sha256": "17c424e49237deba600fef70d47da803fb73f72d2ee65995fc155dc96e22da60"
   },
   "manifests": {
     "development": {
@@ -41,7 +41,7 @@
     "revision": 1
   },
   "source": {
-    "sha256": "711d9a406205e026bf509fe373ac0df9b36ce1581bc6b1d4b2c8d953b87ed4a4",
+    "sha256": "c3cec8853547fd09d8fad10865666ce2bb1a507afe19a066a364ab2424064665",
     "files": [
       {
         "path": "src/mke/__init__.py",
@@ -110,8 +110,8 @@
       },
       {
         "path": "src/mke/adapters/sqlite/__init__.py",
-        "bytes": 68941,
-        "sha256": "dc8e31f71e3c143d86d0c17d86882b63476c5bc9f6e0b9575d8fd59555a4a052"
+        "bytes": 84775,
+        "sha256": "734240da08c541fed11bc6c6f4cc460d9fd30742c8f2e85c5ff503e2685627f8"
       },
       {
         "path": "src/mke/adapters/vector/__init__.py",
@@ -175,13 +175,23 @@
       },
       {
         "path": "src/mke/application/__init__.py",
-        "bytes": 39060,
-        "sha256": "5cd10875a43bcdeb8dcd933f7c239644b532f76ea0d550a61b23ba887a20e267"
+        "bytes": 40027,
+        "sha256": "8b416a5174ddacf416a492d6c7dd0b7fc40e9394b2f9beb850f852d9f81a42a7"
+      },
+      {
+        "path": "src/mke/application/evidence_access.py",
+        "bytes": 11554,
+        "sha256": "d6e94911bf96bb65206c06799bb7363c5d0f1b3b270bf6043c64e99b05b46b3d"
       },
       {
         "path": "src/mke/application/library_export.py",
         "bytes": 9465,
         "sha256": "9eababbaa776be96785e651dc15638ae26717c2d90727c59261674cf92f5c83e"
+      },
+      {
+        "path": "src/mke/application/mcp_cursor.py",
+        "bytes": 12083,
+        "sha256": "2be966a1d773500e9e27a5829de84202b38ddb1815365b648fccf8025c06a1c5"
       },
       {
         "path": "src/mke/cli.py",
@@ -190,8 +200,13 @@
       },
       {
         "path": "src/mke/domain/__init__.py",
-        "bytes": 20066,
-        "sha256": "fc729fcf6e326ffec3ab10dfe2078b21d7107b0d81cc5a9f6a24add24065f5c0"
+        "bytes": 20676,
+        "sha256": "c6c2ba6b17e0a11f24cfa02ca2b00440cb74423200cfeb322eaa947c933d8f72"
+      },
+      {
+        "path": "src/mke/domain/evidence_access.py",
+        "bytes": 5345,
+        "sha256": "b0f9b9a80e2c88194a557144862bb8d789894b575d7972e8ae698d7e0b655a44"
       },
       {
         "path": "src/mke/domain/library_export.py",
@@ -449,24 +464,29 @@
         "sha256": "5974eb1ceffdec7ad748cb43c9d257a53bbea49c3cc8e5f159aac9c74cf2af4f"
       },
       {
+        "path": "src/mke/interfaces/mcp_completeness_contract.py",
+        "bytes": 14883,
+        "sha256": "cfd12e91ff5efce982dcbac483be4e1bd301ea57ec175487bd6f535cb76fc1e3"
+      },
+      {
         "path": "src/mke/interfaces/mcp_contract.py",
-        "bytes": 17061,
-        "sha256": "22235b4f0d3892a7f900522c2054aef6c6effb8114664b8c3bf67868aa1e1b2a"
+        "bytes": 17888,
+        "sha256": "56f12a65097078c9d547a22ab1b09e90964a51e18ea39d40ed5d84f4d81b9944"
       },
       {
         "path": "src/mke/interfaces/mcp_schemas.py",
-        "bytes": 6612,
-        "sha256": "f2b6df501297d1a21129c0249043868f061d91388da51217f02842e627b69cbb"
+        "bytes": 12700,
+        "sha256": "113f7fa0b976dd593f20d5ea1f52b392f51988b41a7d295f00b4b2d33df62e32"
       },
       {
         "path": "src/mke/interfaces/mcp_server.py",
-        "bytes": 7847,
-        "sha256": "0090b03ecb598e2c8af45cac96e7788a80181c4cfaf3c0ea9220575526815f63"
+        "bytes": 12842,
+        "sha256": "219ba51734a9b7ba018c8466e16a1f89a2abab775f91390ffe0398efca98e9dc"
       },
       {
         "path": "src/mke/interfaces/public_errors.py",
-        "bytes": 6432,
-        "sha256": "18fec66fd50ed63c65bac90716bead8050d0c26752cdb950069dd7f6cc828a18"
+        "bytes": 7092,
+        "sha256": "9a1d6e478bed22e16ec8ebf4643eeec27150c39f7c80a9c83ee2ac9518010cdb"
       },
       {
         "path": "src/mke/proof/__init__.py",
@@ -520,13 +540,13 @@
       },
       {
         "path": "src/mke/retrieval/cjk_active_scan.py",
-        "bytes": 6127,
-        "sha256": "d0e48b8154d1e14309e034b2834565f17367e98d0b9196e8d29ec03095c67a3d"
+        "bytes": 6833,
+        "sha256": "24937c5dcc7be70aa40b0fd173ca322f535a36cffdb297af197812429da57d87"
       },
       {
         "path": "src/mke/retrieval/query_policy.py",
-        "bytes": 4166,
-        "sha256": "b4bd2547b2b658d9eb2d2fb96107e9bfe89c9197f2f097fb8d150f678e13b6fa"
+        "bytes": 4192,
+        "sha256": "fbb2301e59dbe841087d8f14d65e44ab087a490bf4e9f589afc509edcc4f468e"
       },
       {
         "path": "src/mke/retrieval/readiness.py",
@@ -545,8 +565,8 @@
       },
       {
         "path": "src/mke/runtime_owner.py",
-        "bytes": 5119,
-        "sha256": "b75b8dc35ea0d52660efb7da72000b0e1e2aa193bd6bdda7a6f71790a67ffed1"
+        "bytes": 5922,
+        "sha256": "aa01ced14471cba5c99d0fb059754247f60d4347eb9a88c893a592a808df633d"
       },
       {
         "path": "src/mke/vector/__init__.py",

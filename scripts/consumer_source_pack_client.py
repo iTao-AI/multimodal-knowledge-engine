@@ -233,6 +233,7 @@ class ConsumerConfig:
     startup_timeout_seconds: float
     tool_timeout_seconds: float
     max_server_stderr_bytes: int
+    current_schemas: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -526,6 +527,60 @@ def load_schema_expectations(path: Path) -> dict[str, object]:
     return payload
 
 
+def load_current_schema_expectations(path: Path) -> dict[str, object]:
+    try:
+        payload_object: object = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ProofError("consumer_schema_invalid") from exc
+    if not isinstance(payload_object, dict):
+        raise ProofError("consumer_schema_invalid")
+    payload = cast(dict[str, object], payload_object)
+    causes = payload.get("safe_causes")
+    tools = payload.get("tools")
+    if (
+        set(payload) != {"schema_version", "safe_causes", "tools"}
+        or payload.get("schema_version") != "mke.mcp_tool_expectation.v1"
+        or not isinstance(causes, list)
+        or not causes
+        or not isinstance(tools, dict)
+    ):
+        raise ProofError("consumer_schema_invalid")
+    typed_causes = cast(list[object], causes)
+    if (
+        any(not isinstance(cause, str) or not cause for cause in typed_causes)
+        or len(set(cast(list[str], typed_causes))) != len(typed_causes)
+    ):
+        raise ProofError("consumer_schema_invalid")
+    projected: dict[str, object] = {}
+    for name, raw_tool_value in cast(dict[object, object], tools).items():
+        tool_value = (
+            cast(dict[object, object], raw_tool_value)
+            if isinstance(raw_tool_value, dict)
+            else None
+        )
+        if (
+            not isinstance(name, str)
+            or not name
+            or tool_value is None
+            or set(tool_value)
+            != {"annotations", "description", "inputSchema", "outputSchema"}
+            or not isinstance(tool_value.get("annotations"), dict)
+            or not isinstance(tool_value.get("description"), str)
+            or not tool_value["description"]
+            or not isinstance(tool_value.get("inputSchema"), dict)
+            or not isinstance(tool_value.get("outputSchema"), dict)
+        ):
+            raise ProofError("consumer_schema_invalid")
+        projected[name] = {
+            "inputSchema": tool_value["inputSchema"],
+            "outputSchema": tool_value["outputSchema"],
+        }
+    return {
+        "schema_version": payload["schema_version"],
+        "tools": projected,
+    }
+
+
 def _contract_error() -> ProofError:
     return ProofError("consumer_payload_invalid")
 
@@ -568,11 +623,27 @@ def normalize_discovered_tools(tools: Sequence[DiscoveredTool]) -> dict[str, obj
     return normalized
 
 
-def validate_tool_schemas(tools: Sequence[DiscoveredTool], expected: Mapping[str, object]) -> None:
+def validate_tool_schemas(
+    tools: Sequence[DiscoveredTool],
+    release_expected: Mapping[str, object],
+    current_expected: Mapping[str, object] | None = None,
+) -> None:
     actual = normalize_discovered_tools(tools)
-    expected_tools = expected.get("tools")
-    if not isinstance(expected_tools, dict) or actual != cast(dict[str, object], expected_tools):
+    release_tools = release_expected.get("tools")
+    if not isinstance(release_tools, dict):
         raise _schema_error()
+    if current_expected is None:
+        if actual != cast(dict[str, object], release_tools):
+            raise _schema_error()
+        return
+    current_tools = current_expected.get("tools")
+    if not isinstance(current_tools, dict) or actual != cast(dict[str, object], current_tools):
+        raise _schema_error()
+    for name, release_schema in cast(dict[object, object], release_tools).items():
+        if not isinstance(name, str):
+            raise _schema_error()
+        if actual.get(name) != release_schema:
+            raise _schema_error()
 
 
 def _object(value: object, keys: set[str]) -> dict[str, object]:
@@ -987,6 +1058,11 @@ async def run_store_session(config: ConsumerConfig, database: Path) -> StoreResu
     pack = load_source_pack(config.manifest)
     verify_source_files(pack, config.source_root)
     schemas = load_schema_expectations(config.schemas)
+    current_schemas = (
+        None
+        if config.current_schemas is None
+        else load_current_schema_expectations(config.current_schemas)
+    )
     server = StdioServerParameters(
         command=str(config.mke_executable),
         args=["--db", str(database), "mcp", "--allowed-root", str(config.source_root)],
@@ -1014,7 +1090,7 @@ async def run_store_session(config: ConsumerConfig, database: Path) -> StoreResu
                         "mcp_tool_timeout",
                         capture,
                     )
-                    validate_tool_schemas(listed.tools, schemas)
+                    validate_tool_schemas(listed.tools, schemas, current_schemas)
                     initial = validate_list_response(
                         await _call(
                             session,
@@ -1221,6 +1297,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--schemas", type=Path, required=True)
+    parser.add_argument("--current-schemas", type=Path)
     parser.add_argument("--source-root", type=Path, required=True)
     parser.add_argument("--mke", type=Path, required=True)
     parser.add_argument("--workspace", type=Path, required=True)
@@ -1238,6 +1315,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.startup_timeout,
         args.tool_timeout,
         args.max_server_stderr_bytes,
+        args.current_schemas,
     )
     try:
         print(render_controller_result(asyncio.run(run_consumer(config))))

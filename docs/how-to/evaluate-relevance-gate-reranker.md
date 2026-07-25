@@ -40,17 +40,17 @@ Development diagnostics:
 Canonical identities:
 
 - Development freeze SHA-256:
-  `369f7845e72685ce9fb30cd32e68ff926a6cd550e7f349c35c7d518fa05e3d1c`
+  `bcb3049dde69c4e3145ebda62f328941af7e26f344ee6b5fb2adcbe5f6bffdef`
 - Holdout receipt SHA-256:
-  `ae654494cd2afadfb209571422a9b80e36ffefef4402364aa8f99774ca366593`
+  `29c26abc3deae1e186d79bd7bd3402243114289cc1939a8511c5e6cc5f0efd4f`
 - Comparison artifact SHA-256:
-  `10530c5a9a1240132b7056b50135cfd69995bdc7b99cdbd8d68b782b02f8943a`
+  `9a6dc7e85b5db6b2e8bd959214f7b6bd51a08c028eb7c670606c00ee37c6a64b`
 - Protocol lock SHA-256:
-  `0a63340b2c49d2036b4341410e80d9610ce8c7d5f1f3591f5c45ce002b7e9019`
+  `a4df76fe712ad5784af1b6e8ea4f98606a6b0ed623dfd62a028acc3d1ac5e743`
 - Canonical E3-C dense artifact SHA-256:
-  `935431ce7a549f43216d78c2186e2c62c3aad2f67b84fc404e26e03156e519cc`
+  `09f995fb8bf9bdfce2ac8cbc8f61aab536971c272d5d4c5af530503c964fb963`
 - Canonical E3-D RRF artifact SHA-256:
-  `581decff2c271150f7e9bd80b289b23963e1b5ed9fc6a23977241a18f414270e`
+  `a633140cc0f14350bea824fa1f1de73279068b2131643126e1722d6a26c86697`
 
 ## Run Development
 

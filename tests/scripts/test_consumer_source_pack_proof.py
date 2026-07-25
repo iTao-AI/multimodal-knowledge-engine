@@ -753,9 +753,13 @@ def test_run_proof_builds_once_and_uses_same_wheel(
     (repository / "scripts/consumer_source_pack_client.py").write_text("# client")
     fixtures = repository / "tests/fixtures"
     (fixtures / "consumer-source-pack-v1").mkdir(parents=True)
+    (fixtures / "mcp-context-completeness-v1").mkdir()
     (fixtures / "local-knowledge-v1").mkdir()
     for name in ("manifest.json", "mcp-tool-schemas.json"):
         (fixtures / "consumer-source-pack-v1" / name).write_text("{}")
+    (fixtures / "mcp-context-completeness-v1/mcp-tool-schemas.json").write_text(
+        '{"tools":"current"}'
+    )
     for name in ("operations-guide.pdf", "incident-guide.pdf"):
         (fixtures / "local-knowledge-v1" / name).write_bytes(b"pdf")
     calls: list[tuple[list[str], Path, dict[str, str]]] = []
@@ -828,6 +832,9 @@ def test_run_proof_builds_once_and_uses_same_wheel(
     assert client_calls[0][1] != client_calls[1][1]
     for index, (command, cwd, env) in enumerate(client_calls):
         assert "--max-server-stderr-bytes" in command
+        assert command[command.index("--current-schemas") + 1].endswith(
+            "current-mcp-tool-schemas.json"
+        )
         assert "--max-transport-bytes" not in command
         assert str(repository) not in "\0".join(command)
         assert str(repository) not in str(cwd)
@@ -837,6 +844,7 @@ def test_run_proof_builds_once_and_uses_same_wheel(
         assert copied["consumer_source_pack_client.py"] == b"# client"
         assert copied["manifest.json"] == b"{}"
         assert copied["mcp-tool-schemas.json"] == b"{}"
+        assert copied["current-mcp-tool-schemas.json"] == b'{"tools":"current"}'
         assert copied["source-pack/operations-guide.pdf"] == b"pdf"
         assert copied["source-pack/incident-guide.pdf"] == b"pdf"
     assert all(not cwd.exists() for _, cwd, _ in client_calls)
@@ -973,11 +981,14 @@ def _repository_fixture(tmp_path: Path) -> Path:
     (repository / "scripts").mkdir(parents=True)
     (repository / "scripts/consumer_source_pack_client.py").write_text("# client")
     consumer = repository / "tests/fixtures/consumer-source-pack-v1"
+    current = repository / "tests/fixtures/mcp-context-completeness-v1"
     local = repository / "tests/fixtures/local-knowledge-v1"
     consumer.mkdir(parents=True)
+    current.mkdir()
     local.mkdir()
     for name in ("manifest.json", "mcp-tool-schemas.json"):
         (consumer / name).write_text("{}")
+    (current / "mcp-tool-schemas.json").write_text('{"tools":"current"}')
     for name in ("operations-guide.pdf", "incident-guide.pdf"):
         (local / name).write_bytes(b"pdf")
     return repository

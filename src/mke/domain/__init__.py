@@ -605,3 +605,31 @@ _LIBRARY_EXPORT_CONTRACTS = (
     ExportLimits,
     LibraryExportDataError,
 )
+
+from .evidence_access import (  # noqa: E402
+    ActiveAuthorityRecord,
+    ActiveAuthoritySnapshot,
+    ActiveEvidenceRecord,
+    EvidenceDescriptor,
+    EvidenceExcerpt,
+    EvidenceReadSnapshot,
+    EvidenceSearchPage,
+    MatchHint,
+    SelectedEvidence,
+    Utf8Chunk,
+    derive_active_set_fingerprint,
+)
+
+_EVIDENCE_ACCESS_CONTRACTS = (
+    ActiveAuthorityRecord,
+    ActiveAuthoritySnapshot,
+    ActiveEvidenceRecord,
+    EvidenceDescriptor,
+    EvidenceExcerpt,
+    EvidenceReadSnapshot,
+    EvidenceSearchPage,
+    MatchHint,
+    SelectedEvidence,
+    Utf8Chunk,
+    derive_active_set_fingerprint,
+)

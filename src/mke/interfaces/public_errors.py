@@ -96,6 +96,19 @@ _ALLOWLISTED_CAUSES = frozenset(
         "vector projection inventory is incomplete",
         "vector projection replace failed",
         "vector projection search inventory is incomplete",
+        "complete Evidence text exceeds the v1 response limit",
+        "request must use exactly one supported input branch",
+        "query exceeds 512 UTF-8 bytes",
+        "cursor exceeds 4096 UTF-8 bytes",
+        "max_bytes must be between 4 and 16384",
+        "cursor is malformed, unauthenticated, or for another tool",
+        "cursor owner has restarted",
+        "active Publication set changed",
+        "retrieval policy changed",
+        "active Evidence descriptor changed",
+        "active Evidence is not available",
+        "mandatory response metadata exceeds the response limit",
+        "active Evidence exceeds the readable size limit",
     }
 )
 

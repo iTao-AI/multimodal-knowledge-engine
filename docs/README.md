@@ -121,3 +121,8 @@ how-to guides, reference docs, and ADRs.
 Use the verified bootstrap commands in the [Getting Started tutorial](./tutorials/getting-started.md)
 before changing product behavior. Follow the [contributor workflow](./how-to/contribute.md) for
 risk-based verification, pull requests, and safe task-owned cleanup.
+# MCP completeness
+
+- [Canonical MCP contract](./reference/mcp-contract.md)
+- [Use MKE as a local MCP server](./how-to/use-mke-mcp.md)
+- [Run the installed MCP context completeness proof](./how-to/run-mcp-context-completeness-proof.md)

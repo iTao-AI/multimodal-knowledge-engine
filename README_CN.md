@@ -314,3 +314,8 @@ uv build
 ## License
 
 MIT，详见 [LICENSE](./LICENSE)。
+# MCP 上下文完整性
+
+十工具清单、完整性语义、精确 Evidence 读取契约与稳定恢复操作统一维护在
+[MCP 契约参考](./docs/reference/mcp-contract.md)。安装 wheel 后的验证方式见
+[MCP 上下文完整性证明](./docs/how-to/run-mcp-context-completeness-proof.md)。

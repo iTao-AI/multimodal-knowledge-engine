@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections.abc import Callable
+from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Self, cast, overload
@@ -44,6 +45,16 @@ from mke.domain import (
     is_recognized_video_fingerprint,
     validate_manifest,
 )
+from mke.domain.evidence_access import (
+    ActiveAuthorityRecord,
+    ActiveAuthoritySnapshot,
+    ActiveEvidenceRecord,
+    EvidenceReadSnapshot,
+    EvidenceSearchPage,
+    MatchHint,
+    SelectedEvidence,
+    derive_active_set_fingerprint,
+)
 from mke.retrieval import (
     DEFAULT_RETRIEVAL_STRATEGY,
     RetrievalQueryPolicy,
@@ -55,10 +66,15 @@ from mke.retrieval.cjk_active_scan import (
     CjkActiveScanCandidate,
     CjkActiveScanError,
     CjkActiveScanParameters,
+    CjkActiveScanSelection,
     compile_cjk_overlap_terms,
-    rank_cjk_active_scan_candidates,
+    select_cjk_active_scan_candidates,
 )
-from mke.retrieval.query_policy import require_retrieval_query_policy
+from mke.retrieval.query_policy import (
+    QUERY_POLICY_REVISION,
+    compile_fts5_query_diagnostic,
+    require_retrieval_query_policy,
+)
 from mke.retrieval.strategy import (
     get_retrieval_strategy_descriptor,
     require_retrieval_strategy,
@@ -73,6 +89,27 @@ if TYPE_CHECKING:
     )
 
 _BUSY_TIMEOUT_MS = 5000
+_MAX_READABLE_EVIDENCE_BYTES = 16 * 1024 * 1024
+_MAX_SEARCH_PAGE_TEXT_BYTES = 16 * 1024 * 1024
+
+
+class EvidenceNotFoundError(LookupError):
+    """The requested ID is not current admissible active Evidence."""
+
+
+class EvidenceResponseTooLargeError(ValueError):
+    """The active Evidence exceeds the bounded exact-read contract."""
+
+
+@dataclass(frozen=True)
+class _EvidenceSearchCandidate:
+    evidence_id: str
+    publication_id: str
+    source_id: str
+    locator_kind: str
+    locator_start: int
+    locator_end: int
+    text_bytes: int
 
 _EXPORT_SCHEMA: dict[str, dict[str, tuple[str, int, int]]] = {
     "libraries": {
@@ -1477,6 +1514,258 @@ class SQLiteStore:
             self._connection.rollback()
             raise
 
+    def _active_authority_snapshot(
+        self,
+    ) -> ActiveAuthoritySnapshot:
+        observation, rows = self._read_and_validate_active_publication_rows()
+        records = tuple(
+            ActiveAuthorityRecord(
+                source_id=str(row["source_id"]),
+                content_fingerprint=f"sha256:{row['source_sha256']}",
+                active_publication_id=str(row["active_publication_id"]),
+                active_revision=int(row["active_revision"]),
+                run_id=str(row["run_id"]),
+                manifest_evidence_count=int(row["manifest_evidence_count"]),
+                manifest_sha256=str(row["manifest_sha256"]),
+                required_stages=tuple(sorted(str(row["required_stages"]).split(","))),
+                extractor_fingerprint=str(row["extractor_fingerprint"]),
+            )
+            for row in rows
+        )
+        return ActiveAuthoritySnapshot(
+            observation, derive_active_set_fingerprint(records)
+        )
+
+    def search_evidence_page(
+        self,
+        query: str,
+        *,
+        position: int,
+        page_size: int,
+        authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+    ) -> EvidenceSearchPage:
+        if position < 0 or not 1 <= page_size <= 20:
+            raise ValueError("invalid Evidence page range")
+        try:
+            authority = self._active_authority_snapshot()
+            authority_validator(authority)
+            diagnostic = compile_fts5_query_diagnostic(
+                query, policy=self._query_policy
+            )
+            if diagnostic.compiled_query:
+                candidates = self._search_fts_page(
+                    diagnostic.compiled_query,
+                    position=position,
+                    fetch_count=page_size + 1,
+                )
+                admitted_candidates: list[_EvidenceSearchCandidate] = []
+                used = 0
+                for candidate in candidates[:page_size]:
+                    if candidate.text_bytes > _MAX_SEARCH_PAGE_TEXT_BYTES:
+                        raise EvidenceResponseTooLargeError
+                    if (
+                        admitted_candidates
+                        and used + candidate.text_bytes
+                        > _MAX_SEARCH_PAGE_TEXT_BYTES
+                    ):
+                        break
+                    admitted_candidates.append(candidate)
+                    used += candidate.text_bytes
+                page = self._load_fts_candidate_text(admitted_candidates)
+                enriched = self._bulk_enrich_provenance(page)
+                hints = tuple(
+                    MatchHint(
+                        alternative,
+                        clause_order,
+                        term_order,
+                        "fts5_ascii_tokens",
+                    )
+                    for clause_order, clause in enumerate(diagnostic.clauses)
+                    for term_order, alternative in enumerate(clause.alternatives)
+                )
+                selected_results = tuple(
+                    SelectedEvidence(item, hints) for item in enriched
+                )
+                more_in_pool = len(candidates) > len(admitted_candidates)
+                discarded_by_cap = False
+            elif self._retrieval_strategy == "cjk-active-scan-overlap-v1":
+                try:
+                    compiled = compile_cjk_overlap_terms(query, require_terms=True)
+                except CjkActiveScanError as error:
+                    if error.problem != "cjk_query_not_eligible":
+                        raise
+                    selection = CjkActiveScanSelection((), 0, False)
+                else:
+                    selection = self._select_cjk_active_scan(
+                        compiled.terms,
+                        parameters=CJK_ACTIVE_SCAN_PARAMETERS,
+                    )
+                selected = selection.results[position : position + page_size]
+                page = [
+                    SearchResult(
+                        evidence_id=item.evidence_id,
+                        publication_id=item.publication_id,
+                        source_id=item.source_id,
+                        locator_kind=item.locator_kind,
+                        locator_start=item.locator_start,
+                        locator_end=item.locator_end,
+                        text=item.text,
+                    )
+                    for item in selected
+                ]
+                enriched = self._bulk_enrich_provenance(page)
+                selected_results = tuple(
+                    SelectedEvidence(
+                        item,
+                        tuple(
+                            MatchHint(
+                                term,
+                                term_order,
+                                0,
+                                "cjk_casefold_no_whitespace",
+                            )
+                            for term_order, term in enumerate(result.matched_terms)
+                        ),
+                    )
+                    for item, result in zip(enriched, selected, strict=True)
+                )
+                more_in_pool = position + len(selected) < len(selection.results)
+                discarded_by_cap = selection.discarded_by_strategy_cap
+            else:
+                selected_results = ()
+                more_in_pool = False
+                discarded_by_cap = False
+            descriptor = get_retrieval_strategy_descriptor(self._retrieval_strategy)
+            result = EvidenceSearchPage(
+                authority=authority,
+                normalized_query=query.strip(),
+                strategy_id=descriptor.strategy_id,
+                strategy_revision=descriptor.revision,
+                query_policy=self._query_policy,
+                query_policy_revision=QUERY_POLICY_REVISION,
+                position=position,
+                results=selected_results,
+                more_in_selected_pool=more_in_pool,
+                eligible_discarded_by_cap=discarded_by_cap,
+            )
+            self._connection.commit()
+            return result
+        except Exception:
+            self._connection.rollback()
+            raise
+
+    def read_active_evidence(
+        self,
+        evidence_id: str,
+        *,
+        offset_bytes: int = 0,
+        range_bytes: int | None = None,
+        authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+    ) -> EvidenceReadSnapshot:
+        try:
+            authority = self._active_authority_snapshot()
+            authority_validator(authority)
+            metadata_sql = """
+                SELECT evidence.evidence_id, evidence.source_id, evidence.run_id,
+                       evidence.locator_kind, evidence.locator_start, evidence.locator_end,
+                       length(CAST(evidence.text AS BLOB)) AS text_bytes,
+                       publications.publication_id, publications.revision,
+                       assets.sha256 AS source_sha256
+                FROM evidence
+                JOIN publications ON publications.run_id = evidence.run_id
+                JOIN sources ON sources.source_id = evidence.source_id
+                JOIN assets ON assets.asset_id = sources.asset_id
+                WHERE evidence.evidence_id = ?
+                  AND sources.active_publication_id = publications.publication_id
+                  AND sources.active_revision = publications.revision
+                """
+            row = self._connection.execute(
+                metadata_sql,
+                (evidence_id,),
+            ).fetchone()
+            if row is None:
+                raise EvidenceNotFoundError
+            size = int(row["text_bytes"])
+            if size < 1:
+                raise ManifestValidationError("active Evidence text is invalid")
+            if size > _MAX_READABLE_EVIDENCE_BYTES:
+                raise EvidenceResponseTooLargeError
+            if offset_bytes < 0 or offset_bytes >= size:
+                raise EvidenceNotFoundError
+            if range_bytes is not None and not 4 <= range_bytes <= 16_384:
+                raise ValueError("invalid Evidence read range")
+            if range_bytes is None:
+                content_row = self._connection.execute(
+                    """
+                    SELECT evidence.text,
+                           length(CAST(evidence.text AS BLOB)) AS text_bytes
+                    FROM evidence
+                    JOIN publications ON publications.run_id = evidence.run_id
+                    JOIN sources ON sources.source_id = evidence.source_id
+                    WHERE evidence.evidence_id = ?
+                      AND sources.active_publication_id = publications.publication_id
+                      AND sources.active_revision = publications.revision
+                    """,
+                    (evidence_id,),
+                ).fetchone()
+                text = str(content_row["text"]) if content_row is not None else ""
+                data = b""
+            else:
+                content_row = self._connection.execute(
+                    """
+                    SELECT substr(CAST(evidence.text AS BLOB), ? + 1, ? + 3)
+                           AS text_range,
+                           length(CAST(evidence.text AS BLOB)) AS text_bytes
+                    FROM evidence
+                    JOIN publications ON publications.run_id = evidence.run_id
+                    JOIN sources ON sources.source_id = evidence.source_id
+                    WHERE evidence.evidence_id = ?
+                      AND sources.active_publication_id = publications.publication_id
+                      AND sources.active_revision = publications.revision
+                    """,
+                    (offset_bytes, range_bytes, evidence_id),
+                ).fetchone()
+                text = ""
+                data = (
+                    bytes(content_row["text_range"])
+                    if content_row is not None
+                    else b""
+                )
+            if content_row is None or int(content_row["text_bytes"]) != size:
+                raise ManifestValidationError("active Evidence text is invalid")
+            if range_bytes is None and not text:
+                raise ManifestValidationError("active Evidence text is invalid")
+            if range_bytes is not None and not data:
+                raise ManifestValidationError("active Evidence text is invalid")
+            record = ActiveEvidenceRecord(
+                evidence_id=str(row["evidence_id"]),
+                source_id=str(row["source_id"]),
+                content_fingerprint=f"sha256:{row['source_sha256']}",
+                publication_id=str(row["publication_id"]),
+                publication_revision=int(row["revision"]),
+                run_id=str(row["run_id"]),
+                locator_kind=cast(Literal["page", "timestamp_ms"], row["locator_kind"]),
+                locator_start=int(row["locator_start"]),
+                locator_end=int(row["locator_end"]),
+                original_utf8_bytes=size,
+            )
+            snapshot = EvidenceReadSnapshot(
+                authority=authority,
+                record=record,
+                text=text if range_bytes is None else None,
+                range_bytes=(
+                    b""
+                    if range_bytes is None
+                    else data
+                ),
+                offset_bytes=offset_bytes,
+            )
+            self._connection.commit()
+            return snapshot
+        except Exception:
+            self._connection.rollback()
+            raise
+
     def _bulk_enrich_provenance(
         self, results: list[SearchResult]
     ) -> tuple[SearchResultProvenance, ...]:
@@ -1523,6 +1812,79 @@ class SQLiteStore:
                 )
             )
         return tuple(enriched)
+
+    def _search_fts_page(
+        self,
+        match_query: str,
+        *,
+        position: int,
+        fetch_count: int,
+    ) -> list[_EvidenceSearchCandidate]:
+        rows = self._connection.execute(
+            """
+            SELECT evidence.evidence_id, active_evidence_fts.publication_id,
+                   evidence.source_id, evidence.locator_kind,
+                   evidence.locator_start, evidence.locator_end,
+                   length(CAST(evidence.text AS BLOB)) AS text_bytes
+            FROM active_evidence_fts
+            JOIN evidence ON evidence.evidence_id = active_evidence_fts.evidence_id
+            JOIN sources ON sources.source_id = evidence.source_id
+            WHERE active_evidence_fts MATCH ?
+              AND sources.active_publication_id = active_evidence_fts.publication_id
+            ORDER BY rank, evidence.locator_start, evidence.evidence_id
+            LIMIT ? OFFSET ?
+            """,
+            (match_query, fetch_count, position),
+        ).fetchall()
+        return [
+            _EvidenceSearchCandidate(
+                evidence_id=str(row["evidence_id"]),
+                publication_id=str(row["publication_id"]),
+                source_id=str(row["source_id"]),
+                locator_kind=str(row["locator_kind"]),
+                locator_start=int(row["locator_start"]),
+                locator_end=int(row["locator_end"]),
+                text_bytes=int(row["text_bytes"]),
+            )
+            for row in rows
+        ]
+
+    def _load_fts_candidate_text(
+        self, candidates: list[_EvidenceSearchCandidate]
+    ) -> list[SearchResult]:
+        if not candidates:
+            return []
+        placeholders = ",".join("?" for _ in candidates)
+        rows = self._connection.execute(
+            f"""
+            SELECT evidence_id, text,
+                   length(CAST(text AS BLOB)) AS text_bytes
+            FROM evidence
+            WHERE evidence_id IN ({placeholders})
+            """,
+            [candidate.evidence_id for candidate in candidates],
+        ).fetchall()
+        by_id = {str(row["evidence_id"]): row for row in rows}
+        results: list[SearchResult] = []
+        for candidate in candidates:
+            row = by_id.get(candidate.evidence_id)
+            if row is None or int(row["text_bytes"]) != candidate.text_bytes:
+                raise ManifestValidationError("Evidence search text is invalid")
+            text = str(row["text"])
+            if not text or len(text.encode()) != candidate.text_bytes:
+                raise ManifestValidationError("Evidence search text is invalid")
+            results.append(
+                SearchResult(
+                    evidence_id=candidate.evidence_id,
+                    publication_id=candidate.publication_id,
+                    source_id=candidate.source_id,
+                    locator_kind=candidate.locator_kind,
+                    locator_start=candidate.locator_start,
+                    locator_end=candidate.locator_end,
+                    text=text,
+                )
+            )
+        return results
 
     def _search_fts(
         self, match_query: str, limit: int | None = None
@@ -1586,6 +1948,32 @@ class SQLiteStore:
             if error.problem == "cjk_query_not_eligible":
                 return []
             raise
+        selection = self._select_cjk_active_scan(
+            compiled.terms,
+            parameters=parameters,
+        )
+        ranked = selection.results
+        if limit is not None:
+            ranked = ranked[:limit]
+        return [
+            SearchResult(
+                evidence_id=item.evidence_id,
+                publication_id=item.publication_id,
+                source_id=item.source_id,
+                locator_kind=item.locator_kind,
+                locator_start=item.locator_start,
+                locator_end=item.locator_end,
+                text=item.text,
+            )
+            for item in ranked
+        ]
+
+    def _select_cjk_active_scan(
+        self,
+        terms: tuple[str, ...],
+        *,
+        parameters: CjkActiveScanParameters,
+    ) -> CjkActiveScanSelection:
         budget_row = self._connection.execute(
             """
                 SELECT COUNT(*) AS active_row_count,
@@ -1641,25 +2029,11 @@ class SQLiteStore:
             )
             for row in rows
         )
-        ranked = rank_cjk_active_scan_candidates(
+        return select_cjk_active_scan_candidates(
             candidates,
-            compiled.terms,
+            terms,
             parameters=parameters,
         )
-        if limit is not None:
-            ranked = ranked[:limit]
-        return [
-            SearchResult(
-                evidence_id=item.evidence_id,
-                publication_id=item.publication_id,
-                source_id=item.source_id,
-                locator_kind=item.locator_kind,
-                locator_start=item.locator_start,
-                locator_end=item.locator_end,
-                text=item.text,
-            )
-            for item in ranked
-        ]
 
 
 def _source_from_row(row: sqlite3.Row) -> SourceRecord:

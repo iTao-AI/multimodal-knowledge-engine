@@ -1,7 +1,7 @@
 {
   "candidate_id": "qwen3-embedding-0.6b-exact-v1",
   "candidate_revision": 1,
-  "development_freeze_sha256": "3f78d9672dc6318319c6cd2255cae0a5059342b78ae3eecfe7d36138fc04ff5a",
+  "development_freeze_sha256": "48474784f7c5062be6bf02fdbb6af10bb78d08acaaa22117c8c6f631384f945e",
   "execution": {
     "cache_only": true,
     "holdout_observation_count": 1,

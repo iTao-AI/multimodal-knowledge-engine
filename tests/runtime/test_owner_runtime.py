@@ -14,6 +14,7 @@ from mke.runtime_owner import (
     AdmissionOverloadedError,
     AdmissionSnapshot,
     BoundedAdmissionController,
+    OwnerRuntimeState,
 )
 from tests.conftest import PDF_FIXTURES
 
@@ -164,3 +165,9 @@ def test_runtime_owns_typed_admission_controller(tmp_path: Path) -> None:
             tmp_path / "invalid.sqlite",
             admission_controller=cast(Any, object()),
         )
+
+
+def test_owner_runtime_reuses_one_cursor_material() -> None:
+    owner = OwnerRuntimeState(cursor_key=b"k" * 32, owner_epoch="a" * 32)
+    assert owner.cursor_material() is owner.cursor_material()
+    assert owner.cursor_material().key == b"k" * 32

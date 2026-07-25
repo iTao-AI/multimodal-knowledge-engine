@@ -1,0 +1,66 @@
+name: MCP Context Completeness Proof
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "scripts/mcp_context_completeness_*.py"
+      - "tests/fixtures/mcp-context-completeness-v1/**"
+      - "tests/fixtures/pdf/text-layer.pdf"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/mcp-context-completeness-proof.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mcp-context-completeness-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  installed-wheel:
+    runs-on: macos-14
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: astral-sh/setup-uv@b75a909f75acd358c2196fb9a5f1299a9a8868a4
+        with:
+          version: "0.8.22"
+          enable-cache: true
+      - id: python312
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+      - id: python313
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.13"
+      - name: Provision locked cache for controller and both interpreters
+        run: |
+          uv sync --locked
+          uv export --locked --no-dev --no-emit-project --no-header \
+            --output-file "$RUNNER_TEMP/mke-core-requirements.txt"
+          uv venv "$RUNNER_TEMP/mke-prewarm-312" \
+            --python "${{ steps.python312.outputs.python-path }}" \
+            --no-python-downloads
+          uv pip install \
+            --python "$RUNNER_TEMP/mke-prewarm-312/bin/python" \
+            --requirement "$RUNNER_TEMP/mke-core-requirements.txt"
+          uv venv "$RUNNER_TEMP/mke-prewarm-313" \
+            --python "${{ steps.python313.outputs.python-path }}" \
+            --no-python-downloads
+          uv pip install \
+            --python "$RUNNER_TEMP/mke-prewarm-313/bin/python" \
+            --requirement "$RUNNER_TEMP/mke-core-requirements.txt"
+      - name: Run same-wheel offline proof
+        env:
+          UV_OFFLINE: "1"
+        run: |
+          uv run python scripts/mcp_context_completeness_proof.py \
+            --python "${{ steps.python312.outputs.python-path }}" \
+            --python "${{ steps.python313.outputs.python-path }}" \
+            --constraints "${RUNNER_TEMP}/mke-core-requirements.txt" \
+            --candidate-output "${RUNNER_TEMP}/mke-context-completeness-candidate" \
+            --json
