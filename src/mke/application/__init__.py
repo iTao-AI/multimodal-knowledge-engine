@@ -34,6 +34,7 @@ from mke.domain import (
     REQUIRED_PDF_STAGES,
     REQUIRED_VIDEO_STAGES,
     ActivationResult,
+    ActiveAuthoritySnapshot,
     ActiveEvidenceRef,
     ActivePublicationObservation,
     AskResult,
@@ -43,6 +44,8 @@ from mke.domain import (
     CandidateEvidence,
     CompiledLibrarySnapshot,
     CompiledLibrarySnapshotV2,
+    EvidenceReadSnapshot,
+    EvidenceSearchPage,
     ExportFormatVersion,
     FailurePoint,
     IngestResult,
@@ -331,6 +334,36 @@ class KnowledgeEngine:
         self, query: str, limit: int | None = None
     ) -> SearchSnapshot:
         return self._store.search_provenance_snapshot(query, limit=limit)
+
+    def search_evidence_page(
+        self,
+        query: str,
+        *,
+        position: int,
+        page_size: int,
+        authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+    ) -> EvidenceSearchPage:
+        return self._store.search_evidence_page(
+            query,
+            position=position,
+            page_size=page_size,
+            authority_validator=authority_validator,
+        )
+
+    def read_active_evidence(
+        self,
+        evidence_id: str,
+        *,
+        offset_bytes: int = 0,
+        range_bytes: int | None = None,
+        authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+    ) -> EvidenceReadSnapshot:
+        return self._store.read_active_evidence(
+            evidence_id,
+            offset_bytes=offset_bytes,
+            range_bytes=range_bytes,
+            authority_validator=authority_validator,
+        )
 
     def ask(self, question: str, limit: int = DEFAULT_ASK_LIMIT) -> AskResult:
         normalized_question = _normalize_ask_question(

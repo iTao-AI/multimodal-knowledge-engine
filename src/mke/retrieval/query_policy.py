@@ -8,6 +8,7 @@ from typing import Literal
 
 RetrievalQueryPolicy = Literal["current", "numeric-grouping-v1"]
 DEFAULT_RETRIEVAL_QUERY_POLICY: RetrievalQueryPolicy = "numeric-grouping-v1"
+QUERY_POLICY_REVISION = 1
 SUPPORTED_RETRIEVAL_QUERY_POLICIES: tuple[RetrievalQueryPolicy, ...] = (
     "current",
     "numeric-grouping-v1",

@@ -44,6 +44,16 @@ from mke.domain import (
     is_recognized_video_fingerprint,
     validate_manifest,
 )
+from mke.domain.evidence_access import (
+    ActiveAuthorityRecord,
+    ActiveAuthoritySnapshot,
+    ActiveEvidenceRecord,
+    EvidenceReadSnapshot,
+    EvidenceSearchPage,
+    MatchHint,
+    SelectedEvidence,
+    derive_active_set_fingerprint,
+)
 from mke.retrieval import (
     DEFAULT_RETRIEVAL_STRATEGY,
     RetrievalQueryPolicy,
@@ -58,7 +68,7 @@ from mke.retrieval.cjk_active_scan import (
     compile_cjk_overlap_terms,
     rank_cjk_active_scan_candidates,
 )
-from mke.retrieval.query_policy import require_retrieval_query_policy
+from mke.retrieval.query_policy import QUERY_POLICY_REVISION, require_retrieval_query_policy
 from mke.retrieval.strategy import (
     get_retrieval_strategy_descriptor,
     require_retrieval_strategy,
@@ -73,6 +83,16 @@ if TYPE_CHECKING:
     )
 
 _BUSY_TIMEOUT_MS = 5000
+_MAX_READABLE_EVIDENCE_BYTES = 16 * 1024 * 1024
+_MAX_SEARCH_PAGE_TEXT_BYTES = 16 * 1024 * 1024
+
+
+class EvidenceNotFoundError(LookupError):
+    """The requested ID is not current admissible active Evidence."""
+
+
+class EvidenceResponseTooLargeError(ValueError):
+    """The active Evidence exceeds the bounded exact-read contract."""
 
 _EXPORT_SCHEMA: dict[str, dict[str, tuple[str, int, int]]] = {
     "libraries": {
@@ -1473,6 +1493,147 @@ class SQLiteStore:
             enriched = self._bulk_enrich_provenance(results)
             self._connection.commit()
             return SearchSnapshot(observation, enriched)
+        except Exception:
+            self._connection.rollback()
+            raise
+
+    def _active_authority_snapshot(
+        self,
+    ) -> ActiveAuthoritySnapshot:
+        observation, rows = self._read_and_validate_active_publication_rows()
+        records = tuple(
+            ActiveAuthorityRecord(
+                source_id=str(row["source_id"]),
+                content_fingerprint=f"sha256:{row['source_sha256']}",
+                active_publication_id=str(row["active_publication_id"]),
+                active_revision=int(row["active_revision"]),
+                run_id=str(row["run_id"]),
+                manifest_evidence_count=int(row["manifest_evidence_count"]),
+                manifest_sha256=str(row["manifest_sha256"]),
+                required_stages=tuple(sorted(str(row["required_stages"]).split(","))),
+                extractor_fingerprint=str(row["extractor_fingerprint"]),
+            )
+            for row in rows
+        )
+        return ActiveAuthoritySnapshot(
+            observation, derive_active_set_fingerprint(records)
+        )
+
+    def search_evidence_page(
+        self,
+        query: str,
+        *,
+        position: int,
+        page_size: int,
+        authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+    ) -> EvidenceSearchPage:
+        if position < 0 or not 1 <= page_size <= 20:
+            raise ValueError("invalid Evidence page range")
+        try:
+            authority = self._active_authority_snapshot()
+            authority_validator(authority)
+            selected = self.search(query, limit=position + page_size + 1)
+            page = selected[position : position + page_size]
+            text_bytes = sum(len(item.text.encode()) for item in page)
+            if text_bytes > _MAX_SEARCH_PAGE_TEXT_BYTES:
+                admitted: list[SearchResult] = []
+                used = 0
+                for item in page:
+                    size = len(item.text.encode())
+                    if admitted and used + size > _MAX_SEARCH_PAGE_TEXT_BYTES:
+                        break
+                    admitted.append(item)
+                    used += size
+                page = admitted
+            enriched = self._bulk_enrich_provenance(page)
+            hints = tuple(
+                MatchHint(term, index, 0)
+                for index, term in enumerate(query.casefold().split())
+            )
+            descriptor = get_retrieval_strategy_descriptor(self._retrieval_strategy)
+            result = EvidenceSearchPage(
+                authority=authority,
+                normalized_query=query.strip(),
+                strategy_id=descriptor.strategy_id,
+                strategy_revision=descriptor.revision,
+                query_policy=self._query_policy,
+                query_policy_revision=QUERY_POLICY_REVISION,
+                position=position,
+                results=tuple(SelectedEvidence(item, hints) for item in enriched),
+                more_in_selected_pool=len(selected) > position + len(page),
+                eligible_discarded_by_cap=(
+                    self._retrieval_strategy == "cjk-active-scan-overlap-v1"
+                    and len(selected) == 10
+                ),
+            )
+            self._connection.commit()
+            return result
+        except Exception:
+            self._connection.rollback()
+            raise
+
+    def read_active_evidence(
+        self,
+        evidence_id: str,
+        *,
+        offset_bytes: int = 0,
+        range_bytes: int | None = None,
+        authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+    ) -> EvidenceReadSnapshot:
+        try:
+            authority = self._active_authority_snapshot()
+            authority_validator(authority)
+            row = self._connection.execute(
+                """
+                SELECT evidence.evidence_id, evidence.source_id, evidence.run_id,
+                       evidence.locator_kind, evidence.locator_start, evidence.locator_end,
+                       evidence.text, length(CAST(evidence.text AS BLOB)) AS text_bytes,
+                       publications.publication_id, publications.revision,
+                       assets.sha256 AS source_sha256
+                FROM evidence
+                JOIN publications ON publications.run_id = evidence.run_id
+                JOIN sources ON sources.source_id = evidence.source_id
+                JOIN assets ON assets.asset_id = sources.asset_id
+                WHERE evidence.evidence_id = ?
+                  AND sources.active_publication_id = publications.publication_id
+                  AND sources.active_revision = publications.revision
+                """,
+                (evidence_id,),
+            ).fetchone()
+            if row is None:
+                raise EvidenceNotFoundError
+            text = str(row["text"])
+            size = int(row["text_bytes"])
+            if not text:
+                raise ManifestValidationError("active Evidence text is invalid")
+            if size > _MAX_READABLE_EVIDENCE_BYTES:
+                raise EvidenceResponseTooLargeError
+            record = ActiveEvidenceRecord(
+                evidence_id=str(row["evidence_id"]),
+                source_id=str(row["source_id"]),
+                content_fingerprint=f"sha256:{row['source_sha256']}",
+                publication_id=str(row["publication_id"]),
+                publication_revision=int(row["revision"]),
+                run_id=str(row["run_id"]),
+                locator_kind=cast(Literal["page", "timestamp_ms"], row["locator_kind"]),
+                locator_start=int(row["locator_start"]),
+                locator_end=int(row["locator_end"]),
+                original_utf8_bytes=size,
+            )
+            data = text.encode()
+            snapshot = EvidenceReadSnapshot(
+                authority=authority,
+                record=record,
+                text=text if range_bytes is None else None,
+                range_bytes=(
+                    b""
+                    if range_bytes is None
+                    else data[offset_bytes : offset_bytes + range_bytes + 3]
+                ),
+                offset_bytes=offset_bytes,
+            )
+            self._connection.commit()
+            return snapshot
         except Exception:
             self._connection.rollback()
             raise

@@ -53,6 +53,13 @@ class CjkActiveScanResult:
     document_id: str | None = None
 
 
+@dataclass(frozen=True)
+class CjkActiveScanSelection:
+    results: tuple[CjkActiveScanResult, ...]
+    eligible_count: int
+    discarded_by_strategy_cap: bool
+
+
 class CjkActiveScanError(ValueError):
     """Stable public-safe active-scan retrieval error."""
 
@@ -117,8 +124,19 @@ def rank_cjk_active_scan_candidates(
     *,
     parameters: CjkActiveScanParameters = CJK_ACTIVE_SCAN_PARAMETERS,
 ) -> tuple[CjkActiveScanResult, ...]:
+    return select_cjk_active_scan_candidates(
+        candidates, terms, parameters=parameters
+    ).results
+
+
+def select_cjk_active_scan_candidates(
+    candidates: tuple[CjkActiveScanCandidate, ...],
+    terms: tuple[str, ...],
+    *,
+    parameters: CjkActiveScanParameters = CJK_ACTIVE_SCAN_PARAMETERS,
+) -> CjkActiveScanSelection:
     if not terms:
-        return ()
+        return CjkActiveScanSelection((), 0, False)
     scored: list[CjkActiveScanResult] = []
     for candidate in candidates:
         normalized_text = _normalize_cjk_text(candidate.text)
@@ -151,7 +169,7 @@ def rank_cjk_active_scan_candidates(
                 document_id=candidate.document_id,
             )
         )
-    return tuple(
+    ranked = tuple(
         sorted(
             scored,
             key=lambda item: (
@@ -161,7 +179,12 @@ def rank_cjk_active_scan_candidates(
                 item.locator_start,
                 item.evidence_id,
             ),
-        )[: parameters.max_results]
+        )
+    )
+    return CjkActiveScanSelection(
+        results=ranked[: parameters.max_results],
+        eligible_count=len(ranked),
+        discarded_by_strategy_cap=len(ranked) > parameters.max_results,
     )
 
 
