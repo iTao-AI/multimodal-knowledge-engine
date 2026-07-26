@@ -45,6 +45,8 @@ STABLE_FAILURE_CODES = (
     "cleanup_failed",
     "proof_failed",
     "retrieval_order_source_pack_already_started",
+    "retrieval_order_source_pack_claim_invalid",
+    "retrieval_order_source_pack_attempt_terminal",
     "retrieval_order_publication_failed_before_visibility",
     "retrieval_order_publication_durability_unconfirmed",
 )
@@ -1499,6 +1501,208 @@ def test_help_exposes_task8r_attempt_claim(
     assert "--attempt-claim" in output
     assert "published before build or child execution" in output
     assert "Task 8R only" in output
+    assert (
+        "claim preflight invalid -> correct the path; no attempt started"
+        in output
+    )
+    assert (
+        "claim visible -> any later failure is terminal; retain the claim "
+        "and stop"
+    ) in output
+
+
+@pytest.mark.parametrize(
+    "claim_kind",
+    (
+        "direct_symlink",
+        "dangling_symlink",
+        "symlink_parent",
+        "existing_regular",
+        "inside_repository",
+        "inside_candidate_output",
+    ),
+)
+def test_attempt_claim_rejects_invalid_lexical_scope_before_side_effects(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    claim_kind: str,
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    interpreters = _synthetic_interpreters(tmp_path)
+    output_parent = tmp_path / "candidate-parent"
+    output_parent.mkdir()
+    output = output_parent / "candidate"
+    claim_parent = tmp_path / "claim-parent"
+    claim_parent.mkdir()
+    claim = claim_parent / "attempt.json"
+    if claim_kind == "direct_symlink":
+        target = tmp_path / "existing-target"
+        target.write_text("{}\n", encoding="utf-8")
+        claim.symlink_to(target)
+    elif claim_kind == "dangling_symlink":
+        claim.symlink_to(tmp_path / "missing-target")
+    elif claim_kind == "symlink_parent":
+        real_parent = tmp_path / "real-claim-parent"
+        real_parent.mkdir()
+        claim_parent.rmdir()
+        claim_parent.symlink_to(real_parent, target_is_directory=True)
+    elif claim_kind == "existing_regular":
+        claim.write_text("{}\n", encoding="utf-8")
+    elif claim_kind == "inside_repository":
+        claim = repository / "attempt.json"
+    elif claim_kind == "inside_candidate_output":
+        claim = output / "attempt.json"
+    calls: list[str] = []
+
+    def forbidden(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        calls.append("side_effect")
+        raise AssertionError("proof side effect must not start")
+
+    monkeypatch.setattr(proof, "_candidate_target", forbidden)
+    monkeypatch.setattr(proof, "_command", forbidden)
+    monkeypatch.setattr(proof, "_stage_candidate_output", forbidden)
+    monkeypatch.setattr(proof, "publish_json_no_replace", forbidden)
+
+    with pytest.raises(proof.ControllerError) as raised:
+        proof.run_proof(
+            proof.ProofConfig(
+                repository,
+                interpreters,
+                3,
+                10_000,
+                10_000,
+                candidate_output=output,
+                attempt_claim=claim,
+            )
+        )
+
+    assert raised.value.code == "retrieval_order_source_pack_claim_invalid"
+    assert calls == []
+    assert not output.exists()
+
+
+@pytest.mark.parametrize(
+    "retarget",
+    ("parent_replaced", "parent_symlink", "basename_visible"),
+)
+def test_attempt_claim_rechecks_parent_and_basename_before_publication(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    retarget: str,
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    interpreters = _synthetic_interpreters(tmp_path)
+    output_parent = tmp_path / "candidate-parent"
+    output_parent.mkdir()
+    output = output_parent / "candidate"
+    claim_parent = tmp_path / "claim-parent"
+    claim_parent.mkdir()
+    claim = claim_parent / "attempt.json"
+    original_candidate_target = proof._candidate_target
+    calls: list[str] = []
+
+    def mutate_after_claim_binding(requested: Path) -> Path:
+        target = original_candidate_target(requested)
+        if retarget == "basename_visible":
+            claim.write_text("{}\n", encoding="utf-8")
+        else:
+            retained = claim_parent.with_name("retained-claim-parent")
+            claim_parent.rename(retained)
+            if retarget == "parent_replaced":
+                claim_parent.mkdir()
+            else:
+                claim_parent.symlink_to(
+                    retained,
+                    target_is_directory=True,
+                )
+        return target
+
+    def forbidden(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        calls.append("side_effect")
+        raise AssertionError("claim publication or proof must not start")
+
+    monkeypatch.setattr(
+        proof,
+        "_candidate_target",
+        mutate_after_claim_binding,
+    )
+    monkeypatch.setattr(proof, "_command", forbidden)
+    monkeypatch.setattr(proof, "_stage_candidate_output", forbidden)
+    monkeypatch.setattr(proof, "publish_json_no_replace", forbidden)
+
+    with pytest.raises(proof.ControllerError) as raised:
+        proof.run_proof(
+            proof.ProofConfig(
+                repository,
+                interpreters,
+                3,
+                10_000,
+                10_000,
+                candidate_output=output,
+                attempt_claim=claim,
+            )
+        )
+
+    assert raised.value.code == "retrieval_order_source_pack_claim_invalid"
+    assert calls == []
+    assert not output.exists()
+
+
+def test_attempt_claim_stable_external_parent_publishes_once(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    interpreters = _synthetic_interpreters(tmp_path)
+    output_parent = tmp_path / "candidate-parent"
+    output_parent.mkdir()
+    output = output_parent / "candidate"
+    claim_parent = tmp_path / "claim-parent"
+    claim_parent.mkdir()
+    claim = claim_parent / "attempt.json"
+    build_calls = 0
+
+    def fail_build(
+        code: str,
+        command: Sequence[str],
+        **kwargs: object,
+    ) -> None:
+        nonlocal build_calls
+        del kwargs
+        assert code == "wheel_build_failed"
+        assert list(command)[:2] == ["uv", "build"]
+        build_calls += 1
+        raise proof.ControllerError(code)
+
+    monkeypatch.setattr(proof, "_command", fail_build)
+
+    with pytest.raises(proof.ControllerError) as raised:
+        proof.run_proof(
+            proof.ProofConfig(
+                repository,
+                interpreters,
+                3,
+                10_000,
+                10_000,
+                candidate_output=output,
+                attempt_claim=claim,
+            )
+        )
+
+    assert raised.value.code == (
+        "retrieval_order_source_pack_attempt_terminal"
+    )
+    assert build_calls == 1
+    assert claim.is_file()
+    assert json.loads(claim.read_text(encoding="utf-8"))[
+        "attempt_claim"
+    ] == str(claim)
+    assert not output.exists()
 
 
 def test_attempt_claim_is_published_before_build_and_retained_on_failure(
@@ -1508,6 +1712,7 @@ def test_attempt_claim_is_published_before_build_and_retained_on_failure(
     proof = _load()
     repository = _candidate_runtime_repository(tmp_path)
     interpreters = _synthetic_interpreters(tmp_path)
+    (tmp_path / "external").mkdir()
     output = tmp_path / "external/candidate"
     claim = tmp_path / "external/source-pack-attempt.claim.json"
     build_calls = 0
@@ -1536,7 +1741,10 @@ def test_attempt_claim_is_published_before_build_and_retained_on_failure(
         attempt_claim=claim,
     )
 
-    with pytest.raises(proof.ControllerError, match="wheel_build_failed"):
+    with pytest.raises(
+        proof.ControllerError,
+        match="retrieval_order_source_pack_attempt_terminal",
+    ):
         proof.run_proof(config)
 
     payload = json.loads(claim.read_text(encoding="utf-8"))
@@ -1573,7 +1781,7 @@ def test_attempt_claim_is_published_before_build_and_retained_on_failure(
 
     with pytest.raises(
         proof.ControllerError,
-        match="retrieval_order_source_pack_already_started",
+        match="retrieval_order_source_pack_claim_invalid",
     ):
         proof.run_proof(config)
     assert build_calls == 1
@@ -1591,6 +1799,7 @@ def test_attempt_claim_publication_fault_never_starts_build(
     proof = _load()
     repository = _candidate_runtime_repository(tmp_path)
     interpreters = _synthetic_interpreters(tmp_path)
+    (tmp_path / "external").mkdir()
     output = tmp_path / "external/candidate"
     claim = tmp_path / "external/source-pack-attempt.claim.json"
     def forbidden_command(
@@ -1617,7 +1826,7 @@ def test_attempt_claim_publication_fault_never_starts_build(
         )
 
     expected = (
-        "retrieval_order_publication_durability_unconfirmed"
+        "retrieval_order_source_pack_attempt_terminal"
         if fault == "directory_fsync"
         else "retrieval_order_publication_failed_before_visibility"
     )
