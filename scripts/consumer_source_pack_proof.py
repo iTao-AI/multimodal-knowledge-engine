@@ -821,7 +821,7 @@ def _publish_task8r_attempt_claim(
         "--candidate-output",
         str(candidate_target),
         "--command-timeout",
-        str(config.command_timeout),
+        str(config.command_timeout_seconds),
         "--max-stdout-bytes",
         str(config.max_stdout_bytes),
         "--max-stderr-bytes",
