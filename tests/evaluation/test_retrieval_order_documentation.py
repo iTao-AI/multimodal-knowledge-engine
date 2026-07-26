@@ -4,6 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 ADR = ROOT / "docs/decisions/0012-deterministic-retrieval-order.md"
+ARCHITECTURE = ROOT / "docs/explanation/architecture.md"
 CI = ROOT / ".github/workflows/ci.yml"
 HOW_TO = (
     ROOT
@@ -36,11 +37,40 @@ def _numeric_ci_step() -> tuple[str, str]:
 
 
 def test_adr_freezes_runtime_order_cursor_and_compatibility_boundary() -> None:
-    text = ADR.read_text(encoding="utf-8")
+    adr = ADR.read_text(encoding="utf-8")
+    architecture = ARCHITECTURE.read_text(encoding="utf-8")
+    combined = "\n".join((adr, architecture))
 
-    assert "Status: Accepted" in text
+    assert "Status: Accepted" in adr
+    for text in (adr, architecture):
+        assert (
+            "`score, locator_start, locator_kind, locator_end, "
+            "source_sha256`"
+        ) in text
+        assert (
+            "`-overlap_count, -overlap_ratio, content_fingerprint, "
+            "locator_kind, locator_start, locator_end`"
+        ) in text
+        assert "FTS orders in SQL by" in text
+        assert "CJK active scan orders in Python by" in text
+        assert "The CJK key is not SQL-derived." in text
+        assert (
+            "`source_sha256` binds immutable Source bytes on the FTS "
+            "path"
+        ) in text
+        assert (
+            "`content_fingerprint` binds immutable Source bytes on the "
+            "CJK active-scan path"
+        ) in text
+        assert (
+            "Publication revision and Evidence text identity are not "
+            "current tie-break fields."
+        ) in text
+        assert "identity fields, not ordering authority" in text
+        assert (
+            "does not promise one cross-strategy display order"
+        ) in text
     for phrase in (
-        "stable semantic SQL key",
         "revision 2",
         "cursor revision mismatch",
         "active Publications only",
@@ -48,7 +78,7 @@ def test_adr_freezes_runtime_order_cursor_and_compatibility_boundary() -> None:
         "atomic no-replace",
         "one-shot",
     ):
-        assert phrase in text
+        assert phrase in adr
     for non_claim in (
         "GraphRAG",
         "dense retrieval",
@@ -57,7 +87,14 @@ def test_adr_freezes_runtime_order_cursor_and_compatibility_boundary() -> None:
         "OCR",
         "runtime promotion",
     ):
-        assert non_claim in text
+        assert non_claim in adr
+    for inaccurate_claim in (
+        "stable semantic SQL key for equal-score active Evidence",
+        "Source byte identity, Publication revision, locator, and "
+        "Evidence text identity",
+        "CJK active scan orders in SQL",
+    ):
+        assert inaccurate_claim not in combined
 
 
 def test_how_to_freezes_authority_mapping_and_fast_to_expensive_order() -> None:

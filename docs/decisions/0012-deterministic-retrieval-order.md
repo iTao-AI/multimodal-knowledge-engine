@@ -11,9 +11,17 @@ retrieval policy revision changes.
 
 ## Decision
 
-The active lexical strategies order equal-score results by a stable semantic SQL key derived from
-Source byte identity, Publication revision, locator, and Evidence text identity. Opaque database
-identifiers remain identity fields, not ordering authority. The retrieval strategy revision is
+FTS orders in SQL by
+`score, locator_start, locator_kind, locator_end, source_sha256`.
+CJK active scan orders in Python by
+`-overlap_count, -overlap_ratio, content_fingerprint, locator_kind, locator_start, locator_end`.
+The CJK key is not SQL-derived. `source_sha256` binds immutable Source bytes on the FTS path;
+`content_fingerprint` binds immutable Source bytes on the CJK active-scan path.
+
+Opaque database identifiers remain identity fields, not ordering authority.
+Publication revision and Evidence text identity are not current tie-break fields.
+The owner-selected FTS and CJK strategies have strategy-specific tie semantics.
+This ADR does not promise one cross-strategy display order. The retrieval strategy revision is
 `revision 2`; a cursor issued for another revision fails with a cursor revision mismatch instead
 of silently continuing under changed order.
 
