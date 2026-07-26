@@ -356,6 +356,75 @@ def test_cursor_validation_observes_authority_before_trusted_bindings(
     assert fake.selection_calls == 0
 
 
+def test_revision_one_search_cursor_is_discarded_before_new_initial_query(
+    tmp_path: Path,
+) -> None:
+    import hashlib
+
+    from mke.interfaces.mcp_completeness_contract import search_library_v2
+    from mke.interfaces.mcp_schemas import SearchLibraryV2Request
+
+    owner = OwnerRuntimeState(cursor_key=b"k" * 32, owner_epoch="a" * 32)
+    config = McpRuntimeConfig(
+        RuntimeConfig(tmp_path / "mke.sqlite", owner_state=owner),
+        tmp_path,
+    )
+    engine = KnowledgeEngine(config.db_path)
+    observed: list[ActiveAuthoritySnapshot] = []
+    try:
+        _publish_text(engine, ("authority first", "authority second"))
+        engine.search_evidence_page(
+            "authority",
+            position=0,
+            page_size=1,
+            authority_validator=observed.append,
+        )
+    finally:
+        engine.close()
+    assert len(observed) == 1
+    old_payload = SearchCursorPayload(
+        "mke.mcp_cursor.v1",
+        "search_library_v2",
+        owner.cursor_material().epoch,
+        observed[0].active_set_fingerprint,
+        "authority",
+        "sha256:" + hashlib.sha256(b"authority").hexdigest(),
+        "cjk-active-scan-overlap-v1",
+        1,
+        "numeric-grouping-v1",
+        1,
+        1,
+        1,
+        "mke.search_library_response.v2",
+    )
+
+    expired = search_library_v2(
+        config,
+        SearchLibraryV2Request(
+            root={
+                "cursor": encode_search_cursor(
+                    owner.cursor_material(),
+                    old_payload,
+                )
+            }
+        ),
+    )
+
+    assert expired.root.problem == "cursor_expired"  # type: ignore[union-attr]
+    assert expired.root.cause == "retrieval policy changed"  # type: ignore[union-attr]
+    assert expired.root.next_step == (  # type: ignore[union-attr]
+        "repeat_search_under_current_strategy"
+    )
+
+    restarted = search_library_v2(
+        config,
+        SearchLibraryV2Request(root={"query": "authority", "limit": 1}),
+    )
+
+    assert isinstance(restarted.root, SearchLibrarySuccessV2)
+    assert len(restarted.root.matches) == 1
+
+
 def test_malformed_cursor_has_zero_engine_access(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
