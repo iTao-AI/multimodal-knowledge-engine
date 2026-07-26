@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 import tempfile
@@ -18,6 +19,13 @@ from mke.evaluation.retrieval_order_workflow import (
 
 ROOT = Path(__file__).resolve().parents[2]
 PROTOCOL = ROOT / "tests/fixtures/retrieval-order-v1/protocol.json"
+HISTORICAL_OBSERVATION = (
+    ROOT
+    / "benchmarks/retrieval/retrieval-order-v1-current-runtime-observation.json"
+)
+HISTORICAL_OBSERVATION_SHA256 = (
+    "1a98e4e6c4eabc01663991646aac46e4a73033eef8a7e17a27db2e0fdce71691"
+)
 
 
 def test_development_candidate_is_stable_without_recording(
@@ -92,31 +100,59 @@ def test_runtime_profile_contains_only_frozen_fields() -> None:
         "strategy_revision",
         "query_policy_revision",
     )
-    assert profile["strategy_revision"] == 1
+    assert profile["strategy_revision"] == 2
     assert profile["query_policy_revision"] == 1
 
 
-def test_current_partition_observation_reproduces_only_order_failure() -> None:
-    observation = observe_retrieval_order_partition(
-        protocol_path=PROTOCOL,
-        partition="development",
-        repository_root=ROOT,
+def test_premaintenance_failure_record_is_immutable_and_public_safe() -> None:
+    content = HISTORICAL_OBSERVATION.read_bytes()
+    payload = json.loads(content)
+
+    assert hashlib.sha256(content).hexdigest() == (
+        HISTORICAL_OBSERVATION_SHA256
     )
+    assert set(payload) == {
+        "candidate_membership_delta",
+        "cases",
+        "cause",
+        "integrity_status",
+        "next_step",
+        "non_tied_pair_delta",
+        "observation_status",
+        "pagination_duplicate_or_gap_count",
+        "partition",
+        "phase",
+        "problem",
+        "query_policy_revision",
+        "runtime_profile",
+        "schema_version",
+        "score_hex_delta",
+        "stable_order_rate",
+        "strategy_revision",
+    }
+    assert payload["schema_version"] == "mke.retrieval_order_observation.v1"
+    assert payload["phase"] == "current"
+    assert payload["partition"] == "development"
+    assert payload["integrity_status"] == "passed"
+    assert payload["observation_status"] == "failed"
+    assert payload["strategy_revision"] == 1
+    assert payload["query_policy_revision"] == 1
+    assert payload["problem"] == "retrieval_order_nondeterministic"
+    assert payload["cause"] == "fresh workspace stable projections differ"
+    assert payload["next_step"] == "apply_tie_only_stable_order_maintenance"
+    rendered = content.decode("utf-8")
+    for forbidden in (
+        "amber mechanism probe",
+        "青铜机制验证",
+        '"evidence_id":',
+        '"source_id":',
+        "cursor",
+        str(ROOT),
+    ):
+        assert forbidden not in rendered
 
-    assert observation["integrity_status"] == "passed"
-    assert observation["observation_status"] == "failed"
-    stable_order_rate = observation["stable_order_rate"]
-    assert isinstance(stable_order_rate, float)
-    assert stable_order_rate < 1.0
-    assert observation["candidate_membership_delta"] == 0
-    assert observation["score_hex_delta"] == 0
-    assert observation["non_tied_pair_delta"] == 0
-    assert observation["pagination_duplicate_or_gap_count"] == 0
-    assert observation["strategy_revision"] == 1
-    assert observation["query_policy_revision"] == 1
 
-
-def test_current_cli_records_redacted_failure(
+def test_current_cli_records_live_revision_2_success(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -135,16 +171,18 @@ def test_current_cli_records_redacted_failure(
 
     captured = capsys.readouterr()
     payload = json.loads(captured.out)
-    assert status == 1
+    assert status == 0
     assert captured.err == ""
     assert payload == json.loads(record.read_text(encoding="utf-8"))
     assert payload["schema_version"] == "mke.retrieval_order_observation.v1"
     assert payload["phase"] == "current"
     assert payload["integrity_status"] == "passed"
-    assert payload["observation_status"] == "failed"
-    assert payload["problem"] == "retrieval_order_nondeterministic"
-    assert payload["cause"] == "fresh workspace stable projections differ"
-    assert payload["next_step"] == "apply_tie_only_stable_order_maintenance"
+    assert payload["observation_status"] == "passed"
+    assert payload["strategy_revision"] == 2
+    assert payload["query_policy_revision"] == 1
+    assert "problem" not in payload
+    assert "cause" not in payload
+    assert "next_step" not in payload
     rendered = captured.out
     for forbidden in (
         "amber mechanism probe",

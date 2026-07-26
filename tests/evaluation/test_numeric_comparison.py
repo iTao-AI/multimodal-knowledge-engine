@@ -1,6 +1,8 @@
+import hashlib
 import json
 import os
 import shutil
+import tempfile
 from dataclasses import replace
 from pathlib import Path
 from typing import cast
@@ -11,6 +13,7 @@ from mke.evaluation.numeric_comparison import (
     GATE_ORDER,
     CompiledQuery,
     NumericComparisonGate,
+    NumericComparisonReport,
     NumericProtocol,
     load_numeric_protocol,
     refresh_numeric_protocol_scope,
@@ -24,6 +27,52 @@ from mke.evaluation.runner import (
 )
 
 PROTOCOL = Path("tests/fixtures/retrieval-numeric-v1/protocol-lock.json")
+PROTOCOL_SHA256 = (
+    "17c424e49237deba600fef70d47da803fb73f72d2ee65995fc155dc96e22da60"
+)
+
+
+def _copy_numeric_repository(tmp_path: Path) -> tuple[Path, Path]:
+    repository = tmp_path / "repository"
+    shutil.copytree("tests/fixtures", repository / "tests/fixtures")
+    shutil.copytree("src", repository / "src")
+    shutil.copy2("pyproject.toml", repository / "pyproject.toml")
+    shutil.copy2("uv.lock", repository / "uv.lock")
+    return (
+        repository,
+        repository / "tests/fixtures/retrieval-numeric-v1/protocol-lock.json",
+    )
+
+
+def _write_protocol_payload(path: Path, payload: dict[str, object]) -> None:
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _copy_live_numeric_repository(tmp_path: Path) -> tuple[Path, Path]:
+    repository, protocol_path = _copy_numeric_repository(tmp_path)
+    refresh_numeric_protocol_scope(
+        protocol_path=protocol_path,
+        repository_root=repository,
+    )
+    return repository, protocol_path
+
+
+def _run_archived_numeric_comparison(
+    protocol_path: Path,
+) -> NumericComparisonReport:
+    from mke.evaluation import numeric_comparison
+
+    with tempfile.TemporaryDirectory(
+        prefix="mke-test-archived-numeric-"
+    ) as snapshot_root:
+        protocol = numeric_comparison.load_archived_numeric_protocol(
+            protocol_path,
+            snapshot_root=Path(snapshot_root),
+        )
+        return numeric_comparison._evaluate_numeric_protocol(protocol)  # pyright: ignore[reportPrivateUsage]
 
 
 def _with_two_match_statements(
@@ -48,7 +97,7 @@ def _with_wrong_schema(
 
 
 def test_checked_in_protocol_produces_passing_candidate_comparison() -> None:
-    report = run_numeric_comparison(PROTOCOL)
+    report = _run_archived_numeric_comparison(PROTOCOL)
     payload = json.loads(render_numeric_comparison_json(report))
 
     assert report.integrity_status == "passed"
@@ -76,7 +125,9 @@ def test_checked_in_protocol_produces_passing_candidate_comparison() -> None:
 
 def test_comparison_records_only_the_allowlisted_e1_delta() -> None:
     payload = json.loads(
-        render_numeric_comparison_json(run_numeric_comparison(PROTOCOL))
+        render_numeric_comparison_json(
+            _run_archived_numeric_comparison(PROTOCOL)
+        )
     )
     current = {
         result["query_id"]: result for result in payload["e1"]["current"]["results"]
@@ -96,7 +147,7 @@ def test_comparison_records_only_the_allowlisted_e1_delta() -> None:
 
 
 def test_comparison_compiled_queries_preserve_noneligible_text() -> None:
-    report = run_numeric_comparison(PROTOCOL)
+    report = _run_archived_numeric_comparison(PROTOCOL)
 
     assert len(report.compiled_queries) == 38
     grouped = next(
@@ -176,7 +227,7 @@ def test_comparison_uses_one_protocol_bound_snapshot_for_all_observations(
         observe,
     )
 
-    report = run_numeric_comparison(protocol_path)
+    report = _run_archived_numeric_comparison(protocol_path)
 
     assert report.integrity_status == "passed"
     assert len(observed_paths) == 6
@@ -243,7 +294,7 @@ def test_evaluation_failure_is_redacted_and_not_recorded(
         fail_selected,
     )
 
-    report = run_numeric_comparison(PROTOCOL)
+    report = _run_archived_numeric_comparison(PROTOCOL)
 
     assert report.integrity_status == "failed"
     assert report.candidate_status == "not_recorded"
@@ -293,7 +344,7 @@ def test_nondeterministic_evaluation_uses_fixed_numeric_error_mapping(
         nondeterministic,
     )
 
-    report = run_numeric_comparison(PROTOCOL)
+    report = _run_archived_numeric_comparison(PROTOCOL)
 
     assert report.integrity_status == "failed"
     assert report.candidate_status == "not_recorded"
@@ -359,7 +410,7 @@ def test_evidence_backed_gates_reject_invalid_runtime_observations(
         observe,
     )
 
-    report = run_numeric_comparison(PROTOCOL)
+    report = _run_archived_numeric_comparison(PROTOCOL)
 
     assert report.integrity_status == "passed"
     assert report.candidate_status == "rejected"
@@ -392,7 +443,7 @@ def test_trustworthy_gate_failure_is_candidate_rejection(
 
     monkeypatch.setattr(numeric_comparison, "_evaluate_gates", reject)
 
-    report = run_numeric_comparison(PROTOCOL)
+    report = _run_archived_numeric_comparison(PROTOCOL)
 
     assert report.integrity_status == "passed"
     assert report.candidate_status == "rejected"
@@ -400,9 +451,15 @@ def test_trustworthy_gate_failure_is_candidate_rejection(
 
 
 def test_semantic_payload_is_deterministic_without_duration() -> None:
-    first = json.loads(render_numeric_comparison_json(run_numeric_comparison(PROTOCOL)))
+    first = json.loads(
+        render_numeric_comparison_json(
+            _run_archived_numeric_comparison(PROTOCOL)
+        )
+    )
     second = json.loads(
-        render_numeric_comparison_json(run_numeric_comparison(PROTOCOL))
+        render_numeric_comparison_json(
+            _run_archived_numeric_comparison(PROTOCOL)
+        )
     )
 
     first.pop("duration_ms")
@@ -423,10 +480,296 @@ def test_missing_protocol_is_fixed_public_failure(tmp_path: Path) -> None:
 
 
 def test_protocol_loader_accepts_only_the_frozen_candidate() -> None:
-    protocol = load_numeric_protocol(PROTOCOL)
+    from mke.evaluation import numeric_comparison
+
+    protocol = numeric_comparison.load_archived_numeric_protocol(PROTOCOL)
 
     assert protocol.candidate_id == "numeric-grouping-v1"
     assert protocol.candidate_revision == 1
+
+
+def test_checked_in_protocol_hash_remains_exact() -> None:
+    import hashlib
+
+    assert hashlib.sha256(PROTOCOL.read_bytes()).hexdigest() == PROTOCOL_SHA256
+
+
+def test_live_protocol_and_public_runner_reject_current_source_drift(
+    tmp_path: Path,
+) -> None:
+    repository, protocol_path = _copy_numeric_repository(tmp_path)
+    source = repository / "src/mke/evaluation/runner.py"
+    source.write_bytes(source.read_bytes() + b"\n")
+
+    with pytest.raises(ValueError):
+        load_numeric_protocol(protocol_path)
+
+    report = run_numeric_comparison(protocol_path)
+    assert report.integrity_status == "failed"
+    assert report.candidate_status == "not_recorded"
+    assert report.integrity_failures == (
+        IntegrityFailure(
+            problem="retrieval_numeric_fixture_invalid",
+            cause="protocol-bound input identity mismatch",
+            next_step="restore_numeric_protocol_inputs",
+        ),
+    )
+
+
+@pytest.mark.parametrize("archived", [False, True], ids=["live", "archived"])
+@pytest.mark.parametrize(
+    ("case", "error_kind"),
+    [
+        ("top_level_extra_key", "validation"),
+        ("claim", "validation"),
+        ("manifest_absolute_path", "validation"),
+        ("manifest_parent_path", "validation"),
+        ("manifest_alternate_path", "validation"),
+        ("e1_manifest_digest", "fixture"),
+        ("fixture_bytes", "fixture"),
+        ("fixture_digest", "fixture"),
+    ],
+)
+def test_production_loaders_reject_protocol_authority_mutations(
+    tmp_path: Path,
+    archived: bool,
+    case: str,
+    error_kind: str,
+) -> None:
+    from mke.evaluation import numeric_comparison
+
+    _, protocol_path = _copy_live_numeric_repository(tmp_path)
+    payload = json.loads(protocol_path.read_text(encoding="utf-8"))
+    if case == "top_level_extra_key":
+        payload["unexpected"] = True
+    elif case == "claim":
+        payload["claim"] = "broader_claim"
+    elif case == "manifest_absolute_path":
+        payload["manifests"]["development"]["path"] = "/tmp/development.json"
+    elif case == "manifest_parent_path":
+        payload["manifests"]["development"]["path"] = "../development.json"
+    elif case == "manifest_alternate_path":
+        payload["manifests"]["development"]["path"] = (
+            "retrieval-numeric-v1/alternate.json"
+        )
+    elif case == "e1_manifest_digest":
+        payload["manifests"]["e1"]["sha256"] = "0" * 64
+    elif case == "fixture_bytes":
+        payload["fixtures"][0]["bytes"] = 1
+    else:
+        payload["fixtures"][0]["sha256"] = "0" * 64
+    _write_protocol_payload(protocol_path, payload)
+
+    loader = (
+        numeric_comparison.load_archived_numeric_protocol
+        if archived
+        else numeric_comparison.load_numeric_protocol
+    )
+    expected_error = (
+        numeric_comparison._ProtocolFixtureError  # pyright: ignore[reportPrivateUsage]
+        if error_kind == "fixture"
+        else numeric_comparison._ProtocolValidationError  # pyright: ignore[reportPrivateUsage]
+    )
+    with pytest.raises(expected_error):
+        loader(protocol_path)
+
+
+@pytest.mark.parametrize("archived", [False, True], ids=["live", "archived"])
+def test_production_loaders_reject_manifest_symlink_escape(
+    tmp_path: Path,
+    archived: bool,
+) -> None:
+    from mke.evaluation import numeric_comparison
+
+    _, protocol_path = _copy_live_numeric_repository(tmp_path)
+    manifest = protocol_path.parent / "development.json"
+    outside = tmp_path / "outside.json"
+    outside.write_bytes(manifest.read_bytes())
+    manifest.unlink()
+    manifest.symlink_to(outside)
+    payload = json.loads(protocol_path.read_text(encoding="utf-8"))
+    payload["manifests"]["development"]["sha256"] = hashlib.sha256(
+        outside.read_bytes()
+    ).hexdigest()
+    _write_protocol_payload(protocol_path, payload)
+
+    loader = (
+        numeric_comparison.load_archived_numeric_protocol
+        if archived
+        else numeric_comparison.load_numeric_protocol
+    )
+    with pytest.raises(
+        numeric_comparison._ProtocolValidationError  # pyright: ignore[reportPrivateUsage]
+    ):
+        loader(protocol_path)
+
+
+@pytest.mark.parametrize("archived", [False, True], ids=["live", "archived"])
+@pytest.mark.parametrize(
+    "relative_path",
+    [
+        "retrieval-numeric-v1/development.json",
+        "retrieval-numeric-v1/holdout.json",
+        "retrieval-numeric-v1/development.pdf",
+        "retrieval-numeric-v1/holdout.pdf",
+    ],
+)
+def test_production_loaders_reject_bound_fixture_mutation(
+    tmp_path: Path,
+    archived: bool,
+    relative_path: str,
+) -> None:
+    from mke.evaluation import numeric_comparison
+
+    _, protocol_path = _copy_live_numeric_repository(tmp_path)
+    target = protocol_path.parent.parent / relative_path
+    target.write_bytes(target.read_bytes() + b"\n")
+
+    loader = (
+        numeric_comparison.load_archived_numeric_protocol
+        if archived
+        else numeric_comparison.load_numeric_protocol
+    )
+    with pytest.raises(
+        numeric_comparison._ProtocolFixtureError  # pyright: ignore[reportPrivateUsage]
+    ):
+        loader(protocol_path)
+
+
+def test_public_runner_preserves_protocol_load_start_for_success_duration(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mke.evaluation import numeric_comparison
+
+    _, protocol_path = _copy_live_numeric_repository(tmp_path)
+    original = numeric_comparison._evaluate_numeric_protocol  # pyright: ignore[reportPrivateUsage]
+    observed_starts: list[float | None] = []
+
+    def evaluate(
+        protocol: NumericProtocol,
+        *,
+        _started_at: float | None = None,
+    ) -> NumericComparisonReport:
+        observed_starts.append(_started_at)
+        return original(protocol)
+
+    monkeypatch.setattr(numeric_comparison.time, "monotonic", lambda: 123.0)
+    monkeypatch.setattr(numeric_comparison, "_evaluate_numeric_protocol", evaluate)
+
+    report = run_numeric_comparison(protocol_path)
+
+    assert report.integrity_status == "passed"
+    assert observed_starts == [123.0]
+
+
+def test_archived_protocol_accepts_recorded_scope_without_current_source_bytes(
+    tmp_path: Path,
+) -> None:
+    from mke.evaluation import numeric_comparison
+
+    repository, protocol_path = _copy_numeric_repository(tmp_path)
+    source = repository / "src/mke/evaluation/runner.py"
+    source.write_bytes(source.read_bytes() + b"\n")
+
+    protocol = numeric_comparison.load_archived_numeric_protocol(protocol_path)
+
+    assert tuple(protocol.manifests) == ("development", "holdout", "e1")
+    assert protocol.sqlite_schema_sha256 == json.loads(
+        protocol_path.read_text(encoding="utf-8")
+    )["scope_fence"]["sqlite_schema_sha256"]
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "scope_extra_key",
+        "scope_file_extra_key",
+        "absolute_path",
+        "parent_path",
+        "duplicate_path",
+        "wrong_order",
+        "uppercase_file_sha256",
+        "malformed_file_sha256",
+        "uppercase_schema_sha256",
+    ],
+)
+def test_archived_protocol_rejects_noncanonical_scope(
+    tmp_path: Path,
+    case: str,
+) -> None:
+    from mke.evaluation import numeric_comparison
+
+    _, protocol_path = _copy_numeric_repository(tmp_path)
+    payload = json.loads(protocol_path.read_text(encoding="utf-8"))
+    scope = payload["scope_fence"]
+    files = scope["files"]
+    if case == "scope_extra_key":
+        scope["unexpected"] = True
+    elif case == "scope_file_extra_key":
+        files[0]["unexpected"] = True
+    elif case == "absolute_path":
+        files[0]["path"] = "/tmp/pyproject.toml"
+    elif case == "parent_path":
+        files[0]["path"] = "../pyproject.toml"
+    elif case == "duplicate_path":
+        files[1]["path"] = files[0]["path"]
+    elif case == "wrong_order":
+        files[0], files[1] = files[1], files[0]
+    elif case == "uppercase_file_sha256":
+        files[0]["sha256"] = "A" * 64
+    elif case == "malformed_file_sha256":
+        files[0]["sha256"] = "0" * 63
+    else:
+        scope["sqlite_schema_sha256"] = "A" * 64
+    _write_protocol_payload(protocol_path, payload)
+
+    with pytest.raises(ValueError):
+        numeric_comparison.load_archived_numeric_protocol(protocol_path)
+
+
+def test_archived_protocol_still_rejects_manifest_identity_drift(
+    tmp_path: Path,
+) -> None:
+    from mke.evaluation import numeric_comparison
+
+    _, protocol_path = _copy_numeric_repository(tmp_path)
+    manifest = protocol_path.parent / "development.json"
+    manifest.write_bytes(manifest.read_bytes() + b"\n")
+
+    with pytest.raises(ValueError):
+        numeric_comparison.load_archived_numeric_protocol(protocol_path)
+
+
+def test_archived_protocol_schema_mismatch_fails_existing_runtime_gate(
+    tmp_path: Path,
+) -> None:
+    from mke.evaluation import numeric_comparison
+
+    _, protocol_path = _copy_numeric_repository(tmp_path)
+    payload = json.loads(protocol_path.read_text(encoding="utf-8"))
+    payload["scope_fence"]["sqlite_schema_sha256"] = "0" * 64
+    _write_protocol_payload(protocol_path, payload)
+    protocol = numeric_comparison.load_archived_numeric_protocol(protocol_path)
+
+    report = numeric_comparison._evaluate_numeric_protocol(protocol)  # pyright: ignore[reportPrivateUsage]
+
+    gates = {gate.gate_id: gate for gate in report.gates}
+    assert report.integrity_status == "passed"
+    assert report.candidate_status == "rejected"
+    assert gates["scope_fence"].status == "failed"
+
+
+def test_live_protocol_rejects_scope_symlink_escape(tmp_path: Path) -> None:
+    repository, protocol_path = _copy_numeric_repository(tmp_path)
+    target = repository / "src/mke/evaluation/runner.py"
+    outside = tmp_path / "outside.py"
+    outside.write_bytes(target.read_bytes())
+    target.unlink()
+    target.symlink_to(outside)
+
+    with pytest.raises(ValueError):
+        load_numeric_protocol(protocol_path)
 
 
 def test_protocol_rejects_bool_candidate_revision(tmp_path: Path) -> None:

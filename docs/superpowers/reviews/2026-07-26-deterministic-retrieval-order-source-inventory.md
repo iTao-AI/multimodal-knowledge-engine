@@ -47,3 +47,39 @@ The hashes above were recomputed before any maintenance write. The seven canonic
 passed against the same checkout. No historical observation or protocol file is authorized for
 rewrite; later current-source validation is additive and owned by
 `benchmarks/retrieval/retrieval-order-v2-compatibility.json`.
+
+## Task 6R Execution Finding
+
+The original post-Task-6 historical validator command covered:
+
+```bash
+uv run pytest -q \
+  tests/evaluation/test_baseline.py \
+  tests/evaluation/test_numeric_artifact.py \
+  tests/evaluation/test_chinese_artifact.py \
+  tests/evaluation/test_cjk_lexical_artifact.py \
+  tests/evaluation/test_dense_artifact.py \
+  tests/evaluation/test_hybrid_rrf_artifact.py \
+  tests/evaluation/test_relevance_gate_artifact.py
+```
+
+It stopped with `62 passed, 71 failed`. The failures isolated three evaluation-authority
+conflicts rather than a new runtime retrieval defect:
+
+- E2 archived numeric scope hashes were still being compared with current checkout bytes.
+- E3-A Chinese SQL-trace validation recognized the former opaque-ID ordering instead of the
+  revision-2 stable MATCH ordering.
+- Three retrieval-order workflow tests still asserted the archived revision-1 live failure after
+  the runtime had moved to revision 2.
+
+The strict default `load_numeric_protocol` and public `mke eval retrieval-numeric` path remain
+current-source-bound and fail closed. Archived validation is an explicit internal compatibility
+authority only. Canonical compatibility generation remains deferred until every source/test/doc
+write and the one-shot holdout have completed.
+
+The post-Task-2 observation is appended as immutable historical input 14; it is not retroactively
+part of the Task 0 freeze:
+
+| Path | SHA-256 |
+|---|---|
+| `benchmarks/retrieval/retrieval-order-v1-current-runtime-observation.json` | `1a98e4e6c4eabc01663991646aac46e4a73033eef8a7e17a27db2e0fdce71691` |

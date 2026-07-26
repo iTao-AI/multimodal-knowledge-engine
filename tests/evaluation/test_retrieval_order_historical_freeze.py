@@ -48,6 +48,9 @@ FROZEN_SHA256 = {
     "tests/fixtures/retrieval-relevance-gate-v1/protocol-lock.json": (
         "6983eb5243493176d6cf97a5e7b5ae888aac9885c25e945583bc291aacf253b1"
     ),
+    "benchmarks/retrieval/retrieval-order-v1-current-runtime-observation.json": (
+        "1a98e4e6c4eabc01663991646aac46e4a73033eef8a7e17a27db2e0fdce71691"
+    ),
 }
 
 
@@ -67,6 +70,15 @@ def test_historical_artifact_and_protocol_bytes_are_frozen() -> None:
         path: hashlib.sha256(Path(path).read_bytes()).hexdigest()
         for path in FROZEN_SHA256
     } == FROZEN_SHA256
+    canonical = json.dumps(
+        FROZEN_SHA256,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    assert hashlib.sha256(canonical).hexdigest() == (
+        "4462b830a1340e6f8c08ae01082ba82212d95976057767f60ee29671cc965922"
+    )
 
 
 def test_current_source_builder_includes_only_explicit_paths(
