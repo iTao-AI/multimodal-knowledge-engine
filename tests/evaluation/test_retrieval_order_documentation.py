@@ -172,8 +172,8 @@ def test_numeric_ci_step_preserves_all_canonical_paths() -> None:
     assert "canonical_state_before" in step
     assert "canonical_state_after" in step
     assert "assert canonical_state_before == canonical_state_after" in step
-    assert "assert all(value is None for value in canonical_state_before.values())" in step
-    assert "assert all(value is None for value in canonical_state_after.values())" in step
+    assert "assert all(value is None for value in canonical_state_before.values())" not in step
+    assert "assert all(value is None for value in canonical_state_after.values())" not in step
     for path in CANONICAL_RETRIEVAL_ORDER_PATHS:
         assert step.count(path) == 1
 

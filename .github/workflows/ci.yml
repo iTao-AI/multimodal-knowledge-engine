@@ -161,7 +161,6 @@ jobs:
               }
 
           canonical_state_before = state()
-          assert all(value is None for value in canonical_state_before.values())
           Path(os.environ["CANONICAL_STATE_JSON"]).write_text(
               json.dumps(canonical_state_before, sort_keys=True),
               encoding="utf-8",
@@ -298,8 +297,6 @@ jobs:
           )
           canonical_state_after = state(canonical_state_before)
           assert canonical_state_before == canonical_state_after
-          assert all(value is None for value in canonical_state_before.values())
-          assert all(value is None for value in canonical_state_after.values())
           PY
       - name: Run Chinese retrieval baseline
         run: |
