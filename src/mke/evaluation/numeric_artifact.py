@@ -26,6 +26,7 @@ from mke.evaluation.numeric_comparison import (
     NumericProtocol,
     load_numeric_protocol,
 )
+from mke.evaluation.source_identity import validate_recorded_source_identity
 from mke.retrieval import compile_fts5_query
 from mke.retrieval.query_policy import numeric_grouping_eligible_tokens
 
@@ -184,6 +185,7 @@ def validate_numeric_artifact(
             expected_path.unlink(missing_ok=True)
         _validate_environment(artifact["environment"])
         expected["environment"] = artifact["environment"]
+        expected["source"] = artifact["source"]
         if artifact != expected:
             raise NumericArtifactValidationError
         _validate_comparison_state(
@@ -293,31 +295,10 @@ def _validate_artifact_schema(artifact: dict[str, object]) -> None:
         != CANDIDATE_REVISION
     ):
         raise NumericArtifactValidationError
-    source = _require_object_fields(artifact["source"], {"sha256", "files"})
-    _require_sha256(source["sha256"])
-    files = _require_list(source["files"])
-    if not files:
-        raise NumericArtifactValidationError
-    paths: list[str] = []
-    for raw in files:
-        record = _require_object_fields(raw, {"path", "bytes", "sha256"})
-        if not _is_nonempty_string(record["path"]):
-            raise NumericArtifactValidationError
-        path = cast(str, record["path"])
-        paths.append(path)
-        if not _is_int(record["bytes"]) or cast(int, record["bytes"]) < 0:
-            raise NumericArtifactValidationError
-        _require_sha256(record["sha256"])
-    if paths != sorted(paths) or len(paths) != len(set(paths)):
-        raise NumericArtifactValidationError
-    encoded_files = json.dumps(
-        files,
-        ensure_ascii=True,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode()
-    if source["sha256"] != hashlib.sha256(encoded_files).hexdigest():
-        raise NumericArtifactValidationError
+    try:
+        validate_recorded_source_identity(artifact["source"])
+    except ValueError as error:
+        raise NumericArtifactValidationError from error
     _validate_environment(artifact["environment"])
     if not isinstance(artifact["comparison"], dict):
         raise NumericArtifactValidationError

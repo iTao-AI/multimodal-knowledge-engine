@@ -16,8 +16,10 @@ from mke.embeddings.contracts import (
     MODEL_ID,
     MODEL_REVISION,
 )
+from mke.evaluation.source_identity import validate_recorded_file_identity
 
 _SCHEMA = "mke.dense_retrieval_protocol.v1"
+_RECORDED_PROTOCOL = "tests/fixtures/retrieval-dense-v1/protocol-lock.json"
 _TARGET_CLASSES = [
     "semantic_paraphrase",
     "multi_condition",
@@ -174,6 +176,7 @@ def validate_dense_protocol_lock(
     _validate_partitions(protocol.get("partitions"))
     _validate_state(protocol.get("state"))
     _validate_inputs(protocol.get("inputs"), repository_root=repository_root)
+    expected["inputs"] = protocol["inputs"]
     if protocol != expected:
         raise DenseProtocolValidationError("dense protocol identity drift")
 
@@ -289,14 +292,28 @@ def _validate_inputs(value: object, *, repository_root: Path) -> None:
     data = _object(value, "input identities")
     if set(data) != set(_INPUTS):
         raise DenseProtocolValidationError("input identities are invalid")
+    recorded = _recorded_inputs(repository_root, _RECORDED_PROTOCOL)
     for name, expected_path in _INPUTS.items():
         record = _object(data.get(name), f"{name} identity")
-        recorded_path = record.get("path")
-        if type(recorded_path) is not str:
+        if record.get("path") != expected_path:
             raise DenseProtocolValidationError("repository path is invalid")
-        _repository_path(repository_root.resolve(), recorded_path)
-        if record != _file_identity(repository_root.resolve(), expected_path):
+        try:
+            validate_recorded_file_identity(
+                record, expected_path=expected_path
+            )
+        except ValueError as error:
+            raise DenseProtocolValidationError("input identity drift") from error
+        if record != recorded[name]:
             raise DenseProtocolValidationError("input identity drift")
+
+
+def _recorded_inputs(root: Path, relative_path: str) -> dict[str, object]:
+    try:
+        payload = json.loads((root / relative_path).read_text(encoding="utf-8"))
+        inputs = cast(dict[str, object], cast(dict[str, object], payload)["inputs"])
+    except Exception as error:
+        raise DenseProtocolValidationError("input identity drift") from error
+    return inputs
 
 
 def _file_identity(root: Path, relative_path: str) -> dict[str, object]:

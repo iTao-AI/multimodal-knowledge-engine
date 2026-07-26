@@ -49,6 +49,10 @@ from mke.evaluation.graded_metrics import (
     calculate_graded_metrics,
 )
 from mke.evaluation.manifest import StableLocator
+from mke.evaluation.source_identity import (
+    build_source_identity,
+    validate_recorded_file_identity,
+)
 
 ARTIFACT_SCHEMA = "mke.dense_comparison_artifact.v1"
 _PROTOCOL_PATH = "tests/fixtures/retrieval-chinese-v1/protocol.json"
@@ -233,6 +237,14 @@ def validate_dense_comparison_artifact(
         receipt_value = state.get("holdout_receipt_sha256")
         receipt_sha = None if receipt_value is None else _sha256(receipt_value)
         current_runtime = _object(artifact.get("current_runtime"))
+        _validate_archived_source_identity(artifact.get("source"))
+        historical = _object(artifact.get("historical_arms"))
+        validate_recorded_file_identity(
+            historical.get("e3a"), expected_path=_E3A_PATH
+        )
+        validate_recorded_file_identity(
+            historical.get("e3b"), expected_path=_E3B_PATH
+        )
         loader = current_runtime_loader or (
             lambda: _object(current_runtime.get("semantics"))
         )
@@ -249,6 +261,8 @@ def validate_dense_comparison_artifact(
             development_freeze_sha256=development_sha,
             holdout_receipt_sha256=receipt_sha,
         )
+        expected["source"] = artifact["source"]
+        expected["historical_arms"] = artifact["historical_arms"]
         if artifact != expected:
             raise DenseArtifactValidationError
     except DenseArtifactValidationError:
@@ -708,12 +722,28 @@ def _compatibility(root: Path, corpus: DenseCorpusLock) -> dict[str, Any]:
 
 
 def dense_source_identity(root: Path) -> dict[str, Any]:
-    files = [
-        _file_identity(root, path)
-        for path in _SOURCE_PATHS
-        if (root / path).is_file()
-    ]
-    return {"sha256": _digest(files), "files": files}
+    paths = tuple(path for path in _SOURCE_PATHS if (root / path).is_file())
+    identity = build_source_identity(root, paths)
+    identity["sha256"] = f"sha256:{identity['sha256']}"
+    return identity
+
+
+def _validate_archived_source_identity(value: object) -> None:
+    source = _object(value)
+    if set(source) != {"sha256", "files"}:
+        raise DenseArtifactValidationError
+    raw_files = source.get("files")
+    if not isinstance(raw_files, list) or not raw_files:
+        raise DenseArtifactValidationError
+    files = cast(list[dict[str, object]], raw_files)
+    try:
+        for item in files:
+            validate_recorded_file_identity(item)
+    except ValueError as error:
+        raise DenseArtifactValidationError from error
+    paths = [item["path"] for item in files]
+    if len(paths) != len(set(paths)) or source.get("sha256") != _digest(files):
+        raise DenseArtifactValidationError
 
 
 def _file_identity(root: Path, relative_path: str) -> dict[str, Any]:

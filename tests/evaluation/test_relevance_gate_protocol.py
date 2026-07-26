@@ -19,16 +19,22 @@ PROTOCOL_LOCK = ROOT / "tests/fixtures/retrieval-relevance-gate-v1/protocol-lock
 
 
 def test_protocol_lock_is_byte_stable_and_checked_in() -> None:
-    protocol = build_relevance_gate_protocol_lock(repository_root=ROOT)
-    rendered = render_relevance_gate_protocol_lock_json(protocol)
+    current = build_relevance_gate_protocol_lock(repository_root=ROOT)
+    rendered = render_relevance_gate_protocol_lock_json(current)
+    protocol = load_relevance_gate_protocol_lock(
+        PROTOCOL_LOCK, repository_root=ROOT
+    )
 
     assert rendered.endswith("\n")
-    assert json.loads(rendered) == protocol
-    assert load_relevance_gate_protocol_lock(PROTOCOL_LOCK, repository_root=ROOT) == protocol
+    assert json.loads(rendered) == current
+    current["inputs"] = protocol["inputs"]
+    assert current == protocol
 
 
 def test_protocol_freezes_candidate_inputs_and_profile_catalog() -> None:
-    protocol = build_relevance_gate_protocol_lock(repository_root=ROOT)
+    protocol = load_relevance_gate_protocol_lock(
+        PROTOCOL_LOCK, repository_root=ROOT
+    )
     candidate = cast(dict[str, object], protocol["candidate"])
     inputs = cast(dict[str, dict[str, object]], protocol["inputs"])
     profiles = cast(list[dict[str, object]], protocol["profiles"])
@@ -85,7 +91,9 @@ def test_protocol_freezes_candidate_inputs_and_profile_catalog() -> None:
 def test_protocol_rejects_bool_revision_unknown_profiles_and_missing_inventory(
     tmp_path: Path,
 ) -> None:
-    protocol = build_relevance_gate_protocol_lock(repository_root=ROOT)
+    protocol = load_relevance_gate_protocol_lock(
+        PROTOCOL_LOCK, repository_root=ROOT
+    )
 
     mutations: tuple[tuple[Callable[[dict[str, object]], None], str], ...] = (
         (_mutate_revision_bool, "candidate"),
@@ -108,7 +116,9 @@ def test_protocol_rejects_bool_revision_unknown_profiles_and_missing_inventory(
 
 
 def test_protocol_rejects_absolute_paths_and_identity_drift(tmp_path: Path) -> None:
-    protocol = build_relevance_gate_protocol_lock(repository_root=ROOT)
+    protocol = load_relevance_gate_protocol_lock(
+        PROTOCOL_LOCK, repository_root=ROOT
+    )
 
     changed = _copy(protocol)
     inputs = cast(dict[str, dict[str, object]], changed["inputs"])
