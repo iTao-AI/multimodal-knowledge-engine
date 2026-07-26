@@ -10,7 +10,7 @@ import tempfile
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Literal, cast
 
 import mke.adapters.sqlite
@@ -65,6 +65,9 @@ class RetrievalOrderWorkflowError(RuntimeError):
         self.publication = publication
 
 
+_StatusRecord = tuple[str, str, str | None]
+
+
 _CANONICAL_FIXTURE_DIGESTS = frozenset(
     {
         "e37e9519d899fc934c1758860f1b40d3605ed065a11b1921fdac914746f733f5",
@@ -101,6 +104,7 @@ class SyntheticHoldoutCapability:
     holdout_fixture_sha256: str
     candidate_head: str
     runtime_profile: dict[str, object]
+    _authority: _HoldoutAuthority | None
     _consumed: bool = field(default=False, init=False, repr=False)
 
     def __init__(
@@ -111,6 +115,7 @@ class SyntheticHoldoutCapability:
         holdout_fixture_sha256: str,
         candidate_head: str,
         runtime_profile: dict[str, object],
+        authority: _HoldoutAuthority | None = None,
         issuer: object | None = None,
     ) -> None:
         if issuer is not _SYNTHETIC_CAPABILITY_ISSUER:
@@ -122,6 +127,7 @@ class SyntheticHoldoutCapability:
         self.holdout_fixture_sha256 = holdout_fixture_sha256
         self.candidate_head = candidate_head
         self.runtime_profile = dict(runtime_profile)
+        self._authority = authority
         self._consumed = False
 
     @classmethod
@@ -132,6 +138,7 @@ class SyntheticHoldoutCapability:
         repository_root: Path,
         candidate_head: str,
         runtime_profile: dict[str, object],
+        authority: _HoldoutAuthority | None = None,
     ) -> SyntheticHoldoutCapability:
         metadata = load_retrieval_order_protocol_metadata(
             protocol_path,
@@ -148,6 +155,14 @@ class SyntheticHoldoutCapability:
                 character not in "0123456789abcdef"
                 for character in candidate_head
             )
+            or (
+                authority is not None
+                and (
+                    authority.candidate_seal["head"] != candidate_head
+                    or authority.candidate_seal["runtime_profile"]
+                    != runtime_profile
+                )
+            )
         ):
             raise RetrievalOrderWorkflowError(
                 "synthetic holdout capability is invalid"
@@ -159,6 +174,7 @@ class SyntheticHoldoutCapability:
             holdout_fixture_sha256=metadata.holdout.sha256,
             candidate_head=candidate_head,
             runtime_profile=dict(runtime_profile),
+            authority=authority,
         )
 
     def _consume(
@@ -175,6 +191,18 @@ class SyntheticHoldoutCapability:
                 "holdout capability is missing or mismatched"
             )
         self._consumed = True
+
+    def _revalidate_authority(
+        self,
+        metadata: RetrievalOrderProtocolMetadata,
+        *,
+        repository_root: Path,
+    ) -> None:
+        if self._authority is not None:
+            self._authority.validate(
+                metadata,
+                repository_root=repository_root,
+            )
 
 
 _PRODUCTION_CAPABILITY_ISSUER = object()
@@ -204,6 +232,68 @@ def _has_canonical_protocol_authority(repository_root: Path) -> bool:
         return False
 
 
+@dataclass(frozen=True)
+class _HoldoutAuthority:
+    candidate_seal: dict[str, object]
+    status_records: tuple[_StatusRecord, ...]
+    development_freeze_path: Path
+    development_freeze_bytes: bytes
+    development_freeze_sha256: str
+    receipt_path: Path
+    receipt_bytes: bytes
+    receipt_sha256: str
+
+    def validate(
+        self,
+        metadata: RetrievalOrderProtocolMetadata,
+        *,
+        repository_root: Path,
+    ) -> None:
+        root = repository_root.resolve()
+        expected_status = {
+            self.development_freeze_path: "??",
+            self.receipt_path: "??",
+        }
+        try:
+            candidate = _candidate_seal(
+                root,
+                expected_status=expected_status,
+            )
+            freeze_bytes = self.development_freeze_path.read_bytes()
+            receipt_bytes = self.receipt_path.read_bytes()
+            if (
+                _public_candidate_seal(candidate) != self.candidate_seal
+                or _status_records(candidate) != self.status_records
+                or freeze_bytes != self.development_freeze_bytes
+                or receipt_bytes != self.receipt_bytes
+                or hashlib.sha256(freeze_bytes).hexdigest()
+                != self.development_freeze_sha256
+                or hashlib.sha256(receipt_bytes).hexdigest()
+                != self.receipt_sha256
+            ):
+                raise ValueError("retained authority changed")
+            validate_development_freeze(
+                _object_from_bytes(freeze_bytes),
+                metadata=metadata,
+                expected_candidate_seal=self.candidate_seal,
+                repository_root=root,
+            )
+            validate_holdout_receipt(
+                _object_from_bytes(receipt_bytes),
+                metadata=metadata,
+                candidate_seal=self.candidate_seal,
+                development_freeze_path=self.development_freeze_path,
+                repository_root=root,
+            )
+        except Exception as error:
+            raise RetrievalOrderWorkflowError(
+                "candidate seal is invalid",
+                problem="retrieval_order_candidate_seal_mismatch",
+                cause="candidate_inputs_do_not_match_seal",
+                next_step="retain_receipt_and_stop",
+            ) from error
+
+
 @dataclass(init=False)
 class _ProductionHoldoutCapability:
     protocol_path: Path
@@ -213,6 +303,9 @@ class _ProductionHoldoutCapability:
     receipt_sha256: str
     candidate_head: str
     runtime_profile: dict[str, object]
+    status_records: tuple[_StatusRecord, ...]
+    development_freeze_sha256: str
+    _authority: _HoldoutAuthority
     _consumed: bool
 
     def __init__(
@@ -223,6 +316,7 @@ class _ProductionHoldoutCapability:
         receipt_path: Path,
         receipt_sha256: str,
         candidate_seal: dict[str, object],
+        authority: _HoldoutAuthority,
         repository_root: Path,
     ) -> None:
         if (
@@ -231,6 +325,9 @@ class _ProductionHoldoutCapability:
                 metadata,
                 repository_root=repository_root,
             )
+            or authority.candidate_seal != candidate_seal
+            or authority.receipt_path != receipt_path.resolve()
+            or authority.receipt_sha256 != receipt_sha256
         ):
             raise RetrievalOrderWorkflowError(
                 "holdout capability issuer is invalid"
@@ -244,6 +341,11 @@ class _ProductionHoldoutCapability:
         self.runtime_profile = dict(
             cast(dict[str, object], candidate_seal["runtime_profile"])
         )
+        self.status_records = authority.status_records
+        self.development_freeze_sha256 = (
+            authority.development_freeze_sha256
+        )
+        self._authority = authority
         self._consumed = False
 
     def _consume(
@@ -252,32 +354,27 @@ class _ProductionHoldoutCapability:
         *,
         repository_root: Path,
     ) -> None:
-        try:
-            receipt_sha256 = hashlib.sha256(
-                self.receipt_path.read_bytes()
-            ).hexdigest()
-            candidate = _candidate_seal(
-                repository_root,
-                allowed_dirty_paths={self.receipt_path},
-                require_clean=False,
-            )
-        except Exception as error:
-            raise RetrievalOrderWorkflowError(
-                "holdout capability is missing or mismatched"
-            ) from error
         if (
             self._consumed
             or metadata.protocol_path != self.protocol_path
             or metadata.protocol_sha256 != self.protocol_sha256
             or metadata.holdout.sha256 != self.holdout_fixture_sha256
-            or receipt_sha256 != self.receipt_sha256
-            or candidate["head"] != self.candidate_head
-            or candidate["runtime_profile"] != self.runtime_profile
         ):
             raise RetrievalOrderWorkflowError(
                 "holdout capability is missing or mismatched"
             )
         self._consumed = True
+
+    def _revalidate_authority(
+        self,
+        metadata: RetrievalOrderProtocolMetadata,
+        *,
+        repository_root: Path,
+    ) -> None:
+        self._authority.validate(
+            metadata,
+            repository_root=repository_root,
+        )
 
 
 @contextmanager
@@ -350,6 +447,10 @@ def observe_retrieval_order_partition(
                 metadata,
                 repository_root=repository_root,
             )
+        holdout_capability._revalidate_authority(  # pyright: ignore[reportPrivateUsage]
+            metadata,
+            repository_root=repository_root,
+        )
     contract = load_retrieval_order_protocol_partition(
         metadata,
         partition,
@@ -642,57 +743,153 @@ def _observation_payload(
 def _candidate_seal(
     repository_root: Path,
     *,
-    allowed_dirty_paths: set[Path],
-    require_clean: bool = True,
+    expected_status: Mapping[Path, str],
 ) -> dict[str, object]:
     root = repository_root.resolve()
     try:
-        head = subprocess.run(
+        first_head = subprocess.run(
             ("git", "rev-parse", "HEAD"),
             cwd=root,
             check=True,
             capture_output=True,
             text=True,
         ).stdout.strip()
-        status = subprocess.run(
-            ("git", "status", "--porcelain", "--untracked-files=all"),
+        status_output = subprocess.run(
+            (
+                "git",
+                "status",
+                "--porcelain=v1",
+                "-z",
+                "--untracked-files=all",
+            ),
             cwd=root,
             check=True,
             capture_output=True,
             text=True,
-        ).stdout.splitlines()
+        ).stdout
+        final_head = subprocess.run(
+            ("git", "rev-parse", "HEAD"),
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
     except (OSError, subprocess.CalledProcessError) as error:
-        raise RetrievalOrderWorkflowError(
-            "candidate seal is invalid",
-            problem="retrieval_order_candidate_seal_mismatch",
-            cause="candidate_inputs_do_not_match_seal",
-            next_step="return_to_authority_review",
-        ) from error
-    allowed = {path.resolve() for path in allowed_dirty_paths}
-    unexpected: list[str] = []
-    for line in status:
-        relative = line[3:]
-        if " -> " in relative:
-            relative = relative.split(" -> ", 1)[1]
-        if (root / relative).resolve() not in allowed:
-            unexpected.append(relative)
-    if (
-        len(head) != 40
-        or any(character not in "0123456789abcdef" for character in head)
-        or (require_clean and unexpected)
-    ):
-        raise RetrievalOrderWorkflowError(
-            "candidate seal is invalid",
-            problem="retrieval_order_candidate_seal_mismatch",
-            cause="candidate_inputs_do_not_match_seal",
-            next_step="return_to_authority_review",
+        raise _candidate_seal_error() from error
+    try:
+        records = _parse_status_records(status_output)
+        expected_records = _expected_status_records(
+            root,
+            expected_status,
         )
+    except (TypeError, ValueError) as error:
+        raise _candidate_seal_error() from error
+    if (
+        not _valid_head(first_head)
+        or not _valid_head(final_head)
+        or first_head != final_head
+        or records != expected_records
+    ):
+        raise _candidate_seal_error()
     connection = sqlite3.connect(":memory:")
     try:
         profile = retrieval_runtime_profile(connection)
     finally:
         connection.close()
-    return {"head": head, "runtime_profile": profile}
+    return {
+        "head": first_head,
+        "runtime_profile": profile,
+        "status_records": records,
+    }
+
+
+def _candidate_seal_error() -> RetrievalOrderWorkflowError:
+    return RetrievalOrderWorkflowError(
+        "candidate seal is invalid",
+        problem="retrieval_order_candidate_seal_mismatch",
+        cause="candidate_inputs_do_not_match_seal",
+        next_step="return_to_authority_review",
+    )
+
+
+def _valid_head(value: str) -> bool:
+    return (
+        len(value) == 40
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
+def _parse_status_records(output: str) -> tuple[_StatusRecord, ...]:
+    fields = output.split("\0")
+    if fields[-1:] == [""]:
+        fields.pop()
+    records: list[_StatusRecord] = []
+    index = 0
+    while index < len(fields):
+        field = fields[index]
+        if len(field) < 4 or field[2] != " ":
+            raise ValueError("invalid porcelain status")
+        status = field[:2]
+        path = _status_path(field[3:])
+        rename_source: str | None = None
+        if "R" in status or "C" in status:
+            index += 1
+            if index >= len(fields):
+                raise ValueError("missing rename source")
+            rename_source = _status_path(fields[index])
+        records.append((status, path, rename_source))
+        index += 1
+    return tuple(sorted(records))
+
+
+def _status_path(value: str) -> str:
+    path = PurePosixPath(value)
+    if (
+        not value
+        or path.is_absolute()
+        or value != path.as_posix()
+        or any(part in {"", ".", ".."} for part in path.parts)
+    ):
+        raise ValueError("status path escapes repository")
+    return value
+
+
+def _expected_status_records(
+    root: Path,
+    expected_status: Mapping[Path, str],
+) -> tuple[_StatusRecord, ...]:
+    records: list[_StatusRecord] = []
+    seen: set[str] = set()
+    for path, status in expected_status.items():
+        absolute = path if path.is_absolute() else root / path
+        try:
+            relative = absolute.relative_to(root).as_posix()
+        except ValueError as error:
+            raise ValueError("expected path escapes repository") from error
+        relative = _status_path(relative)
+        if (
+            status != "??"
+            or relative in seen
+        ):
+            raise ValueError("invalid expected status")
+        seen.add(relative)
+        records.append((status, relative, None))
+    return tuple(sorted(records))
+
+
+def _public_candidate_seal(
+    candidate: Mapping[str, object],
+) -> dict[str, object]:
+    return {
+        "head": candidate["head"],
+        "runtime_profile": candidate["runtime_profile"],
+    }
+
+
+def _status_records(
+    candidate: Mapping[str, object],
+) -> tuple[_StatusRecord, ...]:
+    return cast(tuple[_StatusRecord, ...], candidate["status_records"])
 
 
 def _publish_or_stop(
@@ -765,13 +962,16 @@ def _run_development(
         )
     candidate = _candidate_seal(
         root,
-        allowed_dirty_paths=set(),
+        expected_status={},
     )
+    public_candidate = _public_candidate_seal(candidate)
     observation = observe_retrieval_order_partition(
         protocol_path=protocol_path,
         partition="development",
         repository_root=root,
     )
+    if _candidate_seal(root, expected_status={}) != candidate:
+        raise _candidate_seal_error()
     if (
         observation["observation_status"] != "passed"
         or observation["runtime_profile"] != candidate["runtime_profile"]
@@ -784,7 +984,7 @@ def _run_development(
         )
     freeze = build_development_freeze(
         metadata=metadata,
-        candidate_seal=candidate,
+        candidate_seal=public_candidate,
         observation=observation,
         repository_root=root,
     )
@@ -793,10 +993,12 @@ def _run_development(
         validate_development_freeze(
             value,
             metadata=metadata,
-            expected_candidate_seal=candidate,
+            expected_candidate_seal=public_candidate,
             repository_root=root,
         )
 
+    if _candidate_seal(root, expected_status={}) != candidate:
+        raise _candidate_seal_error()
     return _publish_or_stop(
         destination=freeze_path,
         value=freeze,
@@ -872,13 +1074,14 @@ def _run_holdout(
         )
     candidate = _candidate_seal(
         root,
-        allowed_dirty_paths={development_freeze_path},
+        expected_status={development_freeze_path: "??"},
     )
+    public_candidate = _public_candidate_seal(candidate)
     try:
         validate_development_freeze(
             _load_object(development_freeze_path),
             metadata=metadata,
-            expected_candidate_seal=candidate,
+            expected_candidate_seal=public_candidate,
             repository_root=root,
         )
     except Exception as error:
@@ -890,7 +1093,7 @@ def _run_holdout(
         ) from error
     receipt = build_holdout_receipt(
         metadata=metadata,
-        candidate_seal=candidate,
+        candidate_seal=public_candidate,
         development_freeze_path=development_freeze_path,
         repository_root=root,
     )
@@ -899,7 +1102,7 @@ def _run_holdout(
         validate_holdout_receipt(
             value,
             metadata=metadata,
-            candidate_seal=candidate,
+            candidate_seal=public_candidate,
             development_freeze_path=development_freeze_path,
             repository_root=root,
         )
@@ -910,61 +1113,145 @@ def _run_holdout(
         validate=validate_receipt_candidate,
     )
     assert publication.sha256 is not None
-    if canonical_metadata:
-        capability: (
-            SyntheticHoldoutCapability | _ProductionHoldoutCapability
-        ) = _ProductionHoldoutCapability(
-            issuer=_PRODUCTION_CAPABILITY_ISSUER,
+    try:
+        authority = _bind_holdout_authority(
             metadata=metadata,
+            candidate_seal=public_candidate,
+            development_freeze_path=development_freeze_path,
             receipt_path=receipt_path,
-            receipt_sha256=publication.sha256,
-            candidate_seal=candidate,
             repository_root=root,
         )
-    else:
-        capability = SyntheticHoldoutCapability.issue(
-            protocol_path=protocol_path,
-            repository_root=root,
-            candidate_head=cast(str, candidate["head"]),
-            runtime_profile=cast(
-                dict[str, object],
-                candidate["runtime_profile"],
-            ),
-        )
-    observation = observe_retrieval_order_partition(
-        protocol_path=protocol_path,
-        partition="holdout",
-        repository_root=root,
-        holdout_capability=capability,
-    )
-    if observation["observation_status"] != "passed":
+    except Exception as error:
         raise RetrievalOrderWorkflowError(
-            "holdout observation failed",
-            problem="retrieval_order_compatibility_incomplete",
-            cause="unapproved_family_delta",
-            next_step="inspect_first_failed_family",
+            str(error),
+            problem="retrieval_order_candidate_seal_mismatch",
+            cause="candidate_inputs_do_not_match_seal",
+            next_step="retain_receipt_and_stop",
             publication=publication,
+        ) from error
+    if authority.receipt_sha256 != publication.sha256:
+        raise RetrievalOrderWorkflowError(
+            "visible receipt identity is invalid",
+            publication=publication,
+            next_step="retain_receipt_and_stop",
         )
-    artifact = build_retrieval_order_artifact(
-        metadata=metadata,
-        candidate_seal=candidate,
-        development_freeze_path=development_freeze_path,
-        holdout_receipt_path=receipt_path,
-        observation=observation,
-        repository_root=root,
-    )
-
-    def validate_artifact_candidate(value: object) -> None:
-        validate_retrieval_order_artifact(
-            value,
+    try:
+        if canonical_metadata:
+            capability: (
+                SyntheticHoldoutCapability | _ProductionHoldoutCapability
+            ) = _ProductionHoldoutCapability(
+                issuer=_PRODUCTION_CAPABILITY_ISSUER,
+                metadata=metadata,
+                receipt_path=receipt_path,
+                receipt_sha256=publication.sha256,
+                candidate_seal=public_candidate,
+                authority=authority,
+                repository_root=root,
+            )
+        else:
+            capability = SyntheticHoldoutCapability.issue(
+                protocol_path=protocol_path,
+                repository_root=root,
+                candidate_head=cast(str, candidate["head"]),
+                runtime_profile=cast(
+                    dict[str, object],
+                    candidate["runtime_profile"],
+                ),
+                authority=authority,
+            )
+        observation = observe_retrieval_order_partition(
             protocol_path=protocol_path,
+            partition="holdout",
+            repository_root=root,
+            holdout_capability=capability,
+        )
+        authority.validate(metadata, repository_root=root)
+        if observation["observation_status"] != "passed":
+            raise RetrievalOrderWorkflowError(
+                "holdout observation failed",
+                problem="retrieval_order_compatibility_incomplete",
+                cause="unapproved_family_delta",
+                next_step="retain_receipt_and_stop",
+            )
+        artifact = build_retrieval_order_artifact(
+            metadata=metadata,
+            candidate_seal=public_candidate,
+            development_freeze_path=development_freeze_path,
+            holdout_receipt_path=receipt_path,
+            observation=observation,
             repository_root=root,
         )
+        authority.validate(metadata, repository_root=root)
 
-    return _publish_or_stop(
-        destination=artifact_path,
-        value=artifact,
-        validate=validate_artifact_candidate,
+        def validate_artifact_candidate(value: object) -> None:
+            validate_retrieval_order_artifact(
+                value,
+                protocol_path=protocol_path,
+                repository_root=root,
+            )
+
+        return _publish_or_stop(
+            destination=artifact_path,
+            value=artifact,
+            validate=validate_artifact_candidate,
+        )
+    except Exception as error:
+        if isinstance(error, RetrievalOrderWorkflowError):
+            problem = error.problem
+            cause = error.cause
+        else:
+            problem = "retrieval_order_candidate_seal_mismatch"
+            cause = "candidate_inputs_do_not_match_seal"
+        raise RetrievalOrderWorkflowError(
+            str(error),
+            problem=problem,
+            cause=cause,
+            next_step="retain_receipt_and_stop",
+            publication=publication,
+        ) from error
+
+
+def _bind_holdout_authority(
+    *,
+    metadata: RetrievalOrderProtocolMetadata,
+    candidate_seal: dict[str, object],
+    development_freeze_path: Path,
+    receipt_path: Path,
+    repository_root: Path,
+) -> _HoldoutAuthority:
+    root = repository_root.resolve()
+    freeze = development_freeze_path.resolve()
+    receipt = receipt_path.resolve()
+    freeze_bytes = freeze.read_bytes()
+    receipt_bytes = receipt.read_bytes()
+    validate_development_freeze(
+        _object_from_bytes(freeze_bytes),
+        metadata=metadata,
+        expected_candidate_seal=candidate_seal,
+        repository_root=root,
+    )
+    validate_holdout_receipt(
+        _object_from_bytes(receipt_bytes),
+        metadata=metadata,
+        candidate_seal=candidate_seal,
+        development_freeze_path=freeze,
+        repository_root=root,
+    )
+    return _HoldoutAuthority(
+        candidate_seal=candidate_seal,
+        status_records=_expected_status_records(
+            root,
+            {
+                freeze: "??",
+                receipt: "??",
+            },
+        ),
+        development_freeze_path=freeze,
+        development_freeze_bytes=freeze_bytes,
+        development_freeze_sha256=hashlib.sha256(freeze_bytes).hexdigest(),
+        receipt_path=receipt,
+        receipt_bytes=receipt_bytes,
+        receipt_sha256=hashlib.sha256(receipt_bytes).hexdigest(),
     )
 
 
@@ -1160,6 +1447,10 @@ def main(argv: list[str] | None = None) -> int:
 
 def _load_object(path: Path) -> dict[str, object]:
     return _object(json.loads(path.read_text(encoding="utf-8")))
+
+
+def _object_from_bytes(value: bytes) -> dict[str, object]:
+    return _object(json.loads(value))
 
 
 def _object(value: object) -> dict[str, object]:

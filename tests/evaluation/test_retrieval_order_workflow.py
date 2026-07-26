@@ -594,6 +594,21 @@ def test_development_and_holdout_publish_receipt_before_synthetic_fixture_open(
     receipt = output_root / "holdout-receipt.json"
     artifact = output_root / "artifact.json"
     monkeypatch.chdir(root)
+    original_candidate_seal = (
+        retrieval_order_workflow._candidate_seal  # pyright: ignore[reportPrivateUsage]
+    )
+    candidate_seals: list[dict[str, object]] = []
+
+    def candidate_seal(*args: object, **kwargs: object) -> dict[str, object]:
+        result = original_candidate_seal(*args, **kwargs)  # type: ignore[arg-type]
+        candidate_seals.append(result)
+        return result
+
+    monkeypatch.setattr(
+        retrieval_order_workflow,
+        "_candidate_seal",
+        candidate_seal,
+    )
 
     assert main(
         [
@@ -665,6 +680,13 @@ def test_development_and_holdout_publish_receipt_before_synthetic_fixture_open(
     retained_artifact = json.loads(artifact.read_text(encoding="utf-8"))
     assert retained_artifact["holdout_status"] == "observed"
     assert retained_artifact["observation"]["observation_status"] == "passed"
+    assert len(candidate_seals) == 7
+    assert all(
+        candidate["head"] == candidate_seals[0]["head"]
+        and candidate["runtime_profile"]
+        == candidate_seals[0]["runtime_profile"]
+        for candidate in candidate_seals
+    )
 
     assert main(
         [
@@ -683,6 +705,549 @@ def test_development_and_holdout_publish_receipt_before_synthetic_fixture_open(
     repeated = json.loads(capsys.readouterr().out)
     assert repeated["problem"] == "retrieval_order_holdout_already_started"
     assert opened == [holdout_path]
+
+
+@pytest.mark.parametrize(
+    "status_kind",
+    ("staged", "partial", "modified", "deleted", "rename"),
+)
+def test_candidate_seal_rejects_non_untracked_allowed_evidence(
+    tmp_path: Path,
+    status_kind: str,
+) -> None:
+    root, _, _, _ = _synthetic_protocol(tmp_path)
+    _initialize_repository(root)
+    allowed = root / "allowed.json"
+    if status_kind in {"modified", "deleted"}:
+        allowed.write_text("{}\n", encoding="utf-8")
+        subprocess.run(("git", "add", "allowed.json"), cwd=root, check=True)
+        subprocess.run(
+            ("git", "commit", "-qm", "track allowed evidence"),
+            cwd=root,
+            check=True,
+        )
+        if status_kind == "modified":
+            allowed.write_text("{}\n\n", encoding="utf-8")
+        else:
+            allowed.unlink()
+    elif status_kind == "rename":
+        source = root / "source.json"
+        source.write_text("{}\n", encoding="utf-8")
+        subprocess.run(("git", "add", "source.json"), cwd=root, check=True)
+        subprocess.run(
+            ("git", "commit", "-qm", "track rename source"),
+            cwd=root,
+            check=True,
+        )
+        subprocess.run(
+            ("git", "mv", "source.json", "allowed.json"),
+            cwd=root,
+            check=True,
+        )
+    else:
+        allowed.write_text("{}\n", encoding="utf-8")
+        subprocess.run(("git", "add", "allowed.json"), cwd=root, check=True)
+        if status_kind == "partial":
+            allowed.write_text("{}\n\n", encoding="utf-8")
+
+    with pytest.raises(
+        retrieval_order_workflow.RetrievalOrderWorkflowError,
+        match="candidate seal",
+    ):
+        retrieval_order_workflow._candidate_seal(  # pyright: ignore[reportPrivateUsage]
+            root,
+            expected_status={allowed: "??"},
+        )
+
+
+def test_candidate_seal_rejects_head_change_during_status_read(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root, _, _, _ = _synthetic_protocol(tmp_path)
+    first = "a" * 40
+    second = "b" * 40
+    results = iter(
+        (
+            subprocess.CompletedProcess(("git",), 0, f"{first}\n", ""),
+            subprocess.CompletedProcess(("git",), 0, "", ""),
+            subprocess.CompletedProcess(("git",), 0, f"{second}\n", ""),
+        )
+    )
+
+    def run(
+        *args: object,
+        **kwargs: object,
+    ) -> subprocess.CompletedProcess[str]:
+        del args, kwargs
+        return next(results)
+
+    monkeypatch.setattr(retrieval_order_workflow.subprocess, "run", run)
+
+    with pytest.raises(
+        retrieval_order_workflow.RetrievalOrderWorkflowError,
+        match="candidate seal",
+    ):
+        retrieval_order_workflow._candidate_seal(  # pyright: ignore[reportPrivateUsage]
+            root,
+            expected_status={},
+        )
+
+
+@pytest.mark.parametrize(
+    "mutation_point",
+    ("observer_head", "prepublication_status"),
+)
+def test_development_rechecks_candidate_before_freeze_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation_point: str,
+) -> None:
+    root, protocol_path, _, _ = _synthetic_protocol(tmp_path)
+    _initialize_repository(root)
+    freeze = root / "benchmarks/retrieval/development-freeze.json"
+    original_observer = (
+        retrieval_order_workflow.observe_retrieval_order_partition
+    )
+    original_builder = retrieval_order_workflow.build_development_freeze
+
+    if mutation_point == "observer_head":
+        def observe(**kwargs: object) -> dict[str, object]:
+            result = original_observer(**kwargs)  # type: ignore[arg-type]
+            subprocess.run(
+                ("git", "commit", "--allow-empty", "-qm", "mutate head"),
+                cwd=root,
+                check=True,
+            )
+            return result
+
+        monkeypatch.setattr(
+            retrieval_order_workflow,
+            "observe_retrieval_order_partition",
+            observe,
+        )
+    else:
+        def build(**kwargs: object) -> dict[str, object]:
+            result = original_builder(**kwargs)  # type: ignore[arg-type]
+            (root / "unexpected.txt").write_text("dirty", encoding="utf-8")
+            return result
+
+        monkeypatch.setattr(
+            retrieval_order_workflow,
+            "build_development_freeze",
+            build,
+        )
+
+    with pytest.raises(
+        retrieval_order_workflow.RetrievalOrderWorkflowError,
+        match="candidate seal",
+    ):
+        retrieval_order_workflow._run_development(  # pyright: ignore[reportPrivateUsage]
+            protocol_path=protocol_path,
+            freeze_path=freeze,
+            repository_root=root,
+        )
+
+    assert not freeze.exists()
+
+
+@pytest.mark.parametrize(
+    "mutation_point",
+    (
+        "staged_before_receipt",
+        "consume_untracked",
+        "consume_modified",
+        "consume_staged",
+        "consume_deleted",
+        "consume_renamed",
+        "consume_freeze_rewrite",
+        "consume_receipt_rewrite",
+        "observer_freeze_rewrite",
+        "observer_receipt_rewrite",
+        "prepublication_status",
+    ),
+)
+def test_holdout_rechecks_exact_post_receipt_authority(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation_point: str,
+) -> None:
+    root, protocol_path, _, holdout_path = _synthetic_protocol(tmp_path)
+    _initialize_repository(root)
+    freeze = root / "benchmarks/retrieval/development-freeze.json"
+    receipt = root / "benchmarks/retrieval/holdout-receipt.json"
+    artifact = root / "benchmarks/retrieval/artifact.json"
+    tracked_mutation = {
+        "consume_modified": "modified.txt",
+        "consume_staged": "staged.txt",
+        "consume_deleted": "deleted.txt",
+        "consume_renamed": "rename-source.txt",
+    }.get(mutation_point)
+    if tracked_mutation is not None:
+        (root / tracked_mutation).write_text("before\n", encoding="utf-8")
+        subprocess.run(
+            ("git", "add", tracked_mutation),
+            cwd=root,
+            check=True,
+        )
+        subprocess.run(
+            ("git", "commit", "-qm", "track mutation fixture"),
+            cwd=root,
+            check=True,
+        )
+    retrieval_order_workflow._run_development(  # pyright: ignore[reportPrivateUsage]
+        protocol_path=protocol_path,
+        freeze_path=freeze,
+        repository_root=root,
+    )
+    if mutation_point == "staged_before_receipt":
+        subprocess.run(
+            ("git", "add", freeze.relative_to(root).as_posix()),
+            cwd=root,
+            check=True,
+        )
+    original_consume = (
+        SyntheticHoldoutCapability._consume  # pyright: ignore[reportPrivateUsage]
+    )
+    original_observer = (
+        retrieval_order_workflow.observe_retrieval_order_partition
+    )
+    original_builder = retrieval_order_workflow.build_retrieval_order_artifact
+    opened = 0
+    publication_destinations: list[Path] = []
+    receipt_publications: list[atomic_publication.AtomicPublicationResult] = []
+    original_read = Path.read_bytes
+    original_publish = retrieval_order_workflow.publish_json_no_replace
+    original_publish_or_stop = (
+        retrieval_order_workflow._publish_or_stop  # pyright: ignore[reportPrivateUsage]
+    )
+
+    def read_bytes(path: Path) -> bytes:
+        nonlocal opened
+        if path.resolve() == holdout_path:
+            opened += 1
+        return original_read(path)
+
+    def publish(destination: Path, *args: object, **kwargs: object):
+        publication_destinations.append(destination.resolve())
+        return original_publish(destination, *args, **kwargs)  # type: ignore[arg-type]
+
+    def publish_or_stop(**kwargs: object):
+        result = original_publish_or_stop(**kwargs)  # type: ignore[arg-type]
+        if cast(Path, kwargs["destination"]).resolve() == receipt.resolve():
+            receipt_publications.append(result)
+        return result
+
+    monkeypatch.setattr(Path, "read_bytes", read_bytes)
+    monkeypatch.setattr(
+        retrieval_order_workflow,
+        "publish_json_no_replace",
+        publish,
+    )
+    monkeypatch.setattr(
+        retrieval_order_workflow,
+        "_publish_or_stop",
+        publish_or_stop,
+    )
+    if mutation_point.startswith("consume_"):
+        def consume(
+            capability: SyntheticHoldoutCapability,
+            metadata: object,
+        ) -> None:
+            original_consume(capability, metadata)  # type: ignore[arg-type]
+            if mutation_point == "consume_untracked":
+                (root / "consume-dirty.txt").write_text(
+                    "dirty",
+                    encoding="utf-8",
+                )
+            elif mutation_point == "consume_modified":
+                (root / "modified.txt").write_text(
+                    "after\n",
+                    encoding="utf-8",
+                )
+            elif mutation_point == "consume_staged":
+                (root / "staged.txt").write_text(
+                    "after\n",
+                    encoding="utf-8",
+                )
+                subprocess.run(
+                    ("git", "add", "staged.txt"),
+                    cwd=root,
+                    check=True,
+                )
+            elif mutation_point == "consume_deleted":
+                (root / "deleted.txt").unlink()
+            elif mutation_point == "consume_renamed":
+                subprocess.run(
+                    (
+                        "git",
+                        "mv",
+                        "rename-source.txt",
+                        "rename-destination.txt",
+                    ),
+                    cwd=root,
+                    check=True,
+                )
+            elif mutation_point == "consume_freeze_rewrite":
+                freeze.write_bytes(freeze.read_bytes() + b"\n")
+            else:
+                receipt.write_bytes(receipt.read_bytes() + b"\n")
+
+        monkeypatch.setattr(SyntheticHoldoutCapability, "_consume", consume)
+    elif mutation_point.startswith("observer_"):
+        def observe(**kwargs: object) -> dict[str, object]:
+            result = original_observer(**kwargs)  # type: ignore[arg-type]
+            target = (
+                freeze
+                if mutation_point == "observer_freeze_rewrite"
+                else receipt
+            )
+            target.write_bytes(target.read_bytes() + b"\n")
+            return result
+
+        monkeypatch.setattr(
+            retrieval_order_workflow,
+            "observe_retrieval_order_partition",
+            observe,
+        )
+    elif mutation_point == "prepublication_status":
+        def build(**kwargs: object) -> dict[str, object]:
+            result = original_builder(**kwargs)  # type: ignore[arg-type]
+            (root / "prepublish-dirty.txt").write_text(
+                "dirty",
+                encoding="utf-8",
+            )
+            return result
+
+        monkeypatch.setattr(
+            retrieval_order_workflow,
+            "build_retrieval_order_artifact",
+            build,
+        )
+
+    with pytest.raises(
+        retrieval_order_workflow.RetrievalOrderWorkflowError
+    ) as raised:
+        retrieval_order_workflow._run_holdout(  # pyright: ignore[reportPrivateUsage]
+            protocol_path=protocol_path,
+            development_freeze_path=freeze,
+            receipt_path=receipt,
+            artifact_path=artifact,
+            repository_root=root,
+        )
+
+    if mutation_point == "staged_before_receipt":
+        assert not receipt.exists()
+    else:
+        assert receipt.exists()
+        assert len(receipt_publications) == 1
+        assert raised.value.publication is receipt_publications[0]
+        assert raised.value.publication is not None
+        assert raised.value.publication.output_state == "complete_visible"
+        assert raised.value.publication.publication_outcome == "published"
+        assert raised.value.next_step == "retain_receipt_and_stop"
+    assert opened == (
+        0
+        if mutation_point == "staged_before_receipt"
+        or mutation_point.startswith("consume_")
+        else 1
+    )
+    assert not artifact.exists()
+    assert publication_destinations.count(artifact.resolve()) == 0
+
+
+def test_production_capability_binds_retained_authority_before_fixture_open(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root, protocol_path, _, _ = _synthetic_protocol(tmp_path)
+    _initialize_repository(root)
+    freeze = root / "benchmarks/retrieval/development-freeze.json"
+    receipt = root / "benchmarks/retrieval/holdout-receipt.json"
+    retrieval_order_workflow._run_development(  # pyright: ignore[reportPrivateUsage]
+        protocol_path=protocol_path,
+        freeze_path=freeze,
+        repository_root=root,
+    )
+    metadata = retrieval_order_workflow.load_retrieval_order_protocol_metadata(
+        protocol_path,
+        repository_root=root,
+    )
+    if not hasattr(retrieval_order_workflow, "_bind_holdout_authority"):
+        pytest.fail(
+            "production capability does not bind retained authority snapshot"
+        )
+    candidate = retrieval_order_workflow._candidate_seal(  # pyright: ignore[reportPrivateUsage]
+        root,
+        expected_status={freeze: "??"},
+    )
+    public_candidate = retrieval_order_workflow._public_candidate_seal(  # pyright: ignore[reportPrivateUsage]
+        candidate
+    )
+    receipt.parent.mkdir(parents=True, exist_ok=True)
+    receipt.write_bytes(
+        retrieval_order_workflow.render_json_bytes(
+            retrieval_order_workflow.build_holdout_receipt(
+                metadata=metadata,
+                candidate_seal=public_candidate,
+                development_freeze_path=freeze,
+                repository_root=root,
+            )
+        )
+    )
+    authority = retrieval_order_workflow._bind_holdout_authority(  # pyright: ignore[reportPrivateUsage]
+        metadata=metadata,
+        candidate_seal=public_candidate,
+        development_freeze_path=freeze,
+        receipt_path=receipt,
+        repository_root=root,
+    )
+    receipt_sha256 = hashlib.sha256(receipt.read_bytes()).hexdigest()
+
+    def is_canonical_metadata(
+        *args: object,
+        **kwargs: object,
+    ) -> bool:
+        del args, kwargs
+        return True
+
+    monkeypatch.setattr(
+        retrieval_order_workflow,
+        "_is_canonical_holdout_metadata",
+        is_canonical_metadata,
+    )
+
+    def issue():
+        return retrieval_order_workflow._ProductionHoldoutCapability(  # pyright: ignore[reportPrivateUsage]
+            issuer=retrieval_order_workflow._PRODUCTION_CAPABILITY_ISSUER,  # pyright: ignore[reportPrivateUsage]
+            metadata=metadata,
+            receipt_path=receipt,
+            receipt_sha256=receipt_sha256,
+            candidate_seal=public_candidate,
+            authority=authority,
+            repository_root=root,
+        )
+
+    capability = issue()
+    assert capability.protocol_path == metadata.protocol_path
+    assert capability.protocol_sha256 == metadata.protocol_sha256
+    assert capability.holdout_fixture_sha256 == metadata.holdout.sha256
+    assert capability.receipt_path == receipt.resolve()
+    assert capability.receipt_sha256 == receipt_sha256
+    assert capability.candidate_head == public_candidate["head"]
+    assert capability.runtime_profile == public_candidate["runtime_profile"]
+    assert capability.status_records == authority.status_records
+    assert capability.development_freeze_sha256 == (
+        authority.development_freeze_sha256
+    )
+    assert capability._authority is authority  # pyright: ignore[reportPrivateUsage]
+    assert authority.development_freeze_bytes == freeze.read_bytes()
+    assert authority.receipt_bytes == receipt.read_bytes()
+
+    capability._consume(  # pyright: ignore[reportPrivateUsage]
+        metadata,
+        repository_root=root,
+    )
+    capability._revalidate_authority(  # pyright: ignore[reportPrivateUsage]
+        metadata,
+        repository_root=root,
+    )
+    with pytest.raises(
+        retrieval_order_workflow.RetrievalOrderWorkflowError,
+        match="holdout capability",
+    ):
+        capability._consume(  # pyright: ignore[reportPrivateUsage]
+            metadata,
+            repository_root=root,
+        )
+
+    tampered = issue()
+    original_consume = tampered._consume  # pyright: ignore[reportPrivateUsage]
+    fixture_open_calls = 0
+
+    def consume(*args: object, **kwargs: object) -> None:
+        original_consume(*args, **kwargs)  # type: ignore[arg-type]
+        freeze.write_bytes(freeze.read_bytes() + b"\n")
+
+    def load_partition(*args: object, **kwargs: object) -> object:
+        nonlocal fixture_open_calls
+        del args, kwargs
+        fixture_open_calls += 1
+        raise AssertionError("fixture must remain unopened")
+
+    monkeypatch.setattr(tampered, "_consume", consume)
+    monkeypatch.setattr(
+        retrieval_order_workflow,
+        "load_retrieval_order_protocol_partition",
+        load_partition,
+    )
+    with pytest.raises(
+        retrieval_order_workflow.RetrievalOrderWorkflowError,
+        match="candidate seal",
+    ):
+        retrieval_order_workflow.observe_retrieval_order_partition(
+            protocol_path=protocol_path,
+            partition="holdout",
+            repository_root=root,
+            holdout_capability=tampered,
+        )
+    assert fixture_open_calls == 0
+
+
+def test_post_receipt_exception_preserves_exact_receipt_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root, protocol_path, _, _ = _synthetic_protocol(tmp_path)
+    _initialize_repository(root)
+    freeze = root / "benchmarks/retrieval/development-freeze.json"
+    receipt = root / "benchmarks/retrieval/holdout-receipt.json"
+    artifact = root / "benchmarks/retrieval/artifact.json"
+    retrieval_order_workflow._run_development(  # pyright: ignore[reportPrivateUsage]
+        protocol_path=protocol_path,
+        freeze_path=freeze,
+        repository_root=root,
+    )
+    receipt_publication: list[atomic_publication.AtomicPublicationResult] = []
+    original_publish = (
+        retrieval_order_workflow._publish_or_stop  # pyright: ignore[reportPrivateUsage]
+    )
+
+    def publish(**kwargs: object):
+        result = original_publish(**kwargs)  # type: ignore[arg-type]
+        if Path(cast(Path, kwargs["destination"])).resolve() == receipt.resolve():
+            receipt_publication.append(result)
+        return result
+
+    def fail_observation(**kwargs: object) -> dict[str, object]:
+        del kwargs
+        raise retrieval_order_workflow.RetrievalOrderWorkflowError(
+            "synthetic post-receipt failure"
+        )
+
+    monkeypatch.setattr(retrieval_order_workflow, "_publish_or_stop", publish)
+    monkeypatch.setattr(
+        retrieval_order_workflow,
+        "observe_retrieval_order_partition",
+        fail_observation,
+    )
+
+    with pytest.raises(
+        retrieval_order_workflow.RetrievalOrderWorkflowError
+    ) as raised:
+        retrieval_order_workflow._run_holdout(  # pyright: ignore[reportPrivateUsage]
+            protocol_path=protocol_path,
+            development_freeze_path=freeze,
+            receipt_path=receipt,
+            artifact_path=artifact,
+            repository_root=root,
+        )
+
+    assert len(receipt_publication) == 1
+    assert raised.value.publication is receipt_publication[0]
+    assert raised.value.next_step == "retain_receipt_and_stop"
+    assert receipt.exists()
+    assert not artifact.exists()
 
 
 @pytest.mark.parametrize(
@@ -777,7 +1342,7 @@ def test_holdout_receipt_fault_never_opens_synthetic_fixture(
     "fault",
     ("write", "file_fsync", "readback", "publish", "directory_fsync"),
 )
-def test_holdout_artifact_fault_retains_one_receipt_and_complete_or_absent_output(
+def test_holdout_artifact_fault_retains_exact_receipt_publication(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     fault: str,
@@ -833,11 +1398,12 @@ def test_holdout_artifact_fault_retains_one_receipt_and_complete_or_absent_outpu
     assert receipt.exists()
     publication = raised.value.publication
     assert publication is not None
+    assert publication.output_state == "complete_visible"
+    assert publication.publication_outcome == "published"
+    assert raised.value.next_step == "retain_receipt_and_stop"
     if fault == "directory_fsync":
-        assert publication.output_state == "complete_visible"
         assert artifact.exists()
     else:
-        assert publication.output_state == "absent"
         assert not artifact.exists()
 
 
