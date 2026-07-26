@@ -2689,6 +2689,679 @@ It does not prove retrieval-quality improvement, segmentation or contextual-retr
 production readiness, runtime promotion, broad portability, accuracy, latency, SLA, adoption,
 release status, or successful canonical observation.
 
+## Plan Amendment F — Close Pre-Observation Authority Gaps
+
+### F+ — Authority, purpose, and precedence
+
+This amendment applies after the replacement candidate sealed by Amendment E. A read-only
+authority review found eight pre-observation gaps that can make a one-shot holdout or compatibility
+record internally self-consistent without proving that it observed the frozen candidate and the
+frozen protocol expectations. Amendment F repairs those gaps before any canonical development,
+holdout, compatibility, installed proof, or source-pack attempt is allowed.
+
+This is evaluation-authority maintenance, not a retrieval feature. It does not change normal
+Search, Ask, CLI, MCP, ingestion, Run, Publication, Evidence, active-only authority, ranking
+scores, retrieval strategy selection, or cursor schemas. It does not add GraphRAG, dense
+retrieval, RRF, a reranker, OCR, an Agent loop, HTTP/SaaS, a provider, a dependency, a runtime
+fallback, or a promotion path.
+
+The frozen development and holdout partitions are public, nonblind mechanism-regression slices.
+The one-shot rule prevents tuning after the first retained observation; it does not make the
+holdout blind, independent, representative, or predictive. A passing result remains development
+evidence only. Canonical receipts are audit slots rather than availability mechanisms: a visible
+failed attempt is never overwritten or retried under the same protocol identity. Any future
+campaign would require a separately approved protocol/schema/path rather than an append-only
+retry extension in this stage.
+
+Amendment F supersedes only Amendment E's permission to enter Task 8B after E4. Task 8B,
+Task 7B, and Task 8R remain forbidden until F1-F6 are complete, the final implementation diff is
+authority-review clean under F7, and a separate resume authorization is given. All earlier frozen
+historical bytes, Plan Amendments B-E, comparison-only boundaries, one-shot publication rules,
+and non-claims remain authoritative unless this amendment explicitly narrows them.
+
+The approved implementation scope is exactly these eleven public paths:
+
+- `src/mke/evaluation/retrieval_order_workflow.py`;
+- `tests/evaluation/test_retrieval_order_workflow.py`;
+- `src/mke/evaluation/retrieval_order_artifact.py`;
+- `tests/evaluation/test_retrieval_order_artifact.py`;
+- `src/mke/evaluation/retrieval_order_compatibility.py`;
+- `tests/evaluation/test_retrieval_order_compatibility.py`;
+- `scripts/consumer_source_pack_proof.py`;
+- `tests/scripts/test_consumer_source_pack_proof.py`;
+- `docs/decisions/0012-deterministic-retrieval-order.md`;
+- `docs/explanation/architecture.md`; and
+- `tests/evaluation/test_retrieval_order_documentation.py`.
+
+Do not create a new source module. Reuse the existing evaluation-only candidate-seal mechanism so
+that this repair does not expand the frozen `src/mke/**/*.py` inventory again. Do not modify any
+runtime retrieval module, fixture, protocol, historical artifact, CI workflow, dependency file,
+release document, or canonical JSON.
+
+The threat model is bounded to operator error and mutations observable at the explicitly named
+filesystem and Git preflight/recheck points. It does not claim protection from a hostile kernel,
+administrator, filesystem, Git binary, build tool, or a concurrent path retarget after the final
+prepublication recheck. Prefer call-owned scratch workspaces, lexical containment, no-follow
+checks, immutable digests, and narrow rechecks; do not build a general sandbox, directory-FD
+publication primitive, or security boundary.
+
+This is the final bounded pre-observation repair for this stage. Its budget is the eight enumerated
+failure mechanisms, the eleven listed paths, F1-F5, and at most one targeted review-fix round per
+task before returning to authority review. F6 and F7 have zero repair rounds. If a fix requires a
+new module, runtime retrieval change, fixture/protocol rewrite, historical-byte refresh,
+dependency, additional public path, or another amendment discovered only while chasing a new
+failure, stop this stage. The next decision is to abandon the canonical observation or explicitly
+approve a separate stage; do not automatically author Amendment G.
+
+For every F1-F5 RED, author the targeted test before changing the corresponding implementation or
+documentation. Record the exact pytest node IDs, command, nonzero exit, and stable assertion or
+exception signature. Only those named nodes count as targeted RED evidence; an unrelated
+whole-file failure does not. The named-node list becomes that task's immutable RED ledger, and the
+task may enter implementation only after every listed node fails for the preregistered reason.
+
+### F0 — Plan-only landing and authority gate
+
+F0 changes only:
+
+- `docs/superpowers/plans/2026-07-26-deterministic-retrieval-order-maintenance-implementation.md`.
+
+Land the approved Amendment F block immediately before `## Task 8B — Seal and Observe Once`.
+The starting plan digest must be
+`f1be8417e09222b773077fadb943901b102d8a399da47711ba6afc85b3fad6f1`; the design digest must remain
+`8522af9fc801f1f30518f450ee5e8538efa0d67fe0039352d58b95c52f52b42b`. Before staging, compare the
+approved source and destination bytes with `cmp` and SHA-256, read the complete no-index diff, and
+prove that removing the inserted block reconstructs the starting plan byte-for-byte. Then read the
+cached and committed diffs, run `git diff --check`, scan the inserted block for private paths and
+workflow markers, require exactly one changed path and one semantic commit, and finish with a clean
+worktree.
+
+Commit:
+
+```bash
+git add docs/superpowers/plans/2026-07-26-deterministic-retrieval-order-maintenance-implementation.md
+git commit -m "docs(plan): close pre-observation authority gaps"
+```
+
+F0 runs no tests, evaluation command, observation, proof, build, compatibility replay, source-pack
+attempt, publication, or cleanup. Stop after the plan-only commit and return its exact diff and
+digest for authority review. F1 remains forbidden until that actual plan diff is review-clean.
+
+### F1 — Make the candidate seal cover the whole one-shot transition
+
+Modify:
+
+- `src/mke/evaluation/retrieval_order_workflow.py`;
+- `tests/evaluation/test_retrieval_order_workflow.py`.
+
+#### F1.1 — Targeted RED
+
+Add focused tests that fail against the current implementation and prove all of the following:
+
+1. after a holdout receipt becomes visible, the only allowed dirty paths before observation and
+   before artifact publication are the development freeze and the receipt;
+2. canonical development starts with an empty status and repeats the same candidate seal after
+   observation but before freeze construction/publication; a HEAD or worktree mutation inside the
+   observer or immediately before publication stops with the freeze absent;
+3. each allowed canonical evidence path is exactly untracked (`??`), not merely present in an
+   allowed path set; staging, partial indexing, deletion, modification, or rename of an allowed
+   path is rejected even when the normalized path set is unchanged;
+4. an unexpected modified, staged, renamed, deleted, or untracked path stops before fixture open
+   when present at capability consumption, and stops before artifact publication when introduced
+   during observation;
+5. both the source and destination of a porcelain rename are checked rather than discarding the
+   source path;
+6. a HEAD change between the first HEAD read, status inspection, and the final HEAD read is
+   rejected;
+7. rewriting the allowed development-freeze or receipt bytes without changing the status path set
+   is rejected before fixture open and again before artifact publication;
+8. validated development-freeze and receipt bytes, their exact digests, candidate HEAD, runtime
+   profile, and the exact normalized status records remain bound to the production holdout
+   capability;
+9. an exception after receipt visibility retains the receipt's exact
+   `AtomicPublicationResult`, reports a terminal started transition, leaves the artifact absent
+   unless complete bytes became visible, and never authorizes retry; and
+10. a successful synthetic path still opens the fixture only after receipt publication and emits
+   the existing schema without changing public fields.
+
+Include fault injection at the capability-consume boundary, inside the observer, and immediately
+before artifact publication. The tests must prove fixture-open and artifact-publication call
+counts, not infer ordering only from final files.
+
+Run the new nodes and require the expected failures before implementation.
+
+#### F1.2 — Implement the fail-closed seal
+
+Harden the existing evaluation-only candidate-seal helper without adding a module:
+
+- read HEAD, inspect `git status --porcelain=v1 -z --untracked-files=all`, parse complete
+  normalized `(XY, path[, rename_source])` records including both rename paths, then read HEAD
+  again;
+- require both HEAD values to equal the expected 40-character lowercase commit;
+- validate every status path lexically under the repository and compare it with the explicit
+  expected status map, not only an allowed dirty-path set;
+- require canonical evidence inputs that are allowed after publication to have exactly the
+  untracked `??` state;
+- remove the permissive `require_clean=False` behavior from production holdout capability
+  consumption;
+- repeat the empty-status development seal after the development observation and once more
+  immediately before freeze publication, requiring every seal to equal the first;
+- use `{development_freeze: "??", holdout_receipt: "??"}` as the exact post-receipt status map;
+- before any holdout fixture read, after observation before artifact construction, and immediately
+  before artifact publication, revalidate the seal, validate both retained schemas, and require
+  the development-freeze and receipt digests/cross-bindings to equal the values authorized when
+  the receipt became visible; and
+- preserve the receipt publication object on every exception after receipt visibility.
+
+Do not delete or rewrite a visible receipt, do not retry, and do not make an already-started
+transition successful through later validation.
+
+#### F1.3 — GREEN and commit
+
+Run:
+
+```bash
+uv run pytest -q tests/evaluation/test_retrieval_order_workflow.py
+uv run ruff check src/mke/evaluation/retrieval_order_workflow.py \
+  tests/evaluation/test_retrieval_order_workflow.py
+uv run pyright
+```
+
+Then inspect the two-path diff and commit:
+
+```bash
+git add src/mke/evaluation/retrieval_order_workflow.py \
+  tests/evaluation/test_retrieval_order_workflow.py
+git commit -m "fix(eval): seal one-shot observation state"
+```
+
+### F2 — Bind observations and retained artifacts to the frozen protocol
+
+Modify:
+
+- `src/mke/evaluation/retrieval_order_workflow.py`;
+- `tests/evaluation/test_retrieval_order_workflow.py`;
+- `src/mke/evaluation/retrieval_order_artifact.py`;
+- `tests/evaluation/test_retrieval_order_artifact.py`.
+
+#### F2.1 — Targeted RED
+
+Add tests that prove the current forward-versus-reverse-only comparison is insufficient:
+
+- a shared pure oracle derives each expected tie order from the frozen case fields and the
+  strategy-specific key, independent of candidate array order and runtime result order;
+- reversing or shuffling fixture candidates leaves the derived oracle unchanged, while a frozen
+  expected projection that contradicts the derived key fails before observation;
+- a different FTS candidate text/term-frequency shape, a different CJK overlap tuple, or a
+  duplicate complete strategy key fails before observation rather than being sorted as a tie;
+- identical forged forward and reverse projections that disagree with
+  `expected_stable_projections` fail;
+- a missing, extra, duplicated, reordered, or substituted case fails;
+- a case with the wrong strategy fails;
+- missing, extra, duplicated, or projection-mismatched score entries fail;
+- `True` is rejected for integer revisions and integer counters and for the floating
+  `stable_order_rate`;
+- a retained development freeze or holdout artifact with internally matching forged observations
+  fails pure validation against the frozen protocol; and
+- pure validators do not call the observer, open a holdout fixture outside normal protocol
+  loading, create a workspace, or mutate retained bytes.
+
+Add a real-pagination regression that spies on
+`KnowledgeEngine.search_evidence_page` and fails while the workflow merely slices the result of
+one `engine.search()` call. Cover page sizes `1`, `2`, and the full case size for both FTS and CJK
+cases. Inject duplicate, gap, reorder, wrong position, and premature/late
+`more_in_selected_pool` states.
+
+#### F2.2 — Implement protocol-bound observation
+
+For each partition, derive the exact ordered case inventory from the loaded protocol contract.
+Own one shared module-private pure evaluation helper in
+`mke.evaluation.retrieval_order_artifact`; workflow imports it in the existing dependency
+direction. Do not place it in workflow, duplicate it, export it, or add a source file. The helper
+is an independent secondary-key oracle, not a second implementation of either primary ranker:
+
+- for FTS, require a nonempty current compiled query and require every single-Evidence candidate
+  text to equal the frozen query byte-for-byte, giving the same term-frequency and document-length
+  shape; then derive the order from
+  `locator_start, locator_kind, locator_end, asset_sha256`;
+- for CJK, compile the frozen query terms without calling the active-scan selector, compute each
+  candidate's overlap count and ratio through a small pure fixture predicate, require the exact
+  same nonzero tuple for every candidate, then derive the order from
+  `content_fingerprint, locator_kind, locator_start, locator_end`; and
+- reject duplicate complete strategy keys because they do not define a total frozen order.
+
+The helper must reject a case that does not meet those executable tie predicates rather than
+silently manufacturing an oracle. Require the checked-in expected sequence to equal the derived
+secondary-key order before any observation. During real observation, separately require one exact
+primary score/tie tuple across every projection in the case; the pure oracle never treats its own
+sorting as proof that the primary values tied.
+
+Require each observed case to match its frozen `case_id`, strategy, derived oracle, and
+`expected_stable_projections`. Require forward and reverse schedules to equal each other and the
+derived frozen projection sequence. Require the score map to contain every and only the observed
+projection exactly once, with no duplicate keys or extra entries. Compute aggregate counts only
+from this validated inventory.
+
+Replace the self-slicing pagination metric with calls to the existing application API:
+
+```python
+KnowledgeEngine.search_evidence_page(...)
+```
+
+For each required page size, advance by the returned page length while
+`more_in_selected_pool` is true, require positive progress, preserve one active-authority
+snapshot, collect the exact result projections, and compare them with the non-paged frozen
+projection sequence. Count any duplicate, gap, reorder, incorrect position, authority drift, or
+termination mismatch as a pagination failure. Do not add or change a runtime pagination API.
+This metric is a revision-2 regression over the existing application API for the frozen corpus;
+it does not freeze offset pagination, candidate-pool construction, MCP cursor encoding, or a
+future pagination implementation. A future strategy revision may replace those mechanics, but it
+must either preserve the exact result sequence or publish a new reviewed protocol.
+
+Make retained validation independently reconstruct the same expected case and projection
+authority from the protocol. Use exact numeric types: `type(value) is int` for revisions and
+counters and `type(value) is float` for `stable_order_rate`; never accept JSON booleans through
+Python numeric equality. Validation remains pure and read-only.
+
+#### F2.3 — GREEN and commit
+
+Run:
+
+```bash
+uv run pytest -q \
+  tests/evaluation/test_retrieval_order_protocol.py \
+  tests/evaluation/test_retrieval_order_workflow.py \
+  tests/evaluation/test_retrieval_order_artifact.py \
+  tests/adapters/test_sqlite_evidence_access.py \
+  tests/adapters/test_sqlite_fts_order.py \
+  tests/adapters/test_sqlite_cjk_order.py
+uv run ruff check src/mke/evaluation/retrieval_order_workflow.py \
+  src/mke/evaluation/retrieval_order_artifact.py \
+  tests/evaluation/test_retrieval_order_workflow.py \
+  tests/evaluation/test_retrieval_order_artifact.py
+uv run pyright
+```
+
+Then inspect the four-path diff and commit:
+
+```bash
+git add src/mke/evaluation/retrieval_order_workflow.py \
+  src/mke/evaluation/retrieval_order_artifact.py \
+  tests/evaluation/test_retrieval_order_workflow.py \
+  tests/evaluation/test_retrieval_order_artifact.py
+git commit -m "fix(eval): bind order evidence to protocol"
+```
+
+### F3 — Close compatibility path and candidate-authority gaps
+
+Modify:
+
+- `src/mke/evaluation/retrieval_order_compatibility.py`;
+- `tests/evaluation/test_retrieval_order_compatibility.py`.
+
+#### F3.1 — Targeted RED
+
+Add tests that fail against the current compatibility implementation and prove:
+
+1. archived authority validation finishes before any historical directory creation, copy,
+   Git blob materialization, or child process;
+2. absolute paths, empty components, `.`, `..`, backslash aliases, non-normalized POSIX paths,
+   repository escape, source symlinks, symlink parents, and scratch-target escape are rejected
+   before the first write;
+3. canonical CLI arguments are checked lexically before resolution, so an existing or dangling
+   symlink at the canonical basename or any parent cannot alias the expected path;
+4. before compatibility attempt publication the exact allowed dirty set is the development
+   freeze, holdout receipt, and retrieval artifact;
+5. after attempt publication the exact allowed dirty set additionally contains only the attempt
+   receipt;
+6. all four canonical evidence paths are exactly untracked (`??`); staging, partial indexing,
+   deletion, rename, or an in-place content rewrite is rejected even if the path set is unchanged;
+7. unexpected worktree state or HEAD drift before attempt, at capability consumption, during
+   replay, or before final publication fails closed;
+8. `_CanonicalPublicationCapability.consume()` verifies the attempt plus the exact validated
+   development-freeze, holdout-receipt, retrieval-artifact, protocol, candidate HEAD, runtime
+   seal, digests, schemas, cross-bindings, and normalized post-attempt status records, rather than
+   only the attempt digest; and
+9. every exception after attempt visibility retains the attempt publication state, leaves the
+   canonical compatibility artifact absent unless complete bytes became visible, and cannot
+   authorize retry;
+10. path-preflight rejection returns exactly
+    `status=failed`, `mode=record_canonical`, `output_state=not_applicable`,
+    `publication_outcome=not_attempted`,
+    `problem=retrieval_order_canonical_publication_unauthorized`,
+    `cause=canonical_path_preflight_failed`,
+    `next_step=correct_canonical_paths_before_first_attempt`, and
+    `first_failed_gate=path_preflight`; and
+11. every post-attempt failure carries the visible attempt publication state,
+    `next_step=retain_attempt_and_stop`, and the exact first failed gate. It must never reuse a
+    preflight remediation such as `wait_for_successful_holdout`.
+
+Use call counters to prove no directory, copy, Git materialization, observer, replay, child, or
+publication action occurs before a malformed input is rejected.
+
+#### F3.2 — Implement lexical containment and sealed publication
+
+Move complete archived authority validation ahead of historical source/input materialization.
+Build and validate the complete source/input materialization plan in memory before creating the
+historical directory or running any Git blob, copy, or child action. Accept only normalized
+relative POSIX manifest paths with no empty, `.`, `..`, absolute, backslash, or platform-drive
+component. Before reading or copying, require the lexical source and all existing source parents
+to be non-symlinks under the repository. Before writing, require the lexical destination and
+parents to remain under the call-owned scratch root and to contain no symlink.
+
+Preserve canonical arguments until the canonical-path validator has checked the literal
+repository-relative path, parent chain, and basename. Only then resolve the bound path. Do not
+let early CLI `.resolve()` calls erase symlink evidence.
+
+Reuse a module-level evaluation-only candidate-seal helper owned by
+`mke.evaluation.retrieval_order_workflow`; do not export it through the package, CLI, or MCP, do
+not duplicate its Git parser, and do not create a new module. Bind the canonical capability to the
+attempt digest, candidate HEAD, runtime profile, exact retained input identities, and the exact
+post-attempt normalized status records. Revalidate the protocol, development freeze, holdout
+receipt, retrieval artifact, and attempt schema/digest/cross-bindings at capability consumption
+and immediately before final publication. Preserve the attempt publication object in every
+post-attempt failure result.
+
+Keep the existing result schema and fields. Freeze the exact path-preflight tuple above. After the
+attempt is visible, preserve the underlying problem/cause and first failed gate but always expose
+the attempt's visible publication state and `next_step=retain_attempt_and_stop`. Update the
+existing `record-canonical --help` text and focused tests to distinguish:
+
+```text
+preflight rejected -> not attempted; correct the input before any attempt
+attempt visible -> terminal; retain the attempt and stop
+```
+
+#### F3.3 — GREEN and commit
+
+Run:
+
+```bash
+uv run pytest -q \
+  tests/evaluation/test_retrieval_order_compatibility.py \
+  tests/evaluation/test_atomic_json_publication.py \
+  tests/evaluation/test_retrieval_order_historical_freeze.py
+uv run ruff check src/mke/evaluation/retrieval_order_compatibility.py \
+  tests/evaluation/test_retrieval_order_compatibility.py
+uv run pyright
+```
+
+Then inspect the two-path diff and commit:
+
+```bash
+git add src/mke/evaluation/retrieval_order_compatibility.py \
+  tests/evaluation/test_retrieval_order_compatibility.py
+git commit -m "fix(eval): contain compatibility authority"
+```
+
+### F4 — Make the source-pack attempt claim lexically one-shot
+
+Modify:
+
+- `scripts/consumer_source_pack_proof.py`;
+- `tests/scripts/test_consumer_source_pack_proof.py`.
+
+#### F4.1 — Targeted RED
+
+Add focused tests for:
+
+- a dangling symlink at `--attempt-claim`;
+- a symlink in any claim parent;
+- a parent or basename retargeted between initial preflight and the designated final
+  prepublication recheck;
+- an existing regular claim;
+- a claim inside the repository or candidate-output directory; and
+- a valid absent basename in a stable external parent.
+
+For every rejection, prove the build command, interpreter proof, candidate-output write, and
+claim publication were never entered. For post-visibility faults, prove one complete claim is
+retained and retry stays closed. Freeze the existing two-field failure shape with these exact
+actionable codes:
+
+```text
+preflight rejected before visibility
+  {"status":"failed","code":"retrieval_order_source_pack_claim_invalid"}
+
+any failure after claim visibility
+  {"status":"failed","code":"retrieval_order_source_pack_attempt_terminal"}
+```
+
+#### F4.2 — Implement the lexical claim binding
+
+Validate the supplied claim path and every parent before calling `resolve()`. Require an absent,
+non-symlink basename in an existing external non-symlink directory, outside the repository and
+candidate-output tree. Bind the resolved parent plus literal basename and the parent's filesystem
+identity, then recheck that binding immediately before the no-replace publication. Reject a
+retargeted parent, a newly visible basename, or any symlink without following it.
+
+Keep the existing attempt schema, public fields, build ordering, no-replace helper, and timeout
+contract unchanged. This closes stale lexical-path and operator-error aliases visible by the final
+recheck; it does not claim directory-FD binding or race-free defense against a concurrent retarget
+after that check.
+
+Add both exact codes to the existing finite stable-code set. Preserve the claim publication object
+inside the controller so every later exception maps to the terminal code regardless of its
+internal root exception; do not expose a path or traceback. Update `--help` and focused tests with:
+
+```text
+claim preflight invalid -> correct the path; no attempt started
+claim visible -> any later failure is terminal; retain the claim and stop
+```
+
+#### F4.3 — GREEN and commit
+
+Run:
+
+```bash
+uv run pytest -q tests/scripts/test_consumer_source_pack_proof.py
+uv run ruff check scripts/consumer_source_pack_proof.py \
+  tests/scripts/test_consumer_source_pack_proof.py
+uv run pyright
+```
+
+Then inspect the two-path diff and commit:
+
+```bash
+git add scripts/consumer_source_pack_proof.py \
+  tests/scripts/test_consumer_source_pack_proof.py
+git commit -m "fix(proof): seal source-pack attempt path"
+```
+
+### F5 — Correct the documented deterministic-order contract
+
+Modify:
+
+- `docs/decisions/0012-deterministic-retrieval-order.md`;
+- `docs/explanation/architecture.md`;
+- `tests/evaluation/test_retrieval_order_documentation.py`.
+
+#### F5.1 — Targeted RED
+
+Replace the current documentation test that only searches for
+`stable semantic SQL key` with exact assertions for the two implemented strategy-specific keys.
+The RED test must reject claims that the CJK key is SQL-derived or that Publication revision or
+Evidence text identity participates in either current tie-break key.
+
+#### F5.2 — Document the live implementation exactly
+
+State that FTS orders by:
+
+```text
+score, locator_start, locator_kind, locator_end, source_sha256
+```
+
+and CJK active scan orders in Python by:
+
+```text
+-overlap_count, -overlap_ratio, content_fingerprint,
+locator_kind, locator_start, locator_end
+```
+
+Explain that `source_sha256` and `content_fingerprint` both bind immutable Source bytes in their
+respective paths. Opaque IDs remain identity fields, not ordering authority. Publication
+revision and Evidence text identity are not current tie-break fields. State explicitly that the
+owner-selected FTS and CJK strategies have strategy-specific tie semantics; this ADR does not
+promise one cross-strategy display order. Preserve the existing revision-2 cursor invalidation,
+active-only authority, historical-layering, one-shot publication, and non-goal statements.
+
+#### F5.3 — GREEN and commit
+
+Run:
+
+```bash
+uv run pytest -q tests/evaluation/test_retrieval_order_documentation.py
+uv run ruff check tests/evaluation/test_retrieval_order_documentation.py
+```
+
+Then inspect the three-path diff and commit:
+
+```bash
+git add docs/decisions/0012-deterministic-retrieval-order.md \
+  docs/explanation/architecture.md \
+  tests/evaluation/test_retrieval_order_documentation.py
+git commit -m "docs(retrieval): state exact stable order keys"
+```
+
+### F6 — Replacement candidate verification
+
+From the final F5 HEAD, first require all five canonical files to remain absent:
+
+```bash
+test ! -e benchmarks/retrieval/retrieval-order-v1-development-freeze.json && \
+  test ! -e benchmarks/retrieval/retrieval-order-v1-holdout-receipt.json && \
+  test ! -e benchmarks/retrieval/retrieval-order-v1-artifact.json && \
+  test ! -e benchmarks/retrieval/retrieval-order-v2-compatibility-attempt.json && \
+  test ! -e benchmarks/retrieval/retrieval-order-v2-compatibility.json
+```
+
+Run the complete Amendment F focused group:
+
+```bash
+uv run pytest -q \
+  tests/evaluation/test_retrieval_order_protocol.py \
+  tests/evaluation/test_retrieval_order_workflow.py \
+  tests/evaluation/test_retrieval_order_artifact.py \
+  tests/evaluation/test_retrieval_order_compatibility.py \
+  tests/evaluation/test_retrieval_order_documentation.py \
+  tests/evaluation/test_atomic_json_publication.py \
+  tests/evaluation/test_retrieval_order_historical_freeze.py \
+  tests/adapters/test_sqlite_evidence_access.py \
+  tests/adapters/test_sqlite_fts_order.py \
+  tests/adapters/test_sqlite_cjk_order.py \
+  tests/scripts/test_consumer_source_pack_proof.py
+```
+
+The closed F6 command ledger is exactly the focused group above plus the already frozen Amendment
+E E4 and Task 8A Step 3 commands represented by these groups:
+
+1. the exact nine-failure regression set retained by Amendment E;
+2. the D5 workflow/documentation group;
+3. the focused runtime/order/cursor/interface/schema group;
+4. the full historical compatibility matrix;
+5. runtime-capability and no-canonical guards;
+6. the complete test suite with exit code and final summary captured;
+7. Ruff;
+8. Pyright;
+9. build;
+10. the committed numeric CI-parity block;
+11. synthetic installed-proof tests;
+12. eligible consumer source-pack and compiled-export groups;
+13. the exact 14 immutable historical hashes;
+14. product proof and demo; and
+15. the Task 8A Step 3 commands that were already explicitly enumerated before Amendment F.
+
+This list is exhaustive. It does not authorize a newly discovered test, proof, observation, or
+command merely because an earlier paragraph says "remaining." Run each command block at most once
+from the final F5 HEAD, capture its exit and final summary on the first invocation, and do not
+restart a passed command. F6 has a cumulative wall-clock budget of 120 minutes and zero repair
+rounds. A failure, timeout, missing final summary, or lost command result is `BLOCKED`; it does not
+authorize a retry, substitution, or repair inside F6.
+
+Every command in the focused, E4, Task 8A, and minimum ledgers is an independent fail-fast gate.
+Invoke one command at a time, record exit and summary, and start the next command only after the
+previous gate returned exit `0`. If an earlier section prints multiple shell commands in one fence,
+split them at command boundaries rather than pasting the fence as one script. Record the F6 start
+time before the focused command and stop when cumulative elapsed time reaches 120 minutes.
+
+At minimum, run each of these as a separate gate:
+
+```bash
+uv run pytest -q
+```
+
+```bash
+uv run ruff check .
+```
+
+```bash
+uv run pyright
+```
+
+```bash
+uv build
+```
+
+```bash
+uv run mke proof run
+```
+
+```bash
+uv run mke demo --verify
+```
+
+Before each proof capable of writing a candidate output, use only a call-owned temporary
+destination and verify that it is absent. Eligible source-pack verification is limited to the
+existing non-Task-8R lanes and synthetic attempt-claim tests; do not invoke the real
+`--attempt-claim` flow. Do not pass a canonical holdout, compatibility, installed-proof, or
+source-pack-attempt path.
+
+After the final gate, repeat the five-path absence check. Also require:
+
+- the design digest remains
+  `8522af9fc801f1f30518f450ee5e8538efa0d67fe0039352d58b95c52f52b42b`;
+- the plan digest equals the review-clean F0 digest;
+- all 14 immutable historical hashes remain exact;
+- the implementation delta is confined to the eleven F+ paths;
+- no fixture, protocol, historical artifact, CI, runtime retrieval, dependency, or release path
+  changed;
+- `git diff --check` passes; and
+- the worktree is clean.
+
+The final clean committed HEAD after every successful gate becomes the replacement candidate seal.
+If any gate fails, stop at the first failure. Do not relax a validator, update expected bytes,
+rewrite a fixture, retry a canonical action, expand scope, or continue to Task 8B without a new
+reviewed amendment.
+
+### F7 — Actual-diff review and stop boundary
+
+Return the exact start and final HEADs, semantic commits, eleven-path range diff, RED and GREEN
+evidence, full verification summaries, immutable hashes, plan/design digests, five-path absence
+proof, and mini-retro. The worktree must be clean.
+
+The implementation is not authorized to enter Task 8B until an independent authority review has
+read the actual F1-F6 diff and the user has explicitly resumed the one-shot observation. Review
+findings are evidence that the F6-verified candidate is not review-clean and therefore make this
+stage `BLOCKED`. Do not repair a material F7 finding inside Amendment F: any repair would create a
+new HEAD that has not passed the one-invocation F6 ledger. The next authority decision is to
+abandon canonical observation or approve a separately planned stage with a new verification
+budget.
+
+Throughout F0-F7, do not run development observation, holdout observation, canonical
+compatibility, canonical installed proof, a real source-pack attempt, push, PR, merge, tag,
+release, deployment, promotion, or cleanup.
+
+A green F6 proves only that the evaluation controller now:
+
+- binds one-shot transitions to the sealed HEAD and exact allowed worktree state;
+- compares observed order with frozen protocol expectations through real application pagination;
+- validates retained artifacts with exact schemas and numeric types;
+- contains historical and canonical paths before side effects;
+- preserves no-replace attempt receipts as terminal authority; and
+- documents the live strategy-specific stable keys accurately.
+
+It does not prove retrieval-quality improvement, segmentation or contextual-retrieval value,
+runtime promotion, production readiness, broad portability, latency, accuracy, SLA, adoption,
+release status, or successful canonical development/holdout/compatibility observation.
+
 ## Task 8B — Seal and Observe Once
 
 Run the canonical development command exactly once:
