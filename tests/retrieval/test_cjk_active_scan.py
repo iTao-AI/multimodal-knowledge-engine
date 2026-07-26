@@ -1,4 +1,5 @@
 from dataclasses import replace
+from hashlib import sha256
 
 import pytest
 
@@ -14,7 +15,7 @@ from mke.retrieval.cjk_active_scan import (
 
 def test_active_scan_parameters_match_e3b_thresholds() -> None:
     assert CJK_ACTIVE_SCAN_PARAMETERS.strategy_id == "cjk-active-scan-overlap-v1"
-    assert CJK_ACTIVE_SCAN_PARAMETERS.revision == 1
+    assert CJK_ACTIVE_SCAN_PARAMETERS.revision == 2
     assert CJK_ACTIVE_SCAN_PARAMETERS.minimum_overlap_count == 2
     assert CJK_ACTIVE_SCAN_PARAMETERS.minimum_overlap_ratio == 0.30
     assert CJK_ACTIVE_SCAN_PARAMETERS.max_results == 10
@@ -60,6 +61,40 @@ def test_active_scan_overlap_ranker_applies_thresholds_and_tie_breaks() -> None:
     assert [item.evidence_id for item in results] == ["ev_a", "ev_b"]
     assert results[0].overlap_count == 4
     assert results[0].overlap_ratio == 1.0
+
+
+def test_active_scan_ties_include_locator_kind_and_end() -> None:
+    compiled = compile_cjk_overlap_terms("发布证据检索")
+    document_id = "sha256:" + ("a" * 64)
+    candidates = (
+        CjkActiveScanCandidate(
+            evidence_id="opaque-z",
+            publication_id="pub",
+            source_id="source",
+            locator_kind="timestamp_ms",
+            locator_start=1,
+            locator_end=3,
+            text="发布证据检索",
+            document_id=document_id,
+        ),
+        CjkActiveScanCandidate(
+            evidence_id="opaque-a",
+            publication_id="pub",
+            source_id="source",
+            locator_kind="page",
+            locator_start=1,
+            locator_end=2,
+            text="发布证据检索",
+            document_id=document_id,
+        ),
+    )
+
+    results = rank_cjk_active_scan_candidates(candidates, compiled.terms)
+
+    assert [
+        (item.locator_kind, item.locator_start, item.locator_end)
+        for item in results
+    ] == [("page", 1, 2), ("timestamp_ms", 1, 3)]
 
 
 def test_runtime_query_fanout_fails_closed_instead_of_truncating() -> None:
@@ -131,5 +166,5 @@ def _candidate(
         locator_start=locator_start,
         locator_end=locator_start,
         text=text,
-        document_id=source_id,
+        document_id=f"sha256:{sha256(source_id.encode()).hexdigest()}",
     )

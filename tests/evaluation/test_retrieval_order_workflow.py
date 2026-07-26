@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import tempfile
 from pathlib import Path
 
 import pytest
 
 import mke.adapters.sqlite
+import mke.evaluation.retrieval_order_workflow as retrieval_order_workflow
 from mke.evaluation.retrieval_order_workflow import (
     _controlled_sqlite_ids,  # pyright: ignore[reportPrivateUsage]
     main,
@@ -16,6 +18,48 @@ from mke.evaluation.retrieval_order_workflow import (
 
 ROOT = Path(__file__).resolve().parents[2]
 PROTOCOL = ROOT / "tests/fixtures/retrieval-order-v1/protocol.json"
+
+
+def test_development_candidate_is_stable_without_recording(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    benchmark_root = ROOT / "benchmarks/retrieval"
+    before = {
+        path.name: path.read_bytes()
+        for path in benchmark_root.glob("retrieval-order-v1-*.json")
+    }
+    original_temporary_directory = tempfile.TemporaryDirectory
+
+    def temporary_directory(*, prefix: str):
+        return original_temporary_directory(prefix=prefix, dir=tmp_path)
+
+    monkeypatch.setattr(
+        retrieval_order_workflow.tempfile,
+        "TemporaryDirectory",
+        temporary_directory,
+    )
+
+    observation = observe_retrieval_order_partition(
+        protocol_path=PROTOCOL,
+        partition="development",
+        repository_root=ROOT,
+    )
+
+    assert observation["integrity_status"] == "passed"
+    assert observation["observation_status"] == "passed"
+    assert observation["stable_order_rate"] == 1.0
+    assert observation["candidate_membership_delta"] == 0
+    assert observation["score_hex_delta"] == 0
+    assert observation["non_tied_pair_delta"] == 0
+    assert observation["pagination_duplicate_or_gap_count"] == 0
+    assert observation["strategy_revision"] == 2
+    assert observation["query_policy_revision"] == 1
+    assert list(tmp_path.iterdir()) == []
+    assert {
+        path.name: path.read_bytes()
+        for path in benchmark_root.glob("retrieval-order-v1-*.json")
+    } == before
 
 
 def test_controlled_id_schedule_restores_generator_after_failure() -> None:

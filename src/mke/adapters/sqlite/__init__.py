@@ -2071,8 +2071,10 @@ class SQLiteStore:
             """
             SELECT evidence.evidence_id, publications.publication_id,
                    evidence.source_id, evidence.locator_kind,
-                   evidence.locator_start, evidence.locator_end, evidence.text
+                   evidence.locator_start, evidence.locator_end, evidence.text,
+                   assets.sha256 AS source_sha256
             FROM sources
+            JOIN assets ON assets.asset_id = sources.asset_id
             JOIN publications
               ON publications.publication_id = sources.active_publication_id
             JOIN evidence
@@ -2092,7 +2094,7 @@ class SQLiteStore:
                 locator_start=int(row["locator_start"]),
                 locator_end=int(row["locator_end"]),
                 text=str(row["text"]),
-                document_id=str(row["source_id"]),
+                document_id=f"sha256:{row['source_sha256']}",
             )
             for row in rows
         )
