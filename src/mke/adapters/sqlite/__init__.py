@@ -57,6 +57,7 @@ from mke.domain.evidence_access import (
 )
 from mke.retrieval import (
     DEFAULT_RETRIEVAL_STRATEGY,
+    RetrievalAuthorityError,
     RetrievalQueryPolicy,
     RetrievalStrategy,
     compile_fts5_query,
@@ -110,6 +111,46 @@ class _EvidenceSearchCandidate:
     locator_start: int
     locator_end: int
     text_bytes: int
+
+
+_FTS_MATCHED_CTE = """
+    WITH matched AS MATERIALIZED (
+      SELECT evidence.evidence_id,
+             active_evidence_fts.publication_id,
+             evidence.source_id,
+             evidence.locator_kind,
+             evidence.locator_start,
+             evidence.locator_end,
+             assets.sha256 AS source_sha256,
+             {score} AS score,
+             length(CAST(evidence.text AS BLOB)) AS text_bytes
+      FROM active_evidence_fts
+      JOIN evidence ON evidence.evidence_id = active_evidence_fts.evidence_id
+      JOIN sources ON sources.source_id = evidence.source_id
+      JOIN assets ON assets.asset_id = sources.asset_id
+      WHERE active_evidence_fts MATCH ?
+        AND sources.active_publication_id = active_evidence_fts.publication_id
+    ),
+    integrity AS (
+      SELECT EXISTS(
+        SELECT 1 FROM matched
+        GROUP BY source_sha256, locator_kind, locator_start, locator_end
+        HAVING COUNT(*) > 1
+      ) AS duplicate_stable_locator
+    )
+"""
+
+_FTS_STABLE_ORDER = (
+    "score, locator_start, locator_kind, locator_end, source_sha256"
+)
+_FTS_MATCHED_STABLE_ORDER = (
+    "matched.score, matched.locator_start, matched.locator_kind, "
+    "matched.locator_end, matched.source_sha256"
+)
+_FTS_PAGE_STABLE_ORDER = (
+    "page.score, page.locator_start, page.locator_kind, "
+    "page.locator_end, page.source_sha256"
+)
 
 _EXPORT_SCHEMA: dict[str, dict[str, tuple[str, int, int]]] = {
     "libraries": {
@@ -1036,15 +1077,16 @@ class SQLiteStore:
             or any(ord(character) < 32 for character in compiled_query)
         ):
             raise ValueError("compiled query is invalid")
-        base = """
-            SELECT evidence.evidence_id, evidence.locator_start, {score} AS score
-            FROM active_evidence_fts
-            JOIN evidence ON evidence.evidence_id = active_evidence_fts.evidence_id
-            JOIN sources ON sources.source_id = evidence.source_id
-            WHERE active_evidence_fts MATCH ?
-              AND sources.active_publication_id = active_evidence_fts.publication_id
-            ORDER BY {score}, evidence.locator_start, evidence.evidence_id
-        """
+        base = (
+            _FTS_MATCHED_CTE
+            + """
+            SELECT matched.evidence_id, matched.locator_start, matched.score,
+                   integrity.duplicate_stable_locator
+            FROM integrity
+            LEFT JOIN matched ON 1 = 1
+            ORDER BY """
+            + _FTS_MATCHED_STABLE_ORDER
+        )
         statements: list[str] = []
         self._connection.set_trace_callback(statements.append)
         try:
@@ -1061,6 +1103,10 @@ class SQLiteStore:
             ).fetchone()
         finally:
             self._connection.set_trace_callback(None)
+        self._raise_for_duplicate_fts_projection(rank_rows)
+        self._raise_for_duplicate_fts_projection(bm25_rows)
+        rank_rows = [row for row in rank_rows if row["evidence_id"] is not None]
+        bm25_rows = [row for row in bm25_rows if row["evidence_id"] is not None]
         rank_scores = {
             str(row["evidence_id"]): float(row["score"]) for row in rank_rows
         }
@@ -1821,21 +1867,26 @@ class SQLiteStore:
         fetch_count: int,
     ) -> list[_EvidenceSearchCandidate]:
         rows = self._connection.execute(
-            """
-            SELECT evidence.evidence_id, active_evidence_fts.publication_id,
-                   evidence.source_id, evidence.locator_kind,
-                   evidence.locator_start, evidence.locator_end,
-                   length(CAST(evidence.text AS BLOB)) AS text_bytes
-            FROM active_evidence_fts
-            JOIN evidence ON evidence.evidence_id = active_evidence_fts.evidence_id
-            JOIN sources ON sources.source_id = evidence.source_id
-            WHERE active_evidence_fts MATCH ?
-              AND sources.active_publication_id = active_evidence_fts.publication_id
-            ORDER BY rank, evidence.locator_start, evidence.evidence_id
-            LIMIT ? OFFSET ?
-            """,
+            _FTS_MATCHED_CTE.format(score="rank")
+            + """,
+            page AS (
+              SELECT *
+              FROM matched
+              ORDER BY """
+            + _FTS_STABLE_ORDER
+            + """
+              LIMIT ? OFFSET ?
+            )
+            SELECT page.evidence_id, page.publication_id, page.source_id,
+                   page.locator_kind, page.locator_start, page.locator_end,
+                   page.text_bytes, integrity.duplicate_stable_locator
+            FROM integrity
+            LEFT JOIN page ON 1 = 1
+            ORDER BY """
+            + _FTS_PAGE_STABLE_ORDER,
             (match_query, fetch_count, position),
         ).fetchall()
+        self._raise_for_duplicate_fts_projection(rows)
         return [
             _EvidenceSearchCandidate(
                 evidence_id=str(row["evidence_id"]),
@@ -1847,6 +1898,7 @@ class SQLiteStore:
                 text_bytes=int(row["text_bytes"]),
             )
             for row in rows
+            if row["evidence_id"] is not None
         ]
 
     def _load_fts_candidate_text(
@@ -1889,17 +1941,25 @@ class SQLiteStore:
     def _search_fts(
         self, match_query: str, limit: int | None = None
     ) -> list[SearchResult]:
-        sql = """
-            SELECT evidence.evidence_id, active_evidence_fts.publication_id,
-                   evidence.source_id, evidence.locator_kind, evidence.locator_start,
-                   evidence.locator_end, evidence.text
-            FROM active_evidence_fts
-            JOIN evidence ON evidence.evidence_id = active_evidence_fts.evidence_id
-            JOIN sources ON sources.source_id = evidence.source_id
-            WHERE active_evidence_fts MATCH ?
-              AND sources.active_publication_id = active_evidence_fts.publication_id
-            ORDER BY rank, evidence.locator_start, evidence.evidence_id
+        sql = (
             """
+            SELECT evidence_id, publication_id, source_id, locator_kind,
+                   locator_start, locator_end, text, duplicate_stable_locator
+            FROM (
+            """
+            + _FTS_MATCHED_CTE.format(score="rank")
+            + """
+            SELECT matched.evidence_id, matched.publication_id, matched.source_id,
+                   matched.locator_kind, matched.locator_start, matched.locator_end,
+                   matched.score, matched.source_sha256,
+                   evidence.text, integrity.duplicate_stable_locator
+            FROM integrity
+            LEFT JOIN matched ON 1 = 1
+            LEFT JOIN evidence ON evidence.evidence_id = matched.evidence_id
+            )
+            ORDER BY """
+            + _FTS_STABLE_ORDER
+        )
         params: list[object] = [match_query]
         if limit is not None:
             sql += " LIMIT ?"
@@ -1918,6 +1978,7 @@ class SQLiteStore:
                         for statement in statements
                     )
                 )
+        self._raise_for_duplicate_fts_projection(rows)
         return [
             SearchResult(
                 evidence_id=str(row["evidence_id"]),
@@ -1929,7 +1990,13 @@ class SQLiteStore:
                 text=str(row["text"]),
             )
             for row in rows
+            if row["evidence_id"] is not None
         ]
+
+    @staticmethod
+    def _raise_for_duplicate_fts_projection(rows: list[sqlite3.Row]) -> None:
+        if rows and bool(rows[0]["duplicate_stable_locator"]):
+            raise RetrievalAuthorityError
 
     def search_cjk_active_scan(
         self,

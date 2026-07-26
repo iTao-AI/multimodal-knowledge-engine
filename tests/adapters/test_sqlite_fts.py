@@ -313,6 +313,10 @@ def test_rank_observation_matches_complete_production_order_and_scores(
             item.rank_score == pytest.approx(item.bm25_score, abs=1e-12)
             for item in observation.rank_order
         )
+        assert all(
+            item.rank_score.hex() == item.bm25_score.hex()
+            for item in observation.rank_order
+        )
         assert observation.rank_override_present is False
         match_statements = tuple(
             statement
@@ -331,6 +335,20 @@ def test_rank_observation_matches_complete_production_order_and_scores(
             in statement
             for statement in match_statements
         )
+        assert all(
+            "assets.sha256 AS source_sha256" in statement
+            for statement in match_statements
+        )
+        for statement in match_statements:
+            order_clause = statement.rsplit("ORDER BY", maxsplit=1)[1]
+            assert "evidence_id" not in order_clause
+            for stable_key in (
+                "locator_start",
+                "locator_kind",
+                "locator_end",
+                "source_sha256",
+            ):
+                assert stable_key in order_clause
     finally:
         engine.close()
 

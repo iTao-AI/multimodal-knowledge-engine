@@ -144,6 +144,18 @@ def test_fts_page_uses_metadata_limit_offset_without_gaps(
         assert len(metadata) == 1
         assert "active_evidence_fts.text" not in metadata[0]
         assert "LIMIT 4 OFFSET" in metadata[0]
+        page_order = metadata[0].split("LIMIT 4 OFFSET", maxsplit=1)[0].rsplit(
+            "ORDER BY", maxsplit=1
+        )[1]
+        assert "evidence_id" not in page_order
+        for stable_key in (
+            "score",
+            "locator_start",
+            "locator_kind",
+            "locator_end",
+            "source_sha256",
+        ):
+            assert stable_key in page_order
     finally:
         engine.close()
 
