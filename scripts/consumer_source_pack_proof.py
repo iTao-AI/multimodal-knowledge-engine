@@ -24,6 +24,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO, cast
 
+from mke.evaluation._atomic_json_publication import (
+    publish_json_no_replace,
+)
+
 _DIRTY_ENV = frozenset({"PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"})
 _DISTRIBUTION = "multimodal-knowledge-engine"
 _CANDIDATE_RECEIPT_SCHEMA = "mke.candidate_artifact_receipt.v1"
@@ -56,6 +60,9 @@ _STABLE_FAILURE_CODES = frozenset(
         "candidate_artifact_invalid",
         "cleanup_failed",
         "proof_failed",
+        "retrieval_order_source_pack_already_started",
+        "retrieval_order_publication_failed_before_visibility",
+        "retrieval_order_publication_durability_unconfirmed",
     }
 )
 _CLIENT_FAILURE_CODES = frozenset(
@@ -157,6 +164,7 @@ class ProofConfig:
     max_stdout_bytes: int
     max_stderr_bytes: int
     candidate_output: Path | None = None
+    attempt_claim: Path | None = None
 
 
 def isolated_environment(base: Mapping[str, str]) -> dict[str, str]:
@@ -749,6 +757,112 @@ def _candidate_source_snapshot(
     return snapshot
 
 
+def _render_claim(value: Mapping[str, object]) -> bytes:
+    return (
+        json.dumps(
+            value,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        + "\n"
+    ).encode()
+
+
+def _validate_claim(
+    value: object,
+    *,
+    expected: dict[str, object],
+) -> None:
+    if not isinstance(value, dict) or value != expected:
+        raise ValueError("source-pack attempt claim is invalid")
+
+
+def _publish_task8r_attempt_claim(
+    config: ProofConfig,
+    *,
+    repository: Path,
+    source_commit: str,
+    candidate_target: Path,
+) -> None:
+    if config.attempt_claim is None:
+        return
+    claim = config.attempt_claim.resolve()
+    if (
+        config.candidate_output is None
+        or _within(claim, repository)
+        or claim.is_symlink()
+    ):
+        raise ControllerError("proof_failed")
+    if claim.exists():
+        raise ControllerError(
+            "retrieval_order_source_pack_already_started"
+        )
+    interpreters: list[Path] = []
+    for supplied in config.python_interpreters:
+        try:
+            resolved = supplied.resolve(strict=True)
+        except OSError as exc:
+            raise ControllerError("proof_failed") from exc
+        if not resolved.is_file() or supplied.is_symlink():
+            raise ControllerError("proof_failed")
+        interpreters.append(resolved)
+    if len(interpreters) != 2 or interpreters[0] == interpreters[1]:
+        raise ControllerError("proof_failed")
+    script = Path(__file__).resolve()
+    normalized_command = [
+        str(script),
+        "--python",
+        str(interpreters[0]),
+        "--python",
+        str(interpreters[1]),
+        "--attempt-claim",
+        str(claim),
+        "--candidate-output",
+        str(candidate_target),
+        "--command-timeout",
+        str(config.command_timeout),
+        "--max-stdout-bytes",
+        str(config.max_stdout_bytes),
+        "--max-stderr-bytes",
+        str(config.max_stderr_bytes),
+        "--json",
+    ]
+    expected: dict[str, object] = {
+        "schema_version": "mke.retrieval_order_source_pack_attempt.v1",
+        "command_schema": "mke.consumer_source_pack_task8r.v1",
+        "candidate_seal": source_commit,
+        "normalized_command": normalized_command,
+        "python_interpreters": [
+            str(interpreter) for interpreter in interpreters
+        ],
+        "candidate_output": str(candidate_target),
+        "attempt_claim": str(claim),
+        "script_sha256": hashlib.sha256(script.read_bytes()).hexdigest(),
+    }
+    publication = publish_json_no_replace(
+        claim,
+        _render_claim(expected),
+        validate=lambda value: _validate_claim(
+            value,
+            expected=expected,
+        ),
+    )
+    if publication.publication_outcome == "published":
+        return
+    if publication.output_state == "complete_preexisting":
+        raise ControllerError(
+            "retrieval_order_source_pack_already_started"
+        )
+    if publication.publication_outcome == "durability_unconfirmed":
+        raise ControllerError(
+            "retrieval_order_publication_durability_unconfirmed"
+        )
+    raise ControllerError(
+        "retrieval_order_publication_failed_before_visibility"
+    )
+
+
 def run_proof(config: ProofConfig) -> dict[str, object]:
     repository = config.repository.resolve()
     if len(config.python_interpreters) != 2:
@@ -759,6 +873,15 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
     candidate_target = (
         _candidate_target(config.candidate_output) if config.candidate_output is not None else None
     )
+    if config.attempt_claim is not None:
+        if candidate_source_commit is None or candidate_target is None:
+            raise ControllerError("proof_failed")
+        _publish_task8r_attempt_claim(
+            config,
+            repository=repository,
+            source_commit=candidate_source_commit,
+            candidate_target=candidate_target,
+        )
     root = Path(tempfile.mkdtemp(prefix="mke-consumer-source-pack-"))
     owned: list[Path] = [root]
     functional: dict[str, object] | None = None
@@ -1024,13 +1147,26 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description=(
+            "Task 8R only: --attempt-claim is published before build "
+            "or child execution."
+        )
+    )
     parser.add_argument("--python", action="append", type=Path, required=True)
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--command-timeout", type=float, default=600.0)
     parser.add_argument("--max-stdout-bytes", type=int, default=2 * 1024 * 1024)
     parser.add_argument("--max-stderr-bytes", type=int, default=512 * 1024)
     parser.add_argument("--candidate-output", type=Path)
+    parser.add_argument(
+        "--attempt-claim",
+        type=Path,
+        help=(
+            "Task 8R only; no-replace claim published before build "
+            "or child execution"
+        ),
+    )
     args = parser.parse_args(argv)
     try:
         if len(args.python) != 2:
@@ -1043,6 +1179,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.max_stdout_bytes,
                 args.max_stderr_bytes,
                 args.candidate_output,
+                args.attempt_claim,
             )
         )
         print(json.dumps(result, sort_keys=True, separators=(",", ":")))

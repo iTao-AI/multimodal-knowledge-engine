@@ -1,5 +1,10 @@
 # Enable Bounded CJK Retrieval
 
+The deterministic retrieval order revision changes only equal-score ordering and cursor revision
+authority. It does not add a retrieval strategy or change CJK routing, scoring, active
+Publication scope, or quality claims. See the
+[deterministic order proof](./run-deterministic-retrieval-order-proof.md).
+
 E3-F adds `cjk-active-scan-overlap-v1`, a local lexical strategy for eligible CJK queries that
 the ASCII-oriented FTS5 compiler cannot express. SQLite remains domain truth and no persistent CJK
 projection is created.

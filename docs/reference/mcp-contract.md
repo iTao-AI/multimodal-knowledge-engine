@@ -1,5 +1,10 @@
 # MCP Contract Reference
 
+The deterministic retrieval order change does not add or alter an MCP tool. MCP Search and Ask
+continue to use the owner-selected active-Publication strategy; revision-2 tie ordering and cursor
+invalidation are documented in the
+[proof workflow](../how-to/run-deterministic-retrieval-order-proof.md).
+
 This page is the canonical complete MCP inventory. MKE exposes exactly ten tools:
 
 - `list_libraries`

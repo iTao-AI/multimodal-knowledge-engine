@@ -1,5 +1,11 @@
 # Use MKE As A Local MCP Server
 
+The deterministic retrieval order maintenance does not change MCP request schemas or active
+Publication authority. Owner-selected Search uses revision-2 deterministic tie ordering; stale
+cursor revisions fail closed. See the
+[deterministic order proof](./run-deterministic-retrieval-order-proof.md) for evaluation-only
+authority and non-claims.
+
 Use this guide when an Agent needs local tool access to MKE Evidence.
 
 ## Start The Server

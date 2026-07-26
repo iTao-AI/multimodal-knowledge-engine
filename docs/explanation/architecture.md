@@ -1,5 +1,14 @@
 # Architecture
 
+## Deterministic Retrieval Order
+
+The deterministic retrieval order contract uses a stable semantic SQL key for equal-score active
+Evidence and retrieval strategy revision 2. It keeps active Publication authority unchanged,
+invalidates older cursors rather than mixing revisions, and separates historical byte validation,
+current replay, tie-only differential evidence, and one-shot canonical publication. See
+[ADR-0012](../decisions/0012-deterministic-retrieval-order.md) and the
+[proof workflow](../how-to/run-deterministic-retrieval-order-proof.md).
+
 ## Product Boundary
 
 Multimodal Knowledge Engine converts documents and media into published Evidence that users and Agents can search, cite, and ask questions over.

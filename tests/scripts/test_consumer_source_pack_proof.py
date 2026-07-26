@@ -16,6 +16,8 @@ from typing import Any
 
 import pytest
 
+import mke.evaluation._atomic_json_publication as atomic_publication
+
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/consumer_source_pack_proof.py"
 CONSUMER_WORKFLOW = ROOT / ".github/workflows/consumer-source-pack-proof.yml"
@@ -42,6 +44,9 @@ STABLE_FAILURE_CODES = (
     "candidate_artifact_invalid",
     "cleanup_failed",
     "proof_failed",
+    "retrieval_order_source_pack_already_started",
+    "retrieval_order_publication_failed_before_visibility",
+    "retrieval_order_publication_durability_unconfirmed",
 )
 CLIENT_FAILURE_CODES = (
     "source_pack_manifest_invalid",
@@ -1479,6 +1484,186 @@ def test_main_accepts_candidate_output_without_changing_success_stdout(
     assert exit_code == 0
     assert observed[0].candidate_output == output
     assert json.loads(capsys.readouterr().out) == success
+
+
+def test_help_exposes_task8r_attempt_claim(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    proof = _load()
+
+    with pytest.raises(SystemExit) as raised:
+        proof.main(["--help"])
+
+    assert raised.value.code == 0
+    output = capsys.readouterr().out
+    assert "--attempt-claim" in output
+    assert "published before build or child execution" in output
+    assert "Task 8R only" in output
+
+
+def test_attempt_claim_is_published_before_build_and_retained_on_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    interpreters = _synthetic_interpreters(tmp_path)
+    output = tmp_path / "external/candidate"
+    claim = tmp_path / "external/source-pack-attempt.claim.json"
+    build_calls = 0
+
+    def fail_after_claim(
+        code: str,
+        command: Sequence[str],
+        **kwargs: object,
+    ) -> Any:
+        nonlocal build_calls
+        del kwargs
+        if list(command)[:2] == ["uv", "build"]:
+            build_calls += 1
+            assert claim.exists()
+            raise proof.ControllerError(code)
+        raise AssertionError("build must be the first proof command")
+
+    monkeypatch.setattr(proof, "_command", fail_after_claim)
+    config = proof.ProofConfig(
+        repository,
+        interpreters,
+        3,
+        10_000,
+        10_000,
+        candidate_output=output,
+        attempt_claim=claim,
+    )
+
+    with pytest.raises(proof.ControllerError, match="wheel_build_failed"):
+        proof.run_proof(config)
+
+    payload = json.loads(claim.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == (
+        "mke.retrieval_order_source_pack_attempt.v1"
+    )
+    assert payload["command_schema"] == (
+        "mke.consumer_source_pack_task8r.v1"
+    )
+    assert payload["candidate_seal"] == subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert payload["python_interpreters"] == [
+        str(path.resolve()) for path in interpreters
+    ]
+    assert payload["candidate_output"] == str(output.resolve())
+    assert payload["attempt_claim"] == str(claim.resolve())
+    assert len(payload["script_sha256"]) == 64
+    assert payload["normalized_command"][-7:] == [
+        "--command-timeout",
+        "3",
+        "--max-stdout-bytes",
+        "10000",
+        "--max-stderr-bytes",
+        "10000",
+        "--json",
+    ]
+    assert build_calls == 1
+    assert not output.exists()
+
+    with pytest.raises(
+        proof.ControllerError,
+        match="retrieval_order_source_pack_already_started",
+    ):
+        proof.run_proof(config)
+    assert build_calls == 1
+
+
+@pytest.mark.parametrize(
+    "fault",
+    ("write", "file_fsync", "readback", "publish", "directory_fsync"),
+)
+def test_attempt_claim_publication_fault_never_starts_build(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    fault: str,
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    interpreters = _synthetic_interpreters(tmp_path)
+    output = tmp_path / "external/candidate"
+    claim = tmp_path / "external/source-pack-attempt.claim.json"
+    def forbidden_command(
+        *args: object,
+        **kwargs: object,
+    ) -> None:
+        del args, kwargs
+        raise AssertionError("build must not start")
+
+    monkeypatch.setattr(proof, "_command", forbidden_command)
+    _install_atomic_fault(monkeypatch, fault)
+
+    with pytest.raises(proof.ControllerError) as raised:
+        proof.run_proof(
+            proof.ProofConfig(
+                repository,
+                interpreters,
+                3,
+                10_000,
+                10_000,
+                candidate_output=output,
+                attempt_claim=claim,
+            )
+        )
+
+    expected = (
+        "retrieval_order_publication_durability_unconfirmed"
+        if fault == "directory_fsync"
+        else "retrieval_order_publication_failed_before_visibility"
+    )
+    assert raised.value.code == expected
+    assert claim.exists() is (fault == "directory_fsync")
+    assert not output.exists()
+
+
+def _synthetic_interpreters(tmp_path: Path) -> tuple[Path, Path]:
+    interpreters = (tmp_path / "python312", tmp_path / "python313")
+    for interpreter in interpreters:
+        interpreter.write_bytes(b"synthetic interpreter")
+        interpreter.chmod(0o755)
+    return interpreters
+
+
+def _install_atomic_fault(
+    monkeypatch: pytest.MonkeyPatch,
+    fault: str,
+) -> None:
+    if fault == "readback":
+        def invalid_readback(path: Path) -> bytes:
+            del path
+            return b"{}"
+
+        monkeypatch.setattr(
+            atomic_publication,
+            "_readback_bytes",
+            invalid_readback,
+        )
+        return
+
+    def fail(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        raise OSError("synthetic publication fault")
+
+    monkeypatch.setattr(
+        atomic_publication,
+        {
+            "write": "_write_bytes",
+            "file_fsync": "_fsync_file",
+            "publish": "_publish_no_replace",
+            "directory_fsync": "_fsync_directory",
+        }[fault],
+        fail,
+    )
 
 
 @pytest.mark.parametrize("code", STABLE_FAILURE_CODES)
