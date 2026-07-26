@@ -2036,6 +2036,221 @@ source/test/doc seal. Record its SHA. No source, test, script, ADR, how-to, or d
 this point; any needed change invalidates uncommitted observation evidence and returns to
 authority review.
 
+## Plan Amendment D+ — Layered Strict-Live and Compatibility CI Authority
+
+This amendment was approved after the first Task 8A Step 3 CI-parity stop. The stop proved a
+contract contradiction rather than a new retrieval defect:
+
+- the existing CI step allowed the strict-live numeric command to exit `0` or `1`, but then
+  required `integrity_status=passed`;
+- the approved strict-live contract requires the frozen revision-1 source lock to exit `1` with
+  the existing source-identity failure after revision-2 source changes; and
+- the same step incorrectly attempted to validate that failed live observation against the
+  immutable historical numeric artifact.
+
+The correction is a layered CI authority gate, not a historical refresh, fallback, waiver, or
+promotion. It preserves two independent claims:
+
+```text
+strict-live negative control
+  -> the frozen revision-1 lock is rejected as current authority
+
+temporary compatibility positive control
+  -> archived bytes are self-consistent
+  -> current runtime replay remains compatible
+  -> only the approved revision-2 differential is admitted
+  -> temporary output never becomes canonical authority
+```
+
+This amendment supersedes only Task 8A CI-parity routing and the exact Task 8A modification scope
+needed to express that routing. Tasks 8B, 7B/8R, canonical publication, holdout, promotion, runtime
+retrieval, historical artifact bytes, and every other plan boundary remain unchanged.
+
+### D0 — Plan-only landing and authority gate
+
+Land this amendment as a plan-only commit and stop. Do not modify CI, tests, source, scripts,
+artifacts, fixtures, or documentation in the same commit. Resume only after review of the actual
+plan diff.
+
+### D1 — Exact Task 8A repair scope
+
+After the plan diff is review-clean, modify exactly:
+
+- `.github/workflows/ci.yml`
+- `tests/evaluation/test_retrieval_order_documentation.py`
+
+The two existing Task 8A commits remain retained. Do not amend or rewrite them. Commit the bounded
+repair separately:
+
+```bash
+git commit -m "ci(eval): reconcile strict-live retrieval parity"
+```
+
+Do not change workflow triggers, job topology, permissions, action pins, Python matrix,
+`prune-cache`, dependency installation, or any other CI step. Do not modify a runtime,
+evaluation module, historical protocol/artifact, canonical JSON, fixture, ADR, how-to, proof
+script, dependency, schema, or public product contract.
+
+### D2 — TDD contract
+
+First extend `test_retrieval_order_documentation.py` so the current workflow is RED because it:
+
+- accepts strict-live exit `0`;
+- does not assert the exact expected failure tuple;
+- invokes `numeric_artifact validate` on a failed live observation; and
+- lacks the temporary compatibility record/validate lane.
+
+The test must freeze the exact CI step name and both authority lanes without treating generic
+workflow text as proof. It must also prove that the temporary destination is under
+`$RUNNER_TEMP`, is not any canonical benchmark path, and that the persistent CI contract preserves
+preexisting canonical path state rather than requiring canonical files to remain absent forever.
+
+### D3 — Strict-live negative control
+
+Rename the numeric step so its name explicitly distinguishes archived-lock rejection from current
+compatibility validation.
+
+Run the existing command unchanged:
+
+```bash
+uv run mke eval retrieval-numeric \
+  --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json \
+  --json
+```
+
+Require exact exit `1`; exit `0`, exit `2`, or any other exit fails the CI step. Parse the bounded
+JSON and require:
+
+```text
+integrity_status = failed
+candidate_status = not_recorded
+exactly one integrity failure
+problem   = retrieval_numeric_fixture_invalid
+cause     = protocol-bound input identity mismatch
+next_step = restore_numeric_protocol_inputs
+subject_id = null
+```
+
+Do not run `mke.evaluation.numeric_artifact validate` against this failed observation. This lane
+proves that archived revision-1 source identity cannot silently become current authority; it does
+not claim that retrieval runtime, compatibility, or candidate quality failed.
+
+### D4 — Temporary compatibility positive control
+
+Only after the strict-live negative control passes, use a new no-replace destination under
+`$RUNNER_TEMP` and run:
+
+```bash
+uv run python -m mke.evaluation.retrieval_order_compatibility record \
+  --protocol tests/fixtures/retrieval-order-v1/protocol.json \
+  --artifact "$TEMPORARY_COMPATIBILITY_JSON" \
+  --repository . --json
+
+uv run python -m mke.evaluation.retrieval_order_compatibility validate \
+  --protocol tests/fixtures/retrieval-order-v1/protocol.json \
+  --artifact "$TEMPORARY_COMPATIBILITY_JSON" \
+  --repository . --json
+```
+
+Require exit `0` for both commands. Freeze the exact record result:
+
+```text
+schema_version = mke.retrieval_order_compatibility_record_result.v1
+status = passed
+mode = record
+authority_layer = archive_current_differential
+canonical = false
+output_state = complete_visible
+publication_outcome = published
+problem/cause/next_step/first_failed_gate = none
+historical_revision = 1
+current_revision = 2
+```
+
+Freeze the exact validate result:
+
+```text
+schema_version = mke.retrieval_order_compatibility_validate_result.v1
+status = passed
+mode = validate
+authority_layer = artifact_validation
+canonical = false
+output_state = complete_preexisting
+publication_outcome = not_attempted
+problem/cause/next_step/first_failed_gate = none
+historical_revision = 1
+current_revision = 2
+```
+
+Read the temporary artifact and require:
+
+- `integrity_status=passed`;
+- `compatibility_status=passed`;
+- exactly seven frozen family names;
+- every membership, score-hex, non-tied-pair, metric, gate, and verdict delta is zero;
+- limitations remain exactly historical compatibility, tie-permutation-only,
+  no-relevance-improvement, no-runtime-promotion, and public-holdout-not-observed; and
+- `historical_capability.status` is one of the validator-authorized states. A runtime-profile
+  mismatch may select the stricter `no_ordered_delta_authority`; it never authorizes a previously
+  unproved tie permutation.
+
+Before the temporary record, snapshot the existence and SHA-256 of all five canonical paths. After
+pure validation, require the exact same existence and bytes:
+
+```text
+benchmarks/retrieval/retrieval-order-v1-development-freeze.json
+benchmarks/retrieval/retrieval-order-v1-holdout-receipt.json
+benchmarks/retrieval/retrieval-order-v1-artifact.json
+benchmarks/retrieval/retrieval-order-v2-compatibility-attempt.json
+benchmarks/retrieval/retrieval-order-v2-compatibility.json
+```
+
+For the current Task 8A candidate all five paths must additionally remain absent. The persistent CI
+guard uses unchanged-before/after semantics so the same workflow remains valid after a separately
+authorized Task 8B/7B/8R later commits canonical evidence.
+
+### D5 — Focused and complete verification
+
+Run the documentation RED/GREEN test plus adjacent workflow/source-identity contracts, including:
+
+- `tests/evaluation/test_retrieval_order_documentation.py`
+- `tests/evaluation/test_github_actions_dependencies.py`
+- `tests/evaluation/test_dense_documentation.py`
+- `tests/evaluation/test_dense_artifact.py`
+- `tests/scripts/test_compiled_library_export_proof.py`
+
+Then rerun the complete Task 8A Step 3 from the final repair HEAD and capture the real exit and
+summary for the full suite. Run the amended CI-parity block exactly as committed. The final clean
+HEAD after this commit and all successful Task 8A gates becomes the replacement candidate seal.
+
+Task 8B remains forbidden. Do not run development, holdout, canonical compatibility,
+canonical installed proof, source-pack attempt, push, PR, merge, release, deployment, promotion,
+or cleanup.
+
+If the bounded two-file repair or the full rerun reveals any new authority conflict outside this
+exact known stale-lock routing problem, stop. Do not add another fallback, refresh a historical
+artifact, widen source identity, modify another file, or create a further amendment without a new
+authority decision.
+
+### D6 — Long-term lifecycle and non-claims
+
+The strict-live negative lane may be removed only by a separately approved maintenance change
+after either:
+
+1. a revisioned current strict-live numeric protocol is independently designed, frozen, and
+   landed; or
+2. every revision-1 numeric consumer and CI obligation is explicitly retired.
+
+The revision-1 historical lock and artifact are never refreshed merely to make strict-live green.
+This amendment does not redesign evaluation source identity. Any future move from broad
+whole-source identity to a minimal dependency manifest is a separate maintenance decision with
+its own regression evidence.
+
+A green two-lane CI step proves exact rejection of stale live authority plus bounded
+archive/current/differential compatibility on the tested runtime matrix. It does not prove
+retrieval-quality improvement, segmentation or contextual-retrieval value, production readiness,
+runtime promotion, broad portability, accuracy, latency, SLA, adoption, or release status.
+
 ## Task 8B — Seal and Observe Once
 
 Run the canonical development command exactly once:
