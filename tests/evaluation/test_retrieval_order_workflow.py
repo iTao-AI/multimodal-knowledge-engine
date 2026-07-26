@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 from collections.abc import Callable
 from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 from typing import cast
 
@@ -92,6 +93,189 @@ def test_development_candidate_is_stable_without_recording(
         path.name: path.read_bytes()
         for path in benchmark_root.glob("retrieval-order-v1-*.json")
     } == before
+
+
+def test_observation_uses_real_application_pagination_for_every_case(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    del tmp_path
+    calls: list[tuple[str, str, int, int]] = []
+    original = retrieval_order_workflow.KnowledgeEngine.search_evidence_page
+
+    def spy(
+        engine: retrieval_order_workflow.KnowledgeEngine,
+        query: str,
+        *,
+        position: int,
+        page_size: int,
+        authority_validator: Callable[[object], None],
+    ):
+        calls.append(
+            (
+                engine._store._retrieval_strategy,  # pyright: ignore[reportPrivateUsage]
+                query,
+                position,
+                page_size,
+            )
+        )
+        return original(
+            engine,
+            query,
+            position=position,
+            page_size=page_size,
+            authority_validator=authority_validator,
+        )
+
+    monkeypatch.setattr(
+        retrieval_order_workflow.KnowledgeEngine,
+        "search_evidence_page",
+        spy,
+    )
+
+    observation = observe_retrieval_order_partition(
+        protocol_path=PROTOCOL,
+        partition="development",
+        repository_root=ROOT,
+    )
+
+    assert observation["observation_status"] == "passed"
+    assert {
+        (strategy, page_size)
+        for strategy, _, _, page_size in calls
+    } == {
+        ("current", 1),
+        ("current", 2),
+        ("current", 3),
+        ("cjk-active-scan-overlap-v1", 1),
+        ("cjk-active-scan-overlap-v1", 2),
+    }
+    assert any(
+        position == 0 and page_size > 2
+        for _, _, position, page_size in calls
+    )
+    assert any(position > 0 for _, _, position, _ in calls)
+
+
+@pytest.mark.parametrize(
+    "drift",
+    (
+        "duplicate",
+        "gap",
+        "reorder",
+        "wrong_position",
+        "authority",
+        "premature_termination",
+        "late_termination",
+    ),
+)
+def test_observation_counts_real_pagination_protocol_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    drift: str,
+) -> None:
+    root, protocol_path, _, _ = _synthetic_protocol(tmp_path)
+    original = retrieval_order_workflow.KnowledgeEngine.search_evidence_page
+    injected = False
+
+    def drifted(
+        engine: retrieval_order_workflow.KnowledgeEngine,
+        query: str,
+        *,
+        position: int,
+        page_size: int,
+        authority_validator: Callable[[object], None],
+    ):
+        nonlocal injected
+        page = original(
+            engine,
+            query,
+            position=position,
+            page_size=page_size,
+            authority_validator=authority_validator,
+        )
+        target = (
+            page_size == 2 and position == 0
+            if drift == "reorder"
+            else page_size == 1 and position > 0
+            if drift in {"authority", "late_termination"}
+            else page_size == 1 and position == 0
+        )
+        if injected or not target:
+            return page
+        injected = True
+        if drift == "duplicate":
+            return replace(page, results=(page.results[0], page.results[0]))
+        if drift == "gap":
+            return replace(page, results=())
+        if drift == "reorder":
+            return replace(page, results=tuple(reversed(page.results)))
+        if drift == "wrong_position":
+            return replace(page, position=1)
+        if drift == "authority":
+            return replace(
+                page,
+                authority=replace(
+                    page.authority,
+                    active_set_fingerprint=f"sha256:{'0' * 64}",
+                ),
+            )
+        if drift == "premature_termination":
+            return replace(page, more_in_selected_pool=False)
+        return replace(page, more_in_selected_pool=True)
+
+    monkeypatch.setattr(
+        retrieval_order_workflow.KnowledgeEngine,
+        "search_evidence_page",
+        drifted,
+    )
+
+    observation = observe_retrieval_order_partition(
+        protocol_path=protocol_path,
+        partition="development",
+        repository_root=root,
+    )
+
+    assert injected is True
+    assert observation["observation_status"] == "failed"
+    assert (
+        cast(int, observation["pagination_duplicate_or_gap_count"])
+        > 0
+    )
+
+
+def test_observation_rejects_matching_extra_primary_score_entries(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root, protocol_path, _, _ = _synthetic_protocol(tmp_path)
+    original = retrieval_order_workflow._observe_case  # pyright: ignore[reportPrivateUsage]
+
+    def forged(*args: object, **kwargs: object) -> dict[str, object]:
+        result = original(*args, **kwargs)  # type: ignore[arg-type]
+        scores = cast(
+            dict[tuple[str, str, int, int], str],
+            result["score_by_projection"],
+        )
+        scores[(f"sha256:{'f' * 64}", "page", 99, 99)] = next(
+            iter(scores.values())
+        )
+        return result
+
+    monkeypatch.setattr(
+        retrieval_order_workflow,
+        "_observe_case",
+        forged,
+    )
+
+    observation = observe_retrieval_order_partition(
+        protocol_path=protocol_path,
+        partition="development",
+        repository_root=root,
+    )
+
+    assert observation["observation_status"] == "failed"
+    assert cast(int, observation["score_hex_delta"]) > 0
 
 
 def test_controlled_id_schedule_restores_generator_after_failure() -> None:
@@ -675,7 +859,8 @@ def test_development_and_holdout_publish_receipt_before_synthetic_fixture_open(
     assert holdout_result["mode"] == "holdout"
     assert holdout_result["output_state"] == "complete_visible"
     assert holdout_result["publication_outcome"] == "published"
-    assert opened == [holdout_path]
+    assert opened
+    assert set(opened) == {holdout_path}
     assert holdout_capability_types == [SyntheticHoldoutCapability]
     retained_artifact = json.loads(artifact.read_text(encoding="utf-8"))
     assert retained_artifact["holdout_status"] == "observed"
@@ -688,6 +873,7 @@ def test_development_and_holdout_publish_receipt_before_synthetic_fixture_open(
         for candidate in candidate_seals
     )
 
+    opened_before_repeat = list(opened)
     assert main(
         [
             "holdout",
@@ -704,7 +890,7 @@ def test_development_and_holdout_publish_receipt_before_synthetic_fixture_open(
     ) == 1
     repeated = json.loads(capsys.readouterr().out)
     assert repeated["problem"] == "retrieval_order_holdout_already_started"
-    assert opened == [holdout_path]
+    assert opened == opened_before_repeat
 
 
 @pytest.mark.parametrize(
@@ -1046,12 +1232,13 @@ def test_holdout_rechecks_exact_post_receipt_authority(
         assert raised.value.publication.output_state == "complete_visible"
         assert raised.value.publication.publication_outcome == "published"
         assert raised.value.next_step == "retain_receipt_and_stop"
-    assert opened == (
-        0
-        if mutation_point == "staged_before_receipt"
+    if (
+        mutation_point == "staged_before_receipt"
         or mutation_point.startswith("consume_")
-        else 1
-    )
+    ):
+        assert opened == 0
+    else:
+        assert opened >= 1
     assert not artifact.exists()
     assert publication_destinations.count(artifact.resolve()) == 0
 
@@ -1394,7 +1581,8 @@ def test_holdout_artifact_fault_retains_exact_receipt_publication(
         )
 
     assert calls == 2
-    assert opened == [holdout_path]
+    assert opened
+    assert set(opened) == {holdout_path}
     assert receipt.exists()
     publication = raised.value.publication
     assert publication is not None
@@ -1565,6 +1753,25 @@ def _synthetic_case(
             }
         )
         projections.append(projection)
+    ordered = list(zip(candidates, projections, strict=True))
+    if strategy == "fts":
+        ordered.sort(
+            key=lambda item: (
+                item[0]["locator_start"],
+                item[0]["locator_kind"],
+                item[0]["locator_end"],
+                item[0]["asset_sha256"],
+            )
+        )
+    else:
+        ordered.sort(
+            key=lambda item: (
+                item[0]["content_fingerprint"],
+                item[0]["locator_kind"],
+                item[0]["locator_start"],
+                item[0]["locator_end"],
+            )
+        )
     return {
         "case_id": f"synthetic-{partition}-{label}",
         "strategy": strategy,
@@ -1574,8 +1781,8 @@ def _synthetic_case(
             if strategy == "fts"
             else "合成排序验证"
         ),
-        "candidates": candidates,
-        "expected_stable_projections": projections,
+        "candidates": [item[0] for item in ordered],
+        "expected_stable_projections": [item[1] for item in ordered],
     }
 
 

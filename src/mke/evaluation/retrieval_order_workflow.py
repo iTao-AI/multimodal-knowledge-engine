@@ -28,6 +28,7 @@ from mke.evaluation._atomic_json_publication import (
     publish_json_no_replace,
 )
 from mke.evaluation.retrieval_order_artifact import (
+    _evaluate_protocol_partition,  # pyright: ignore[reportPrivateUsage]
     build_development_freeze,
     build_holdout_receipt,
     build_retrieval_order_artifact,
@@ -457,6 +458,10 @@ def observe_retrieval_order_partition(
     )
     fixture = contract.fixture
     cases = cast(list[object], fixture["cases"])
+    expected_cases = _evaluate_protocol_partition(
+        fixture,
+        partition=partition,
+    )
     observations: list[dict[str, object]] = []
     stable_count = 0
     membership_delta = 0
@@ -464,10 +469,21 @@ def observe_retrieval_order_partition(
     non_tied_delta = 0
     pagination_delta = 0
     profile: dict[str, object] | None = None
-    for raw_case in cases:
+    for raw_case, expected_case in zip(cases, expected_cases, strict=True):
         case = _object(raw_case)
-        forward = _observe_case(case, schedule_name="forward_ids")
-        reverse = _observe_case(case, schedule_name="reverse_ids")
+        expected_case_id, expected_strategy, expected_projections = (
+            expected_case
+        )
+        forward = _observe_case(
+            case,
+            schedule_name="forward_ids",
+            expected_projections=expected_projections,
+        )
+        reverse = _observe_case(
+            case,
+            schedule_name="reverse_ids",
+            expected_projections=expected_projections,
+        )
         if profile is None:
             profile = cast(dict[str, object], forward["runtime_profile"])
         forward_projection = cast(
@@ -476,7 +492,25 @@ def observe_retrieval_order_partition(
         reverse_projection = cast(
             list[list[object]], reverse["stable_projections"]
         )
-        stable = forward_projection == reverse_projection
+        frozen_projection = [list(item) for item in expected_projections]
+        forward_scores_valid = _score_inventory_matches(
+            forward,
+            expected_projections=expected_projections,
+        )
+        reverse_scores_valid = _score_inventory_matches(
+            reverse,
+            expected_projections=expected_projections,
+        )
+        stable = (
+            case["case_id"] == expected_case_id
+            and case["strategy"] == expected_strategy
+            and forward_projection == frozen_projection
+            and reverse_projection == frozen_projection
+            and forward_scores_valid
+            and reverse_scores_valid
+            and forward["score_by_projection"]
+            == reverse["score_by_projection"]
+        )
         stable_count += int(stable)
         forward_membership = {
             tuple(item) for item in forward_projection
@@ -488,6 +522,9 @@ def observe_retrieval_order_partition(
             forward_membership.symmetric_difference(reverse_membership)
         )
         score_delta += _score_delta(forward, reverse)
+        score_delta += int(
+            not forward_scores_valid or not reverse_scores_valid
+        )
         non_tied_delta += _non_tied_pair_delta(forward, reverse)
         pagination_delta += int(forward["pagination_lossless"] is not True)
         pagination_delta += int(reverse["pagination_lossless"] is not True)
@@ -531,7 +568,10 @@ def observe_retrieval_order_partition(
 
 
 def _observe_case(
-    case: dict[str, object], *, schedule_name: Literal["forward_ids", "reverse_ids"]
+    case: dict[str, object],
+    *,
+    schedule_name: Literal["forward_ids", "reverse_ids"],
+    expected_projections: tuple[tuple[str, str, int, int], ...],
 ) -> dict[str, object]:
     candidates = cast(list[dict[str, object]], case["candidates"])
     by_source: dict[str, list[dict[str, object]]] = {}
@@ -661,14 +701,11 @@ def _observe_case(
                         )
                         score_by_projection[key] = "cjk-equal-overlap"
                         score_hex.append([projection, "cjk-equal-overlap"])
-                pagination_lossless = all(
-                    [
-                        item
-                        for offset in range(0, len(projections), page_size)
-                        for item in projections[offset : offset + page_size]
-                    ]
-                    == projections
-                    for page_size in (1, 2, max(1, len(projections)))
+                pagination_lossless = _pagination_lossless(
+                    engine,
+                    query=cast(str, case["query"]),
+                    expected_projections=expected_projections,
+                    page_sizes=(1, 2, max(1, len(expected_projections))),
                 )
                 connection = engine._store._connection  # pyright: ignore[reportPrivateUsage]
                 profile = retrieval_runtime_profile(connection)
@@ -681,6 +718,104 @@ def _observe_case(
         "pagination_lossless": pagination_lossless,
         "runtime_profile": profile,
     }
+
+
+def _pagination_lossless(
+    engine: KnowledgeEngine,
+    *,
+    query: str,
+    expected_projections: tuple[tuple[str, str, int, int], ...],
+    page_sizes: tuple[int, int, int],
+) -> bool:
+    for page_size in page_sizes:
+        position = 0
+        authority: object | None = None
+        collected: list[tuple[str, str, int, int]] = []
+        while True:
+            try:
+                page = engine.search_evidence_page(
+                    query,
+                    position=position,
+                    page_size=page_size,
+                    authority_validator=lambda value: None,
+                )
+            except Exception:
+                return False
+            if page.position != position:
+                return False
+            if authority is None:
+                authority = page.authority
+            elif page.authority != authority:
+                return False
+            page_projections = [
+                (
+                    item.provenance.content_fingerprint,
+                    item.provenance.result.locator_kind,
+                    item.provenance.result.locator_start,
+                    item.provenance.result.locator_end,
+                )
+                for item in page.results
+            ]
+            if len(page_projections) > page_size:
+                return False
+            collected.extend(page_projections)
+            if len(collected) > len(expected_projections):
+                return False
+            if tuple(collected) != expected_projections[: len(collected)]:
+                return False
+            if page.more_in_selected_pool:
+                if not page_projections or len(collected) == len(
+                    expected_projections
+                ):
+                    return False
+                position += len(page_projections)
+                continue
+            if len(collected) != len(expected_projections):
+                return False
+            break
+    return True
+
+
+def _score_inventory_matches(
+    observation: dict[str, object],
+    *,
+    expected_projections: tuple[tuple[str, str, int, int], ...],
+) -> bool:
+    raw_map = observation.get("score_by_projection")
+    raw_records = observation.get("score_hex")
+    if not isinstance(raw_map, dict) or not isinstance(raw_records, list):
+        return False
+    score_map = cast(dict[object, object], raw_map)
+    records = cast(list[object], raw_records)
+    if set(score_map) != set(expected_projections):
+        return False
+    values = list(score_map.values())
+    if (
+        not values
+        or not all(isinstance(value, str) and value for value in values)
+        or len(set(values)) != 1
+        or len(records) != len(expected_projections)
+    ):
+        return False
+    seen: set[tuple[str, str, int, int]] = set()
+    for raw_record, projection in zip(
+        records,
+        expected_projections,
+        strict=True,
+    ):
+        if not isinstance(raw_record, list):
+            return False
+        record = cast(list[object], raw_record)
+        if (
+            len(record) != 2
+            or not isinstance(record[0], list)
+            or tuple(cast(list[object], record[0])) != projection
+            or projection in seen
+            or record[1] != score_map[projection]
+        ):
+            return False
+        seen.add(projection)
+    return True
 
 
 def _score_delta(

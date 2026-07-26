@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 from collections.abc import Sequence
 from pathlib import Path
@@ -11,7 +12,10 @@ from typing import cast
 from mke.evaluation.retrieval_order_protocol import (
     RetrievalOrderProtocolMetadata,
     load_retrieval_order_protocol_metadata,
+    load_retrieval_order_protocol_partition,
 )
+from mke.retrieval import compile_fts5_query
+from mke.retrieval.cjk_active_scan import compile_cjk_overlap_terms
 
 _SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 _HEAD_RE = re.compile(r"[0-9a-f]{40}\Z")
@@ -24,6 +28,8 @@ _RUNTIME_FIELDS = {
     "strategy_revision",
     "query_policy_revision",
 }
+_Projection = tuple[str, str, int, int]
+_ExpectedCase = tuple[str, str, tuple[_Projection, ...]]
 
 
 class RetrievalOrderArtifactError(ValueError):
@@ -140,6 +146,13 @@ def validate_development_freeze(
     observation = _observation(
         freeze["observation"],
         partition="development",
+        expected_cases=_evaluate_protocol_partition(
+            load_retrieval_order_protocol_partition(
+                metadata,
+                "development",
+            ).fixture,
+            partition="development",
+        ),
     )
     if observation["runtime_profile"] != candidate["runtime_profile"]:
         raise RetrievalOrderArtifactError
@@ -350,6 +363,13 @@ def _validate_artifact_payload(
     observation = _observation(
         artifact["observation"],
         partition="holdout",
+        expected_cases=_evaluate_protocol_partition(
+            load_retrieval_order_protocol_partition(
+                metadata,
+                "holdout",
+            ).fixture,
+            partition="holdout",
+        ),
     )
     if observation["runtime_profile"] != candidate_seal["runtime_profile"]:
         raise RetrievalOrderArtifactError
@@ -383,7 +403,9 @@ def _runtime_profile(value: object) -> dict[str, object]:
                 "fts5_rank_configuration",
             )
         )
+        or type(runtime["strategy_revision"]) is not int
         or runtime["strategy_revision"] != 2
+        or type(runtime["query_policy_revision"]) is not int
         or runtime["query_policy_revision"] != 1
     ):
         raise RetrievalOrderArtifactError
@@ -402,6 +424,7 @@ def _observation(
     value: object,
     *,
     partition: str,
+    expected_cases: tuple[_ExpectedCase, ...],
 ) -> dict[str, object]:
     observation = _object(value)
     required = {
@@ -423,6 +446,7 @@ def _observation(
         or observation["integrity_status"] != "passed"
         or observation["observation_status"] != "passed"
         or observation["partition"] != partition
+        or type(observation["stable_order_rate"]) is not float
         or observation["stable_order_rate"] != 1.0
         or any(
             type(observation[field]) is not int
@@ -434,7 +458,9 @@ def _observation(
                 "pagination_duplicate_or_gap_count",
             )
         )
+        or type(observation["strategy_revision"]) is not int
         or observation["strategy_revision"] != 2
+        or type(observation["query_policy_revision"]) is not int
         or observation["query_policy_revision"] != 1
         or not isinstance(observation["cases"], list)
     ):
@@ -449,17 +475,18 @@ def _observation(
     cases = cast(list[object], observation["cases"])
     if not cases:
         raise RetrievalOrderArtifactError
-    case_ids: set[str] = set()
-    for raw_case in cases:
-        case = _case_observation(raw_case)
-        case_id = cast(str, case["case_id"])
-        if case_id in case_ids:
-            raise RetrievalOrderArtifactError
-        case_ids.add(case_id)
+    if len(cases) != len(expected_cases):
+        raise RetrievalOrderArtifactError
+    for raw_case, expected in zip(cases, expected_cases, strict=True):
+        _case_observation(raw_case, expected=expected)
     return observation
 
 
-def _case_observation(value: object) -> dict[str, object]:
+def _case_observation(
+    value: object,
+    *,
+    expected: _ExpectedCase,
+) -> dict[str, object]:
     case = _object(value)
     if set(case) != {
         "case_id",
@@ -476,10 +503,13 @@ def _case_observation(value: object) -> dict[str, object]:
     raw_forward = case["forward_stable_projections"]
     raw_reverse = case["reverse_stable_projections"]
     raw_scores = case["score_hex"]
+    expected_case_id, expected_strategy, expected_projections = expected
     if (
         not isinstance(case_id, str)
         or not case_id
         or strategy not in {"fts", "cjk"}
+        or case_id != expected_case_id
+        or strategy != expected_strategy
         or case["stable"] is not True
         or case["pagination_lossless"] is not True
         or not isinstance(raw_forward, list)
@@ -491,21 +521,205 @@ def _case_observation(value: object) -> dict[str, object]:
         raise RetrievalOrderArtifactError
     forward = cast(list[object], raw_forward)
     scores = cast(list[object], raw_scores)
-    if len(scores) != len(forward):
-        raise RetrievalOrderArtifactError
     projections = [_projection(item) for item in forward]
+    if (
+        tuple(projections) != expected_projections
+        or len(set(projections)) != len(projections)
+        or len(scores) != len(forward)
+    ):
+        raise RetrievalOrderArtifactError
+    score_projections: set[_Projection] = set()
+    score_values: list[str] = []
     for raw_score, projection in zip(scores, projections, strict=True):
         if not isinstance(raw_score, list):
             raise RetrievalOrderArtifactError
         score_record = cast(list[object], raw_score)
         if len(score_record) != 2:
             raise RetrievalOrderArtifactError
-        if _projection(score_record[0]) != projection:
+        score_projection = _projection(score_record[0])
+        if (
+            score_projection != projection
+            or score_projection in score_projections
+        ):
             raise RetrievalOrderArtifactError
+        score_projections.add(score_projection)
         score = score_record[1]
         if not isinstance(score, str) or not score:
             raise RetrievalOrderArtifactError
+        score_values.append(score)
+    if len(set(score_values)) != 1:
+        raise RetrievalOrderArtifactError
+    if strategy == "fts":
+        if not _canonical_finite_float_hex(score_values[0]):
+            raise RetrievalOrderArtifactError
+    elif score_values[0] != "cjk-equal-overlap":
+        raise RetrievalOrderArtifactError
     return case
+
+
+def _canonical_finite_float_hex(value: str) -> bool:
+    try:
+        parsed = float.fromhex(value)
+    except ValueError:
+        return False
+    return math.isfinite(parsed) and parsed.hex() == value
+
+
+def _evaluate_protocol_partition(
+    fixture: dict[str, object],
+    *,
+    partition: str,
+) -> tuple[_ExpectedCase, ...]:
+    if (
+        fixture.get("partition") != partition
+        or not isinstance(fixture.get("cases"), list)
+    ):
+        raise RetrievalOrderArtifactError
+    result: list[_ExpectedCase] = []
+    seen_case_ids: set[str] = set()
+    for raw_case in cast(list[object], fixture["cases"]):
+        case = _object(raw_case)
+        case_id = case.get("case_id")
+        strategy = case.get("strategy")
+        query = case.get("query")
+        raw_candidates = case.get("candidates")
+        if (
+            not isinstance(case_id, str)
+            or not case_id
+            or case_id in seen_case_ids
+            or strategy not in {"fts", "cjk"}
+            or not isinstance(query, str)
+            or not query
+            or not isinstance(raw_candidates, list)
+        ):
+            raise RetrievalOrderArtifactError
+        candidate_values = cast(list[object], raw_candidates)
+        if len(candidate_values) < 2:
+            raise RetrievalOrderArtifactError
+        seen_case_ids.add(case_id)
+        candidates = [
+            _oracle_candidate(item)
+            for item in candidate_values
+        ]
+        if strategy == "fts":
+            if (
+                not compile_fts5_query(query, policy="current")
+                or any(candidate["text"] != query for candidate in candidates)
+            ):
+                raise RetrievalOrderArtifactError
+            keyed = [
+                (
+                    (
+                        candidate["locator_start"],
+                        candidate["locator_kind"],
+                        candidate["locator_end"],
+                        candidate["asset_sha256"],
+                    ),
+                    _candidate_projection(candidate),
+                )
+                for candidate in candidates
+            ]
+        else:
+            terms = compile_cjk_overlap_terms(
+                query,
+                require_terms=True,
+            ).terms
+            tie_values: list[tuple[int, float]] = []
+            for candidate in candidates:
+                normalized = "".join(
+                    character
+                    for character in cast(str, candidate["text"]).casefold()
+                    if not character.isspace()
+                )
+                overlap_count = sum(term in normalized for term in terms)
+                tie_values.append(
+                    (overlap_count, overlap_count / len(terms))
+                )
+            if (
+                not tie_values
+                or tie_values[0][0] == 0
+                or any(value != tie_values[0] for value in tie_values[1:])
+            ):
+                raise RetrievalOrderArtifactError
+            keyed = [
+                (
+                    (
+                        candidate["content_fingerprint"],
+                        candidate["locator_kind"],
+                        candidate["locator_start"],
+                        candidate["locator_end"],
+                    ),
+                    _candidate_projection(candidate),
+                )
+                for candidate in candidates
+            ]
+        keys = [key for key, _ in keyed]
+        if len(keys) != len(set(keys)):
+            raise RetrievalOrderArtifactError
+        derived = tuple(
+            projection for _, projection in sorted(keyed, key=lambda item: item[0])
+        )
+        raw_expected = case.get("expected_stable_projections")
+        if not isinstance(raw_expected, list):
+            raise RetrievalOrderArtifactError
+        expected = tuple(
+            _projection(item)
+            for item in cast(list[object], raw_expected)
+        )
+        if expected != derived:
+            raise RetrievalOrderArtifactError
+        result.append((case_id, cast(str, strategy), derived))
+    if not result:
+        raise RetrievalOrderArtifactError
+    return tuple(result)
+
+
+def _oracle_candidate(value: object) -> dict[str, object]:
+    candidate = _object(value)
+    required = {
+        "source_id",
+        "content_fingerprint",
+        "asset_sha256",
+        "locator_kind",
+        "locator_start",
+        "locator_end",
+        "text",
+    }
+    if set(candidate) != required:
+        raise RetrievalOrderArtifactError
+    fingerprint, kind, start, end = _projection(
+        [
+            candidate["content_fingerprint"],
+            candidate["locator_kind"],
+            candidate["locator_start"],
+            candidate["locator_end"],
+        ]
+    )
+    asset = candidate["asset_sha256"]
+    text = candidate["text"]
+    if (
+        not isinstance(asset, str)
+        or _SHA256_RE.fullmatch(asset) is None
+        or fingerprint != f"sha256:{asset}"
+        or not isinstance(text, str)
+        or not text
+    ):
+        raise RetrievalOrderArtifactError
+    return candidate | {
+        "content_fingerprint": fingerprint,
+        "locator_kind": kind,
+        "locator_start": start,
+        "locator_end": end,
+    }
+
+
+def _candidate_projection(candidate: dict[str, object]) -> _Projection:
+    return (
+        cast(str, candidate["content_fingerprint"]),
+        cast(str, candidate["locator_kind"]),
+        cast(int, candidate["locator_start"]),
+        cast(int, candidate["locator_end"]),
+    )
 
 
 def _projection(value: object) -> tuple[str, str, int, int]:
