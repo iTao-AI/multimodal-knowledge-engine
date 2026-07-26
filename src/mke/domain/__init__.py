@@ -565,6 +565,7 @@ def validate_manifest(manifest: RunManifest, evidence: list[CandidateEvidence]) 
         raise ManifestValidationError("RunManifest required stages are incomplete")
     if len(manifest.asset_sha256) != 64:
         raise ManifestValidationError("RunManifest asset sha256 must be a hex digest")
+    seen_locators: set[tuple[str, int, int]] = set()
     for item in evidence:
         if item.locator_kind != expected_locator_kind:
             raise ManifestValidationError(f"Evidence locator kind must be {expected_locator_kind}")
@@ -580,6 +581,16 @@ def validate_manifest(manifest: RunManifest, evidence: list[CandidateEvidence]) 
             )
         if not item.text.strip():
             raise ManifestValidationError("Evidence text must not be empty")
+        locator = (
+            item.locator_kind,
+            item.locator_start,
+            item.locator_end,
+        )
+        if locator in seen_locators:
+            raise ManifestValidationError(
+                "Evidence locators must be unique within one Run"
+            )
+        seen_locators.add(locator)
 
 
 from .library_export import (  # noqa: E402

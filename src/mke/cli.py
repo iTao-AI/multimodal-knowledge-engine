@@ -104,6 +104,7 @@ from mke.retrieval import (
     require_retrieval_strategy,
 )
 from mke.retrieval.cjk_active_scan import CjkActiveScanError
+from mke.retrieval.errors import RetrievalAuthorityError
 from mke.retrieval.readiness import RetrievalReadiness, doctor_retrieval_strategy
 from mke.runtime import (
     DEFAULT_MODEL_REVISION,
@@ -1387,7 +1388,7 @@ def _ingest(engine: KnowledgeEngine, path: Path, *, json_output: bool = False) -
 def _search(engine: KnowledgeEngine, query: str) -> int:
     try:
         matches = engine.search(query)
-    except CjkActiveScanError as error:
+    except (CjkActiveScanError, RetrievalAuthorityError) as error:
         _print_error_contract(
             error.cause,
             problem=error.problem,
@@ -1401,7 +1402,11 @@ def _search(engine: KnowledgeEngine, query: str) -> int:
 def _ask(engine: KnowledgeEngine, question: str) -> int:
     try:
         result = engine.ask(question)
-    except (AskValidationError, CjkActiveScanError) as error:
+    except (
+        AskValidationError,
+        CjkActiveScanError,
+        RetrievalAuthorityError,
+    ) as error:
         _print_error_contract(error.cause, problem=error.problem, next_step=error.next_step)
         return 1
     print(
@@ -1906,7 +1911,7 @@ def _retrieval_rebuild(
 
 
 def _retrieval_readiness_payload(readiness: RetrievalReadiness) -> dict[str, object]:
-    return {
+    payload: dict[str, object] = {
         "status": readiness.status,
         "strategy": readiness.strategy,
         "problem": readiness.problem,
@@ -1917,6 +1922,9 @@ def _retrieval_readiness_payload(readiness: RetrievalReadiness) -> dict[str, obj
             for check in readiness.checks
         ],
     }
+    if readiness.problem == "retrieval_authority_invalid":
+        payload["active_publication_impact"] = "unchanged"
+    return payload
 
 
 def _readiness_payload(readiness: TranscriptionReadiness) -> dict[str, object]:

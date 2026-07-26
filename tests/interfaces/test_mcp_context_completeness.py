@@ -44,6 +44,43 @@ def test_search_exposes_selection_completeness(tmp_path: Path) -> None:
     assert "search_library_v2" in tools
 
 
+def test_v2_search_returns_retrieval_authority_invalid(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import mke.interfaces.mcp_completeness_contract as contract
+    from mke.interfaces.mcp_schemas import SearchLibraryV2Request
+    from mke.retrieval.errors import RetrievalAuthorityError
+
+    class InvalidAuthorityEngine:
+        def search_evidence_page(
+            self, *args: object, **kwargs: object
+        ) -> object:
+            del args, kwargs
+            raise RetrievalAuthorityError
+
+        def close(self) -> None:
+            return None
+
+    def build_invalid(_runtime: RuntimeConfig) -> InvalidAuthorityEngine:
+        return InvalidAuthorityEngine()
+
+    monkeypatch.setattr(contract, "build_engine", build_invalid)
+    config = McpRuntimeConfig(RuntimeConfig(tmp_path / "mke.sqlite"), tmp_path)
+
+    response = contract.search_library_v2(
+        config,
+        SearchLibraryV2Request(root={"query": "redacted query", "limit": 5}),
+    )
+
+    assert response.root.problem == "retrieval_authority_invalid"  # type: ignore[union-attr]
+    assert response.root.cause == (  # type: ignore[union-attr]
+        "active retrieval candidates contain duplicate stable Evidence locators"
+    )
+    assert response.root.next_step == (  # type: ignore[union-attr]
+        "restore_valid_database_or_reingest_into_new_database"
+    )
+
+
 def test_oversized_v1_has_typed_exact_read_recovery(tmp_path: Path) -> None:
     config = McpRuntimeConfig(RuntimeConfig(tmp_path / "mke.sqlite"), tmp_path)
     engine = KnowledgeEngine(config.db_path)

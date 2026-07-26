@@ -1,5 +1,6 @@
 """Project-owned retrieval query policy contracts."""
 
+from mke.retrieval.errors import RetrievalAuthorityError
 from mke.retrieval.query_policy import (
     DEFAULT_RETRIEVAL_QUERY_POLICY,
     SUPPORTED_RETRIEVAL_QUERY_POLICIES,
@@ -19,6 +20,7 @@ __all__ = [
     "DEFAULT_RETRIEVAL_QUERY_POLICY",
     "DEFAULT_RETRIEVAL_STRATEGY",
     "RetrievalQueryPolicy",
+    "RetrievalAuthorityError",
     "RetrievalStrategy",
     "RetrievalStrategyDescriptor",
     "SUPPORTED_RETRIEVAL_QUERY_POLICIES",

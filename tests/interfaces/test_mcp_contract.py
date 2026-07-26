@@ -102,6 +102,64 @@ def test_mcp_search_and_ask_return_stable_active_scan_budget_error(
         }
 
 
+def test_mcp_search_and_ask_return_retrieval_authority_invalid(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mke.interfaces.mcp_contract import ask_library_v1, search_library_v1
+    from mke.retrieval.errors import RetrievalAuthorityError
+
+    class InvalidAuthorityEngine:
+        def search(self, query: str, limit: int | None = None) -> object:
+            del query, limit
+            raise RetrievalAuthorityError
+
+        def ask(self, question: str, limit: int = 5) -> object:
+            del question, limit
+            raise RetrievalAuthorityError
+
+        def search_provenance_snapshot(
+            self, query: str, limit: int = 5
+        ) -> object:
+            del query, limit
+            raise RetrievalAuthorityError
+
+        def ask_provenance_snapshot(
+            self, question: str, limit: int = 5
+        ) -> object:
+            del question, limit
+            raise RetrievalAuthorityError
+
+        def close(self) -> None:
+            return None
+
+    def build_invalid_engine(_config: RuntimeConfig) -> InvalidAuthorityEngine:
+        return InvalidAuthorityEngine()
+
+    monkeypatch.setattr(
+        mke.interfaces.mcp_contract,
+        "build_engine",
+        build_invalid_engine,
+    )
+    config = _config(tmp_path, tmp_path)
+    expected = {
+        "ok": False,
+        "problem": "retrieval_authority_invalid",
+        "cause": "active retrieval candidates contain duplicate stable Evidence locators",
+        "active_publication_impact": "unchanged",
+        "next_step": "restore_valid_database_or_reingest_into_new_database",
+    }
+
+    assert search_library(config, "redacted query") == expected
+    assert ask_library(config, "redacted query") == expected
+    for response in (
+        search_library_v1(config, "redacted query"),
+        ask_library_v1(config, "redacted query"),
+    ):
+        assert response.root.problem == expected["problem"]  # type: ignore[union-attr]
+        assert response.root.cause == expected["cause"]  # type: ignore[union-attr]
+        assert response.root.next_step == expected["next_step"]  # type: ignore[union-attr]
+
+
 def test_ingest_file_publishes_pdf_and_search_returns_page_evidence(tmp_path: Path) -> None:
     config = _config(tmp_path, PDF_FIXTURES)
 
