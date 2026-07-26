@@ -9,11 +9,13 @@ import pytest
 from mke.evaluation.hybrid_rrf_protocol import (
     HybridRrfProtocolError,
     build_hybrid_rrf_protocol_lock,
+    load_hybrid_rrf_protocol_lock,
     render_hybrid_rrf_protocol_lock_json,
     validate_hybrid_rrf_protocol_lock,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
+PROTOCOL = ROOT / "tests/fixtures/retrieval-hybrid-rrf-v1/protocol-lock.json"
 
 
 @pytest.fixture
@@ -21,14 +23,21 @@ def repository_root() -> Path:
     return ROOT
 
 
+def _recorded_protocol() -> dict[str, object]:
+    return load_hybrid_rrf_protocol_lock(PROTOCOL, repository_root=ROOT)
+
+
 def test_protocol_lock_is_byte_stable(repository_root: Path) -> None:
-    protocol = build_hybrid_rrf_protocol_lock(repository_root=repository_root)
+    protocol = load_hybrid_rrf_protocol_lock(
+        PROTOCOL,
+        repository_root=repository_root,
+    )
     rendered = render_hybrid_rrf_protocol_lock_json(protocol)
     reparsed = json.loads(rendered)
 
     assert rendered.endswith("\n")
     assert reparsed == protocol
-    validate_hybrid_rrf_protocol_lock(protocol, repository_root=repository_root)
+    assert rendered.encode() == PROTOCOL.read_bytes()
 
 
 def test_protocol_freezes_candidate_rrf_arms_and_inputs(repository_root: Path) -> None:
@@ -83,7 +92,7 @@ def test_protocol_freezes_candidate_rrf_arms_and_inputs(repository_root: Path) -
 
 
 def test_protocol_rejects_bool_revision(repository_root: Path) -> None:
-    protocol = build_hybrid_rrf_protocol_lock(repository_root=repository_root)
+    protocol = _copy(_recorded_protocol())
     cast(dict[str, object], protocol["candidate"])["candidate_revision"] = True
 
     with pytest.raises(HybridRrfProtocolError, match="candidate"):
@@ -91,7 +100,7 @@ def test_protocol_rejects_bool_revision(repository_root: Path) -> None:
 
 
 def test_protocol_rejects_path_and_identity_tampering(repository_root: Path) -> None:
-    protocol = build_hybrid_rrf_protocol_lock(repository_root=repository_root)
+    protocol = _recorded_protocol()
 
     changed = _copy(protocol)
     inputs = cast(dict[str, dict[str, object]], changed["inputs"])
@@ -111,7 +120,7 @@ def test_protocol_rejects_path_and_identity_tampering(repository_root: Path) -> 
 def test_protocol_rejects_bad_candidate_and_locator_contract(
     repository_root: Path,
 ) -> None:
-    protocol = build_hybrid_rrf_protocol_lock(repository_root=repository_root)
+    protocol = _recorded_protocol()
 
     changed = _copy(protocol)
     cast(dict[str, object], changed["candidate"])["candidate_id"] = "other"
