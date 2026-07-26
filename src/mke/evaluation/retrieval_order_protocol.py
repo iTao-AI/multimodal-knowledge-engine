@@ -48,7 +48,7 @@ class RetrievalOrderKeyContract:
 
 
 @dataclass(frozen=True)
-class PartitionContract:
+class PartitionMetadata:
     name: Literal["development", "holdout"]
     path: Path
     bytes: int
@@ -58,6 +58,23 @@ class PartitionContract:
     query_ids: frozenset[str]
     coverage: frozenset[str]
     expected_stable_projections: tuple[tuple[str, str, int, int], ...]
+
+
+@dataclass(frozen=True)
+class PartitionContract(PartitionMetadata):
+    fixture: dict[str, object]
+
+
+@dataclass(frozen=True)
+class RetrievalOrderProtocolMetadata:
+    schema_version: Literal["mke.retrieval_order_protocol.v1"]
+    protocol_id: Literal["retrieval-order-v1"]
+    protocol_path: Path
+    protocol_sha256: str
+    key_contract: RetrievalOrderKeyContract
+    development: PartitionMetadata
+    holdout: PartitionMetadata
+    runtime_profile_fields: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -73,10 +90,37 @@ class RetrievalOrderProtocol:
 def load_retrieval_order_protocol(
     path: Path, *, repository_root: Path
 ) -> RetrievalOrderProtocol:
+    metadata = load_retrieval_order_protocol_metadata(
+        path,
+        repository_root=repository_root,
+    )
+    return RetrievalOrderProtocol(
+        schema_version=_SCHEMA,
+        protocol_id=_PROTOCOL_ID,
+        key_contract=metadata.key_contract,
+        development=load_retrieval_order_protocol_partition(
+            metadata,
+            "development",
+        ),
+        holdout=load_retrieval_order_protocol_partition(
+            metadata,
+            "holdout",
+        ),
+        runtime_profile_fields=metadata.runtime_profile_fields,
+    )
+
+
+def load_retrieval_order_protocol_metadata(
+    path: Path,
+    *,
+    repository_root: Path,
+) -> RetrievalOrderProtocolMetadata:
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
         root = repository_root.resolve()
-        payload = _object(value)
+        protocol_path = path.resolve()
+        payload = _object(
+            json.loads(protocol_path.read_text(encoding="utf-8"))
+        )
         if set(payload) != {
             "schema_version",
             "protocol_id",
@@ -110,10 +154,14 @@ def load_retrieval_order_protocol(
         partitions = _object(payload["partitions"])
         if set(partitions) != {"development", "holdout"}:
             raise RetrievalOrderProtocolError
-        development = _load_partition(
+        development = _load_partition_metadata(
             "development", partitions["development"], root=root
         )
-        holdout = _load_partition("holdout", partitions["holdout"], root=root)
+        holdout = _load_partition_metadata(
+            "holdout",
+            partitions["holdout"],
+            root=root,
+        )
         if (
             development.sha256 == holdout.sha256
             or not development.source_ids.isdisjoint(holdout.source_ids)
@@ -121,9 +169,13 @@ def load_retrieval_order_protocol(
             or not development.case_ids.isdisjoint(holdout.case_ids)
         ):
             raise RetrievalOrderProtocolError
-        return RetrievalOrderProtocol(
+        return RetrievalOrderProtocolMetadata(
             schema_version=_SCHEMA,
             protocol_id=_PROTOCOL_ID,
+            protocol_path=protocol_path,
+            protocol_sha256=hashlib.sha256(
+                protocol_path.read_bytes()
+            ).hexdigest(),
             key_contract=RetrievalOrderKeyContract(_FTS_KEY, _CJK_KEY),
             development=development,
             holdout=holdout,
@@ -137,12 +189,12 @@ def load_retrieval_order_protocol(
         ) from error
 
 
-def _load_partition(
+def _load_partition_metadata(
     name: Literal["development", "holdout"],
     value: object,
     *,
     root: Path,
-) -> PartitionContract:
+) -> PartitionMetadata:
     record = _object(value)
     if set(record) != {"path", "bytes", "sha256", "cases"}:
         raise RetrievalOrderProtocolError
@@ -150,27 +202,16 @@ def _load_partition(
     fixture_path = (root / relative_path).resolve()
     if not fixture_path.is_relative_to(root) or not fixture_path.is_file():
         raise RetrievalOrderProtocolError
-    data = fixture_path.read_bytes()
     byte_count = record["bytes"]
     sha256 = record["sha256"]
     if (
         isinstance(byte_count, bool)
         or not isinstance(byte_count, int)
         or byte_count <= 0
-        or byte_count != len(data)
         or not isinstance(sha256, str)
         or _SHA256_RE.fullmatch(sha256) is None
-        or hashlib.sha256(data).hexdigest() != sha256
     ):
         raise RetrievalOrderProtocolError
-    fixture = _object(json.loads(data))
-    (
-        case_ids,
-        source_ids,
-        query_ids,
-        coverage,
-        projections,
-    ) = _validate_cases_fixture(fixture, name=name)
     metadata = _object(record["cases"])
     if set(metadata) != {
         "case_ids",
@@ -181,15 +222,26 @@ def _load_partition(
     }:
         raise RetrievalOrderProtocolError
     if (
-        frozenset(_unique_strings(metadata["case_ids"])) != case_ids
-        or frozenset(_unique_strings(metadata["source_ids"])) != source_ids
-        or frozenset(_unique_strings(metadata["query_ids"])) != query_ids
-        or frozenset(_unique_strings(metadata["coverage"])) != coverage
-        or sorted(_projections(metadata["expected_stable_projections"]))
-        != sorted(projections)
+        not (case_ids := frozenset(_unique_strings(metadata["case_ids"])))
+        or not (
+            source_ids := frozenset(
+                _unique_strings(metadata["source_ids"])
+            )
+        )
+        or not (
+            query_ids := frozenset(_unique_strings(metadata["query_ids"]))
+        )
+        or not (coverage := frozenset(_unique_strings(metadata["coverage"])))
+        or not (
+            projections := _projections(
+                metadata["expected_stable_projections"]
+            )
+        )
+        or not {"fts", "cjk", "page"}.issubset(coverage)
+        or (name == "development" and "timestamp" not in coverage)
     ):
         raise RetrievalOrderProtocolError
-    return PartitionContract(
+    return PartitionMetadata(
         name=name,
         path=fixture_path,
         bytes=byte_count,
@@ -200,6 +252,48 @@ def _load_partition(
         coverage=coverage,
         expected_stable_projections=tuple(projections),
     )
+
+
+def load_retrieval_order_protocol_partition(
+    metadata: RetrievalOrderProtocolMetadata,
+    partition: Literal["development", "holdout"],
+) -> PartitionContract:
+    try:
+        record = (
+            metadata.development
+            if partition == "development"
+            else metadata.holdout
+        )
+        data = record.path.read_bytes()
+        if (
+            len(data) != record.bytes
+            or hashlib.sha256(data).hexdigest() != record.sha256
+        ):
+            raise RetrievalOrderProtocolError
+        fixture = _object(json.loads(data))
+        (
+            case_ids,
+            source_ids,
+            query_ids,
+            coverage,
+            projections,
+        ) = _validate_cases_fixture(fixture, name=partition)
+        if (
+            case_ids != record.case_ids
+            or source_ids != record.source_ids
+            or query_ids != record.query_ids
+            or coverage != record.coverage
+            or sorted(projections)
+            != sorted(record.expected_stable_projections)
+        ):
+            raise RetrievalOrderProtocolError
+        return PartitionContract(**record.__dict__, fixture=fixture)
+    except RetrievalOrderProtocolError:
+        raise
+    except Exception as error:
+        raise RetrievalOrderProtocolError(
+            "retrieval order partition is invalid"
+        ) from error
 
 
 def _validate_cases_fixture(

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from copy import deepcopy
 from pathlib import Path
 from typing import cast
 
@@ -10,14 +11,37 @@ import pytest
 from mke.evaluation.retrieval_order_protocol import (
     RetrievalOrderProtocolError,
     load_retrieval_order_protocol,
+    load_retrieval_order_protocol_metadata,
+    load_retrieval_order_protocol_partition,
+)
+from tests.evaluation.test_retrieval_order_workflow import (
+    synthetic_fixture_payload,
+    synthetic_partition_metadata,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
 PROTOCOL = ROOT / "tests/fixtures/retrieval-order-v1/protocol.json"
+CANONICAL_HOLDOUT_FIXTURE = (
+    ROOT / "tests/fixtures/retrieval-order-v1/holdout/cases.json"
+)
+
+
+@pytest.fixture(autouse=True)
+def forbid_canonical_holdout_fixture_open(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = Path.read_bytes
+
+    def guarded(path: Path) -> bytes:
+        if path.resolve() == CANONICAL_HOLDOUT_FIXTURE.resolve():
+            raise AssertionError("canonical holdout fixture must stay unopened")
+        return original(path)
+
+    monkeypatch.setattr(Path, "read_bytes", guarded)
 
 
 def test_protocol_freezes_stable_keys_partitions_and_runtime_profile() -> None:
-    protocol = load_retrieval_order_protocol(
+    protocol = load_retrieval_order_protocol_metadata(
         PROTOCOL, repository_root=ROOT
     )
 
@@ -82,6 +106,26 @@ def test_protocol_rejects_identity_partition_or_projection_tampering(
     tmp_path: Path,
     mutation: str,
 ) -> None:
+    if mutation == "hash_mismatch":
+        root, protocol_path, _, _ = _synthetic_protocol(tmp_path)
+        payload = json.loads(protocol_path.read_text(encoding="utf-8"))
+        partitions = cast(dict[str, object], payload["partitions"])
+        development = cast(
+            dict[str, object],
+            partitions["development"],
+        )
+        development["sha256"] = "0" * 64
+        protocol_path.write_text(json.dumps(payload), encoding="utf-8")
+        metadata = load_retrieval_order_protocol_metadata(
+            protocol_path,
+            repository_root=root,
+        )
+        with pytest.raises(RetrievalOrderProtocolError):
+            load_retrieval_order_protocol_partition(
+                metadata,
+                "development",
+            )
+        return
     payload = _payload()
     partitions = payload["partitions"]
     assert isinstance(partitions, dict)
@@ -97,8 +141,6 @@ def test_protocol_rejects_identity_partition_or_projection_tampering(
         development["path"] = "/tmp/cases.json"
     elif mutation == "parent_path":
         development["path"] = "../cases.json"
-    elif mutation == "hash_mismatch":
-        development["sha256"] = "0" * 64
     elif mutation == "duplicate_case_id":
         case_ids = cast(list[object], development_cases["case_ids"])
         assert isinstance(case_ids, list)
@@ -134,16 +176,102 @@ def test_protocol_rejects_identity_partition_or_projection_tampering(
         projection[0] = "evidence_opaque"
 
     with pytest.raises(RetrievalOrderProtocolError):
-        load_retrieval_order_protocol(
+        load_retrieval_order_protocol_metadata(
             _write(tmp_path, payload), repository_root=ROOT
         )
 
 
-def test_protocol_partition_hashes_bind_exact_fixture_bytes() -> None:
-    protocol = load_retrieval_order_protocol(
+def test_protocol_metadata_records_exact_canonical_partition_identities() -> None:
+    protocol = load_retrieval_order_protocol_metadata(
         PROTOCOL, repository_root=ROOT
     )
-    for partition in (protocol.development, protocol.holdout):
-        assert hashlib.sha256(partition.path.read_bytes()).hexdigest() == (
-            partition.sha256
-        )
+
+    assert protocol.development.bytes == 6196
+    assert protocol.development.sha256 == (
+        "e37e9519d899fc934c1758860f1b40d3605ed065a11b1921fdac914746f733f5"
+    )
+    assert protocol.holdout.bytes == 2896
+    assert protocol.holdout.sha256 == (
+        "e95c5253d0284f8127754591b9da9aa71b30a8ceae2670ca4751456cf7d4a080"
+    )
+
+
+def test_metadata_preflight_does_not_open_partition_fixtures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root, protocol_path, development_path, holdout_path = (
+        _synthetic_protocol(tmp_path)
+    )
+    opened: list[Path] = []
+    original = Path.read_bytes
+
+    def read_bytes(path: Path) -> bytes:
+        if path.resolve() in {development_path, holdout_path}:
+            opened.append(path.resolve())
+        return original(path)
+
+    monkeypatch.setattr(Path, "read_bytes", read_bytes)
+
+    metadata = load_retrieval_order_protocol_metadata(
+        protocol_path,
+        repository_root=root,
+    )
+
+    assert opened == []
+    development = load_retrieval_order_protocol_partition(
+        metadata,
+        "development",
+    )
+    assert development.path == development_path
+    assert opened == [development_path]
+    holdout = load_retrieval_order_protocol_partition(metadata, "holdout")
+    assert holdout.path == holdout_path
+    assert opened == [development_path, holdout_path]
+    complete = load_retrieval_order_protocol(
+        protocol_path,
+        repository_root=root,
+    )
+    assert complete.development.fixture["partition"] == "development"
+    assert complete.holdout.fixture["partition"] == "holdout"
+
+
+def _synthetic_protocol(
+    tmp_path: Path,
+) -> tuple[Path, Path, Path, Path]:
+    root = tmp_path / "synthetic-repository"
+    fixture_root = root / "fixtures"
+    fixture_root.mkdir(parents=True)
+    payload = deepcopy(_payload())
+    partitions = cast(dict[str, object], payload["partitions"])
+    paths: dict[str, Path] = {}
+    for name in ("development", "holdout"):
+        record = cast(dict[str, object], partitions[name])
+        fixture = synthetic_fixture_payload(name)
+        data = (
+            json.dumps(
+                fixture,
+                ensure_ascii=True,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            + "\n"
+        ).encode()
+        destination = fixture_root / f"{name}.json"
+        destination.write_bytes(data)
+        record["path"] = destination.relative_to(root).as_posix()
+        record["bytes"] = len(data)
+        record["sha256"] = hashlib.sha256(data).hexdigest()
+        record["cases"] = synthetic_partition_metadata(fixture)
+        paths[name] = destination.resolve()
+    protocol_path = root / "protocol.json"
+    protocol_path.write_text(
+        json.dumps(payload, ensure_ascii=True, sort_keys=True),
+        encoding="utf-8",
+    )
+    return (
+        root.resolve(),
+        protocol_path.resolve(),
+        paths["development"],
+        paths["holdout"],
+    )

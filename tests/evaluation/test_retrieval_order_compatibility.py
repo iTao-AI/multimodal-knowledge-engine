@@ -1,17 +1,25 @@
 from __future__ import annotations
 
+import hashlib
 import importlib
 import json
+import subprocess
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, NoReturn
 
 import pytest
 
+import mke.evaluation._atomic_json_publication as atomic_publication
+import mke.evaluation.retrieval_order_workflow as retrieval_order_workflow
 from mke.evaluation import dense_artifact as dense_artifact_module
 from mke.evaluation import hybrid_rrf_artifact as hybrid_rrf_artifact_module
 from mke.evaluation import (
     relevance_gate_artifact as relevance_gate_artifact_module,
+)
+from tests.evaluation.test_retrieval_order_workflow import (
+    synthetic_fixture_payload,
+    synthetic_partition_metadata,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -22,6 +30,67 @@ PROTOCOL = ROOT / "tests/fixtures/retrieval-order-v1/protocol.json"
 CANONICAL = (
     ROOT / "benchmarks/retrieval/retrieval-order-v2-compatibility.json"
 )
+CANONICAL_HOLDOUT_FIXTURE = (
+    ROOT / "tests/fixtures/retrieval-order-v1/holdout/cases.json"
+)
+IMMUTABLE_INPUT_SHA256 = {
+    "benchmarks/retrieval/retrieval-eval-v1-baseline.json": (
+        "c2518b2f95a91eb91f2f83953965e186711e2b3d93725e9d83617d0fde530a88"
+    ),
+    "benchmarks/retrieval/numeric-grouping-v1-comparison.json": (
+        "98fb1f61d824d7b307d3a2745b49ed972fc6d4af292833098a15b13b860ddae9"
+    ),
+    "benchmarks/retrieval/retrieval-chinese-v1-baseline.json": (
+        "7187d999fc98f2ed0f405756f0a4b02ab4dcbb14fdb8d49d8bfd1ad205295828"
+    ),
+    "benchmarks/retrieval/cjk-trigram-overlap-v1-comparison.json": (
+        "5cb54cc7baea939b439c617ee917badff64bface2f2fe5a85b128185fdf3ed3c"
+    ),
+    "benchmarks/retrieval/qwen3-embedding-0.6b-exact-v1-comparison.json": (
+        "a992059a24b5afbd26c22f71916d7266ada9c3e9ed1fe1354447c7f5f2c40d26"
+    ),
+    "benchmarks/retrieval/cjk-active-scan-qwen3-rrf-v1-comparison.json": (
+        "6b77d29fa3b8badd7400e53fa96cd544ecf84d51563170bfc44d56975ff470c3"
+    ),
+    "benchmarks/retrieval/cjk-relevance-gate-reranker-v1-comparison.json": (
+        "e22e561618726c339bd955d1c7cfcf573080c251549e6a89c8187251d6011e36"
+    ),
+    "tests/fixtures/retrieval-eval-v1.json": (
+        "a65b33e011c7a39245a2202fa741e57a268b42da9f68d8da0725955834dd4761"
+    ),
+    "tests/fixtures/retrieval-numeric-v1/protocol-lock.json": (
+        "17c424e49237deba600fef70d47da803fb73f72d2ee65995fc155dc96e22da60"
+    ),
+    "tests/fixtures/retrieval-chinese-v1/protocol.json": (
+        "00f72934018a52b5b5f5591fba119050882aee9b782e5dac199702b0cf995944"
+    ),
+    "tests/fixtures/retrieval-dense-v1/protocol-lock.json": (
+        "afca992a7115fdb06e620168d14f8d09055f231c061b59f82c69f0be2a6e4251"
+    ),
+    "tests/fixtures/retrieval-hybrid-rrf-v1/protocol-lock.json": (
+        "2407fb3d9abfe1a1127c5d9a600dea529c32c308a42cbd3622c52211d314a716"
+    ),
+    "tests/fixtures/retrieval-relevance-gate-v1/protocol-lock.json": (
+        "6983eb5243493176d6cf97a5e7b5ae888aac9885c25e945583bc291aacf253b1"
+    ),
+    "benchmarks/retrieval/retrieval-order-v1-current-runtime-observation.json": (
+        "1a98e4e6c4eabc01663991646aac46e4a73033eef8a7e17a27db2e0fdce71691"
+    ),
+}
+
+
+@pytest.fixture(autouse=True)
+def forbid_canonical_holdout_fixture_open(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = Path.read_bytes
+
+    def guarded(path: Path) -> bytes:
+        if path.resolve() == CANONICAL_HOLDOUT_FIXTURE.resolve():
+            raise AssertionError("canonical holdout fixture must stay unopened")
+        return original(path)
+
+    monkeypatch.setattr(Path, "read_bytes", guarded)
 
 
 def _module() -> Any:
@@ -34,6 +103,15 @@ def _fail_replay(*args: object, **kwargs: object) -> NoReturn:
     del args
     del kwargs
     raise AssertionError("replay must not start")
+
+
+def _accept_validation(*args: object, **kwargs: object) -> None:
+    del args, kwargs
+
+
+def _invalid_readback(path: Path) -> bytes:
+    del path
+    return b"{}"
 
 
 def _block_all_replay(
@@ -692,6 +770,628 @@ def test_record_rejects_canonical_path_before_replay(
     assert output["status"] == "failed"
     assert output["output_state"] == "not_applicable"
     assert output["publication_outcome"] == "not_attempted"
-    assert output["problem"] == "retrieval_order_canonical_path_forbidden"
+    assert output["problem"] == (
+        "retrieval_order_canonical_publication_unauthorized"
+    )
+    assert output["cause"] == "required_success_authority_missing"
+    assert output["next_step"] == "wait_for_successful_holdout"
     assert str(ROOT) not in capture.out
     assert not CANONICAL.exists()
+
+
+def test_help_freezes_authority_boundaries(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module = _module()
+
+    with pytest.raises(SystemExit) as raised:
+        module.main(["--help"])
+
+    assert raised.value.code == 0
+    output = capsys.readouterr().out
+    for boundary in (
+        (
+            "archive validation -> historical bytes are "
+            "self-consistent only"
+        ),
+        "current replay -> current runtime compatibility only",
+        (
+            "differential validation -> revision-2 "
+            "comparison only"
+        ),
+        "temporary output -> never canonical authority",
+    ):
+        assert boundary in output
+
+
+def test_record_canonical_publishes_attempt_before_replay_and_closes_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module = _module()
+    (
+        root,
+        protocol,
+        freeze,
+        receipt,
+        retrieval_artifact,
+        candidate_head,
+    ) = _synthetic_canonical_authority(tmp_path, monkeypatch)
+    attempt = (
+        root
+        / "benchmarks/retrieval/"
+        "retrieval-order-v2-compatibility-attempt.json"
+    )
+    artifact = (
+        root
+        / "benchmarks/retrieval/"
+        "retrieval-order-v2-compatibility.json"
+    )
+    build_calls = 0
+
+    def build(**kwargs: object) -> dict[str, object]:
+        nonlocal build_calls
+        del kwargs
+        build_calls += 1
+        assert attempt.exists()
+        return {
+            "schema_version": "mke.retrieval_order_compatibility.v1",
+            "protocol": {},
+            "historical_capability": {},
+            "current_source": {},
+            "families": [],
+            "integrity_status": "passed",
+            "compatibility_status": "passed",
+            "limitations": [
+                "historical_compatibility_only",
+                "tie_permutation_only",
+                "no_relevance_improvement_claim",
+                "no_runtime_promotion",
+                "public_holdout_not_observed",
+            ],
+        }
+
+    monkeypatch.setattr(module, "build_compatibility_artifact", build)
+    monkeypatch.setattr(
+        module,
+        "validate_compatibility_artifact",
+        _accept_validation,
+    )
+
+    arguments = [
+        "record-canonical",
+        "--protocol",
+        str(protocol),
+        "--development-freeze",
+        str(freeze),
+        "--holdout-receipt",
+        str(receipt),
+        "--retrieval-artifact",
+        str(retrieval_artifact),
+        "--candidate-head",
+        candidate_head,
+        "--attempt-receipt",
+        str(attempt),
+        "--artifact",
+        str(artifact),
+        "--repository",
+        str(root),
+        "--json",
+    ]
+    assert module.main(arguments) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "passed"
+    assert result["mode"] == "record_canonical"
+    assert result["canonical"] is True
+    assert build_calls == 1
+    attempt_bytes = attempt.read_bytes()
+    assert artifact.exists()
+
+    assert module.main(arguments) == 1
+    repeated = json.loads(capsys.readouterr().out)
+    assert repeated["problem"] == (
+        "retrieval_order_canonical_publication_already_started"
+    )
+    assert attempt.read_bytes() == attempt_bytes
+    assert build_calls == 1
+
+
+def test_record_canonical_rejects_missing_success_authority_before_attempt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module = _module()
+    (
+        root,
+        protocol,
+        freeze,
+        receipt,
+        retrieval_artifact,
+        candidate_head,
+    ) = _synthetic_canonical_authority(tmp_path, monkeypatch)
+    receipt.unlink()
+    attempt = (
+        root
+        / "benchmarks/retrieval/"
+        "retrieval-order-v2-compatibility-attempt.json"
+    )
+    artifact = (
+        root
+        / "benchmarks/retrieval/"
+        "retrieval-order-v2-compatibility.json"
+    )
+    monkeypatch.setattr(
+        module,
+        "build_compatibility_artifact",
+        _fail_replay,
+    )
+
+    assert module.main(
+        [
+            "record-canonical",
+            "--protocol",
+            str(protocol),
+            "--development-freeze",
+            str(freeze),
+            "--holdout-receipt",
+            str(receipt),
+            "--retrieval-artifact",
+            str(retrieval_artifact),
+            "--candidate-head",
+            candidate_head,
+            "--attempt-receipt",
+            str(attempt),
+            "--artifact",
+            str(artifact),
+            "--repository",
+            str(root),
+            "--json",
+        ]
+    ) == 1
+    result = json.loads(capsys.readouterr().out)
+    assert result["problem"] == (
+        "retrieval_order_canonical_publication_unauthorized"
+    )
+    assert not attempt.exists()
+    assert not artifact.exists()
+
+
+@pytest.mark.parametrize(
+    ("tamper", "expected_problem"),
+    (
+        ("candidate_seal", "retrieval_order_candidate_seal_mismatch"),
+        (
+            "failed_holdout",
+            "retrieval_order_canonical_publication_unauthorized",
+        ),
+    ),
+)
+def test_record_canonical_rejects_seal_or_holdout_tamper_before_attempt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tamper: str,
+    expected_problem: str,
+) -> None:
+    module = _module()
+    authority = _synthetic_canonical_authority(tmp_path, monkeypatch)
+    root, protocol, freeze, receipt, retrieval_artifact, candidate_head = (
+        authority
+    )
+    if tamper == "candidate_seal":
+        candidate_head = "0" * 40
+    else:
+        payload = json.loads(
+            retrieval_artifact.read_text(encoding="utf-8")
+        )
+        payload["holdout_status"] = "failed"
+        retrieval_artifact.write_text(
+            json.dumps(payload),
+            encoding="utf-8",
+        )
+    attempt = root / module._CANONICAL_ATTEMPT
+    artifact = root / module._CANONICAL_ARTIFACT
+    monkeypatch.setattr(
+        module,
+        "build_compatibility_artifact",
+        _fail_replay,
+    )
+
+    result = module.record_canonical_compatibility(
+        protocol_path=protocol,
+        development_freeze_path=freeze,
+        holdout_receipt_path=receipt,
+        retrieval_artifact_path=retrieval_artifact,
+        candidate_head=candidate_head,
+        attempt_receipt_path=attempt,
+        artifact_path=artifact,
+        repository_root=root,
+    )
+
+    assert result["status"] == "failed"
+    assert result["problem"] == expected_problem
+    assert not attempt.exists()
+    assert not artifact.exists()
+
+
+def test_canonical_validate_is_pure_and_preserves_existing_bytes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module = _module()
+    authority = _synthetic_canonical_authority(tmp_path, monkeypatch)
+    root, protocol, freeze, receipt, retrieval_artifact, candidate_head = (
+        authority
+    )
+    attempt = root / module._CANONICAL_ATTEMPT
+    artifact = root / module._CANONICAL_ARTIFACT
+    monkeypatch.setattr(
+        module,
+        "build_compatibility_artifact",
+        _complete_compatibility_double,
+    )
+    monkeypatch.setattr(
+        module,
+        "validate_compatibility_artifact",
+        _accept_validation,
+    )
+    recorded = module.record_canonical_compatibility(
+        protocol_path=protocol,
+        development_freeze_path=freeze,
+        holdout_receipt_path=receipt,
+        retrieval_artifact_path=retrieval_artifact,
+        candidate_head=candidate_head,
+        attempt_receipt_path=attempt,
+        artifact_path=artifact,
+        repository_root=root,
+    )
+    assert recorded["status"] == "passed"
+    retained = artifact.read_bytes()
+    monkeypatch.setattr(
+        module,
+        "build_compatibility_artifact",
+        _fail_replay,
+    )
+    monkeypatch.setattr(
+        retrieval_order_workflow,
+        "observe_retrieval_order_partition",
+        _fail_replay,
+    )
+
+    assert module.main(
+        [
+            "validate",
+            "--protocol",
+            str(protocol),
+            "--artifact",
+            str(artifact),
+            "--repository",
+            str(root),
+            "--json",
+        ]
+    ) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "passed"
+    assert result["canonical"] is True
+    assert artifact.read_bytes() == retained
+
+
+def test_canonical_artifact_binds_exact_immutable_inputs_and_rejects_tamper(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module()
+    authority = _synthetic_canonical_authority(tmp_path, monkeypatch)
+    root, protocol, freeze, receipt, retrieval_artifact, candidate_head = (
+        authority
+    )
+    attempt = root / module._CANONICAL_ATTEMPT
+    artifact = root / module._CANONICAL_ARTIFACT
+    monkeypatch.setattr(
+        module,
+        "build_compatibility_artifact",
+        _complete_compatibility_double,
+    )
+    monkeypatch.setattr(
+        module,
+        "validate_compatibility_artifact",
+        _accept_validation,
+    )
+
+    result = module.record_canonical_compatibility(
+        protocol_path=protocol,
+        development_freeze_path=freeze,
+        holdout_receipt_path=receipt,
+        retrieval_artifact_path=retrieval_artifact,
+        candidate_head=candidate_head,
+        attempt_receipt_path=attempt,
+        artifact_path=artifact,
+        repository_root=root,
+    )
+
+    assert result["status"] == "passed"
+    payload = json.loads(artifact.read_text(encoding="utf-8"))
+    assert payload["immutable_inputs"] == IMMUTABLE_INPUT_SHA256
+    assert {
+        name: payload[name]
+        for name in (
+            "historical_bytes_frozen",
+            "archived_record_self_consistent",
+            "current_runtime_replay_compatible",
+            "revision_2_differential_valid",
+        )
+    } == {
+        "historical_bytes_frozen": "passed",
+        "archived_record_self_consistent": "passed",
+        "current_runtime_replay_compatible": "passed",
+        "revision_2_differential_valid": "passed",
+    }
+    assert payload["limitations"][-1] == "public_holdout_observed"
+    assert "public_holdout_not_observed" not in payload["limitations"]
+    payload["immutable_inputs"][
+        "benchmarks/retrieval/retrieval-eval-v1-baseline.json"
+    ] = "0" * 64
+    with pytest.raises(module.RetrievalOrderCompatibilityError):
+        module._validate_canonical_artifact(
+            payload,
+            protocol_path=protocol,
+            repository_root=root,
+            expected_authority=payload["canonical_authority"],
+        )
+
+
+@pytest.mark.parametrize(
+    "fault",
+    ("write", "file_fsync", "readback", "publish", "directory_fsync"),
+)
+def test_record_canonical_attempt_fault_never_starts_replay(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    fault: str,
+) -> None:
+    module = _module()
+    authority = _synthetic_canonical_authority(tmp_path, monkeypatch)
+    root, protocol, freeze, receipt, retrieval_artifact, candidate_head = (
+        authority
+    )
+    attempt = root / module._CANONICAL_ATTEMPT
+    artifact = root / module._CANONICAL_ARTIFACT
+    monkeypatch.setattr(
+        module,
+        "build_compatibility_artifact",
+        _fail_replay,
+    )
+    _install_atomic_fault(monkeypatch, fault)
+
+    result = module.record_canonical_compatibility(
+        protocol_path=protocol,
+        development_freeze_path=freeze,
+        holdout_receipt_path=receipt,
+        retrieval_artifact_path=retrieval_artifact,
+        candidate_head=candidate_head,
+        attempt_receipt_path=attempt,
+        artifact_path=artifact,
+        repository_root=root,
+    )
+
+    assert result["status"] == "failed"
+    assert result["first_failed_gate"] == "attempt_publication"
+    assert not artifact.exists()
+    if fault == "directory_fsync":
+        assert attempt.exists()
+        assert result["output_state"] == "complete_visible"
+        assert result["publication_outcome"] == "durability_unconfirmed"
+    else:
+        assert not attempt.exists()
+        assert result["output_state"] == "absent"
+        assert result["publication_outcome"] == "failed_before_visibility"
+
+
+@pytest.mark.parametrize(
+    "fault",
+    ("write", "file_fsync", "readback", "publish", "directory_fsync"),
+)
+def test_record_canonical_output_fault_retains_attempt_and_closes_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    fault: str,
+) -> None:
+    module = _module()
+    authority = _synthetic_canonical_authority(tmp_path, monkeypatch)
+    root, protocol, freeze, receipt, retrieval_artifact, candidate_head = (
+        authority
+    )
+    attempt = root / module._CANONICAL_ATTEMPT
+    artifact = root / module._CANONICAL_ARTIFACT
+    monkeypatch.setattr(
+        module,
+        "build_compatibility_artifact",
+        _complete_compatibility_double,
+    )
+    monkeypatch.setattr(
+        module,
+        "validate_compatibility_artifact",
+        _accept_validation,
+    )
+    original_publish = module.publish_json_no_replace
+    calls = 0
+
+    def publish(*args: object, **kwargs: object) -> Any:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            _install_atomic_fault(monkeypatch, fault)
+        return original_publish(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(module, "publish_json_no_replace", publish)
+
+    result = module.record_canonical_compatibility(
+        protocol_path=protocol,
+        development_freeze_path=freeze,
+        holdout_receipt_path=receipt,
+        retrieval_artifact_path=retrieval_artifact,
+        candidate_head=candidate_head,
+        attempt_receipt_path=attempt,
+        artifact_path=artifact,
+        repository_root=root,
+    )
+
+    assert calls == 2
+    assert attempt.exists()
+    assert result["status"] == "failed"
+    assert result["first_failed_gate"] == "compatibility_publication"
+    if fault == "directory_fsync":
+        assert artifact.exists()
+        assert result["output_state"] == "complete_visible"
+    else:
+        assert not artifact.exists()
+        assert result["output_state"] == "absent"
+    second = module.record_canonical_compatibility(
+        protocol_path=protocol,
+        development_freeze_path=freeze,
+        holdout_receipt_path=receipt,
+        retrieval_artifact_path=retrieval_artifact,
+        candidate_head=candidate_head,
+        attempt_receipt_path=attempt,
+        artifact_path=artifact,
+        repository_root=root,
+    )
+    assert second["problem"] == (
+        "retrieval_order_canonical_publication_already_started"
+    )
+    assert calls == 2
+
+
+def _complete_compatibility_double(
+    **kwargs: object,
+) -> dict[str, object]:
+    del kwargs
+    return {
+        "schema_version": "mke.retrieval_order_compatibility.v1",
+        "protocol": {},
+        "historical_capability": {},
+        "current_source": {},
+        "families": [],
+        "integrity_status": "passed",
+        "compatibility_status": "passed",
+        "limitations": [
+            "historical_compatibility_only",
+            "tie_permutation_only",
+            "no_relevance_improvement_claim",
+            "no_runtime_promotion",
+            "public_holdout_not_observed",
+        ],
+    }
+
+
+def _install_atomic_fault(
+    monkeypatch: pytest.MonkeyPatch,
+    fault: str,
+) -> None:
+    if fault == "readback":
+        monkeypatch.setattr(
+            atomic_publication,
+            "_readback_bytes",
+            _invalid_readback,
+        )
+        return
+
+    def fail(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        raise OSError("synthetic publication fault")
+
+    monkeypatch.setattr(
+        atomic_publication,
+        {
+            "write": "_write_bytes",
+            "file_fsync": "_fsync_file",
+            "publish": "_publish_no_replace",
+            "directory_fsync": "_fsync_directory",
+        }[fault],
+        fail,
+    )
+
+
+def _synthetic_canonical_authority(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[Path, Path, Path, Path, Path, str]:
+    root = tmp_path / "canonical-synthetic-repository"
+    for relative in IMMUTABLE_INPUT_SHA256:
+        source = ROOT / relative
+        destination = root / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(source.read_bytes())
+    fixture_root = root / "fixtures"
+    fixture_root.mkdir(parents=True)
+    payload = deepcopy(json.loads(PROTOCOL.read_text(encoding="utf-8")))
+    partitions = payload["partitions"]
+    for name in ("development", "holdout"):
+        record = partitions[name]
+        fixture = synthetic_fixture_payload(name)
+        data = (
+            json.dumps(
+                fixture,
+                ensure_ascii=True,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            + "\n"
+        ).encode()
+        destination = fixture_root / f"{name}.json"
+        destination.write_bytes(data)
+        record["path"] = destination.relative_to(root).as_posix()
+        record["bytes"] = len(data)
+        record["sha256"] = hashlib.sha256(data).hexdigest()
+        record["cases"] = synthetic_partition_metadata(fixture)
+    protocol = root / "protocol.json"
+    protocol.write_text(
+        json.dumps(payload, ensure_ascii=True, sort_keys=True),
+        encoding="utf-8",
+    )
+    commands = (
+        ("git", "init", "-q"),
+        ("git", "config", "user.email", "synthetic@example.invalid"),
+        ("git", "config", "user.name", "Synthetic Authority"),
+        (
+            "git",
+            "add",
+            "protocol.json",
+            "fixtures",
+            "benchmarks",
+            "tests",
+        ),
+        ("git", "commit", "-qm", "synthetic authority"),
+    )
+    for command in commands:
+        subprocess.run(command, cwd=root, check=True)
+    output = root / "benchmarks/retrieval"
+    freeze = output / "retrieval-order-v1-development-freeze.json"
+    receipt = output / "retrieval-order-v1-holdout-receipt.json"
+    retrieval_artifact = output / "retrieval-order-v1-artifact.json"
+    monkeypatch.chdir(root)
+    retrieval_order_workflow._run_development(  # pyright: ignore[reportPrivateUsage]
+        protocol_path=protocol,
+        freeze_path=freeze,
+        repository_root=root,
+    )
+    retrieval_order_workflow._run_holdout(  # pyright: ignore[reportPrivateUsage]
+        protocol_path=protocol,
+        development_freeze_path=freeze,
+        receipt_path=receipt,
+        artifact_path=retrieval_artifact,
+        repository_root=root,
+    )
+    artifact_payload = json.loads(
+        retrieval_artifact.read_text(encoding="utf-8")
+    )
+    return (
+        root.resolve(),
+        protocol.resolve(),
+        freeze.resolve(),
+        receipt.resolve(),
+        retrieval_artifact.resolve(),
+        artifact_payload["candidate_seal"]["head"],
+    )
