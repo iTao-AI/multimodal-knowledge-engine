@@ -2251,6 +2251,444 @@ archive/current/differential compatibility on the tested runtime matrix. It does
 retrieval-quality improvement, segmentation or contextual-retrieval value, production readiness,
 runtime promotion, broad portability, accuracy, latency, SLA, adoption, or release status.
 
+## Plan Amendment E — Final Candidate Regression Reconciliation
+
+This amendment was approved after the Plan Amendment D+ repair reached the complete-suite gate.
+The two-file D1 repair is retained at commit
+`74390b1c07914c9716e0bcd6becad3a2f7037b8a`, but the candidate is not sealed:
+
+- the D1 actual-diff review found that the persistent CI step incorrectly requires all five
+  canonical retrieval-order files to remain absent forever, although D+ requires unchanged
+  before/after state so the workflow remains valid after separately authorized canonical
+  publication;
+- the complete suite returned 9 failures, 3371 passes, 14 skips, and 5 warnings;
+- one failure is an omitted historical-protocol test migration already required by Task 1;
+- two failures are stale CLI success expectations that contradict the approved strict-live
+  revision-1 rejection contract; and
+- six failures share one Task 8A proof implementation defect:
+  `ProofConfig.command_timeout` does not exist and the frozen field is
+  `ProofConfig.command_timeout_seconds`.
+
+These are four bounded pre-seal reconciliation items. They are not evidence of a retrieval-quality
+regression and do not authorize a historical refresh, runtime change, validator relaxation,
+fallback, observation, promotion, or publication.
+
+This amendment supersedes only:
+
+1. D1/D4's implementation of persistent canonical-path state preservation;
+2. the incomplete Task 1 migration of `test_hybrid_rrf_protocol.py`;
+3. the two stale strict-live numeric CLI success assertions; and
+4. the Task 8A source-pack attempt-claim timeout-field typo.
+
+Every other design, plan, D+, Task 8A, Task 8B, 7B/8R, historical-freeze, candidate-seal,
+one-shot, proof, publication, and non-claim boundary remains unchanged.
+
+### E0 — Plan-only landing and authority gate
+
+Starting from clean branch `codex/deterministic-retrieval-order-maintenance` at exact HEAD
+`74390b1c07914c9716e0bcd6becad3a2f7037b8a`, append this amendment to the existing implementation
+plan immediately after Plan Amendment D+ and before Task 8B.
+
+Modify exactly:
+
+- `docs/superpowers/plans/2026-07-26-deterministic-retrieval-order-maintenance-implementation.md`
+
+Do not modify CI, source, tests, scripts, fixtures, artifacts, ADRs, how-to documents, or any other
+path in E0. Do not run tests, evaluation, proof, observation, or publication commands.
+
+Commit:
+
+```bash
+git add docs/superpowers/plans/2026-07-26-deterministic-retrieval-order-maintenance-implementation.md
+git commit -m "docs(plan): reconcile candidate regression gates"
+```
+
+Verify one changed path, one new commit, exact inserted-block bytes, `git diff --check`, public
+neutrality, unchanged design-spec bytes, all five canonical paths absent, and a clean worktree.
+Then stop for review of the actual plan diff. Do not enter E1 before that review is clean.
+
+### E1 — Preserve canonical state without permanent absence
+
+**Files:**
+
+- Modify: `.github/workflows/ci.yml`
+- Modify: `tests/evaluation/test_retrieval_order_documentation.py`
+
+**Authority boundary:**
+
+The persistent CI step owns only unchanged-before/after existence and SHA-256 state. The current
+Task 8A controller separately owns the candidate-specific fact that all five canonical paths are
+absent. Do not encode that temporary candidate fact as a permanent workflow requirement.
+
+- [ ] **Step 1: Write the focused RED**
+
+In `test_numeric_ci_step_preserves_all_canonical_paths`, retain assertions for:
+
+```text
+canonical_state_before
+canonical_state_after
+assert canonical_state_before == canonical_state_after
+each of the five canonical paths exactly once
+```
+
+Replace the assertions that require these strings to be present:
+
+```text
+assert all(value is None for value in canonical_state_before.values())
+assert all(value is None for value in canonical_state_after.values())
+```
+
+with assertions that both strings are absent from the named numeric CI step. Keep the test scoped
+to `_numeric_ci_step()`; generic workflow text is not proof.
+
+- [ ] **Step 2: Run the RED**
+
+Run:
+
+```bash
+uv run pytest -q \
+  tests/evaluation/test_retrieval_order_documentation.py::test_numeric_ci_step_preserves_all_canonical_paths
+```
+
+Expected: fail because the committed workflow still contains the permanent absence assertions.
+
+- [ ] **Step 3: Make the minimal workflow repair**
+
+In the named step
+`Reject archived numeric lock and validate current retrieval-order compatibility`, remove only:
+
+```python
+assert all(value is None for value in canonical_state_before.values())
+assert all(value is None for value in canonical_state_after.values())
+```
+
+Do not alter the five-path inventory, before-state serialization, after-state hashing, exact
+before/after equality, strict-live negative lane, temporary compatibility lane, result schemas,
+family/differential assertions, workflow triggers, job topology, permissions, action pins, Python
+matrix, `prune-cache`, dependency installation, or any unrelated step.
+
+- [ ] **Step 4: Run focused GREEN and adjacent contracts**
+
+Run:
+
+```bash
+uv run pytest -q \
+  tests/evaluation/test_retrieval_order_documentation.py \
+  tests/evaluation/test_github_actions_dependencies.py \
+  tests/evaluation/test_dense_documentation.py \
+  tests/evaluation/test_dense_artifact.py \
+  tests/scripts/test_compiled_library_export_proof.py
+```
+
+Expected: pass.
+
+- [ ] **Step 5: Verify current-candidate absence outside persistent CI**
+
+Run this controller preflight from the repository root:
+
+```bash
+for path in \
+  benchmarks/retrieval/retrieval-order-v1-development-freeze.json \
+  benchmarks/retrieval/retrieval-order-v1-holdout-receipt.json \
+  benchmarks/retrieval/retrieval-order-v1-artifact.json \
+  benchmarks/retrieval/retrieval-order-v2-compatibility-attempt.json \
+  benchmarks/retrieval/retrieval-order-v2-compatibility.json
+do
+  test ! -e "$path"
+done
+```
+
+This command is an execution gate, not committed workflow content.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add .github/workflows/ci.yml \
+  tests/evaluation/test_retrieval_order_documentation.py
+git commit -m "fix(ci): preserve canonical retrieval evidence"
+```
+
+### E2 — Align archived protocol and strict-live CLI tests
+
+**Files:**
+
+- Modify: `tests/evaluation/test_hybrid_rrf_protocol.py`
+- Modify: `tests/interfaces/test_cli_evaluation.py`
+
+Do not modify `src/mke/evaluation/hybrid_rrf_protocol.py`, `src/mke/cli.py`, any protocol or
+artifact bytes, or any runtime source.
+
+- [ ] **Step 1: Reproduce the three authority REDs**
+
+Run:
+
+```bash
+uv run pytest -q \
+  tests/evaluation/test_hybrid_rrf_protocol.py::test_protocol_lock_is_byte_stable \
+  tests/interfaces/test_cli_evaluation.py::test_cli_eval_numeric_outputs_passing_json \
+  tests/interfaces/test_cli_evaluation.py::test_cli_eval_numeric_outputs_human_status_first
+```
+
+Expected: exactly three failures:
+
+```text
+HybridRrfProtocolError: input identity drift
+numeric JSON CLI expected exit 0 but returned exit 1
+numeric human CLI expected exit 0 but returned exit 1
+```
+
+- [ ] **Step 2: Bind historical RRF tests to recorded authority**
+
+In `test_hybrid_rrf_protocol.py`:
+
+1. import `load_hybrid_rrf_protocol_lock`;
+2. define the exact checked-in protocol path;
+3. add a helper that loads that checked-in protocol with `repository_root=ROOT`;
+4. change `test_protocol_lock_is_byte_stable` to load the recorded protocol, validate it through
+   the production loader, render it, require a trailing newline, require parsed equality, and
+   require rendered UTF-8 bytes to equal the checked-in file bytes exactly;
+5. keep `test_protocol_freezes_candidate_rrf_arms_and_inputs` on
+   `build_hybrid_rrf_protocol_lock` so the current-source builder contract remains covered; and
+6. change every validator rejection test to begin from a deep copy of the loaded recorded
+   protocol, not the current-source builder, so path, identity, candidate, revision, and locator
+   mutations cannot pass through unrelated current-source drift.
+
+The historical validator continues to prove recorded bytes and schema. The current-source builder
+continues to exist only for a new record or revision-2 compatibility construction.
+
+- [ ] **Step 3: Freeze the exact strict-live numeric CLI failure**
+
+In `test_cli_evaluation.py`, replace only the two stale success tests and rename them exactly:
+
+```text
+test_cli_eval_numeric_outputs_exact_stale_lock_json
+test_cli_eval_numeric_outputs_exact_stale_lock_human_status
+```
+
+- JSON mode requires exit `1`, empty stderr, schema
+  `mke.retrieval_numeric_comparison.v1`, `protocol_id=unknown`,
+  `candidate_id=numeric-grouping-v1`, revision `1`, `integrity_status=failed`,
+  `candidate_status=not_recorded`, no gates, and exactly one integrity failure:
+
+  ```text
+  problem   = retrieval_numeric_fixture_invalid
+  cause     = protocol-bound input identity mismatch
+  next_step = restore_numeric_protocol_inputs
+  subject_id = null
+  ```
+
+- human mode requires exit `1` and exact ordered lines:
+
+  ```text
+  mke eval retrieval-numeric
+  protocol=unknown candidate=numeric-grouping-v1 revision=1
+  integrity_status=failed candidate_status=not_recorded
+  problem=retrieval_numeric_fixture_invalid cause=protocol-bound_input_identity_mismatch next_step=restore_numeric_protocol_inputs
+  ```
+
+Retain path/traceback redaction assertions. Rename the tests to describe the stale-lock result.
+Do not change other numeric CLI malformed-input, exception-mapping, help, or rendering tests.
+
+- [ ] **Step 4: Run focused GREEN and complete adjacent files**
+
+Run:
+
+```bash
+uv run pytest -q \
+  tests/evaluation/test_hybrid_rrf_protocol.py::test_protocol_lock_is_byte_stable \
+  tests/interfaces/test_cli_evaluation.py::test_cli_eval_numeric_outputs_exact_stale_lock_json \
+  tests/interfaces/test_cli_evaluation.py::test_cli_eval_numeric_outputs_exact_stale_lock_human_status
+```
+
+Then run:
+
+```bash
+uv run pytest -q \
+  tests/evaluation/test_hybrid_rrf_protocol.py \
+  tests/interfaces/test_cli_evaluation.py
+```
+
+Expected: pass.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add tests/evaluation/test_hybrid_rrf_protocol.py \
+  tests/interfaces/test_cli_evaluation.py
+git commit -m "test(eval): align archived retrieval authority"
+```
+
+### E3 — Bind the source-pack attempt claim to the real timeout field
+
+**Files:**
+
+- Modify: `scripts/consumer_source_pack_proof.py`
+
+The existing source-pack attempt-claim tests are the regression tests. Do not modify their
+fixtures, publication faults, expected normalized command, one-shot behavior, schemas, or test
+file.
+
+- [ ] **Step 1: Reproduce the six proof REDs**
+
+Run:
+
+```bash
+uv run pytest -q \
+  tests/scripts/test_consumer_source_pack_proof.py::test_attempt_claim_is_published_before_build_and_retained_on_failure \
+  tests/scripts/test_consumer_source_pack_proof.py::test_attempt_claim_publication_fault_never_starts_build
+```
+
+Expected: six failures with:
+
+```text
+AttributeError: 'ProofConfig' object has no attribute 'command_timeout'
+```
+
+- [ ] **Step 2: Make the one-field repair**
+
+In `_publish_task8r_attempt_claim`, change only:
+
+```python
+str(config.command_timeout)
+```
+
+to:
+
+```python
+str(config.command_timeout_seconds)
+```
+
+Do not add an alias or second field. Do not change `ProofConfig`, CLI flags, the normalized-command
+schema, publication order, atomic no-replace behavior, candidate seal, interpreter checks, or
+output paths.
+
+- [ ] **Step 3: Run focused and complete proof GREEN**
+
+Run:
+
+```bash
+uv run pytest -q \
+  tests/scripts/test_consumer_source_pack_proof.py::test_attempt_claim_is_published_before_build_and_retained_on_failure \
+  tests/scripts/test_consumer_source_pack_proof.py::test_attempt_claim_publication_fault_never_starts_build
+```
+
+Then run:
+
+```bash
+uv run pytest -q tests/scripts/test_consumer_source_pack_proof.py
+uv run ruff check scripts/consumer_source_pack_proof.py \
+  tests/scripts/test_consumer_source_pack_proof.py
+uv run pyright
+```
+
+Expected: pass with Pyright reporting zero errors.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add scripts/consumer_source_pack_proof.py
+git commit -m "fix(proof): bind source-pack timeout field"
+```
+
+### E4 — Replacement candidate verification
+
+From the final E3 HEAD, rerun the exact nine-failure reproduction set and require zero failures:
+
+```bash
+uv run pytest -q --tb=short \
+  tests/evaluation/test_hybrid_rrf_protocol.py::test_protocol_lock_is_byte_stable \
+  tests/interfaces/test_cli_evaluation.py \
+  tests/scripts/test_consumer_source_pack_proof.py
+```
+
+Then rerun:
+
+1. the D5 focused workflow/documentation group;
+2. the focused retrieval-order protocol/workflow/artifact group;
+3. the full historical compatibility matrix;
+4. runtime capability and no-canonical-holdout guards;
+5. the complete test suite with actual exit code and final summary captured;
+6. Ruff;
+7. Pyright;
+8. build;
+9. the amended CI-parity block exactly as committed;
+10. synthetic installed-proof tests;
+11. eligible consumer source-pack and compiled-export groups;
+12. the exact 14 immutable historical hashes;
+13. product proof and demo gates required by Task 8A Step 3; and
+14. every other Task 8A Step 3 command not reached after the prior full-suite stop.
+
+The core repository commands include:
+
+```bash
+uv run pytest -q \
+  tests/evaluation/test_retrieval_order_protocol.py \
+  tests/evaluation/test_retrieval_order_workflow.py \
+  tests/evaluation/test_retrieval_order_artifact.py \
+  tests/evaluation/test_retrieval_order_compatibility.py
+
+uv run pytest -q \
+  tests/evaluation/test_baseline.py \
+  tests/evaluation/test_numeric_artifact.py \
+  tests/evaluation/test_chinese_artifact.py \
+  tests/evaluation/test_cjk_lexical_artifact.py \
+  tests/evaluation/test_dense_artifact.py \
+  tests/evaluation/test_hybrid_rrf_artifact.py \
+  tests/evaluation/test_relevance_gate_artifact.py \
+  tests/evaluation/test_retrieval_order_historical_freeze.py \
+  tests/evaluation/test_atomic_json_publication.py \
+  tests/evaluation/test_retrieval_order_compatibility.py
+
+uv run pytest -q
+uv run ruff check .
+uv run pyright
+uv build
+uv run mke proof run
+uv run mke demo --verify
+```
+
+Run the remaining Task 8A Step 3 CI-parity, installed-proof, consumer, compiled-export,
+runtime-capability, and no-canonical-holdout commands from their already frozen command ledger
+without substitutions or omissions.
+
+Before the first gate and after the last gate, run the exact E1 five-path absence command and
+require all five canonical paths absent. Verify:
+
+- the design-spec digest remains
+  `8522af9fc801f1f30518f450ee5e8538efa0d67fe0039352d58b95c52f52b42b`;
+- the plan digest matches the reviewed E0 plan;
+- the exact 14 historical bytes remain unchanged;
+- the implementation repair touches exactly the five paths authorized by E1–E3;
+- no canonical observation, receipt, artifact, compatibility, or proof-attempt file exists;
+- `git diff --check` passes; and
+- the worktree is clean.
+
+The final clean HEAD after every successful Task 8A Step 3 gate becomes the replacement candidate
+source/test/doc seal.
+
+If any new failure appears after these four known reconciliation items, stop at the first failing
+gate. Do not create Amendment F, expand another path, refresh historical bytes, relax a validator,
+change runtime retrieval, add a fallback, retry a canonical action, or continue to Task 8B without
+a new architecture-level decision.
+
+### E5 — Stop boundary and non-claims
+
+Task 8B remains forbidden throughout E0–E4. Do not run development, holdout, canonical
+compatibility, canonical installed proof, source-pack attempt, push, PR, merge, release,
+deployment, promotion, or cleanup.
+
+A green E4 proves only that:
+
+- persistent CI separates temporary compatibility from canonical-state preservation;
+- recorded historical protocols are tested as recorded authority;
+- strict-live revision-1 numeric rejection is represented consistently in CLI tests and CI;
+- the Task 8A source-pack attempt-claim controller uses its frozen timeout field; and
+- the replacement candidate passes the repository's pre-observation gates.
+
+It does not prove retrieval-quality improvement, segmentation or contextual-retrieval value,
+production readiness, runtime promotion, broad portability, accuracy, latency, SLA, adoption,
+release status, or successful canonical observation.
+
 ## Task 8B — Seal and Observe Once
 
 Run the canonical development command exactly once:
