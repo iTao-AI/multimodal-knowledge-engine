@@ -1132,77 +1132,653 @@ git add \
 git commit -m "test(retrieval): lock revision two cursor compatibility"
 ```
 
-## Task 7: Close historical revision-2 compatibility
+## Amendment C Decision — Layered Historical Authority and Compatibility Closure
 
-**Files:**
-- Create: `src/mke/evaluation/retrieval_order_compatibility.py`
-- Create: `tests/evaluation/test_retrieval_order_compatibility.py`
-- Create: `benchmarks/retrieval/retrieval-order-v2-compatibility.json`
+This approved amendment preserves completed Tasks 0–6 and supersedes the original Tasks 7–9, their post-Task-6 file ownership, commands, gates, and Final Acceptance. Where an earlier post-Task-6 instruction conflicts with this amendment, the amendment controls.
 
-**Interfaces:**
-- Produces:
+Replace the blocked Task 7 entry condition with a layered closure:
 
-```python
-def build_retrieval_order_compatibility(
-    *, repository_root: Path, protocol_path: Path
-) -> dict[str, object]
+1. insert **Task 6R** to repair three verified evaluation-contract mismatches;
+2. split Task 7 into **Task 7A**, which implements and tests compatibility against temporary
+   output, and **Task 7B**, which records canonical compatibility only after the one-shot holdout;
+3. merge every remaining source/test/doc write from original Tasks 8 and 9 into
+   **Task 8A — Complete candidate source**;
+4. make the clean final Task 8A HEAD the unique candidate source seal, then run
+   **Task 8B — Observe once**; and
+5. make **Task 8R — Proof-only closure** atomically publish canonical JSON, run
+   historical/full/installed verification from the sealed source and one shared wheel, and commit
+   proof artifacts without any source/test/doc write.
 
-def validate_retrieval_order_compatibility(
-    *, artifact_path: Path, repository_root: Path, protocol_path: Path
-) -> None
-```
-
-- [ ] **Step 1: Write the revision-2 differential RED**
-
-Tests first copy the Task 0 artifacts, run every current replay, and require:
-
-```python
-assert compatibility["candidate_strategy_revision"] == 2
-assert compatibility["query_policy_revision"] == 1
-assert all(family["membership_delta"] == 0 for family in families)
-assert all(family["score_hex_delta"] == 0 for family in families)
-assert all(family["non_tied_pair_delta"] == 0 for family in families)
-assert all(family["metrics_delta"] == {} for family in families)
-assert all(family["gate_delta"] == {} for family in families)
-assert all(family["verdict_delta"] is None for family in families)
-```
-
-Before implementation, the record/module is absent and the test fails at import.
-
-- [ ] **Step 2: Implement current-source replay for every inventoried family**
-
-Use the existing model-free runners and validators. Do not reload an embedding model or change a
-historical scorer. E1/E2/E3-A replay the current runtime against their frozen manifests; E3-B keeps
-its evaluation-only revision-1 scorer; E3-C/D/E recompute from their frozen artifacts and protocol
-inputs.
-
-For each ordered query result, compare stable projection, exact score hex when available, and all
-pairwise order relations. Classify a changed pair as allowed only when both rows belong to the
-same preregistered exact-score group.
-
-- [ ] **Step 3: Build the revision-2 differential**
-
-The compatibility artifact binds:
+Task 6R does not make every historical/current-replay test green. Its purpose is to make the
+authority layers explicit without weakening the live numeric CLI:
 
 ```text
-schema_version=mke.retrieval_order_compatibility.v1
-candidate_strategy_revision=2
-query_policy_revision=1
-current source-file identities
-fixed runtime profile
-each Task 0 historical artifact path and SHA-256
-preidentified equal-score groups
-before and after stable projections
-FTS score float.hex values
-candidate membership
-non-tied pair order
-recomputed metrics, gates, and verdicts
+historical bytes frozen
+archived record self-consistent
+current runtime replay compatible
+revision-2 differential valid
 ```
 
-Only a permutation wholly inside a preidentified exact-score group is allowed. The validator
-recomputes the record from current source and fails on any extra/missing row or field.
+The complete 133-test historical matrix becomes green in Task 7A, when current replay has an
+authorized compatibility path. It is rerun in Task 8R after the final source/test/doc commit and
+the one-shot observation.
 
-- [ ] **Step 4: Run the complete historical validator matrix**
+This amendment changes evaluation validation, tests, plan ordering, and compatibility-proof
+timing only. It does not change retrieval ranking, cursor semantics, frozen corpora, historical
+artifact bytes, public schemas, promotion authority, or product scope.
+
+## Why the Earlier Repair Shape Was Rejected
+
+Tasks 0–6 completed in seven semantic commits. The original Task 7 matrix then returned:
+
+```text
+62 passed
+71 failed
+```
+
+Verified failure families:
+
+| Family | Result | Verified cause |
+|---|---:|---|
+| E1 baseline | 25 passed | none |
+| E2 numeric | 30 failed | archived scope hashes are still compared with current checkout bytes |
+| E3-A Chinese | 29 failed, 1 passed | SQL-trace validator recognizes only revision-1 ordering |
+| E3-B CJK trigram | 12 failed | downstream of the same Chinese diagnostic mismatch |
+| E3-C dense | 12 passed | none |
+| E3-D hybrid RRF | 11 passed | none |
+| E3-E relevance gate | 13 passed | none |
+
+An additional focused run of `tests/evaluation/test_retrieval_order_workflow.py` returned
+`2 passed, 3 failed`: two new tests assert live revision 2/passed, while three stale tests still
+assert live revision 1/failed.
+
+The initial Task 6R draft proposed removing current-source hash comparison from
+`load_numeric_protocol`. That would make the public `mke eval retrieval-numeric` path accept an
+archived protocol against unbound current source. It would also turn
+`test_validator_rejects_source_content_change` into a shadow contract. The default live loader and
+public CLI must remain fail-closed; only an explicit archive/compatibility path may validate
+recorded scope identity without comparing current bytes.
+
+The initial draft also treated the trace as exactly two statements and forbade `LIMIT` globally.
+The live trace contains two MATCH statements plus a legitimate
+`active_evidence_fts_config ... LIMIT 1` rank-configuration probe. Only the two MATCH statements
+own ordering proof.
+
+Finally, the original Task 7 canonical artifact would bind current source before Task 8 writes
+`retrieval_order_artifact.py` and updates `retrieval_order_workflow.py`. Canonical generation must
+occur after the final source-writing commit or it is stale by construction.
+
+The first reviewed amendment still sealed source too early: original Task 9 subsequently creates
+the installed-proof script/tests, ADR, maintainer how-to, documentation tests, and edits public
+docs. All of those writes must occur before development/holdout. After holdout, factual results
+belong in retained handoff/PR evidence, not new source or documentation edits.
+
+These findings correct the plan; they do not establish implementation success.
+
+## Premises and Authority
+
+### Preserved premises
+
+1. The approved design remains the product authority.
+2. Historical observation/protocol bytes remain immutable.
+3. Archived identity and current-source replay are distinct authorities.
+4. Current retrieval strategy revision is `2`; query-policy revision remains `1`.
+5. The live revision-2 stable SQL ordering is the intended runtime contract.
+6. Any membership, exact score-hex, non-tied order, metric, gate, verdict, or historical-byte
+   drift is a STOP.
+7. Comparison-only proof never authorizes promotion.
+
+### Corrected premise
+
+The complete historical matrix is not a valid Task 6R precondition because several tests execute
+the current runtime through archived source locks. Task 6R must preserve that live failure while
+adding a separate archive path. Task 7A owns current replay and makes the matrix green.
+
+### Authority layers
+
+| Layer | What it proves | What it must not prove |
+|---|---|---|
+| `historical_bytes_frozen` | checked-in artifact/protocol bytes match Task 0 digests | current runtime compatibility |
+| `archived_record_self_consistent` | recorded keys, paths, SHA syntax/order, manifests, fixtures, schema record, and artifact fields are internally valid | current checkout generated the record |
+| `current_runtime_replay_compatible` | current revision replays frozen inputs through an explicit compatibility path | historical artifact was produced by revision 2 |
+| `revision_2_differential_valid` | only preregistered equal-score permutations differ; metrics/gates/verdicts are unchanged | promotion or general retrieval quality |
+
+Immutable historical inputs comprise the original 13-entry Task 0 SHA map plus the post-Task-2
+current-runtime observation:
+
+```text
+benchmarks/retrieval/retrieval-order-v1-current-runtime-observation.json
+1a98e4e6c4eabc01663991646aac46e4a73033eef8a7e17a27db2e0fdce71691
+```
+
+The 14th item is not retroactively called a Task 0 hash. Task 6R appends it to the source inventory
+and the immutable-hash test. Canonical compatibility binds the exact 14-entry set.
+
+### Preserved product boundaries
+
+- Run, Publication, Evidence, and active-only authority.
+- Frozen development/holdout partitions, corpus bytes, query IDs, qrels, score groups, gates, and
+  thresholds.
+- Python, CLI, MCP, cursor, installed-wheel, source-pack, and consumer contracts.
+- No GraphRAG, dense/RRF/reranker runtime, OCR, Agent loop, HTTP/SaaS, provider, model, dependency,
+  or new public command.
+
+### Not authorized
+
+- Any runtime retrieval modification.
+- Rewriting historical artifacts/protocols or refreshing their checked-in identities.
+- Corpus/query/span/order tuning.
+- Development/holdout before the amended gates.
+- Holdout retry, receipt deletion, or candidate substitution.
+- Push, PR, merge, tag, release, deploy, cleanup, Stage 2, or promotion.
+
+## Architecture
+
+```text
+                        IMMUTABLE HISTORY
+  Task 0 SHA map ------------------------------+
+                                                |
+  archived protocol/artifact bytes              |
+          |                                     |
+          v                                     v
+  recorded schema/path/SHA checks       historical_bytes_frozen
+          |
+          v
+  archived_record_self_consistent
+
+                        LIVE COMPATIBILITY
+  current source + frozen manifests/fixtures
+          |
+          +--> strict live loader (default/public CLI)
+          |       |
+          |       +--> stale archived source lock => fail closed
+          |
+          +--> explicit compatibility loader
+                  |
+                  +--> recorded scope validated lexically
+                  +--> current source identity recorded separately
+                  +--> current schema and frozen inputs replayed
+                  |
+                  v
+          revision_2_differential_valid
+```
+
+The compatibility loader is an internal Python path only. It adds no CLI flag and does not change
+the default `load_numeric_protocol` or `run_numeric_comparison` authority.
+
+```text
+  SQLiteStore.observe_fts5_rank()
+          |
+          v
+  normalize all traced statements
+          |
+          +--> select statements containing active_evidence_fts MATCH
+          |       |
+          |       +--> require exactly two
+          |       +--> require exactly one rank and one BM25 statement
+          |       +--> require stable revision-2 ORDER BY
+          |       +--> reject LIMIT and opaque evidence_id ordering here
+          |
+          +--> ignore non-MATCH statements for ordering proof
+                  |
+                  +--> config probe LIMIT 1 remains valid
+```
+
+No generalized SQL parser is introduced.
+
+## State Machine
+
+```text
+  IMPLEMENTATION_STOPPED
+          |
+          | complete Amendment C approval
+          v
+  PLAN_LANDING_ONLY
+          |
+          | actual public plan diff authority-review clean
+          v
+  TASK_6R_AUTHORIZED
+          |
+          | targeted RED/GREEN + bounded pre-resume gate
+          v
+  TASK_6R_COMMITTED_CLEAN
+          |
+          | authority code-diff review clean
+          v
+  TASK_7A_AUTHORIZED
+          |
+          | temp compatibility + 133-test matrix green
+          v
+  TASK_7A_COMMITTED_CLEAN
+          |
+          | Task 8A completes every remaining source/test/doc write
+          v
+  CANDIDATE_SOURCE_DOCS_SEALED
+          |
+          | Task 8B development once, then holdout once
+          v
+  HOLDOUT_SUCCEEDED_TERMINAL
+          |
+          | Task 7B/8R canonical compatibility + final verification
+          v
+  PROOF_ARTIFACTS_COMMITTED
+
+  HOLDOUT_FAILED_TERMINAL
+          |
+          +--> STOP; retain receipt/evidence; no Task 8R
+
+  HOLDOUT_ARTIFACT_DURABILITY_UNCONFIRMED
+          |
+          +--> STOP; retain complete visible bytes; no Task 8R
+```
+
+Invalid transitions:
+
+- Task 6R directly to development/holdout.
+- Task 7A generating or committing the canonical compatibility artifact.
+- Candidate sealing before installed-proof code/tests, ADR, how-to, docs, and documentation tests.
+- Canonical compatibility generation before the final source/test/doc commit.
+- Direct canonical holdout observation without the receipt-bound private capability.
+- Any source/test/doc write after the candidate seal or holdout.
+- Any failed development command to holdout.
+- Any holdout receipt state to retry or deletion.
+- Failed or durability-unconfirmed holdout to Task 8R.
+- Any comparison result to runtime promotion.
+
+## Task 6R — Repair Evaluation Authority Contracts
+
+### Allowed paths
+
+Modify:
+
+- `docs/superpowers/reviews/2026-07-26-deterministic-retrieval-order-source-inventory.md`
+- `src/mke/evaluation/numeric_comparison.py`
+- `tests/evaluation/test_numeric_comparison.py`
+- `tests/evaluation/test_numeric_fixture_corpus.py`
+- `src/mke/evaluation/chinese_runner.py`
+- `tests/evaluation/test_chinese_runner.py`
+- `tests/evaluation/test_retrieval_order_workflow.py`
+
+Verification-only:
+
+- all historical artifact tests;
+- `tests/evaluation/test_retrieval_order_historical_freeze.py`;
+- all runtime retrieval, cursor, interface, and schema tests.
+
+No runtime retrieval file or historical artifact/protocol is writable.
+
+### Step 1 — Append the execution finding
+
+Append, without changing the Task 0 disposition:
+
+- the blocked command and counts;
+- numeric archived/current authority conflation;
+- Chinese trace revision mismatch;
+- stale workflow revision assertions;
+- the decision that default live validation remains strict; and
+- canonical compatibility generation is deferred until all source/test/doc work and holdout
+  finish.
+
+Append the post-Task-2 observation path and exact digest as the 14th immutable historical input.
+Do not relabel it as part of the original Task 0 freeze.
+
+### Step 2 — Numeric authority RED
+
+Add tests proving:
+
+1. default `load_numeric_protocol` rejects a copied archived protocol after one bound current
+   source file changes;
+2. the public/current runner preserves the stable failed integrity result for that mismatch;
+3. an explicit archive/compatibility loader accepts the same recorded scope only after checking
+   exact key set, exact lexical path allowlist/order, lowercase SHA-256 syntax, and schema-hash
+   syntax;
+4. archive mode still validates manifest/fixture hashes and current SQLite schema compatibility;
+5. live mode still rejects symlink/path escape and current source mutation;
+6. `refresh_numeric_protocol_scope` changes only scope hashes in a copied protocol and makes the
+   copied protocol live-valid; and
+7. the checked-in protocol SHA remains exact.
+
+The RED must fail because no explicit archive/compatibility path exists.
+
+### Step 3 — Numeric narrow GREEN
+
+Refactor the shared parse path so authority is explicit:
+
+```python
+load_numeric_protocol(...)  # unchanged strict live default
+load_archived_numeric_protocol(...)  # internal compatibility path
+```
+
+Equivalent private naming is acceptable, but a caller must not select archive behavior through a
+public CLI flag or an implicit fallback.
+
+Also extract one module-private execution core:
+
+```python
+def _evaluate_numeric_protocol(protocol: NumericProtocol) -> NumericComparisonReport: ...
+```
+
+`run_numeric_comparison(path)` must always use the strict live loader, then call this core.
+Task 7A may validate with the archived loader and pass the resulting protocol to the same core.
+Do not duplicate the numeric runner, monkeypatch loader selection, export the helper from
+`mke.evaluation`, or add a CLI mode.
+
+Archive scope validation:
+
+- requires exact `files` and `sqlite_schema_sha256` fields;
+- requires the exact `_EXPECTED_SCOPE_PATHS` count, order, and repository-relative lexical values;
+- rejects absolute paths, `..`, duplicates, wrong order, uppercase/malformed digests, and extra
+  fields;
+- does not resolve scope entries through current filesystem topology and does not compare their
+  recorded SHA values to current bytes;
+- continues to validate frozen manifests/fixtures against their bytes and hashes; and
+- continues to compare the recorded SQLite schema hash with the live replay schema through the
+  existing gate.
+
+Live scope validation remains byte-exact against the current checkout. `refresh` remains the only
+explicit current-source lock refresh path and never touches the checked-in protocol in this stage.
+
+Remove the shadow full-protocol validator in
+`tests/evaluation/test_numeric_fixture_corpus.py`. Keep independent corpus facts there, and route
+protocol authority tests through production loaders.
+
+### Step 4 — Chinese trace RED
+
+Use captured live traces plus hostile synthetic traces to prove:
+
+1. all statements are normalized before selection;
+2. exactly two MATCH statements are selected from a trace that may contain other statements;
+3. exactly one selected statement uses `rank AS score` and one uses
+   `bm25(active_evidence_fts) AS score`;
+4. both selected statements require evidence, sources, and assets joins, active-publication
+   binding, and the complete revision-2 stable key;
+5. `LIMIT` is rejected inside either selected MATCH statement;
+6. the non-MATCH config probe `... LIMIT 1` is allowed;
+7. any `evidence_id` in the selected `ORDER BY` clause is rejected;
+8. missing/extra MATCH, missing locator/source key, old revision-1 order, or extra score statement
+   is rejected; and
+9. a hostile trace containing sentinel query/path/opaque-ID text cannot surface those values in
+   the rendered stable failure.
+
+### Step 5 — Chinese narrow GREEN
+
+Change only `_valid_rank_sql_trace` and minimal private helpers in `chinese_runner.py`.
+
+The validator filters the two MATCH statements, validates their structural substrings explicitly,
+and ignores non-MATCH statements for ordering proof. It does not execute SQL, parse arbitrary
+input, log raw statements, or alter `SQLiteStore.observe_fts5_rank`.
+
+### Step 6 — Workflow-test authority cleanup
+
+Keep the live tests that assert:
+
+- `strategy_revision == 2`;
+- `query_policy_revision == 1`;
+- development observation is passed; and
+- the internal current CLI returns exit 0 with redacted stable output.
+
+Replace the three stale live revision-1/failure assertions with an immutable-record test over:
+
+- `benchmarks/retrieval/retrieval-order-v1-current-runtime-observation.json`.
+
+That test validates the recorded pre-maintenance failure's schema, revision 1, failed order status,
+stable public problem/cause/next-step fields, privacy boundary, and exact post-Task-2 immutable
+hash. It must not replay the current runtime and claim revision 1.
+
+### Step 7 — Task 6R verification
+
+Run focused:
+
+```bash
+uv run pytest -q \
+  tests/evaluation/test_numeric_comparison.py \
+  tests/evaluation/test_numeric_fixture_corpus.py \
+  tests/evaluation/test_chinese_runner.py \
+  tests/evaluation/test_retrieval_order_workflow.py \
+  tests/evaluation/test_retrieval_order_historical_freeze.py
+```
+
+Run adjacent families expected to be current-compatible after the trace repair:
+
+```bash
+uv run pytest -q \
+  tests/evaluation/test_baseline.py \
+  tests/evaluation/test_chinese_artifact.py \
+  tests/evaluation/test_cjk_lexical_artifact.py \
+  tests/evaluation/test_dense_artifact.py \
+  tests/evaluation/test_hybrid_rrf_artifact.py \
+  tests/evaluation/test_relevance_gate_artifact.py
+```
+
+Run the numeric artifact current path separately and require the known source-lock failure to
+remain until Task 7A. Any different problem/cause is a STOP.
+
+Then run Ruff on the seven code/test paths, canonical Pyright, `git diff --check`, the original 13
+frozen SHA checks plus the exact post-Task-2 observation hash, and exact scope inspection.
+
+Expected scope:
+
+```text
+no runtime retrieval diff
+no historical artifact/protocol diff
+no Task 7 compatibility module/test/artifact
+no development freeze
+no holdout receipt/artifact
+```
+
+### Step 8 — Commit and review
+
+Commit the seven allowed paths with:
+
+```bash
+git commit -m "fix(eval): separate historical replay authority"
+```
+
+The worktree must be clean. Return the actual code diff for authority review. Only a clean review
+authorizes Task 7A.
+
+## Task 7A — Implement Compatibility Without Canonical Publication
+
+### Allowed paths
+
+Create:
+
+- `src/mke/evaluation/_atomic_json_publication.py`
+- `src/mke/evaluation/retrieval_order_compatibility.py`
+- `tests/evaluation/test_atomic_json_publication.py`
+- `tests/evaluation/test_retrieval_order_compatibility.py`
+
+Modify:
+
+- `tests/evaluation/test_numeric_artifact.py`
+
+Do not create:
+
+- `benchmarks/retrieval/retrieval-order-v2-compatibility.json`.
+
+### Step 1 — Freeze family evidence capabilities
+
+Before any current replay, produce a typed family-adapter table with:
+
+```text
+family
+recorded_order_projection
+recorded_exact_score = direct | derived_from_recorded_parent | not_recorded
+historical_runtime_profile
+historical_source_tree_resolved
+tie_group_authority
+allowed_delta
+```
+
+E1 and E2 do not record exact ranking score hex in their checked-in artifacts. Their capability is
+therefore frozen before any current replay as:
+
+```text
+deterministic_historical_subprocess_replay
+```
+
+The verified local authority is:
+
+```text
+source path: eea3d51c36c0b3b845b8efb60eff553ddc200b88:src/mke
+source tree object: 30c0a65e265ce0342462ffc44c2c4fe799f959b5
+recorded source identity: c3cec8853547fd09d8fad10865666ce2bb1a507afe19a066a364ab2424064665
+runtime: Python 3.13.12 / SQLite 3.51.1 / PyMuPDF 1.27.2.3
+```
+
+Do not use an artifact `evaluation_commit` field as a source-snapshot pointer. Materialize only the
+artifact's exact recorded `src/mke` file list from the verified tree object into an isolated
+temporary root, require every path/blob/digest to match the frozen source identity, and import no
+unrecorded package file. Execute twice in fresh subprocesses with a sanitized environment,
+checkout-external cwd, `PYTHONNOUSERSITE=1`, cleared inherited `PYTHONPATH`/`PYTHONHOME`, a new
+`PYTHONPATH` containing only the materialized historical root, and the exact recorded runtime.
+Resolve the interpreter from the existing project environment only; do not download, install, or
+guess one. Before replay, the subprocess reports and the controller verifies:
+
+- `sys.version_info[:3] == (3, 13, 12)`, `sqlite3.sqlite_version == "3.51.1"`, and
+  `fitz.VersionBind == "1.27.2.3"`; complete `sys.version` is informational only because the
+  immutable artifacts do not record compiler/build text;
+- `mke` module origins under the materialized historical root;
+- stdlib and PyMuPDF origins under the selected interpreter environment, never the current
+  checkout or user site; and
+- copied protocol/manifest/fixture paths and digests against immutable inputs.
+
+The only child form is `python -B -P -c <hashed-bootstrap>`. Tests freeze the bootstrap digest,
+the exact 107 recorded Python blobs, the checkout-external cwd/environment, module and third-party
+origins, and two byte-identical stdout payloads. Both fresh runs must produce byte-identical
+score-hex and tie-group output. The E1/E2 capability is fixed from this replay or downgraded before
+any current replay starts.
+
+If a blob is absent, a recorded path/digest differs, the runtime profile cannot be reproduced, or
+the two historical replays differ, E1 and E2 both mechanically downgrade to
+`no_ordered_delta_authority` before any current replay. Current output may not influence this
+choice. Under that capability, any ordered-projection difference is a STOP. Never encode unknown
+scores as zero, infer historical ties from current scores, fetch history, create a branch, modify
+the retained worktree, or hand-label ties afterward.
+
+Where a child artifact derives scores from an immutable parent, the adapter must validate the
+parent path/hash and the exact derivation before using `derived_from_recorded_parent`.
+
+### Step 2 — Differential RED
+
+Require each inventoried family to expose:
+
+```text
+historical artifact/protocol path + frozen SHA
+archived self-consistency status
+current source identity
+runtime profile
+preidentified exact-score tie groups
+before/after stable projections
+membership delta
+score-hex delta
+non-tied pair delta
+metric delta
+gate delta
+verdict delta
+```
+
+Only a permutation wholly inside a tie group mechanically derived from immutable evidence before
+current replay is allowed.
+
+### Step 3 — Explicit current replay
+
+- E1/E3 families use their existing model-free runners and frozen inputs.
+- E2 numeric uses the explicit archived loader for the recorded lock and binds current source
+  identity separately. The default live loader/public CLI remains strict.
+- Current SQLite schema must still equal the protocol's frozen schema hash.
+- E3-B retains its evaluation-only revision-1 scorer.
+- No embedding model is loaded; no historical scorer or artifact is rewritten.
+
+Use typed family adapters with a shared result contract. Do not build one permissive family
+`if/elif` chain that silently omits unsupported fields.
+
+### Step 4 — Repair numeric test scaffolding
+
+`tests/evaluation/test_numeric_artifact.py` currently uses the stale checked-in protocol as a
+live-recording fixture. Change only test scaffolding so dynamic record/validate tests operate on a
+temporary current-compatible protocol or the explicit compatibility path, while preserving:
+
+- a test that default live validation rejects source mutation;
+- artifact-field, nested-schema, gate, environment, and privacy tamper tests; and
+- the checked-in historical artifact/protocol byte freeze.
+
+Do not weaken `numeric_artifact.py` production defaults merely to make tests green.
+
+### Step 5 — Freeze the internal record and publication interfaces
+
+The compatibility module exposes an internal maintainer CLI only:
+
+```bash
+uv run python -m mke.evaluation.retrieval_order_compatibility record \
+  --protocol tests/fixtures/retrieval-order-v1/protocol.json \
+  --artifact <output.json> \
+  --repository .
+
+uv run python -m mke.evaluation.retrieval_order_compatibility validate \
+  --protocol tests/fixtures/retrieval-order-v1/protocol.json \
+  --artifact <output.json> \
+  --repository .
+```
+
+Valid `--json` output is one redacted JSON object with empty stderr. Success exits 0, integrity or
+proof failure exits 1, and usage exits 2. No `mke eval` command or public package export is added.
+
+`record` is temporary-only. It must reject the resolved canonical repository path
+`benchmarks/retrieval/retrieval-order-v2-compatibility.json` before any corpus open or replay.
+Canonical publication is not an alias of this command; Task 8R uses the separately gated
+`record-canonical` interface.
+
+The temporary `record` path builds and validates completely in memory, then uses the private
+shared publication helper. Task 8A integrates `record-canonical` with synthetic receipt/artifact
+authority before the candidate seal; Task 8R may invoke that already-tested path but may not first
+implement or repair it. The helper:
+
+1. exclusive-creates a temporary file in the destination directory;
+2. writes the complete canonical bytes, flushes, file-`fsync`s, reads back, reparses, and verifies
+   the exact digest;
+3. atomically publishes without replacement using a same-directory hard-link or native
+   no-replace rename; it must not use check-then-rename;
+4. directory-`fsync`s after publication; and
+5. removes only its private temporary name.
+
+The final path must be either absent or contain the complete validated bytes; partial authority is
+forbidden. A preexisting destination returns exit 1 and leaves bytes unchanged. Publication
+failure returns a stable redacted error; if the no-replace publication already made the final path
+visible, the complete bytes are retained and canonical retry is still forbidden. Its typed result
+uses two independent dimensions:
+
+```text
+output_state =
+  absent | complete_preexisting | complete_visible | not_applicable
+
+publication_outcome =
+  not_attempted | published | failed_before_visibility | durability_unconfirmed
+```
+
+`output_state=complete_visible` plus `publication_outcome=durability_unconfirmed` is a terminal
+publication failure, not success. Every failure path freezes one exact pair. The read-only
+`validate` command may prove complete bytes/schema/digests but cannot upgrade a terminal outcome
+or authorize retry.
+
+Task 8A must reuse this exact helper for development freeze, holdout receipt, and retrieval-order
+artifact. Task 8R uses it for canonical compatibility. No second writer or fallback publication
+path is allowed.
+
+### Step 6 — Temporary artifact proof
+
+Build and validate compatibility under `tmp_path` only. Add deterministic repeated-build equality
+and tamper tests for source identity, tie-group classification, membership, score, order, metrics,
+gates, verdict, runtime profile, artifact hashes, preexisting output, partial-build failure, and
+redaction. Fault-inject write, file-`fsync`, readback, no-replace race, and directory-`fsync`
+failure. Every case must leave the final path absent or byte-exact and complete.
+
+Also test temporary `record` rejection of the canonical path before replay, stable result fields,
+and read-only `validate` behavior. No repository benchmark path is written.
+
+### Step 7 — Historical matrix
+
+Run:
 
 ```bash
 uv run pytest -q \
@@ -1213,91 +1789,256 @@ uv run pytest -q \
   tests/evaluation/test_dense_artifact.py \
   tests/evaluation/test_hybrid_rrf_artifact.py \
   tests/evaluation/test_relevance_gate_artifact.py \
+  tests/evaluation/test_retrieval_order_historical_freeze.py \
+  tests/evaluation/test_atomic_json_publication.py \
   tests/evaluation/test_retrieval_order_compatibility.py
 ```
 
-Expected: pass. Re-run `shasum -a 256` for every Task 0 historical artifact and protocol; all
-values remain exact.
+Expected: all 133 original historical tests plus the new compatibility tests pass. Recompute the
+14-entry immutable input map. The freeze test must assert the exact 14 paths, every digest, and
+canonical sorted serialization; a count-only assertion is insufficient. The post-Task-2 current
+runtime observation remains item 14 and is not relabeled as Task 0 evidence.
 
-- [ ] **Step 5: Commit Task 7**
+Run focused runtime retrieval/order/cursor/interface/schema tests, Ruff, Pyright, and
+`git diff --check`.
+
+### Step 8 — Commit and review
+
+Commit only the compatibility module, shared publication helper, and the three test paths:
 
 ```bash
-git add \
-  src/mke/evaluation/retrieval_order_compatibility.py \
-  tests/evaluation/test_retrieval_order_compatibility.py \
-  benchmarks/retrieval/retrieval-order-v2-compatibility.json
-git diff --cached --check
-git commit -m "test(eval): bind retrieval order compatibility"
+git commit -m "test(eval): prepare retrieval order compatibility"
 ```
 
-## Task 8: Freeze development and execute holdout once
+No canonical JSON is included. Return the actual Task 7A diff for authority review before Task 8.
 
-**Files:**
-- Create: `src/mke/evaluation/retrieval_order_artifact.py`
-- Create: `tests/evaluation/test_retrieval_order_artifact.py`
-- Create: the three canonical benchmark files for freeze, receipt, and artifact.
-- Modify: `src/mke/evaluation/retrieval_order_workflow.py`
-- Modify: `tests/evaluation/test_retrieval_order_workflow.py`
+## Task 8A — Complete Candidate Source
 
-**Interfaces:**
-- Produces the exact maintainer commands from the spec and canonical state transitions:
+Task 8A completes every remaining source, test, script, ADR, how-to, and public-doc write before
+observation.
+
+### Step 1 — Workflow and artifact state machine
+
+Create/modify the original Task 8 paths:
+
+- `src/mke/evaluation/retrieval_order_artifact.py`
+- `src/mke/evaluation/retrieval_order_protocol.py`
+- `src/mke/evaluation/retrieval_order_workflow.py`
+- `src/mke/evaluation/retrieval_order_compatibility.py`
+- `tests/evaluation/test_retrieval_order_artifact.py`
+- `tests/evaluation/test_retrieval_order_protocol.py`
+- `tests/evaluation/test_retrieval_order_workflow.py`
+- `tests/evaluation/test_retrieval_order_compatibility.py`
+
+Implement atomic no-replace development freeze, pre-observation holdout receipt, no retry, exact
+candidate HEAD/profile binding, redacted JSON, and tamper rejection by reusing
+`_atomic_json_publication.py`.
+
+All state-machine tests that invoke a holdout partition must use a `tmp_path` synthetic protocol,
+manifests, and fixture bytes whose hashes all differ from the canonical holdout. Copied retry
+tests must also use synthetic bytes.
+
+Static scanning is supplemental only. Add a runtime authority gate before any fixture open:
+
+- every call with `partition="holdout"` requires a typed capability, regardless of protocol path,
+  serialization, alias, helper, symlink, or direct Python entry point;
+- only the `holdout` command may create that capability, after the complete holdout receipt has
+  been atomically published;
+- the production capability binds the canonical protocol and holdout-fixture digests, receipt
+  path/digest, candidate HEAD/profile, and one-use state;
+- the observer consumes it once and rejects direct, pre-receipt, mismatched, and second calls
+  before fixture bytes are opened; and
+- tests use a separate `SyntheticHoldoutCapability`, created only after proving every referenced
+  fixture digest differs from every canonical holdout fixture digest.
+
+Split protocol loading into a metadata-only preflight and a partition-lazy loader. Metadata
+preflight validates protocol structure and partition metadata without opening development or
+holdout fixture files. Development loads only development bytes. A holdout call validates and
+consumes its typed capability before loading only holdout bytes. Rejection therefore happens
+before any fixture read, including copied/reserialized protocol, alias/helper/direct-call,
+symlink, mixed-canonical-fixture, and second-call cases.
+
+Add fixture-open spies for every rejection. Also add a guard test and static check proving no test
+module invokes:
 
 ```text
-development: not_recorded -> passed + exclusive freeze
-holdout: not_observed -> receipt_committed -> observed
-runtime_promotion_status: not_evaluated
+canonical tests/fixtures/retrieval-order-v1/protocol.json
++ partition="holdout"
 ```
 
-- [ ] **Step 1: Add workflow and artifact state-machine tests**
+before or after the canonical observation. The explicit Task 8B command plus its published receipt
+is the only canonical capability issuer.
 
-Tests reject:
+Complete the `record-canonical` implementation and wiring in this pre-seal task. Its production
+capability requires the successful holdout receipt/artifact and exact candidate-seal inputs.
+Synthetic-repository tests cover success, missing receipt, failed holdout, candidate-seal
+mismatch, repeated invocation, and every no-replace publication fault. These tests use synthetic
+receipts/artifacts and never open the canonical holdout. Task 8R is invocation-only: any
+interface, serialization, or integration defect found there is a terminal STOP, not authority to
+modify source.
 
-- dirty product source before development;
-- protocol/hash/profile/source mismatch;
-- development freeze overwrite;
-- holdout before passing development;
-- holdout candidate HEAD/profile mismatch;
-- missing receipt;
-- receipt overwrite or canonical retry;
-- raw query/Evidence/ID/cursor/path in output;
-- non-empty stderr for valid `--json`;
-- wrong exit codes;
-- artifact tampering in score, membership, order, partition, status, or SHA.
+`record-canonical` also owns a durable no-replace attempt receipt at
+`benchmarks/retrieval/retrieval-order-v2-compatibility-attempt.json`. After bounded path, schema,
+digest, candidate-seal, and successful-holdout preflight but before archive or current replay, it
+publishes canonical attempt bytes binding:
 
-- [ ] **Step 2: Implement exclusive state transitions**
+```text
+command_schema
+candidate_seal
+protocol_digest
+development_freeze_digest
+holdout_receipt_digest
+retrieval_artifact_digest
+compatibility_target
+```
 
-Development records current clean candidate HEAD and profile. Holdout permits exactly the
-development-freeze file as expected generated state while requiring product source, tests,
-protocol, and fixtures to match the candidate identity. It exclusive-creates the receipt before
-opening holdout cases.
+Only the process that successfully creates those bytes may derive the canonical-publication
+capability. If the attempt receipt already exists, the command returns
+`retrieval_order_canonical_publication_already_started` even when the compatibility artifact is
+absent. Every later replay, build, validation, or directory-`fsync` failure retains the attempt
+receipt and permanently closes canonical retry. The compatibility artifact cross-binds the exact
+attempt-receipt digest.
 
-The workflow never retries holdout internally and never deletes a failed receipt.
+Use the shared atomic publication helper for the development freeze, holdout receipt, and final
+retrieval-order artifact. Inject the same write/`fsync`/readback/no-replace/directory-`fsync`
+failures at workflow boundaries and require absent-or-complete final bytes.
 
-- [ ] **Step 3: Commit all candidate code before canonical observation**
+Artifact and compatibility validators are pure read-only paths. They may read canonical bytes,
+schema, digests, frozen fixture hashes, and cross-bindings, but they never call
+`observe_retrieval_order_partition` or any ranking/retrieval runner. Add call-counter tests around
+every post-holdout validator by monkeypatching the observer and requiring zero canonical calls.
+Synthetic holdout calls are counted separately. Do not add a mutable global counter or new
+test-only persistence.
 
-Run focused tests, Ruff, Pyright, and `git diff --check`; then commit workflow/artifact code and
-tests:
+Run focused tests, Ruff, Pyright, and `git diff --check`, then commit:
 
 ```bash
-git add \
-  src/mke/evaluation/retrieval_order_artifact.py \
-  src/mke/evaluation/retrieval_order_workflow.py \
-  tests/evaluation/test_retrieval_order_artifact.py \
-  tests/evaluation/test_retrieval_order_workflow.py
-git diff --cached --check
 git commit -m "feat(eval): validate deterministic retrieval order"
 ```
 
-Verify:
+This is not yet the candidate seal.
 
-```bash
-git status --porcelain
-git rev-parse HEAD
+### Step 2 — Installed proof and documentation before observation
+
+Complete every original Task 9 write:
+
+- `scripts/retrieval_order_installed_proof.py`
+- `tests/scripts/test_retrieval_order_installed_proof.py`
+- `scripts/consumer_source_pack_proof.py`
+- `tests/scripts/test_consumer_source_pack_proof.py`
+- `docs/decisions/0012-deterministic-retrieval-order.md`
+- `docs/how-to/run-deterministic-retrieval-order-proof.md`
+- `tests/evaluation/test_retrieval_order_documentation.py`
+- `docs/explanation/architecture.md`
+- `docs/reference/contracts.md`
+- `docs/reference/mcp-contract.md`
+- `docs/reference/cli.md`
+- `docs/how-to/use-mke-mcp.md`
+- `docs/how-to/enable-cjk-retrieval.md`
+- `docs/README.md`
+
+Installed-proof tests use synthetic temporary proof artifacts and the same-wheel external-store
+contract. They do not open the canonical holdout. Documentation describes commands, contracts,
+recovery, cursor semantics, tie-only compatibility, and non-claims; it does not predict or record
+an unobserved pass.
+
+`retrieval_order_installed_proof.py` must accept an explicit prebuilt candidate wheel for Task 8R,
+validate its metadata and sealed-source receipt, and never rebuild when that input is supplied. Its
+frozen Task 8R input contract is:
+
+```text
+--mke-wheel <exact path from candidate receipt>
+--candidate-receipt <candidate-artifact-receipt.json>
+--protocol <copied protocol>
+--development-freeze <copied freeze>
+--holdout-receipt <copied receipt>
+--artifact <copied retrieval-order artifact>
+--compatibility <copied compatibility artifact>
 ```
 
-Expected: empty status. Record this SHA as the candidate commit.
+Paths must be explicit; globbing, “first wheel in directory”, and implicit sibling discovery are
+forbidden. Tests reject zero/multiple wheels, a wrong wheel, a wheel/receipt SHA mismatch, a
+candidate-seal mismatch, and an attempted silent rebuild.
 
-- [ ] **Step 4: Run the canonical development command once**
+Add a Task-8R-only `--attempt-claim <external-json>` option to
+`consumer_source_pack_proof.py`. After bounded argument/interpreter/source preflight but before
+any build or child interpreter, the controller uses the reviewed no-replace publication helper to
+write a complete claim binding the sealed SHA, exact normalized command, both interpreter paths,
+candidate-output path, script digest, and command schema. A preexisting claim returns
+`retrieval_order_source_pack_already_started`; any later failure retains the claim. Preserve
+existing invocations that omit this option, but only the invocation carrying real interpreters,
+`--candidate-output`, and `--attempt-claim` qualifies as the Task 8R source-pack proof. Tests cover
+claim creation ordering, preexistence, every publication fault, post-claim build failure, and no
+second real invocation.
+
+Freeze `--help` tests for the internal compatibility, retrieval-order proof, and source-pack
+attempt-claim options. Help and the how-to must say:
+
+```text
+archive validation -> historical bytes are self-consistent only
+current replay -> current runtime compatibility only
+differential validation -> revision-2 comparison only
+temporary output -> never canonical authority
+```
+
+The how-to gives one fast-preflight-to-expensive-proof command order.
+
+The how-to and tests also freeze this command-to-authority mapping:
+
+| Command | Authority and expected boundary |
+|---|---|
+| `mke eval retrieval-numeric` | strict live authority; a stale checked-in lock exits 1 with the existing `retrieval_numeric_fixture_invalid` contract |
+| `retrieval_order_compatibility record` | archive self-consistency + current replay + differential; temporary/noncanonical only |
+| `retrieval_order_compatibility validate` | pure read-only validation of an existing artifact's archive/current/differential/canonical states |
+| `retrieval_order_compatibility record-canonical` | one-shot publication only after successful holdout and candidate seal |
+
+The three internal compatibility modes use exact, independently frozen result schemas:
+
+```text
+mke.retrieval_order_compatibility_record_result.v1
+mke.retrieval_order_compatibility_validate_result.v1
+mke.retrieval_order_compatibility_record_canonical_result.v1
+```
+
+Tests freeze required field types, success/failure values, finite
+`problem`/`cause`/`next_step` combinations, exit 0/1/2 behavior, and help wording. The strict live
+command's expected stale-lock failure is not a compatibility-closure failure.
+
+Run focused installed-proof/documentation tests and all documentation contract tests, then commit:
+
+```bash
+git commit -m "docs(retrieval): prepare deterministic order proof"
+```
+
+### Step 3 — Pre-observation candidate verification
+
+Run:
+
+- focused retrieval-order protocol/workflow/artifact tests;
+- Task 7A compatibility tests using temporary output;
+- the full 133-test historical matrix;
+- the runtime capability tests and supplemental guard proving no canonical holdout replay in the
+  test suite;
+- the full test suite;
+- Ruff;
+- Pyright;
+- build and CI-parity commands;
+- installed-proof tests with synthetic artifacts;
+- consumer source-pack and compiled-export tests that do not consume canonical holdout; and
+- `tests/evaluation/test_retrieval_order_historical_freeze.py`, requiring the exact 14 paths,
+  digests, and canonical sorted serialization.
+
+Do not run the canonical same-wheel installed proof yet because its canonical retrieval-order
+artifact does not exist.
+
+Verify a clean worktree. The final clean HEAD after all Task 8A commits is the unique candidate
+source/test/doc seal. Record its SHA. No source, test, script, ADR, how-to, or doc may change after
+this point; any needed change invalidates uncommitted observation evidence and returns to
+authority review.
+
+## Task 8B — Seal and Observe Once
+
+Run the canonical development command exactly once:
 
 ```bash
 uv run python -m mke.evaluation.retrieval_order_workflow development \
@@ -1307,13 +2048,9 @@ uv run python -m mke.evaluation.retrieval_order_workflow development \
   --json
 ```
 
-Expected: exit 0, empty stderr, `stable_order_rate=1.0`, and every delta gate 0.
+On nonzero exit, stop without opening holdout.
 
-If this command returns nonzero, stop. Do not inspect or run holdout.
-
-- [ ] **Step 5: Run the canonical public nonblind holdout once**
-
-Without committing or modifying product files after Step 4:
+If development passes, run the canonical public nonblind holdout command exactly once:
 
 ```bash
 uv run python -m mke.evaluation.retrieval_order_workflow holdout \
@@ -1326,215 +2063,671 @@ uv run python -m mke.evaluation.retrieval_order_workflow holdout \
   --json
 ```
 
-Expected: exit 0, empty stderr, `stable_order_rate=1.0`, and every delta gate 0.
+The receipt is atomically published before any fixture open. Only after publication may the
+command create the receipt-bound private capability and enter canonical observation. The
+capability is consumed once. The retrieval-order artifact also uses the same absent-or-complete
+atomic publication helper. No canonical file is deleted, overwritten, or retried. On any failure,
+retain exact evidence and stop.
 
-Do not run this command again.
+The retained Task 8B handoff records the exact command, exit, receipt digest, artifact digest when
+present, and first failed gate as its immutable command ledger. A successful terminal transition
+requires one no-replace holdout attempt receipt plus one byte-valid successful artifact bound to
+that receipt. Observation failure enters `HOLDOUT_FAILED_TERMINAL`; visible complete artifact bytes
+whose directory `fsync` failed enter `HOLDOUT_ARTIFACT_DURABILITY_UNCONFIRMED`. Neither state may
+enter Task 8R. A later validator can report bytes valid but cannot convert either terminal state
+to success.
 
-- [ ] **Step 6: Validate the artifact and immutable retry rejection**
+Do not run tests, docs generators, formatters, or commands that can reopen canonical holdout
+between development and holdout. Do not generate canonical compatibility before holdout.
+
+## Task 7B / Task 8R — Canonical Compatibility and Final Proof Closure
+
+This task begins only after a terminal successful holdout and no source/test/doc change after the
+candidate seal.
+
+### Step 1 — Source-seal preflight
+
+Verify:
+
+- candidate source files match the development freeze;
+- runtime profile matches development and holdout;
+- only the expected uncommitted canonical development freeze, holdout receipt, and retrieval-order
+  artifact exist;
+- the 14-entry immutable input map remains exact; and
+- no source/test/doc file changed after the candidate seal.
+
+### Step 2 — Record canonical compatibility once
+
+Run exactly:
 
 ```bash
-uv run python -m mke.evaluation.retrieval_order_artifact validate \
-  --artifact benchmarks/retrieval/retrieval-order-v1-artifact.json \
+uv run python -m mke.evaluation.retrieval_order_compatibility record-canonical \
   --protocol tests/fixtures/retrieval-order-v1/protocol.json \
-  --repository .
-```
-
-Expected: exit 0. A test against a copied temporary fixture proves the second holdout attempt exits
-1 without changing receipt/artifact bytes; do not retry the canonical path.
-
-- [ ] **Step 7: Commit the three observation files together**
-
-```bash
-git add \
-  benchmarks/retrieval/retrieval-order-v1-development-freeze.json \
-  benchmarks/retrieval/retrieval-order-v1-holdout-receipt.json \
-  benchmarks/retrieval/retrieval-order-v1-artifact.json
-git commit -m "test(eval): record deterministic retrieval order proof"
-```
-
-## Task 9: Complete installed proof, documentation, and full verification
-
-**Files:**
-- Create: `scripts/retrieval_order_installed_proof.py`
-- Create: `tests/scripts/test_retrieval_order_installed_proof.py`
-- Create: `docs/decisions/0012-deterministic-retrieval-order.md`
-- Create: `docs/how-to/run-deterministic-retrieval-order-proof.md`
-- Create: `tests/evaluation/test_retrieval_order_documentation.py`
-- Modify: documentation paths in the exact file map.
-
-**Interfaces:**
-- Consumes: one built wheel, the frozen protocol/artifact, and current Python/CLI/MCP contracts.
-- Produces one bounded JSON installed-proof receipt with no public API change.
-
-- [ ] **Step 1: Write the installed-proof RED**
-
-The proof must:
-
-1. build one wheel from the clean candidate;
-2. install the same wheel into external Python 3.12 and 3.13 environments;
-3. run the frozen inverse fresh-store fixture in an arbitrary external cwd;
-4. compare stable projections through Python Search, CLI Search/Ask, and real stdio MCP v1/v2;
-5. exercise MCP page sizes 1/2/full and budget-shortened continuation;
-6. confirm exact Read still addresses opaque Evidence IDs;
-7. deny network and source-checkout imports;
-8. report wheel SHA-256, candidate commit, interpreter versions, projection digest, and schema
-   digests; and
-9. clean only its own temporary directory.
-
-Tests inject timeout, wrong wheel, source import, schema drift, order drift, and child-process
-failure. Every case exits nonzero with bounded stderr and no absolute path in JSON.
-
-- [ ] **Step 2: Implement the installed proof**
-
-Reuse reviewed subprocess/environment helpers from `consumer_source_pack_proof.py`; do not copy its
-process orchestration. Do not modify the frozen consumer source-pack fixture or tool schema files.
-
-The proof is a repository/installed-artifact controller, not a new `mke` command.
-
-- [ ] **Step 3: Write ADR and public documentation**
-
-ADR 0012 records:
-
-- FTS and CJK path-specific stable keys;
-- duplicate locator admissibility and no migration;
-- typed recovery;
-- three revision bumps and query-policy revision 1;
-- Search/Read cursor behavior;
-- historical observation immutability and separate revision-2 compatibility; and
-- mechanism-only development/holdout non-claims.
-
-Docs state:
-
-```text
-On cursor_expired, discard the complete partial Search traversal.
-On retrieval_authority_invalid, stop using the database.
-Run retrieval doctor.
-Restore a valid backup or re-ingest Sources into a new database.
-Never delete duplicates in place.
-```
-
-No release note changes in this phase.
-
-- [ ] **Step 4: Run focused documentation and installed-proof tests**
-
-```bash
-uv run pytest -q \
-  tests/scripts/test_retrieval_order_installed_proof.py \
-  tests/evaluation/test_retrieval_order_documentation.py \
-  tests/evaluation/test_chinese_documentation.py \
-  tests/evaluation/test_mcp_context_completeness_documentation.py
-```
-
-Expected: pass.
-
-- [ ] **Step 5: Run the complete local verification matrix**
-
-```bash
-uv run pytest -q
-uv run ruff check .
-uv run pyright
-uv build
-UV_OFFLINE=1 uv run mke proof run
-UV_OFFLINE=1 uv run mke demo --verify
-```
-
-Run the exact same-wheel installed order proof, consumer source-pack proof, and compiled Library
-export proof with explicit Python 3.12 and 3.13 interpreters available on the host:
-
-```bash
-UV_OFFLINE=1 uv run python scripts/retrieval_order_installed_proof.py \
-  --python "$(command -v python3.12)" \
-  --python "$(command -v python3.13)" \
-  --json
-UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
-  --python "$(command -v python3.12)" \
-  --python "$(command -v python3.13)" \
-  --json
-UV_OFFLINE=1 uv run python scripts/compiled_library_export_proof.py \
-  --python "$(command -v python3.12)" \
-  --python "$(command -v python3.13)" \
+  --development-freeze \
+    benchmarks/retrieval/retrieval-order-v1-development-freeze.json \
+  --holdout-receipt \
+    benchmarks/retrieval/retrieval-order-v1-holdout-receipt.json \
+  --retrieval-artifact \
+    benchmarks/retrieval/retrieval-order-v1-artifact.json \
+  --candidate-head <exact-Task-8A-seal-SHA> \
+  --attempt-receipt \
+    benchmarks/retrieval/retrieval-order-v2-compatibility-attempt.json \
+  --artifact benchmarks/retrieval/retrieval-order-v2-compatibility.json \
+  --repository . \
   --json
 ```
 
-Resolve the two interpreter paths using the same checked-in proof instructions; never guess or
-download an interpreter. If either supported interpreter is unavailable, report the exact
-environment blocker and do not claim the two-version proof.
+The execution handoff substitutes the already-recorded exact 40-hex candidate seal; it never
+derives this argument from an unreviewed current HEAD.
 
-- [ ] **Step 6: Verify final scope and commit documentation/proof**
+Before any corpus open or current replay, `record-canonical` validates the passing development
+freeze, terminal successful holdout receipt/artifact, exact candidate HEAD/profile bindings,
+absence of both canonical destinations, and the 14-entry immutable map. It then atomically
+publishes the durable compatibility-attempt receipt before any archive/current replay. Only the
+process that created this receipt may derive and consume the private one-use
+canonical-publication capability. Missing, preexisting, already-consumed, or seal-mismatched
+capability state fails closed. A later process cannot retry even if compatibility output is
+absent. The compatibility builder never reopens or reruns the holdout partition; it consumes the
+already-published holdout artifact as bytes only.
+
+The artifact binds source file identities/digests and runtime profile, not the post-proof commit
+SHA. It includes the exact 14-entry immutable input map, the family capability matrix, and the
+four-layer status fields.
+
+`record-canonical` builds and validates in memory, then atomically publishes the path. Existing
+output or any build/validation failure exits 1 and preserves existing bytes or absence. It uses the
+reviewed shared absent-or-complete helper, including file and directory `fsync`, readback, exact
+digest validation, and OS-level no-replace publication. After a failed canonical record, stop; do
+not modify source or record again.
+
+Run `validate` twice against the same bytes; do not rebuild canonical output to obtain a different
+result. `validate` is pure read-only: it checks bytes, schema, digests, and cross-bindings and never
+calls any ranking/retrieval observer.
+
+### Step 3 — Prepare one clean sealed proof source and wheel
+
+The retained observation checkout now contains five intentional, uncommitted canonical proof
+artifacts. Existing consumer source-pack and compiled-export controllers require a clean source
+checkout, so they must not run against that retained checkout.
+
+Create one task-owned detached proof worktree with:
 
 ```bash
-git diff --check
-git status --short
-git diff --stat main...HEAD
+git worktree add --detach <task-owned-proof-worktree> <exact-Task-8A-seal-SHA>
 ```
 
-Confirm:
+Verify its exact HEAD, detached state, empty porcelain status, source tree, lockfile, and package
+metadata before use. Every proof command must execute the script copy under
+`<task-owned-proof-worktree>/scripts/`; changing cwd while executing a retained-checkout script
+path is forbidden because the controllers derive repository authority from `Path(__file__)`.
+This worktree is an authority-isolation lane only: it may not receive a branch, commit, source
+edit, canonical record, or independent implementation.
 
-```text
-no historical observation bytes changed
-no public schema/tool/request field changed
-no dependency or migration changed
-no segmentation/contextual retrieval code exists
-no release/version file changed
-```
+In an external task-owned evidence directory:
 
-Stage exact Task 9 paths and commit:
+1. verify that `<external-evidence-directory>/source-pack-attempt.claim.json` and candidate output
+   are absent;
+2. run the consumer source-pack proof exactly once from the clean sealed worktree:
+
+   ```bash
+   cd <task-owned-proof-worktree>
+   UV_OFFLINE=1 uv run python \
+     <task-owned-proof-worktree>/scripts/consumer_source_pack_proof.py \
+     --python <resolved-python-3.12> \
+     --python <resolved-python-3.13> \
+     --attempt-claim \
+       <external-evidence-directory>/source-pack-attempt.claim.json \
+     --candidate-output <external-evidence-directory>/candidate \
+     --json
+   ```
+
+   After bounded preflight and before its build, the sealed controller no-replace publishes the
+   complete attempt claim. A “real invocation” is exactly a controller CLI run carrying the two
+   real interpreters, `--attempt-claim`, and `--candidate-output`; pre-seal unit/synthetic tests do
+   not count. This is the only real source-pack build/proof invocation in Task 8R. A claim retained
+   after failure permanently forbids another real invocation.
+3. copy the canonical protocol, development freeze, holdout receipt, retrieval-order artifact, and
+   compatibility artifact from the retained checkout as read-only proof inputs;
+4. recompute and compare every copied digest with the retained canonical bytes before and after
+   each proof; and
+5. parse `candidate/candidate-artifact-receipt.json`, require its exact `wheel_filename`,
+   `source_commit`, `wheel_sha256`, `proof_input_wheel_sha256`, and receipt digest, then select the
+   wheel by that exact filename without globbing; and
+6. require
+   `<task-owned-proof-worktree>/scripts/retrieval_order_installed_proof.py` and
+   `<task-owned-proof-worktree>/scripts/compiled_library_export_proof.py
+   --mke-wheel <exact-wheel>` to reuse that exact wheel.
+
+The two post-build proof commands are exact:
 
 ```bash
-git add \
-  scripts/retrieval_order_installed_proof.py \
-  tests/scripts/test_retrieval_order_installed_proof.py \
-  docs/decisions/0012-deterministic-retrieval-order.md \
-  docs/how-to/run-deterministic-retrieval-order-proof.md \
-  tests/evaluation/test_retrieval_order_documentation.py \
-  docs/explanation/architecture.md \
-  docs/reference/contracts.md \
-  docs/reference/mcp-contract.md \
-  docs/reference/cli.md \
-  docs/how-to/use-mke-mcp.md \
-  docs/how-to/enable-cjk-retrieval.md \
-  docs/README.md
-git diff --cached --check
-git commit -m "docs(retrieval): document deterministic order proof"
+cd <task-owned-proof-worktree>
+UV_OFFLINE=1 uv run python \
+  <task-owned-proof-worktree>/scripts/retrieval_order_installed_proof.py \
+  --python <resolved-python-3.12> \
+  --python <resolved-python-3.13> \
+  --mke-wheel <external-evidence-directory>/candidate/<exact-wheel-filename> \
+  --candidate-receipt \
+    <external-evidence-directory>/candidate/candidate-artifact-receipt.json \
+  --protocol <external-evidence-directory>/inputs/protocol.json \
+  --development-freeze <external-evidence-directory>/inputs/development-freeze.json \
+  --holdout-receipt <external-evidence-directory>/inputs/holdout-receipt.json \
+  --artifact <external-evidence-directory>/inputs/retrieval-order-artifact.json \
+  --compatibility <external-evidence-directory>/inputs/compatibility.json \
+  --json
+
+UV_OFFLINE=1 uv run python \
+  <task-owned-proof-worktree>/scripts/compiled_library_export_proof.py \
+  --python <resolved-python-3.12> \
+  --python <resolved-python-3.13> \
+  --mke-wheel <external-evidence-directory>/candidate/<exact-wheel-filename> \
+  --json
 ```
 
-- [ ] **Step 7: Prepare the authority-review handoff**
+Every angle-bracketed Task 8R value is a mechanical output of the sealed-source/interpreter/
+candidate-receipt preflight and is copied verbatim into the retained command ledger. None is an
+implementation-time product or authority choice.
 
-Return:
+The retrieval-order proof consumes the explicit candidate receipt and all copied canonical inputs.
+The compiled-export result is paired with the already-validated candidate receipt by the Task 8R
+controller. Every result must bind or be externally cross-checked against the same candidate seal
+SHA and `proof_input_wheel_sha256`; installed and compiled-export results must equal the receipt's
+value. No controller may rebuild or silently substitute a second wheel. Before and after every
+proof, verify the proof worktree HEAD/clean status and candidate receipt, exact wheel, and copied
+input digests. The final handoff reports the proof-worktree path, HEAD, clean status, unique wheel
+SHA, one claim digest, and one candidate-receipt digest.
+The proof worktree is retained and reported at task return; removing it remains outside this
+amendment's cleanup authority.
+
+### Step 4 — Final matrices
+
+Rerun:
+
+- the complete historical/compatibility matrix;
+- all retrieval-order protocol/workflow/artifact tests;
+- cursor, Python, CLI, MCP v1/v2, exact-read, schema, active-only, supersession, Publication, and
+  Evidence provenance tests;
+- the full test suite;
+- Ruff;
+- Pyright;
+- CI-parity commands;
+- the exact same-wheel `scripts/retrieval_order_installed_proof.py` under the required external
+  Python 3.12 and 3.13 environments;
+- compiled-library export proof; and
+- read-only revalidation of the retained Step 3 source-pack attempt claim, consumer source-pack
+  JSON, candidate receipt, source commit, and wheel digest.
+
+Do not rerun `consumer_source_pack_proof.py` in this step. The installed and compiled-export proofs
+run from the clean sealed proof worktree/evidence directory and consume the one Step 3 wheel. All
+repository tests run from the retained checkout. Before the final full suite, run the runtime
+capability proof plus the supplemental guard/static check that no test can execute canonical
+holdout. Post-holdout validators are pure read-only: they validate canonical receipt/artifact
+bytes, schema, digests, and cross-bindings and use synthetic copied fixtures for retry behavior;
+they never invoke the canonical ranking/retrieval observer. A call-counter test requires the
+canonical observer count to remain zero for every validator. The Task 8R controller establishes
+the lifecycle count of exactly one from the unique holdout attempt receipt, unique successful
+artifact, and retained Task 8B command ledger; synthetic capability calls are excluded.
+
+Rerun `tests/evaluation/test_retrieval_order_historical_freeze.py` and require exact equality of
+all 14 paths, digests, and canonical sorted serialization. Any source identity drift, unexpected
+dirty path, shared-wheel mismatch, membership/score/non-tied order/metric/gate/verdict delta, or
+consumer regression is a STOP. Do not rerun holdout.
+
+The final read-only controller requires exactly one source-pack attempt claim, one candidate
+receipt, and one wheel at the receipt's exact filename. It rejects a second claim/output, missing
+claim fields, retained-checkout script provenance, implicit sibling discovery, wheel globbing, or
+any build fallback.
+
+### Step 5 — Commit proof artifacts
+
+Stage only:
+
+- `benchmarks/retrieval/retrieval-order-v1-development-freeze.json`
+- `benchmarks/retrieval/retrieval-order-v1-holdout-receipt.json`
+- `benchmarks/retrieval/retrieval-order-v1-artifact.json`
+- `benchmarks/retrieval/retrieval-order-v2-compatibility-attempt.json`
+- `benchmarks/retrieval/retrieval-order-v2-compatibility.json`
+
+Commit:
+
+```bash
+git commit -m "test(eval): freeze deterministic retrieval order proof"
+```
+
+Re-run validators that do not mutate canonical artifacts and verify a clean worktree.
+
+Task 8R completion still does not authorize push, PR, merge, release, or promotion.
+
+## Maintainer Result and Help Contract
+
+Every internal compatibility/workflow/proof `--json` command returns one bounded redacted object
+with empty stderr. Success and failure include:
 
 ```text
-final HEAD and commit list
-changed paths
-targeted RED evidence
-development freeze SHA-256
-holdout receipt/artifact SHA-256
-revision-2 compatibility SHA-256
-focused/full/Ruff/Pyright/build/proof results
-historical immutable hash comparison
-installed Python/CLI/MCP result
-remaining non-claims
+status
+schema_version
+mode
+authority_layer
+canonical
+output_state
+publication_outcome
+problem
+cause
+next_step
+first_failed_gate
+stage_statuses
+historical_revision
+current_revision
 ```
 
-Do not push or create a PR. The next gate is a findings-only full branch-diff authority review.
+For compatibility commands the field contract is exact:
+
+| Field | Type and allowed values |
+|---|---|
+| `schema_version` | string; the mode-specific `.v1` value frozen in Task 8A |
+| `status` | string; `passed|failed` |
+| `mode` | string; `record|validate|record_canonical` |
+| `authority_layer` | string; `archive_current_differential|artifact_validation|canonical_publication` as fixed by mode |
+| `canonical` | boolean; `true` only for `record_canonical` or validation of the canonical artifact |
+| `output_state` | string; the four-value enum below |
+| `publication_outcome` | string; the four-value enum below |
+| `problem`, `cause`, `next_step` | strings; `none` on success, otherwise one frozen registry row |
+| `first_failed_gate` | string; `none` or one frozen stage name |
+| `stage_statuses` | ordered array of `{name: string, status: not_run|passed|failed}` |
+| `historical_revision`, `current_revision` | integers; `1` and `2` after valid archive binding, otherwise `0` before that gate |
+
+Fields not applicable to a mode are represented by stable explicit values, not omitted through a
+catch-all. No absolute path, raw query, Evidence content, opaque ID, cursor, traceback, or arbitrary
+exception text is emitted.
+
+The finite stable failures and their one allowed cause/next-step pair are:
+
+| Problem | Cause | Next step |
+|---|---|---|
+| `retrieval_order_archive_invalid` | `recorded_structure_or_identity_invalid` | `inspect_immutable_archive` |
+| `retrieval_order_compatibility_incomplete` | `unapproved_family_delta` | `inspect_first_failed_family` |
+| `retrieval_order_canonical_publication_unauthorized` | `required_success_authority_missing` | `wait_for_successful_holdout` |
+| `retrieval_order_canonical_publication_already_started` | `attempt_receipt_exists` | `retain_attempt_and_stop` |
+| `retrieval_order_canonical_output_exists` | `destination_preexists` | `validate_retained_bytes` |
+| `retrieval_order_holdout_unauthorized` | `typed_capability_missing_or_mismatched` | `restore_approved_transition` |
+| `retrieval_order_holdout_already_started` | `holdout_receipt_exists` | `retain_receipt_and_stop` |
+| `retrieval_order_candidate_seal_mismatch` | `candidate_inputs_do_not_match_seal` | `return_to_authority_review` |
+| `retrieval_order_shared_wheel_mismatch` | `wheel_or_receipt_digest_mismatch` | `retain_evidence_and_stop` |
+| `retrieval_order_publication_failed_before_visibility` | `publication_failed_before_final_path` | `retain_attempt_and_stop` |
+| `retrieval_order_publication_durability_unconfirmed` | `directory_fsync_failed_after_visibility` | `retain_visible_bytes_and_stop` |
+| `retrieval_order_source_pack_already_started` | `source_pack_claim_exists` | `retain_claim_and_stop` |
+| `retrieval_order_proof_preflight_invalid` | `proof_source_or_input_binding_invalid` | `inspect_first_failed_gate` |
+
+The strict live numeric command preserves its existing
+`retrieval_numeric_fixture_invalid`/`restore_numeric_protocol_inputs` result rather than inventing
+a compatibility alias. `output_state` is exactly
+`absent|complete_preexisting|complete_visible|not_applicable`; `publication_outcome` is exactly
+`not_attempted|published|failed_before_visibility|durability_unconfirmed`. Tests freeze the valid
+pair for every path. Generic current-observation rescue text such as
+`restore_frozen_protocol_and_retry_current_observation` is forbidden for canonical development,
+holdout, compatibility publication, and proof modes.
+
+Before expensive replay/build work, each controller runs bounded source/profile/path/receipt
+preflights. The final JSON records ordered stage statuses and the first failed gate. Optional
+stage-duration diagnostics are informational only, excluded from canonical artifacts/digests and
+all performance claims, and never change a gate or verdict.
+
+Top-level and subcommand `--help` use the same archive/current/differential/canonical terminology
+as the JSON. Tests lock help text, exit codes, finite problems, retry guidance, and redaction.
+
+## Test Coverage Map
+
+```text
+numeric live authority
+  +-- default loader current hash exact ------------ critical regression
+  +-- public/current runner remains fail closed ---- integration
+  +-- refresh copied protocol only ----------------- integration
+
+numeric archived authority
+  +-- exact lexical allowlist/order ---------------- unit
+  +-- lowercase recorded SHA syntax ---------------- unit
+  +-- no current-file hash comparison -------------- regression
+  +-- manifest/fixture bytes remain exact ---------- integration
+  +-- current schema compatibility remains -------- integration
+  +-- no shadow test validator --------------------- architecture
+
+Chinese trace authority
+  +-- two MATCH statements selected ---------------- unit
+  +-- rank + BM25 exact roles ---------------------- unit
+  +-- full stable locator/source key --------------- unit
+  +-- LIMIT rejected only in MATCH ----------------- unit
+  +-- config LIMIT 1 accepted ---------------------- regression
+  +-- opaque ID ORDER BY rejected ------------------ unit
+  +-- hostile trace redaction ---------------------- privacy
+  +-- E3-A/E3-B current replay --------------------- integration
+
+workflow authority
+  +-- live revision 2/passed ----------------------- integration
+  +-- archived revision 1/failure from JSON -------- immutable record
+  +-- no stale live revision claim ----------------- regression
+
+compatibility
+  +-- family score capability frozen before replay - authority
+  +-- E1/E2 deterministic historical subprocess ---- critical
+  +-- hashed bootstrap + 107 exact blobs ----------- isolation
+  +-- interpreter/module-origin preflight ----------- isolation
+  +-- pre-current zero-delta downgrade only --------- authority
+  +-- temporary deterministic build ---------------- integration
+  +-- temporary record rejects canonical path ------- lifecycle
+  +-- record-canonical synthetic pre-seal integration lifecycle
+  +-- durable canonical attempt receipt ------------- one-shot
+  +-- all family deltas/tie groups ----------------- differential
+  +-- atomic no-replace canonical record ------------ lifecycle
+  +-- absent-or-complete fault injection ------------ durability
+  +-- final 133-test matrix + full suite ----------- regression
+
+one-shot lifecycle
+  +-- all holdout tests use different synthetic bytes privacy/authority
+  +-- every holdout call requires typed capability -- critical
+  +-- metadata preflight + lazy partition load ------ critical
+  +-- copied/alias/symlink/mixed bypass rejected ---- regression
+  +-- fixture unopened on rejected call ------------ critical
+  +-- post-holdout validators never observe --------- authority
+  +-- all source/test/docs before seal ------------- lifecycle
+  +-- no source/test/docs after holdout ------------- lifecycle
+  +-- clean sealed proof worktree ------------------- source authority
+  +-- proof scripts originate from sealed worktree -- source authority
+  +-- durable source-pack attempt claim ------------- one-shot
+  +-- source-pack build/proof exactly once ---------- artifact authority
+  +-- one shared-wheel installed/export proof ------- consumer
+
+immutable authority
+  +-- exact 14 paths and digests -------------------- historical freeze
+  +-- canonical sorted serialization ---------------- deterministic
+
+maintainer DX
+  +-- finite stable errors and retry guidance ------- operations
+  +-- authority layer/mode/canonical visible -------- explanation
+  +-- help contract and first failed gate ----------- time to result
+```
+
+## Error and Rescue Registry
+
+| Codepath | Failure | Rescue | Stable result |
+|---|---|---|---|
+| live numeric loader | current source lock mismatch | existing runner boundary | `retrieval_numeric_fixture_invalid` |
+| archived numeric loader | invalid recorded structure/path/SHA | compatibility boundary | `retrieval_order_archive_invalid` |
+| archived numeric loader | current SQLite schema mismatch | existing gate | `no_scope_expansion` failed |
+| numeric refresh | invalid copied protocol or write failure | restore copied bytes, re-raise | original exception type plus byte-identical copied protocol |
+| Chinese trace validator | missing/old/extra MATCH proof | runner boundary | `retrieval_chinese_rank_invalid` |
+| non-MATCH config probe | contains `LIMIT 1` | excluded from ordering proof | accepted if MATCH proof is valid |
+| compatibility builder | any unapproved delta | no rescue | `retrieval_order_compatibility_incomplete` |
+| historical source materializer | missing blob/path/digest/profile or nondeterministic replay | pre-current downgrade for E1 and E2 together | `no_ordered_delta_authority` |
+| temporary compatibility record | canonical destination requested | reject before corpus/replay | `retrieval_order_canonical_publication_unauthorized` |
+| canonical compatibility record | attempt receipt already exists | reject before archive/current replay | `retrieval_order_canonical_publication_already_started` |
+| canonical compatibility record | missing capability | reject before archive/current replay | `retrieval_order_canonical_publication_unauthorized` |
+| canonical compatibility record | seal mismatch | reject before attempt publication | `retrieval_order_candidate_seal_mismatch` |
+| atomic publication | failure before final-path visibility | no retry after canonical attempt | `retrieval_order_publication_failed_before_visibility` |
+| atomic publication | directory-`fsync` failure after complete visibility | retain bytes; no retry | `retrieval_order_publication_durability_unconfirmed` |
+| compatibility record | preexisting final output | no overwrite/retry | `retrieval_order_canonical_output_exists` |
+| development | any failed gate | no rescue | stop before holdout |
+| canonical holdout observer | missing/mismatched/consumed capability | reject before fixture open | `retrieval_order_holdout_unauthorized` |
+| holdout command | receipt already exists | reject before capability/fixture | `retrieval_order_holdout_already_started` |
+| holdout | observation failure after receipt | no rescue/retry | `HOLDOUT_FAILED_TERMINAL` |
+| holdout artifact publication | complete visible but directory durability unknown | no rescue/retry | `HOLDOUT_ARTIFACT_DURABILITY_UNCONFIRMED` |
+| clean proof worktree | wrong HEAD, dirty source, or copied-input digest mismatch | no proof execution | `retrieval_order_proof_preflight_invalid` |
+| source-pack proof | attempt claim already exists | no second invocation | `retrieval_order_source_pack_already_started` |
+| same-wheel proofs | wheel SHA or candidate seal differs across receipts | no rebuild/substitution | `retrieval_order_shared_wheel_mismatch` |
+| post-holdout validator | observer call attempted | fail test before observation | read-only authority violation |
+| final verification | source drift or regression | no holdout retry | blocked with exact failing gate |
+
+No catch-all rescue, silent fallback, auto-refresh, or auto-retry is added.
+
+## Security and Privacy
+
+- No network, credential, secret, untrusted external input, dependency, endpoint, or runtime
+  persistence surface is added. The only new persistence is bounded evaluation proof/attempt
+  evidence described in this amendment.
+- Historical tree resolution uses only local Git objects, exports to a task-owned temporary
+  directory, materializes only the frozen recorded path set, and never fetches, switches a branch,
+  or mutates the retained worktree.
+- Historical subprocesses use a checkout-external cwd, `PYTHONNOUSERSITE=1`, cleared inherited
+  `PYTHONPATH`/`PYTHONHOME`, a new path containing only the materialized historical package, exact
+  runtime versions, and verified module origins.
+- Archive scope uses an exact lexical allowlist and cannot select arbitrary repository paths.
+- Live scope retains resolved repository-bound path and byte checks.
+- Canonical publication uses same-directory OS-level no-replace semantics and exact readback; it
+  cannot silently replace existing evidence or leave accepted partial bytes.
+- Every holdout observer call requires a typed capability. Production capability authority comes
+  only from the already-published canonical receipt; synthetic capability creation rejects any
+  canonical holdout fixture digest. Metadata-only preflight and lazy partition loading reject
+  before any fixture bytes.
+- Canonical compatibility first publishes a no-replace attempt receipt; its existence closes
+  cross-process retry even if the final compatibility artifact is absent.
+- The detached proof worktree is bound to the sealed SHA; copied canonical inputs are read-only and
+  hash-verified before external proof execution. Proofs execute only script copies from that
+  worktree, and a durable external attempt claim closes source-pack retries.
+- SQL validators inspect runtime-generated diagnostic text; they never execute supplied SQL.
+- Tests prove stable errors do not expose raw query/Evidence, opaque ID, cursor, absolute path, or
+  traceback.
+- Canonical artifacts contain stable locators/digests and public-neutral evidence only.
+
+## Performance
+
+All new work is evaluation-only. Archive scope validation is bounded by the fixed eight-path list.
+SQL trace checks are bounded string checks over the captured statement tuple. Compatibility replay
+uses existing model-free runners and frozen inputs. The two historical subprocesses, atomic
+publication readback, and one sealed proof worktree add bounded maintainer-proof cost only.
+
+No runtime search query, index, row cap, byte cap, connection, cache, model load, or public latency
+contract changes. Wall-clock numbers remain informational.
+
+## Deployment and Rollback
+
+This stage has no deployment.
+
+```text
+plan amendment
+  -> Task 6R authority repair
+  -> Task 7A temp compatibility
+  -> Task 8A all source/test/docs
+  -> candidate seal
+  -> Task 8B development once
+  -> Task 8B holdout once
+  -> Task 7B/8R canonical compatibility + final proof
+```
+
+Each pre-observation code phase is a semantic commit and can be reverted. Reverting Task 6R returns
+the known 71-failure block; therefore code rollback is mechanically simple but Task 7 becomes
+blocked again. After a holdout receipt exists, rollback does not erase or reopen the observation;
+the retained receipt/artifact remains terminal evidence.
+
+Reversibility:
+
+- code/test changes before observation: high;
+- one-shot holdout state: intentionally irreversible;
+- historical artifacts: unchanged;
+- promotion: not authorized.
+
+## Developer Experience
+
+The maintainer sees one authority per command:
+
+```text
+archive check -> recorded identity only
+live numeric CLI -> current lock strict
+compatibility -> archive + current replay + differential
+workflow current -> revision 2
+workflow historical -> immutable JSON record
+canonical holdout -> published receipt + one-use capability
+external proof -> sealed clean worktree + one shared wheel
+```
+
+The public numeric command is not silently redefined. A stale protocol continues to fail with a
+stable error and an explicit refresh path. The compatibility command/module owns cross-revision
+explanation. Temporary `record` cannot address the canonical path; only post-holdout
+`record-canonical` can derive its publication capability.
+
+Debug paths:
+
+1. archive syntax/identity failure -> inspect recorded structure;
+2. live source-lock failure -> refresh only a copied/current protocol through the maintainer path;
+3. Chinese rank proof failure -> inspect the two selected MATCH statements;
+4. workflow revision conflict -> distinguish live observation from archived JSON;
+5. differential failure -> stop on the exact family and delta;
+6. publication failure -> inspect absent-or-complete final path; never retry canonical evidence;
+7. canonical holdout authority failure -> verify receipt/candidate binding before any fixture open;
+8. proof checkout failure -> verify clean sealed SHA and shared-wheel digest; and
+9. post-receipt failure -> retain evidence; never retry holdout.
+
+## Documentation
+
+Required public documentation changes are:
+
+- the approved plan amendment; and
+- an append-only Task 0 source-inventory execution finding; and
+- the original Task 9 ADR, proof how-to, architecture/contracts/MCP/CLI/CJK docs, docs index, and
+  their documentation tests, all completed in Task 8A before observation.
+
+The design spec remains byte-identical. After the candidate seal and holdout, no doc is edited to
+record results; run facts stay in retained handoff/PR evidence until a later authorized
+publication phase.
+
+## Worktree and Parallelization
+
+Use the retained implementation branch sequentially. Numeric, Chinese, and workflow-test repairs
+share one authority gate; Task 7A depends on them; Task 8 and canonical compatibility are strictly
+ordered. The only additional worktree is the read-only detached Task 8R proof worktree at the
+sealed SHA. It is not an implementation or parallel-authority lane.
+
+## Rejected Alternatives
+
+1. **Relax default numeric loading** — rejected because it weakens the public/current source lock.
+2. **Refresh checked-in historical locks** — rejected because it rewrites history.
+3. **Treat all 64-character hashes as sufficient everywhere** — rejected because live,
+   manifest, fixture, schema, and canonical byte authority remain strict.
+4. **Require all 133 tests before Task 7A** — rejected because several are current replay tests
+   whose authorized path is Task 7A.
+5. **Generate canonical compatibility in original Task 7** — rejected because Tasks 8 and 9 still
+   write source, tests, scripts, ADR, and docs.
+6. **Validate historical revision 1 by replaying current revision 2** — rejected as an authority
+   contradiction; validate the immutable JSON record instead.
+7. **Forbid LIMIT across the whole SQL trace** — rejected because the rank-config probe correctly
+   uses `LIMIT 1`.
+8. **Change runtime SQL** — rejected because the live runtime already implements the approved
+   stable order.
+9. **Add a SQL parser** — rejected as unnecessary for bounded runtime-generated traces.
+10. **Run holdout before compatibility tests** — rejected; temporary Task 7A verification must be
+    green first.
+11. **Regenerate compatibility after a failure until it passes** — rejected as proof tuning.
+12. **Infer historical ties from current scores** — rejected because E1/E2 do not record exact
+   historical score hex.
+13. **Run canonical holdout from pytest** — rejected because it would consume or replay the
+   one-shot corpus outside the approved receipt transition.
+14. **Use a static scan as the holdout authority** — rejected because aliases, helpers, and direct
+    Python calls can bypass textual checks; a runtime receipt-bound capability is required.
+15. **Run source/compiled proofs from the dirty retained observation checkout** — rejected because
+    existing controllers require a clean source checkout.
+16. **Build one wheel per proof** — rejected because independently built inputs weaken
+    same-candidate consumer evidence.
+17. **Publish with check-then-rename** — rejected because it permits replacement races and cannot
+    guarantee absent-or-complete canonical authority.
+18. **Let temporary `record` write the canonical path** — rejected because a pre-holdout mistake
+    would irreversibly consume the no-replace publication slot.
+19. **Rerun source-pack proof in the final matrix** — rejected because the controller rebuilds;
+    Task 8R must retain and revalidate its one Step 3 wheel/receipt/result.
+20. **Let a validator replay canonical holdout** — rejected because validation is bytes/schema/
+    digest/cross-binding only after the one-shot observation.
+21. **Gate holdout only by canonical protocol path or digest** — rejected because copied,
+    reserialized, aliased, symlinked, or mixed-fixture protocols can bypass wrapper identity; every
+    holdout call needs a typed capability before lazy fixture load.
+22. **Track canonical/source-pack one-shot state only in process memory or final output** —
+    rejected because a crash before final publication permits a fresh-process retry; durable
+    no-replace attempt evidence must exist before irreversible replay/build work.
+
+## Stop Gates
+
+Stop and return `BLOCKED` if:
+
+- targeted RED does not isolate the verified authority mismatch;
+- live numeric default becomes permissive;
+- archive mode becomes an implicit fallback or public CLI flag;
+- a runtime retrieval file appears necessary;
+- a historical artifact/protocol byte changes;
+- the pre-maintenance observation JSON is replayed as if current;
+- a raw sentinel appears in stable output;
+- any unapproved membership, score-hex, non-tied order, metric, gate, or verdict delta appears;
+- a family with unrecorded scores infers ties from current output or records unknown as zero;
+- E1/E2 historical capability is selected after current replay, the exact recorded source set is
+  not reconstructed, or the two historical subprocess outputs differ;
+- canonical compatibility is generated before the candidate source seal;
+- a canonical compatibility or attempt-receipt path already exists, a failed record attempts
+  retry, or replay starts before attempt-receipt publication;
+- temporary `record` can address the canonical destination, or `record-canonical` proceeds without
+  a successful holdout/candidate-seal capability or was not fully integrated with synthetic
+  authority before the seal;
+- any canonical publication path can contain partial bytes or replace an existing destination;
+- any source/test/script/ADR/how-to/doc changes after candidate seal;
+- any holdout path can be called without a typed capability, synthetic capability accepts a
+  canonical fixture digest, development opens holdout bytes, or a rejected call opens any fixture;
+- development fails;
+- holdout receipt exists and code attempts retry/delete/overwrite, or failed/durability-unconfirmed
+  holdout proceeds to Task 8R;
+- the proof worktree is dirty or not at the sealed SHA, copied canonical inputs differ, or external
+  proof receipts do not bind one identical wheel SHA, or a proof executes a script outside the
+  sealed proof worktree;
+- source-pack attempt claim is absent/preexisting/malformed, source-pack proof runs more than once,
+  a proof selects a wheel by glob/implicit sibling, or a post-holdout validator invokes the
+  observer;
+- stable JSON/help omits authority layer, output/publication outcome, first failed gate, or safe
+  next step;
+- final historical/full/consumer verification fails; or
+- scope, Ruff, Pyright, diff-check, hash, or clean-worktree gates fail for a new cause.
+
+Do not tune fixtures, queries, spans, keys, order, score groups, thresholds, or validators after a
+stop. Do not consume holdout again.
+
+## Non-Claims
+
+- Task 6R does not make the historical matrix fully green.
+- Task 7A does not publish canonical compatibility evidence.
+- A green historical matrix proves bounded validator/current-replay compatibility, not that
+  revision 2 produced historical observations.
+- Development/holdout proof covers the frozen deterministic-order mechanism only.
+- No result proves contextual retrieval, segmentation quality, general RAG quality, production
+  adoption, enterprise readiness, latency improvement, or user/business impact.
+- No comparison-only result authorizes runtime promotion.
+- This amendment adds no new Agent memory, compilation, multimodal, or knowledge-base capability.
+
+## Deferred Taste Decisions
+
+These do not block this stage and remain out of scope:
+
+- replace raw SQL trace inspection with typed diagnostic fields;
+- retain or deprecate the internal `current` subcommand after the stage;
+- replace the explicit historical matrix with pytest markers.
+
+They require separate evidence and must not be smuggled into this repair.
 
 ## Final Acceptance
 
-The implementation is ready for authority review only when all statements are true:
-
-- FTS and CJK return identical stable projections across inverse fresh stores.
-- Scores, membership, non-tied order, active-only authority, and public schemas are unchanged.
-- Duplicate Run-local locators fail before Publication.
-- Invalid legacy candidates fail closed and `retrieval doctor` audits the full active authority.
-- Three runtime descriptors and CJK active-scan parameters report revision 2; query policy remains
-  revision 1.
-- Revision-1 Search cursors expire with full-traversal restart; exact Read continuity and owner
-  restart behavior are proven.
-- Development and the one canonical public nonblind holdout both pass exact mechanism gates.
-- Every Task 0 historical artifact/protocol byte remains unchanged.
-- Revision-2 compatibility permits only preregistered equal-score permutations and preserves all
-  metrics, gates, and verdicts.
-- Python 3.12/3.13 installed-wheel Python/CLI/MCP, consumer source-pack, and compiled-export proofs
-  pass against the reviewed candidate.
-- Full pytest, Ruff, Pyright, build, product proof, and demo pass.
-- No push, PR, merge, release, deployment, promotion, segmentation, or contextual retrieval has
-  occurred.
+- [ ] **C1 (P1)** — Add Task 6R numeric live/archive REDs and explicit loader separation.
+- [ ] **C2 (P1)** — Remove the numeric shadow validator while preserving corpus facts.
+- [ ] **C3 (P1)** — Add Chinese MATCH-only trace REDs, config-probe allowance, and privacy test.
+- [ ] **C4 (P1)** — Replace stale live workflow assertions with archived-record validation.
+- [ ] **C5 (P1)** — Run Task 6R gates, commit, and obtain authority code-diff review.
+- [ ] **C6 (P1)** — Implement the shared absent-or-complete atomic publication helper, Task 7A
+  temporary compatibility, and dynamic numeric test scaffolding without weakening production
+  defaults.
+- [ ] **C7 (P1)** — Freeze E1/E2 historical subprocess capability before current replay, assert
+  exact interpreter/module origins and 14-item authority; reject temporary canonical output; run
+  the 133-test historical matrix plus compatibility/runtime gates, commit, and obtain authority
+  review.
+- [ ] **C8 (P1)** — Implement Task 8A workflow/artifact state machine with receipt-bound canonical
+  holdout capability on every holdout path, metadata-only/lazy partition loading, pure read-only
+  validators, synthetic holdout tests, pre-seal `record-canonical` integration, atomic publication
+  reuse, stable error/help contracts, then verify and commit.
+- [ ] **C9 (P1)** — Complete original Task 9 installed-proof code/tests, ADR, docs, and
+  documentation tests; run pre-observation verification and seal the final clean HEAD.
+- [ ] **C10 (P1)** — Run Task 8B development once, then holdout once if development authorizes it.
+- [ ] **C11 (P1)** — Atomically record canonical compatibility after holdout; create the detached
+  attempt receipt and compatibility artifact; create the detached clean proof worktree; publish
+  one external source-pack attempt claim; run source-pack build/proof once; run final historical,
+  full, CI, and same-wheel installed/export proof plus read-only source-pack result validation
+  without canonical holdout replay.
+- [ ] **C12 (P1)** — Commit only five canonical proof artifacts and return for authority review.
