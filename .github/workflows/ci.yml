@@ -126,25 +126,181 @@ jobs:
             --manifest tests/fixtures/retrieval-eval-v1.json \
             --repository . \
             --main-ref origin/main
-      - name: Validate numeric retrieval candidate comparison
+      - name: Reject archived numeric lock and validate current retrieval-order compatibility
         run: |
+          TEMPORARY_COMPATIBILITY_JSON="$RUNNER_TEMP/retrieval-order-v2-compatibility-${{ matrix.python-version }}.json"
+          COMPATIBILITY_RECORD_RESULT="$RUNNER_TEMP/retrieval-order-v2-record-${{ matrix.python-version }}.json"
+          COMPATIBILITY_VALIDATE_RESULT="$RUNNER_TEMP/retrieval-order-v2-validate-${{ matrix.python-version }}.json"
+          CANONICAL_STATE_JSON="$RUNNER_TEMP/retrieval-order-canonical-state-${{ matrix.python-version }}.json"
+          NUMERIC_COMPARISON_JSON="$RUNNER_TEMP/numeric-comparison-${{ matrix.python-version }}.json"
+          export TEMPORARY_COMPATIBILITY_JSON COMPATIBILITY_RECORD_RESULT
+          export COMPATIBILITY_VALIDATE_RESULT CANONICAL_STATE_JSON NUMERIC_COMPARISON_JSON
+          test ! -e "$TEMPORARY_COMPATIBILITY_JSON"
+          uv run python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          canonical_paths = (
+              "benchmarks/retrieval/retrieval-order-v1-development-freeze.json",
+              "benchmarks/retrieval/retrieval-order-v1-holdout-receipt.json",
+              "benchmarks/retrieval/retrieval-order-v1-artifact.json",
+              "benchmarks/retrieval/retrieval-order-v2-compatibility-attempt.json",
+              "benchmarks/retrieval/retrieval-order-v2-compatibility.json",
+          )
+
+          def state() -> dict[str, str | None]:
+              return {
+                  path: (
+                      hashlib.sha256(Path(path).read_bytes()).hexdigest()
+                      if Path(path).exists()
+                      else None
+                  )
+                  for path in canonical_paths
+              }
+
+          canonical_state_before = state()
+          assert all(value is None for value in canonical_state_before.values())
+          Path(os.environ["CANONICAL_STATE_JSON"]).write_text(
+              json.dumps(canonical_state_before, sort_keys=True),
+              encoding="utf-8",
+          )
+          PY
           set +e
           uv run mke eval retrieval-numeric \
             --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json \
-            --json > /tmp/numeric-comparison.json
+            --json > "$NUMERIC_COMPARISON_JSON"
           comparison_status=$?
           set -e
-          case "$comparison_status" in
-            0|1) ;;
-            *) exit "$comparison_status" ;;
-          esac
-          COMPARISON_STATUS="$comparison_status" uv run python -c \
-            'import json, os; p=json.load(open("/tmp/numeric-comparison.json")); assert p["integrity_status"] == "passed"; assert (p["candidate_status"] == "passed") == (int(os.environ["COMPARISON_STATUS"]) == 0)'
-          uv run python -m mke.evaluation.numeric_artifact validate \
-            --artifact benchmarks/retrieval/numeric-grouping-v1-comparison.json \
-            --observed /tmp/numeric-comparison.json \
-            --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json \
-            --repository .
+          test "$comparison_status" -eq 1
+          uv run python - <<'PY'
+          import json
+          import os
+
+          with open(os.environ["NUMERIC_COMPARISON_JSON"], encoding="utf-8") as stream:
+              p = json.load(stream)
+          assert p["integrity_status"] == "failed"
+          assert p["candidate_status"] == "not_recorded"
+          assert len(p["integrity_failures"]) == 1
+          f = p["integrity_failures"][0]
+          assert f["problem"] == "retrieval_numeric_fixture_invalid"
+          assert f["cause"] == "protocol-bound input identity mismatch"
+          assert f["next_step"] == "restore_numeric_protocol_inputs"
+          assert f["subject_id"] is None
+          PY
+          uv run python -m mke.evaluation.retrieval_order_compatibility record \
+            --protocol tests/fixtures/retrieval-order-v1/protocol.json \
+            --artifact "$TEMPORARY_COMPATIBILITY_JSON" \
+            --repository . --json > "$COMPATIBILITY_RECORD_RESULT"
+          uv run python -m mke.evaluation.retrieval_order_compatibility validate \
+            --protocol tests/fixtures/retrieval-order-v1/protocol.json \
+            --artifact "$TEMPORARY_COMPATIBILITY_JSON" \
+            --repository . --json > "$COMPATIBILITY_VALIDATE_RESULT"
+          uv run python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          def load(name: str) -> dict[str, object]:
+              with open(os.environ[name], encoding="utf-8") as stream:
+                  value = json.load(stream)
+              assert isinstance(value, dict)
+              return value
+
+          def state(paths: object) -> dict[str, str | None]:
+              assert isinstance(paths, dict)
+              return {
+                  path: (
+                      hashlib.sha256(Path(path).read_bytes()).hexdigest()
+                      if Path(path).exists()
+                      else None
+                  )
+                  for path in paths
+              }
+
+          record = load("COMPATIBILITY_RECORD_RESULT")
+          validate = load("COMPATIBILITY_VALIDATE_RESULT")
+          artifact = load("TEMPORARY_COMPATIBILITY_JSON")
+          assert record == {
+              "schema_version": "mke.retrieval_order_compatibility_record_result.v1",
+              "status": "passed",
+              "mode": "record",
+              "authority_layer": "archive_current_differential",
+              "canonical": False,
+              "output_state": "complete_visible",
+              "publication_outcome": "published",
+              "problem": "none",
+              "cause": "none",
+              "next_step": "none",
+              "first_failed_gate": "none",
+              "stage_statuses": [{"name": "compatibility", "status": "passed"}],
+              "historical_revision": 1,
+              "current_revision": 2,
+          }
+          assert validate == {
+              "schema_version": "mke.retrieval_order_compatibility_validate_result.v1",
+              "status": "passed",
+              "mode": "validate",
+              "authority_layer": "artifact_validation",
+              "canonical": False,
+              "output_state": "complete_preexisting",
+              "publication_outcome": "not_attempted",
+              "problem": "none",
+              "cause": "none",
+              "next_step": "none",
+              "first_failed_gate": "none",
+              "stage_statuses": [{"name": "compatibility", "status": "passed"}],
+              "historical_revision": 1,
+              "current_revision": 2,
+          }
+          assert artifact["integrity_status"] == "passed"
+          assert artifact["compatibility_status"] == "passed"
+          families = artifact["families"]
+          assert isinstance(families, list)
+          assert len(families) == 7
+          assert [family["family"] for family in families] == [
+              "e1_baseline",
+              "e2_numeric",
+              "e3a_chinese",
+              "e3b_cjk_lexical",
+              "e3c_dense",
+              "e3d_hybrid_rrf",
+              "e3e_relevance_gate",
+          ]
+          differential_fields = (
+              "membership_delta",
+              "score_hex_delta",
+              "non_tied_pair_delta",
+              "metric_delta",
+              "gate_delta",
+              "verdict_delta",
+          )
+          assert all(
+              family[field] == 0
+              for family in families
+              for field in differential_fields
+          )
+          assert artifact["limitations"] == [
+              "historical_compatibility_only",
+              "tie_permutation_only",
+              "no_relevance_improvement_claim",
+              "no_runtime_promotion",
+              "public_holdout_not_observed",
+          ]
+          assert artifact["historical_capability"]["status"] in {
+              "deterministic_historical_subprocess_replay",
+              "no_ordered_delta_authority",
+          }
+          canonical_state_before = json.loads(
+              Path(os.environ["CANONICAL_STATE_JSON"]).read_text(encoding="utf-8")
+          )
+          canonical_state_after = state(canonical_state_before)
+          assert canonical_state_before == canonical_state_after
+          assert all(value is None for value in canonical_state_before.values())
+          assert all(value is None for value in canonical_state_after.values())
+          PY
       - name: Run Chinese retrieval baseline
         run: |
           uv run mke eval retrieval-chinese \
