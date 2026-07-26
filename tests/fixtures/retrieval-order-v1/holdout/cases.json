@@ -1,0 +1,95 @@
+{
+  "schema_version": "mke.retrieval_order_cases.v1",
+  "partition": "holdout",
+  "workspace_schedules": [
+    "forward_ids",
+    "reverse_ids"
+  ],
+  "page_sizes": [
+    1,
+    2,
+    "full"
+  ],
+  "cases": [
+    {
+      "case_id": "holdout-fts-page",
+      "strategy": "fts",
+      "query_id": "holdout-query-fts-page",
+      "query": "violet holdout signal",
+      "candidates": [
+        {
+          "source_id": "holdout-source-violet-a",
+          "content_fingerprint": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+          "asset_sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+          "locator_kind": "page",
+          "locator_start": 3,
+          "locator_end": 3,
+          "text": "violet holdout signal"
+        },
+        {
+          "source_id": "holdout-source-violet-b",
+          "content_fingerprint": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "asset_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "locator_kind": "page",
+          "locator_start": 3,
+          "locator_end": 3,
+          "text": "violet holdout signal"
+        }
+      ],
+      "expected_stable_projections": [
+        [
+          "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+          "page",
+          3,
+          3
+        ],
+        [
+          "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "page",
+          3,
+          3
+        ]
+      ]
+    },
+    {
+      "case_id": "holdout-cjk-page",
+      "strategy": "cjk",
+      "query_id": "holdout-query-cjk-page",
+      "query": "金色保留信号",
+      "candidates": [
+        {
+          "source_id": "holdout-source-gold-a",
+          "content_fingerprint": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "asset_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "locator_kind": "page",
+          "locator_start": 4,
+          "locator_end": 4,
+          "text": "金色保留信号"
+        },
+        {
+          "source_id": "holdout-source-gold-b",
+          "content_fingerprint": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "asset_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "locator_kind": "page",
+          "locator_start": 4,
+          "locator_end": 4,
+          "text": "金色保留信号"
+        }
+      ],
+      "expected_stable_projections": [
+        [
+          "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "page",
+          4,
+          4
+        ],
+        [
+          "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "page",
+          4,
+          4
+        ]
+      ]
+    }
+  ]
+}
