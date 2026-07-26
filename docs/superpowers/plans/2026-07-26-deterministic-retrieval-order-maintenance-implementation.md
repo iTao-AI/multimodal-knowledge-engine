@@ -1398,11 +1398,11 @@ Modify:
 - `src/mke/evaluation/chinese_runner.py`
 - `tests/evaluation/test_chinese_runner.py`
 - `tests/evaluation/test_retrieval_order_workflow.py`
+- `tests/evaluation/test_retrieval_order_historical_freeze.py`
 
 Verification-only:
 
 - all historical artifact tests;
-- `tests/evaluation/test_retrieval_order_historical_freeze.py`;
 - all runtime retrieval, cursor, interface, and schema tests.
 
 No runtime retrieval file or historical artifact/protocol is writable.
@@ -1568,7 +1568,7 @@ no holdout receipt/artifact
 
 ### Step 8 — Commit and review
 
-Commit the seven allowed paths with:
+Commit the eight allowed paths with:
 
 ```bash
 git commit -m "fix(eval): separate historical replay authority"
