@@ -5,13 +5,14 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
 from collections.abc import Generator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Literal, cast
 
 from mke.application import KnowledgeEngine
@@ -22,7 +23,7 @@ from mke.evaluation import (
     cjk_lexical_artifact as cjk_lexical_artifact_module,
 )
 from mke.evaluation import numeric_artifact as numeric_artifact_module
-from mke.evaluation import numeric_comparison, runner
+from mke.evaluation import numeric_comparison, retrieval_order_workflow, runner
 from mke.evaluation._atomic_json_publication import (
     AtomicPublicationResult,
     publish_json_no_replace,
@@ -545,10 +546,25 @@ def freeze_historical_capabilities(
             or len(cast(list[object], numeric_source["files"])) != 107
         ):
             raise ValueError
+        _validate_all_archived_authority(root)
         historical_root = scratch / "historical-replay" / "repository"
+        source_paths, input_paths = _historical_materialization_plan(
+            root,
+            historical_root,
+            numeric_source,
+        )
         historical_root.mkdir(parents=True, exist_ok=False)
-        _materialize_historical_source(root, historical_root, numeric_source)
-        inputs = _materialize_historical_inputs(root, historical_root)
+        _materialize_historical_source(
+            root,
+            historical_root,
+            numeric_source,
+            source_paths=source_paths,
+        )
+        inputs = _materialize_historical_inputs(
+            root,
+            historical_root,
+            relative_paths=input_paths,
+        )
         child_cwd = scratch / "historical-replay" / "child-cwd"
         child_cwd.mkdir()
         request: dict[str, object] = {
@@ -1182,33 +1198,108 @@ _CANONICAL_CAPABILITY_ISSUER = object()
 
 @dataclass(init=False)
 class _CanonicalPublicationCapability:
+    repository_root: Path
+    protocol_path: Path
+    protocol_sha256: str
+    development_freeze_path: Path
+    development_freeze_sha256: str
+    holdout_receipt_path: Path
+    holdout_receipt_sha256: str
+    retrieval_artifact_path: Path
+    retrieval_artifact_sha256: str
     attempt_path: Path
     attempt_sha256: str
+    expected_attempt: dict[str, object]
     candidate_head: str
+    runtime_profile: dict[str, object]
+    status_records: tuple[tuple[str, str, str | None], ...]
     _consumed: bool
 
     def __init__(
         self,
         *,
         issuer: object,
+        repository_root: Path,
+        protocol_path: Path,
+        protocol_sha256: str,
+        development_freeze_path: Path,
+        development_freeze_sha256: str,
+        holdout_receipt_path: Path,
+        holdout_receipt_sha256: str,
+        retrieval_artifact_path: Path,
+        retrieval_artifact_sha256: str,
         attempt_path: Path,
         attempt_sha256: str,
+        expected_attempt: dict[str, object],
         candidate_head: str,
+        runtime_profile: dict[str, object],
+        status_records: tuple[tuple[str, str, str | None], ...],
     ) -> None:
         if issuer is not _CANONICAL_CAPABILITY_ISSUER:
             raise RetrievalOrderCompatibilityError
-        self.attempt_path = attempt_path.resolve()
+        self.repository_root = repository_root.resolve()
+        self.protocol_path = protocol_path
+        self.protocol_sha256 = protocol_sha256
+        self.development_freeze_path = development_freeze_path
+        self.development_freeze_sha256 = development_freeze_sha256
+        self.holdout_receipt_path = holdout_receipt_path
+        self.holdout_receipt_sha256 = holdout_receipt_sha256
+        self.retrieval_artifact_path = retrieval_artifact_path
+        self.retrieval_artifact_sha256 = retrieval_artifact_sha256
+        self.attempt_path = attempt_path
         self.attempt_sha256 = attempt_sha256
+        self.expected_attempt = expected_attempt
         self.candidate_head = candidate_head
+        self.runtime_profile = runtime_profile
+        self.status_records = status_records
         self._consumed = False
 
     def consume(self) -> None:
+        if self._consumed:
+            raise RetrievalOrderCompatibilityError
+        self.revalidate()
+        self._consumed = True
+
+    def revalidate(self) -> None:
+        metadata = load_retrieval_order_protocol_metadata(
+            self.protocol_path,
+            repository_root=self.repository_root,
+        )
+        retained = validate_retrieval_order_artifact(
+            _load_object(self.retrieval_artifact_path),
+            protocol_path=self.protocol_path,
+            repository_root=self.repository_root,
+        )
+        candidate = retrieval_order_workflow._candidate_seal(  # pyright: ignore[reportPrivateUsage]
+            self.repository_root,
+            expected_status={
+                self.development_freeze_path: "??",
+                self.holdout_receipt_path: "??",
+                self.retrieval_artifact_path: "??",
+                self.attempt_path: "??",
+            },
+        )
+        retained_candidate = _object(retained["candidate_seal"])
+        expected_candidate = {
+            "head": self.candidate_head,
+            "runtime_profile": self.runtime_profile,
+        }
         if (
-            self._consumed
+            metadata.protocol_sha256 != self.protocol_sha256
+            or _sha256(self.development_freeze_path)
+            != self.development_freeze_sha256
+            or _sha256(self.holdout_receipt_path)
+            != self.holdout_receipt_sha256
+            or _sha256(self.retrieval_artifact_path)
+            != self.retrieval_artifact_sha256
             or _sha256(self.attempt_path) != self.attempt_sha256
+            or _load_object(self.attempt_path) != self.expected_attempt
+            or retained_candidate != expected_candidate
+            or candidate["head"] != self.candidate_head
+            or candidate["runtime_profile"] != self.runtime_profile
+            or candidate["status_records"] != self.status_records
         ):
             raise RetrievalOrderCompatibilityError
-        self._consumed = True
 
 
 def _canonical_result(
@@ -1272,17 +1363,100 @@ def _canonical_failure(
     )
 
 
+def _postattempt_failure(
+    *,
+    publication: AtomicPublicationResult,
+    problem: str,
+    cause: str,
+    first_failed_gate: str,
+) -> dict[str, object]:
+    return _canonical_failure(
+        problem=problem,
+        cause=cause,
+        next_step="retain_attempt_and_stop",
+        first_failed_gate=first_failed_gate,
+        publication=publication,
+    )
+
+
+def _path_preflight_failure() -> dict[str, object]:
+    return _canonical_failure(
+        problem="retrieval_order_canonical_publication_unauthorized",
+        cause="canonical_path_preflight_failed",
+        next_step="correct_canonical_paths_before_first_attempt",
+        first_failed_gate="path_preflight",
+    )
+
+
+def _preexisting_regular_digest(path: Path) -> str | None:
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return None
+    if not stat.S_ISREG(metadata.st_mode):
+        raise RetrievalOrderCompatibilityError
+    return _sha256(path)
+
+
 def _canonical_path(
-    supplied: Path,
+    supplied: Path | str,
     *,
     repository_root: Path,
     expected: Path,
 ) -> Path:
     root = repository_root.resolve()
-    resolved = supplied.resolve()
-    if resolved != (root / expected).resolve():
+    raw = os.fspath(supplied)
+    expected_absolute = root / expected
+    if (
+        not raw
+        or "\\" in raw
+        or (
+            Path(raw).is_absolute()
+            and raw != expected_absolute.as_posix()
+        )
+        or (
+            not Path(raw).is_absolute()
+            and raw != expected.as_posix()
+        )
+    ):
         raise RetrievalOrderCompatibilityError
-    return resolved
+    lexical = Path(raw) if Path(raw).is_absolute() else root / raw
+    _require_lexical_containment(
+        lexical,
+        root=root,
+        require_existing=False,
+    )
+    if lexical != expected_absolute:
+        raise RetrievalOrderCompatibilityError
+    return lexical
+
+
+def _contained_input_path(
+    supplied: Path | str,
+    *,
+    repository_root: Path,
+) -> Path:
+    root = repository_root.resolve()
+    raw = os.fspath(supplied)
+    path = Path(raw)
+    components = raw.split("/")
+    if path.is_absolute():
+        components = components[1:]
+    if (
+        not raw
+        or "\\" in raw
+        or any(component in {"", ".", ".."} for component in components)
+        or raw != PurePosixPath(raw).as_posix()
+        or (path.parts and path.parts[0].endswith(":"))
+    ):
+        raise RetrievalOrderCompatibilityError
+    lexical = path if path.is_absolute() else root / path
+    _require_lexical_containment(
+        lexical,
+        root=root,
+        require_existing=True,
+    )
+    return lexical
 
 
 def _validate_attempt_receipt(
@@ -1433,17 +1607,21 @@ def _validate_canonical_artifact(
 
 def record_canonical_compatibility(
     *,
-    protocol_path: Path,
-    development_freeze_path: Path,
-    holdout_receipt_path: Path,
-    retrieval_artifact_path: Path,
+    protocol_path: Path | str,
+    development_freeze_path: Path | str,
+    holdout_receipt_path: Path | str,
+    retrieval_artifact_path: Path | str,
     candidate_head: str,
-    attempt_receipt_path: Path,
-    artifact_path: Path,
+    attempt_receipt_path: Path | str,
+    artifact_path: Path | str,
     repository_root: Path,
 ) -> dict[str, object]:
     root = repository_root.resolve()
     try:
+        protocol = _contained_input_path(
+            protocol_path,
+            repository_root=root,
+        )
         development_freeze = _canonical_path(
             development_freeze_path,
             repository_root=root,
@@ -1470,13 +1648,12 @@ def record_canonical_compatibility(
             expected=_CANONICAL_ARTIFACT,
         )
     except Exception:
-        return _canonical_failure(
-            problem="retrieval_order_canonical_publication_unauthorized",
-            cause="required_success_authority_missing",
-            next_step="wait_for_successful_holdout",
-            first_failed_gate="path_preflight",
-        )
-    if attempt_receipt.exists():
+        return _path_preflight_failure()
+    try:
+        attempt_digest = _preexisting_regular_digest(attempt_receipt)
+    except (OSError, RetrievalOrderCompatibilityError):
+        return _path_preflight_failure()
+    if attempt_digest is not None:
         return _canonical_failure(
             problem="retrieval_order_canonical_publication_already_started",
             cause="attempt_receipt_exists",
@@ -1485,13 +1662,17 @@ def record_canonical_compatibility(
             publication=AtomicPublicationResult(
                 output_state="complete_preexisting",
                 publication_outcome="not_attempted",
-                sha256=_sha256(attempt_receipt),
+                sha256=attempt_digest,
                 problem=(
                     "retrieval_order_canonical_publication_already_started"
                 ),
             ),
         )
-    if destination.exists():
+    try:
+        destination_digest = _preexisting_regular_digest(destination)
+    except (OSError, RetrievalOrderCompatibilityError):
+        return _path_preflight_failure()
+    if destination_digest is not None:
         return _canonical_failure(
             problem="retrieval_order_canonical_output_exists",
             cause="destination_preexists",
@@ -1500,23 +1681,31 @@ def record_canonical_compatibility(
             publication=AtomicPublicationResult(
                 output_state="complete_preexisting",
                 publication_outcome="not_attempted",
-                sha256=_sha256(destination),
+                sha256=destination_digest,
                 problem="retrieval_order_canonical_output_exists",
             ),
         )
     try:
         metadata = load_retrieval_order_protocol_metadata(
-            protocol_path,
+            protocol,
             repository_root=root,
         )
         immutable_inputs = _immutable_input_map(root)
         retained = validate_retrieval_order_artifact(
             _load_object(retrieval_artifact),
-            protocol_path=protocol_path,
+            protocol_path=protocol,
             repository_root=root,
         )
         candidate_seal = _object(retained["candidate_seal"])
-        git_head = _git(root, "rev-parse", "HEAD").decode().strip()
+        preattempt_candidate = retrieval_order_workflow._candidate_seal(  # pyright: ignore[reportPrivateUsage]
+            root,
+            expected_status={
+                development_freeze: "??",
+                holdout_receipt: "??",
+                retrieval_artifact: "??",
+            },
+        )
+        git_head = cast(str, preattempt_candidate["head"])
     except Exception:
         return _canonical_failure(
             problem="retrieval_order_canonical_publication_unauthorized",
@@ -1524,9 +1713,13 @@ def record_canonical_compatibility(
             next_step="wait_for_successful_holdout",
             first_failed_gate="success_authority",
         )
+    expected_candidate_seal = {
+        "head": git_head,
+        "runtime_profile": preattempt_candidate["runtime_profile"],
+    }
     if (
         candidate_head != git_head
-        or candidate_seal["head"] != candidate_head
+        or candidate_seal != expected_candidate_seal
     ):
         return _canonical_failure(
             problem="retrieval_order_candidate_seal_mismatch",
@@ -1584,28 +1777,59 @@ def record_canonical_compatibility(
                 == "durability_unconfirmed"
                 else "publication_failed_before_final_path"
             ),
-            next_step=(
-                "retain_visible_bytes_and_stop"
-                if attempt_publication.publication_outcome
-                == "durability_unconfirmed"
-                else "retain_attempt_and_stop"
-            ),
+            next_step="retain_attempt_and_stop",
             first_failed_gate="attempt_publication",
             publication=attempt_publication,
         )
     assert attempt_publication.sha256 is not None
-    capability = _CanonicalPublicationCapability(
-        issuer=_CANONICAL_CAPABILITY_ISSUER,
-        attempt_path=attempt_receipt,
-        attempt_sha256=attempt_publication.sha256,
-        candidate_head=candidate_head,
-    )
+    try:
+        postattempt_candidate = retrieval_order_workflow._candidate_seal(  # pyright: ignore[reportPrivateUsage]
+            root,
+            expected_status={
+                development_freeze: "??",
+                holdout_receipt: "??",
+                retrieval_artifact: "??",
+                attempt_receipt: "??",
+            },
+        )
+        capability = _CanonicalPublicationCapability(
+            issuer=_CANONICAL_CAPABILITY_ISSUER,
+            repository_root=root,
+            protocol_path=protocol,
+            protocol_sha256=metadata.protocol_sha256,
+            development_freeze_path=development_freeze,
+            development_freeze_sha256=_sha256(development_freeze),
+            holdout_receipt_path=holdout_receipt,
+            holdout_receipt_sha256=_sha256(holdout_receipt),
+            retrieval_artifact_path=retrieval_artifact,
+            retrieval_artifact_sha256=_sha256(retrieval_artifact),
+            attempt_path=attempt_receipt,
+            attempt_sha256=attempt_publication.sha256,
+            expected_attempt=expected_attempt,
+            candidate_head=candidate_head,
+            runtime_profile=cast(
+                dict[str, object],
+                candidate_seal["runtime_profile"],
+            ),
+            status_records=cast(
+                tuple[tuple[str, str, str | None], ...],
+                postattempt_candidate["status_records"],
+            ),
+        )
+        capability.consume()
+    except Exception:
+        return _postattempt_failure(
+            publication=attempt_publication,
+            problem="retrieval_order_candidate_seal_mismatch",
+            cause="candidate_inputs_do_not_match_seal",
+            first_failed_gate="capability_consume",
+        )
     try:
         with tempfile.TemporaryDirectory(
             prefix="mke-retrieval-order-canonical-"
         ) as workspace:
             base = build_compatibility_artifact(
-                protocol_path=protocol_path,
+                protocol_path=protocol,
                 repository_root=root,
                 workspace=Path(workspace),
             )
@@ -1643,30 +1867,47 @@ def record_canonical_compatibility(
         }
         _validate_canonical_artifact(
             candidate,
-            protocol_path=protocol_path,
+            protocol_path=protocol,
             repository_root=root,
             expected_authority=canonical_authority,
         )
-        capability.consume()
+    except Exception:
+        return _postattempt_failure(
+            publication=attempt_publication,
+            problem="retrieval_order_compatibility_incomplete",
+            cause="unapproved_family_delta",
+            first_failed_gate="compatibility_build",
+        )
+    try:
+        capability.revalidate()
+    except Exception:
+        return _postattempt_failure(
+            publication=attempt_publication,
+            problem="retrieval_order_candidate_seal_mismatch",
+            cause="candidate_inputs_do_not_match_seal",
+            first_failed_gate="final_authority",
+        )
+    try:
         publication = publish_json_no_replace(
             destination,
             render_compatibility_artifact(candidate),
             validate=lambda value: _validate_canonical_artifact(
                 value,
-                protocol_path=protocol_path,
+                protocol_path=protocol,
                 repository_root=root,
                 expected_authority=canonical_authority,
             ),
         )
     except Exception:
-        return _canonical_failure(
+        return _postattempt_failure(
+            publication=attempt_publication,
             problem="retrieval_order_compatibility_incomplete",
             cause="unapproved_family_delta",
-            next_step="inspect_first_failed_family",
-            first_failed_gate="compatibility_build",
+            first_failed_gate="compatibility_publication",
         )
     if publication.publication_outcome != "published":
-        return _canonical_failure(
+        return _postattempt_failure(
+            publication=attempt_publication,
             problem=(
                 "retrieval_order_publication_durability_unconfirmed"
                 if publication.publication_outcome
@@ -1679,14 +1920,7 @@ def record_canonical_compatibility(
                 == "durability_unconfirmed"
                 else "publication_failed_before_final_path"
             ),
-            next_step=(
-                "retain_visible_bytes_and_stop"
-                if publication.publication_outcome
-                == "durability_unconfirmed"
-                else "retain_attempt_and_stop"
-            ),
             first_failed_gate="compatibility_publication",
-            publication=publication,
         )
     return _canonical_result(
         status="passed",
@@ -1716,14 +1950,21 @@ def _parser() -> argparse.ArgumentParser:
         subparser.add_argument("--artifact", type=Path, required=True)
         subparser.add_argument("--repository", type=Path, required=True)
         subparser.add_argument("--json", action="store_true")
-    canonical = subparsers.add_parser("record-canonical")
-    canonical.add_argument("--protocol", type=Path, required=True)
-    canonical.add_argument("--development-freeze", type=Path, required=True)
-    canonical.add_argument("--holdout-receipt", type=Path, required=True)
-    canonical.add_argument("--retrieval-artifact", type=Path, required=True)
+    canonical = subparsers.add_parser(
+        "record-canonical",
+        description=(
+            "preflight rejected -> not attempted; correct the input before "
+            "any attempt\nattempt visible -> terminal; retain the attempt "
+            "and stop"
+        ),
+    )
+    canonical.add_argument("--protocol", required=True)
+    canonical.add_argument("--development-freeze", required=True)
+    canonical.add_argument("--holdout-receipt", required=True)
+    canonical.add_argument("--retrieval-artifact", required=True)
     canonical.add_argument("--candidate-head", required=True)
-    canonical.add_argument("--attempt-receipt", type=Path, required=True)
-    canonical.add_argument("--artifact", type=Path, required=True)
+    canonical.add_argument("--attempt-receipt", required=True)
+    canonical.add_argument("--artifact", required=True)
     canonical.add_argument("--repository", type=Path, required=True)
     canonical.add_argument("--json", action="store_true")
     return parser
@@ -1732,16 +1973,19 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     arguments = _parser().parse_args(argv)
     root = arguments.repository.resolve()
-    protocol = (
-        arguments.protocol.resolve()
-        if arguments.protocol.is_absolute()
-        else (root / arguments.protocol).resolve()
-    )
-    artifact = (
-        arguments.artifact.resolve()
-        if arguments.artifact.is_absolute()
-        else (root / arguments.artifact).resolve()
-    )
+    protocol = arguments.protocol
+    artifact = arguments.artifact
+    if arguments.command != "record-canonical":
+        protocol = (
+            protocol.resolve()
+            if protocol.is_absolute()
+            else (root / protocol).resolve()
+        )
+        artifact = (
+            artifact.resolve()
+            if artifact.is_absolute()
+            else (root / artifact).resolve()
+        )
     if arguments.command == "record":
         result = record_temporary_compatibility(
             protocol_path=protocol,
@@ -1755,24 +1999,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             repository_root=root,
         )
     else:
-        def resolved(value: Path) -> Path:
-            return (
-                value.resolve()
-                if value.is_absolute()
-                else (root / value).resolve()
-            )
-
         result = record_canonical_compatibility(
             protocol_path=protocol,
-            development_freeze_path=resolved(
-                arguments.development_freeze
-            ),
-            holdout_receipt_path=resolved(arguments.holdout_receipt),
-            retrieval_artifact_path=resolved(
-                arguments.retrieval_artifact
-            ),
+            development_freeze_path=arguments.development_freeze,
+            holdout_receipt_path=arguments.holdout_receipt,
+            retrieval_artifact_path=arguments.retrieval_artifact,
             candidate_head=arguments.candidate_head,
-            attempt_receipt_path=resolved(arguments.attempt_receipt),
+            attempt_receipt_path=arguments.attempt_receipt,
             artifact_path=artifact,
             repository_root=root,
         )
@@ -3005,20 +3238,176 @@ def _capability(
     )
 
 
+def _validate_materialization_path(
+    relative: str,
+    *,
+    source_root: Path,
+    scratch_root: Path,
+) -> Path:
+    path = PurePosixPath(relative)
+    if (
+        not relative
+        or "\\" in relative
+        or relative in {".", ".."}
+        or any(component in {"", ".", ".."} for component in relative.split("/"))
+        or path.is_absolute()
+        or relative != path.as_posix()
+        or any(part in {"", ".", ".."} for part in path.parts)
+        or (path.parts and path.parts[0].endswith(":"))
+    ):
+        raise RetrievalOrderCompatibilityError
+    source = source_root / Path(*path.parts)
+    target = scratch_root / Path(*path.parts)
+    _require_lexical_containment(
+        source,
+        root=source_root,
+        require_existing=False,
+    )
+    _require_lexical_containment(
+        target,
+        root=scratch_root,
+        require_existing=False,
+    )
+    return Path(*path.parts)
+
+
+def _require_lexical_containment(
+    path: Path,
+    *,
+    root: Path,
+    require_existing: bool,
+) -> None:
+    lexical_root = root.absolute()
+    lexical = path.absolute()
+    try:
+        relative = lexical.relative_to(lexical_root)
+    except ValueError as error:
+        raise RetrievalOrderCompatibilityError from error
+    current = lexical_root
+    if current.is_symlink():
+        raise RetrievalOrderCompatibilityError
+    for part in relative.parts:
+        current = current / part
+        if current.is_symlink():
+            raise RetrievalOrderCompatibilityError
+    if require_existing and not lexical.is_file():
+        raise RetrievalOrderCompatibilityError
+
+
+def _manifest_input_paths(
+    root: Path,
+    destination: Path,
+) -> tuple[Path, ...]:
+    raw_paths: set[str] = {
+        _E1_MANIFEST.as_posix(),
+        _NUMERIC_PROTOCOL.as_posix(),
+    }
+    for manifest_path in (
+        root / _E1_MANIFEST,
+        root / "tests/fixtures/retrieval-numeric-v1/development.json",
+        root / "tests/fixtures/retrieval-numeric-v1/holdout.json",
+    ):
+        relative_manifest = manifest_path.relative_to(root)
+        raw_paths.add(relative_manifest.as_posix())
+        manifest = _load_object(manifest_path)
+        for raw_document in cast(
+            list[dict[str, object]],
+            manifest["documents"],
+        ):
+            primary = _object(raw_document["primary_file"])
+            primary_path = cast(str, primary["path"])
+            _validate_materialization_path(
+                primary_path,
+                source_root=root / relative_manifest.parent,
+                scratch_root=destination / relative_manifest.parent,
+            )
+            raw_paths.add(
+                (relative_manifest.parent / primary_path).as_posix()
+            )
+            for raw_support in cast(
+                list[dict[str, object]],
+                raw_document["supporting_files"],
+            ):
+                support_path = cast(
+                    str,
+                    _object(raw_support)["path"],
+                )
+                _validate_materialization_path(
+                    support_path,
+                    source_root=root / relative_manifest.parent,
+                    scratch_root=destination / relative_manifest.parent,
+                )
+                raw_paths.add(
+                    (relative_manifest.parent / support_path).as_posix()
+                )
+    protocol = _load_object(root / _NUMERIC_PROTOCOL)
+    for record in cast(
+        dict[str, dict[str, object]],
+        protocol["manifests"],
+    ).values():
+        manifest_path = cast(str, record["path"])
+        _validate_materialization_path(
+            manifest_path,
+            source_root=root / "tests/fixtures",
+            scratch_root=destination / "tests/fixtures",
+        )
+        raw_paths.add(
+            (Path("tests/fixtures") / manifest_path).as_posix()
+        )
+    raw_paths.update(("pyproject.toml", "uv.lock"))
+    return tuple(Path(path) for path in sorted(raw_paths))
+
+
+def _historical_materialization_plan(
+    root: Path,
+    destination: Path,
+    source: dict[str, object],
+) -> tuple[tuple[Path, ...], tuple[Path, ...]]:
+    source_paths: list[Path] = []
+    for record in cast(list[dict[str, object]], source["files"]):
+        relative = cast(str, record["path"])
+        path = _validate_materialization_path(
+            relative,
+            source_root=root,
+            scratch_root=destination,
+        )
+        if not relative.startswith("src/mke/") or not relative.endswith(".py"):
+            raise RetrievalOrderCompatibilityError
+        source_paths.append(path)
+    if tuple(path.as_posix() for path in source_paths) != tuple(
+        cast(str, record["path"])
+        for record in cast(list[dict[str, object]], source["files"])
+    ):
+        raise RetrievalOrderCompatibilityError
+    input_paths = _manifest_input_paths(root, destination)
+    for relative in input_paths:
+        _validate_materialization_path(
+            relative.as_posix(),
+            source_root=root,
+            scratch_root=destination,
+        )
+        if relative not in {Path("pyproject.toml"), Path("uv.lock")}:
+            _require_lexical_containment(
+                root / relative,
+                root=root,
+                require_existing=True,
+            )
+    return tuple(source_paths), input_paths
+
+
 def _materialize_historical_source(
     root: Path,
     destination: Path,
     source: dict[str, object],
+    *,
+    source_paths: tuple[Path, ...],
 ) -> None:
     tree = _git(root, "rev-parse", f"{_SOURCE_COMMIT}:src/mke").decode().strip()
     if tree != _SOURCE_TREE:
         raise ValueError
     files = cast(list[dict[str, object]], source["files"])
-    for record in files:
-        relative = cast(str, record["path"])
-        if not relative.startswith("src/mke/") or not relative.endswith(".py"):
-            raise ValueError
-        tree_relative = relative.removeprefix("src/mke/")
+    for record, relative in zip(files, source_paths, strict=True):
+        tree_relative = relative.as_posix().removeprefix("src/mke/")
         data = _git(root, "cat-file", "blob", f"{_SOURCE_TREE}:{tree_relative}")
         if (
             len(data) != record["bytes"]
@@ -3026,6 +3415,11 @@ def _materialize_historical_source(
         ):
             raise ValueError
         target = destination / relative
+        _require_lexical_containment(
+            target,
+            root=destination,
+            require_existing=False,
+        )
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
     materialized = sorted(
@@ -3040,47 +3434,36 @@ def _materialize_historical_source(
 def _materialize_historical_inputs(
     root: Path,
     destination: Path,
+    *,
+    relative_paths: tuple[Path, ...],
 ) -> list[dict[str, object]]:
-    relative_paths = {_E1_MANIFEST, _NUMERIC_PROTOCOL}
-    for manifest_path in (
-        root / _E1_MANIFEST,
-        root / "tests/fixtures/retrieval-numeric-v1/development.json",
-        root / "tests/fixtures/retrieval-numeric-v1/holdout.json",
-    ):
-        manifest = _load_object(manifest_path)
-        relative_manifest = manifest_path.relative_to(root)
-        relative_paths.add(relative_manifest)
-        for raw_document in cast(list[dict[str, object]], manifest["documents"]):
-            primary = _object(raw_document["primary_file"])
-            relative_paths.add(
-                relative_manifest.parent / cast(str, primary["path"])
-            )
-            for raw_support in cast(
-                list[dict[str, object]], raw_document["supporting_files"]
-            ):
-                relative_paths.add(
-                    relative_manifest.parent / cast(str, raw_support["path"])
-                )
-    protocol = _load_object(root / _NUMERIC_PROTOCOL)
-    for record in cast(
-        dict[str, dict[str, object]], protocol["manifests"]
-    ).values():
-        relative_paths.add(
-            Path("tests/fixtures") / cast(str, record["path"])
-        )
     for path in ("pyproject.toml", "uv.lock"):
         data = _git(root, "cat-file", "blob", f"{_SOURCE_COMMIT}:{path}")
         target = destination / path
+        _require_lexical_containment(
+            target,
+            root=destination,
+            require_existing=False,
+        )
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
-        relative_paths.add(Path(path))
     identities: list[dict[str, object]] = []
-    for relative in sorted(relative_paths):
+    for relative in relative_paths:
         if relative in {Path("pyproject.toml"), Path("uv.lock")}:
             source = destination / relative
         else:
             source = root / relative
             target = destination / relative
+            _require_lexical_containment(
+                source,
+                root=root,
+                require_existing=True,
+            )
+            _require_lexical_containment(
+                target,
+                root=destination,
+                require_existing=False,
+            )
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, target)
             source = target

@@ -299,6 +299,136 @@ def test_historical_capability_downgrades_both_families_before_current_replay(
     )
 
 
+def test_historical_authority_is_complete_before_materialization(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module()
+    actions: list[str] = []
+
+    def reject_archived(*args: object, **kwargs: object) -> NoReturn:
+        del args, kwargs
+        actions.append("archived")
+        raise module.RetrievalOrderCompatibilityError
+
+    def materialize(*args: object, **kwargs: object) -> NoReturn:
+        del args, kwargs
+        actions.append("materialize")
+        raise AssertionError("materialization must not start")
+
+    monkeypatch.setattr(
+        module,
+        "_validate_all_archived_authority",
+        reject_archived,
+    )
+    monkeypatch.setattr(module, "_materialize_historical_source", materialize)
+    monkeypatch.setattr(module, "_materialize_historical_inputs", materialize)
+    monkeypatch.setattr(module, "_run_historical_child", materialize)
+
+    with pytest.raises(module.RetrievalOrderCompatibilityError):
+        module.freeze_historical_capabilities(
+            repository_root=ROOT,
+            workspace=tmp_path,
+        )
+
+    assert actions == ["archived"]
+
+
+@pytest.mark.parametrize(
+    "relative",
+    (
+        "",
+        ".",
+        "..",
+        "/absolute",
+        "src//mke/file.py",
+        "src/./mke/file.py",
+        "src/mke/../file.py",
+        r"src\mke\file.py",
+        "C:/src/mke/file.py",
+    ),
+)
+def test_historical_materialization_rejects_noncanonical_paths_before_action(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    relative: str,
+) -> None:
+    module = _module()
+    actions: list[str] = []
+
+    def git_action(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        actions.append("git")
+
+    def copy_action(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        actions.append("copy")
+
+    monkeypatch.setattr(
+        module,
+        "_git",
+        git_action,
+    )
+    monkeypatch.setattr(
+        module.shutil,
+        "copyfile",
+        copy_action,
+    )
+
+    with pytest.raises(module.RetrievalOrderCompatibilityError):
+        module._validate_materialization_path(
+            relative,
+            source_root=tmp_path / "repository",
+            scratch_root=tmp_path / "scratch",
+        )
+
+    assert actions == []
+
+
+@pytest.mark.parametrize(
+    "location",
+    ("source", "source_parent", "scratch_parent"),
+)
+def test_historical_materialization_rejects_symlinked_paths_before_action(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    location: str,
+) -> None:
+    module = _module()
+    source_root = tmp_path / "repository"
+    scratch_root = tmp_path / "scratch"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    source_root.mkdir()
+    scratch_root.mkdir()
+    if location == "source":
+        (source_root / "file.json").symlink_to(outside / "file.json")
+        relative = "file.json"
+    elif location == "source_parent":
+        (source_root / "nested").symlink_to(outside)
+        relative = "nested/file.json"
+    else:
+        (scratch_root / "nested").symlink_to(outside)
+        relative = "nested/file.json"
+    actions: list[str] = []
+
+    def action(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        actions.append("action")
+
+    monkeypatch.setattr(module, "_git", action)
+    monkeypatch.setattr(module.shutil, "copyfile", action)
+
+    with pytest.raises(module.RetrievalOrderCompatibilityError):
+        module._validate_materialization_path(
+            relative,
+            source_root=source_root,
+            scratch_root=scratch_root,
+        )
+
+    assert actions == []
+
+
 def test_compatibility_artifact_exposes_complete_family_differentials(
     tmp_path: Path,
 ) -> None:
@@ -803,6 +933,19 @@ def test_help_freezes_authority_boundaries(
     ):
         assert boundary in output
 
+    with pytest.raises(SystemExit) as canonical_help:
+        module.main(["record-canonical", "--help"])
+
+    assert canonical_help.value.code == 0
+    canonical_output = capsys.readouterr().out
+    assert (
+        "preflight rejected -> not attempted; correct the input before any "
+        "attempt"
+    ) in canonical_output
+    assert (
+        "attempt visible -> terminal; retain the attempt and stop"
+    ) in canonical_output
+
 
 def test_record_canonical_publishes_attempt_before_replay_and_closes_retry(
     tmp_path: Path,
@@ -955,6 +1098,502 @@ def test_record_canonical_rejects_missing_success_authority_before_attempt(
         "retrieval_order_canonical_publication_unauthorized"
     )
     assert not attempt.exists()
+    assert not artifact.exists()
+
+
+@pytest.mark.parametrize(
+    ("dangling", "symlink_parent"),
+    ((False, False), (True, False), (False, True)),
+)
+def test_record_canonical_rejects_lexical_symlink_before_attempt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    dangling: bool,
+    symlink_parent: bool,
+) -> None:
+    module = _module()
+    authority = _synthetic_canonical_authority(tmp_path, monkeypatch)
+    root, protocol, freeze, receipt, retrieval_artifact, candidate_head = (
+        authority
+    )
+    attempt = root / module._CANONICAL_ATTEMPT
+    artifact = root / module._CANONICAL_ARTIFACT
+    outside = tmp_path / "outside.json"
+    if not dangling:
+        outside.write_text("{}\n", encoding="utf-8")
+    if symlink_parent:
+        artifact.parent.rename(artifact.parent.with_name("retrieval-real"))
+        artifact.parent.symlink_to(artifact.parent.with_name("retrieval-real"))
+    else:
+        artifact.symlink_to(outside)
+    publish_calls = 0
+
+    def publish(*args: object, **kwargs: object) -> NoReturn:
+        nonlocal publish_calls
+        del args, kwargs
+        publish_calls += 1
+        raise AssertionError("publication must not start")
+
+    monkeypatch.setattr(module, "publish_json_no_replace", publish)
+
+    result = module.record_canonical_compatibility(
+        protocol_path=protocol,
+        development_freeze_path=freeze,
+        holdout_receipt_path=receipt,
+        retrieval_artifact_path=retrieval_artifact,
+        candidate_head=candidate_head,
+        attempt_receipt_path=attempt,
+        artifact_path=artifact,
+        repository_root=root,
+    )
+
+    assert result == {
+        "schema_version": (
+            "mke.retrieval_order_compatibility_"
+            "record_canonical_result.v1"
+        ),
+        "status": "failed",
+        "mode": "record_canonical",
+        "authority_layer": "canonical_publication",
+        "canonical": True,
+        "output_state": "not_applicable",
+        "publication_outcome": "not_attempted",
+        "problem": "retrieval_order_canonical_publication_unauthorized",
+        "cause": "canonical_path_preflight_failed",
+        "next_step": "correct_canonical_paths_before_first_attempt",
+        "first_failed_gate": "path_preflight",
+        "stage_statuses": [
+            {"name": "canonical_publication", "status": "failed"}
+        ],
+        "historical_revision": 0,
+        "current_revision": 0,
+    }
+    assert publish_calls == 0
+    assert not attempt.exists()
+
+
+def test_record_canonical_rejects_live_runtime_mismatch_before_attempt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module()
+    authority = _synthetic_canonical_authority(tmp_path, monkeypatch)
+    root, protocol, freeze, receipt, retrieval_artifact, candidate_head = (
+        authority
+    )
+    attempt = root / module._CANONICAL_ATTEMPT
+    artifact = root / module._CANONICAL_ARTIFACT
+    original = retrieval_order_workflow._candidate_seal  # pyright: ignore[reportPrivateUsage]
+    replay_calls = 0
+
+    def forged_runtime(*args: object, **kwargs: object) -> dict[str, object]:
+        candidate = deepcopy(original(*args, **kwargs))  # type: ignore[arg-type]
+        candidate["runtime_profile"] = {
+            "python": "forged-post-observation-runtime",
+            "sqlite": "forged-post-observation-runtime",
+            "pymupdf": "forged-post-observation-runtime",
+        }
+        return candidate
+
+    def replay(**kwargs: object) -> NoReturn:
+        nonlocal replay_calls
+        del kwargs
+        replay_calls += 1
+        raise AssertionError("replay must not start")
+
+    monkeypatch.setattr(
+        retrieval_order_workflow,
+        "_candidate_seal",
+        forged_runtime,
+    )
+    monkeypatch.setattr(module, "build_compatibility_artifact", replay)
+
+    result = module.record_canonical_compatibility(
+        protocol_path=protocol,
+        development_freeze_path=freeze,
+        holdout_receipt_path=receipt,
+        retrieval_artifact_path=retrieval_artifact,
+        candidate_head=candidate_head,
+        attempt_receipt_path=attempt,
+        artifact_path=artifact,
+        repository_root=root,
+    )
+
+    assert result["problem"] == "retrieval_order_candidate_seal_mismatch"
+    assert result["cause"] == "candidate_inputs_do_not_match_seal"
+    assert result["first_failed_gate"] == "candidate_seal"
+    assert result["output_state"] == "not_applicable"
+    assert result["publication_outcome"] == "not_attempted"
+    assert result["next_step"] == "return_to_authority_review"
+    assert replay_calls == 0
+    assert not attempt.exists()
+    assert not artifact.exists()
+
+
+def test_record_canonical_rejects_runtime_drift_at_capability_consumption(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module()
+    authority = _synthetic_canonical_authority(tmp_path, monkeypatch)
+    root, protocol, freeze, receipt, retrieval_artifact, candidate_head = (
+        authority
+    )
+    attempt = root / module._CANONICAL_ATTEMPT
+    artifact = root / module._CANONICAL_ARTIFACT
+    original = retrieval_order_workflow._candidate_seal  # pyright: ignore[reportPrivateUsage]
+    calls = 0
+
+    def drift_after_attempt(
+        *args: object,
+        **kwargs: object,
+    ) -> dict[str, object]:
+        nonlocal calls
+        calls += 1
+        candidate = deepcopy(original(*args, **kwargs))  # type: ignore[arg-type]
+        if calls > 1:
+            candidate["runtime_profile"] = {
+                "python": "forged-post-observation-runtime",
+                "sqlite": "forged-post-observation-runtime",
+                "pymupdf": "forged-post-observation-runtime",
+            }
+        return candidate
+
+    monkeypatch.setattr(
+        retrieval_order_workflow,
+        "_candidate_seal",
+        drift_after_attempt,
+    )
+    monkeypatch.setattr(
+        module,
+        "build_compatibility_artifact",
+        _fail_replay,
+    )
+
+    result = module.record_canonical_compatibility(
+        protocol_path=protocol,
+        development_freeze_path=freeze,
+        holdout_receipt_path=receipt,
+        retrieval_artifact_path=retrieval_artifact,
+        candidate_head=candidate_head,
+        attempt_receipt_path=attempt,
+        artifact_path=artifact,
+        repository_root=root,
+    )
+
+    assert result["status"] == "failed"
+    assert result["problem"] == "retrieval_order_candidate_seal_mismatch"
+    assert result["first_failed_gate"] == "capability_consume"
+    assert result["output_state"] == "complete_visible"
+    assert result["publication_outcome"] == "published"
+    assert result["next_step"] == "retain_attempt_and_stop"
+    assert attempt.exists()
+    assert not artifact.exists()
+
+
+def test_record_canonical_rejects_runtime_drift_before_final_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module()
+    authority = _synthetic_canonical_authority(tmp_path, monkeypatch)
+    root, protocol, freeze, receipt, retrieval_artifact, candidate_head = (
+        authority
+    )
+    attempt = root / module._CANONICAL_ATTEMPT
+    artifact = root / module._CANONICAL_ARTIFACT
+    original = retrieval_order_workflow._candidate_seal  # pyright: ignore[reportPrivateUsage]
+    drifted = False
+
+    def runtime_candidate(
+        *args: object,
+        **kwargs: object,
+    ) -> dict[str, object]:
+        candidate = deepcopy(original(*args, **kwargs))  # type: ignore[arg-type]
+        if drifted:
+            candidate["runtime_profile"] = {
+                "python": "forged-post-observation-runtime",
+                "sqlite": "forged-post-observation-runtime",
+                "pymupdf": "forged-post-observation-runtime",
+            }
+        return candidate
+
+    def build(**kwargs: object) -> dict[str, object]:
+        nonlocal drifted
+        del kwargs
+        drifted = True
+        return _complete_compatibility_double()
+
+    monkeypatch.setattr(
+        retrieval_order_workflow,
+        "_candidate_seal",
+        runtime_candidate,
+    )
+    monkeypatch.setattr(module, "build_compatibility_artifact", build)
+    monkeypatch.setattr(
+        module,
+        "validate_compatibility_artifact",
+        _accept_validation,
+    )
+
+    result = module.record_canonical_compatibility(
+        protocol_path=protocol,
+        development_freeze_path=freeze,
+        holdout_receipt_path=receipt,
+        retrieval_artifact_path=retrieval_artifact,
+        candidate_head=candidate_head,
+        attempt_receipt_path=attempt,
+        artifact_path=artifact,
+        repository_root=root,
+    )
+
+    assert result["status"] == "failed"
+    assert result["problem"] == "retrieval_order_candidate_seal_mismatch"
+    assert result["first_failed_gate"] == "final_authority"
+    assert result["output_state"] == "complete_visible"
+    assert result["publication_outcome"] == "published"
+    assert result["next_step"] == "retain_attempt_and_stop"
+    assert attempt.exists()
+    assert not artifact.exists()
+
+
+@pytest.mark.parametrize("basename", ("attempt", "destination"))
+def test_record_canonical_rejects_directory_basename_as_path_preflight(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    basename: str,
+) -> None:
+    module = _module()
+    authority = _synthetic_canonical_authority(tmp_path, monkeypatch)
+    root, protocol, freeze, receipt, retrieval_artifact, candidate_head = (
+        authority
+    )
+    attempt = root / module._CANONICAL_ATTEMPT
+    artifact = root / module._CANONICAL_ARTIFACT
+    (attempt if basename == "attempt" else artifact).mkdir()
+    monkeypatch.setattr(module, "build_compatibility_artifact", _fail_replay)
+    monkeypatch.setattr(module, "publish_json_no_replace", _fail_replay)
+
+    result = module.record_canonical_compatibility(
+        protocol_path=protocol,
+        development_freeze_path=freeze,
+        holdout_receipt_path=receipt,
+        retrieval_artifact_path=retrieval_artifact,
+        candidate_head=candidate_head,
+        attempt_receipt_path=attempt,
+        artifact_path=artifact,
+        repository_root=root,
+    )
+
+    _assert_canonical_path_preflight_failure(result)
+
+
+@pytest.mark.parametrize("basename", ("attempt", "destination"))
+def test_record_canonical_guards_preexisting_digest_read_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    basename: str,
+) -> None:
+    module = _module()
+    authority = _synthetic_canonical_authority(tmp_path, monkeypatch)
+    root, protocol, freeze, receipt, retrieval_artifact, candidate_head = (
+        authority
+    )
+    attempt = root / module._CANONICAL_ATTEMPT
+    artifact = root / module._CANONICAL_ARTIFACT
+    target = attempt if basename == "attempt" else artifact
+    target.write_text("{}\n", encoding="utf-8")
+    original_sha256 = module._sha256
+
+    def unreadable(path: Path) -> str:
+        if path == target:
+            raise OSError("synthetic unreadable canonical entry")
+        return original_sha256(path)
+
+    monkeypatch.setattr(module, "_sha256", unreadable)
+    monkeypatch.setattr(module, "build_compatibility_artifact", _fail_replay)
+    monkeypatch.setattr(module, "publish_json_no_replace", _fail_replay)
+
+    result = module.record_canonical_compatibility(
+        protocol_path=protocol,
+        development_freeze_path=freeze,
+        holdout_receipt_path=receipt,
+        retrieval_artifact_path=retrieval_artifact,
+        candidate_head=candidate_head,
+        attempt_receipt_path=attempt,
+        artifact_path=artifact,
+        repository_root=root,
+    )
+
+    _assert_canonical_path_preflight_failure(result)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        "unexpected_untracked",
+        "staged",
+        "partial_index",
+        "deleted",
+        "renamed",
+        "freeze_rewrite",
+    ),
+)
+def test_record_canonical_requires_exact_preattempt_status(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: str,
+) -> None:
+    module = _module()
+    authority = _synthetic_canonical_authority(tmp_path, monkeypatch)
+    root, protocol, freeze, receipt, retrieval_artifact, candidate_head = (
+        authority
+    )
+    attempt = root / module._CANONICAL_ATTEMPT
+    artifact = root / module._CANONICAL_ARTIFACT
+    if mutation == "unexpected_untracked":
+        (root / "unexpected.txt").write_text("unexpected\n", encoding="utf-8")
+    elif mutation == "staged":
+        subprocess.run(("git", "add", freeze), cwd=root, check=True)
+    elif mutation == "partial_index":
+        subprocess.run(
+            ("git", "add", "--intent-to-add", receipt),
+            cwd=root,
+            check=True,
+        )
+    elif mutation == "deleted":
+        receipt.unlink()
+    elif mutation == "freeze_rewrite":
+        freeze.write_bytes(freeze.read_bytes() + b" ")
+    else:
+        receipt.rename(receipt.with_name("renamed-receipt.json"))
+    monkeypatch.setattr(module, "build_compatibility_artifact", _fail_replay)
+
+    result = module.record_canonical_compatibility(
+        protocol_path=protocol,
+        development_freeze_path=freeze,
+        holdout_receipt_path=receipt,
+        retrieval_artifact_path=retrieval_artifact,
+        candidate_head=candidate_head,
+        attempt_receipt_path=attempt,
+        artifact_path=artifact,
+        repository_root=root,
+    )
+
+    assert result["status"] == "failed"
+    assert result["first_failed_gate"] in {
+        "success_authority",
+        "candidate_seal",
+    }
+    assert not attempt.exists()
+    assert not artifact.exists()
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ("freeze_rewrite", "head_drift", "unexpected_untracked"),
+)
+def test_postattempt_authority_drift_retains_visible_attempt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: str,
+) -> None:
+    module = _module()
+    authority = _synthetic_canonical_authority(tmp_path, monkeypatch)
+    root, protocol, freeze, receipt, retrieval_artifact, candidate_head = (
+        authority
+    )
+    attempt = root / module._CANONICAL_ATTEMPT
+    artifact = root / module._CANONICAL_ARTIFACT
+
+    def build(**kwargs: object) -> dict[str, object]:
+        del kwargs
+        assert attempt.exists()
+        if mutation == "freeze_rewrite":
+            freeze.write_bytes(freeze.read_bytes() + b" ")
+        elif mutation == "head_drift":
+            tracked = root / "protocol.json"
+            tracked.write_bytes(tracked.read_bytes() + b" ")
+            subprocess.run(("git", "add", "protocol.json"), cwd=root, check=True)
+            subprocess.run(
+                ("git", "commit", "-qm", "synthetic head drift"),
+                cwd=root,
+                check=True,
+            )
+        else:
+            (root / "unexpected.txt").write_text(
+                "unexpected\n",
+                encoding="utf-8",
+            )
+        return _complete_compatibility_double()
+
+    monkeypatch.setattr(module, "build_compatibility_artifact", build)
+    monkeypatch.setattr(
+        module,
+        "validate_compatibility_artifact",
+        _accept_validation,
+    )
+
+    result = module.record_canonical_compatibility(
+        protocol_path=protocol,
+        development_freeze_path=freeze,
+        holdout_receipt_path=receipt,
+        retrieval_artifact_path=retrieval_artifact,
+        candidate_head=candidate_head,
+        attempt_receipt_path=attempt,
+        artifact_path=artifact,
+        repository_root=root,
+    )
+
+    assert result["status"] == "failed"
+    assert result["output_state"] == "complete_visible"
+    assert result["publication_outcome"] == "published"
+    assert result["next_step"] == "retain_attempt_and_stop"
+    assert result["first_failed_gate"] in {
+        "capability_consume",
+        "compatibility_build",
+        "final_authority",
+    }
+    assert attempt.exists()
+    assert not artifact.exists()
+
+
+def test_postattempt_replay_exception_retains_visible_attempt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module()
+    authority = _synthetic_canonical_authority(tmp_path, monkeypatch)
+    root, protocol, freeze, receipt, retrieval_artifact, candidate_head = (
+        authority
+    )
+    attempt = root / module._CANONICAL_ATTEMPT
+    artifact = root / module._CANONICAL_ARTIFACT
+    monkeypatch.setattr(
+        module,
+        "build_compatibility_artifact",
+        _fail_replay,
+    )
+
+    result = module.record_canonical_compatibility(
+        protocol_path=protocol,
+        development_freeze_path=freeze,
+        holdout_receipt_path=receipt,
+        retrieval_artifact_path=retrieval_artifact,
+        candidate_head=candidate_head,
+        attempt_receipt_path=attempt,
+        artifact_path=artifact,
+        repository_root=root,
+    )
+
+    assert result["status"] == "failed"
+    assert result["problem"] == "retrieval_order_compatibility_incomplete"
+    assert result["cause"] == "unapproved_family_delta"
+    assert result["first_failed_gate"] == "compatibility_build"
+    assert result["output_state"] == "complete_visible"
+    assert result["publication_outcome"] == "published"
+    assert result["next_step"] == "retain_attempt_and_stop"
+    assert attempt.exists()
     assert not artifact.exists()
 
 
@@ -1242,12 +1881,13 @@ def test_record_canonical_output_fault_retains_attempt_and_closes_retry(
     assert attempt.exists()
     assert result["status"] == "failed"
     assert result["first_failed_gate"] == "compatibility_publication"
+    assert result["output_state"] == "complete_visible"
+    assert result["publication_outcome"] == "published"
+    assert result["next_step"] == "retain_attempt_and_stop"
     if fault == "directory_fsync":
         assert artifact.exists()
-        assert result["output_state"] == "complete_visible"
     else:
         assert not artifact.exists()
-        assert result["output_state"] == "absent"
     second = module.record_canonical_compatibility(
         protocol_path=protocol,
         development_freeze_path=freeze,
@@ -1284,6 +1924,23 @@ def _complete_compatibility_double(
             "public_holdout_not_observed",
         ],
     }
+
+
+def _assert_canonical_path_preflight_failure(
+    result: dict[str, object],
+) -> None:
+    assert result["status"] == "failed"
+    assert result["mode"] == "record_canonical"
+    assert result["output_state"] == "not_applicable"
+    assert result["publication_outcome"] == "not_attempted"
+    assert result["problem"] == (
+        "retrieval_order_canonical_publication_unauthorized"
+    )
+    assert result["cause"] == "canonical_path_preflight_failed"
+    assert result["next_step"] == (
+        "correct_canonical_paths_before_first_attempt"
+    )
+    assert result["first_failed_gate"] == "path_preflight"
 
 
 def _install_atomic_fault(
