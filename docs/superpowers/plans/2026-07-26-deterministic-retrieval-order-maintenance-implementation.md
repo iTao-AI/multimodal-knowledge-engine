@@ -3663,6 +3663,145 @@ passes and the implementation remains inside the exact two-path, no-public-contr
 need for another path, runtime surface, schema, fixture, or protocol change is `BLOCKED` and
 returns to authority review.
 
+### G2R — Replace two non-authoritative G2 RED probes
+
+#### G2R.1 — Retained invalid-probe evidence
+
+The first G2 test-authoring batch ran once against candidate
+`54ea422868dccaf7577fa3a2dde95728c773b0c5` before any G2 production write. The test-only file had
+SHA-256 `3c79ad5d0849db46d950f44aa05ba5178c482835f522a7beee3aee49c77ecae6`,
+Pytest collected the exact seven preregistered nodes, and the observed result was five failures
+plus two passes.
+
+The five failures reached their exact markers:
+
+```text
+G2_LEXICAL_ROOT_ALIAS_FALSE_PASS
+G2_IMMUTABLE_BATCH_PREFLIGHT_INCOMPLETE
+G2_CURRENT_SOURCE_PREFLIGHT_INCOMPLETE
+G2_MANIFEST_SOURCE_PREFLIGHT_INCOMPLETE
+G2_PUBLIC_TUPLE_OR_VISIBILITY_DRIFT
+```
+
+The following two nodes unexpectedly passed:
+
+```text
+tests/evaluation/test_retrieval_order_compatibility.py::test_compatibility_preflights_archived_inputs_before_loader_or_validator
+tests/evaluation/test_retrieval_order_compatibility.py::test_compatibility_rejects_final_parent_and_lstat_failures_before_side_effects
+```
+
+This result is an invalid composite RED, not GREEN evidence and not proof that the existing
+implementation satisfies G2.
+
+The archived-input probe was preempted by `_validate_archived_e1`: the synthetic repository
+raised `FixtureValidationError` before the invalid numeric-protocol alias reached the intended
+loader or validator boundary. A separate read-only diagnostic observed zero `_load_object`
+calls. The probe therefore passed vacuously.
+
+The path-kind probe used a generic `OSError` from `Path.lstat()`. The current
+`Path.is_symlink()` propagates that error, so the existing outer path-preflight handling already
+rejected it. A separate read-only diagnostic using
+`FileNotFoundError(errno.ENOENT, ...)`, which `Path.is_symlink()` treats as an absent path,
+showed the real gap: the current guard continued through the following-file check, called the
+protocol metadata loader, and returned
+`required_success_authority_missing / success_authority` instead of the required
+`canonical_path_preflight_failed / path_preflight`. Neither diagnostic made a canonical attempt
+or compatibility artifact visible.
+
+Retain the first result in the execution ledger with the label
+`invalid_probe_batch_g2_original`. Do not rewrite it as the required RED, implementation success,
+or an existing-capability claim.
+
+#### G2R.2 — Supersession and exact test-authoring correction
+
+G2R supersedes only the shared G2 targeted-RED protocol's one-invocation allowance for the invalid
+original batch above. It authorizes one corrected replacement RED before any G2 production write.
+Every G2.1, G2.2, G2.3, public-tuple, exact-scope, non-goal, verification, commit, and G3 stop
+condition remains unchanged.
+
+Modify only the two non-authoritative test bodies in the retained G2 test diff, plus the minimum
+standard-library import needed for an explicit `errno.ENOENT`. Preserve the other five
+preregistered G2 test bodies and all seven node IDs and assertion markers.
+
+Correct
+`test_compatibility_preflights_archived_inputs_before_loader_or_validator` so that:
+
+1. the invalid input remains an out-of-repository final-component symlink at the numeric protocol
+   path;
+2. the probe cannot terminate on unrelated E1 fixture validation before the invalid member is
+   checked;
+3. spies record entry to any archived family validator, `_load_object`, `_file_identity`,
+   numeric-protocol loader, or cross-module archived validator that would consume repository
+   content; and
+4. the assertion requires rejection with every such counter still zero, using
+   `G2_ARCHIVED_INPUT_PREFLIGHT_INCOMPLETE`.
+
+A harmless E1 validator spy may record and return only to expose the old sequential flow. It must
+not validate, repair, or authorize the synthetic fixture. With the intended G2 implementation,
+the complete historical-planning inventory preflight rejects the numeric-protocol alias before
+that spy or any content consumer runs.
+
+Correct
+`test_compatibility_rejects_final_parent_and_lstat_failures_before_side_effects` so that:
+
+1. the existing-parent symlink subcase remains a positive fail-closed control;
+2. the lstat-failure subcase raises `FileNotFoundError(errno.ENOENT, ...)` for an existing guarded
+   input while its normal following-file stat would still succeed;
+3. the protocol metadata loader is a failing spy proving whether a content consumer is reached;
+4. the required result is the unchanged canonical path-preflight tuple with zero attempt/artifact
+   visibility; and
+5. any loader call or different tuple fails with `G2_PATH_KIND_OR_LSTAT_FALSE_PASS`.
+
+Do not add a production change, new node, new marker, public error, schema field, dependency,
+generic filesystem abstraction, or race-freedom claim during this correction.
+
+#### G2R.3 — One replacement RED and normal G2 continuation
+
+Before the replacement RED:
+
+1. record the corrected test-file SHA-256;
+2. verify the worktree still has no G2 production diff;
+3. inspect the complete test diff and prove that the correction changed only the two test bodies
+   above plus the minimum `errno` import relative to the retained invalid-probe bytes;
+4. require collection of the same exact seven G2 node IDs; and
+5. preserve absence of all five canonical JSON paths.
+
+Run the same exact seven-node command once against unchanged production HEAD
+`54ea422868dccaf7577fa3a2dde95728c773b0c5`. Require seven failures, one per original exact marker:
+
+```text
+G2_LEXICAL_ROOT_ALIAS_FALSE_PASS
+G2_IMMUTABLE_BATCH_PREFLIGHT_INCOMPLETE
+G2_CURRENT_SOURCE_PREFLIGHT_INCOMPLETE
+G2_ARCHIVED_INPUT_PREFLIGHT_INCOMPLETE
+G2_MANIFEST_SOURCE_PREFLIGHT_INCOMPLETE
+G2_PATH_KIND_OR_LSTAT_FALSE_PASS
+G2_PUBLIC_TUPLE_OR_VISIBILITY_DRIFT
+```
+
+This is the only authorized replacement RED. A different collection, count, marker, exception,
+or result is `BLOCKED`; do not repair or retry it.
+
+If and only if the replacement RED is exact, continue with the existing G2.2 minimal
+implementation, run the identical seven nodes once for GREEN, complete G2.3, and create the
+existing exact G2 commit. Stop before G3 for independent authority actual code-diff review.
+
+#### G2R.4 — Plan-only landing gate
+
+Land this G2R block immediately before `### G2 — Reject compatibility input aliases before
+content read` in the public implementation plan. Modify and commit only that plan path. The
+retained G2 test-only diff remains unstaged and byte-identical during the landing; it is not part
+of the plan commit.
+
+Verify exact source-block bytes and SHA-256, insertion position, unchanged surrounding plan bytes,
+single committed path, retained test SHA-256, no staged test content, plan/design hashes,
+five-canonical-path absence, and `git diff --check`. Because the retained test evidence remains
+intentionally dirty, report its exact path, SHA-256, and ownership rather than claiming a clean
+worktree.
+
+Do not run tests, edit the retained test, write production code, observe, publish, or enter G2
+during the plan-only landing. Terminal stop for independent authority review of the actual G2R
+plan diff.
 ### G2 — Reject compatibility input aliases before content read
 
 Modify exactly:
