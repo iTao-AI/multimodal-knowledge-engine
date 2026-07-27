@@ -833,6 +833,31 @@ def _lexically_within(path: Path, parent: Path) -> bool:
     return True
 
 
+def _stat_identity(path: Path) -> tuple[int, int]:
+    metadata = path.stat()
+    return metadata.st_dev, metadata.st_ino
+
+
+def _repository_identity_in_ancestry(
+    path: Path,
+    *,
+    repository: Path,
+) -> bool:
+    try:
+        repository_identity = _stat_identity(repository)
+        current = path.resolve(strict=True)
+        while True:
+            if _stat_identity(current) == repository_identity:
+                return True
+            if current == current.parent:
+                return False
+            current = current.parent
+    except (OSError, RuntimeError) as exc:
+        raise ControllerError(
+            "retrieval_order_source_pack_claim_invalid"
+        ) from exc
+
+
 def _bind_attempt_claim(
     requested: Path,
     *,
@@ -865,6 +890,17 @@ def _bind_attempt_claim(
         target.parent != resolved_parent
         or target.is_symlink()
         or target.exists()
+        or _repository_identity_in_ancestry(
+            resolved_parent,
+            repository=repository,
+        )
+        or (
+            candidate_output.exists()
+            and _repository_identity_in_ancestry(
+                candidate_output,
+                repository=repository,
+            )
+        )
         or _within(target, repository)
         or _within(target, candidate_output)
     ):

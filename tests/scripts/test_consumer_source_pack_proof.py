@@ -1511,6 +1511,125 @@ def test_help_exposes_task8r_attempt_claim(
     ) in output
 
 
+def test_attempt_claim_rejects_repository_identity_alias_before_side_effects(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    claim_parent = tmp_path / "external" / "nested"
+    claim_parent.mkdir(parents=True)
+    claim = claim_parent / "attempt.json"
+    output = tmp_path / "candidate"
+    repository_identity = repository.stat().st_dev, repository.stat().st_ino
+
+    def stat_identity(path: Path) -> tuple[int, int]:
+        if path == claim_parent:
+            return repository_identity
+        metadata = path.stat()
+        return metadata.st_dev, metadata.st_ino
+
+    monkeypatch.setattr(proof, "_stat_identity", stat_identity, raising=False)
+    try:
+        proof._bind_attempt_claim(
+            claim,
+            repository=repository,
+            candidate_output=output,
+        )
+    except proof.ControllerError as error:
+        assert error.code == "retrieval_order_source_pack_claim_invalid"
+    else:
+        pytest.fail("G3_REPOSITORY_IDENTITY_ALIAS_FALSE_PASS")
+
+
+def test_candidate_output_rejects_existing_repository_identity_alias_before_side_effects(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    claim_parent = tmp_path / "claim"
+    claim_parent.mkdir()
+    claim = claim_parent / "attempt.json"
+    output = tmp_path / "existing-output"
+    output.mkdir()
+    repository_identity = repository.stat().st_dev, repository.stat().st_ino
+
+    def stat_identity(path: Path) -> tuple[int, int]:
+        if path == output:
+            return repository_identity
+        metadata = path.stat()
+        return metadata.st_dev, metadata.st_ino
+
+    monkeypatch.setattr(proof, "_stat_identity", stat_identity, raising=False)
+    try:
+        proof._bind_attempt_claim(
+            claim,
+            repository=repository,
+            candidate_output=output,
+        )
+    except proof.ControllerError as error:
+        assert error.code == "retrieval_order_source_pack_claim_invalid"
+    else:
+        pytest.fail("G3_CANDIDATE_OUTPUT_IDENTITY_ALIAS_FALSE_PASS")
+
+
+def test_repository_identity_walk_visits_root_direct_and_multilevel_ancestors(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    claim_parent = tmp_path / "external" / "direct" / "multilevel"
+    claim_parent.mkdir(parents=True)
+    visited: list[Path] = []
+
+    def stat_identity(path: Path) -> tuple[int, int]:
+        visited.append(path)
+        metadata = path.stat()
+        return metadata.st_dev, metadata.st_ino
+
+    monkeypatch.setattr(proof, "_stat_identity", stat_identity, raising=False)
+    proof._bind_attempt_claim(
+        claim_parent / "attempt.json",
+        repository=repository,
+        candidate_output=tmp_path / "candidate",
+    )
+
+    expected = {
+        repository,
+        claim_parent,
+        claim_parent.parent,
+        claim_parent.parent.parent,
+    }
+    assert expected.issubset(set(visited)), "G3_ANCESTRY_WALK_NOT_EXECUTED"
+
+
+def test_repository_identity_lookup_failure_is_claim_invalid_before_side_effects(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    claim_parent = tmp_path / "external"
+    claim_parent.mkdir()
+
+    def stat_identity(_path: Path) -> tuple[int, int]:
+        raise OSError("identity unavailable")
+
+    monkeypatch.setattr(proof, "_stat_identity", stat_identity, raising=False)
+    try:
+        proof._bind_attempt_claim(
+            claim_parent / "attempt.json",
+            repository=repository,
+            candidate_output=tmp_path / "candidate",
+        )
+    except proof.ControllerError as error:
+        assert error.code == "retrieval_order_source_pack_claim_invalid"
+    else:
+        pytest.fail("G3_IDENTITY_ERROR_FALSE_PASS")
+
+
 @pytest.mark.parametrize(
     "claim_kind",
     (
