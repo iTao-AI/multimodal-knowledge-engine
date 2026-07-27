@@ -31,9 +31,6 @@ NUMERIC_ARTIFACT = (
     ROOT / "benchmarks/retrieval/numeric-grouping-v1-comparison.json"
 )
 PROTOCOL = ROOT / "tests/fixtures/retrieval-order-v1/protocol.json"
-CANONICAL = (
-    ROOT / "benchmarks/retrieval/retrieval-order-v2-compatibility.json"
-)
 CANONICAL_HOLDOUT_FIXTURE = (
     ROOT / "tests/fixtures/retrieval-order-v1/holdout/cases.json"
 )
@@ -1804,27 +1801,45 @@ def test_pure_validate_rejects_tampering_without_replay(
         )
 
 
+@pytest.mark.parametrize("initial_state", ("absent", "preexisting"))
 def test_record_rejects_canonical_path_before_replay(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
+    initial_state: str,
 ) -> None:
     module = _module()
-    assert not CANONICAL.exists()
-    monkeypatch.setattr(
-        module,
-        "build_compatibility_artifact",
-        _fail_replay,
-    )
+    root = tmp_path / "repository"
+    root.mkdir()
+    canonical = root / module._CANONICAL_ARTIFACT
+    sentinel = b"published canonical compatibility sentinel\n"
+    before: tuple[int, int, int, int, int, int] | None = None
+    if initial_state == "preexisting":
+        canonical.parent.mkdir(parents=True)
+        canonical.write_bytes(sentinel)
+        canonical.chmod(0o640)
+        metadata = canonical.stat()
+        before = (
+            metadata.st_dev,
+            metadata.st_ino,
+            metadata.st_mode,
+            metadata.st_size,
+            metadata.st_mtime_ns,
+            metadata.st_ctime_ns,
+        )
+    else:
+        assert not os.path.lexists(canonical)
+    _block_all_replay(monkeypatch, module)
 
     assert module.main(
         [
             "record",
             "--protocol",
-            str(PROTOCOL),
+            "protocol.json",
             "--artifact",
-            str(CANONICAL),
+            module._CANONICAL_ARTIFACT.as_posix(),
             "--repository",
-            str(ROOT),
+            str(root),
             "--json",
         ]
     ) == 1
@@ -1840,8 +1855,25 @@ def test_record_rejects_canonical_path_before_replay(
     )
     assert output["cause"] == "required_success_authority_missing"
     assert output["next_step"] == "wait_for_successful_holdout"
-    assert str(ROOT) not in capture.out
-    assert not CANONICAL.exists()
+    assert str(tmp_path) not in capture.out
+    assert all(
+        not value.startswith("/")
+        for value in output.values()
+        if isinstance(value, str)
+    )
+    if before is None:
+        assert not os.path.lexists(canonical)
+    else:
+        metadata = canonical.stat()
+        assert (
+            metadata.st_dev,
+            metadata.st_ino,
+            metadata.st_mode,
+            metadata.st_size,
+            metadata.st_mtime_ns,
+            metadata.st_ctime_ns,
+        ) == before
+        assert canonical.read_bytes() == sentinel
 
 
 def test_help_freezes_authority_boundaries(
