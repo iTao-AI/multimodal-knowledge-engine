@@ -479,7 +479,7 @@ def test_compatibility_preflights_current_source_inventory_before_source_identit
 
 @pytest.mark.parametrize(
     "failure",
-    ("missing-root", "nested-scan-error"),
+    ("missing-root", "empty-root", "nested-scan-error"),
 )
 def test_current_source_inventory_rejects_incomplete_tree_before_identity(
     tmp_path: Path,
@@ -496,6 +496,9 @@ def test_current_source_inventory_rejects_incomplete_tree_before_identity(
     (blocked / "hidden.py").write_text("HIDDEN = True\n", encoding="utf-8")
     if failure == "missing-root":
         shutil.rmtree(source)
+    elif failure == "empty-root":
+        shutil.rmtree(source)
+        source.mkdir()
     else:
         original_scandir = module.os.scandir
 
@@ -527,9 +530,58 @@ def test_current_source_inventory_rejects_incomplete_tree_before_identity(
     )
 
 
+def test_current_source_inventory_binds_exact_sorted_recursive_python_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module()
+    root = tmp_path / "source-repository"
+    source = root / "src/mke"
+    (source / "nested").mkdir(parents=True)
+    (source / "z.py").write_text("Z = True\n", encoding="utf-8")
+    (source / "nested/a.py").write_text("A = True\n", encoding="utf-8")
+    (source / "nested/ignored.txt").write_text("ignored\n", encoding="utf-8")
+    observed: list[tuple[str, ...]] = []
+
+    def build(
+        repository_root: Path,
+        paths: tuple[str, ...],
+    ) -> dict[str, object]:
+        assert repository_root == root
+        observed.append(paths)
+        return {"sha256": "0" * 64, "files": []}
+
+    monkeypatch.setattr(module, "build_source_identity", build)
+    module._current_source_identity(root)
+
+    assert observed == [
+        ("src/mke/nested/a.py", "src/mke/z.py")
+    ]
+
+
+def test_current_source_inventory_rejects_existing_empty_tree_before_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module()
+    root = tmp_path / "source-repository"
+    (root / "src/mke").mkdir(parents=True)
+    calls: list[str] = []
+
+    def build(*args: object, **kwargs: object) -> NoReturn:
+        del args, kwargs
+        calls.append("identity")
+        raise AssertionError("identity must not start")
+
+    monkeypatch.setattr(module, "build_source_identity", build)
+    with pytest.raises(module.RetrievalOrderCompatibilityError):
+        module._current_source_identity(root)
+    assert calls == []
+
+
 @pytest.mark.parametrize(
     "failure",
-    ("missing-root", "nested-scan-error"),
+    ("missing-root", "empty-root", "nested-scan-error"),
 )
 def test_canonical_current_source_inventory_failure_is_path_preflight(
     tmp_path: Path,
@@ -547,6 +599,9 @@ def test_canonical_current_source_inventory_failure_is_path_preflight(
     (blocked / "hidden.py").write_text("HIDDEN = True\n", encoding="utf-8")
     if failure == "missing-root":
         shutil.rmtree(source)
+    elif failure == "empty-root":
+        shutil.rmtree(source)
+        source.mkdir()
     else:
         original_scandir = module.os.scandir
 
@@ -670,6 +725,116 @@ def test_compatibility_preflights_archived_inputs_before_loader_or_validator(
         pass
 
     assert consumers == [], "G2_ARCHIVED_INPUT_PREFLIGHT_INCOMPLETE"
+
+
+def test_historical_dynamic_inputs_are_preflighted_before_any_validator(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module()
+    root = _synthetic_canonical_authority(tmp_path, monkeypatch)[0]
+    manifest = json.loads((root / module._E1_MANIFEST).read_text())
+    relative = Path(manifest["documents"][0]["primary_file"]["path"])
+    dynamic = root / module._E1_MANIFEST.parent / relative
+    dynamic.parent.mkdir(parents=True, exist_ok=True)
+    dynamic.unlink()
+    dynamic.symlink_to(tmp_path / "outside-dynamic.pdf")
+    calls: list[str] = []
+
+    def forbidden(*args: object, **kwargs: object) -> NoReturn:
+        del args, kwargs
+        calls.append("consumer")
+        raise AssertionError("validator must not start")
+
+    for name in (
+        "_validate_archived_e1",
+        "_validate_archived_e2",
+        "_validate_archived_e3a",
+        "_validate_archived_e3b",
+        "_e3c_family",
+        "_e3d_family",
+        "_e3e_family",
+    ):
+        monkeypatch.setattr(module, name, forbidden)
+    with pytest.raises(module.RetrievalOrderCompatibilityError):
+        module._validate_all_archived_authority(root)
+
+    assert calls == [], "G4_DYNAMIC_HISTORICAL_PREFLIGHT_FALSE_PASS"
+
+
+def test_canonical_dynamic_input_alias_is_path_preflight_before_attempt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module()
+    root, protocol, freeze, receipt, retrieval_artifact, _ = (
+        _synthetic_canonical_authority(tmp_path, monkeypatch)
+    )
+    manifest = json.loads((root / module._E1_MANIFEST).read_text())
+    relative = Path(manifest["documents"][0]["primary_file"]["path"])
+    dynamic = root / module._E1_MANIFEST.parent / relative
+    retained = dynamic.with_suffix(".retained.pdf")
+    dynamic.rename(retained)
+    dynamic.symlink_to(retained)
+    subprocess.run(("git", "add", "--all"), cwd=root, check=True)
+    subprocess.run(
+        ("git", "commit", "-qm", "retarget dynamic input"),
+        cwd=root,
+        check=True,
+    )
+    candidate_head = subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    attempt = root / module._CANONICAL_ATTEMPT
+    artifact = root / module._CANONICAL_ARTIFACT
+    calls: list[str] = []
+    retained_artifact = json.loads(retrieval_artifact.read_text())
+
+    def candidate(
+        repository_root: Path,
+        *,
+        expected_status: dict[Path, str],
+    ) -> dict[str, object]:
+        del repository_root, expected_status
+        return {
+            "head": candidate_head,
+            "runtime_profile": retained_artifact["candidate_seal"][
+                "runtime_profile"
+            ],
+            "status_records": (),
+        }
+
+    def forbidden(*args: object, **kwargs: object) -> NoReturn:
+        del args, kwargs
+        calls.append("consumer")
+        raise AssertionError("consumer must not start")
+
+    monkeypatch.setattr(module, "_validate_all_archived_authority", forbidden)
+    monkeypatch.setattr(module, "publish_json_no_replace", forbidden)
+    monkeypatch.setattr(
+        retrieval_order_workflow,
+        "_candidate_seal",
+        candidate,
+    )
+    result = module.record_canonical_compatibility(
+        protocol_path=protocol,
+        development_freeze_path=freeze,
+        holdout_receipt_path=receipt,
+        retrieval_artifact_path=retrieval_artifact,
+        candidate_head=candidate_head,
+        attempt_receipt_path=attempt,
+        artifact_path=artifact,
+        repository_root=root,
+    )
+
+    _assert_canonical_path_preflight_failure(result)
+    assert calls == []
+    assert not attempt.exists()
+    assert not artifact.exists()
 
 
 def test_compatibility_preflights_manifest_sources_before_copy_or_digest(
@@ -2056,6 +2221,92 @@ def test_record_canonical_rejects_runtime_drift_before_final_publication(
     assert not artifact.exists()
 
 
+@pytest.mark.parametrize(
+    "seam",
+    ("capability_consume", "final_authority"),
+)
+@pytest.mark.parametrize("retarget_kind", ("symlink", "directory"))
+def test_record_canonical_repreflights_retargeted_protocol_before_read(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    seam: str,
+    retarget_kind: str,
+) -> None:
+    module = _module()
+    root, protocol, freeze, receipt, retrieval_artifact, candidate_head = (
+        _synthetic_canonical_authority(tmp_path, monkeypatch)
+    )
+    attempt = root / module._CANONICAL_ATTEMPT
+    artifact = root / module._CANONICAL_ARTIFACT
+    original_candidate = retrieval_order_workflow._candidate_seal  # pyright: ignore[reportPrivateUsage]
+    original_metadata = module.load_retrieval_order_protocol_metadata
+    candidate_calls = 0
+    alias_reads: list[str] = []
+    replaced = False
+
+    def retarget() -> None:
+        nonlocal replaced
+        if replaced:
+            return
+        retained = protocol.with_suffix(".retained.json")
+        protocol.rename(retained)
+        if retarget_kind == "symlink":
+            protocol.symlink_to(retained)
+        else:
+            protocol.mkdir()
+        replaced = True
+
+    def candidate(*args: object, **kwargs: object) -> dict[str, object]:
+        nonlocal candidate_calls
+        candidate_calls += 1
+        value = original_candidate(*args, **kwargs)  # type: ignore[arg-type]
+        if seam == "capability_consume" and candidate_calls == 2:
+            retarget()
+        return value
+
+    def metadata(*args: object, **kwargs: object) -> object:
+        if protocol.is_symlink() or protocol.is_dir():
+            alias_reads.append("metadata")
+        return original_metadata(*args, **kwargs)
+
+    def build(**kwargs: object) -> dict[str, object]:
+        del kwargs
+        if seam == "final_authority":
+            retarget()
+        return _complete_compatibility_double()
+
+    monkeypatch.setattr(retrieval_order_workflow, "_candidate_seal", candidate)
+    monkeypatch.setattr(
+        module,
+        "load_retrieval_order_protocol_metadata",
+        metadata,
+    )
+    monkeypatch.setattr(module, "build_compatibility_artifact", build)
+    monkeypatch.setattr(
+        module,
+        "validate_compatibility_artifact",
+        _accept_validation,
+    )
+    result = module.record_canonical_compatibility(
+        protocol_path=protocol,
+        development_freeze_path=freeze,
+        holdout_receipt_path=receipt,
+        retrieval_artifact_path=retrieval_artifact,
+        candidate_head=candidate_head,
+        attempt_receipt_path=attempt,
+        artifact_path=artifact,
+        repository_root=root,
+    )
+
+    assert (
+        result["first_failed_gate"] == seam
+        and result["next_step"] == "retain_attempt_and_stop"
+        and alias_reads == []
+        and attempt.exists()
+        and not artifact.exists()
+    ), "G4_CAPABILITY_REPREFLIGHT_FALSE_PASS"
+
+
 @pytest.mark.parametrize("basename", ("attempt", "destination"))
 def test_record_canonical_rejects_directory_basename_as_path_preflight(
     tmp_path: Path,
@@ -2717,6 +2968,12 @@ def _synthetic_canonical_authority(
         destination = root / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(source.read_bytes())
+    module = _module()
+    for relative in module._historical_dynamic_inputs(ROOT):
+        source = ROOT / relative
+        destination = root / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(source.read_bytes())
     fixture_root = root / "fixtures"
     fixture_root.mkdir(parents=True)
     payload = deepcopy(json.loads(PROTOCOL.read_text(encoding="utf-8")))
@@ -2745,7 +3002,7 @@ def _synthetic_canonical_authority(
         encoding="utf-8",
     )
     source = root / "src/mke"
-    source.mkdir(parents=True)
+    source.mkdir(parents=True, exist_ok=True)
     (source / "synthetic.py").write_text(
         "SYNTHETIC = True\n",
         encoding="utf-8",
@@ -2762,6 +3019,8 @@ def _synthetic_canonical_authority(
             "benchmarks",
             "src",
             "tests",
+            "pyproject.toml",
+            "uv.lock",
         ),
         ("git", "commit", "-qm", "synthetic authority"),
     )

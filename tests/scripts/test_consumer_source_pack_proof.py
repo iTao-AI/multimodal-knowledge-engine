@@ -12,7 +12,7 @@ import sys
 import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 import pytest
 
@@ -1574,35 +1574,48 @@ def test_candidate_output_rejects_existing_repository_identity_alias_before_side
         pytest.fail("G3_CANDIDATE_OUTPUT_IDENTITY_ALIAS_FALSE_PASS")
 
 
+@pytest.mark.parametrize(
+    "identity_hit",
+    ("root", "direct", "multilevel", "external"),
+)
 def test_repository_identity_walk_visits_root_direct_and_multilevel_ancestors(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    identity_hit: str,
 ) -> None:
     proof = _load()
     repository = _candidate_runtime_repository(tmp_path)
     claim_parent = tmp_path / "external" / "direct" / "multilevel"
     claim_parent.mkdir(parents=True)
     visited: list[Path] = []
+    hit = {
+        "root": claim_parent,
+        "direct": claim_parent.parent,
+        "multilevel": claim_parent.parent.parent,
+        "external": repository,
+    }[identity_hit]
+    repository_identity = repository.stat().st_dev, repository.stat().st_ino
 
     def stat_identity(path: Path) -> tuple[int, int]:
         visited.append(path)
+        if path == hit:
+            return repository_identity
         metadata = path.stat()
         return metadata.st_dev, metadata.st_ino
 
     monkeypatch.setattr(proof, "_stat_identity", stat_identity, raising=False)
-    proof._bind_attempt_claim(
-        claim_parent / "attempt.json",
+    result = proof._repository_identity_in_ancestry(
+        claim_parent,
         repository=repository,
-        candidate_output=tmp_path / "candidate",
     )
 
-    expected = {
-        repository,
-        claim_parent,
-        claim_parent.parent,
-        claim_parent.parent.parent,
-    }
-    assert expected.issubset(set(visited)), "G3_ANCESTRY_WALK_NOT_EXECUTED"
+    ancestry = [claim_parent]
+    while ancestry[-1] != ancestry[-1].parent:
+        ancestry.append(ancestry[-1].parent)
+    expected_visit = ancestry[: ancestry.index(hit) + 1] if hit in ancestry else ancestry
+    assert visited[0] == repository
+    assert visited[1:] == expected_visit
+    assert result is (identity_hit != "external")
 
 
 def test_repository_identity_lookup_failure_is_claim_invalid_before_side_effects(
@@ -1628,6 +1641,100 @@ def test_repository_identity_lookup_failure_is_claim_invalid_before_side_effects
         assert error.code == "retrieval_order_source_pack_claim_invalid"
     else:
         pytest.fail("G3_IDENTITY_ERROR_FALSE_PASS")
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Darwin case-alias supplement")
+def test_attempt_claim_rejects_live_darwin_repository_case_alias(
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    repository = tmp_path / "CaseSensitiveProbe"
+    repository.mkdir()
+    alias = tmp_path / "casesensitiveprobe"
+    try:
+        same_identity = alias.exists() and os.path.samefile(alias, repository)
+    except OSError:
+        same_identity = False
+    if not same_identity:
+        pytest.skip("temporary filesystem cannot construct a case alias")
+    claim = alias / "nested" / "attempt.json"
+    claim.parent.mkdir()
+    with pytest.raises(proof.ControllerError) as raised:
+        proof._bind_attempt_claim(
+            claim,
+            repository=repository,
+            candidate_output=tmp_path / "candidate",
+        )
+    assert raised.value.code == "retrieval_order_source_pack_claim_invalid"
+
+
+@pytest.mark.parametrize(
+    "output_kind",
+    (
+        "inside-repository",
+        "preexisting-external",
+        "dangling-symlink",
+        "symlink-parent",
+        "aliased-parent-into-repository",
+    ),
+)
+def test_attempt_claim_preflights_candidate_output_before_source_preparation(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    output_kind: str,
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    interpreters = _synthetic_interpreters(tmp_path)
+    claim_parent = tmp_path / "claim"
+    claim_parent.mkdir()
+    claim = claim_parent / "attempt.json"
+    external = tmp_path / "external"
+    external.mkdir()
+    output = external / "candidate"
+    if output_kind == "inside-repository":
+        output = repository / "candidate"
+    elif output_kind == "preexisting-external":
+        output.mkdir()
+    elif output_kind == "dangling-symlink":
+        output.symlink_to(tmp_path / "missing-output")
+    elif output_kind == "symlink-parent":
+        real_parent = tmp_path / "real-output-parent"
+        real_parent.mkdir()
+        external.rmdir()
+        external.symlink_to(real_parent, target_is_directory=True)
+    elif output_kind == "aliased-parent-into-repository":
+        external.rmdir()
+        external.symlink_to(repository, target_is_directory=True)
+    calls: list[str] = []
+
+    def forbidden(*args: object, **kwargs: object) -> NoReturn:
+        del args, kwargs
+        calls.append("side-effect")
+        raise AssertionError("source preparation must not start")
+
+    monkeypatch.setattr(proof, "_clean_sha1_source_commit", forbidden)
+    monkeypatch.setattr(proof, "_command", forbidden)
+    monkeypatch.setattr(proof, "_stage_candidate_output", forbidden)
+    monkeypatch.setattr(proof, "publish_json_no_replace", forbidden)
+    with pytest.raises(proof.ControllerError) as raised:
+        proof.run_proof(
+            proof.ProofConfig(
+                repository,
+                interpreters,
+                3,
+                10_000,
+                10_000,
+                candidate_output=output,
+                attempt_claim=claim,
+            )
+        )
+
+    assert (
+        raised.value.code == "retrieval_order_source_pack_claim_invalid"
+        and calls == []
+        and not claim.exists()
+    ), "G4_CANDIDATE_OUTPUT_PREFLIGHT_FALSE_PASS"
 
 
 @pytest.mark.parametrize(

@@ -351,6 +351,9 @@ def test_cjk_primary_witness_rejects_invalid_numeric_shape(
         "below-ratio-threshold",
         "count-ratio-inconsistent",
         "matched-terms-inconsistent",
+        "matched-terms-list",
+        "matched-terms-unknown",
+        "matched-terms-reversed",
     ),
     ids=(
         "negative-count",
@@ -361,6 +364,9 @@ def test_cjk_primary_witness_rejects_invalid_numeric_shape(
         "below-ratio-threshold",
         "count-ratio-inconsistent",
         "matched-terms-inconsistent",
+        "matched-terms-list",
+        "matched-terms-unknown",
+        "matched-terms-reversed",
     ),
 )
 def test_cjk_primary_witness_rejects_impossible_tuple(
@@ -1973,6 +1979,27 @@ def _mutate_g1_selection(
         results[0] = replace(
             first,
             matched_terms=(terms[0],) * first.overlap_count,
+        )
+    elif mutation == "matched-terms-list":
+        results[0] = replace(
+            first,
+            matched_terms=cast(
+                tuple[str, ...],
+                list(first.matched_terms),
+            ),
+        )
+    elif mutation == "matched-terms-unknown":
+        results[0] = replace(
+            first,
+            matched_terms=(
+                *first.matched_terms[:-1],
+                "unknown-compiled-term",
+            ),
+        )
+    elif mutation == "matched-terms-reversed":
+        results[0] = replace(
+            first,
+            matched_terms=tuple(reversed(first.matched_terms)),
         )
     else:
         raise AssertionError(f"unsupported G1 mutation: {mutation}")

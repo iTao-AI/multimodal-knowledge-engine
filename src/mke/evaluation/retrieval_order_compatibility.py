@@ -1267,6 +1267,19 @@ class _CanonicalPublicationCapability:
         self._consumed = True
 
     def revalidate(self) -> None:
+        _preflight_repository_files(
+            self.repository_root,
+            (
+                self.protocol_path,
+                self.development_freeze_path,
+                self.holdout_receipt_path,
+                self.retrieval_artifact_path,
+                self.attempt_path,
+                *(Path(path) for path in _IMMUTABLE_INPUT_SHA256),
+                *_current_source_paths(self.repository_root),
+            ),
+        )
+        _historical_dynamic_inputs(self.repository_root)
         metadata = load_retrieval_order_protocol_metadata(
             self.protocol_path,
             repository_root=self.repository_root,
@@ -1724,6 +1737,7 @@ def record_canonical_compatibility(
                 *_current_source_paths(root),
             ),
         )
+        _historical_dynamic_inputs(root)
     except Exception:
         return _path_preflight_failure()
     try:
@@ -2272,6 +2286,7 @@ def _archived_semantic_report(
 
 def _validate_all_archived_authority(root: Path) -> None:
     _preflight_repository_files(root, _historical_planning_inputs())
+    _historical_dynamic_inputs(root)
     _validate_archived_e1(root)
     _validate_archived_e2(root)
     _validate_archived_e3a(
@@ -3446,6 +3461,98 @@ def _historical_planning_inputs() -> tuple[Path, ...]:
     }
     paths.add(_NUMERIC_PROTOCOL)
     return tuple(sorted(paths, key=Path.as_posix))
+
+
+def _repository_relative_path(raw: str, *, base: Path) -> Path:
+    path = PurePosixPath(raw)
+    if (
+        not raw
+        or "\\" in raw
+        or path.is_absolute()
+        or any(part in {"", ".", ".."} for part in path.parts)
+        or (path.parts and path.parts[0].endswith(":"))
+    ):
+        raise RetrievalOrderCompatibilityError
+    return base / Path(*path.parts)
+
+
+def _path_values(value: object) -> tuple[str, ...]:
+    result: list[str] = []
+    if isinstance(value, dict):
+        for key, child in cast(dict[str, object], value).items():
+            if key == "path" and isinstance(child, str):
+                result.append(child)
+            else:
+                result.extend(_path_values(child))
+    elif isinstance(value, list):
+        for child in cast(list[object], value):
+            result.extend(_path_values(child))
+    return tuple(result)
+
+
+def _historical_dynamic_inputs(root: Path) -> tuple[Path, ...]:
+    static = _historical_planning_inputs()
+    _preflight_repository_files(root, static)
+    references: set[Path] = {_E1_MANIFEST}
+    protocol_paths = {
+        _NUMERIC_PROTOCOL,
+        *(protocol for _, protocol in _HISTORICAL_INPUTS.values()),
+    }
+    for protocol_path in sorted(protocol_paths, key=Path.as_posix):
+        value = _load_object(root / protocol_path)
+        for raw in _path_values(value):
+            if raw.startswith(
+                ("src/", "tests/", "benchmarks/", "docs/", "scripts/")
+            ) or raw in {"pyproject.toml", "uv.lock"}:
+                relative = _repository_relative_path(raw, base=Path())
+            elif protocol_path == _NUMERIC_PROTOCOL:
+                relative = _repository_relative_path(
+                    raw,
+                    base=Path("tests/fixtures"),
+                )
+            else:
+                relative = _repository_relative_path(
+                    raw,
+                    base=protocol_path.parent,
+                )
+            references.add(relative)
+    _preflight_repository_files(root, tuple(sorted(references, key=Path.as_posix)))
+    manifests = {
+        path
+        for path in references
+        if path.suffix == ".json" and path.as_posix().startswith("tests/fixtures/")
+    }
+    for manifest_path in sorted(manifests, key=Path.as_posix):
+        value = _load_object(root / manifest_path)
+        documents = value.get("documents")
+        if not isinstance(documents, list):
+            continue
+        for raw_document in cast(list[object], documents):
+            if not isinstance(raw_document, dict):
+                raise RetrievalOrderCompatibilityError
+            document = cast(dict[str, object], raw_document)
+            if "primary_file" not in document:
+                continue
+            primary = _object(document["primary_file"])
+            references.add(
+                _repository_relative_path(
+                    cast(str, primary["path"]),
+                    base=manifest_path.parent,
+                )
+            )
+            for raw_support in cast(
+                list[dict[str, object]],
+                document["supporting_files"],
+            ):
+                references.add(
+                    _repository_relative_path(
+                        cast(str, _object(raw_support)["path"]),
+                        base=manifest_path.parent,
+                    )
+                )
+    result = tuple(sorted(references, key=Path.as_posix))
+    _preflight_repository_files(root, result)
+    return result
 
 
 def _manifest_input_paths(

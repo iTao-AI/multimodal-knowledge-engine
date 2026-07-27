@@ -858,12 +858,51 @@ def _repository_identity_in_ancestry(
         ) from exc
 
 
+def _preflight_candidate_output(
+    requested: Path,
+    *,
+    repository: Path,
+) -> None:
+    if requested.name in {"", ".", ".."}:
+        raise ControllerError(
+            "retrieval_order_source_pack_claim_invalid"
+        )
+    lexical_target = _lexical_absolute(requested)
+    if (
+        lexical_target.is_symlink()
+        or lexical_target.exists()
+        or _lexically_within(lexical_target, repository)
+    ):
+        raise ControllerError(
+            "retrieval_order_source_pack_claim_invalid"
+        )
+    lexical_parent = lexical_target.parent
+    _require_nonsymlink_directory_chain(lexical_parent)
+    try:
+        resolved_parent = lexical_parent.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise ControllerError(
+            "retrieval_order_source_pack_claim_invalid"
+        ) from exc
+    if _repository_identity_in_ancestry(
+        resolved_parent,
+        repository=repository,
+    ):
+        raise ControllerError(
+            "retrieval_order_source_pack_claim_invalid"
+        )
+
+
 def _bind_attempt_claim(
     requested: Path,
     *,
     repository: Path,
     candidate_output: Path,
 ) -> _AttemptClaimBinding:
+    _preflight_candidate_output(
+        candidate_output,
+        repository=repository,
+    )
     if requested.name in {"", ".", ".."}:
         raise ControllerError(
             "retrieval_order_source_pack_claim_invalid"
@@ -893,13 +932,6 @@ def _bind_attempt_claim(
         or _repository_identity_in_ancestry(
             resolved_parent,
             repository=repository,
-        )
-        or (
-            candidate_output.exists()
-            and _repository_identity_in_ancestry(
-                candidate_output,
-                repository=repository,
-            )
         )
         or _within(target, repository)
         or _within(target, candidate_output)
