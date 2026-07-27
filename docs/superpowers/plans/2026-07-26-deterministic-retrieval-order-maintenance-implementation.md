@@ -3362,6 +3362,1510 @@ It does not prove retrieval-quality improvement, segmentation or contextual-retr
 runtime promotion, production readiness, broad portability, latency, accuracy, SLA, adoption,
 release status, or successful canonical development/holdout/compatibility observation.
 
+## Plan Amendment G — Close F7 Evidence and Containment Gaps
+
+### G+ — Authority, reason, and supersession
+
+Amendment F completed its closed verification ledger at candidate seal
+`654520883fc186e931bd620757d3f468f65fd975`, but the required F7 actual-diff review found three
+material gaps:
+
+1. the CJK observation serializes the fixed marker `cjk-equal-overlap` for every projection
+   without observing the production selector's actual `(overlap_count, overlap_ratio)` values;
+2. compatibility code can hash or parse several repository inputs before a no-follow
+   regular-file check has rejected a symlink or nonregular entry; and
+3. the source-pack proof uses case-sensitive resolved-path string ancestry to decide whether an
+   attempt claim is inside the existing repository, which is not sufficient on a
+   case-insensitive filesystem.
+
+These are evidence and containment defects in the evaluation/proof harness. They do not show that
+runtime retrieval order is wrong, that the frozen corpus fails, or that a canonical observation
+would fail. They do show that the current candidate can false-pass or perform an unauthorized
+preflight read under inputs the plan said must fail closed.
+
+Amendment G supersedes only Amendment F's permission to treat F6 as the final replacement
+verification. It preserves every earlier approved architecture, frozen protocol, artifact schema,
+historical byte, public error tuple, stable-order key, one-shot publication rule, and non-claim.
+Task 8B remains forbidden until G0-G6 are complete, the final actual diff is authority-review
+clean, and a separate explicit resume authorization is given.
+
+Amendment G is maintenance only. It adds no retrieval strategy, quality metric, product feature,
+public API, CLI command, MCP tool, schema revision, provider, dependency, corpus, fixture,
+promotion path, or release claim.
+
+All three repairs must precede Task 8B even though only G1 changes observation truth directly.
+G2 and G3 are required by later compatibility and source-pack proof closure. Landing either after
+Task 8B would change the candidate HEAD, invalidate the retained one-shot seal, and require a new
+observation. Amendment G therefore closes every known F7 gap on one final pre-observation HEAD.
+
+The filesystem threat model is owner/operator error in a local-first workspace: a stale symlink,
+nonregular frozen input, case alias, or retarget visible at an explicit preflight/recheck point.
+The controller is not a security sandbox, privilege boundary, or defense against a malicious
+concurrent process. Amendment G makes no descriptor-relative, directory-FD, or post-recheck
+race-freedom claim.
+
+### Operator start card
+
+This card is the two-minute entry for the maintainer executing the amendment. It is an execution
+index, not a substitute for the task contracts below.
+
+| Item | Frozen operator authority |
+|---|---|
+| Comparison base | `654520883fc186e931bd620757d3f468f65fd975` |
+| G0 input | exact approved Amendment G bytes and SHA-256 supplied by the authority handoff |
+| Phase order | G0 plan landing and stop; G1 CJK witness; G2 compatibility pre-read; G3 source-pack identity; G4 actual-diff review; G5 closed ledger; G6 readback and stop |
+| Writable scope | G0: one plan path; G1/G2/G3: their exact two-path pairs; G4: only the same six implementation/test paths for at most one fix round; G5/G6: none |
+| Forbidden state | all five canonical development, holdout, retrieval, compatibility-attempt, and compatibility JSON paths remain absent by both existence and symlink checks |
+| First semantic authority | the preregistered G1 targeted RED must fail for the exact expected invariant signatures before implementation begins |
+| G5 inputs | preregistered `G5_REVIEW_CLEAN_HEAD`, `G0_PLAN_SHA256`, and a call-owned absent ledger directory |
+| Failure rule | any unexpected RED, extra path, changed contract, timeout, missing command result, retry need, or post-review mutation is `BLOCKED` |
+| Terminal meaning | G6 clean means the candidate may request separate Task 8B authorization; it is not an observation, compatibility, promotion, or release result |
+
+The public proof guide and ADR remain the product-facing authority. This card serves only the
+bounded maintenance executor and does not redefine product onboarding or product
+time-to-happy-workflow.
+
+### G0 — Land this amendment mechanically and stop
+
+Modify only:
+
+- `docs/superpowers/plans/2026-07-26-deterministic-retrieval-order-maintenance-implementation.md`.
+
+Insert the approved Amendment G block immediately before
+`## Task 8B — Seal and Observe Once`. Preserve every pre-existing plan byte outside the insertion.
+Verify the approved source and inserted block with exact byte comparison and SHA-256, inspect the
+complete untracked/cached/committed diff, scan the insertion for private paths, private task
+identifiers, placeholders, and unsupported claims, run `git diff --check`, commit exactly the one
+plan path, and stop.
+
+Do not run a test, implementation command, evaluation, proof, observation, canonical publication,
+or lifecycle action during G0. The next gate is independent authority review of the actual G0
+plan diff. G1 is forbidden until that review is clean and continuation is explicitly authorized.
+
+### Shared G1-G3 targeted RED protocol
+
+For each of G1, G2, and G3, author the complete task-owned test change before modifying the
+implementation. Before the one allowed RED invocation:
+
+1. record the test-file SHA-256, exact pytest node IDs below, expected pass/fail state, and expected
+   assertion marker for every node;
+2. require Pytest collection to resolve exactly those nodes;
+3. run the exact node list once against the pre-task implementation;
+4. reject collection, import, fixture-setup, environment, or unrelated baseline failures as
+   invalid RED evidence; and
+5. do not write implementation unless the observed node outcomes and markers equal the
+   preregistered manifest exactly.
+
+Use explicit `ids=` values for every parameterized case so the exact node IDs are stable. Each
+failing test must contain the named assertion marker below. After the implementation change, run
+the identical node command once and require every node to pass before running the broader GREEN
+group in the task.
+
+The exact G1 RED nodes are:
+
+```text
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_reads_production_selector
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_rejects_order_preserving_tuple_drift[count]
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_rejects_order_preserving_tuple_drift[ratio]
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_rejects_inventory_drift[missing]
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_rejects_inventory_drift[extra]
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_rejects_inventory_drift[duplicate]
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_rejects_inventory_drift[reordered]
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_rejects_inventory_drift[projection-mismatch]
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_rejects_invalid_numeric_shape[empty]
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_rejects_invalid_numeric_shape[nonfinite]
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_rejects_invalid_numeric_shape[boolean-count]
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_rejects_invalid_numeric_shape[noninteger-count]
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_rejects_invalid_numeric_shape[nonfloat-ratio]
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_rejects_impossible_tuple[negative-count]
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_rejects_impossible_tuple[zero-count]
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_rejects_impossible_tuple[count-above-term-count]
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_rejects_impossible_tuple[ratio-above-one]
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_rejects_impossible_tuple[below-count-threshold]
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_rejects_impossible_tuple[below-ratio-threshold]
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_rejects_impossible_tuple[count-ratio-inconsistent]
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_rejects_impossible_tuple[matched-terms-inconsistent]
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_returns_structured_failure_without_pair_comparison
+tests/evaluation/test_retrieval_order_workflow.py::test_cjk_primary_witness_accepts_valid_frozen_tie
+tests/evaluation/test_retrieval_order_workflow.py::test_fts_observation_does_not_call_cjk_primary_witness
+```
+
+The first 23 nodes must fail before G1 with only these assertion markers:
+`G1_SELECTOR_WITNESS_NOT_OBSERVED`, `G1_ORDER_PRESERVING_TUPLE_DRIFT_FALSE_PASS`,
+`G1_SELECTOR_INVENTORY_DRIFT_FALSE_PASS`, `G1_INVALID_NUMERIC_SHAPE_FALSE_PASS`,
+`G1_IMPOSSIBLE_TUPLE_FALSE_PASS`, `G1_INVALID_WITNESS_RAISED_KEY_ERROR`, or
+`G1_VALID_TIE_NOT_BOUND_TO_SELECTOR`. The final FTS control node must pass. A different count,
+marker, exception, or control result is `BLOCKED`.
+
+The exact G2 RED nodes are:
+
+```text
+tests/evaluation/test_retrieval_order_compatibility.py::test_compatibility_rejects_lexical_repository_root_symlink_before_any_authority_read
+tests/evaluation/test_retrieval_order_compatibility.py::test_compatibility_preflights_complete_immutable_inventory_before_digest
+tests/evaluation/test_retrieval_order_compatibility.py::test_compatibility_preflights_current_source_inventory_before_source_identity
+tests/evaluation/test_retrieval_order_compatibility.py::test_compatibility_preflights_archived_inputs_before_loader_or_validator
+tests/evaluation/test_retrieval_order_compatibility.py::test_compatibility_preflights_manifest_sources_before_copy_or_digest
+tests/evaluation/test_retrieval_order_compatibility.py::test_compatibility_rejects_final_parent_and_lstat_failures_before_side_effects
+tests/evaluation/test_retrieval_order_compatibility.py::test_canonical_path_preflight_preserves_public_tuple_and_zero_visibility
+```
+
+All seven must fail before G2, one per exact marker:
+`G2_LEXICAL_ROOT_ALIAS_FALSE_PASS`, `G2_IMMUTABLE_BATCH_PREFLIGHT_INCOMPLETE`,
+`G2_CURRENT_SOURCE_PREFLIGHT_INCOMPLETE`, `G2_ARCHIVED_INPUT_PREFLIGHT_INCOMPLETE`,
+`G2_MANIFEST_SOURCE_PREFLIGHT_INCOMPLETE`, `G2_PATH_KIND_OR_LSTAT_FALSE_PASS`, and
+`G2_PUBLIC_TUPLE_OR_VISIBILITY_DRIFT`. A different result is `BLOCKED`.
+
+The exact G3 RED/control nodes are:
+
+```text
+tests/scripts/test_consumer_source_pack_proof.py::test_attempt_claim_rejects_repository_identity_alias_before_side_effects
+tests/scripts/test_consumer_source_pack_proof.py::test_candidate_output_rejects_existing_repository_identity_alias_before_side_effects
+tests/scripts/test_consumer_source_pack_proof.py::test_repository_identity_walk_visits_root_direct_and_multilevel_ancestors
+tests/scripts/test_consumer_source_pack_proof.py::test_repository_identity_lookup_failure_is_claim_invalid_before_side_effects
+tests/scripts/test_consumer_source_pack_proof.py::test_attempt_claim_rejects_invalid_lexical_scope_before_side_effects
+tests/scripts/test_consumer_source_pack_proof.py::test_attempt_claim_rechecks_parent_and_basename_before_publication
+tests/scripts/test_consumer_source_pack_proof.py::test_attempt_claim_stable_external_parent_publishes_once
+```
+
+The first four must fail before G3 with, respectively,
+`G3_REPOSITORY_IDENTITY_ALIAS_FALSE_PASS`, `G3_CANDIDATE_OUTPUT_IDENTITY_ALIAS_FALSE_PASS`,
+`G3_ANCESTRY_WALK_NOT_EXECUTED`, and `G3_IDENTITY_ERROR_FALSE_PASS`. The final three retained
+controls must pass. The Darwin live alias supplement may skip only when its explicit filesystem
+capability probe cannot construct a case alias; it is not part of the portable mandatory RED
+count.
+
+Each task ledger records, per node, the exact invariant, expected and actual state, assertion
+marker, argv, exit code, test-file digest, monotonic start/end, and elapsed time. It also records
+`operator_start_to_first_authoritative_red_seconds` and
+`first_red_to_targeted_green_seconds` as retrospective measurements with no SLA or acceptance
+threshold.
+
+Public result tuples remain compatibility envelopes, not causal diagnoses for these maintenance
+tests. The non-persisted task ledger uses only the following private causal labels:
+
+- G1: `invalid_cjk_primary_witness`, plus the failed selector inventory, numeric shape, semantic
+  tuple, or aggregation invariant and `fix=inspect selector inventory/tuple mapping; do not alter
+  ranking`;
+- G2: `lexical_repository_root_alias`, `nonregular_final_input`,
+  `incomplete_batch_preflight`, or `manifest_derived_input_invalid`; and
+- G3: `repository_identity_alias`, `candidate_output_identity_alias`, or
+  `identity_lookup_failure`.
+
+These labels must not enter public JSON, a CLI/MCP result, schema, artifact, protocol, fixture, or
+checked-in file. In particular, G1's existing public
+`problem=retrieval_order_nondeterministic`,
+`cause=fresh workspace stable projections differ`, and
+`next_step=apply_tie_only_stable_order_maintenance` remain compatibility placeholders and must not
+be reported as the causal diagnosis of an invalid primary witness.
+
+### G1 — Observe the real CJK primary tuple before emitting the frozen tie marker
+
+Modify exactly:
+
+- `src/mke/evaluation/retrieval_order_workflow.py`;
+- `tests/evaluation/test_retrieval_order_workflow.py`.
+
+#### G1.1 — Targeted RED
+
+Add focused tests proving all of the following against the pre-G1 implementation:
+
+1. the CJK observation reaches the existing production SQLite active-scan selector and does not
+   derive primary-score authority from `expected_stable_projections`, candidate order, the pure
+   secondary-key oracle, or the literal `cjk-equal-overlap` marker;
+2. a selector result with the same result order but one different valid `overlap_count` fails the
+   observation;
+3. a selector result with the same result order but one different finite canonical
+   `overlap_ratio` fails the observation;
+4. missing, extra, duplicated, reordered, or projection-mismatched selector results fail;
+5. an empty, non-finite, boolean, non-integer count, or non-float ratio fails closed;
+6. a negative, zero, above-term-count, above-one, below-threshold, count/ratio-inconsistent, or
+   `matched_terms`-inconsistent tuple fails closed;
+7. every invalid-selector case returns a structured failed observation without raising
+   `KeyError`, serializing a valid tie marker, or entering non-tied-pair comparison with an
+   invalid score inventory;
+8. a real valid frozen CJK case proves every projection appears exactly once and has one identical
+   actual primary tuple before the existing marker is serialized; and
+9. the FTS path and the retained artifact schema remain byte-compatible and do not call the CJK
+   selector witness.
+
+The two mismatch regressions must keep the result membership and display order unchanged so they
+would false-pass if the implementation only compared projections or emitted the marker.
+
+#### G1.2 — Minimal implementation
+
+Reuse the existing CJK query compiler, `CJK_ACTIVE_SCAN_PARAMETERS`, and the production
+`SQLiteStore._select_cjk_active_scan` selector already used by `KnowledgeEngine.search`. Do not
+add a new store method, ranker, strategy, or runtime observer.
+
+Inside the evaluation-only case observation:
+
+1. compile the frozen CJK query with the current production policy and require eligible terms;
+2. invoke the existing selector read-only against the already constructed, active, call-owned
+   workspace;
+3. map each returned selector result to the same stable projection authority used by the frozen
+   case, using Evidence/source identities already retained by the observation rather than opaque
+   ID ordering;
+4. require the selector inventory to equal the observed projection inventory exactly once and in
+   the observed order;
+5. require `type(overlap_count) is int`, `type(overlap_ratio) is float`, a finite ratio,
+   `0 < overlap_count <= len(compiled.terms)`, `0.0 < overlap_ratio <= 1.0`, and the exact
+   configured minimum thresholds;
+6. require `matched_terms` to be an exact tuple of unique compiled terms,
+   `len(matched_terms) == overlap_count`, and
+   `overlap_ratio.hex() == (overlap_count / len(compiled.terms)).hex()`;
+7. require one exact `(overlap_count, overlap_ratio.hex())` tuple across every projection; and
+8. only after those checks succeed, serialize the existing `cjk-equal-overlap` value into the
+   existing score map and artifact shape.
+
+The fixed marker remains a compact statement that the already observed primary tuples tied; it is
+not itself the Evidence that they tied. The protocol-owned pure oracle continues to prove only the
+secondary-key order. The production selector remains the primary-score authority. No artifact
+schema or checked-in fixture byte changes.
+
+When the selector inventory or tuple check fails, return an invalid private score witness with an
+empty serializable `score_hex` inventory to the existing observation aggregator. The aggregator
+must mark the score inventory invalid, increment the existing score delta, and skip
+`_non_tied_pair_delta` unless both forward and reverse score inventories are valid. The call must
+therefore return `observation_status=failed` without `KeyError` or another exception. Do not
+serialize a valid tie marker for that case, promote the mismatch to a new public exception
+taxonomy, or expose the raw tuple in a canonical artifact.
+
+This evaluation-only second selector read is bounded by the existing frozen call-owned workspace.
+It makes no latency or production-observability claim and does not add a public runtime surface.
+
+#### G1.3 — GREEN, review handoff, and commit
+
+Run:
+
+```bash
+uv run pytest -q \
+  tests/evaluation/test_retrieval_order_workflow.py \
+  tests/evaluation/test_retrieval_order_artifact.py \
+  tests/adapters/test_sqlite_cjk_order.py \
+  tests/adapters/test_sqlite_evidence_access.py
+uv run ruff check \
+  src/mke/evaluation/retrieval_order_workflow.py \
+  tests/evaluation/test_retrieval_order_workflow.py
+uv run pyright
+```
+
+Inspect the exact two-path diff and create one semantic commit:
+
+```bash
+git add src/mke/evaluation/retrieval_order_workflow.py \
+  tests/evaluation/test_retrieval_order_workflow.py
+git commit -m "fix(eval): observe cjk primary ties"
+```
+
+Record the targeted RED/GREEN ledger, exact diff scope, plan/design digests,
+five-canonical-path absence proof, and clean HEAD. Continue directly to G2 only when every G1 gate
+passes and the implementation remains inside the exact two-path, no-public-contract scope. Any
+need for another path, runtime surface, schema, fixture, or protocol change is `BLOCKED` and
+returns to authority review.
+
+### G2 — Reject compatibility input aliases before content read
+
+Modify exactly:
+
+- `src/mke/evaluation/retrieval_order_compatibility.py`;
+- `tests/evaluation/test_retrieval_order_compatibility.py`.
+
+#### G2.1 — Targeted RED
+
+Add focused representative tests for every affected read class rather than taking the Cartesian
+product of every path and filesystem mutation. The read classes are:
+
+- static immutable-input digest;
+- canonical protocol or retained-artifact load;
+- dynamic current-source identity inventory;
+- historical manifest load;
+- numeric-protocol load;
+- manifest-discovered source copy/content digest; and
+- cross-module archived-validator or compatibility `_file_identity` reads.
+
+Across that set, require at least one final-component symlink, one existing-parent symlink, one
+directory or FIFO/nonregular final component, and one `lstat`/preflight failure. Include both an
+in-repository and out-of-repository symlink target somewhere in the matrix. A single
+parameterized test may cover multiple read classes when its call counters prove the same guard
+boundary.
+
+Add a mandatory repository-root symlink RED for both the historical-capability and canonical
+record entry points. It must prove that an early `repository_root.resolve()` cannot erase the
+lexical root identity before the guard runs.
+
+The tests must prove rejection occurs before the guarded path is parsed, hashed, copied, opened by
+an archived validator, passed to Git/child execution, used to create a historical directory, or
+used by either publication helper. Use call counters or failing spies at those boundaries.
+
+Add separate regressions proving:
+
+1. the complete static immutable inventory is preflighted before the first immutable digest;
+2. the complete lexical `src/mke/**/*.py` current-source inventory is enumerated without
+   following a symlink directory, then batch-preflighted before `build_source_identity`;
+3. each archived artifact/protocol, manifest, and numeric protocol is preflighted before
+   `_load_object`, `_file_identity`, or any cross-module validator;
+4. every manifest-discovered source is normalized, contained, and preflighted before its first
+   copy or content digest;
+5. candidate HEAD/runtime/worktree authority is sealed before retained authority content can
+   authorize a canonical attempt;
+6. path-preflight rejection preserves the exact existing public failure tuple; and
+7. no canonical attempt or compatibility artifact becomes visible.
+
+#### G2.2 — Minimal implementation
+
+Add one module-private, evaluation-only pre-read guard in the existing compatibility module. It
+must:
+
+- preserve separate lexical and resolved repository-root values, plus the lexical candidate path,
+  until the guard has inspected the root itself and every candidate component;
+- require normalized repository-relative containment;
+- walk the repository root and every existing parent with `lstat` semantics;
+- reject every symlink and every non-directory parent;
+- require the final input to be a regular file without following it; and
+- convert missing, unreadable, changed, or unsupported input state into the existing fail-closed
+  compatibility error taxonomy.
+
+Freeze two explicit, module-private inventories:
+
+- `canonical_authority_inputs`: the protocol, development freeze, holdout receipt, retrieval
+  artifact, all 14 immutable inputs, and the complete lexical current-source inventory; and
+- `historical_planning_inputs`: every archived artifact/protocol, the numeric protocol, each
+  manifest, and every manifest-derived primary/supporting source.
+
+Use the guard immediately before each repository content read or digest in the affected canonical
+and historical-planning paths. Every statically knowable member of an inventory is batch
+preflighted before the first content access in that phase. The current-source inventory is
+enumerated lexically without following symlink directories and is batch-preflighted before
+`build_source_identity`. A manifest is guarded before it is parsed; paths learned from that
+validated manifest are normalized, added to the second inventory, and batch-preflighted before
+their first content copy or digest. Call-counter tests around `_load_object`, `_sha256`,
+`_file_identity`, `build_source_identity`, cross-module validators, Git/child execution, copy, and
+publication prove the ordering. Dynamic discovery cannot authorize an earlier read of an
+unguarded file.
+
+Reorder the canonical record path so literal canonical arguments and output preexistence are
+checked first, then the candidate seal is captured, then guarded authority inputs are read and
+cross-validated. Preserve the later candidate-seal and final-authority rechecks already required
+by Amendment F.
+
+Do not modify `source_identity.py`, add a general filesystem sandbox, change `_load_object`
+globally, add a dependency, accept an alias after resolution, or claim
+descriptor-relative/directory-FD race freedom. The guarantee is bounded to the explicit batch
+pre-read and prepublication recheck points owned by this evaluation controller.
+
+Preserve exactly:
+
+```text
+status=failed
+mode=record_canonical
+output_state=not_applicable
+publication_outcome=not_attempted
+problem=retrieval_order_canonical_publication_unauthorized
+cause=canonical_path_preflight_failed
+next_step=correct_canonical_paths_before_first_attempt
+first_failed_gate=path_preflight
+```
+
+No new public field, help text, error code, or schema is authorized.
+
+#### G2.3 — GREEN, review handoff, and commit
+
+Run:
+
+```bash
+uv run pytest -q \
+  tests/evaluation/test_retrieval_order_compatibility.py \
+  tests/evaluation/test_atomic_json_publication.py \
+  tests/evaluation/test_retrieval_order_historical_freeze.py
+uv run ruff check \
+  src/mke/evaluation/retrieval_order_compatibility.py \
+  tests/evaluation/test_retrieval_order_compatibility.py
+uv run pyright
+```
+
+Inspect the exact two-path diff and create one semantic commit:
+
+```bash
+git add src/mke/evaluation/retrieval_order_compatibility.py \
+  tests/evaluation/test_retrieval_order_compatibility.py
+git commit -m "fix(eval): guard compatibility inputs before read"
+```
+
+Record the targeted RED/GREEN ledger, exact diff scope, unchanged immutable bytes, plan/design
+digests, five-canonical-path absence proof, and clean HEAD. Continue directly to G3 only when
+every G2 gate passes and the implementation remains inside the exact two-path, bounded pre-read
+contract. Any public taxonomy, generic filesystem abstraction, or additional-path requirement is
+`BLOCKED` and returns to authority review.
+
+### G3 — Bind source-pack externality to filesystem identity
+
+Modify exactly:
+
+- `scripts/consumer_source_pack_proof.py`;
+- `tests/scripts/test_consumer_source_pack_proof.py`.
+
+#### G3.1 — Targeted RED
+
+Add a deterministic regression that models two differently cased path spellings resolving to the
+same existing directory identity. The attempted absent basename is lexically outside the
+repository string but its existing parent ancestry contains the repository inode. The pre-G3
+implementation must accept it; the repaired implementation must return exactly:
+
+```json
+{"status":"failed","code":"retrieval_order_source_pack_claim_invalid"}
+```
+
+The portable regression may inject only a low-level module-private
+`stat_identity(path) -> (st_dev, st_ino)` seam. It must execute the real ancestry-walk algorithm,
+record the visited paths, and prove that the walk includes the resolved claim parent, every
+ancestor, and the repository-identity hit. Do not stub the final containment predicate. Cover the
+repository root itself, a direct child, and a multilevel descendant. On Darwin, add a live
+case-alias test when the temporary volume exposes a case-insensitive alias; skip only that
+supplemental live test when the filesystem cannot construct the alias. The portable regression is
+the mandatory CI authority.
+
+Also cover:
+
+1. an identity-check `OSError` fails closed;
+2. a normal stable external parent remains accepted;
+3. a normal claim inside the repository remains rejected;
+4. the existing lexical candidate-output rejection remains intact;
+5. an existing candidate-output directory reached through a differently cased alias is rejected
+   by identity before claim publication, while normal external sibling claim/output paths remain
+   accepted;
+6. a parent retarget after binding remains rejected by the existing device/inode recheck; and
+7. every invalid preflight has zero candidate preparation, build, child, candidate-output write,
+   or publication calls.
+
+#### G3.2 — Minimal implementation
+
+Keep lexical checks for the absent basename and the not-yet-created candidate-output path. Replace
+resolved-path string ancestry as the authority for an existing repository tree with one
+module-private filesystem-identity check:
+
+- bind the existing repository root identity;
+- walk the resolved, existing claim parent and its existing ancestors;
+- compare directory identity using `(st_dev, st_ino)` or an equivalent no-content
+  `samefile` check;
+- reject when any ancestor is the repository root regardless of path spelling or case;
+- fail closed on identity/stat errors; and
+- retain the existing claim-parent identity binding and final prepublication recheck.
+
+Also inspect the candidate-output lexical target and its existing nonsymlink parent chain before
+any side effect. If the candidate-output target already exists through any spelling contrary to
+the absent-output precondition, apply the same identity rule and reject aliased claim/output
+containment. If the target is absent, retain lexical containment for the future basename. Do not
+reject legitimate external claim and candidate-output siblings merely because they share one
+existing parent.
+
+Do not case-fold arbitrary paths, infer filesystem case rules from the platform name, introduce a
+general path-security library, or claim protection against a concurrent retarget after the final
+recheck. Preserve the exact two stable source-pack codes, attempt schema, no-replace publication,
+build order, timeouts, and terminal-after-visibility behavior.
+
+#### G3.3 — GREEN, review handoff, and commit
+
+Run:
+
+```bash
+uv run pytest -q tests/scripts/test_consumer_source_pack_proof.py
+uv run ruff check \
+  scripts/consumer_source_pack_proof.py \
+  tests/scripts/test_consumer_source_pack_proof.py
+uv run pyright
+```
+
+Inspect the exact two-path diff and create one semantic commit:
+
+```bash
+git add scripts/consumer_source_pack_proof.py \
+  tests/scripts/test_consumer_source_pack_proof.py
+git commit -m "fix(proof): bind claim externality by identity"
+```
+
+Record the targeted RED/GREEN ledger, exact diff scope, plan/design digests,
+five-canonical-path absence proof, and clean HEAD. Stop before final verification and return the
+cumulative G1-G3 range for G4 actual-diff authority review.
+
+### G4 — Cumulative actual-diff review and one bounded repair round
+
+The designated authority reviewer reads the actual G1-G3 code and test diff, not only the
+implementation summary. Review the
+three semantic commits against this amendment, the existing protocol/artifact contracts, the
+strategy implementation, and the six-path boundary.
+
+The review may produce:
+
+```text
+clean
+  -> authorize G5
+
+finding fully repairable inside the same six paths and existing public contracts
+  -> one bounded review-fix round
+  -> rerun every affected targeted group + Ruff + Pyright
+  -> targeted authority re-review
+  -> clean authorizes G5
+
+finding requires another path, schema, fixture, protocol, runtime surface, public taxonomy,
+or second repair round
+  -> BLOCKED
+  -> separately reviewed authority decision
+```
+
+The single review-fix round may modify only:
+
+- `src/mke/evaluation/retrieval_order_workflow.py`;
+- `tests/evaluation/test_retrieval_order_workflow.py`;
+- `src/mke/evaluation/retrieval_order_compatibility.py`;
+- `tests/evaluation/test_retrieval_order_compatibility.py`;
+- `scripts/consumer_source_pack_proof.py`; and
+- `tests/scripts/test_consumer_source_pack_proof.py`.
+
+It creates one semantic `fix(review): close amendment g findings` commit rather than rewriting
+already reviewed task history. It may add or tighten tests and implementation inside those files,
+but may not change the approved threat model, public result/code/schema, frozen protocol, or
+candidate scope. G4 performs no observation, canonical publication, build, or full-suite
+acceptance claim.
+
+### G5 — Replacement candidate verification with a risk-based closed budget
+
+G1-G4 invalidate the prior F6 candidate seal. The exact Amendment G comparison base is the
+reviewed F6 seal:
+
+```text
+654520883fc186e931bd620757d3f468f65fd975
+```
+
+Before gate 1, capture the final review-clean G4 HEAD as `G5_REVIEW_CLEAN_HEAD` and the exact plan
+SHA-256 returned by G0 as `G0_PLAN_SHA256`. Both are required ledger inputs, not values that may be
+reconstructed after a failure. Require all five canonical files to remain absent:
+
+```bash
+test ! -e benchmarks/retrieval/retrieval-order-v1-development-freeze.json && \
+  test ! -L benchmarks/retrieval/retrieval-order-v1-development-freeze.json && \
+  test ! -e benchmarks/retrieval/retrieval-order-v1-holdout-receipt.json && \
+  test ! -L benchmarks/retrieval/retrieval-order-v1-holdout-receipt.json && \
+  test ! -e benchmarks/retrieval/retrieval-order-v1-artifact.json && \
+  test ! -L benchmarks/retrieval/retrieval-order-v1-artifact.json && \
+  test ! -e benchmarks/retrieval/retrieval-order-v2-compatibility-attempt.json && \
+  test ! -L benchmarks/retrieval/retrieval-order-v2-compatibility-attempt.json && \
+  test ! -e benchmarks/retrieval/retrieval-order-v2-compatibility.json && \
+  test ! -L benchmarks/retrieval/retrieval-order-v2-compatibility.json
+```
+
+Prior F6 results remain historical baseline evidence but cannot seal the amended candidate. The
+closed manifest is the following 13 exact gates. Run each fence as one independent invocation in
+this order.
+
+Gate 1 — G1 final-HEAD coverage:
+
+```bash
+uv run pytest -q \
+  tests/evaluation/test_retrieval_order_workflow.py \
+  tests/evaluation/test_retrieval_order_artifact.py \
+  tests/adapters/test_sqlite_cjk_order.py \
+  tests/adapters/test_sqlite_evidence_access.py
+```
+
+Gate 2 — G2 final-HEAD coverage:
+
+```bash
+uv run pytest -q \
+  tests/evaluation/test_retrieval_order_compatibility.py \
+  tests/evaluation/test_atomic_json_publication.py \
+  tests/evaluation/test_retrieval_order_historical_freeze.py
+```
+
+Gate 3 — G3 final-HEAD coverage:
+
+```bash
+uv run pytest -q tests/scripts/test_consumer_source_pack_proof.py
+```
+
+Gate 4 — complete repository suite:
+
+```bash
+uv run pytest -q
+```
+
+Gate 5 — repository lint:
+
+```bash
+uv run ruff check .
+```
+
+Gate 6 — static typing:
+
+```bash
+uv run pyright
+```
+
+Gate 7 — distribution build:
+
+```bash
+uv build --out-dir "$G5_LEDGER_ROOT/dist" --clear
+```
+
+Gate 8 — exact committed numeric CI-parity body. First require
+`.github/workflows/ci.yml` SHA-256
+`b9f0d1b84f3abe183d97fea0e638b9ea65911022934fc18194a28492090de4e9`.
+Extract the unique named `run:` body, require its unrendered SHA-256
+`3faaeea8616d8df8934c491164c957966a53fa04d4926a4221c9ac9645f173c0`,
+require exactly five `${{ matrix.python-version }}` tokens, render only those tokens as `3.13`,
+and execute it with a call-owned `$RUNNER_TEMP`:
+
+<!-- G5_GATE_08_START -->
+```bash
+G5_RUNNER_TEMP="$G5_LEDGER_ROOT/gate08"
+test ! -e "$G5_RUNNER_TEMP"
+test ! -L "$G5_RUNNER_TEMP"
+mkdir "$G5_RUNNER_TEMP"
+G5_CI_SOURCE="$G5_RUNNER_TEMP/numeric-ci-source.sh"
+G5_CI_SCRIPT="$G5_RUNNER_TEMP/numeric-ci-3.13.sh"
+export G5_RUNNER_TEMP G5_CI_SOURCE G5_CI_SCRIPT
+test "$(shasum -a 256 .github/workflows/ci.yml | awk '{print $1}')" = \
+  "b9f0d1b84f3abe183d97fea0e638b9ea65911022934fc18194a28492090de4e9"
+test "$(rg -n '^      - name: Reject archived numeric lock and validate current retrieval-order compatibility$' \
+  .github/workflows/ci.yml | wc -l | tr -d ' ')" = "1"
+awk '
+  /^      - name: Reject archived numeric lock and validate current retrieval-order compatibility$/ {
+    found = 1
+    next
+  }
+  found && /^        run: \|$/ {
+    capture = 1
+    next
+  }
+  capture && /^      - name:/ {
+    exit
+  }
+  capture {
+    sub(/^          /, "")
+    print
+  }
+' .github/workflows/ci.yml > "$G5_CI_SOURCE"
+test "$(shasum -a 256 "$G5_CI_SOURCE" | awk '{print $1}')" = \
+  "3faaeea8616d8df8934c491164c957966a53fa04d4926a4221c9ac9645f173c0"
+test "$(rg -o '\$\{\{ matrix\.python-version \}\}' "$G5_CI_SOURCE" | wc -l | tr -d ' ')" = "5"
+sed 's/${{ matrix.python-version }}/3.13/g' \
+  "$G5_CI_SOURCE" > "$G5_CI_SCRIPT"
+if rg -n '\$\{\{' "$G5_CI_SCRIPT"; then
+  exit 1
+fi
+RUNNER_TEMP="$G5_RUNNER_TEMP" \
+  bash --noprofile --norc -e -o pipefail "$G5_CI_SCRIPT"
+```
+<!-- G5_GATE_08_END -->
+
+The rendered CI script and every temporary JSON it names are retained in the G5 ledger with
+SHA-256. They are not canonical artifacts.
+
+Gate 9 — the full synthetic installed-proof contract. This does not claim to install or validate
+the Gate 7 wheel; the real same-wheel proof remains Task 8R-only:
+
+```bash
+uv run pytest -q tests/scripts/test_retrieval_order_installed_proof.py
+```
+
+Gate 10 — product proof:
+
+```bash
+uv run mke proof run
+```
+
+Gate 11 — verified demo:
+
+```bash
+uv run mke demo --verify
+```
+
+Gate 12 — exact immutable-map test:
+
+```bash
+uv run pytest -q \
+  tests/evaluation/test_retrieval_order_historical_freeze.py::test_historical_artifact_and_protocol_bytes_are_frozen
+```
+
+Gate 13 — final identity, scope, map, and absence authority. Export the preregistered
+`G5_REVIEW_CLEAN_HEAD` and `G0_PLAN_SHA256` ledger values before invoking:
+
+<!-- G5_GATE_13_START -->
+```bash
+uv run python - <<'PY'
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import runpy
+import subprocess
+from pathlib import Path
+
+start = "654520883fc186e931bd620757d3f468f65fd975"
+review_clean_head = os.environ["G5_REVIEW_CLEAN_HEAD"]
+g0_plan_sha256 = os.environ["G0_PLAN_SHA256"]
+head = subprocess.check_output(
+    ["git", "rev-parse", "HEAD"],
+    text=True,
+).strip()
+assert head == review_clean_head
+assert len(review_clean_head) == 40
+assert len(g0_plan_sha256) == 64
+
+expected_paths = sorted(
+    (
+        "docs/superpowers/plans/2026-07-26-deterministic-retrieval-order-maintenance-implementation.md",
+        "scripts/consumer_source_pack_proof.py",
+        "src/mke/evaluation/retrieval_order_compatibility.py",
+        "src/mke/evaluation/retrieval_order_workflow.py",
+        "tests/evaluation/test_retrieval_order_compatibility.py",
+        "tests/evaluation/test_retrieval_order_workflow.py",
+        "tests/scripts/test_consumer_source_pack_proof.py",
+    )
+)
+actual_paths = sorted(
+    subprocess.check_output(
+        ["git", "diff", "--name-only", f"{start}..HEAD"],
+        text=True,
+    ).splitlines()
+)
+assert actual_paths == expected_paths
+commit_count = int(
+    subprocess.check_output(
+        ["git", "rev-list", "--count", f"{start}..HEAD"],
+        text=True,
+    )
+)
+assert commit_count in {4, 5}
+subprocess.run(
+    ["git", "diff", "--check", f"{start}..HEAD"],
+    check=True,
+)
+assert subprocess.check_output(
+    ["git", "status", "--porcelain=v1", "-z"]
+) == b""
+
+canonical_paths = (
+    "benchmarks/retrieval/retrieval-order-v1-development-freeze.json",
+    "benchmarks/retrieval/retrieval-order-v1-holdout-receipt.json",
+    "benchmarks/retrieval/retrieval-order-v1-artifact.json",
+    "benchmarks/retrieval/retrieval-order-v2-compatibility-attempt.json",
+    "benchmarks/retrieval/retrieval-order-v2-compatibility.json",
+)
+assert all(not os.path.lexists(path) for path in canonical_paths)
+
+plan = Path(
+    "docs/superpowers/plans/"
+    "2026-07-26-deterministic-retrieval-order-maintenance-implementation.md"
+)
+design = Path(
+    "docs/superpowers/specs/"
+    "2026-07-26-deterministic-retrieval-order-maintenance-design.md"
+)
+workflow = Path(".github/workflows/ci.yml")
+assert hashlib.sha256(plan.read_bytes()).hexdigest() == g0_plan_sha256
+assert hashlib.sha256(design.read_bytes()).hexdigest() == (
+    "8522af9fc801f1f30518f450ee5e8538efa0d67fe0039352d58b95c52f52b42b"
+)
+assert hashlib.sha256(workflow.read_bytes()).hexdigest() == (
+    "b9f0d1b84f3abe183d97fea0e638b9ea65911022934fc18194a28492090de4e9"
+)
+
+namespace = runpy.run_path(
+    "tests/evaluation/test_retrieval_order_historical_freeze.py"
+)
+frozen = namespace["FROZEN_SHA256"]
+assert isinstance(frozen, dict) and len(frozen) == 14
+actual = {
+    path: hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    for path in frozen
+}
+assert actual == frozen
+encoded = json.dumps(
+    frozen,
+    ensure_ascii=True,
+    separators=(",", ":"),
+    sort_keys=True,
+).encode()
+map_sha256 = hashlib.sha256(encoded).hexdigest()
+assert map_sha256 == (
+    "4462b830a1340e6f8c08ae01082ba82212d95976057767f60ee29671cc965922"
+)
+print(
+    json.dumps(
+        {
+            "head": head,
+            "commit_count": commit_count,
+            "paths": actual_paths,
+            "immutable_inputs": actual,
+            "immutable_map_sha256": map_sha256,
+            "plan_sha256": g0_plan_sha256,
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+)
+PY
+```
+<!-- G5_GATE_13_END -->
+
+Use the following exact non-persistent controller. It is extracted from the approved plan into a
+call-owned temporary directory, never added to the repository, and runs each gate as a separate
+child process. The execution window must give the outer controller at least 3,660 seconds so the
+internal 3,600-second deadline retains a bounded termination margin. If the execution surface
+cannot do that, stop before gate 1.
+
+First require the two preregistered values, create the ledger root, extract the controller bytes,
+record their digest, and invoke it once:
+
+```bash
+set -euo pipefail
+umask 077
+: "${G5_REVIEW_CLEAN_HEAD:?preregister review-clean HEAD}"
+: "${G0_PLAN_SHA256:?preregister G0 plan SHA-256}"
+G5_PLAN="docs/superpowers/plans/2026-07-26-deterministic-retrieval-order-maintenance-implementation.md"
+G5_LEDGER_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/mke-g5-ledger.XXXXXX")"
+chmod 700 "$G5_LEDGER_ROOT"
+export G5_REVIEW_CLEAN_HEAD G0_PLAN_SHA256 G5_PLAN G5_LEDGER_ROOT
+awk '
+  $0 == "<!-- G5_CONTROLLER_START -->" {
+    capture = 1
+    next
+  }
+  $0 == "<!-- G5_CONTROLLER_END -->" {
+    exit
+  }
+  capture && $0 == "```python" {
+    next
+  }
+  capture && $0 == "```" {
+    next
+  }
+  capture {
+    print
+  }
+' "$G5_PLAN" > "$G5_LEDGER_ROOT/g5-controller.py"
+test -s "$G5_LEDGER_ROOT/g5-controller.py"
+shasum -a 256 "$G5_LEDGER_ROOT/g5-controller.py"
+uv run python "$G5_LEDGER_ROOT/g5-controller.py"
+test -s "$G5_LEDGER_ROOT/summary.json"
+uv run python -c \
+  'import json,sys; value=json.load(open(sys.argv[1], encoding="utf-8")); assert value["status"] == "passed" and value["gate_count"] == 13' \
+  "$G5_LEDGER_ROOT/summary.json"
+```
+
+<!-- G5_CONTROLLER_START -->
+```python
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import signal
+import subprocess
+import sys
+import time
+from pathlib import Path
+from typing import Any
+
+REPOSITORY = Path.cwd().resolve()
+PLAN = Path(os.environ["G5_PLAN"])
+LEDGER_ROOT = Path(os.environ["G5_LEDGER_ROOT"])
+REVIEW_CLEAN_HEAD = os.environ["G5_REVIEW_CLEAN_HEAD"]
+PLAN_SHA256 = os.environ["G0_PLAN_SHA256"]
+DEADLINE_SECONDS = 3_600.0
+SUMMARY_BYTES = 8_192
+
+
+class ControllerTermination(Exception):
+    def __init__(self, signum: int) -> None:
+        super().__init__(signum)
+        self.signum = signum
+
+
+def controlled_signal(signum: int, _frame: object) -> None:
+    raise ControllerTermination(signum)
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def append_jsonl(path: Path, value: dict[str, Any]) -> None:
+    encoded = (
+        json.dumps(
+            value,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        + "\n"
+    ).encode()
+    with path.open("ab") as stream:
+        stream.write(encoded)
+        stream.flush()
+        os.fsync(stream.fileno())
+
+
+def tail(path: Path) -> str:
+    size = path.stat().st_size
+    with path.open("rb") as stream:
+        stream.seek(max(0, size - SUMMARY_BYTES))
+        return stream.read().decode("utf-8", errors="replace")
+
+
+def inventory() -> dict[str, dict[str, object]]:
+    result: dict[str, dict[str, object]] = {}
+    for path in sorted(LEDGER_ROOT.rglob("*")):
+        relative = str(path.relative_to(LEDGER_ROOT))
+        if path.is_symlink():
+            result[relative] = {
+                "kind": "symlink",
+                "target": os.readlink(path),
+            }
+        elif path.is_file():
+            result[relative] = {
+                "kind": "file",
+                "sha256": sha256(path),
+                "size": path.stat().st_size,
+            }
+    return result
+
+
+def changed_outputs(
+    before: dict[str, dict[str, object]],
+    after: dict[str, dict[str, object]],
+) -> dict[str, dict[str, object]]:
+    return {
+        path: value
+        for path, value in after.items()
+        if before.get(path) != value
+    }
+
+
+def extract_shell(marker: str) -> Path:
+    text = PLAN.read_text(encoding="utf-8")
+    start = f"<!-- {marker}_START -->\n```bash\n"
+    end = f"\n```\n<!-- {marker}_END -->"
+    if text.count(start) != 1 or text.count(end) != 1:
+        raise RuntimeError(f"{marker} marker inventory is not exact")
+    body = text.split(start, 1)[1].split(end, 1)[0]
+    destination = LEDGER_ROOT / f"{marker.lower()}.sh"
+    destination.write_text(body + "\n", encoding="utf-8")
+    destination.chmod(0o700)
+    return destination
+
+
+def terminate_process_group(process: subprocess.Popen[bytes]) -> str:
+    disposition = "term"
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return "already-exited"
+    try:
+        process.wait(timeout=2.0)
+    except subprocess.TimeoutExpired:
+        disposition = "kill"
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            return "term-race-exited"
+        process.wait()
+    return disposition
+
+
+if not LEDGER_ROOT.is_dir() or LEDGER_ROOT.is_symlink():
+    raise SystemExit("G5 ledger root must be a nonsymlink directory")
+if LEDGER_ROOT.resolve().is_relative_to(REPOSITORY):
+    raise SystemExit("G5 ledger root must be outside the repository")
+if len(REVIEW_CLEAN_HEAD) != 40 or len(PLAN_SHA256) != 64:
+    raise SystemExit("G5 preregistered identities are malformed")
+if sha256(PLAN) != PLAN_SHA256:
+    raise SystemExit("G5 plan digest differs from preregistration")
+head = subprocess.check_output(
+    ["git", "rev-parse", "HEAD"],
+    cwd=REPOSITORY,
+    text=True,
+).strip()
+if head != REVIEW_CLEAN_HEAD:
+    raise SystemExit("G5 HEAD differs from preregistration")
+if subprocess.check_output(
+    ["git", "status", "--porcelain=v1", "-z"],
+    cwd=REPOSITORY,
+) != b"":
+    raise SystemExit("G5 requires a clean worktree")
+
+canonical_paths = (
+    "benchmarks/retrieval/retrieval-order-v1-development-freeze.json",
+    "benchmarks/retrieval/retrieval-order-v1-holdout-receipt.json",
+    "benchmarks/retrieval/retrieval-order-v1-artifact.json",
+    "benchmarks/retrieval/retrieval-order-v2-compatibility-attempt.json",
+    "benchmarks/retrieval/retrieval-order-v2-compatibility.json",
+)
+if any(os.path.lexists(REPOSITORY / path) for path in canonical_paths):
+    raise SystemExit("G5 canonical path is visible before gate 1")
+
+for catchable_signal in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+    signal.signal(catchable_signal, controlled_signal)
+
+gate08 = extract_shell("G5_GATE_08")
+gate13 = extract_shell("G5_GATE_13")
+controller_path = Path(__file__)
+preflight = {
+    "controller_sha256": sha256(controller_path),
+    "gate08_sha256": sha256(gate08),
+    "gate13_sha256": sha256(gate13),
+    "head": head,
+    "ledger_root": str(LEDGER_ROOT),
+    "plan_sha256": PLAN_SHA256,
+}
+(LEDGER_ROOT / "preflight.json").write_text(
+    json.dumps(
+        preflight,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    + "\n",
+    encoding="utf-8",
+)
+
+gates: list[tuple[str, list[str]]] = [
+    (
+        "G5-01",
+        [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/evaluation/test_retrieval_order_workflow.py",
+            "tests/evaluation/test_retrieval_order_artifact.py",
+            "tests/adapters/test_sqlite_cjk_order.py",
+            "tests/adapters/test_sqlite_evidence_access.py",
+        ],
+    ),
+    (
+        "G5-02",
+        [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/evaluation/test_retrieval_order_compatibility.py",
+            "tests/evaluation/test_atomic_json_publication.py",
+            "tests/evaluation/test_retrieval_order_historical_freeze.py",
+        ],
+    ),
+    (
+        "G5-03",
+        [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/scripts/test_consumer_source_pack_proof.py",
+        ],
+    ),
+    ("G5-04", ["uv", "run", "pytest", "-q"]),
+    ("G5-05", ["uv", "run", "ruff", "check", "."]),
+    ("G5-06", ["uv", "run", "pyright"]),
+    (
+        "G5-07",
+        [
+            "uv",
+            "build",
+            "--out-dir",
+            str(LEDGER_ROOT / "dist"),
+            "--clear",
+        ],
+    ),
+    (
+        "G5-08",
+        [
+            "bash",
+            "--noprofile",
+            "--norc",
+            "-e",
+            "-o",
+            "pipefail",
+            str(gate08),
+        ],
+    ),
+    (
+        "G5-09",
+        [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/scripts/test_retrieval_order_installed_proof.py",
+        ],
+    ),
+    ("G5-10", ["uv", "run", "mke", "proof", "run"]),
+    ("G5-11", ["uv", "run", "mke", "demo", "--verify"]),
+    (
+        "G5-12",
+        [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/evaluation/test_retrieval_order_historical_freeze.py"
+            "::test_historical_artifact_and_protocol_bytes_are_frozen",
+        ],
+    ),
+    (
+        "G5-13",
+        [
+            "bash",
+            "--noprofile",
+            "--norc",
+            "-e",
+            "-o",
+            "pipefail",
+            str(gate13),
+        ],
+    ),
+]
+
+ledger_path = LEDGER_ROOT / "gates.jsonl"
+run_start = time.monotonic()
+deadline = run_start + DEADLINE_SECONDS
+environment = os.environ.copy()
+environment["G5_LEDGER_ROOT"] = str(LEDGER_ROOT)
+environment["G5_REVIEW_CLEAN_HEAD"] = REVIEW_CLEAN_HEAD
+environment["G0_PLAN_SHA256"] = PLAN_SHA256
+
+for gate_id, argv in gates:
+    gate_start = time.monotonic()
+    remaining = deadline - gate_start
+    if remaining <= 0:
+        append_jsonl(
+            ledger_path,
+            {
+                "elapsed": 0.0,
+                "gate_id": gate_id,
+                "status": "budget_exhausted",
+                "applied_timeout": 0.0,
+                "budget_remaining_at_gate_start": remaining,
+            },
+        )
+        raise SystemExit(1)
+
+    stdout_path = LEDGER_ROOT / f"{gate_id}.stdout"
+    stderr_path = LEDGER_ROOT / f"{gate_id}.stderr"
+    before = inventory()
+    timed_out = False
+    termination = "not-needed"
+    launcher_error: str | None = None
+    controller_termination: str | None = None
+    returncode: int | None = None
+    wait_remaining: float | None = None
+    process: subprocess.Popen[bytes] | None = None
+
+    try:
+        with stdout_path.open("wb") as stdout_stream, stderr_path.open(
+            "wb"
+        ) as stderr_stream:
+            process = subprocess.Popen(
+                argv,
+                cwd=REPOSITORY,
+                env=environment,
+                stdout=stdout_stream,
+                stderr=stderr_stream,
+                start_new_session=True,
+            )
+            wait_remaining = deadline - time.monotonic()
+            if wait_remaining <= 0:
+                timed_out = True
+                termination = terminate_process_group(process)
+                returncode = process.returncode
+            else:
+                try:
+                    returncode = process.wait(timeout=wait_remaining)
+                except subprocess.TimeoutExpired:
+                    timed_out = True
+                    termination = terminate_process_group(process)
+                    returncode = process.returncode
+    except ControllerTermination as exc:
+        controller_termination = signal.Signals(exc.signum).name
+    except KeyboardInterrupt:
+        controller_termination = "KeyboardInterrupt"
+    except OSError as exc:
+        launcher_error = f"{type(exc).__name__}: {exc}"
+    finally:
+        if process is not None and process.poll() is None:
+            termination = terminate_process_group(process)
+            returncode = process.returncode
+
+    after = inventory()
+    gate_end = time.monotonic()
+    deadline_exceeded = gate_end > deadline
+    record = {
+        "applied_timeout": (
+            max(0.0, wait_remaining)
+            if wait_remaining is not None
+            else 0.0
+        ),
+        "argv": argv,
+        "budget_remaining_at_gate_start": remaining,
+        "controller_termination": controller_termination,
+        "deadline_exceeded": deadline_exceeded,
+        "elapsed": gate_end - gate_start,
+        "end_monotonic": gate_end,
+        "exit_code": returncode,
+        "gate_id": gate_id,
+        "launcher_error": launcher_error,
+        "owned_outputs": changed_outputs(before, after),
+        "start_monotonic": gate_start,
+        "stderr_sha256": sha256(stderr_path),
+        "stderr_summary": tail(stderr_path),
+        "stdout_sha256": sha256(stdout_path),
+        "stdout_summary": tail(stdout_path),
+        "termination": termination,
+        "timed_out": timed_out,
+    }
+    append_jsonl(ledger_path, record)
+
+    if time.monotonic() > deadline:
+        append_jsonl(
+            ledger_path,
+            {
+                "gate_id": gate_id,
+                "status": "budget_exhausted_after_record",
+            },
+        )
+        raise SystemExit(1)
+    if (
+        timed_out
+        or deadline_exceeded
+        or controller_termination is not None
+        or launcher_error is not None
+        or returncode != 0
+    ):
+        raise SystemExit(1)
+
+run_end = time.monotonic()
+if run_end > deadline:
+    append_jsonl(
+        ledger_path,
+        {
+            "gate_id": "G5-summary",
+            "status": "budget_exhausted_before_summary",
+        },
+    )
+    raise SystemExit(1)
+summary = {
+    "controller_sha256": sha256(controller_path),
+    "g5_total_seconds": run_end - run_start,
+    "gate_count": len(gates),
+    "head": REVIEW_CLEAN_HEAD,
+    "ledger_sha256": sha256(ledger_path),
+    "plan_sha256": PLAN_SHA256,
+    "status": "passed",
+}
+summary_path = LEDGER_ROOT / "summary.json"
+summary_path.write_text(
+    json.dumps(
+        summary,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    + "\n",
+    encoding="utf-8",
+)
+if time.monotonic() > deadline:
+    summary["status"] = "budget_exhausted_after_summary_write"
+    summary_path.write_text(
+        json.dumps(
+            summary,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    raise SystemExit(1)
+print(summary_path.read_text(encoding="utf-8"), end="")
+```
+<!-- G5_CONTROLLER_END -->
+
+The controller source, extracted gate scripts, gate logs, call-owned build and CI outputs,
+`gates.jsonl`, `preflight.json`, and `summary.json` remain outside the repository. Retain them for
+G6 readback. Do not rerun the controller or an individual gate if the outer command result is lost,
+the controller terminates, or any record is incomplete.
+
+Focused historical, runtime/cursor/interface/schema, documentation, consumer, compiled-export,
+and no-canonical tests already contained in the complete suite are not repeated as separate G5
+commands. They remain mandatory through the full-suite result. Gate 8, the synthetic installed
+proof, product proof, and demo remain separate because they exercise workflow or entry-point
+contracts not established by the source test process.
+
+The controller records one monotonic start before gate 1 and sets the deadline to start plus 3,600
+seconds. The
+prior F6 ledger completed a larger matrix in 18 minutes 54 seconds on the same local execution
+class; that is scheduling evidence only, not a performance claim. Before every gate, the
+controller computes remaining monotonic time. If it is nonpositive, stop `BLOCKED`; otherwise
+invoke that gate with the child-process timeout capped at the remaining seconds. A timeout
+terminates the owned process group and records `timed_out=true`; it does not authorize a second
+invocation. No repository watchdog, dependency, or script is added.
+
+For every gate record: gate ID, exact argv or script SHA-256, monotonic start/end and elapsed,
+applied timeout, exit code, final stdout/stderr summary, and every call-owned output path/digest.
+There are zero repair and retry rounds inside G5. A failure, timeout, missing summary, lost command
+result, unexpected output, or budget exhaustion is `BLOCKED` and requires a separately reviewed
+authority decision.
+
+`operator_start_to_first_authoritative_red_seconds` and
+`first_red_to_targeted_green_seconds` belong to the G1 task ledger.
+`g5_total_seconds` belongs to `summary.json`. These are retrospective maintenance timings without
+an SLA or acceptance threshold. They do not measure product installation, MCP use, Search/Ask, or
+product time-to-happy-workflow.
+
+Before each proof capable of writing candidate output, use only a call-owned absent temporary
+destination. Do not invoke the real `--attempt-claim` flow and do not pass any canonical
+development, holdout, compatibility, installed-proof, or source-pack-attempt path.
+
+Gate 13 performs the final five-path absence, plan/design/workflow digest, 14-input map,
+candidate-diff, `git diff --check`, and clean-worktree checks. It additionally requires:
+
+- exactly four commits from the F6 seal when G4 needs no review-fix commit, or exactly five when
+  its one authorized review-fix round is used;
+- exactly the G0 plan path and six G1-G3 implementation/test paths in the F6-seal-to-HEAD diff;
+  and
+- no fixture, protocol, historical artifact, CI, runtime retrieval, dependency, release, or
+  documentation path other than the G0 implementation-plan path changed.
+
+If every gate passes, the final clean committed HEAD becomes the only replacement candidate seal.
+G5 creates no commit and authorizes no observation.
+
+### G6 — Terminal readback and stop boundary
+
+Return:
+
+- exact Amendment G start and final HEADs;
+- G0-G4 semantic commits, including whether the one bounded review-fix round was used;
+- the cumulative path and line-stat diff;
+- every targeted RED/GREEN ledger;
+- the complete G5 command-by-command exit and summary ledger;
+- the non-persistent controller and extracted Gate 8/Gate 13 script digests, plus the three
+  retrospective maintenance timings;
+- the 14 immutable hashes and map digest;
+- exact plan/design digests;
+- five-canonical-path absence proof;
+- `git diff --check` and clean status; and
+- one mini-retro per G task plus the stage-level retrospective seed.
+
+The designated authority reviewer verifies that no source/test/script change occurred after the
+review-clean G4 HEAD and reads back the G5 ledger, exact range diff, hashes, and absence proof.
+Any identity mismatch, post-review code change, missing command evidence, or material new finding
+makes the candidate `BLOCKED`. G6 has no repair round because any code change would invalidate
+G5.
+
+After the readback, stop. A review-clean G6 result proves only that:
+
+- the CJK evaluation observes the production selector's actual primary tuple before reducing an
+  equal tie to the frozen marker;
+- the explicit canonical-authority and historical-planning inventories, including current-source
+  identity and manifest-derived inputs, reject lexical aliases and nonregular entries before
+  content read;
+- source-pack externality for an existing repository tree is bound to filesystem identity rather
+  than case-sensitive path spelling; and
+- the replacement candidate passed the closed regression/proof ledger without creating canonical
+  evidence.
+
+It does not prove retrieval-quality improvement, segmentation or contextual-retrieval value,
+runtime promotion, broad filesystem race freedom, security sandboxing, universal cross-platform
+behavior, production readiness, latency, accuracy, SLA, adoption, release status, or a successful
+canonical development/holdout/compatibility observation.
+
+Task 8B, development observation, holdout observation, canonical compatibility, canonical
+installed proof, a real source-pack attempt, push, PR, merge, tag, release, deployment, promotion,
+and worktree cleanup remain forbidden until a later explicit authorization.
+
+### Amendment G failure modes and stopping rules
+
+| Codepath | Failure mode | Required disposition | Test authority |
+|---|---|---|---|
+| CJK primary witness | selector inventory or tuple differs | observation fails; no valid tie marker | focused mismatch and inventory REDs |
+| CJK primary witness | non-finite or wrong numeric type | observation fails closed | exact-type REDs |
+| CJK primary witness | type-correct but semantically impossible tuple | observation fails closed | bounds/ratio/term REDs |
+| CJK score aggregation | invalid inventory reaches pair comparison | skip pair comparison; structured failure | no-`KeyError` RED |
+| Compatibility root | lexical repository root is a symlink | existing path-preflight tuple; no read | root-symlink RED |
+| Compatibility pre-read | symlink or nonregular final input | existing path-preflight tuple; no read/attempt | no-side-effect RED |
+| Compatibility pre-read | symlink/non-directory parent | existing path-preflight tuple; no read/attempt | parent-chain RED |
+| Compatibility inventory | current source or archived validator input invalid | no source identity/validator read | batch-inventory RED |
+| Compatibility discovery | manifest-derived path invalid | no copy/hash/Git/child/publication | manifest boundary RED |
+| Source-pack externality | repository ancestor has aliased spelling | `retrieval_order_source_pack_claim_invalid` | identity-simulation RED |
+| Source-pack externality | existing candidate output has aliased spelling | claim invalid before visibility | output-identity RED |
+| Source-pack externality | identity lookup fails | fail closed with same invalid code | `OSError` RED |
+| Source-pack final recheck | parent/basename retargeted | invalid before visibility, terminal after visibility | retained F4 regressions |
+| G1-G3 RED | node count, outcome, or assertion marker differs | terminal `BLOCKED`; no implementation write | preregistered node manifest |
+| G4 review | finding inside six paths | one bounded fix round, then targeted re-review | actual-diff review |
+| G4 review | scope/contract expansion or second repair need | terminal `BLOCKED` | actual-diff review |
+| G5 gate | nonzero, timeout, missing summary, or budget exhausted | terminal `BLOCKED`; no retry | command ledger |
+| G6 readback | post-review diff or evidence mismatch | terminal `BLOCKED` | final authority readback |
+
+### What already exists
+
+- `SQLiteStore._select_cjk_active_scan` already owns the live CJK candidate selection and actual
+  `overlap_count`/`overlap_ratio`; G1 observes it without creating a second ranker.
+- The protocol-owned pure oracle already validates frozen primary-tie eligibility and derives the
+  secondary-key order; G1 keeps that role separate from the live primary witness.
+- `retrieval_order_compatibility._require_lexical_containment` and the Amendment F canonical-path
+  checks already protect several materialization and output paths; G2 adds the missing pre-read
+  regular-file boundary rather than replacing the whole containment model.
+- Candidate seals, immutable-input maps, retained artifact validation, attempt capabilities, and
+  no-replace publication already exist; G2 changes their ordering and preconditions only.
+- `_require_nonsymlink_directory_chain`, parent `(st_dev, st_ino)` binding, and the final claim
+  recheck already protect source-pack publication; G3 reuses them and replaces only string-based
+  externality authority for existing trees.
+- The complete F6 ledger, immutable-hash map, canonical absence guards, product proof, and demo
+  commands already exist; G5 reuses the final-HEAD, environment, and entry-point gates that add
+  independent evidence instead of duplicating every full-suite subgroup.
+
+### NOT in scope
+
+- Runtime retrieval ranking, tokenization, segmentation, contextual retrieval, corpus changes, or
+  comparison/promotion.
+- A new SQLite/store observation API, public Python method, CLI/MCP field, artifact schema, or
+  protocol revision.
+- A generalized filesystem sandbox, directory-descriptor traversal framework, privilege boundary,
+  adversarial concurrent-retarget guarantee, or OS-wide case-normalization policy.
+- New dependency, provider, network service, HTTP/SaaS path, OCR, Agent loop, GraphRAG,
+  dense/RRF/reranker runtime, or cache.
+- Fixture, frozen protocol, historical artifact, CI, ADR, architecture documentation, release
+  note, version, tag, or distribution change.
+- Canonical development/holdout observation, canonical compatibility, installed proof, real
+  source-pack attempt, push, PR, merge, release, deployment, promotion, or cleanup.
+- Retrying or repairing inside the final G5 verification or G6 readback stages.
+
+### Sequential execution and rollback
+
+Execute G0, G1, G2, G3, G4, G5, and G6 sequentially. Although G1-G3 touch independent file pairs,
+they contribute to one candidate seal and one cumulative actual-diff review; parallel write lanes
+would add merge and authority ambiguity without reducing the final closed-ledger cost.
+
+Before Task 8B there is no persistent data or migration to roll back. A failed implementation task
+is reverted by reverting its single semantic commit after authority review; a failed G4/G5/G6
+keeps the clean local branch as retained evidence and stops. Canonical files remain absent and no
+external publication is authorized.
+
+### Public non-claims
+
+Amendment G is a falsification-first harness repair. It may support a future claim that one
+candidate was tested against a stronger protocol-bound ordering and containment harness. It does
+not itself establish a retrieval-quality result, prove an Agent answer is complete, upgrade a
+comparison result, or make the project a general security boundary.
+
+
 ## Task 8B — Seal and Observe Once
 
 Run the canonical development command exactly once:
