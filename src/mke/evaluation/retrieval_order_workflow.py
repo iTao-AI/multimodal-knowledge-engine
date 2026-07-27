@@ -3,11 +3,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import sqlite3
 import subprocess
 import sys
 import tempfile
-from collections.abc import Callable, Generator, Mapping
+from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
@@ -43,6 +44,10 @@ from mke.evaluation.retrieval_order_protocol import (
     load_retrieval_order_protocol_partition,
 )
 from mke.retrieval import compile_fts5_query
+from mke.retrieval.cjk_active_scan import (
+    CJK_ACTIVE_SCAN_PARAMETERS,
+    compile_cjk_overlap_terms,
+)
 from mke.retrieval.query_policy import QUERY_POLICY_REVISION
 from mke.retrieval.strategy import get_retrieval_strategy_descriptor
 
@@ -525,7 +530,8 @@ def observe_retrieval_order_partition(
         score_delta += int(
             not forward_scores_valid or not reverse_scores_valid
         )
-        non_tied_delta += _non_tied_pair_delta(forward, reverse)
+        if forward_scores_valid and reverse_scores_valid:
+            non_tied_delta += _non_tied_pair_delta(forward, reverse)
         pagination_delta += int(forward["pagination_lossless"] is not True)
         pagination_delta += int(reverse["pagination_lossless"] is not True)
         observations.append(
@@ -695,12 +701,15 @@ def _observe_case(
                         score_by_projection[projection] = score
                         score_hex.append([list(projection), score])
                 else:
-                    for projection in projections:
-                        key = cast(
-                            tuple[str, str, int, int], tuple(projection)
+                    score_hex, score_by_projection = (
+                        _observe_cjk_primary_scores(
+                            engine,
+                            query=cast(str, case["query"]),
+                            projections=projections,
+                            source_fingerprints=source_fingerprints,
+                            evidence_fingerprints=evidence_fingerprints,
                         )
-                        score_by_projection[key] = "cjk-equal-overlap"
-                        score_hex.append([projection, "cjk-equal-overlap"])
+                    )
                 pagination_lossless = _pagination_lossless(
                     engine,
                     query=cast(str, case["query"]),
@@ -718,6 +727,92 @@ def _observe_case(
         "pagination_lossless": pagination_lossless,
         "runtime_profile": profile,
     }
+
+
+def _observe_cjk_primary_scores(
+    engine: KnowledgeEngine,
+    *,
+    query: str,
+    projections: Sequence[Sequence[str | int]],
+    source_fingerprints: dict[str, str],
+    evidence_fingerprints: dict[str, str],
+) -> tuple[
+    list[list[object]],
+    dict[tuple[str, str, int, int], str],
+]:
+    compiled = compile_cjk_overlap_terms(
+        query,
+        parameters=CJK_ACTIVE_SCAN_PARAMETERS,
+        require_terms=True,
+    )
+    selection = engine._store._select_cjk_active_scan(  # pyright: ignore[reportPrivateUsage]
+        compiled.terms,
+        parameters=CJK_ACTIVE_SCAN_PARAMETERS,
+    )
+    expected = [
+        cast(tuple[str, str, int, int], tuple(projection))
+        for projection in projections
+    ]
+    observed: list[tuple[str, str, int, int]] = []
+    primary_scores: list[tuple[int, str]] = []
+    for item in selection.results:
+        source_fingerprint = source_fingerprints.get(item.source_id)
+        evidence_fingerprint = evidence_fingerprints.get(item.evidence_id)
+        if (
+            source_fingerprint is None
+            or evidence_fingerprint != source_fingerprint
+            or item.document_id != source_fingerprint
+            or type(item.overlap_count) is not int
+            or type(item.overlap_ratio) is not float
+            or not math.isfinite(item.overlap_ratio)
+            or item.overlap_count <= 0
+            or item.overlap_count > len(compiled.terms)
+            or item.overlap_ratio <= 0.0
+            or item.overlap_ratio > 1.0
+            or item.overlap_count
+            < CJK_ACTIVE_SCAN_PARAMETERS.minimum_overlap_count
+            or item.overlap_ratio
+            < CJK_ACTIVE_SCAN_PARAMETERS.minimum_overlap_ratio
+            or type(item.matched_terms) is not tuple
+            or len(item.matched_terms) != item.overlap_count
+            or len(set(item.matched_terms)) != len(item.matched_terms)
+            or any(term not in compiled.terms for term in item.matched_terms)
+            or tuple(
+                term
+                for term in compiled.terms
+                if term in set(item.matched_terms)
+            )
+            != item.matched_terms
+            or item.overlap_ratio.hex()
+            != (item.overlap_count / len(compiled.terms)).hex()
+        ):
+            return [], {}
+        observed.append(
+            (
+                source_fingerprint,
+                item.locator_kind,
+                item.locator_start,
+                item.locator_end,
+            )
+        )
+        primary_scores.append(
+            (item.overlap_count, item.overlap_ratio.hex())
+        )
+    if (
+        observed != expected
+        or len(set(observed)) != len(observed)
+        or not primary_scores
+        or len(set(primary_scores)) != 1
+    ):
+        return [], {}
+    score_hex: list[list[object]] = []
+    for projection in observed:
+        score_hex.append([list(projection), "cjk-equal-overlap"])
+    score_by_projection = {
+        projection: "cjk-equal-overlap"
+        for projection in observed
+    }
+    return score_hex, score_by_projection
 
 
 def _pagination_lossless(

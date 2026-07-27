@@ -24,6 +24,10 @@ from mke.evaluation.retrieval_order_workflow import (
     observe_retrieval_order_partition,
     retrieval_runtime_profile,
 )
+from mke.retrieval.cjk_active_scan import (
+    CjkActiveScanParameters,
+    CjkActiveScanSelection,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 PROTOCOL = ROOT / "tests/fixtures/retrieval-order-v1/protocol.json"
@@ -276,6 +280,223 @@ def test_observation_rejects_matching_extra_primary_score_entries(
 
     assert observation["observation_status"] == "failed"
     assert cast(int, observation["score_hex_delta"]) > 0
+
+
+def test_cjk_primary_witness_reads_production_selector(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    result, calls = _observe_g1_case(monkeypatch)
+
+    assert list(calls.values()) == [2], (
+        "G1_SELECTOR_WITNESS_NOT_OBSERVED"
+    )
+    assert result["score_hex"]
+
+
+@pytest.mark.parametrize("drift", ("count", "ratio"), ids=("count", "ratio"))
+def test_cjk_primary_witness_rejects_order_preserving_tuple_drift(
+    monkeypatch: pytest.MonkeyPatch,
+    drift: str,
+) -> None:
+    result, _ = _observe_g1_case(monkeypatch, mutation=drift)
+
+    assert result["score_hex"] == [], (
+        "G1_ORDER_PRESERVING_TUPLE_DRIFT_FALSE_PASS"
+    )
+    assert result["score_by_projection"] == {}
+
+
+@pytest.mark.parametrize(
+    "drift",
+    ("missing", "extra", "duplicate", "reordered", "projection-mismatch"),
+    ids=("missing", "extra", "duplicate", "reordered", "projection-mismatch"),
+)
+def test_cjk_primary_witness_rejects_inventory_drift(
+    monkeypatch: pytest.MonkeyPatch,
+    drift: str,
+) -> None:
+    result, _ = _observe_g1_case(monkeypatch, mutation=drift)
+
+    assert result["score_hex"] == [], (
+        "G1_SELECTOR_INVENTORY_DRIFT_FALSE_PASS"
+    )
+    assert result["score_by_projection"] == {}
+
+
+@pytest.mark.parametrize(
+    "drift",
+    ("empty", "nonfinite", "boolean-count", "noninteger-count", "nonfloat-ratio"),
+    ids=("empty", "nonfinite", "boolean-count", "noninteger-count", "nonfloat-ratio"),
+)
+def test_cjk_primary_witness_rejects_invalid_numeric_shape(
+    monkeypatch: pytest.MonkeyPatch,
+    drift: str,
+) -> None:
+    result, _ = _observe_g1_case(monkeypatch, mutation=drift)
+
+    assert result["score_hex"] == [], (
+        "G1_INVALID_NUMERIC_SHAPE_FALSE_PASS"
+    )
+    assert result["score_by_projection"] == {}
+
+
+@pytest.mark.parametrize(
+    "drift",
+    (
+        "negative-count",
+        "zero-count",
+        "count-above-term-count",
+        "ratio-above-one",
+        "below-count-threshold",
+        "below-ratio-threshold",
+        "count-ratio-inconsistent",
+        "matched-terms-inconsistent",
+    ),
+    ids=(
+        "negative-count",
+        "zero-count",
+        "count-above-term-count",
+        "ratio-above-one",
+        "below-count-threshold",
+        "below-ratio-threshold",
+        "count-ratio-inconsistent",
+        "matched-terms-inconsistent",
+    ),
+)
+def test_cjk_primary_witness_rejects_impossible_tuple(
+    monkeypatch: pytest.MonkeyPatch,
+    drift: str,
+) -> None:
+    result, _ = _observe_g1_case(monkeypatch, mutation=drift)
+
+    assert result["score_hex"] == [], "G1_IMPOSSIBLE_TUPLE_FALSE_PASS"
+    assert result["score_by_projection"] == {}
+
+
+def test_cjk_primary_witness_returns_structured_failure_without_pair_comparison(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root, protocol_path, _, _ = _synthetic_protocol(tmp_path)
+    original_selector = mke.adapters.sqlite.SQLiteStore._select_cjk_active_scan  # pyright: ignore[reportPrivateUsage]
+    calls: dict[mke.adapters.sqlite.SQLiteStore, int] = {}
+
+    def selector(
+        store: mke.adapters.sqlite.SQLiteStore,
+        terms: tuple[str, ...],
+        *,
+        parameters: CjkActiveScanParameters,
+    ) -> CjkActiveScanSelection:
+        selection = original_selector(
+            store,
+            terms,
+            parameters=parameters,
+        )
+        calls[store] = calls.get(store, 0) + 1
+        if calls[store] == 2:
+            return _mutate_g1_selection(selection, terms, "nonfinite")
+        return selection
+
+    monkeypatch.setattr(
+        mke.adapters.sqlite.SQLiteStore,
+        "_select_cjk_active_scan",
+        selector,
+    )
+    monkeypatch.setattr(
+        retrieval_order_workflow,
+        "_pagination_lossless",
+        _g1_pagination_lossless,
+    )
+    original_pair_delta = (
+        retrieval_order_workflow._non_tied_pair_delta  # pyright: ignore[reportPrivateUsage]
+    )
+
+    def guarded_pair_delta(
+        forward: dict[str, object],
+        reverse: dict[str, object],
+    ) -> int:
+        if (
+            forward["score_by_projection"] == {}
+            or reverse["score_by_projection"] == {}
+        ):
+            raise AssertionError("G1_INVALID_WITNESS_RAISED_KEY_ERROR")
+        return original_pair_delta(forward, reverse)
+
+    monkeypatch.setattr(
+        retrieval_order_workflow,
+        "_non_tied_pair_delta",
+        guarded_pair_delta,
+    )
+
+    observation = observe_retrieval_order_partition(
+        protocol_path=protocol_path,
+        partition="development",
+        repository_root=root,
+    )
+
+    assert observation["observation_status"] == "failed", (
+        "G1_INVALID_WITNESS_RAISED_KEY_ERROR"
+    )
+    assert cast(int, observation["score_hex_delta"]) > 0
+
+
+def test_cjk_primary_witness_accepts_valid_frozen_tie(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    result, calls = _observe_g1_case(monkeypatch)
+
+    assert list(calls.values()) == [2], (
+        "G1_VALID_TIE_NOT_BOUND_TO_SELECTOR"
+    )
+    assert {
+        cast(str, record[1])
+        for record in cast(list[list[object]], result["score_hex"])
+    } == {"cjk-equal-overlap"}
+
+
+def test_fts_observation_does_not_call_cjk_primary_witness(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    case = _synthetic_case(
+        partition="development",
+        label="fts-primary-control",
+        strategy="fts",
+        locator_kind="page",
+    )
+    expected = tuple(
+        tuple(cast(list[object], item))
+        for item in cast(
+            list[object],
+            case["expected_stable_projections"],
+        )
+    )
+
+    def forbidden(*args: object, **kwargs: object) -> CjkActiveScanSelection:
+        del args, kwargs
+        raise AssertionError("FTS must not call the CJK primary witness")
+
+    monkeypatch.setattr(
+        mke.adapters.sqlite.SQLiteStore,
+        "_select_cjk_active_scan",
+        forbidden,
+    )
+    monkeypatch.setattr(
+        retrieval_order_workflow,
+        "_pagination_lossless",
+        _g1_pagination_lossless,
+    )
+
+    result = retrieval_order_workflow._observe_case(  # pyright: ignore[reportPrivateUsage]
+        case,
+        schedule_name="forward_ids",
+        expected_projections=cast(
+            tuple[tuple[str, str, int, int], ...],
+            expected,
+        ),
+    )
+
+    assert result["score_hex"]
+    assert result["score_by_projection"]
 
 
 def test_controlled_id_schedule_restores_generator_after_failure() -> None:
@@ -1622,6 +1843,148 @@ def _install_publication_fault(
         "directory_fsync": "_fsync_directory",
     }[fault]
     monkeypatch.setattr(atomic_publication, target, fail)
+
+
+def _observe_g1_case(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    mutation: str | None = None,
+) -> tuple[
+    dict[str, object],
+    dict[mke.adapters.sqlite.SQLiteStore, int],
+]:
+    case = _synthetic_case(
+        partition="development",
+        label="cjk-primary-witness",
+        strategy="cjk",
+        locator_kind="page",
+    )
+    expected = cast(
+        tuple[tuple[str, str, int, int], ...],
+        tuple(
+            tuple(cast(list[object], item))
+            for item in cast(
+                list[object],
+                case["expected_stable_projections"],
+            )
+        ),
+    )
+    original = mke.adapters.sqlite.SQLiteStore._select_cjk_active_scan  # pyright: ignore[reportPrivateUsage]
+    calls: dict[mke.adapters.sqlite.SQLiteStore, int] = {}
+
+    def selector(
+        store: mke.adapters.sqlite.SQLiteStore,
+        terms: tuple[str, ...],
+        *,
+        parameters: CjkActiveScanParameters,
+    ) -> CjkActiveScanSelection:
+        selection = original(store, terms, parameters=parameters)
+        calls[store] = calls.get(store, 0) + 1
+        if calls[store] == 2 and mutation is not None:
+            return _mutate_g1_selection(selection, terms, mutation)
+        return selection
+
+    monkeypatch.setattr(
+        mke.adapters.sqlite.SQLiteStore,
+        "_select_cjk_active_scan",
+        selector,
+    )
+    monkeypatch.setattr(
+        retrieval_order_workflow,
+        "_pagination_lossless",
+        _g1_pagination_lossless,
+    )
+
+    result = retrieval_order_workflow._observe_case(  # pyright: ignore[reportPrivateUsage]
+        case,
+        schedule_name="forward_ids",
+        expected_projections=expected,
+    )
+    return result, calls
+
+
+def _mutate_g1_selection(
+    selection: CjkActiveScanSelection,
+    terms: tuple[str, ...],
+    mutation: str,
+) -> CjkActiveScanSelection:
+    results = list(selection.results)
+    if mutation == "empty":
+        return replace(selection, results=())
+    first = results[0]
+    if mutation == "missing":
+        results.pop()
+    elif mutation == "extra":
+        results.append(
+            replace(first, document_id=f"sha256:{'f' * 64}")
+        )
+    elif mutation == "duplicate":
+        results.insert(1, first)
+    elif mutation == "reordered":
+        results.reverse()
+    elif mutation == "projection-mismatch":
+        results[0] = replace(
+            first,
+            document_id=f"sha256:{'e' * 64}",
+        )
+    elif mutation == "count":
+        count = first.overlap_count - 1
+        results[0] = replace(
+            first,
+            overlap_count=count,
+            overlap_ratio=count / len(terms),
+            matched_terms=first.matched_terms[:-1],
+        )
+    elif mutation == "ratio":
+        results[0] = replace(first, overlap_ratio=0.75)
+    elif mutation == "nonfinite":
+        results[0] = replace(first, overlap_ratio=float("nan"))
+    elif mutation == "boolean-count":
+        results[0] = replace(first, overlap_count=True)
+    elif mutation == "noninteger-count":
+        results[0] = replace(first, overlap_count=1.5)
+    elif mutation == "nonfloat-ratio":
+        results[0] = replace(first, overlap_ratio=1)
+    elif mutation == "negative-count":
+        results[0] = replace(first, overlap_count=-1)
+    elif mutation == "zero-count":
+        results[0] = replace(first, overlap_count=0)
+    elif mutation == "count-above-term-count":
+        results[0] = replace(first, overlap_count=len(terms) + 1)
+    elif mutation == "ratio-above-one":
+        results[0] = replace(first, overlap_ratio=1.25)
+    elif mutation == "below-count-threshold":
+        results[0] = replace(
+            first,
+            overlap_count=1,
+            overlap_ratio=1 / len(terms),
+            matched_terms=first.matched_terms[:1],
+        )
+    elif mutation == "below-ratio-threshold":
+        results[0] = replace(
+            first,
+            overlap_count=2,
+            overlap_ratio=0.25,
+            matched_terms=first.matched_terms[:2],
+        )
+    elif mutation == "count-ratio-inconsistent":
+        results[0] = replace(first, overlap_ratio=0.5)
+    elif mutation == "matched-terms-inconsistent":
+        results[0] = replace(
+            first,
+            matched_terms=(terms[0],) * first.overlap_count,
+        )
+    else:
+        raise AssertionError(f"unsupported G1 mutation: {mutation}")
+    return replace(selection, results=tuple(results))
+
+
+def _g1_pagination_lossless(
+    *args: object,
+    **kwargs: object,
+) -> bool:
+    del args, kwargs
+    return True
 
 
 def _initialize_repository(root: Path) -> None:
