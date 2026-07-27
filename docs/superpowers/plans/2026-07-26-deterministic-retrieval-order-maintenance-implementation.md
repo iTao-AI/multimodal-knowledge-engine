@@ -4066,6 +4066,213 @@ but may not change the approved threat model, public result/code/schema, frozen 
 candidate scope. G4 performs no observation, canonical publication, build, or full-suite
 acceptance claim.
 
+## Plan Amendment H — Complete Historical Validator Input Containment
+
+### H+ — Authority, evidence, and supersession
+
+The single G4 repair round closed the representative E1 manifest path, capability revalidation,
+candidate-output identity, and G1-G3 test-authority findings at
+`d7c716a226076061ff7d8671c776b392f142b224`. Targeted re-review then audited the actual repository
+files opened by `_validate_all_archived_authority()` against the union of the static historical,
+dynamic historical, and current-source preflight inventories. Four regular repository files were
+still read by archived validators before appearing in any preflight inventory:
+
+```text
+.github/workflows/ci.yml
+scripts/dense_retrieval_measurement.py
+benchmarks/retrieval/cjk-relevance-gate-reranker-v1-development-freeze.json
+benchmarks/retrieval/cjk-relevance-gate-reranker-v1-holdout-receipt.json
+```
+
+The first two are consumed by the archived dense/Chinese source-identity validators. The final two
+are named by the E3-E artifact's `development_freeze_path` and `holdout_receipt_path` state fields
+and consumed by the relevance-gate validator. The current `_historical_dynamic_inputs()` parses
+only protocol authority JSON and recursively collects fields named exactly `path`; it does not parse
+historical artifact authority JSON, does not recognize the two exact state-path fields, and does not
+accept the `.github/` repository prefix. The representative G4 E1 test therefore passed while the
+complete cross-module read set remained uncontained.
+
+This is an evaluation/proof-harness authority defect. It does not show retrieval-order drift,
+retrieval-quality failure, corpus failure, or a canonical observation result. It does mean an
+archived validator can follow or read one of these aliases before the no-follow regular-file fence,
+and a canonical attempt can become visible before the failure is classified. Task 8B and G5 remain
+forbidden until H0-H2 are complete and targeted authority re-review is clean.
+
+Amendment H supersedes only G4's permission to treat the single G4 repair as review-clean and the
+stale G5 Gate 13 commit-count assertion. It preserves the design, runtime retrieval behavior,
+historical bytes, 14-input immutable map, schemas, public error tuples, candidate-output rules,
+one-shot publication rules, comparison-only boundary, and every G1-G4 commit. It adds no provider,
+dependency, corpus, fixture, retrieval strategy, ranking change, product surface, promotion, or
+release claim.
+
+The authority principle is complete-before-consume: every regular repository file that an E1-E3
+archived validator will open must have passed the existing lexical-root, no-follow, regular-file
+batch preflight before the first validator or content consumer starts. This remains an explicit
+preflight/recheck-point contract, not a directory-FD, malicious-concurrency, or race-free claim.
+
+### H0 — Land this amendment mechanically and stop
+
+Modify only:
+
+- `docs/superpowers/plans/2026-07-26-deterministic-retrieval-order-maintenance-implementation.md`.
+
+Insert this exact Amendment H block immediately before the unique G5 heading. In the existing G5
+Gate 13 controller, replace the unique stale assertion
+`assert commit_count in {4, 5}` with `assert commit_count == 8`. The exact count is:
+
+```text
+G0 + G1 + G2R + G2 + G3 + G4 + H0 + H1 = 8 commits from the F6 comparison base
+```
+
+No H2 code commit is allowed. The G5 expected path set remains unchanged because H1 modifies the
+existing compatibility implementation/test pair and H0 modifies the already-listed plan path.
+During G5, the legacy ledger variable name `G0_PLAN_SHA256` remains unchanged for script
+compatibility, but its required value is the final H0 plan SHA-256, not the superseded pre-H0 plan
+digest.
+
+Verify the exact inserted block, the one-line Gate 13 replacement, reconstruction of every other
+parent-plan byte, insertion position, single changed path, private-marker absence, `git diff
+--check`, and five-canonical-path absence. Commit exactly:
+
+```bash
+git add docs/superpowers/plans/2026-07-26-deterministic-retrieval-order-maintenance-implementation.md
+git commit -m "docs(plan): authorize complete historical preflight"
+```
+
+Stop for independent authority review of the actual H0 plan diff. Do not run tests, change
+implementation, enter H1/G5/Task 8B, observe, build, publish, or create a canonical artifact during
+H0.
+
+### H1 — Preflight the complete archived-validator repository read set
+
+Modify exactly:
+
+- `src/mke/evaluation/retrieval_order_compatibility.py`;
+- `tests/evaluation/test_retrieval_order_compatibility.py`.
+
+H1 starts only after H0 actual-diff authority review is clean and a separate resume is received.
+Use test-driven development. Before the first production write, add the complete targeted tests,
+record the test-file SHA-256 and exact node IDs, require exact collection, and run the targeted RED
+once.
+
+The targeted test authority contains these two logical nodes:
+
+```text
+tests/evaluation/test_retrieval_order_compatibility.py::test_archived_validator_repository_reads_require_prior_batch_preflight
+tests/evaluation/test_retrieval_order_compatibility.py::test_canonical_archived_validator_input_kind_fails_before_consumer_or_visibility
+```
+
+The second node is parameterized over the Cartesian product of the four exact paths above and
+`symlink` / `nonregular`, with stable explicit IDs. Exact collection is therefore nine cases. All
+nine must fail against the H0 implementation:
+
+- the read-set audit fails only with `H1_VALIDATOR_READ_BEFORE_PREFLIGHT`;
+- each of the eight path-kind cases fails only with
+  `H1_HISTORICAL_INPUT_PATH_PREFLIGHT_INCOMPLETE`.
+
+A collection mismatch, pass, unrelated exception, different marker, or preexisting production diff
+is `BLOCKED`; do not repair or retry the RED.
+
+The read-set audit must exercise the real `_validate_all_archived_authority()` against the checked-in
+frozen authority. Wrap the existing `_preflight_repository_files()` only to record each regular
+repository file after its batch preflight succeeds. Guard repository-scoped `Path.open`,
+`Path.read_text`, `Path.read_bytes`, and any directly used archived-validator file-content seam so
+that a content read before successful preflight fails at the exact marker. Ignore paths outside the
+repository and directory-only traversal. The audit must prove temporal ordering of the actual
+cross-module read set; it must not merely compare a new helper with itself.
+
+For each canonical path-kind case, construct a clean synthetic canonical repository with the real
+frozen authority bytes and the selected repository input present. Replace that one input with a
+same-parent symlink to retained bytes or a committed nonregular entry. Invoke the existing canonical
+record path with validator/hash/copy/Git/child/publication spies. Require the unchanged preattempt
+public tuple:
+
+```text
+problem=canonical_path_preflight_failed
+cause=path_preflight
+```
+
+Require zero archived-validator/content-consumer calls and absence by `lexists` of both canonical
+attempt and final compatibility artifact. The test must not read or consume the canonical holdout
+fixture.
+
+Implement the minimum deterministic discovery repair:
+
+1. batch-preflight every statically known historical artifact, protocol, and known manifest before
+   parsing any authority JSON;
+2. parse both historical artifact and historical protocol JSON inputs, not protocols alone;
+3. collect repository-root references only from fields named exactly `path`,
+   `development_freeze_path`, or `holdout_receipt_path`;
+4. treat values beginning with `.github/`, `benchmarks/`, `docs/`, `scripts/`, `src/`, or `tests/`,
+   plus exact `pyproject.toml` and `uv.lock`, as repository-root relative and pass them through the
+   existing strict `PurePosixPath` normalization/containment check;
+5. preserve the current numeric-protocol and protocol-relative fixture resolution rules for bare
+   protocol paths, but never reinterpret a bare artifact-local value as repository-root authority;
+6. batch-preflight the complete first-level discovered set before opening a referenced manifest;
+7. derive manifest `primary_file` and every `supporting_files` entry with the existing strict
+   manifest-relative rule, then batch-preflight the final sorted unique inventory before any E1-E3
+   validator, source-identity builder, hash, copy, Git/child execution, or attempt publication; and
+8. return that exact sorted unique inventory so capability-consume and final-authority revalidation
+   reuse the same authority.
+
+The checked-in artifacts must cause the final dynamic inventory to include all four previously
+missing files. Do not hardcode artifact bytes, weaken immutable validation, add a generic filesystem
+security framework, change cross-module validators, or expose a new public taxonomy. Existing
+historical and current-source inventories remain separate authority layers even when a path appears
+in more than one layer.
+
+After the identical nine-case GREEN, run:
+
+```bash
+uv run pytest -q \
+  tests/evaluation/test_retrieval_order_compatibility.py \
+  tests/evaluation/test_atomic_json_publication.py \
+  tests/evaluation/test_retrieval_order_historical_freeze.py
+uv run ruff check \
+  src/mke/evaluation/retrieval_order_compatibility.py \
+  tests/evaluation/test_retrieval_order_compatibility.py
+uv run pyright
+```
+
+Inspect the exact two-path diff, prove the 14 immutable hashes and design/H0-plan hashes exact,
+prove all five canonical JSON paths absent, run `git diff --check`, and create one new semantic
+commit without amending G4:
+
+```bash
+git add src/mke/evaluation/retrieval_order_compatibility.py \
+  tests/evaluation/test_retrieval_order_compatibility.py
+git commit -m "fix(eval): complete historical input preflight"
+```
+
+Return a clean worktree and terminal stop for H2 targeted authority re-review. No G5, Task 8B,
+observation, canonical attempt/artifact, build, full suite, real source-pack attempt, push, PR,
+merge, release, or promotion is authorized.
+
+### H2 — Targeted authority re-review and G5 resume boundary
+
+The designated authority reviewer reads the actual H1 two-path diff and independently reruns the
+nine targeted cases. The review also reruns a read-only open audit of
+`_validate_all_archived_authority()` and requires every regular repository file opened by an
+archived validator to belong to a successfully completed preflight inventory before the read. It
+must specifically confirm the four previously missing paths and reject self-comparison of the new
+inventory helper as sufficient evidence.
+
+```text
+clean
+  -> capture the exact H1 HEAD as the review-clean candidate
+  -> authorize G5 in a separate resume
+
+finding, unexpected read, extra path, public-contract change, or repair need
+  -> BLOCKED
+  -> separately reviewed authority decision
+```
+
+H2 performs no write, amend, observation, publication, build, or full-suite claim. G5 uses the final
+H0 plan SHA-256 under the legacy `G0_PLAN_SHA256` ledger variable and requires exactly eight commits
+from the F6 comparison base. G5 remains the first phase allowed to run the replacement full-suite,
+build, product proof, demo, and closed verification ledger. Task 8B remains separately authorized
+after G5/G6 only.
+
 ### G5 — Replacement candidate verification with a risk-based closed budget
 
 G1-G4 invalidate the prior F6 candidate seal. The exact Amendment G comparison base is the
@@ -4275,7 +4482,7 @@ commit_count = int(
         text=True,
     )
 )
-assert commit_count in {4, 5}
+assert commit_count == 8
 subprocess.run(
     ["git", "diff", "--check", f"{start}..HEAD"],
     check=True,
