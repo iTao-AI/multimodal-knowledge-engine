@@ -2287,6 +2287,7 @@ def _archived_semantic_report(
 def _validate_all_archived_authority(root: Path) -> None:
     _preflight_repository_files(root, _historical_planning_inputs())
     _historical_dynamic_inputs(root)
+    _preflight_repository_files(root, _current_source_paths(root))
     _validate_archived_e1(root)
     _validate_archived_e2(root)
     _validate_archived_e3a(
@@ -3480,7 +3481,11 @@ def _path_values(value: object) -> tuple[str, ...]:
     result: list[str] = []
     if isinstance(value, dict):
         for key, child in cast(dict[str, object], value).items():
-            if key == "path" and isinstance(child, str):
+            if key in {
+                "path",
+                "development_freeze_path",
+                "holdout_receipt_path",
+            } and isinstance(child, str):
                 result.append(child)
             else:
                 result.extend(_path_values(child))
@@ -3494,27 +3499,41 @@ def _historical_dynamic_inputs(root: Path) -> tuple[Path, ...]:
     static = _historical_planning_inputs()
     _preflight_repository_files(root, static)
     references: set[Path] = {_E1_MANIFEST}
+    artifact_paths = {
+        artifact for artifact, _ in _HISTORICAL_INPUTS.values()
+    }
     protocol_paths = {
         _NUMERIC_PROTOCOL,
         *(protocol for _, protocol in _HISTORICAL_INPUTS.values()),
     }
-    for protocol_path in sorted(protocol_paths, key=Path.as_posix):
-        value = _load_object(root / protocol_path)
+    for authority_path in static:
+        value = _load_object(root / authority_path)
         for raw in _path_values(value):
             if raw.startswith(
-                ("src/", "tests/", "benchmarks/", "docs/", "scripts/")
+                (
+                    ".github/",
+                    "benchmarks/",
+                    "docs/",
+                    "scripts/",
+                    "src/",
+                    "tests/",
+                )
             ) or raw in {"pyproject.toml", "uv.lock"}:
                 relative = _repository_relative_path(raw, base=Path())
-            elif protocol_path == _NUMERIC_PROTOCOL:
+            elif authority_path == _NUMERIC_PROTOCOL:
                 relative = _repository_relative_path(
                     raw,
                     base=Path("tests/fixtures"),
                 )
-            else:
+            elif authority_path in protocol_paths:
                 relative = _repository_relative_path(
                     raw,
-                    base=protocol_path.parent,
+                    base=authority_path.parent,
                 )
+            elif authority_path in artifact_paths:
+                continue
+            else:
+                raise RetrievalOrderCompatibilityError
             references.add(relative)
     _preflight_repository_files(root, tuple(sorted(references, key=Path.as_posix)))
     manifests = {

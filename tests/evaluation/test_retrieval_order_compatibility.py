@@ -4,6 +4,7 @@ import errno
 import hashlib
 import importlib
 import json
+import os
 import shutil
 import subprocess
 from collections.abc import Callable
@@ -80,6 +81,18 @@ IMMUTABLE_INPUT_SHA256 = {
         "1a98e4e6c4eabc01663991646aac46e4a73033eef8a7e17a27db2e0fdce71691"
     ),
 }
+H1_MISSING_ARCHIVED_INPUTS = (
+    Path(".github/workflows/ci.yml"),
+    Path("scripts/dense_retrieval_measurement.py"),
+    Path(
+        "benchmarks/retrieval/"
+        "cjk-relevance-gate-reranker-v1-development-freeze.json"
+    ),
+    Path(
+        "benchmarks/retrieval/"
+        "cjk-relevance-gate-reranker-v1-holdout-receipt.json"
+    ),
+)
 
 
 @pytest.fixture(autouse=True)
@@ -760,6 +773,239 @@ def test_historical_dynamic_inputs_are_preflighted_before_any_validator(
         module._validate_all_archived_authority(root)
 
     assert calls == [], "G4_DYNAMIC_HISTORICAL_PREFLIGHT_FALSE_PASS"
+
+
+def test_archived_validator_repository_reads_require_prior_batch_preflight(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module()
+    preflighted: set[Path] = set()
+    original_preflight = module._preflight_repository_files
+    original_open = Path.open
+
+    def record_preflight(
+        repository_root: Path,
+        paths: tuple[Path, ...],
+    ) -> None:
+        original_preflight(repository_root, paths)
+        root = repository_root.absolute()
+        for path in paths:
+            candidate = path if path.is_absolute() else root / path
+            if candidate.is_file() and not candidate.is_symlink():
+                preflighted.add(candidate.absolute())
+
+    def guarded_open(
+        path: Path,
+        *args: object,
+        **kwargs: object,
+    ) -> Any:
+        candidate = path.absolute()
+        if (
+            candidate.is_relative_to(ROOT.absolute())
+            and candidate.is_file()
+            and candidate not in preflighted
+        ):
+            pytest.fail("H1_VALIDATOR_READ_BEFORE_PREFLIGHT")
+        return original_open(path, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(
+        module,
+        "_preflight_repository_files",
+        record_preflight,
+    )
+    monkeypatch.setattr(Path, "open", guarded_open)
+
+    module._validate_all_archived_authority(ROOT)
+
+    assert set(H1_MISSING_ARCHIVED_INPUTS).issubset(
+        {path.relative_to(ROOT) for path in preflighted}
+    )
+
+
+@pytest.mark.parametrize(
+    ("relative", "path_kind"),
+    (
+        pytest.param(
+            H1_MISSING_ARCHIVED_INPUTS[0],
+            "symlink",
+            id="ci-symlink",
+        ),
+        pytest.param(
+            H1_MISSING_ARCHIVED_INPUTS[0],
+            "nonregular",
+            id="ci-nonregular",
+        ),
+        pytest.param(
+            H1_MISSING_ARCHIVED_INPUTS[1],
+            "symlink",
+            id="dense-script-symlink",
+        ),
+        pytest.param(
+            H1_MISSING_ARCHIVED_INPUTS[1],
+            "nonregular",
+            id="dense-script-nonregular",
+        ),
+        pytest.param(
+            H1_MISSING_ARCHIVED_INPUTS[2],
+            "symlink",
+            id="relevance-freeze-symlink",
+        ),
+        pytest.param(
+            H1_MISSING_ARCHIVED_INPUTS[2],
+            "nonregular",
+            id="relevance-freeze-nonregular",
+        ),
+        pytest.param(
+            H1_MISSING_ARCHIVED_INPUTS[3],
+            "symlink",
+            id="relevance-receipt-symlink",
+        ),
+        pytest.param(
+            H1_MISSING_ARCHIVED_INPUTS[3],
+            "nonregular",
+            id="relevance-receipt-nonregular",
+        ),
+    ),
+)
+def test_canonical_archived_validator_input_kind_fails_before_consumer_or_visibility(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    relative: Path,
+    path_kind: str,
+) -> None:
+    module = _module()
+
+    def mutate_authority(root: Path) -> None:
+        selected = root / relative
+        retained = selected.with_name(f"{selected.name}.retained")
+        if path_kind == "symlink":
+            selected.rename(retained)
+            selected.symlink_to(retained.name)
+        else:
+            selected.unlink()
+            selected.mkdir()
+            subprocess.run(("git", "init", "-q"), cwd=selected, check=True)
+            subprocess.run(
+                (
+                    "git",
+                    "config",
+                    "user.email",
+                    "synthetic@example.invalid",
+                ),
+                cwd=selected,
+                check=True,
+            )
+            subprocess.run(
+                (
+                    "git",
+                    "config",
+                    "user.name",
+                    "Synthetic Authority",
+                ),
+                cwd=selected,
+                check=True,
+            )
+            (selected / "retained.txt").write_text(
+                "synthetic nonregular authority\n",
+                encoding="utf-8",
+            )
+            subprocess.run(
+                ("git", "add", "retained.txt"),
+                cwd=selected,
+                check=True,
+            )
+            subprocess.run(
+                ("git", "commit", "-qm", "nested authority"),
+                cwd=selected,
+                check=True,
+            )
+            assert (
+                subprocess.check_output(
+                    ("git", "status", "--porcelain=v1", "-z"),
+                    cwd=selected,
+                )
+                == b""
+            )
+        subprocess.run(("git", "add", "--all"), cwd=root, check=True)
+        subprocess.run(
+            ("git", "commit", "-qm", f"replace {relative.as_posix()}"),
+            cwd=root,
+            check=True,
+        )
+
+    root, protocol, freeze, receipt, retrieval_artifact, candidate_head = (
+        _synthetic_canonical_authority(
+            tmp_path,
+            monkeypatch,
+            pre_observation_mutation=mutate_authority,
+        )
+    )
+    retained_artifact = json.loads(
+        retrieval_artifact.read_text(encoding="utf-8")
+    )
+    expected_status = {
+        freeze: "??",
+        receipt: "??",
+        retrieval_artifact: "??",
+    }
+    candidate = retrieval_order_workflow._candidate_seal(  # pyright: ignore[reportPrivateUsage]
+        root,
+        expected_status=expected_status,
+    )
+    candidate_authority_passed = (
+        candidate["head"]
+        == retained_artifact["candidate_seal"]["head"]
+        == candidate_head
+        and candidate["runtime_profile"]
+        == retained_artifact["candidate_seal"]["runtime_profile"]
+        and candidate["status_records"]
+        == tuple(
+            sorted(
+                (
+                    status,
+                    path.relative_to(root).as_posix(),
+                    None,
+                )
+                for path, status in expected_status.items()
+            )
+        )
+    )
+    attempt = root / module._CANONICAL_ATTEMPT
+    artifact = root / module._CANONICAL_ARTIFACT
+    calls: list[str] = []
+
+    def forbidden(*args: object, **kwargs: object) -> NoReturn:
+        del args, kwargs
+        calls.append("consumer")
+        raise AssertionError("historical consumer must not start")
+
+    monkeypatch.setattr(
+        module,
+        "_validate_all_archived_authority",
+        forbidden,
+    )
+    monkeypatch.setattr(module, "_sha256", forbidden)
+    monkeypatch.setattr(module, "_materialize_historical_source", forbidden)
+    monkeypatch.setattr(module, "_materialize_historical_inputs", forbidden)
+    monkeypatch.setattr(module, "_run_historical_child", forbidden)
+    monkeypatch.setattr(module, "publish_json_no_replace", forbidden)
+
+    result = module.record_canonical_compatibility(
+        protocol_path=protocol,
+        development_freeze_path=freeze,
+        holdout_receipt_path=receipt,
+        retrieval_artifact_path=retrieval_artifact,
+        candidate_head=candidate_head,
+        attempt_receipt_path=attempt,
+        artifact_path=artifact,
+        repository_root=root,
+    )
+
+    assert candidate_authority_passed
+    assert calls == [], "H1_HISTORICAL_INPUT_PATH_PREFLIGHT_INCOMPLETE"
+    _assert_canonical_path_preflight_failure(result)
+    assert not os.path.lexists(attempt)
+    assert not os.path.lexists(artifact)
 
 
 def test_canonical_dynamic_input_alias_is_path_preflight_before_attempt(
@@ -2961,6 +3207,8 @@ def _install_atomic_fault(
 def _synthetic_canonical_authority(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    *,
+    pre_observation_mutation: Callable[[Path], None] | None = None,
 ) -> tuple[Path, Path, Path, Path, Path, str]:
     root = tmp_path / "canonical-synthetic-repository"
     for relative in IMMUTABLE_INPUT_SHA256:
@@ -2970,6 +3218,11 @@ def _synthetic_canonical_authority(
         destination.write_bytes(source.read_bytes())
     module = _module()
     for relative in module._historical_dynamic_inputs(ROOT):
+        source = ROOT / relative
+        destination = root / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(source.read_bytes())
+    for relative in H1_MISSING_ARCHIVED_INPUTS:
         source = ROOT / relative
         destination = root / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -3016,7 +3269,9 @@ def _synthetic_canonical_authority(
             "add",
             "protocol.json",
             "fixtures",
+            ".github",
             "benchmarks",
+            "scripts",
             "src",
             "tests",
             "pyproject.toml",
@@ -3026,6 +3281,15 @@ def _synthetic_canonical_authority(
     )
     for command in commands:
         subprocess.run(command, cwd=root, check=True)
+    if pre_observation_mutation is not None:
+        pre_observation_mutation(root)
+    assert (
+        subprocess.check_output(
+            ("git", "status", "--porcelain=v1", "-z"),
+            cwd=root,
+        )
+        == b""
+    )
     output = root / "benchmarks/retrieval"
     freeze = output / "retrieval-order-v1-development-freeze.json"
     receipt = output / "retrieval-order-v1-holdout-receipt.json"
