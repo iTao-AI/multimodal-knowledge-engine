@@ -524,7 +524,7 @@ def freeze_historical_capabilities(
     workspace: Path,
     numeric_artifact_path: Path | None = None,
 ) -> HistoricalReplayCapability:
-    root = repository_root.resolve()
+    root = _validated_repository_root(repository_root)
     scratch = workspace.resolve()
     try:
         if scratch.is_relative_to(root):
@@ -532,8 +532,14 @@ def freeze_historical_capabilities(
         numeric_path = (
             root / _NUMERIC_ARTIFACT
             if numeric_artifact_path is None
-            else numeric_artifact_path.resolve()
+            else numeric_artifact_path.absolute()
         )
+        _preflight_repository_files(
+            root,
+            _historical_planning_inputs(),
+        )
+        if numeric_artifact_path is not None:
+            _preflight_regular_file(numeric_path)
         numeric = _load_object(numeric_path)
         chinese = _load_object(root / _CHINESE_ARTIFACT)
         numeric_source = _source(numeric["source"])
@@ -1404,7 +1410,7 @@ def _canonical_path(
     repository_root: Path,
     expected: Path,
 ) -> Path:
-    root = repository_root.resolve()
+    root = repository_root.absolute()
     raw = os.fspath(supplied)
     expected_absolute = root / expected
     if (
@@ -1436,7 +1442,7 @@ def _contained_input_path(
     *,
     repository_root: Path,
 ) -> Path:
-    root = repository_root.resolve()
+    root = repository_root.absolute()
     raw = os.fspath(supplied)
     path = Path(raw)
     components = raw.split("/")
@@ -1469,7 +1475,11 @@ def _validate_attempt_receipt(
 
 
 def _immutable_input_map(repository_root: Path) -> dict[str, str]:
-    root = repository_root.resolve()
+    root = _validated_repository_root(repository_root)
+    _preflight_repository_files(
+        root,
+        tuple(Path(path) for path in _IMMUTABLE_INPUT_SHA256),
+    )
     actual = {
         path: _sha256(root / path)
         for path in _IMMUTABLE_INPUT_SHA256
@@ -1616,8 +1626,8 @@ def record_canonical_compatibility(
     artifact_path: Path | str,
     repository_root: Path,
 ) -> dict[str, object]:
-    root = repository_root.resolve()
     try:
+        root = _validated_repository_root(repository_root)
         protocol = _contained_input_path(
             protocol_path,
             repository_root=root,
@@ -1686,6 +1696,37 @@ def record_canonical_compatibility(
             ),
         )
     try:
+        preattempt_candidate = retrieval_order_workflow._candidate_seal(  # pyright: ignore[reportPrivateUsage]
+            root,
+            expected_status={
+                development_freeze: "??",
+                holdout_receipt: "??",
+                retrieval_artifact: "??",
+            },
+        )
+        git_head = cast(str, preattempt_candidate["head"])
+    except Exception:
+        return _canonical_failure(
+            problem="retrieval_order_canonical_publication_unauthorized",
+            cause="required_success_authority_missing",
+            next_step="wait_for_successful_holdout",
+            first_failed_gate="success_authority",
+        )
+    try:
+        _preflight_repository_files(
+            root,
+            (
+                protocol,
+                development_freeze,
+                holdout_receipt,
+                retrieval_artifact,
+                *(Path(path) for path in _IMMUTABLE_INPUT_SHA256),
+                *_current_source_paths(root),
+            ),
+        )
+    except Exception:
+        return _path_preflight_failure()
+    try:
         metadata = load_retrieval_order_protocol_metadata(
             protocol,
             repository_root=root,
@@ -1697,15 +1738,6 @@ def record_canonical_compatibility(
             repository_root=root,
         )
         candidate_seal = _object(retained["candidate_seal"])
-        preattempt_candidate = retrieval_order_workflow._candidate_seal(  # pyright: ignore[reportPrivateUsage]
-            root,
-            expected_status={
-                development_freeze: "??",
-                holdout_receipt: "??",
-                retrieval_artifact: "??",
-            },
-        )
-        git_head = cast(str, preattempt_candidate["head"])
     except Exception:
         return _canonical_failure(
             problem="retrieval_order_canonical_publication_unauthorized",
@@ -1972,7 +2004,11 @@ def _parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     arguments = _parser().parse_args(argv)
-    root = arguments.repository.resolve()
+    root = (
+        arguments.repository
+        if arguments.command == "record-canonical"
+        else arguments.repository.resolve()
+    )
     protocol = arguments.protocol
     artifact = arguments.artifact
     if arguments.command != "record-canonical":
@@ -2235,6 +2271,7 @@ def _archived_semantic_report(
 
 
 def _validate_all_archived_authority(root: Path) -> None:
+    _preflight_repository_files(root, _historical_planning_inputs())
     _validate_archived_e1(root)
     _validate_archived_e2(root)
     _validate_archived_e3a(
@@ -3181,15 +3218,15 @@ def _ordered_query_records(
 
 
 def _current_source_identity(root: Path) -> dict[str, object]:
-    paths = tuple(
-        path.relative_to(root).as_posix()
-        for path in sorted((root / "src/mke").rglob("*.py"))
-        if path.is_file()
-    )
+    root = _validated_repository_root(root)
+    candidates = _current_source_paths(root)
+    _preflight_repository_files(root, candidates)
+    paths = tuple(path.as_posix() for path in candidates)
     return build_source_identity(root, paths)
 
 
 def _file_identity(root: Path, path: Path) -> dict[str, object]:
+    _preflight_repository_files(root, (path,))
     absolute = root / path
     return {
         "path": path.as_posix(),
@@ -3284,30 +3321,152 @@ def _require_lexical_containment(
     except ValueError as error:
         raise RetrievalOrderCompatibilityError from error
     current = lexical_root
-    if current.is_symlink():
-        raise RetrievalOrderCompatibilityError
-    for part in relative.parts:
-        current = current / part
-        if current.is_symlink():
+    parts = relative.parts
+    for index, part in enumerate(("", *parts)):
+        if part:
+            current = current / part
+        final = index == len(parts)
+        try:
+            metadata = current.lstat()
+        except FileNotFoundError as error:
+            if require_existing:
+                raise RetrievalOrderCompatibilityError from error
+            break
+        except OSError as error:
+            raise RetrievalOrderCompatibilityError from error
+        if stat.S_ISLNK(metadata.st_mode):
             raise RetrievalOrderCompatibilityError
-    if require_existing and not lexical.is_file():
+        if final:
+            if require_existing and not stat.S_ISREG(metadata.st_mode):
+                raise RetrievalOrderCompatibilityError
+        elif not stat.S_ISDIR(metadata.st_mode):
+            raise RetrievalOrderCompatibilityError
+
+
+def _validated_repository_root(repository_root: Path) -> Path:
+    root = repository_root.absolute()
+    current = Path(root.anchor)
+    for part in root.parts[1:]:
+        current = current / part
+        try:
+            metadata = current.lstat()
+        except OSError as error:
+            raise RetrievalOrderCompatibilityError from error
+        if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
+            raise RetrievalOrderCompatibilityError
+    return root
+
+
+def _preflight_regular_file(path: Path) -> None:
+    lexical = path.absolute()
+    current = Path(lexical.anchor)
+    for part in lexical.parts[1:]:
+        current = current / part
+        try:
+            metadata = current.lstat()
+        except OSError as error:
+            raise RetrievalOrderCompatibilityError from error
+        if stat.S_ISLNK(metadata.st_mode):
+            raise RetrievalOrderCompatibilityError
+        if current == lexical:
+            if not stat.S_ISREG(metadata.st_mode):
+                raise RetrievalOrderCompatibilityError
+        elif not stat.S_ISDIR(metadata.st_mode):
+            raise RetrievalOrderCompatibilityError
+
+
+def _preflight_repository_files(
+    repository_root: Path,
+    paths: Sequence[Path],
+) -> None:
+    root = _validated_repository_root(repository_root)
+    candidates: list[Path] = []
+    for path in paths:
+        candidate = path if path.is_absolute() else root / path
+        candidate = candidate.absolute()
+        try:
+            candidate.relative_to(root)
+        except ValueError as error:
+            raise RetrievalOrderCompatibilityError from error
+        candidates.append(candidate)
+    for candidate in candidates:
+        _require_lexical_containment(
+            candidate,
+            root=root,
+            require_existing=True,
+        )
+
+
+def _current_source_paths(root: Path) -> tuple[Path, ...]:
+    source_root = root / "src/mke"
+    try:
+        source_metadata = source_root.lstat()
+    except OSError as error:
+        raise RetrievalOrderCompatibilityError from error
+    if stat.S_ISLNK(source_metadata.st_mode) or not stat.S_ISDIR(
+        source_metadata.st_mode
+    ):
         raise RetrievalOrderCompatibilityError
+    paths: list[Path] = []
+
+    def traversal_error(error: OSError) -> None:
+        raise RetrievalOrderCompatibilityError from error
+
+    for directory, directories, files in os.walk(
+        source_root,
+        followlinks=False,
+        onerror=traversal_error,
+    ):
+        directory_path = Path(directory)
+        for name in directories:
+            candidate = directory_path / name
+            try:
+                metadata = candidate.lstat()
+            except OSError as error:
+                raise RetrievalOrderCompatibilityError from error
+            if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(
+                metadata.st_mode
+            ):
+                raise RetrievalOrderCompatibilityError
+        paths.extend(
+            (directory_path / name).relative_to(root)
+            for name in files
+            if name.endswith(".py")
+        )
+    if not paths:
+        raise RetrievalOrderCompatibilityError
+    return tuple(sorted(paths, key=Path.as_posix))
+
+
+def _historical_planning_inputs() -> tuple[Path, ...]:
+    paths = {
+        path
+        for artifact_protocol in _HISTORICAL_INPUTS.values()
+        for path in artifact_protocol
+    }
+    paths.add(_NUMERIC_PROTOCOL)
+    return tuple(sorted(paths, key=Path.as_posix))
 
 
 def _manifest_input_paths(
     root: Path,
     destination: Path,
 ) -> tuple[Path, ...]:
+    manifest_paths = (
+        _E1_MANIFEST,
+        Path("tests/fixtures/retrieval-numeric-v1/development.json"),
+        Path("tests/fixtures/retrieval-numeric-v1/holdout.json"),
+    )
+    _preflight_repository_files(
+        root,
+        (*manifest_paths, _NUMERIC_PROTOCOL),
+    )
     raw_paths: set[str] = {
         _E1_MANIFEST.as_posix(),
         _NUMERIC_PROTOCOL.as_posix(),
     }
-    for manifest_path in (
-        root / _E1_MANIFEST,
-        root / "tests/fixtures/retrieval-numeric-v1/development.json",
-        root / "tests/fixtures/retrieval-numeric-v1/holdout.json",
-    ):
-        relative_manifest = manifest_path.relative_to(root)
+    for relative_manifest in manifest_paths:
+        manifest_path = root / relative_manifest
         raw_paths.add(relative_manifest.as_posix())
         manifest = _load_object(manifest_path)
         for raw_document in cast(
@@ -3355,7 +3514,16 @@ def _manifest_input_paths(
             (Path("tests/fixtures") / manifest_path).as_posix()
         )
     raw_paths.update(("pyproject.toml", "uv.lock"))
-    return tuple(Path(path) for path in sorted(raw_paths))
+    result = tuple(Path(path) for path in sorted(raw_paths))
+    _preflight_repository_files(
+        root,
+        tuple(
+            path
+            for path in result
+            if path not in {Path("pyproject.toml"), Path("uv.lock")}
+        ),
+    )
+    return result
 
 
 def _historical_materialization_plan(
@@ -3437,6 +3605,14 @@ def _materialize_historical_inputs(
     *,
     relative_paths: tuple[Path, ...],
 ) -> list[dict[str, object]]:
+    _preflight_repository_files(
+        root,
+        tuple(
+            path
+            for path in relative_paths
+            if path not in {Path("pyproject.toml"), Path("uv.lock")}
+        ),
+    )
     for path in ("pyproject.toml", "uv.lock"):
         data = _git(root, "cat-file", "blob", f"{_SOURCE_COMMIT}:{path}")
         target = destination / path
