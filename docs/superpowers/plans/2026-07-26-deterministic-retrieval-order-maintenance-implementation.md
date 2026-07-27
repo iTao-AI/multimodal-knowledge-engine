@@ -3413,8 +3413,8 @@ index, not a substitute for the task contracts below.
 |---|---|
 | Comparison base | `654520883fc186e931bd620757d3f468f65fd975` |
 | G0 input | exact approved Amendment G bytes and SHA-256 supplied by the authority handoff |
-| Phase order | G0 plan landing and stop; G1 CJK witness; G2 compatibility pre-read; G3 source-pack identity; G4 actual-diff review; G5 closed ledger; G6 readback and stop |
-| Writable scope | G0: one plan path; G1/G2/G3: their exact two-path pairs; G4: only the same six implementation/test paths for at most one fix round; G5/G6: none |
+| Phase order | G0 plan landing and stop; G1 CJK witness; G2 compatibility pre-read; G3 source-pack identity; G4 actual-diff review; H0 plan landing/review; H1 retained attempt; H1R0 plan landing/review; H1R1 replacement RED and retained-candidate validation; H2 targeted review; G5 closed ledger; G6 readback and stop |
+| Writable scope | G0/H0/H1R0: the same implementation-plan path; G1/G2/G3: their exact two-path pairs; G4: only the same six implementation/test paths for at most one fix round; H1/H1R1: the compatibility implementation/test pair; H2/G5/G6: none |
 | Forbidden state | all five canonical development, holdout, retrieval, compatibility-attempt, and compatibility JSON paths remain absent by both existence and symlink checks |
 | First semantic authority | the preregistered G1 targeted RED must fail for the exact expected invariant signatures before implementation begins |
 | G5 inputs | preregistered `G5_REVIEW_CLEAN_HEAD`, `G0_PLAN_SHA256`, and a call-owned absent ledger directory |
@@ -4118,16 +4118,16 @@ Modify only:
 
 Insert this exact Amendment H block immediately before the unique G5 heading. In the existing G5
 Gate 13 controller, replace the unique stale assertion
-`assert commit_count in {4, 5}` with `assert commit_count == 8`. The exact count is:
+`assert commit_count in {4, 5}` with `assert commit_count == 9`. The exact count is:
 
 ```text
-G0 + G1 + G2R + G2 + G3 + G4 + H0 + H1 = 8 commits from the F6 comparison base
+G0 + G1 + G2R + G2 + G3 + G4 + H0 + H1R0 + H1 = 9 commits from the F6 comparison base
 ```
 
 No H2 code commit is allowed. The G5 expected path set remains unchanged because H1 modifies the
 existing compatibility implementation/test pair and H0 modifies the already-listed plan path.
 During G5, the legacy ledger variable name `G0_PLAN_SHA256` remains unchanged for script
-compatibility, but its required value is the final H0 plan SHA-256, not the superseded pre-H0 plan
+compatibility, but its required value is the final H1R0 plan SHA-256, not the superseded pre-H0 plan
 digest.
 
 Verify the exact inserted block, the one-line Gate 13 replacement, reconstruction of every other
@@ -4234,7 +4234,7 @@ uv run ruff check \
 uv run pyright
 ```
 
-Inspect the exact two-path diff, prove the 14 immutable hashes and design/H0-plan hashes exact,
+Inspect the exact two-path diff, prove the 14 immutable hashes and design/H1R0-plan hashes exact,
 prove all five canonical JSON paths absent, run `git diff --check`, and create one new semantic
 commit without amending G4:
 
@@ -4247,6 +4247,157 @@ git commit -m "fix(eval): complete historical input preflight"
 Return a clean worktree and terminal stop for H2 targeted authority re-review. No G5, Task 8B,
 observation, canonical attempt/artifact, build, full suite, real source-pack attempt, push, PR,
 merge, release, or promotion is authorized.
+
+## Plan Amendment H1R — Replace Preempted Synthetic RED Authority
+
+### H1R+ — Authority, evidence, and supersession
+
+The H1 preflight was exact at `94ffcd2efd3028d247a14049649f732d0efa46a4` and the targeted collection contained the required nine cases. The first run reported nine failures with the registered outer markers, but exception-chain review proved that the eight path-kind cases had not reached the historical-input preflight. Their synthetic candidate state was rejected first as:
+
+```text
+problem=retrieval_order_canonical_publication_unauthorized
+cause=required_success_authority_missing
+first_failed_gate=success_authority
+```
+
+The path-kind test committed a repository state after generating the development freeze, holdout receipt, and retrieval artifact. The real `_candidate_seal()` therefore no longer matched the success authority before `_historical_dynamic_inputs()` could inspect the selected archived-validator input. A broad `AssertionError` wrapper then remapped that fixture preemption to `H1_HISTORICAL_INPUT_PATH_PREFLIGHT_INCOMPLETE`. The one read-set audit RED remains authoritative; the eight path-kind RED results do not.
+
+One later diagnostic attempt showed the read-set audit passing against the retained implementation while all eight path-kind cases still stopped at the fixture preemption. That attempt is diagnostic evidence only. It is not an approved GREEN, does not repair the invalid RED, and does not authorize a commit. The retained unstaged candidate bytes are:
+
+```text
+src/mke/evaluation/retrieval_order_compatibility.py
+  sha256=233beb367e434392f62a03f22641e389486d97ee58c45decd94742f858f9e342
+tests/evaluation/test_retrieval_order_compatibility.py
+  sha256=930410cc46a095d2e62d106f12fd00f18e5db3ec4bb32d5426c888b7ae453cb3
+```
+
+Amendment H1R supersedes only H1's prohibition on replacing the eight preempted path-kind RED cases, H1's obsolete H0-plan digest wording, and the H0/H2/G5 eight-commit ledger. It does not retroactively accept the retained implementation. It preserves the authoritative read-set RED, every runtime and public contract, the four missing historical inputs, the two-path H1 ownership, the exact H1 commit message, the 14 immutable inputs, and the H2 review boundary.
+
+The replacement authority must prove execution trajectory as well as the outer result: the synthetic repository must establish real success authority after the selected path mutation, the real candidate-seal gate must pass, and only then may a missing historical-input preflight produce the registered RED marker. Candidate-seal validation may not be weakened, bypassed, or monkeypatched. No runtime retrieval, schema, public result tuple, corpus, fixture authority, validator implementation, dependency, provider, comparison verdict, observation, promotion, or publication rule changes are authorized.
+
+### H1R0 — Land the replacement authority mechanically and stop
+
+Modify only:
+
+- `docs/superpowers/plans/2026-07-26-deterministic-retrieval-order-maintenance-implementation.md`.
+
+Insert this exact Amendment H1R block immediately before the unique H2 heading. Make only these eight authority reconciliations outside the inserted block:
+
+1. replace both existing occurrences of `assert commit_count == 8` with `assert commit_count == 9`;
+2. replace the H0 count line with:
+
+   ```text
+   G0 + G1 + G2R + G2 + G3 + G4 + H0 + H1R0 + H1 = 9 commits from the F6 comparison base
+   ```
+
+3. replace every `H0 plan SHA-256` authority reference with `H1R0 plan SHA-256`;
+4. replace `design/H0-plan hashes` with `design/H1R0-plan hashes`;
+5. replace `requires exactly eight commits` with `requires exactly nine commits`; and
+6. replace `the exact plan SHA-256 returned by G0 as \`G0_PLAN_SHA256\`` with `the final H1R0 plan SHA-256 under the legacy \`G0_PLAN_SHA256\` variable`.
+7. replace the Amendment G operator start-card `Phase order` and `Writable scope` rows so they include H0 plan landing/review, the retained H1 attempt, H1R0 plan landing/review, H1R1 completion, H2 targeted review, and the unchanged G5/G6 no-write boundary; and
+8. replace the stale G5/G6 review-head, commit-count, path-description, semantic-commit, and mini-retro prose so it binds the exact H1 HEAD accepted by H2, exactly nine commits, the approved seven-path set, and the G/H task ledger.
+
+The G5 expected path set remains unchanged because H1R0 modifies the already-listed plan path and H1 still owns the existing compatibility implementation/test pair. The additional plan commit changes only the final count. During G5, `G0_PLAN_SHA256` is retained as a compatibility variable name, but its value must be the final H1R0 plan SHA-256.
+
+Verify exact insertion, all eight reconciliation classes, reconstruction of every other parent-plan byte, insertion position, one staged path, private-marker absence, `git diff --check`, design hash, retained dirty hashes, and five-canonical-path absence. Stage only the plan and commit exactly:
+
+```bash
+git add docs/superpowers/plans/2026-07-26-deterministic-retrieval-order-maintenance-implementation.md
+git commit -m "docs(plan): authorize h1 replacement red"
+```
+
+After the commit, require exactly the same two unstaged retained paths and exact retained hashes, with no staged or untracked paths. Stop for independent actual H1R0 plan-diff authority review. Do not run tests, edit retained implementation/test bytes, enter H1R1/H2/G5/Task 8B, create a snapshot, observe, build, publish, or create a canonical artifact during H1R0.
+
+### H1R1 — Replace the eight preempted RED cases and validate the retained implementation
+
+H1R1 starts only after H1R0 actual-diff authority review is clean and a separate resume is received. Its writable scope remains exactly:
+
+- `src/mke/evaluation/retrieval_order_compatibility.py`;
+- `tests/evaluation/test_retrieval_order_compatibility.py`.
+
+Before any new write, require the independently reviewed H1R0 HEAD, the final H1R0 plan SHA-256, the unchanged design SHA-256, the exact retained source/test hashes recorded above, exactly those two unstaged paths, no staged or untracked paths, and five-canonical-path absence. The retained production source is quarantined candidate evidence: do not modify it before or after the replacement RED. Its SHA-256 must remain `233beb367e434392f62a03f22641e389486d97ee58c45decd94742f858f9e342`; a current-worktree GREEN failure is terminal `BLOCKED`, not permission for another implementation repair.
+
+First correct only the test authority. Seed the four exact H1 missing inputs into every H1 synthetic repository from the checked-in repository bytes independently of `_historical_dynamic_inputs()`. The test must not use the repaired production inventory to decide which authority bytes exist. Extend the existing synthetic authority helper with an optional, typed pre-observation mutation callback. The callback runs after the initial synthetic repository commit and before `_run_development()` or `_run_holdout()` creates success authority.
+
+For each of the eight stable parameter IDs:
+
+```text
+ci-symlink
+ci-nonregular
+dense-script-symlink
+dense-script-nonregular
+relevance-freeze-symlink
+relevance-freeze-nonregular
+relevance-receipt-symlink
+relevance-receipt-nonregular
+```
+
+construct the selected mutation before success authority:
+
+- `symlink`: rename the selected regular file to a same-parent retained regular file, create a same-parent relative symlink at the selected path, and commit both entries;
+- `nonregular`: replace the selected regular file with a clean nested Git repository containing one commit, stage the selected path in the parent as a gitlink, and commit the blob-to-gitlink change.
+
+The parent synthetic repository and nested repository must both be clean before development starts. Then run the real development and holdout paths so the retrieval artifact's candidate seal binds the post-mutation parent HEAD. Keep the three canonical success-authority outputs in their real expected `??` status. Do not monkeypatch `_candidate_seal()`. Before invoking canonical compatibility record, call or observe the real candidate-seal path and require its public head/runtime to equal the retained retrieval artifact candidate seal and its status records to equal exactly the three expected untracked success-authority outputs.
+
+Keep the validator/hash/copy/Git-child/publication spies, but remove the broad catch-and-remap wrapper. Order the final assertions so fixture failure cannot impersonate the registered RED:
+
+```python
+assert candidate_authority_passed
+assert calls == [], "H1_HISTORICAL_INPUT_PATH_PREFLIGHT_INCOMPLETE"
+_assert_canonical_path_preflight_failure(result)
+assert not os.path.lexists(attempt)
+assert not os.path.lexists(artifact)
+```
+
+A candidate-seal failure, helper exception, wrong public tuple, or visibility failure must surface under its own assertion or exception; it must not be translated to the H1 marker. The canonical holdout fixture remains unopened.
+
+Record the corrected test-file SHA-256 and exact eight parameterized node IDs. Re-establish falsification against a call-owned no-ref snapshot of the exact H0 production tree, not against the retained implementation:
+
+```bash
+H1R_REPOSITORY_ROOT="$(pwd -P)"
+H1R_H0_HEAD="94ffcd2efd3028d247a14049649f732d0efa46a4"
+H1R_RED_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/mke-h1r-red.XXXXXX")"
+git archive "$H1R_H0_HEAD" | tar -xf - -C "$H1R_RED_ROOT"
+cp tests/evaluation/test_retrieval_order_compatibility.py \
+  "$H1R_RED_ROOT/tests/evaluation/test_retrieval_order_compatibility.py"
+```
+
+Use `H1R_REPOSITORY_ROOT/.venv/bin/python`, set `PYTHONPATH` to `H1R_RED_ROOT/src`, and run from `H1R_RED_ROOT`. Before pytest, prove the imported `mke.evaluation.retrieval_order_compatibility` originates under `H1R_RED_ROOT/src` and that its source SHA-256 is exactly:
+
+```text
+7fc034d24e22e53316c7016e816408805628cb355b5e8156e56d4267c18e1eb6
+```
+
+Prove the copied corrected test bytes equal the current test bytes, collect exactly the eight parameterized path-kind cases, and run the replacement RED once. All eight must fail, and every failure must be only:
+
+```text
+H1_HISTORICAL_INPUT_PATH_PREFLIGHT_INCOMPLETE
+```
+
+Any pass, collection mismatch, candidate-seal preemption, different marker, unrelated exception, source-origin/hash mismatch, or current production-byte change is terminal `BLOCKED`. Do not repair or retry the replacement RED. Remove only the call-owned snapshot after recording its origin, hashes, collection, and failure ledger; do not create or modify a branch, ref, or worktree for the snapshot.
+
+After the exact replacement RED, run the complete nine-case targeted GREEN once against the retained current-worktree implementation. Require nine passes, including the already-authoritative read-set audit. A failure is terminal `BLOCKED`; do not edit production or retry. Then run the original H1 broader group and static gates:
+
+```bash
+uv run pytest -q \
+  tests/evaluation/test_retrieval_order_compatibility.py \
+  tests/evaluation/test_atomic_json_publication.py \
+  tests/evaluation/test_retrieval_order_historical_freeze.py
+uv run ruff check \
+  src/mke/evaluation/retrieval_order_compatibility.py \
+  tests/evaluation/test_retrieval_order_compatibility.py
+uv run pyright
+```
+
+Require the retained production SHA-256 unchanged, inspect the complete two-path H1 diff, prove the 14 immutable hashes and design/H1R0-plan hashes exact, prove all five canonical JSON paths absent, and run `git diff --check`. Stage only the two H1 paths and commit exactly without amending H0/H1R0:
+
+```bash
+git add src/mke/evaluation/retrieval_order_compatibility.py \
+  tests/evaluation/test_retrieval_order_compatibility.py
+git commit -m "fix(eval): complete historical input preflight"
+```
+
+Return a clean worktree and terminal stop for H2 targeted authority re-review. No additional RED or GREEN retry, production repair, G5, Task 8B, observation, canonical attempt/artifact, build, full suite, real source-pack attempt, push, PR, merge, release, or promotion is authorized.
 
 ### H2 — Targeted authority re-review and G5 resume boundary
 
@@ -4268,7 +4419,7 @@ finding, unexpected read, extra path, public-contract change, or repair need
 ```
 
 H2 performs no write, amend, observation, publication, build, or full-suite claim. G5 uses the final
-H0 plan SHA-256 under the legacy `G0_PLAN_SHA256` ledger variable and requires exactly eight commits
+H1R0 plan SHA-256 under the legacy `G0_PLAN_SHA256` ledger variable and requires exactly nine commits
 from the F6 comparison base. G5 remains the first phase allowed to run the replacement full-suite,
 build, product proof, demo, and closed verification ledger. Task 8B remains separately authorized
 after G5/G6 only.
@@ -4282,9 +4433,7 @@ reviewed F6 seal:
 654520883fc186e931bd620757d3f468f65fd975
 ```
 
-Before gate 1, capture the final review-clean G4 HEAD as `G5_REVIEW_CLEAN_HEAD` and the exact plan
-SHA-256 returned by G0 as `G0_PLAN_SHA256`. Both are required ledger inputs, not values that may be
-reconstructed after a failure. Require all five canonical files to remain absent:
+Before gate 1, capture the exact H1 HEAD accepted by H2 as `G5_REVIEW_CLEAN_HEAD` and the final H1R0 plan SHA-256 under the legacy `G0_PLAN_SHA256` variable. Both are required ledger inputs, not values that may be reconstructed after a failure. Require all five canonical files to remain absent:
 
 ```bash
 test ! -e benchmarks/retrieval/retrieval-order-v1-development-freeze.json && \
@@ -4482,7 +4631,7 @@ commit_count = int(
         text=True,
     )
 )
-assert commit_count == 8
+assert commit_count == 9
 subprocess.run(
     ["git", "diff", "--check", f"{start}..HEAD"],
     check=True,
@@ -5082,12 +5231,9 @@ development, holdout, compatibility, installed-proof, or source-pack-attempt pat
 Gate 13 performs the final five-path absence, plan/design/workflow digest, 14-input map,
 candidate-diff, `git diff --check`, and clean-worktree checks. It additionally requires:
 
-- exactly four commits from the F6 seal when G4 needs no review-fix commit, or exactly five when
-  its one authorized review-fix round is used;
-- exactly the G0 plan path and six G1-G3 implementation/test paths in the F6-seal-to-HEAD diff;
-  and
-- no fixture, protocol, historical artifact, CI, runtime retrieval, dependency, release, or
-  documentation path other than the G0 implementation-plan path changed.
+- exactly nine commits from the F6 seal;
+- exactly the approved implementation-plan path and six implementation/test paths in the F6-seal-to-HEAD diff; and
+- no fixture, protocol, historical artifact, CI, runtime retrieval, dependency, release, or documentation path other than the approved implementation-plan path changed.
 
 If every gate passes, the final clean committed HEAD becomes the only replacement candidate seal.
 G5 creates no commit and authorizes no observation.
@@ -5097,7 +5243,7 @@ G5 creates no commit and authorizes no observation.
 Return:
 
 - exact Amendment G start and final HEADs;
-- G0-G4 semantic commits, including whether the one bounded review-fix round was used;
+- G0-G4, H0, H1R0, and H1 semantic commits, including whether the one bounded G4 review-fix round was used;
 - the cumulative path and line-stat diff;
 - every targeted RED/GREEN ledger;
 - the complete G5 command-by-command exit and summary ledger;
@@ -5107,10 +5253,9 @@ Return:
 - exact plan/design digests;
 - five-canonical-path absence proof;
 - `git diff --check` and clean status; and
-- one mini-retro per G task plus the stage-level retrospective seed.
+- one mini-retro per G/H task plus the stage-level retrospective seed.
 
-The designated authority reviewer verifies that no source/test/script change occurred after the
-review-clean G4 HEAD and reads back the G5 ledger, exact range diff, hashes, and absence proof.
+The designated authority reviewer verifies that no source/test/script change occurred after the exact H1 HEAD accepted by H2 and reads back the G5 ledger, exact range diff, hashes, and absence proof.
 Any identity mismatch, post-review code change, missing command evidence, or material new finding
 makes the candidate `BLOCKED`. G6 has no repair round because any code change would invalidate
 G5.
