@@ -3413,11 +3413,11 @@ index, not a substitute for the task contracts below.
 |---|---|
 | Comparison base | `654520883fc186e931bd620757d3f468f65fd975` |
 | G0 input | exact approved Amendment G bytes and SHA-256 supplied by the authority handoff |
-| Phase order | G0 plan landing and stop; G1 CJK witness; G2 compatibility pre-read; G3 source-pack identity; G4 actual-diff review; H0 plan landing/review; H1 retained attempt; H1R0 plan landing/review; H1R1 replacement RED and retained-candidate validation; H2 targeted review; G5 closed ledger; G6 readback and stop |
-| Writable scope | G0/H0/H1R0: the same implementation-plan path; G1/G2/G3: their exact two-path pairs; G4: only the same six implementation/test paths for at most one fix round; H1/H1R1: the compatibility implementation/test pair; H2/G5/G6: none |
+| Phase order | completed G0-G4/H0-H2 prefix; I0 plan landing and review; I1 test-only repair; I2 targeted review; I3/G5 fresh closed ledger; G6 readback and stop |
+| Writable scope | completed G/H phases retain their recorded ownership; I0: the implementation-plan path only; I1: `tests/interfaces/test_input_authority.py` only; I2/I3/G5/G6: none |
 | Forbidden state | all five canonical development, holdout, retrieval, compatibility-attempt, and compatibility JSON paths remain absent by both existence and symlink checks |
 | First semantic authority | the preregistered G1 targeted RED must fail for the exact expected invariant signatures before implementation begins |
-| G5 inputs | preregistered `G5_REVIEW_CLEAN_HEAD`, `G0_PLAN_SHA256`, and a call-owned absent ledger directory |
+| G5 inputs | preregistered exact I1 `G5_REVIEW_CLEAN_HEAD`, final I0 plan SHA-256 under `G0_PLAN_SHA256`, inherited caller umask, and a call-owned absent ledger directory |
 | Failure rule | any unexpected RED, extra path, changed contract, timeout, missing command result, retry need, or post-review mutation is `BLOCKED` |
 | Terminal meaning | G6 clean means the candidate may request separate Task 8B authorization; it is not an observation, compatibility, promotion, or release result |
 
@@ -4418,11 +4418,701 @@ finding, unexpected read, extra path, public-contract change, or repair need
   -> separately reviewed authority decision
 ```
 
-H2 performs no write, amend, observation, publication, build, or full-suite claim. G5 uses the final
-H1R0 plan SHA-256 under the legacy `G0_PLAN_SHA256` ledger variable and requires exactly nine commits
-from the F6 comparison base. G5 remains the first phase allowed to run the replacement full-suite,
-build, product proof, demo, and closed verification ledger. Task 8B remains separately authorized
-after G5/G6 only.
+H2 performed no write, amend, observation, publication, build, or full-suite claim. Its direct
+G5 resume boundary is superseded by Amendment I: I0 lands and reviews the final plan; I1 makes
+the test-only replacement-root authority repair; I2 accepts the exact I1 HEAD; and only then may
+I3 invoke G5. G5 uses that exact I1 HEAD as `G5_REVIEW_CLEAN_HEAD`, the final I0 plan SHA-256
+under the legacy `G0_PLAN_SHA256` variable, and exactly eleven commits from the F6 comparison
+base. G5 remains the first phase allowed to run the replacement full suite, build, product
+proof, demo, and closed verification ledger. Task 8B remains separately authorized after
+G5/G6 only.
+
+## Amendment I — Isolate G5 process state and repair replacement-root test authority
+
+### I+ — Authority, evidence, and supersession
+
+This amendment resolves the first G5 closed-ledger failure without changing retrieval,
+ingestion, cleanup, Publication, Evidence, cursor, schema, CLI, MCP, or consumer runtime
+behavior.
+
+The failed G5 run is authoritative only for the following facts:
+
+- Gates 1–3 passed.
+- Gate 4 ran the complete repository suite and stopped with exactly one failed node:
+  `tests/interfaces/test_input_authority.py::test_bound_input_cleanup_preserves_replacement_root`.
+- The observed replacement-root mode was `0o700` while the test expected `0o750`.
+- Gates 5–13 did not run and no `summary.json` acceptance record exists.
+
+Bind that failed history by stable relative names, byte counts, and SHA-256 values only. The
+private temporary ledger path and the contents of `preflight.json` must not enter the public
+plan:
+
+| Relative path | Bytes | SHA-256 |
+|---|---:|---|
+| `g5-controller.py` | 12,719 | `580a6aee2306b5e66d2d39c8f2934a96708d58243e9e8f9b9cfbaeafec47ecfc` |
+| `g5_gate_08.sh` | 1,370 | `a0861845268ed2b694aed252cdc9abeba9a9dcbd65e27f9f226dc636652976cd` |
+| `g5_gate_13.sh` | 3,508 | `63c82ee65d19e3bd91207fb45aac58203dfbf02ea2dbea6c4eb7a07b8366248b` |
+| `preflight.json` | 472 | `50663348c58c7bae2c8dcc6a6453aa3f560dcaa37531ff0b8f254a395df28c29` |
+| `gates.jsonl` | 14,539 | `ddb3352803db13b481f79e296f15d9069709e80a30c230c30ae1c093fc4ea56f` |
+| `G5-04.stdout` | 7,704 | `373cc035faa72e18e4720cdbf1cd8c09419b5127005629577847ebcfdd362642` |
+
+`gates.jsonl` contains exactly four JSON records in order, with gate IDs `G5-01`, `G5-02`,
+`G5-03`, and `G5-04`. `summary.json` is absent by `lexists`. These identities describe a failed
+run only; they are not inputs that a later controller may consume as passing results.
+
+The failed ledger is retained as failed historical evidence. It is not a partial candidate
+seal, its passing gates may not be reused for acceptance, and it may not be upgraded by editing
+or supplementing its files.
+
+The root cause has two independent layers:
+
+1. The G5 outer launcher globally sets `umask 077` and launches the controller without first
+   restoring the caller mask. Child gates therefore run under harness-created process state
+   rather than the repository runner's caller state.
+2. The replacement-root regression requests `Path.mkdir(mode=0o750)` and then asserts literal
+   `0o750`. `mkdir` applies the process umask, so this fixture is environment-dependent. It also
+   asserts only path existence, mode, and disappearance of the displaced root; it does not
+   retain and compare the replacement directory identity or operator-owned marker bytes.
+
+The two defects must be repaired together. Fixing only the launcher would leave a flaky and
+under-specified regression. Fixing only the test would leave G5 non-parity process-state
+leakage. Neither defect authorizes a production-code change.
+
+This amendment supersedes only the stale G5 launcher-state, candidate-head, path-count,
+commit-count, and G6 readback wording described below. All earlier historical ledgers remain
+historical facts. The 13-gate ordering, one-shot/no-retry rule, 3,600-second controller budget,
+five-canonical-path absence boundary, immutable 14-input map, Gate 8 CI extraction, proof/demo
+commands, and Task 8B prohibition remain unchanged.
+
+### I0 — Plan-only landing and terminal stop
+
+Start from the clean H1 HEAD accepted by H2:
+
+```text
+940d803fe816e3bc8dd7d77b74493099c2474120
+```
+
+Modify only:
+
+```text
+docs/superpowers/plans/2026-07-26-deterministic-retrieval-order-maintenance-implementation.md
+```
+
+Land this Amendment I block immediately before
+`### G5 — Replacement candidate verification with a risk-based closed budget`, then perform
+the exact reconciliation inventory in this section. No other plan text may change.
+
+#### I0 reconciliation inventory
+
+All target searches and uniqueness counts below are performed outside the newly inserted
+Amendment I block. Each bounded section, row key, paragraph prefix, or marker pair must occur
+exactly once before editing and its required final form must occur exactly once afterward. A
+mismatch is `BLOCKED`; it does not authorize a best-effort semantic rewrite.
+
+1. Between `### Operator start card` and `### G0 — Land this amendment mechanically and stop`,
+   replace the unique rows keyed `Phase order`, `Writable scope`, and `G5 inputs` with exactly:
+
+   ```markdown
+   | Phase order | completed G0-G4/H0-H2 prefix; I0 plan landing and review; I1 test-only repair; I2 targeted review; I3/G5 fresh closed ledger; G6 readback and stop |
+   | Writable scope | completed G/H phases retain their recorded ownership; I0: the implementation-plan path only; I1: `tests/interfaces/test_input_authority.py` only; I2/I3/G5/G6: none |
+   | G5 inputs | preregistered exact I1 `G5_REVIEW_CLEAN_HEAD`, final I0 plan SHA-256 under `G0_PLAN_SHA256`, inherited caller umask, and a call-owned absent ledger directory |
+   ```
+
+2. Between `### H2 — Targeted authority re-review and G5 resume boundary` and the Amendment I
+   insertion point, replace the unique paragraph beginning `H2 performs no write` with exactly:
+
+   ```markdown
+   H2 performed no write, amend, observation, publication, build, or full-suite claim. Its direct
+   G5 resume boundary is superseded by Amendment I: I0 lands and reviews the final plan; I1 makes
+   the test-only replacement-root authority repair; I2 accepts the exact I1 HEAD; and only then may
+   I3 invoke G5. G5 uses that exact I1 HEAD as `G5_REVIEW_CLEAN_HEAD`, the final I0 plan SHA-256
+   under the legacy `G0_PLAN_SHA256` variable, and exactly eleven commits from the F6 comparison
+   base. G5 remains the first phase allowed to run the replacement full suite, build, product
+   proof, demo, and closed verification ledger. Task 8B remains separately authorized after
+   G5/G6 only.
+   ```
+
+3. Between `### G5 — Replacement candidate verification with a risk-based closed budget` and
+   `Gate 1 — G1 final-HEAD coverage:`, replace the unique paragraph beginning `Before gate 1`
+   with exactly:
+
+   ```markdown
+   Before gate 1, capture the exact I1 HEAD accepted by I2 as `G5_REVIEW_CLEAN_HEAD` and the final
+   I0 plan SHA-256 under the legacy `G0_PLAN_SHA256` variable. Both are required ledger inputs,
+   not values that may be reconstructed after a failure. Bind the inherited caller umask through
+   the Amendment I launcher and controller contract. Require all five canonical files to remain
+   absent:
+   ```
+
+4. Inside the unique `G5_GATE_13_START`/`G5_GATE_13_END` block, insert
+   `"tests/interfaces/test_input_authority.py",` immediately after
+   `"tests/evaluation/test_retrieval_order_workflow.py",`, and replace the unique assertion
+   `assert commit_count == 9` with `assert commit_count == 11`.
+
+5. Replace the unique outer `bash` fence after the paragraph beginning `First require the two
+   preregistered values` and before `<!-- G5_CONTROLLER_START -->` with the exact launcher in
+   this amendment. The starting fence must contain the old global `umask 077`; the final fence
+   must contain exactly one caller-mask capture, one subshell, one secure `077`, one early ledger
+   root print, one restoration before controller invocation, and one parent-shell restoration
+   assertion.
+
+6. Apply the exact controller edits in `Exact controller umask authority` only inside the unique
+   `G5_CONTROLLER_START`/`G5_CONTROLLER_END` block. The insertion anchors are the import list,
+   existing environment constants, `sha256`, completed ledger-root isolation checks, the gates
+   loop header, normal gate record, and passed summary described below. Remove only the explicitly
+   superseded duplicate timing assignments.
+
+7. Between the paragraph beginning `Gate 13 performs the final five-path absence` and the
+   paragraph beginning `If every gate passes`, replace the unique first two list items with:
+
+   ```markdown
+   - exactly eleven commits from the F6 seal;
+   - exactly the approved implementation-plan path and seven implementation/test paths in the F6-seal-to-HEAD diff; and
+   ```
+
+8. Between `### G6 — Terminal readback and stop boundary` and
+   `### Amendment G failure modes and stopping rules`:
+
+   - replace the unique semantic-commit list item with:
+
+     ```markdown
+     - G0-G4, H0, H1R0, H1, I0, and I1 semantic commits, the I2 review result, and whether the one bounded G4 review-fix round was used;
+     ```
+
+   - insert immediately after the unique complete-G5-ledger list item:
+
+     ```markdown
+     - the failed first G5 digest bundle, its exact `G5-01` through `G5-04` record order, absent `summary.json`, and the fresh replacement G5 ledger as distinct failed-history and acceptance identities, without the private failed-ledger path or `preflight.json` contents;
+     ```
+
+   - replace the unique mini-retro list item with:
+
+     ```markdown
+     - one mini-retro per G/H/I task plus the stage-level retrospective seed.
+     ```
+
+   - replace the unique paragraph beginning `The designated authority reviewer verifies` with:
+
+     ```markdown
+     The designated authority reviewer verifies that no source/test/script change occurred after
+     the exact I1 HEAD accepted by I2 and reads back both distinct G5 ledger identities, the exact
+     eleven-commit/eight-path range diff, hashes, and absence proof. The failed ledger remains
+     failed history and contributes no reusable passing gate.
+     ```
+
+9. In the unique table under `### Amendment G failure modes and stopping rules`, insert the three
+   exact Amendment I rows from `Amendment I failure modes and stopping rules` immediately before
+   the existing `G5 gate` row.
+
+10. Do not rewrite earlier bounded-phase counts. The only normative final-range count edits are
+    the Gate 13 assertion in item 4, the two closing list items in item 7, and the G6 ledger text
+    in item 8. After reconciliation, scans limited to the final H2 paragraph, G5 opening,
+    Gate 13 script/closing assertions, and G6 readback must show no remaining final-candidate
+    assertion for nine commits, seven total paths, the H1 review-clean HEAD, or a G/H-only final
+    task ledger.
+
+11. Between `### Sequential execution and rollback` and `### Public non-claims`, replace both
+    existing paragraphs with exactly:
+
+    ```markdown
+    The completed G0-G4/H0-H2 prefix remains immutable historical work. The only remaining order
+    is I0 plan landing, I0 actual plan-diff review, I1 test-only repair, I2 targeted actual-diff
+    review, one I3/G5 fresh controller, and G6 readback. I0 and I1 are the only new write phases.
+    I2, I3/G5, and G6 cannot modify, amend, revert, or repair repository files.
+
+    Before Task 8B there is no persistent product data or migration to roll back. Any I0-I3/G5/G6
+    failure retains its exact repository and ledger evidence and stops for a separately reviewed
+    authority decision. It does not authorize automatic revert, amend, retry, result reuse, or
+    external publication. Canonical files remain absent.
+    ```
+
+#### Exact replacement G5 outer launcher
+
+Replace the existing G5 outer launcher block with:
+
+```bash
+set -euo pipefail
+: "${G5_REVIEW_CLEAN_HEAD:?preregister review-clean HEAD}"
+: "${G0_PLAN_SHA256:?preregister G0 plan SHA-256}"
+G5_PLAN="docs/superpowers/plans/2026-07-26-deterministic-retrieval-order-maintenance-implementation.md"
+G5_CALLER_UMASK="$(umask)"
+case "$G5_CALLER_UMASK" in
+  0[0-7][0-7][0-7]|[0-7][0-7][0-7]) ;;
+  *) echo "G5 caller umask is malformed" >&2; exit 1 ;;
+esac
+export G5_REVIEW_CLEAN_HEAD G0_PLAN_SHA256 G5_PLAN G5_CALLER_UMASK
+(
+  set -euo pipefail
+  umask 077
+  G5_SECURE_SETUP_UMASK="$(umask)"
+  G5_LEDGER_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/mke-g5-ledger.XXXXXX")"
+  printf 'G5_LEDGER_ROOT=%s\n' "$G5_LEDGER_ROOT"
+  chmod 700 "$G5_LEDGER_ROOT"
+  export G5_LEDGER_ROOT G5_SECURE_SETUP_UMASK
+  awk '
+    $0 == "<!-- G5_CONTROLLER_START -->" {
+      capture = 1
+      next
+    }
+    $0 == "<!-- G5_CONTROLLER_END -->" {
+      exit
+    }
+    capture && $0 == "```python" {
+      next
+    }
+    capture && $0 == "```" {
+      next
+    }
+    capture {
+      print
+    }
+  ' "$G5_PLAN" > "$G5_LEDGER_ROOT/g5-controller.py"
+  test -s "$G5_LEDGER_ROOT/g5-controller.py"
+  chmod 600 "$G5_LEDGER_ROOT/g5-controller.py"
+  shasum -a 256 "$G5_LEDGER_ROOT/g5-controller.py"
+  umask "$G5_CALLER_UMASK"
+  test "$(umask)" = "$G5_CALLER_UMASK"
+  uv run python "$G5_LEDGER_ROOT/g5-controller.py"
+  test -s "$G5_LEDGER_ROOT/summary.json"
+  uv run python -c \
+    'import json,sys; value=json.load(open(sys.argv[1], encoding="utf-8")); assert value["status"] == "passed" and value["gate_count"] == 13' \
+    "$G5_LEDGER_ROOT/summary.json"
+)
+test "$(umask)" = "$G5_CALLER_UMASK"
+```
+
+The secure `077` mask is confined to a subshell and only protects ledger/controller creation.
+Immediately after `mktemp` succeeds, the launcher prints the unique ledger root before any later
+setup step can fail; `mktemp` itself runs under `077`, and the following explicit `chmod 700`
+remains mandatory. The controller and every gate inherit the original caller mask. Any failure
+before restoration terminates only the subshell, so the parent shell mask remains unchanged.
+The ledger directory is explicitly `0700` and the extracted controller is explicitly `0600`;
+their privacy does not depend on a leaked process mask.
+
+#### Exact controller umask authority
+
+In the G5 controller imports, add:
+
+```python
+import re
+```
+
+After the existing environment constants, add:
+
+```python
+CALLER_UMASK_TEXT = os.environ["G5_CALLER_UMASK"]
+SECURE_SETUP_UMASK_TEXT = os.environ["G5_SECURE_SETUP_UMASK"]
+UMASK_PROBE_SECONDS = 5.0
+```
+
+After `sha256`, add:
+
+```python
+def normalized_umask(value: str) -> str:
+    if re.fullmatch(r"0?[0-7]{3}", value) is None:
+        raise SystemExit("G5 umask authority is malformed")
+    return value[-3:]
+
+
+def inherited_umask(
+    *,
+    gate_id: str,
+    deadline: float,
+    ledger_path: Path,
+) -> str:
+    probe_start = time.monotonic()
+    remaining = deadline - probe_start
+    if remaining <= 0:
+        append_jsonl(
+            ledger_path,
+            {
+                "budget_remaining_at_probe_start": remaining,
+                "deadline": deadline,
+                "gate_id": gate_id,
+                "status": "budget_exhausted_before_umask_probe",
+            },
+        )
+        raise SystemExit(1)
+    applied_timeout = min(UMASK_PROBE_SECONDS, remaining)
+    try:
+        value = subprocess.check_output(
+            ["bash", "--noprofile", "--norc", "-c", "umask"],
+            cwd=REPOSITORY,
+            text=True,
+            timeout=applied_timeout,
+        ).strip()
+    except subprocess.TimeoutExpired:
+        append_jsonl(
+            ledger_path,
+            {
+                "applied_timeout": applied_timeout,
+                "budget_remaining_at_probe_start": remaining,
+                "deadline": deadline,
+                "gate_id": gate_id,
+                "status": "process_state_probe_timeout",
+            },
+        )
+        raise SystemExit(1) from None
+    except (OSError, subprocess.CalledProcessError) as error:
+        append_jsonl(
+            ledger_path,
+            {
+                "applied_timeout": applied_timeout,
+                "budget_remaining_at_probe_start": remaining,
+                "cause": type(error).__name__,
+                "deadline": deadline,
+                "gate_id": gate_id,
+                "status": "process_state_probe_failed",
+            },
+        )
+        raise SystemExit(1) from error
+    try:
+        return normalized_umask(value)
+    except SystemExit:
+        append_jsonl(
+            ledger_path,
+            {
+                "applied_timeout": applied_timeout,
+                "budget_remaining_at_probe_start": remaining,
+                "deadline": deadline,
+                "gate_id": gate_id,
+                "status": "process_state_probe_malformed",
+            },
+        )
+        raise
+```
+
+After the existing ledger-root isolation checks and before the plan digest, Git, canonical-path,
+or other repository reads, move the existing `ledger_path`, `run_start`, and `deadline`
+initialization to this location and require:
+
+```python
+ledger_path = LEDGER_ROOT / "gates.jsonl"
+run_start = time.monotonic()
+deadline = run_start + DEADLINE_SECONDS
+try:
+    caller_umask = normalized_umask(CALLER_UMASK_TEXT)
+except SystemExit:
+    append_jsonl(
+        ledger_path,
+        {
+            "authority": "caller_umask",
+            "gate_id": "G5-preflight",
+            "status": "process_state_authority_malformed",
+        },
+    )
+    raise
+try:
+    secure_setup_umask = normalized_umask(SECURE_SETUP_UMASK_TEXT)
+except SystemExit:
+    append_jsonl(
+        ledger_path,
+        {
+            "authority": "secure_setup_umask",
+            "gate_id": "G5-preflight",
+            "status": "process_state_authority_malformed",
+        },
+    )
+    raise
+controller_umask = inherited_umask(
+    gate_id="G5-preflight",
+    deadline=deadline,
+    ledger_path=ledger_path,
+)
+if secure_setup_umask != "077":
+    append_jsonl(
+        ledger_path,
+        {
+            "gate_id": "G5-preflight",
+            "secure_setup_umask": secure_setup_umask,
+            "status": "secure_setup_umask_mismatch",
+        },
+    )
+    raise SystemExit("G5 secure setup umask differs from 077")
+if controller_umask != caller_umask:
+    append_jsonl(
+        ledger_path,
+        {
+            "caller_umask": caller_umask,
+            "controller_umask": controller_umask,
+            "gate_id": "G5-preflight",
+            "status": "controller_umask_mismatch",
+        },
+    )
+    raise SystemExit("G5 controller inherited a harness-created umask")
+```
+
+Add these exact keys to `preflight`:
+
+```python
+"caller_umask": caller_umask,
+"controller_umask": controller_umask,
+"secure_setup_umask": secure_setup_umask,
+"umask_probe_seconds": UMASK_PROBE_SECONDS,
+```
+
+Remove the old duplicate `ledger_path`, `run_start`, and `deadline` initialization immediately
+before the gates loop. At the beginning of each gate iteration, start gate timing before the
+probe and require:
+
+```python
+    gate_start = time.monotonic()
+    budget_remaining_at_gate_start = deadline - gate_start
+    gate_umask = inherited_umask(
+        gate_id=gate_id,
+        deadline=deadline,
+        ledger_path=ledger_path,
+    )
+    if gate_umask != caller_umask:
+        append_jsonl(
+            ledger_path,
+            {
+                "caller_umask": caller_umask,
+                "gate_id": gate_id,
+                "gate_umask": gate_umask,
+                "status": "process_state_drift",
+            },
+        )
+        raise SystemExit(1)
+    budget_remaining_after_umask_probe = deadline - time.monotonic()
+    remaining = budget_remaining_after_umask_probe
+```
+
+Delete the superseded `gate_start` and `remaining` assignments that followed the loop header.
+In both the existing budget-exhaustion record and every normal gate record, bind
+`"budget_remaining_at_gate_start"` to `budget_remaining_at_gate_start`, not to `remaining`, and
+add:
+
+```python
+"budget_remaining_after_umask_probe": budget_remaining_after_umask_probe,
+```
+
+The probe therefore consumes the same closed 3,600-second budget as every gate. Probe timeout,
+probe launch failure, malformed output, budget exhaustion, or umask mismatch has a distinct
+terminal ledger status and never authorizes a retry.
+
+Add the following fields to every normal gate record:
+
+```python
+"caller_umask": caller_umask,
+"gate_umask": gate_umask,
+```
+
+Add the following field to the passed summary:
+
+```python
+"caller_umask": caller_umask,
+```
+
+The controller must not call `os.umask`. The `bash ... -c umask` probe executes in a disposable
+child and observes inherited state without mutating the controller. A malformed value, secure
+setup value other than `077`, controller/caller mismatch, or per-gate mismatch is a terminal
+preflight or gate failure. It does not authorize a retry.
+
+#### I0 mechanical verification and commit
+
+Before staging:
+
+- require starting HEAD and clean status exact;
+- require the pre-I0 plan SHA-256 and design SHA-256 exact;
+- require the five canonical JSON paths absent by `lexists`;
+- verify the Amendment I block occurs exactly once;
+- verify each reconciliation target occurs exactly once before replacement and each final target
+  occurs exactly once after replacement;
+- extract the working-tree Amendment I block and compare it byte-for-byte with the approved
+  source; after staging, repeat the extraction from the index;
+- remove the Amendment I block and reverse the reconciliation inventory in a temporary copy,
+  proving reconstruction of the starting plan bytes;
+- read the complete no-index and staged diffs;
+- run a private-marker scan and `git diff --check`.
+
+Stage only the implementation plan and commit:
+
+```bash
+git add docs/superpowers/plans/2026-07-26-deterministic-retrieval-order-maintenance-implementation.md
+git commit -m "docs(plan): isolate g5 process state"
+```
+
+After commit, extract the block once more from `HEAD` and require the same approved bytes and
+SHA-256. Return the exact start/final HEAD, commit, full plan SHA-256, working-tree/index/HEAD
+block comparison, reconstruction result, one-path diff stat, canonical-path absence, and clean
+status.
+Then stop for actual plan-diff authority review. I0 runs no test, controller, G5 gate, build,
+proof, demo, observation, publication, source-pack attempt, push, PR, merge, release, or
+promotion.
+
+### I1 — Test-only replacement-root authority repair
+
+I1 starts only after I0 actual plan-diff review is clean. Modify only:
+
+```text
+tests/interfaces/test_input_authority.py
+```
+
+Do not modify `src/mke/interfaces/input_authority.py` or any other production path. The existing
+cleanup behavior already proves the relevant outcome: the implementation removes the
+descriptor-bound original owned directory and refuses to remove a different directory later
+placed at the same lexical path. I1 repairs only the fixture and its assertions.
+
+Use the failed G5-04 node and the controlled `022`/`077` comparison as the retained targeted RED.
+Do not rerun the old failing node before editing solely to reproduce the same failure.
+
+In `test_bound_input_cleanup_preserves_replacement_root`:
+
+1. Preserve the original owned root at `displaced_root`, retaining the original
+   `(st_dev, st_ino, st_mode)` passed to the cleanup hook.
+2. Create the replacement root at the original lexical path.
+3. Apply the intended mode explicitly with `Path.chmod(0o750)` after creation so the fixture's
+   authority is independent of caller umask.
+4. Create the marker at `root / "operator-owned.txt"` with exact bytes
+   `b"operator state"`, then apply exact marker mode `0o640` with `Path.chmod(0o640)` before
+   capturing its identity so the marker's mode is also independent of caller umask.
+5. Capture the replacement root `(st_dev, st_ino, st_mode)` and the marker
+   `(st_dev, st_ino, st_mode, st_size, st_mtime_ns, st_ctime_ns)` plus bytes before calling the
+   real cleanup helper.
+6. Assert before cleanup that the replacement `(st_dev, st_ino)` differs from the original owned
+   root identity and that the displaced root matches the original `(st_dev, st_ino, st_mode)`
+   passed to the hook.
+7. After the expected `IngestFileAuthorityError`, assert that the replacement root retains the
+   same `(st_dev, st_ino, st_mode)`, retains the marker with the exact same six-field identity
+   and bytes, has root mode `0o750`, and has marker mode `0o640`.
+8. Assert the displaced original owned root is absent.
+
+Do not weaken the expected error, replace identity checks with path-only checks, mock the real
+cleanup helper, or accept the process-derived effective mode as the intended fixture mode.
+
+Run, in order:
+
+```bash
+bash --noprofile --norc -e -o pipefail -c \
+  'umask 077; uv run pytest -q tests/interfaces/test_input_authority.py::test_bound_input_cleanup_preserves_replacement_root'
+bash --noprofile --norc -e -o pipefail -c \
+  'umask 022; uv run pytest -q tests/interfaces/test_input_authority.py::test_bound_input_cleanup_preserves_replacement_root'
+uv run pytest -q tests/interfaces/test_input_authority.py
+uv run ruff check tests/interfaces/test_input_authority.py
+uv run pyright
+```
+
+Require every command to pass on the final bytes. Inspect the complete one-path diff, require
+the final I0 plan and design hashes exact, require the immutable 14-input map unchanged, require
+the five canonical JSON paths absent, and run `git diff --check`.
+
+Stage only the test path and commit:
+
+```bash
+git add tests/interfaces/test_input_authority.py
+git commit -m "test(input): make replacement cleanup fixture umask-stable"
+```
+
+Return a clean worktree and terminal stop for I2. No amend of I0 or earlier commits, production
+change, G5, Task 8B, observation, canonical artifact, build, product proof, demo, real
+source-pack attempt, push, PR, merge, release, or promotion is authorized.
+
+### I2 — Targeted actual-diff review
+
+The designated authority reviewer reads the actual I1 one-path diff and reruns both explicit
+`077` and `022` targeted nodes. The review must independently verify:
+
+- explicit `chmod` makes intended fixture mode independent of process umask;
+- explicit marker `chmod` makes marker mode deterministic across caller masks, while each run
+  proves exact six-field marker identity preservation across cleanup;
+- replacement and original root identities are distinct;
+- the post-cleanup replacement identity equals the captured pre-cleanup replacement identity;
+- marker identity and bytes are preserved;
+- the descriptor-bound original root is removed;
+- the real production cleanup helper is exercised;
+- no production path or public contract changed.
+
+```text
+clean
+  -> capture the exact I1 HEAD as G5_REVIEW_CLEAN_HEAD
+  -> capture the final I0 plan SHA-256 as G0_PLAN_SHA256
+  -> authorize one fresh G5 controller invocation in a separate resume
+
+finding, scope expansion, production repair need, or unstable dual-umask result
+  -> BLOCKED
+  -> separately reviewed authority decision
+```
+
+I2 performs no write, amend, controller invocation, full suite, build, proof, observation, or
+publication.
+
+### I3 — Fresh G5/G6 replacement verification
+
+After I2 is clean, discard no files from the failed ledger but treat the entire failed run as
+non-acceptance history. Start a new ledger directory and invoke the amended G5 controller exactly
+once from the exact I1 HEAD accepted by I2.
+
+All 13 gates run from gate 1 in the existing order. No gate result from the failed ledger is
+reused. The controller binds and records:
+
+- exact I1 review-clean HEAD;
+- final I0 plan SHA-256;
+- caller umask;
+- secure-setup umask `077`;
+- controller inherited umask;
+- per-gate inherited umask;
+- the five-second umask-probe bound and any distinct probe failure status;
+- controller/Gate 8/Gate 13 digests;
+- exact argv, timing, exit, logs, and call-owned outputs.
+
+Any nonzero exit, umask mismatch, timeout, missing summary, lost command result, unexpected
+output, canonical-path visibility, repository mutation, or budget exhaustion is terminal
+`BLOCKED`. There is no Amendment I retry or repair round inside I3. A new failure requires a new
+authority decision.
+
+Gate 13 must prove:
+
+- exact HEAD equals the I1 HEAD accepted by I2;
+- exactly eleven commits from
+  `654520883fc186e931bd620757d3f468f65fd975`;
+- exactly eight changed paths: the implementation plan plus the seven approved
+  implementation/test paths, including `tests/interfaces/test_input_authority.py`;
+- final I0 plan digest, design digest, CI digest, and immutable 14-input map are exact;
+- all five canonical JSON paths are absent by `lexists`;
+- range `git diff --check` and worktree cleanliness pass.
+
+G6 reads both ledger identities. It reports the old ledger only as the failed run that exposed
+the harness/test-authority defect, and the new ledger as the only possible acceptance record.
+A passed G5 summary plus clean G6 readback seals the replacement candidate but still creates no
+observation or promotion.
+
+### Amendment I failure modes and stopping rules
+
+Add these rows to the existing table:
+
+| Codepath | Failure mode | Required disposition | Test authority |
+|---|---|---|---|
+| G5 launcher/controller | secure setup mask leaks into controller or any gate | terminal `BLOCKED`; no gate/result reuse | caller/controller/per-gate umask ledger |
+| G5 launcher/controller | umask probe times out, fails, is malformed, or exhausts the closed budget | terminal `BLOCKED`; no retry | distinct probe-status ledger under the same 3,600-second deadline |
+| replacement-root regression | root or marker mode depends on caller umask, or either replacement/marker identity is not preserved within a cleanup run | terminal `BLOCKED`; test-only authority repair required | explicit root `0o750`, marker `0o640`, and per-run `022`/`077` identity-and-marker tests |
+
+### Public claims and non-claims
+
+A successful Amendment I may establish only that:
+
+- G5 confines its private ledger-creation mask and restores caller process state before child
+  gates;
+- the replacement-root regression is independent of caller umask and proves identity/marker
+  preservation while the descriptor-bound original root is removed;
+- the exact amended candidate passed a fresh, complete, one-shot 13-gate ledger.
+
+It does not establish retrieval-quality improvement, segmentation value, contextual-retrieval
+value, input-cleanup product change, universal shell/process isolation, broad filesystem
+race-freedom, cross-platform guarantees beyond the tested matrix, production readiness,
+latency, accuracy, SLA, adoption, release, or promotion.
+
+Task 8B, development observation, holdout observation, canonical compatibility, canonical
+installed proof, a real source-pack attempt, push, PR, merge, tag, release, deployment,
+promotion, and worktree cleanup remain forbidden until a later explicit authorization.
+
+### Amendment I mini-retro seed
+
+An evaluation harness is part of the system under test. Security-oriented process defaults are
+not automatically valid CI defaults, and a test that asserts requested permission bits without
+controlling umask is not environment-independent authority. Preserve failed ledgers as failed
+history, repair the evaluator and fixture at their own boundaries, then rerun the entire closed
+manifest from a new immutable candidate instead of promoting partial success.
 
 ### G5 — Replacement candidate verification with a risk-based closed budget
 
@@ -4433,7 +5123,11 @@ reviewed F6 seal:
 654520883fc186e931bd620757d3f468f65fd975
 ```
 
-Before gate 1, capture the exact H1 HEAD accepted by H2 as `G5_REVIEW_CLEAN_HEAD` and the final H1R0 plan SHA-256 under the legacy `G0_PLAN_SHA256` variable. Both are required ledger inputs, not values that may be reconstructed after a failure. Require all five canonical files to remain absent:
+Before gate 1, capture the exact I1 HEAD accepted by I2 as `G5_REVIEW_CLEAN_HEAD` and the final
+I0 plan SHA-256 under the legacy `G0_PLAN_SHA256` variable. Both are required ledger inputs,
+not values that may be reconstructed after a failure. Bind the inherited caller umask through
+the Amendment I launcher and controller contract. Require all five canonical files to remain
+absent:
 
 ```bash
 test ! -e benchmarks/retrieval/retrieval-order-v1-development-freeze.json && \
@@ -4615,6 +5309,7 @@ expected_paths = sorted(
         "src/mke/evaluation/retrieval_order_workflow.py",
         "tests/evaluation/test_retrieval_order_compatibility.py",
         "tests/evaluation/test_retrieval_order_workflow.py",
+        "tests/interfaces/test_input_authority.py",
         "tests/scripts/test_consumer_source_pack_proof.py",
     )
 )
@@ -4631,7 +5326,7 @@ commit_count = int(
         text=True,
     )
 )
-assert commit_count == 9
+assert commit_count == 11
 subprocess.run(
     ["git", "diff", "--check", f"{start}..HEAD"],
     check=True,
@@ -4716,38 +5411,53 @@ record their digest, and invoke it once:
 
 ```bash
 set -euo pipefail
-umask 077
 : "${G5_REVIEW_CLEAN_HEAD:?preregister review-clean HEAD}"
 : "${G0_PLAN_SHA256:?preregister G0 plan SHA-256}"
 G5_PLAN="docs/superpowers/plans/2026-07-26-deterministic-retrieval-order-maintenance-implementation.md"
-G5_LEDGER_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/mke-g5-ledger.XXXXXX")"
-chmod 700 "$G5_LEDGER_ROOT"
-export G5_REVIEW_CLEAN_HEAD G0_PLAN_SHA256 G5_PLAN G5_LEDGER_ROOT
-awk '
-  $0 == "<!-- G5_CONTROLLER_START -->" {
-    capture = 1
-    next
-  }
-  $0 == "<!-- G5_CONTROLLER_END -->" {
-    exit
-  }
-  capture && $0 == "```python" {
-    next
-  }
-  capture && $0 == "```" {
-    next
-  }
-  capture {
-    print
-  }
-' "$G5_PLAN" > "$G5_LEDGER_ROOT/g5-controller.py"
-test -s "$G5_LEDGER_ROOT/g5-controller.py"
-shasum -a 256 "$G5_LEDGER_ROOT/g5-controller.py"
-uv run python "$G5_LEDGER_ROOT/g5-controller.py"
-test -s "$G5_LEDGER_ROOT/summary.json"
-uv run python -c \
-  'import json,sys; value=json.load(open(sys.argv[1], encoding="utf-8")); assert value["status"] == "passed" and value["gate_count"] == 13' \
-  "$G5_LEDGER_ROOT/summary.json"
+G5_CALLER_UMASK="$(umask)"
+case "$G5_CALLER_UMASK" in
+  0[0-7][0-7][0-7]|[0-7][0-7][0-7]) ;;
+  *) echo "G5 caller umask is malformed" >&2; exit 1 ;;
+esac
+export G5_REVIEW_CLEAN_HEAD G0_PLAN_SHA256 G5_PLAN G5_CALLER_UMASK
+(
+  set -euo pipefail
+  umask 077
+  G5_SECURE_SETUP_UMASK="$(umask)"
+  G5_LEDGER_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/mke-g5-ledger.XXXXXX")"
+  printf 'G5_LEDGER_ROOT=%s\n' "$G5_LEDGER_ROOT"
+  chmod 700 "$G5_LEDGER_ROOT"
+  export G5_LEDGER_ROOT G5_SECURE_SETUP_UMASK
+  awk '
+    $0 == "<!-- G5_CONTROLLER_START -->" {
+      capture = 1
+      next
+    }
+    $0 == "<!-- G5_CONTROLLER_END -->" {
+      exit
+    }
+    capture && $0 == "```python" {
+      next
+    }
+    capture && $0 == "```" {
+      next
+    }
+    capture {
+      print
+    }
+  ' "$G5_PLAN" > "$G5_LEDGER_ROOT/g5-controller.py"
+  test -s "$G5_LEDGER_ROOT/g5-controller.py"
+  chmod 600 "$G5_LEDGER_ROOT/g5-controller.py"
+  shasum -a 256 "$G5_LEDGER_ROOT/g5-controller.py"
+  umask "$G5_CALLER_UMASK"
+  test "$(umask)" = "$G5_CALLER_UMASK"
+  uv run python "$G5_LEDGER_ROOT/g5-controller.py"
+  test -s "$G5_LEDGER_ROOT/summary.json"
+  uv run python -c \
+    'import json,sys; value=json.load(open(sys.argv[1], encoding="utf-8")); assert value["status"] == "passed" and value["gate_count"] == 13' \
+    "$G5_LEDGER_ROOT/summary.json"
+)
+test "$(umask)" = "$G5_CALLER_UMASK"
 ```
 
 <!-- G5_CONTROLLER_START -->
@@ -4757,6 +5467,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -4769,6 +5480,9 @@ PLAN = Path(os.environ["G5_PLAN"])
 LEDGER_ROOT = Path(os.environ["G5_LEDGER_ROOT"])
 REVIEW_CLEAN_HEAD = os.environ["G5_REVIEW_CLEAN_HEAD"]
 PLAN_SHA256 = os.environ["G0_PLAN_SHA256"]
+CALLER_UMASK_TEXT = os.environ["G5_CALLER_UMASK"]
+SECURE_SETUP_UMASK_TEXT = os.environ["G5_SECURE_SETUP_UMASK"]
+UMASK_PROBE_SECONDS = 5.0
 DEADLINE_SECONDS = 3_600.0
 SUMMARY_BYTES = 8_192
 
@@ -4789,6 +5503,80 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def normalized_umask(value: str) -> str:
+    if re.fullmatch(r"0?[0-7]{3}", value) is None:
+        raise SystemExit("G5 umask authority is malformed")
+    return value[-3:]
+
+
+def inherited_umask(
+    *,
+    gate_id: str,
+    deadline: float,
+    ledger_path: Path,
+) -> str:
+    probe_start = time.monotonic()
+    remaining = deadline - probe_start
+    if remaining <= 0:
+        append_jsonl(
+            ledger_path,
+            {
+                "budget_remaining_at_probe_start": remaining,
+                "deadline": deadline,
+                "gate_id": gate_id,
+                "status": "budget_exhausted_before_umask_probe",
+            },
+        )
+        raise SystemExit(1)
+    applied_timeout = min(UMASK_PROBE_SECONDS, remaining)
+    try:
+        value = subprocess.check_output(
+            ["bash", "--noprofile", "--norc", "-c", "umask"],
+            cwd=REPOSITORY,
+            text=True,
+            timeout=applied_timeout,
+        ).strip()
+    except subprocess.TimeoutExpired:
+        append_jsonl(
+            ledger_path,
+            {
+                "applied_timeout": applied_timeout,
+                "budget_remaining_at_probe_start": remaining,
+                "deadline": deadline,
+                "gate_id": gate_id,
+                "status": "process_state_probe_timeout",
+            },
+        )
+        raise SystemExit(1) from None
+    except (OSError, subprocess.CalledProcessError) as error:
+        append_jsonl(
+            ledger_path,
+            {
+                "applied_timeout": applied_timeout,
+                "budget_remaining_at_probe_start": remaining,
+                "cause": type(error).__name__,
+                "deadline": deadline,
+                "gate_id": gate_id,
+                "status": "process_state_probe_failed",
+            },
+        )
+        raise SystemExit(1) from error
+    try:
+        return normalized_umask(value)
+    except SystemExit:
+        append_jsonl(
+            ledger_path,
+            {
+                "applied_timeout": applied_timeout,
+                "budget_remaining_at_probe_start": remaining,
+                "deadline": deadline,
+                "gate_id": gate_id,
+                "status": "process_state_probe_malformed",
+            },
+        )
+        raise
 
 
 def append_jsonl(path: Path, value: dict[str, Any]) -> None:
@@ -4878,6 +5666,59 @@ if not LEDGER_ROOT.is_dir() or LEDGER_ROOT.is_symlink():
     raise SystemExit("G5 ledger root must be a nonsymlink directory")
 if LEDGER_ROOT.resolve().is_relative_to(REPOSITORY):
     raise SystemExit("G5 ledger root must be outside the repository")
+ledger_path = LEDGER_ROOT / "gates.jsonl"
+run_start = time.monotonic()
+deadline = run_start + DEADLINE_SECONDS
+try:
+    caller_umask = normalized_umask(CALLER_UMASK_TEXT)
+except SystemExit:
+    append_jsonl(
+        ledger_path,
+        {
+            "authority": "caller_umask",
+            "gate_id": "G5-preflight",
+            "status": "process_state_authority_malformed",
+        },
+    )
+    raise
+try:
+    secure_setup_umask = normalized_umask(SECURE_SETUP_UMASK_TEXT)
+except SystemExit:
+    append_jsonl(
+        ledger_path,
+        {
+            "authority": "secure_setup_umask",
+            "gate_id": "G5-preflight",
+            "status": "process_state_authority_malformed",
+        },
+    )
+    raise
+controller_umask = inherited_umask(
+    gate_id="G5-preflight",
+    deadline=deadline,
+    ledger_path=ledger_path,
+)
+if secure_setup_umask != "077":
+    append_jsonl(
+        ledger_path,
+        {
+            "gate_id": "G5-preflight",
+            "secure_setup_umask": secure_setup_umask,
+            "status": "secure_setup_umask_mismatch",
+        },
+    )
+    raise SystemExit("G5 secure setup umask differs from 077")
+if controller_umask != caller_umask:
+    append_jsonl(
+        ledger_path,
+        {
+            "caller_umask": caller_umask,
+            "controller_umask": controller_umask,
+            "gate_id": "G5-preflight",
+            "status": "controller_umask_mismatch",
+        },
+    )
+    raise SystemExit("G5 controller inherited a harness-created umask")
 if len(REVIEW_CLEAN_HEAD) != 40 or len(PLAN_SHA256) != 64:
     raise SystemExit("G5 preregistered identities are malformed")
 if sha256(PLAN) != PLAN_SHA256:
@@ -4912,12 +5753,16 @@ gate08 = extract_shell("G5_GATE_08")
 gate13 = extract_shell("G5_GATE_13")
 controller_path = Path(__file__)
 preflight = {
+    "caller_umask": caller_umask,
     "controller_sha256": sha256(controller_path),
+    "controller_umask": controller_umask,
     "gate08_sha256": sha256(gate08),
     "gate13_sha256": sha256(gate13),
     "head": head,
     "ledger_root": str(LEDGER_ROOT),
     "plan_sha256": PLAN_SHA256,
+    "secure_setup_umask": secure_setup_umask,
+    "umask_probe_seconds": UMASK_PROBE_SECONDS,
 }
 (LEDGER_ROOT / "preflight.json").write_text(
     json.dumps(
@@ -5028,9 +5873,6 @@ gates: list[tuple[str, list[str]]] = [
     ),
 ]
 
-ledger_path = LEDGER_ROOT / "gates.jsonl"
-run_start = time.monotonic()
-deadline = run_start + DEADLINE_SECONDS
 environment = os.environ.copy()
 environment["G5_LEDGER_ROOT"] = str(LEDGER_ROOT)
 environment["G5_REVIEW_CLEAN_HEAD"] = REVIEW_CLEAN_HEAD
@@ -5038,7 +5880,25 @@ environment["G0_PLAN_SHA256"] = PLAN_SHA256
 
 for gate_id, argv in gates:
     gate_start = time.monotonic()
-    remaining = deadline - gate_start
+    budget_remaining_at_gate_start = deadline - gate_start
+    gate_umask = inherited_umask(
+        gate_id=gate_id,
+        deadline=deadline,
+        ledger_path=ledger_path,
+    )
+    if gate_umask != caller_umask:
+        append_jsonl(
+            ledger_path,
+            {
+                "caller_umask": caller_umask,
+                "gate_id": gate_id,
+                "gate_umask": gate_umask,
+                "status": "process_state_drift",
+            },
+        )
+        raise SystemExit(1)
+    budget_remaining_after_umask_probe = deadline - time.monotonic()
+    remaining = budget_remaining_after_umask_probe
     if remaining <= 0:
         append_jsonl(
             ledger_path,
@@ -5047,7 +5907,8 @@ for gate_id, argv in gates:
                 "gate_id": gate_id,
                 "status": "budget_exhausted",
                 "applied_timeout": 0.0,
-                "budget_remaining_at_gate_start": remaining,
+                "budget_remaining_at_gate_start": budget_remaining_at_gate_start,
+                "budget_remaining_after_umask_probe": budget_remaining_after_umask_probe,
             },
         )
         raise SystemExit(1)
@@ -5108,13 +5969,16 @@ for gate_id, argv in gates:
             else 0.0
         ),
         "argv": argv,
-        "budget_remaining_at_gate_start": remaining,
+        "budget_remaining_at_gate_start": budget_remaining_at_gate_start,
+        "budget_remaining_after_umask_probe": budget_remaining_after_umask_probe,
+        "caller_umask": caller_umask,
         "controller_termination": controller_termination,
         "deadline_exceeded": deadline_exceeded,
         "elapsed": gate_end - gate_start,
         "end_monotonic": gate_end,
         "exit_code": returncode,
         "gate_id": gate_id,
+        "gate_umask": gate_umask,
         "launcher_error": launcher_error,
         "owned_outputs": changed_outputs(before, after),
         "start_monotonic": gate_start,
@@ -5156,6 +6020,7 @@ if run_end > deadline:
     )
     raise SystemExit(1)
 summary = {
+    "caller_umask": caller_umask,
     "controller_sha256": sha256(controller_path),
     "g5_total_seconds": run_end - run_start,
     "gate_count": len(gates),
@@ -5231,8 +6096,8 @@ development, holdout, compatibility, installed-proof, or source-pack-attempt pat
 Gate 13 performs the final five-path absence, plan/design/workflow digest, 14-input map,
 candidate-diff, `git diff --check`, and clean-worktree checks. It additionally requires:
 
-- exactly nine commits from the F6 seal;
-- exactly the approved implementation-plan path and six implementation/test paths in the F6-seal-to-HEAD diff; and
+- exactly eleven commits from the F6 seal;
+- exactly the approved implementation-plan path and seven implementation/test paths in the F6-seal-to-HEAD diff; and
 - no fixture, protocol, historical artifact, CI, runtime retrieval, dependency, release, or documentation path other than the approved implementation-plan path changed.
 
 If every gate passes, the final clean committed HEAD becomes the only replacement candidate seal.
@@ -5243,22 +6108,23 @@ G5 creates no commit and authorizes no observation.
 Return:
 
 - exact Amendment G start and final HEADs;
-- G0-G4, H0, H1R0, and H1 semantic commits, including whether the one bounded G4 review-fix round was used;
+- G0-G4, H0, H1R0, H1, I0, and I1 semantic commits, the I2 review result, and whether the one bounded G4 review-fix round was used;
 - the cumulative path and line-stat diff;
 - every targeted RED/GREEN ledger;
 - the complete G5 command-by-command exit and summary ledger;
+- the failed first G5 digest bundle, its exact `G5-01` through `G5-04` record order, absent `summary.json`, and the fresh replacement G5 ledger as distinct failed-history and acceptance identities, without the private failed-ledger path or `preflight.json` contents;
 - the non-persistent controller and extracted Gate 8/Gate 13 script digests, plus the three
   retrospective maintenance timings;
 - the 14 immutable hashes and map digest;
 - exact plan/design digests;
 - five-canonical-path absence proof;
 - `git diff --check` and clean status; and
-- one mini-retro per G/H task plus the stage-level retrospective seed.
+- one mini-retro per G/H/I task plus the stage-level retrospective seed.
 
-The designated authority reviewer verifies that no source/test/script change occurred after the exact H1 HEAD accepted by H2 and reads back the G5 ledger, exact range diff, hashes, and absence proof.
-Any identity mismatch, post-review code change, missing command evidence, or material new finding
-makes the candidate `BLOCKED`. G6 has no repair round because any code change would invalidate
-G5.
+The designated authority reviewer verifies that no source/test/script change occurred after
+the exact I1 HEAD accepted by I2 and reads back both distinct G5 ledger identities, the exact
+eleven-commit/eight-path range diff, hashes, and absence proof. The failed ledger remains
+failed history and contributes no reusable passing gate.
 
 After the readback, stop. A review-clean G6 result proves only that:
 
@@ -5301,6 +6167,9 @@ and worktree cleanup remain forbidden until a later explicit authorization.
 | G1-G3 RED | node count, outcome, or assertion marker differs | terminal `BLOCKED`; no implementation write | preregistered node manifest |
 | G4 review | finding inside six paths | one bounded fix round, then targeted re-review | actual-diff review |
 | G4 review | scope/contract expansion or second repair need | terminal `BLOCKED` | actual-diff review |
+| G5 launcher/controller | secure setup mask leaks into controller or any gate | terminal `BLOCKED`; no gate/result reuse | caller/controller/per-gate umask ledger |
+| G5 launcher/controller | umask probe times out, fails, is malformed, or exhausts the closed budget | terminal `BLOCKED`; no retry | distinct probe-status ledger under the same 3,600-second deadline |
+| replacement-root regression | root or marker mode depends on caller umask, or either replacement/marker identity is not preserved within a cleanup run | terminal `BLOCKED`; test-only authority repair required | explicit root `0o750`, marker `0o640`, and per-run `022`/`077` identity-and-marker tests |
 | G5 gate | nonzero, timeout, missing summary, or budget exhausted | terminal `BLOCKED`; no retry | command ledger |
 | G6 readback | post-review diff or evidence mismatch | terminal `BLOCKED` | final authority readback |
 
@@ -5340,14 +6209,15 @@ and worktree cleanup remain forbidden until a later explicit authorization.
 
 ### Sequential execution and rollback
 
-Execute G0, G1, G2, G3, G4, G5, and G6 sequentially. Although G1-G3 touch independent file pairs,
-they contribute to one candidate seal and one cumulative actual-diff review; parallel write lanes
-would add merge and authority ambiguity without reducing the final closed-ledger cost.
+The completed G0-G4/H0-H2 prefix remains immutable historical work. The only remaining order
+is I0 plan landing, I0 actual plan-diff review, I1 test-only repair, I2 targeted actual-diff
+review, one I3/G5 fresh controller, and G6 readback. I0 and I1 are the only new write phases.
+I2, I3/G5, and G6 cannot modify, amend, revert, or repair repository files.
 
-Before Task 8B there is no persistent data or migration to roll back. A failed implementation task
-is reverted by reverting its single semantic commit after authority review; a failed G4/G5/G6
-keeps the clean local branch as retained evidence and stops. Canonical files remain absent and no
-external publication is authorized.
+Before Task 8B there is no persistent product data or migration to roll back. Any I0-I3/G5/G6
+failure retains its exact repository and ledger evidence and stops for a separately reviewed
+authority decision. It does not authorize automatic revert, amend, retry, result reuse, or
+external publication. Canonical files remain absent.
 
 ### Public non-claims
 
