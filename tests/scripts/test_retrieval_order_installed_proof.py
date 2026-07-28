@@ -81,7 +81,21 @@ def test_installed_proof_uses_exact_same_wheel_without_build_or_discovery(
 ) -> None:
     proof = _load()
     inputs = _synthetic_inputs(tmp_path)
+    sibling = inputs["wheel"].with_name("unrelated.whl")
+    sibling.write_bytes(b"irrelevant sibling bytes")
+    original_read_bytes = Path.read_bytes
     commands: list[list[str]] = []
+    sibling_reads: list[Path] = []
+    monkeypatch.setenv(
+        "PYTHONUSERBASE",
+        str(tmp_path / "untrusted-user-site"),
+    )
+
+    def guarded_read_bytes(path: Path) -> bytes:
+        if path == sibling:
+            sibling_reads.append(path)
+            raise AssertionError("unrelated sibling wheel must not be read")
+        return original_read_bytes(path)
 
     def run(
         command: Sequence[str],
@@ -90,9 +104,22 @@ def test_installed_proof_uses_exact_same_wheel_without_build_or_discovery(
         env: dict[str, str],
         timeout_seconds: float,
     ) -> Any:
-        del cwd, env, timeout_seconds
+        del cwd, timeout_seconds
         argv = list(command)
         commands.append(argv)
+        for index, interpreter in enumerate(inputs["interpreters"]):
+            if argv[0] == str(interpreter):
+                assert argv[1:5] == ["-I", "-S", "-B", "-c"]
+                assert "PYTHONUSERBASE" not in env
+                assert "sys.version_info" in argv[5]
+                assert "mke" not in argv[5].lower()
+                return proof.CommandResult(
+                    0,
+                    json.dumps(
+                        {"major": 3, "minor": 12 + index}
+                    ).encode(),
+                    b"",
+                )
         if argv[:2] == ["uv", "venv"]:
             environment = Path(argv[2])
             installed = environment / "bin/python"
@@ -118,6 +145,7 @@ def test_installed_proof_uses_exact_same_wheel_without_build_or_discovery(
             b"",
         )
 
+    monkeypatch.setattr(Path, "read_bytes", guarded_read_bytes)
     monkeypatch.setattr(proof, "_run", run)
 
     assert proof.main([*inputs["argv"], "--json"]) == 0
@@ -141,13 +169,86 @@ def test_installed_proof_uses_exact_same_wheel_without_build_or_discovery(
     assert all(command[-1] == str(inputs["wheel"]) for command in installs)
     assert not any(command[:2] == ["uv", "build"] for command in commands)
     assert not any("*" in argument for command in commands for argument in command)
+    assert [
+        command[0] for command in commands[:2]
+    ] == [str(path) for path in inputs["interpreters"]]
+    assert sibling_reads == []
+
+
+def test_installed_proof_revalidates_bound_wheel_after_identity_probes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    proof = _load()
+    inputs = _synthetic_inputs(tmp_path)
+    commands: list[list[str]] = []
+
+    def run(
+        command: Sequence[str],
+        *,
+        cwd: Path,
+        env: dict[str, str],
+        timeout_seconds: float,
+    ) -> Any:
+        del cwd, env, timeout_seconds
+        argv = list(command)
+        commands.append(argv)
+        for index, interpreter in enumerate(inputs["interpreters"]):
+            if argv[0] == str(interpreter):
+                if index == 1:
+                    inputs["wheel"].write_bytes(
+                        b"mutated-after-receipt-validation"
+                    )
+                return proof.CommandResult(
+                    0,
+                    json.dumps(
+                        {"major": 3, "minor": 12 + index}
+                    ).encode(),
+                    b"",
+                )
+        if argv[:2] == ["uv", "venv"]:
+            return proof.CommandResult(0, b"", b"")
+        if argv[:3] == ["uv", "pip", "install"]:
+            return proof.CommandResult(0, b"", b"")
+        environment = Path(argv[0]).parents[1]
+        return proof.CommandResult(
+            0,
+            json.dumps(
+                {
+                    "distribution_version": "0.1.4",
+                    "module_file": str(
+                        environment
+                        / "lib/python/site-packages/mke/__init__.py"
+                    ),
+                    "strategy_revision": 2,
+                    "query_policy_revision": 1,
+                    "artifact_validator": True,
+                    "compatibility_validator": True,
+                }
+            ).encode(),
+            b"",
+        )
+
+    monkeypatch.setattr(proof, "_run", run)
+
+    assert proof.main([*inputs["argv"], "--json"]) == 1
+    result = json.loads(capsys.readouterr().out)
+    assert result["problem"] == "retrieval_order_shared_wheel_mismatch"
+    assert len(commands) == 2, "L5_WHEEL_RECHECK_FALSE_PASS"
+    assert not any(
+        command[:2] == ["uv", "venv"] for command in commands
+    )
+    assert not any(
+        command[:3] == ["uv", "pip", "install"]
+        for command in commands
+    )
 
 
 @pytest.mark.parametrize(
     "tamper",
     (
         "missing_wheel",
-        "multiple_wheels",
         "wrong_filename",
         "wheel_digest",
         "candidate_seal",
@@ -163,8 +264,6 @@ def test_installed_proof_rejects_preflight_without_running_commands(
     inputs = _synthetic_inputs(tmp_path)
     if tamper == "missing_wheel":
         inputs["wheel"].unlink()
-    elif tamper == "multiple_wheels":
-        inputs["wheel"].with_name("unexpected.whl").write_bytes(b"other")
     else:
         receipt_path = inputs["receipt"]
         receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
@@ -202,6 +301,150 @@ def test_installed_proof_rejects_preflight_without_running_commands(
     }
     assert result["output_state"] == "not_applicable"
     assert result["publication_outcome"] == "not_attempted"
+
+
+def test_installed_proof_rejects_nonhex_source_commit_without_subprocess(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    proof = _load()
+    inputs = _synthetic_inputs(tmp_path)
+    artifact = json.loads(
+        inputs["artifact"].read_text(encoding="utf-8")
+    )
+    candidate_seal = artifact["candidate_seal"]
+    candidate_seal["head"] = "g" * 40
+    development = json.loads(
+        inputs["development"].read_text(encoding="utf-8")
+    )
+    development["candidate_seal"] = candidate_seal
+    inputs["development"].write_text(
+        json.dumps(development),
+        encoding="utf-8",
+    )
+    holdout = json.loads(
+        inputs["holdout"].read_text(encoding="utf-8")
+    )
+    holdout["candidate_seal"] = candidate_seal
+    inputs["holdout"].write_text(
+        json.dumps(holdout),
+        encoding="utf-8",
+    )
+    artifact["candidate_seal"] = candidate_seal
+    artifact["development_freeze"]["sha256"] = hashlib.sha256(
+        inputs["development"].read_bytes()
+    ).hexdigest()
+    artifact["holdout_receipt"]["sha256"] = hashlib.sha256(
+        inputs["holdout"].read_bytes()
+    ).hexdigest()
+    inputs["artifact"].write_text(
+        json.dumps(artifact),
+        encoding="utf-8",
+    )
+    compatibility = json.loads(
+        inputs["compatibility"].read_text(encoding="utf-8")
+    )
+    authority = compatibility["canonical_authority"]
+    authority["candidate_seal"] = candidate_seal
+    authority["development_freeze"]["sha256"] = hashlib.sha256(
+        inputs["development"].read_bytes()
+    ).hexdigest()
+    authority["holdout_receipt"]["sha256"] = hashlib.sha256(
+        inputs["holdout"].read_bytes()
+    ).hexdigest()
+    authority["retrieval_artifact"]["sha256"] = hashlib.sha256(
+        inputs["artifact"].read_bytes()
+    ).hexdigest()
+    inputs["compatibility"].write_text(
+        json.dumps(compatibility),
+        encoding="utf-8",
+    )
+    receipt = json.loads(
+        inputs["receipt"].read_text(encoding="utf-8")
+    )
+    receipt["source_commit"] = "g" * 40
+    receipt["receipt_sha256"] = _canonical_sha256(
+        {
+            key: value
+            for key, value in receipt.items()
+            if key != "receipt_sha256"
+        }
+    )
+    calls: list[str] = []
+
+    def forbidden(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        calls.append("subprocess")
+        raise AssertionError("nonhex commit must fail without subprocess")
+
+    monkeypatch.setattr(proof, "_run", forbidden)
+    monkeypatch.setattr(proof.subprocess, "run", forbidden)
+
+    inputs["receipt"].write_text(
+        json.dumps(receipt),
+        encoding="utf-8",
+    )
+    assert proof.main([*inputs["argv"], "--json"]) == 1
+    result = json.loads(capsys.readouterr().out)
+    assert result["problem"] == "retrieval_order_shared_wheel_mismatch"
+    assert calls == [], "L5_NONHEX_COMMIT_FALSE_PASS"
+
+
+@pytest.mark.parametrize(
+    ("minor_versions", "case"),
+    (
+        ((12, 12), "duplicate-minor"),
+        ((11, 13), "wrong-minor"),
+    ),
+    ids=("duplicate-minor", "wrong-minor"),
+)
+def test_installed_proof_rejects_interpreter_minor_before_environment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    minor_versions: tuple[int, int],
+    case: str,
+) -> None:
+    proof = _load()
+    inputs = _synthetic_inputs(tmp_path)
+    commands: list[list[str]] = []
+
+    def run(
+        command: Sequence[str],
+        *,
+        cwd: Path,
+        env: dict[str, str],
+        timeout_seconds: float,
+    ) -> Any:
+        del cwd, env, timeout_seconds
+        argv = list(command)
+        commands.append(argv)
+        for index, interpreter in enumerate(inputs["interpreters"]):
+            if argv[0] == str(interpreter):
+                return proof.CommandResult(
+                    0,
+                    json.dumps(
+                        {
+                            "major": 3,
+                            "minor": minor_versions[index],
+                        }
+                    ).encode(),
+                    b"",
+                )
+        return proof.CommandResult(0, b"", b"")
+
+    monkeypatch.setattr(proof, "_run", run)
+
+    assert proof.main([*inputs["argv"], "--json"]) == 1
+    result = json.loads(capsys.readouterr().out)
+    assert result["problem"] == "retrieval_order_proof_preflight_invalid"
+    assert len(commands) == 2, f"L5_{case.upper().replace('-', '_')}_FALSE_PASS"
+    for index, command in enumerate(commands):
+        assert command[0] == str(inputs["interpreters"][index])
+        assert command[1:5] == ["-I", "-S", "-B", "-c"]
+        assert "sys.version_info" in command[5]
+        assert "mke" not in command[5].lower()
 
 
 def _synthetic_inputs(tmp_path: Path) -> dict[str, Any]:
@@ -358,10 +601,14 @@ def _synthetic_inputs(tmp_path: Path) -> dict[str, Any]:
     ]
     return {
         "argv": argv,
+        "interpreters": interpreters,
         "wheel": wheel,
         "wheel_sha256": wheel_sha256,
         "receipt": receipt_path,
+        "development": development,
+        "holdout": holdout,
         "artifact": artifact,
+        "compatibility": compatibility,
     }
 
 

@@ -7,7 +7,9 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
+import stat
 import subprocess
 import tempfile
 from collections.abc import Mapping, Sequence
@@ -31,8 +33,14 @@ _RECEIPT_FIELDS = {
     "receipt_sha256",
 }
 _SHA256 = frozenset("0123456789abcdef")
+_SOURCE_COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _DIRTY_ENV = frozenset(
-    {"PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"}
+    {
+        "PYTHONPATH",
+        "PYTHONHOME",
+        "PYTHONUSERBASE",
+        "VIRTUAL_ENV",
+    }
 )
 
 
@@ -60,6 +68,15 @@ class ProofInputs:
     artifact: Path
     compatibility: Path
     timeout_seconds: float
+
+
+@dataclass(frozen=True)
+class _BoundWheel:
+    path: Path
+    device: int
+    inode: int
+    size: int
+    sha256: str
 
 
 def _sha256(path: Path) -> str:
@@ -108,8 +125,8 @@ def _canonical_sha256(value: Mapping[str, object]) -> str:
 def _validate_receipt(
     receipt: dict[str, object],
     *,
-    wheel: Path,
-) -> tuple[str, str]:
+    wheel: _BoundWheel,
+) -> str:
     if set(receipt) != _RECEIPT_FIELDS:
         raise ProofError("retrieval_order_shared_wheel_mismatch")
     retained_digest = receipt["receipt_sha256"]
@@ -118,8 +135,6 @@ def _validate_receipt(
         for key, value in receipt.items()
         if key != "receipt_sha256"
     }
-    wheel_digest = _sha256(wheel)
-    sibling_wheels = tuple(wheel.parent.glob("*.whl"))
     if (
         receipt["schema_version"]
         != "mke.candidate_artifact_receipt.v1"
@@ -131,19 +146,65 @@ def _validate_receipt(
         != "mke.consumer_source_pack_proof.v1"
         or receipt["consumer_proof_status"] != "passed"
         or not isinstance(receipt["source_commit"], str)
-        or len(receipt["source_commit"]) != 40
+        or _SOURCE_COMMIT.fullmatch(receipt["source_commit"]) is None
         or not isinstance(receipt["package_version"], str)
-        or receipt["wheel_filename"] != wheel.name
-        or receipt["wheel_bytes"] != wheel.stat().st_size
-        or receipt["wheel_sha256"] != wheel_digest
-        or receipt["proof_input_wheel_sha256"] != wheel_digest
+        or receipt["wheel_filename"] != wheel.path.name
+        or receipt["wheel_bytes"] != wheel.size
+        or receipt["wheel_sha256"] != wheel.sha256
+        or receipt["proof_input_wheel_sha256"] != wheel.sha256
         or not _is_sha256(retained_digest)
         or retained_digest != _canonical_sha256(unsigned)
-        or len(sibling_wheels) != 1
-        or sibling_wheels[0].resolve() != wheel.resolve()
     ):
         raise ProofError("retrieval_order_shared_wheel_mismatch")
-    return receipt["source_commit"], wheel_digest
+    return receipt["source_commit"]
+
+
+def _wheel_state(path: Path) -> tuple[int, int, int]:
+    try:
+        state = path.lstat()
+    except OSError as error:
+        raise ProofError("retrieval_order_shared_wheel_mismatch") from error
+    if not stat.S_ISREG(state.st_mode):
+        raise ProofError("retrieval_order_shared_wheel_mismatch")
+    return state.st_dev, state.st_ino, state.st_size
+
+
+def _bind_wheel(supplied: Path) -> _BoundWheel:
+    if supplied.is_symlink():
+        raise ProofError("retrieval_order_shared_wheel_mismatch")
+    try:
+        path = supplied.resolve(strict=True)
+    except OSError as error:
+        raise ProofError("retrieval_order_shared_wheel_mismatch") from error
+    before = _wheel_state(path)
+    try:
+        digest = _sha256(path)
+    except OSError as error:
+        raise ProofError("retrieval_order_shared_wheel_mismatch") from error
+    if _wheel_state(path) != before:
+        raise ProofError("retrieval_order_shared_wheel_mismatch")
+    return _BoundWheel(
+        path=path,
+        device=before[0],
+        inode=before[1],
+        size=before[2],
+        sha256=digest,
+    )
+
+
+def _revalidate_bound_wheel(wheel: _BoundWheel) -> None:
+    expected = (wheel.device, wheel.inode, wheel.size)
+    if _wheel_state(wheel.path) != expected:
+        raise ProofError("retrieval_order_shared_wheel_mismatch")
+    try:
+        digest = _sha256(wheel.path)
+    except OSError as error:
+        raise ProofError("retrieval_order_shared_wheel_mismatch") from error
+    if (
+        digest != wheel.sha256
+        or _wheel_state(wheel.path) != expected
+    ):
+        raise ProofError("retrieval_order_shared_wheel_mismatch")
 
 
 def _identity_digest(value: object) -> str:
@@ -154,17 +215,12 @@ def _identity_digest(value: object) -> str:
     return cast(str, digest)
 
 
-def _preflight(inputs: ProofInputs) -> tuple[str, str, str]:
-    if inputs.wheel.is_symlink():
-        raise ProofError("retrieval_order_shared_wheel_mismatch")
-    try:
-        wheel = inputs.wheel.resolve(strict=True)
-    except OSError as error:
-        raise ProofError("retrieval_order_shared_wheel_mismatch") from error
-    if wheel.is_symlink() or not wheel.is_file():
-        raise ProofError("retrieval_order_shared_wheel_mismatch")
+def _preflight(
+    inputs: ProofInputs,
+) -> tuple[str, str, str, tuple[Path, Path], _BoundWheel]:
+    wheel = _bind_wheel(inputs.wheel)
     receipt = _load(inputs.candidate_receipt)
-    candidate_head, wheel_digest = _validate_receipt(
+    candidate_head = _validate_receipt(
         receipt,
         wheel=wheel,
     )
@@ -245,9 +301,23 @@ def _preflight(inputs: ProofInputs) -> tuple[str, str, str]:
         interpreters.append(interpreter)
     if interpreters[0] == interpreters[1]:
         raise ProofError("retrieval_order_proof_preflight_invalid")
-    return candidate_head, wheel_digest, cast(
-        str,
-        receipt["package_version"],
+    minor_versions = [
+        _interpreter_minor(
+            interpreter,
+            cwd=wheel.path.parent,
+            timeout_seconds=inputs.timeout_seconds,
+        )
+        for interpreter in interpreters
+    ]
+    if sorted(minor_versions) != [(3, 12), (3, 13)]:
+        raise ProofError("retrieval_order_proof_preflight_invalid")
+    _revalidate_bound_wheel(wheel)
+    return (
+        candidate_head,
+        wheel.sha256,
+        cast(str, receipt["package_version"]),
+        cast(tuple[Path, Path], tuple(interpreters)),
+        wheel,
     )
 
 
@@ -276,6 +346,55 @@ def _run(
         completed.stdout,
         completed.stderr,
     )
+
+
+def _interpreter_minor(
+    interpreter: Path,
+    *,
+    cwd: Path,
+    timeout_seconds: float,
+) -> tuple[int, int]:
+    clean_env = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in _DIRTY_ENV
+    }
+    result = _run(
+        (
+            str(interpreter),
+            "-I",
+            "-S",
+            "-B",
+            "-c",
+            (
+                "import json,sys;"
+                "print(json.dumps({"
+                "'major':sys.version_info.major,"
+                "'minor':sys.version_info.minor"
+                "},sort_keys=True,separators=(',',':')))"
+            ),
+        ),
+        cwd=cwd,
+        env=clean_env,
+        timeout_seconds=timeout_seconds,
+    )
+    try:
+        payload = _object(json.loads(result.stdout))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ProofError(
+            "retrieval_order_proof_preflight_invalid"
+        ) from error
+    major = payload.get("major")
+    minor = payload.get("minor")
+    if (
+        result.returncode != 0
+        or result.stderr
+        or set(payload) != {"major", "minor"}
+        or type(major) is not int
+        or type(minor) is not int
+    ):
+        raise ProofError("retrieval_order_proof_preflight_invalid")
+    return cast(int, major), cast(int, minor)
 
 
 def _installed_probe() -> str:
@@ -388,7 +507,13 @@ def _prove_interpreter(
 
 
 def run_proof(inputs: ProofInputs) -> dict[str, object]:
-    candidate_head, wheel_digest, package_version = _preflight(inputs)
+    (
+        candidate_head,
+        wheel_digest,
+        package_version,
+        interpreters,
+        wheel,
+    ) = _preflight(inputs)
     root = Path(tempfile.mkdtemp(prefix="mke-retrieval-order-proof-"))
     try:
         results = [
@@ -396,11 +521,11 @@ def run_proof(inputs: ProofInputs) -> dict[str, object]:
                 interpreter,
                 index=index,
                 root=root,
-                wheel=inputs.wheel.resolve(),
+                wheel=wheel.path,
                 package_version=package_version,
                 timeout_seconds=inputs.timeout_seconds,
             )
-            for index, interpreter in enumerate(inputs.interpreters)
+            for index, interpreter in enumerate(interpreters)
         ]
     finally:
         shutil.rmtree(root)

@@ -157,6 +157,16 @@ The installed proof never discovers, chooses, or rebuilds a wheel. It establishe
 - installed module, distribution, strategy revision, and query-policy revision; and
 - validator function availability under Python 3.12 and Python 3.13.
 
+The receipt `source_commit` must be exactly 40 lowercase hexadecimal characters. The proof reads
+only the explicitly supplied wheel path; unrelated adjacent wheels are ignored and never read.
+Before creating an environment or installing the wheel, it runs one bounded identity-only version
+probe per supplied executable and requires exactly one Python 3.12 minor and one Python 3.13 minor.
+Each probe uses an isolated, no-site startup and only the interpreter and Python standard library:
+it does not import MKE, execute user-site startup customization, install a package, or execute the
+installed proof. After both probes, the proof revalidates the bound explicit wheel identity, size,
+and SHA-256 before environment creation, then passes that retained physical path forward. This
+explicit recheck is not a descriptor-relative or post-recheck race-free guarantee.
+
 This proof checks validator availability only; it does not execute either validator. Canonical
 checkout content is validated separately by
 `tests/evaluation/test_retrieval_order_canonical_evidence.py`.

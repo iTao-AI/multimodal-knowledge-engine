@@ -138,7 +138,7 @@ def test_how_to_freezes_authority_mapping_and_fast_to_expensive_order() -> None:
 
 def test_how_to_states_exact_proof_and_claim_recovery_boundaries() -> None:
     text = HOW_TO.read_text(encoding="utf-8")
-    prose = " ".join(text.replace("`", "").split())
+    prose = " ".join(text.replace("`", "").split()).lower()
 
     assert (
         "uv run mke eval retrieval-numeric --protocol "
@@ -156,15 +156,25 @@ def test_how_to_states_exact_proof_and_claim_recovery_boundaries() -> None:
         "explicit wheel/receipt/input identity preflight",
         "installed module, distribution, strategy revision, and "
         "query-policy revision",
-        "validator function availability under Python 3.12 and "
-        "Python 3.13",
-        "This proof checks validator availability only; it does not "
-        "execute either validator. Canonical checkout content is "
+        "validator function availability under python 3.12 and "
+        "python 3.13",
+        "this proof checks validator availability only; it does not "
+        "execute either validator. canonical checkout content is "
         "validated separately by "
         "tests/evaluation/test_retrieval_order_canonical_evidence.py.",
         "real nonsymlink lexical ancestor chain",
-        "symlink-alias preclaim rejection is not a durable attempt",
-        "complete claim is visible, the durable attempt is terminal",
+        "any preexisting regular entry at the lexical claim slot means "
+        "the durable attempt already started",
+        "a no-replace race winner that leaves a complete regular claim "
+        "is also already-started",
+        "claim-invalid and proves that no durable attempt started",
+        "source_commit must be exactly 40 lowercase hexadecimal characters",
+        "one bounded identity-only version probe per supplied executable",
+        "exactly one python 3.12 minor and one python 3.13 minor",
+        "isolated, no-site startup",
+        "unrelated adjacent wheels are ignored and never read",
+        "revalidates the bound explicit wheel identity, size, and sha-256",
+        "not a descriptor-relative or post-recheck race-free guarantee",
     ):
         assert expected in prose
 
