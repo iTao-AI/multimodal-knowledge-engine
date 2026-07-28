@@ -12,14 +12,14 @@ COMPLETE_PUBLICATION_VERIFICATION = """
 ## Publication verification
 
 - Tag: `v0.1.5`
-- Merge commit: `1111111111111111111111111111111111111111`
-- Merge tree: `2222222222222222222222222222222222222222`
+- Merge commit: `1234567890abcdef1234567890abcdef12345678`
+- Merge tree: `234567890abcdef1234567890abcdef123456789`
 - GitHub Release URL: https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.5
-- Published timestamp: `2026-07-28T12:00:00Z`
+- Published timestamp: `2026-07-28T12:34:56Z`
 - Assets: zero
 - Hosted checks: all required checks passed on the merge commit
-- Archive descriptor SHA-256: `3333333333333333333333333333333333333333333333333333333333333333`
-- Archive manifest SHA-256: `4444444444444444444444444444444444444444444444444444444444444444`
+- Archive descriptor SHA-256: `34567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12`
+- Archive manifest SHA-256: `4567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123`
 - Archive wheel: `multimodal_knowledge_engine-0.1.5-py3-none-any.whl`
 - Git-less allowlist: passed
 - Exact-main proof: passed
@@ -440,11 +440,38 @@ Search/Ask/MCP 读取 active Publication Evidence。
         else:
             text = text.replace("0.1.4-py3", "0.1.5-py3")
             text += "\nCurrent release: v0.1.5.\n"
+            if relative == "CHANGELOG.md":
+                text = text.replace(
+                    "# Changelog\n\n",
+                    "# Changelog\n\n## [0.1.5] - 2026-07-28\n\n"
+                    "Current release: v0.1.5.\n\n",
+                    1,
+                )
+            elif relative == "docs/how-to/verify-release.md":
+                text += (
+                    "\n## Completed v0.1.4 Release Record\n\n"
+                    "Immutable historical v0.1.4 facts.\n"
+                )
         path.write_text(text, encoding="utf-8")
 
 
 def _rules(root: Path) -> set[str]:
     return {violation.rule for violation in audit_release_presentation(root)}
+
+
+def _append_current_surface_text(target: Path, addition: str) -> None:
+    text = target.read_text(encoding="utf-8").rstrip()
+    marker = None
+    if target.name == "CHANGELOG.md":
+        marker = "## [0.1.4]"
+    elif target.name == "verify-release.md":
+        marker = "## Completed v0.1.4 Release Record"
+    if marker is None:
+        updated = f"{text}\n\n{addition}\n"
+    else:
+        current, historical = text.split(marker, maxsplit=1)
+        updated = f"{current.rstrip()}\n\n{addition}\n\n{marker}{historical}\n"
+    target.write_text(updated, encoding="utf-8")
 
 
 def test_audit_accepts_complete_release_presentation(tmp_path: Path) -> None:
@@ -507,6 +534,7 @@ def test_audit_rejects_v015_affirmative_or_wrapped_overclaims(
         "Search is not exhaustive and does not return total counts.",
         "Dense, RRF, and reranker are not runtime features.",
         "Cold-cache and empty-machine offline installation are not claimed.",
+        "MKE does not provide production deployment, real-user adoption, or business value.",
         "GraphRAG, OCR runtime, an Agent loop, HTTP/SaaS, providers, PyPI, and uploaded assets "
         "remain excluded.",
     ],
@@ -525,12 +553,16 @@ def test_audit_preserves_v015_negated_non_claims(
     assert "v015_release_overclaim" not in _rules(tmp_path)
 
 
-def test_audit_accepts_absent_or_complete_publication_verification(
+def test_audit_accepts_absent_publication_verification(tmp_path: Path) -> None:
+    _write_release_tree(tmp_path)
+
+    assert "v015_publication_verification" not in _rules(tmp_path)
+
+
+def test_audit_accepts_shape_valid_complete_publication_verification(
     tmp_path: Path,
 ) -> None:
     _write_release_tree(tmp_path)
-    assert "v015_publication_verification" not in _rules(tmp_path)
-
     target = tmp_path / "docs/releases/v0.1.5.md"
     target.write_text(
         f"{target.read_text(encoding='utf-8').rstrip()}\n\n"
@@ -542,34 +574,152 @@ def test_audit_accepts_absent_or_complete_publication_verification(
 
 
 @pytest.mark.parametrize(
-    "required_field",
+    ("old", "new"),
     [
-        "Tag:",
-        "Merge commit:",
-        "Merge tree:",
-        "GitHub Release URL:",
-        "Published timestamp:",
-        "Assets: zero",
-        "Hosted checks:",
-        "Archive descriptor SHA-256:",
-        "Archive manifest SHA-256:",
-        "Archive wheel:",
-        "Git-less allowlist:",
-        "Exact-main proof:",
-        "Canonical evidence hashes:",
-        "Temporary compatibility:",
-        "seven families",
-        "all six delta classes zero",
-        "Limitations and non-claims:",
+        ("- Tag: `v0.1.5`", "- Tag: `v0.1.4`"),
+        (
+            "- Merge commit: `1234567890abcdef1234567890abcdef12345678`",
+            "- Merge commit: `not-a-commit`",
+        ),
+        (
+            "- Merge commit: `1234567890abcdef1234567890abcdef12345678`",
+            "- Merge commit: `1234567890ABCDEF1234567890ABCDEF12345678`",
+        ),
+        (
+            "- Merge tree: `234567890abcdef1234567890abcdef123456789`",
+            "- Merge tree: `234567890abcdef1234567890abcdef12345678`",
+        ),
+        (
+            "- GitHub Release URL: "
+            "https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.5",
+            "- GitHub Release URL: "
+            "https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.4",
+        ),
+        (
+            "- Published timestamp: `2026-07-28T12:34:56Z`",
+            "- Published timestamp: `2026-07-28 12:34:56+00:00`",
+        ),
+        ("- Assets: zero", "- Assets: one"),
+        (
+            "- Archive descriptor SHA-256: "
+            "`34567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12`",
+            "- Archive descriptor SHA-256: `x`",
+        ),
+        (
+            "- Archive manifest SHA-256: "
+            "`4567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123`",
+            "- Archive manifest SHA-256: "
+            "`4567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF123`",
+        ),
+        (
+            "- Archive wheel: `multimodal_knowledge_engine-0.1.5-py3-none-any.whl`",
+            "- Archive wheel: `multimodal_knowledge_engine-0.1.4-py3-none-any.whl`",
+        ),
+        (
+            "- Hosted checks: all required checks passed on the merge commit",
+            "- Hosted checks:",
+        ),
+        ("- Git-less allowlist: passed", "- Git-less allowlist:"),
+        ("- Exact-main proof: passed", "- Exact-main proof:"),
+        ("- Canonical evidence hashes: unchanged", "- Canonical evidence hashes:"),
+        (
+            "- Temporary compatibility: seven families with all six delta classes zero",
+            "- Temporary compatibility:",
+        ),
+        (
+            "- Limitations and non-claims: "
+            "no retrieval-quality, performance, deployment, or adoption claim",
+            "- Limitations and non-claims:",
+        ),
     ],
 )
-def test_audit_rejects_partial_publication_verification(
+def test_audit_rejects_malformed_or_empty_publication_facts(
     tmp_path: Path,
-    required_field: str,
+    old: str,
+    new: str,
 ) -> None:
     _write_release_tree(tmp_path)
     target = tmp_path / "docs/releases/v0.1.5.md"
-    incomplete = COMPLETE_PUBLICATION_VERIFICATION.replace(required_field, "", 1)
+    malformed = COMPLETE_PUBLICATION_VERIFICATION.replace(old, new, 1)
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{malformed.strip()}\n",
+        encoding="utf-8",
+    )
+
+    assert "v015_publication_verification" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "label",
+    [
+        "Tag",
+        "Merge commit",
+        "Merge tree",
+        "GitHub Release URL",
+        "Published timestamp",
+        "Assets",
+        "Hosted checks",
+        "Archive descriptor SHA-256",
+        "Archive manifest SHA-256",
+        "Archive wheel",
+        "Git-less allowlist",
+        "Exact-main proof",
+        "Canonical evidence hashes",
+        "Temporary compatibility",
+        "Limitations and non-claims",
+    ],
+)
+def test_audit_rejects_duplicate_publication_labels(
+    tmp_path: Path,
+    label: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "docs/releases/v0.1.5.md"
+    duplicate = next(
+        line
+        for line in COMPLETE_PUBLICATION_VERIFICATION.splitlines()
+        if line.startswith(f"- {label}:")
+    )
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n"
+        f"{COMPLETE_PUBLICATION_VERIFICATION.strip()}\n{duplicate}\n",
+        encoding="utf-8",
+    )
+
+    assert "v015_publication_verification" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "label",
+    [
+        "Tag",
+        "Merge commit",
+        "Merge tree",
+        "GitHub Release URL",
+        "Published timestamp",
+        "Assets",
+        "Hosted checks",
+        "Archive descriptor SHA-256",
+        "Archive manifest SHA-256",
+        "Archive wheel",
+        "Git-less allowlist",
+        "Exact-main proof",
+        "Canonical evidence hashes",
+        "Temporary compatibility",
+        "Limitations and non-claims",
+    ],
+)
+def test_audit_rejects_missing_publication_labels(
+    tmp_path: Path,
+    label: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "docs/releases/v0.1.5.md"
+    incomplete = "\n".join(
+        line
+        for line in COMPLETE_PUBLICATION_VERIFICATION.splitlines()
+        if not line.startswith(f"- {label}:")
+    )
     target.write_text(
         f"{target.read_text(encoding='utf-8').rstrip()}\n\n{incomplete.strip()}\n",
         encoding="utf-8",
@@ -579,25 +729,133 @@ def test_audit_rejects_partial_publication_verification(
 
 
 @pytest.mark.parametrize(
-    "placeholder",
-    ["TBD", "TODO", "<placeholder>", "to be filled", "0" * 40],
+    "invalid_value",
+    ["TBD", "TODO", "<placeholder>", "to be filled", "x" * 501],
 )
-def test_audit_rejects_publication_verification_placeholders(
+def test_audit_rejects_placeholder_or_unbounded_publication_values(
     tmp_path: Path,
-    placeholder: str,
+    invalid_value: str,
 ) -> None:
     _write_release_tree(tmp_path)
     target = tmp_path / "docs/releases/v0.1.5.md"
-    publication = COMPLETE_PUBLICATION_VERIFICATION.replace(
-        "1111111111111111111111111111111111111111",
-        placeholder,
+    malformed = COMPLETE_PUBLICATION_VERIFICATION.replace(
+        "all required checks passed on the merge commit",
+        invalid_value,
     )
     target.write_text(
-        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{publication.strip()}\n",
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{malformed.strip()}\n",
         encoding="utf-8",
     )
 
     assert "v015_publication_verification" in _rules(tmp_path)
+
+
+def test_audit_rejects_retained_malformed_publication_diagnostic(
+    tmp_path: Path,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "docs/releases/v0.1.5.md"
+    malformed = (
+        COMPLETE_PUBLICATION_VERIFICATION.replace(
+            "`1234567890abcdef1234567890abcdef12345678`",
+            "`not-a-commit`",
+        )
+        .replace(
+            "`34567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12`",
+            "`x`",
+        )
+        .replace(
+            "- Hosted checks: all required checks passed on the merge commit",
+            "- Hosted checks:",
+        )
+    )
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{malformed.strip()}\n",
+        encoding="utf-8",
+    )
+
+    assert "v015_publication_verification" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "README.md",
+        "README_CN.md",
+        "docs/README.md",
+        "CHANGELOG.md",
+        "docs/releases/v0.1.5.md",
+        "docs/how-to/verify-release.md",
+    ],
+)
+def test_audit_rejects_current_overclaim_on_every_release_facing_surface(
+    tmp_path: Path,
+    path: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / path
+    _append_current_surface_text(
+        target,
+        "This release improves recall and throughput.",
+    )
+
+    violations = audit_release_presentation(tmp_path)
+    assert any(
+        violation.rule == "v015_release_overclaim" and violation.file == path
+        for violation in violations
+    )
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "README.md",
+        "README_CN.md",
+        "docs/README.md",
+        "CHANGELOG.md",
+        "docs/releases/v0.1.5.md",
+        "docs/how-to/verify-release.md",
+    ],
+)
+def test_audit_accepts_matched_negated_control_on_every_current_surface(
+    tmp_path: Path,
+    path: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / path
+    _append_current_surface_text(
+        target,
+        "This release does not improve recall or throughput.",
+    )
+
+    assert not any(
+        violation.rule == "v015_release_overclaim" and violation.file == path
+        for violation in audit_release_presentation(tmp_path)
+    )
+
+
+@pytest.mark.parametrize("path", ["CHANGELOG.md", "docs/how-to/verify-release.md"])
+def test_audit_does_not_treat_historical_v014_record_as_current_overclaim(
+    tmp_path: Path,
+    path: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / path
+    text = target.read_text(encoding="utf-8")
+    if path == "CHANGELOG.md":
+        text = text.replace(
+            "## [0.1.4]",
+            "## [0.1.4]\n\nThis release improves recall and throughput.",
+            1,
+        )
+    else:
+        text += "\nThis release improves recall and throughput.\n"
+    target.write_text(text, encoding="utf-8")
+
+    assert not any(
+        violation.rule == "v015_release_overclaim" and violation.file == path
+        for violation in audit_release_presentation(tmp_path)
+    )
 
 
 def test_audit_rejects_version_mismatch(tmp_path: Path) -> None:

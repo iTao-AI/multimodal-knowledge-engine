@@ -1036,7 +1036,6 @@ def _audit_v015_contract(root: Path) -> list[Violation]:
                 message="v0.1.5 release note must preserve the exact current contract",
             )
         )
-    normalized = " ".join(release.split())
     affirmative_overclaims = (
         re.compile(
             r"\b(?<!not )(?:improves?|improved|increases?|better) "
@@ -1069,8 +1068,9 @@ def _audit_v015_contract(root: Path) -> list[Violation]:
             re.IGNORECASE,
         ),
         re.compile(
-            r"\b(?:is deployed in production|user adoption|has production adoption|"
-            r"business value)\b",
+            r"\b(?:is deployed in production|has (?:real-)?user adoption|"
+            r"shows? (?:real-)?user adoption|has production adoption|"
+            r"delivers? business value)\b",
             re.IGNORECASE,
         ),
         re.compile(r"\bgraphrag ships in this release\b", re.IGNORECASE),
@@ -1084,14 +1084,31 @@ def _audit_v015_contract(root: Path) -> list[Violation]:
             re.IGNORECASE,
         ),
     )
-    if any(pattern.search(normalized) for pattern in affirmative_overclaims):
-        violations.append(
-            Violation(
-                file="docs/releases/v0.1.5.md",
-                rule="v015_release_overclaim",
-                message="v0.1.5 release note contains an affirmative excluded claim",
+    for file_name in RELEASE_FACING_FILES:
+        text = _read_text(root, file_name)
+        if file_name == "CHANGELOG.md":
+            current_heading = re.search(r"(?m)^## \[0\.1\.5\](?: .*)?$", text)
+            if current_heading is not None:
+                text = text[current_heading.end() :]
+                historical_heading = re.search(r"(?m)^## \[0\.1\.4\](?: .*)?$", text)
+                if historical_heading is not None:
+                    text = text[: historical_heading.start()]
+        elif file_name == "docs/how-to/verify-release.md":
+            historical_heading = re.search(
+                r"(?m)^## Completed v0\.1\.4 Release Record\s*$",
+                text,
             )
-        )
+            if historical_heading is not None:
+                text = text[: historical_heading.start()]
+        normalized = " ".join(text.split())
+        if any(pattern.search(normalized) for pattern in affirmative_overclaims):
+            violations.append(
+                Violation(
+                    file=file_name,
+                    rule="v015_release_overclaim",
+                    message="current v0.1.5 surface contains an affirmative excluded claim",
+                )
+            )
 
     publication_heading = re.search(
         r"(?m)^## Publication verification\s*$",
@@ -1102,33 +1119,93 @@ def _audit_v015_contract(root: Path) -> list[Violation]:
         next_heading = re.search(r"(?m)^## ", publication)
         if next_heading is not None:
             publication = publication[: next_heading.start()]
-        publication_fields = (
-            "Tag:",
-            "Merge commit:",
-            "Merge tree:",
-            "GitHub Release URL:",
-            "Published timestamp:",
-            "Assets: zero",
-            "Hosted checks:",
-            "Archive descriptor SHA-256:",
-            "Archive manifest SHA-256:",
-            "Archive wheel:",
-            "Git-less allowlist:",
-            "Exact-main proof:",
-            "Canonical evidence hashes:",
-            "Temporary compatibility:",
-            "seven families",
-            "all six delta classes zero",
-            "Limitations and non-claims:",
+        field_names = (
+            "Tag",
+            "Merge commit",
+            "Merge tree",
+            "GitHub Release URL",
+            "Published timestamp",
+            "Assets",
+            "Hosted checks",
+            "Archive descriptor SHA-256",
+            "Archive manifest SHA-256",
+            "Archive wheel",
+            "Git-less allowlist",
+            "Exact-main proof",
+            "Canonical evidence hashes",
+            "Temporary compatibility",
+            "Limitations and non-claims",
         )
         placeholders = re.compile(
             r"\b(?:tbd|todo|to be filled|to be created|placeholder)\b"
             r"|<placeholder>|(?<![0-9a-f])0{40}(?![0-9a-f])",
             re.IGNORECASE,
         )
-        if not _contains_all_terms(publication, publication_fields) or placeholders.search(
-            publication
-        ):
+        bullet = re.compile(r"^- ([^:\n]+):[ \t]*(.*)$")
+        nonempty_lines = [line for line in publication.splitlines() if line.strip()]
+        parsed = [match for line in nonempty_lines if (match := bullet.fullmatch(line))]
+        values: dict[str, str] = {}
+        duplicate = False
+        for match in parsed:
+            label, value = match.groups()
+            if label in values:
+                duplicate = True
+            values[label] = value.strip()
+
+        def unquote(value: str) -> str:
+            if len(value) >= 2 and value.startswith("`") and value.endswith("`"):
+                return value[1:-1]
+            return value
+
+        bounded_fields = (
+            "Hosted checks",
+            "Git-less allowlist",
+            "Exact-main proof",
+            "Canonical evidence hashes",
+            "Temporary compatibility",
+            "Limitations and non-claims",
+        )
+        shape_valid = (
+            len(parsed) == len(nonempty_lines)
+            and not duplicate
+            and set(values) == set(field_names)
+            and unquote(values.get("Tag", "")) == "v0.1.5"
+            and re.fullmatch(r"[0-9a-f]{40}", unquote(values.get("Merge commit", "")))
+            is not None
+            and re.fullmatch(r"[0-9a-f]{40}", unquote(values.get("Merge tree", "")))
+            is not None
+            and values.get("GitHub Release URL")
+            == (
+                "https://github.com/iTao-AI/multimodal-knowledge-engine/"
+                "releases/tag/v0.1.5"
+            )
+            and re.fullmatch(
+                r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z",
+                unquote(values.get("Published timestamp", "")),
+            )
+            is not None
+            and values.get("Assets") == "zero"
+            and re.fullmatch(
+                r"[0-9a-f]{64}",
+                unquote(values.get("Archive descriptor SHA-256", "")),
+            )
+            is not None
+            and re.fullmatch(
+                r"[0-9a-f]{64}",
+                unquote(values.get("Archive manifest SHA-256", "")),
+            )
+            is not None
+            and unquote(values.get("Archive wheel", ""))
+            == "multimodal_knowledge_engine-0.1.5-py3-none-any.whl"
+            and all(
+                0 < len(values.get(field, "")) <= 500 for field in bounded_fields
+            )
+            and "seven families" in values.get("Temporary compatibility", "")
+            and "all six delta classes zero"
+            in values.get("Temporary compatibility", "")
+            and placeholders.search(publication) is None
+        )
+        if not shape_valid:
             violations.append(
                 Violation(
                     file="docs/releases/v0.1.5.md",
