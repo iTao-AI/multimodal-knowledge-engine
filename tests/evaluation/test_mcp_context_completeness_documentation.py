@@ -5,6 +5,8 @@ from pathlib import Path
 REFERENCE = Path("docs/reference/mcp-contract.md")
 HOW_TO = Path("docs/how-to/use-mke-mcp.md")
 PROOF = Path("docs/how-to/run-mcp-context-completeness-proof.md")
+CLI = Path("docs/reference/cli.md")
+VERIFY = Path("docs/how-to/verify-release.md")
 
 
 def test_canonical_reference_documents_complete_ten_tool_contract() -> None:
@@ -85,3 +87,22 @@ def test_proof_how_to_is_safe_and_public_neutral() -> None:
         "performance",
     ):
         assert literal in text
+
+
+def test_current_cli_inventory_and_release_proof_codes_are_complete() -> None:
+    cli = CLI.read_text(encoding="utf-8")
+    verify = VERIFY.read_text(encoding="utf-8")
+    for tool in (
+        "list_libraries", "ingest_file", "get_run", "search_library", "ask_library",
+        "list_libraries_v1", "search_library_v1", "ask_library_v1",
+        "search_library_v2", "read_evidence_v1",
+    ):
+        assert tool in cli
+    for code in (
+        "candidate_artifact_invalid",
+        "fixture_setup_failed",
+        "venv_failed",
+        "wheel_unavailable",
+    ):
+        assert code in verify
+    assert "mke --db <library.sqlite3> mcp --allowed-root <directory>" in cli

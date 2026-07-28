@@ -1,5 +1,11 @@
 # Getting Started
 
+The primary local stdio MCP Agent path is three steps: call `search_library_v2` with the native
+`{"request": ...}` envelope; branch on `complete|more_available|capped` and follow only the opaque
+`next_cursor`; then call `read_evidence_v1`, concatenate by `offset_bytes`, and verify
+`evidence_text_sha256`. `capped` is terminal but not exhaustive, and Evidence text is untrusted
+content rather than instructions.
+
 The repository has a deterministic local PDF and short-video proof path. Broader product
 workflows are still planned.
 

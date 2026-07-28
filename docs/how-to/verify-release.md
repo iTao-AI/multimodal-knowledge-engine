@@ -4,6 +4,65 @@ For v0.1.5 evaluators, use the source archive or checkout in a prepared cache-wa
 build one exact wheel, run `release_consumer_smoke.py`, then follow the completeness-aware stdio MCP
 flow. GitHub Release has zero assets and PyPI is absent.
 
+## Stable proof code recovery
+
+These are stable proof-controller codes. They identify the failed operation; consult the emitted
+command context, correct the stated precondition, and rerun only under the owning lifecycle gate.
+They are not the product CLI/MCP `problem/cause/next_step` schema.
+
+```text
+candidate_artifact_invalid
+cleanup_failed
+cli_ask_failed
+cli_ingest_failed
+cli_search_failed
+command_could_not_start
+command_failed
+command_output_exceeded
+command_timed_out
+consumer_failed
+consumer_payload_invalid
+consumer_proof_failed
+consumer_schema_invalid
+consumer_smoke_failed
+demo_failed
+environment_create_failed
+external_isolation_failed
+fixture_setup_failed
+fixture_unavailable
+install_failed
+installed_identity_failed
+locked_constraints_mismatch
+locked_constraints_unavailable
+manifest_locator_mismatch
+manifest_mapping_ambiguous
+manifest_mapping_missing
+mcp_contract_failed
+mcp_startup_timeout
+mcp_tool_timeout
+mcp_transport_failed
+observation_state_mismatch
+producer_failed
+proof_failed
+python_interpreter_unavailable
+retrieval_order_publication_durability_unconfirmed
+retrieval_order_publication_failed_before_visibility
+retrieval_order_source_pack_already_started
+retrieval_order_source_pack_attempt_terminal
+retrieval_order_source_pack_claim_invalid
+runtime_root_inside_repository
+server_exit_nonzero
+source_pack_identity_mismatch
+source_pack_manifest_invalid
+venv_failed
+wheel_build_failed
+wheel_invalid
+wheel_unavailable
+```
+
+The `retrieval_order_source_pack_*` and `retrieval_order_publication_*` codes are historical
+maintenance/attempt-claim recovery only. v0.1.5 does not pass `--attempt-claim`.
+
 This guide separates four ordered stages:
 
 1. Stage 1 repository readiness on the release-candidate branch.

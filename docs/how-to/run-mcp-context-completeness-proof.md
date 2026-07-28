@@ -1,5 +1,10 @@
 # Run The MCP Context Completeness Proof
 
+The proof covers the exact ten-tool inventory, bounded continuation, exact active Evidence reads,
+legacy/v1 compatibility, and cache-warmed offline execution on Python 3.12 and 3.13. Stable failure
+codes map to operator actions in [Verify The Release](./verify-release.md); proof JSON is not
+relabelled as the product `problem/cause/next_step` contract.
+
 Use this proof to verify one locally built wheel through the locked official MCP SDK on
 Python 3.12 and Python 3.13. Both interpreters and all lock-derived packages must already be present in
 the local uv cache. The proof runs with `UV_OFFLINE=1`; it does not install globally or download
