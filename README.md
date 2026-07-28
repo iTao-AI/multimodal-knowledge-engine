@@ -2,6 +2,11 @@
 
 [English](./README.md) | [中文](./README_CN.md)
 
+`v0.1.5` makes the completeness-aware local stdio MCP Agent path current:
+`search_library_v2` reports bounded selection completeness and `read_evidence_v1` reconstructs
+exact active Evidence with a final digest. Equal-score ordering is deterministic; this is not a
+relevance-improvement or runtime-promotion claim. See [v0.1.5](./docs/releases/v0.1.5.md).
+
 Multimodal Knowledge Engine is a local-first, Agent-callable Evidence engine for ingesting,
 searching, and asking questions over documents and media. It keeps source processing, Publication
 activation, retrieval, and Agent-facing interfaces inside one verifiable local application boundary.
@@ -149,7 +154,7 @@ uv run mke proof run
 uv run mke demo --verify
 uv run python scripts/release_presentation_audit.py --root .
 uv run python scripts/release_consumer_smoke.py \
-  --wheel dist/multimodal_knowledge_engine-0.1.4-py3-none-any.whl --json
+  --wheel dist/multimodal_knowledge_engine-0.1.5-py3-none-any.whl --json
 ```
 
 ## Local Knowledge Proof
@@ -289,7 +294,7 @@ business adoption, or real-user outcomes.
 
 ## Documentation
 
-- [Release notes](./docs/releases/v0.1.4.md)
+- [Release notes](./docs/releases/v0.1.5.md)
 - [Verify The Release](./docs/how-to/verify-release.md)
 - [Documentation index](./docs/README.md)
 - [Run The Local Product Proof](./docs/how-to/run-local-product-proof.md)
@@ -325,7 +330,7 @@ for responsible vulnerability reporting.
 ## License
 
 MIT. See [LICENSE](./LICENSE).
-# MCP context completeness
+## MCP context completeness
 
 The canonical ten-tool inventory, completeness semantics, exact Evidence read contract, and stable
 recovery operations are documented in the

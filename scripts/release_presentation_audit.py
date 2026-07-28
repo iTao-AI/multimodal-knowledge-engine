@@ -8,9 +8,10 @@ import sys
 import tomllib
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
 
-EXPECTED_VERSION = "0.1.4"
+EXPECTED_VERSION = "0.1.5"
 RUNTIME_STRATEGY = "cjk-active-scan-overlap-v1"
 
 RELEASE_FACING_FILES = (
@@ -18,7 +19,7 @@ RELEASE_FACING_FILES = (
     "README_CN.md",
     "docs/README.md",
     "CHANGELOG.md",
-    "docs/releases/v0.1.4.md",
+    "docs/releases/v0.1.5.md",
     "docs/how-to/verify-release.md",
 )
 COMPILED_LIBRARY_CLAIM_FILES = (
@@ -67,16 +68,17 @@ STALE_TERMINAL_ASR_DENIAL_PATTERNS = (
 )
 RELEASE_NOTE_FILES = (
     "CHANGELOG.md",
-    "docs/releases/v0.1.4.md",
+    "docs/releases/v0.1.5.md",
 )
 HISTORICAL_RELEASE_FILES = (
     "docs/releases/v0.1.2.md",
     "docs/releases/v0.1.3.md",
+    "docs/releases/v0.1.4.md",
 )
 CONSUMER_SMOKE_COMMAND_FILES = (
     "README.md",
     "README_CN.md",
-    "docs/releases/v0.1.4.md",
+    "docs/releases/v0.1.5.md",
     "docs/how-to/verify-release.md",
 )
 CURRENT_BUILD_WHEEL_COMMAND_FILES = (
@@ -1004,17 +1006,251 @@ def _audit_stale_status(root: Path, files: Iterable[str]) -> list[Violation]:
     return violations
 
 
+def _audit_v015_contract(root: Path) -> list[Violation]:
+    release = _read_text(root, "docs/releases/v0.1.5.md")
+    required = (
+        "search_library_v2",
+        "complete",
+        "more_available",
+        "capped",
+        "read_evidence_v1",
+        "evidence_text_sha256",
+        "active Publication",
+        "ten tools",
+        "deterministic",
+        "Source-byte-bound",
+        "revision 2",
+        "legacy",
+        "v1",
+        "no runtime promotion",
+        "source archive or checkout",
+        "zero assets",
+        "no PyPI",
+        "cache-warmed",
+    )
+    violations: list[Violation] = []
+    if not _contains_all_terms(release, required):
+        violations.append(
+            Violation(
+                file="docs/releases/v0.1.5.md",
+                rule="v015_release_contract",
+                message="v0.1.5 release note must preserve the exact current contract",
+            )
+        )
+    affirmative_overclaims = (
+        re.compile(
+            r"\b(?<!not )(?:improves?|improved|increases?|better) "
+            r"(?:relevance|recall|precision|latency|throughput)\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:faster (?:agent )?retrieval|lower latency|higher throughput)\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:search is exhaustive|exhaustive across the corpus|"
+            r"(?<!not )returns? total counts?)\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:segmentation|contextual[- ]retrieval quality).{0,24}"
+            r"\b(?:is |are |was |were )?improved\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:offline installation works (?:from|on) an empty machine|"
+            r"offline installation works with a cold cache|"
+            r"empty machine with a cold cache)\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:dense retrieval|rrf|(?:the )?reranker) "
+            r"(?:is|are) promoted into the runtime\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:is deployed in production|has (?:real-)?user adoption|"
+            r"shows? (?:real-)?user adoption|has production adoption|"
+            r"delivers? business value)\b",
+            re.IGNORECASE,
+        ),
+        re.compile(r"\bgraphrag ships in this release\b", re.IGNORECASE),
+        re.compile(r"\bocr runtime ships in this release\b", re.IGNORECASE),
+        re.compile(r"\ban agent loop ships in this release\b", re.IGNORECASE),
+        re.compile(r"\bhttp/saas ships in this release\b", re.IGNORECASE),
+        re.compile(r"\ba new provider ships in this release\b", re.IGNORECASE),
+        re.compile(r"\b(?:is|was) published on pypi\b", re.IGNORECASE),
+        re.compile(
+            r"\buploaded release assets are included\b",
+            re.IGNORECASE,
+        ),
+    )
+    for file_name in RELEASE_FACING_FILES:
+        text = _read_text(root, file_name)
+        if file_name == "CHANGELOG.md":
+            current_heading = re.search(r"(?m)^## \[0\.1\.5\](?: .*)?$", text)
+            if current_heading is not None:
+                text = text[current_heading.end() :]
+                historical_heading = re.search(r"(?m)^## \[0\.1\.4\](?: .*)?$", text)
+                if historical_heading is not None:
+                    text = text[: historical_heading.start()]
+        elif file_name == "docs/how-to/verify-release.md":
+            historical_heading = re.search(
+                r"(?m)^## Completed v0\.1\.4 Release Record\s*$",
+                text,
+            )
+            if historical_heading is not None:
+                text = text[: historical_heading.start()]
+        normalized = " ".join(text.split())
+        if any(pattern.search(normalized) for pattern in affirmative_overclaims):
+            violations.append(
+                Violation(
+                    file=file_name,
+                    rule="v015_release_overclaim",
+                    message="current v0.1.5 surface contains an affirmative excluded claim",
+                )
+            )
+
+    publication_heading = re.search(
+        r"(?m)^## Publication verification\s*$",
+        release,
+    )
+    if publication_heading is not None:
+        publication = release[publication_heading.end() :]
+        next_heading = re.search(r"(?m)^## ", publication)
+        if next_heading is not None:
+            publication = publication[: next_heading.start()]
+        field_names = (
+            "Tag",
+            "Merge commit",
+            "Merge tree",
+            "GitHub Release URL",
+            "Published timestamp",
+            "Assets",
+            "Hosted checks",
+            "Archive descriptor SHA-256",
+            "Archive manifest SHA-256",
+            "Archive wheel",
+            "Git-less allowlist",
+            "Exact-main proof",
+            "Canonical evidence hashes",
+            "Temporary compatibility",
+            "Limitations and non-claims",
+        )
+        placeholders = re.compile(
+            r"\b(?:tbd|todo|to be filled|to be created|placeholder)\b"
+            r"|<placeholder>|(?<![0-9a-f])0{40}(?![0-9a-f])",
+            re.IGNORECASE,
+        )
+        bullet = re.compile(r"^- ([^:\n]+):[ \t]*(.*)$")
+        nonempty_lines = [line for line in publication.splitlines() if line.strip()]
+        parsed = [match for line in nonempty_lines if (match := bullet.fullmatch(line))]
+        values: dict[str, str] = {}
+        duplicate = False
+        for match in parsed:
+            label, value = match.groups()
+            if label in values:
+                duplicate = True
+            values[label] = value.strip()
+
+        def decode(value: str) -> str:
+            value = value.strip()
+            if len(value) >= 2 and value.startswith("`") and value.endswith("`"):
+                value = value[1:-1]
+            return value.strip()
+
+        def valid_identity(value: str, length: int) -> bool:
+            decoded = decode(value)
+            return (
+                re.fullmatch(rf"[0-9a-f]{{{length}}}", decoded) is not None
+                and set(decoded) != {"0"}
+            )
+
+        def valid_utc_timestamp(value: str) -> bool:
+            decoded = decode(value)
+            if re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", decoded) is None:
+                return False
+            try:
+                datetime.strptime(decoded, "%Y-%m-%dT%H:%M:%SZ")
+            except ValueError:
+                return False
+            return True
+
+        bounded_fields = (
+            "Hosted checks",
+            "Git-less allowlist",
+            "Exact-main proof",
+            "Canonical evidence hashes",
+            "Temporary compatibility",
+            "Limitations and non-claims",
+        )
+        shape_valid = (
+            len(parsed) == len(nonempty_lines)
+            and not duplicate
+            and set(values) == set(field_names)
+            and decode(values.get("Tag", "")) == "v0.1.5"
+            and valid_identity(values.get("Merge commit", ""), 40)
+            and valid_identity(values.get("Merge tree", ""), 40)
+            and values.get("GitHub Release URL")
+            == (
+                "https://github.com/iTao-AI/multimodal-knowledge-engine/"
+                "releases/tag/v0.1.5"
+            )
+            and valid_utc_timestamp(values.get("Published timestamp", ""))
+            and values.get("Assets") == "zero"
+            and valid_identity(values.get("Archive descriptor SHA-256", ""), 64)
+            and valid_identity(values.get("Archive manifest SHA-256", ""), 64)
+            and decode(values.get("Archive wheel", ""))
+            == "multimodal_knowledge_engine-0.1.5-py3-none-any.whl"
+            and all(
+                0 < len(decode(values.get(field, ""))) <= 500
+                for field in bounded_fields
+            )
+            and "seven families" in decode(values.get("Temporary compatibility", ""))
+            and "all six delta classes zero"
+            in decode(values.get("Temporary compatibility", ""))
+            and placeholders.search(publication) is None
+        )
+        if not shape_valid:
+            violations.append(
+                Violation(
+                    file="docs/releases/v0.1.5.md",
+                    rule="v015_publication_verification",
+                    message=(
+                        "Publication verification must contain the complete immutable "
+                        "public field inventory without placeholders"
+                    ),
+                )
+            )
+    for file_name in ENTRY_POINT_FILES:
+        text = _read_text(root, file_name)
+        if len(re.findall(r"(?m)^# ", text)) != 1:
+            violations.append(
+                Violation(
+                    file=file_name,
+                    rule="single_h1",
+                    message="current entry point must contain exactly one H1",
+                )
+            )
+    return violations
+
+
 def _audit_consumer_smoke_wheel_selection(
     root: Path,
     files: Iterable[str],
 ) -> list[Violation]:
     violations: list[Violation] = []
-    exact_wheel = "dist/multimodal_knowledge_engine-0.1.4-py3-none-any.whl"
+    exact_wheel = "dist/multimodal_knowledge_engine-0.1.5-py3-none-any.whl"
     for file_name in files:
         text = _read_text(root, file_name)
         current_text = text
         if file_name == "docs/how-to/verify-release.md" and "## Stage 1" in text:
             current_text = text.split("## Stage 1", maxsplit=1)[1]
+            if "## Completed v0.1.4 Release Record" in current_text:
+                current_text = current_text.split(
+                    "## Completed v0.1.4 Release Record",
+                    maxsplit=1,
+                )[0]
         if exact_wheel not in current_text:
             violations.append(
                 Violation(
@@ -1043,7 +1279,7 @@ def _audit_consumer_smoke_wheel_selection(
 
 def _audit_current_build_wheel_selection(root: Path) -> list[Violation]:
     violations: list[Violation] = []
-    current_wheel = "multimodal_knowledge_engine-0.1.4-py3-none-any.whl"
+    current_wheel = "multimodal_knowledge_engine-0.1.5-py3-none-any.whl"
     stale_wheel = "multimodal_knowledge_engine-0.1.3-py3-none-any.whl"
     for file_name in CURRENT_BUILD_WHEEL_COMMAND_FILES:
         text = _read_text(root, file_name)
@@ -1164,6 +1400,7 @@ def audit_release_presentation(root: Path) -> list[Violation]:
     violations.extend(_audit_release_notes_links(root))
     violations.extend(_audit_v013_contract(root))
     violations.extend(_audit_v014_contract(root))
+    violations.extend(_audit_v015_contract(root))
     violations.extend(_audit_stale_status(root, release_files))
     violations.extend(_audit_consumer_smoke_wheel_selection(root, CONSUMER_SMOKE_COMMAND_FILES))
     violations.extend(_audit_current_build_wheel_selection(root))
@@ -1173,7 +1410,7 @@ def audit_release_presentation(root: Path) -> list[Violation]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Audit v0.1.4 release presentation docs.")
+    parser = argparse.ArgumentParser(description="Audit v0.1.5 release presentation docs.")
     parser.add_argument("--root", type=Path, default=Path("."))
     parser.add_argument("--json", action="store_true", help="emit the closed JSON result")
     args = parser.parse_args(argv)

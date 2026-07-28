@@ -643,14 +643,15 @@ an unsupported explicit language returns `problem=transcription_not_ready` with
 ## MCP Server Command
 
 ```bash
-mke --db <path> [--retrieval-strategy <strategy>] mcp --allowed-root <path>
+mke --db <library.sqlite3> mcp --allowed-root <directory>
 ```
 
 - Runs a local stdio MCP server.
 - `--allowed-root` defaults to the current working directory.
 - `ingest_file` rejects paths outside `--allowed-root`.
-- Implemented MCP tools are `list_libraries`, `ingest_file`, `get_run`, `search_library`, and
-  `ask_library`.
+- The exact ten-tool inventory is `list_libraries`, `ingest_file`, `get_run`, `search_library`,
+  `ask_library`, `list_libraries_v1`, `search_library_v1`, `ask_library_v1`,
+  `search_library_v2`, and `read_evidence_v1`.
 - Retrieval strategy is owner-startup configuration. It is not present in MCP tool schemas.
 - `--retrieval-strategy numeric-grouping-v1` rolls Search and Ask back without changing the
   database or rebuilding a projection. `current` remains the lower-level rollback.
@@ -671,7 +672,7 @@ against active Publication Evidence. For `cjk-active-scan-overlap-v1`, `rebuild`
 not implemented.
 
 `mke mcp --help` prints the command-specific options. Databases created by `mke ingest` can be
-reused with `mke mcp --db <path>`.
+reused with `mke --db <path> mcp`.
 
 ## Error Contract
 
