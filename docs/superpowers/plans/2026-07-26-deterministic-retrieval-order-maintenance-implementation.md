@@ -6928,7 +6928,11 @@ They require separate evidence and must not be smuggled into this repair.
 The runtime and observation candidate seal remains
 `7af0ba1ecf662e9bebb125c85b429e675233fbe4`. Deterministic-order maintenance and the bounded
 one-shot mechanism observation completed locally. The five canonical artifacts are committed and
-have been validated read-only, and no post-seal `src/mke` change exists.
+have been validated read-only. Later evaluation-only repairs are not candidate-runtime evidence.
+The exact runtime scope is the 65 tracked paths under `src/mke` excluding
+`src/mke/evaluation/**`; candidate and Amendment L verification inventories both have SHA-256
+`9cd481e5f61855251246f7837056f18503b463ca024414fffd05eaa84016bad6`, and their scoped content
+diff is empty.
 
 The installed proof establishes explicit wheel, receipt, and input identity preflight; installed
 module, distribution, strategy revision, and query-policy revision; and validator function
@@ -6938,8 +6942,8 @@ checkout content.
 Source-pack ledger: `2 CLI processes / 1 preclaim rejection / 1 durable attempt-build-proof`
 (`2 / 1 / 1`). This evidence remains on the local branch only. No push, pull request, merge, release,
 deployment, or promotion has occurred. It establishes no relevance, segmentation,
-contextual-retrieval, or general RAG-quality conclusion. Amendment K K5 aggregate verification and
-final independent review remain pending.
+contextual-retrieval, or general RAG-quality conclusion. K5 aggregate verification completed; its
+ensuing independent review opened bounded Amendment L, whose aggregate ledger is recorded below.
 
 <!-- PUBLIC AMENDMENT K START -->
 
@@ -7220,7 +7224,21 @@ f9a5883f3ac47652cbd18ef0bb08b61ceb00065955a3db575df0fd41689240ba  benchmarks/ret
 f372f9733c8c352d7610d16412d9f98304dde325dd235ce81e30b4c6253cc3cd  tests/fixtures/consumer-source-pack-v1/mcp-tool-schemas.json
 SHA256
 shasum -a 256 tests/fixtures/mcp-context-completeness-v1/mcp-tool-schemas.json
-test -z "$(git diff 7af0ba1ecf662e9bebb125c85b429e675233fbe4..HEAD -- src/mke)"
+test "$(git ls-tree -r --name-only \
+  7af0ba1ecf662e9bebb125c85b429e675233fbe4 -- src/mke |
+  awk '$0 !~ /^src\\/mke\\/evaluation\\//' | sort | wc -l)" -eq 65
+test "$(git ls-tree -r --name-only \
+  7af0ba1ecf662e9bebb125c85b429e675233fbe4 -- src/mke |
+  awk '$0 !~ /^src\\/mke\\/evaluation\\//' | sort | shasum -a 256 |
+  awk '{print $1}')" = \
+  "9cd481e5f61855251246f7837056f18503b463ca024414fffd05eaa84016bad6"
+test "$(git ls-tree -r --name-only HEAD -- src/mke |
+  awk '$0 !~ /^src\\/mke\\/evaluation\\//' | sort | shasum -a 256 |
+  awk '{print $1}')" = \
+  "9cd481e5f61855251246f7837056f18503b463ca024414fffd05eaa84016bad6"
+test -z "$(git diff \
+  7af0ba1ecf662e9bebb125c85b429e675233fbe4..HEAD -- \
+  src/mke ':(exclude)src/mke/evaluation/**')"
 git diff --check
 test "$(git rev-list --count b0c2522e45b2f951180ee343f1edfc65871e41c3..HEAD)" -eq 7
 diff -u \
@@ -7272,9 +7290,10 @@ completion does not authorize push or PR; publication requires a separate user d
 - [x] K2 exact current MCP snapshot passed; frozen release fixture unchanged.
 - [x] K3 proof/help/operator contracts state exact authority and recovery boundaries.
 - [x] K4 lifecycle state reconciled without new claims or duplicate review artifact.
-- [ ] K5 focused/full/static/hash/source-scope gates passed at one clean HEAD.
-- [ ] Candidate/runtime, canonical evidence, source-pack counts, and non-claims remain exact.
-- [ ] Independent actual-diff review is clean before any publication decision.
+- [x] K5 focused/full/static/hash/source-scope gates passed at one clean HEAD.
+- [x] Candidate/runtime, canonical evidence, source-pack counts, and non-claims remain exact.
+- [x] Independent actual-diff review completed; its findings were routed to Amendment L, and
+  publication remains gated by Amendment L final review.
 
 <!-- PUBLIC AMENDMENT K END -->
 
@@ -7509,17 +7528,78 @@ Commit lifecycle documentation separately as:
 Stop for final independent targeted re-review. Review-clean local completion still does not authorize
 push or PR.
 
+#### L7 verified local aggregate ledger
+
+L1-L6 are the following exact reviewed commits:
+
+| Task | Commit | Result boundary |
+|---|---|---|
+| L1 | `78a9409895a681a99085afb886c0743bee381221` | retained canonical validation separated from strict-live checkout identity |
+| L2 | `dab28dca49be7b69f8f4158c82c73021309a951e` | visible lexical publication states remain terminal |
+| L3 | `d2dbf4a7989b9c1c5d7e2212a10a3348ec9e4fa2` | repeated/aliased workflow paths fail before observation |
+| L4 | `3c47fd57423ea669fcddfcdc6a35fc09938859d3` | preexisting/race-winner regular claims are already-started |
+| L5 | `cb373326fce753acf3e10012ddb0579a5c20dcff` | proof commit/interpreter/wheel identities are bounded |
+| L6 | `3c19a92c5b18a6ab1d564988f93e32b0b851eb9d` | fixed-profile FTS plan is recorded and profile-gated |
+
+Aggregate verification ran from clean L6 HEAD
+`3c19a92c5b18a6ab1d564988f93e32b0b851eb9d`:
+
+- L1-L3 evaluation/publication matrix: `297 passed`, five warnings, `104.17s`;
+- L4-L5 proof-controller/documentation matrix: `180 passed`, five warnings, `7.08s`;
+- L6 SQLite structural/adjacent matrix: `85 passed`, five warnings, `0.81s`;
+- full suite: `3606 passed`, `14 skipped`, five warnings, `262.05s`;
+- Ruff: passed in `0.07s`;
+- Pyright: zero errors, warnings, or informations in `6.84s`; and
+- canonical pure validation: `1 passed`, five warnings, `0.21s`.
+
+The strict-live numeric negative control exited `1` with
+`retrieval_numeric_fixture_invalid / protocol-bound input identity mismatch /
+restore_numeric_protocol_inputs`. A fresh call-owned temporary compatibility record and validation
+both returned their exact passed v1 result payloads; all seven families had zero membership,
+score-hex, non-tied-pair, metric, gate, and verdict deltas. The temporary artifact SHA-256 was
+`374c7f5d3b6e2e3d32ac88e9ff417434fb3b24a0f5fc971b99a51250c061c25a`.
+It was not a canonical record and changed no repository path.
+
+The fixed-profile record SHA-256 remains
+`1f6a70a69edb9a3b182e21a9b125a37d81ed4dca869c16d1f5d5b807554ffdc1`. Every supported
+profile executes the portable active-only, one-`MATCH`, bounded-statement, metadata-only, no-N+1,
+materialization, scan, and temporary-order assertions. Exact record equality is applied only after
+all recorded SQLite/FTS profile fields match; a different profile is explicitly `not applicable`
+to singular equality, never treated as drift or portability success. Fixture byte/schema/limitation
+validation remains unconditional.
+
+The runtime candidate remains `7af0ba1ecf662e9bebb125c85b429e675233fbe4`. The exact runtime
+scope is the 65 tracked non-evaluation `src/mke` paths whose sorted inventory SHA-256 is
+`9cd481e5f61855251246f7837056f18503b463ca024414fffd05eaa84016bad6` at both candidate and
+verification HEAD; its content diff is empty. L1-L3 are evaluation-only repairs, L4-L5 are proof
+harness repairs, and L6 is test/spec evidence. None is candidate-runtime evidence.
+
+The five canonical hashes remain:
+
+```text
+0d8761037e9132461a1d6bbf2eac0a39471dfaa38c65acbdc2400a87ff8bffd8  benchmarks/retrieval/retrieval-order-v1-development-freeze.json
+8f390ada3632c12527eb75747a2ce21721317fffdd30bd9fc177e8f305dc3203  benchmarks/retrieval/retrieval-order-v1-holdout-receipt.json
+104a41a6aa0c719313d508c79d00886a18483bbf3eeeadcdbc8899dd927283c1  benchmarks/retrieval/retrieval-order-v1-artifact.json
+df18d9738548fa33af5c7f76dfa26e89a721f1c08a2df0e034a7688c67e81604  benchmarks/retrieval/retrieval-order-v2-compatibility-attempt.json
+f9a5883f3ac47652cbd18ef0bb08b61ceb00065955a3db575df0fd41689240ba  benchmarks/retrieval/retrieval-order-v2-compatibility.json
+```
+
+Local aggregate verification is passed. Final independent targeted review is still pending. No
+canonical observation/recording, source-pack attempt, installed proof, wheel build, product proof,
+demo, push, pull request, merge, release, deployment, promotion, cleanup, retrieval-quality,
+segmentation, contextual-retrieval, portability, or production-performance claim was made.
+
 ### Amendment L acceptance
 
-- [ ] Retained canonical evidence no longer expires on unrelated future source changes.
-- [ ] Strict-live temporary compatibility remains bound to the current checkout.
-- [ ] Atomic publication never reports a visible lexical entry as absent/retryable.
-- [ ] Cleanup failure cannot erase terminal publication visibility.
-- [ ] Repeated development and invalid canonical aliases stop before observation or fixture reads.
-- [ ] A complete durable source-pack claim is always terminal already-started state.
-- [ ] Installed proof rejects nonhex Git identity and wrong/duplicate Python minors without wheel discovery.
-- [ ] Fixed-profile query-plan evidence is recorded without runtime SQL change or performance overclaim.
-- [ ] Full/static/hash/scope gates pass and five canonical bytes remain exact.
+- [x] Retained canonical evidence no longer expires on unrelated future source changes.
+- [x] Strict-live temporary compatibility remains bound to the current checkout.
+- [x] Atomic publication never reports a visible lexical entry as absent/retryable.
+- [x] Cleanup failure cannot erase terminal publication visibility.
+- [x] Repeated development and invalid canonical aliases stop before observation or fixture reads.
+- [x] A complete durable source-pack claim is always terminal already-started state.
+- [x] Installed proof rejects nonhex Git identity and wrong/duplicate Python minors without wheel discovery.
+- [x] Fixed-profile query-plan evidence is recorded without runtime SQL change or performance overclaim.
+- [x] Full/static/hash/scope gates pass and five canonical bytes remain exact.
 - [ ] Final independent review is clean before any publication decision.
 
 <!-- PUBLIC AMENDMENT L END -->

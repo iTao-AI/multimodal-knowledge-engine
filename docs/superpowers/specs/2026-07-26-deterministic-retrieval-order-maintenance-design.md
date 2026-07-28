@@ -1,8 +1,8 @@
 # Deterministic Retrieval Order Maintenance
 
-Status: deterministic-order maintenance and its bounded one-shot mechanism observation are
-completed locally. Amendment K evidence-honesty closure is in progress; push, pull request,
-merge, release, deployment, and promotion remain pending.
+Status: deterministic-order maintenance, canonical evidence closure, and Amendment L aggregate
+verification are completed locally. Final independent targeted review, push, pull request, merge,
+release, deployment, and promotion remain pending.
 
 Planning baseline: `main@eea3d51c36c0b3b845b8efb60eff553ddc200b88`.
 
@@ -537,7 +537,11 @@ only permits a separately approved restart of retrieval-coverage evaluation.
 The runtime and observation candidate seal remains
 `7af0ba1ecf662e9bebb125c85b429e675233fbe4`. Deterministic-order maintenance and the bounded
 one-shot mechanism observation completed locally. The five canonical artifacts are committed and
-have been validated read-only. No post-seal `src/mke` change exists.
+have been validated read-only. Amendment L evaluation-only changes are not candidate-runtime
+evidence. The exact runtime scope is the 65 tracked paths under `src/mke` excluding
+`src/mke/evaluation/**`; its sorted path inventory has SHA-256
+`9cd481e5f61855251246f7837056f18503b463ca024414fffd05eaa84016bad6` at both the candidate seal
+and the Amendment L verification HEAD, and the scoped content diff is empty.
 
 The installed proof establishes explicit input identity and capability bindings plus validator
 function availability under the required interpreters; it does not execute either validator or
@@ -547,6 +551,46 @@ Source-pack ledger: `2 CLI processes / 1 preclaim rejection / 1 durable attempt-
 (`2 / 1 / 1`). This evidence remains on the local branch only. No push, pull request, merge,
 release, deployment, or promotion has occurred. It supports no relevance, segmentation,
 contextual-retrieval, or general RAG-quality conclusion.
+
+### Amendment L Aggregate Closure
+
+The focused-review commits are:
+
+| Task | Commit | Scope |
+|---|---|---|
+| L1 | `78a9409895a681a99085afb886c0743bee381221` | retained canonical versus strict-live compatibility |
+| L2 | `dab28dca49be7b69f8f4158c82c73021309a951e` | atomic no-replace visibility |
+| L3 | `d2dbf4a7989b9c1c5d7e2212a10a3348ec9e4fa2` | one-shot workflow path preflight |
+| L4 | `3c47fd57423ea669fcddfcdc6a35fc09938859d3` | durable source-pack claim terminality |
+| L5 | `cb373326fce753acf3e10012ddb0579a5c20dcff` | installed-proof input identity |
+| L6 | `3c19a92c5b18a6ab1d564988f93e32b0b851eb9d` | fixed-profile FTS structural record |
+
+Aggregate verification ran at the exact L6 HEAD. The L1-L3, L4-L5, and L6 affected matrices passed
+`297`, `180`, and `85` tests respectively. The complete suite passed `3606` tests with `14`
+skipped and five environment warnings; Ruff passed and Pyright reported zero diagnostics.
+Canonical pure validation passed without rebuilding current-checkout source identity or entering a
+side-effect seam. The persistent CI-parity contract also passed: the archived strict-live numeric
+negative control exited `1` with its exact identity-mismatch tuple, while one call-owned temporary
+compatibility record and validation both passed with seven zero-delta families.
+
+The fixed-profile query-plan record remains
+`1f6a70a69edb9a3b182e21a9b125a37d81ed4dca869c16d1f5d5b807554ffdc1`. Portable structural
+assertions run on every supported profile; exact record equality applies only when all recorded
+SQLite/FTS profile fields match. A profile mismatch is explicit `not applicable`, while fixture
+byte, schema, limitation, and structural checks remain mandatory.
+
+The five canonical SHA-256 values remain:
+
+- `0d8761037e9132461a1d6bbf2eac0a39471dfaa38c65acbdc2400a87ff8bffd8`;
+- `8f390ada3632c12527eb75747a2ce21721317fffdd30bd9fc177e8f305dc3203`;
+- `104a41a6aa0c719313d508c79d00886a18483bbf3eeeadcdbc8899dd927283c1`;
+- `df18d9738548fa33af5c7f76dfa26e89a721f1c08a2df0e034a7688c67e81604`; and
+- `f9a5883f3ac47652cbd18ef0bb08b61ceb00065955a3db575df0fd41689240ba`.
+
+Local aggregate verification is complete; final independent targeted review remains pending. No
+canonical observation or record was repeated, no real proof or wheel build ran, and no push, pull
+request, merge, release, deployment, runtime promotion, relevance, segmentation,
+contextual-retrieval, portability, or production-performance claim follows.
 
 ## Non-Claims
 
