@@ -297,3 +297,146 @@ def test_publish_exception_with_invalid_visible_output_fails_closed(
     assert result.problem == "retrieval_order_publication_failed"
     assert result.next_step == "do_not_retry_visible_output"
     assert "private" not in repr(result)
+
+
+def test_preexisting_dangling_symlink_is_terminal_visible(
+    tmp_path: Path,
+) -> None:
+    module = _module()
+    destination = tmp_path / "artifact.json"
+    destination.symlink_to("missing.json")
+
+    result = module.publish_json_no_replace(
+        destination,
+        _content(),
+        validate=_validate,
+    )
+
+    assert (
+        destination.is_symlink()
+        and result.output_state == "not_applicable"
+        and result.publication_outcome == "durability_unconfirmed"
+        and result.problem == "retrieval_order_publication_failed"
+        and result.next_step == "do_not_retry_visible_output"
+        and str(tmp_path) not in repr(result)
+    ), "L2_PREEXISTING_DANGLING_SYMLINK_RETRYABLE"
+
+
+def test_race_created_dangling_symlink_is_terminal_visible(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module()
+    destination = tmp_path / "artifact.json"
+
+    def race(temporary: Path, target: Path) -> None:
+        del temporary
+        target.symlink_to("missing.json")
+        raise FileExistsError
+
+    monkeypatch.setattr(module, "_publish_no_replace", race)
+
+    result = module.publish_json_no_replace(
+        destination,
+        _content(),
+        validate=_validate,
+    )
+
+    assert (
+        destination.is_symlink()
+        and result.output_state == "not_applicable"
+        and result.publication_outcome == "durability_unconfirmed"
+        and result.problem == "retrieval_order_publication_failed"
+        and result.next_step == "do_not_retry_visible_output"
+        and str(tmp_path) not in repr(result)
+    ), "L2_RACE_DANGLING_SYMLINK_RETRYABLE"
+
+
+def test_race_created_nonregular_entry_is_terminal_visible(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module()
+    destination = tmp_path / "artifact.json"
+
+    def race(temporary: Path, target: Path) -> None:
+        del temporary
+        target.mkdir()
+        raise FileExistsError
+
+    monkeypatch.setattr(module, "_publish_no_replace", race)
+
+    result = module.publish_json_no_replace(
+        destination,
+        _content(),
+        validate=_validate,
+    )
+
+    assert (
+        destination.is_dir()
+        and result.output_state == "not_applicable"
+        and result.publication_outcome == "durability_unconfirmed"
+        and result.problem == "retrieval_order_publication_failed"
+        and result.next_step == "do_not_retry_visible_output"
+        and str(tmp_path) not in repr(result)
+    ), "L2_RACE_NONREGULAR_RETRYABLE"
+
+
+def test_cleanup_failure_after_complete_visibility_is_terminal(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module()
+    destination = tmp_path / "artifact.json"
+    content = _content()
+
+    monkeypatch.setattr(Path, "unlink", _raise_private_path)
+
+    try:
+        result = module.publish_json_no_replace(
+            destination,
+            content,
+            validate=_validate,
+        )
+    except OSError as error:
+        raise AssertionError(
+            "L2_CLEANUP_ERASED_VISIBLE_RESULT"
+        ) from error
+
+    assert destination.read_bytes() == content
+    assert result.output_state == "complete_visible"
+    assert result.publication_outcome == "durability_unconfirmed"
+    assert result.sha256 == module.sha256_bytes(content)
+    assert result.problem == "retrieval_order_publication_durability_unconfirmed"
+    assert result.next_step == "do_not_retry_visible_output"
+    assert "private" not in repr(result)
+    assert str(tmp_path) not in repr(result)
+
+
+def test_cleanup_failure_without_destination_remains_before_visibility(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module()
+    destination = tmp_path / "artifact.json"
+    monkeypatch.setattr(module, "_write_bytes", _raise_private)
+    monkeypatch.setattr(Path, "unlink", _raise_private_path)
+
+    try:
+        result = module.publish_json_no_replace(
+            destination,
+            _content(),
+            validate=_validate,
+        )
+    except OSError as error:
+        raise AssertionError(
+            "L2_CLEANUP_ESCAPED_BEFORE_VISIBILITY"
+        ) from error
+
+    assert not destination.exists()
+    assert result.output_state == "absent"
+    assert result.publication_outcome == "failed_before_visibility"
+    assert result.problem == "retrieval_order_publication_failed"
+    assert result.next_step == "retry_with_a_new_temporary_output"
+    assert "private" not in repr(result)
+    assert str(tmp_path) not in repr(result)

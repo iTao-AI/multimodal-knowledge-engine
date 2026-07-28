@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -58,7 +59,19 @@ def _fsync_file(path: Path) -> None:
 
 
 def _readback_bytes(path: Path) -> bytes:
-    return path.read_bytes()
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    if nofollow is None:
+        raise OSError("no-follow reads are unavailable")
+    descriptor = os.open(path, os.O_RDONLY | nofollow)
+    try:
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            raise OSError("visible output is not a regular file")
+        chunks: list[bytes] = []
+        while chunk := os.read(descriptor, 1024 * 1024):
+            chunks.append(chunk)
+        return b"".join(chunks)
+    finally:
+        os.close(descriptor)
 
 
 def _publish_no_replace(temporary: Path, destination: Path) -> None:
@@ -95,11 +108,23 @@ def _invalid_visible_result() -> AtomicPublicationResult:
     )
 
 
+def _lexical_state(path: Path) -> Literal["absent", "regular", "invalid"]:
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return "absent"
+    except OSError:
+        return "invalid"
+    return "regular" if stat.S_ISREG(metadata.st_mode) else "invalid"
+
+
 def _existing_result(
     destination: Path,
     *,
     validate: Callable[[object], None],
 ) -> AtomicPublicationResult:
+    if _lexical_state(destination) != "regular":
+        return _invalid_visible_result()
     try:
         existing = _readback_bytes(destination)
         _validate_bytes(existing, validate=validate)
@@ -120,10 +145,10 @@ def _result_after_publish_exception(
     candidate: bytes,
     *,
     validate: Callable[[object], None],
+    different_visible_is_invalid: bool = False,
 ) -> AtomicPublicationResult:
-    try:
-        visible = destination.read_bytes()
-    except FileNotFoundError:
+    state = _lexical_state(destination)
+    if state == "absent":
         return AtomicPublicationResult(
             output_state="absent",
             publication_outcome="failed_before_visibility",
@@ -132,6 +157,10 @@ def _result_after_publish_exception(
             cause="candidate_was_not_made_visible",
             next_step="retry_with_a_new_temporary_output",
         )
+    if state == "invalid":
+        return _invalid_visible_result()
+    try:
+        visible = _readback_bytes(destination)
     except OSError:
         return _invalid_visible_result()
     try:
@@ -139,6 +168,8 @@ def _result_after_publish_exception(
     except (UnicodeError, ValueError, TypeError, json.JSONDecodeError):
         return _invalid_visible_result()
     if visible != candidate:
+        if different_visible_is_invalid:
+            return _invalid_visible_result()
         return AtomicPublicationResult(
             output_state="complete_preexisting",
             publication_outcome="not_attempted",
@@ -168,7 +199,7 @@ def publish_json_no_replace(
     except (UnicodeError, ValueError, TypeError, json.JSONDecodeError):
         return _invalid_result()
 
-    if destination.exists():
+    if _lexical_state(destination) != "absent":
         return _existing_result(destination, validate=validate)
 
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -179,6 +210,7 @@ def publish_json_no_replace(
     )
     os.close(descriptor)
     temporary = Path(temporary_name)
+    cleanup_failed = False
     try:
         try:
             _write_bytes(temporary, content)
@@ -189,7 +221,7 @@ def publish_json_no_replace(
             _validate_bytes(readback, validate=validate)
             _publish_no_replace(temporary, destination)
         except FileExistsError:
-            return _result_after_publish_exception(
+            result = _result_after_publish_exception(
                 destination,
                 content,
                 validate=validate,
@@ -201,33 +233,44 @@ def publish_json_no_replace(
             TypeError,
             json.JSONDecodeError,
         ):
-            return _result_after_publish_exception(
+            result = _result_after_publish_exception(
                 destination,
                 content,
                 validate=validate,
             )
-
-        try:
-            _fsync_directory(destination.parent)
-        except OSError:
-            return AtomicPublicationResult(
-                output_state="complete_visible",
-                publication_outcome="durability_unconfirmed",
-                sha256=sha256_bytes(content),
-                problem=(
-                    "retrieval_order_publication_durability_unconfirmed"
-                ),
-                cause="directory_sync_failed_after_visibility",
-                next_step="do_not_retry_visible_output",
-            )
-        return AtomicPublicationResult(
-            output_state="complete_visible",
-            publication_outcome="published",
-            sha256=sha256_bytes(content),
-            problem=None,
-        )
+        else:
+            try:
+                _fsync_directory(destination.parent)
+            except OSError:
+                result = AtomicPublicationResult(
+                    output_state="complete_visible",
+                    publication_outcome="durability_unconfirmed",
+                    sha256=sha256_bytes(content),
+                    problem=(
+                        "retrieval_order_publication_durability_unconfirmed"
+                    ),
+                    cause="directory_sync_failed_after_visibility",
+                    next_step="do_not_retry_visible_output",
+                )
+            else:
+                result = AtomicPublicationResult(
+                    output_state="complete_visible",
+                    publication_outcome="published",
+                    sha256=sha256_bytes(content),
+                    problem=None,
+                )
     finally:
         try:
             temporary.unlink()
         except FileNotFoundError:
             pass
+        except OSError:
+            cleanup_failed = True
+    if cleanup_failed:
+        return _result_after_publish_exception(
+            destination,
+            content,
+            validate=validate,
+            different_visible_is_invalid=True,
+        )
+    return result
