@@ -6,12 +6,15 @@ import importlib
 import json
 import os
 import shutil
+import sqlite3
 import subprocess
-from collections.abc import Callable
+import sys
+from collections.abc import Callable, Mapping
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, NoReturn
 
+import fitz  # pyright: ignore[reportMissingTypeStubs]
 import pytest
 
 import mke.evaluation._atomic_json_publication as atomic_publication
@@ -90,6 +93,11 @@ H1_MISSING_ARCHIVED_INPUTS = (
         "cjk-relevance-gate-reranker-v1-holdout-receipt.json"
     ),
 )
+FROZEN_HISTORICAL_REPLAY_PROFILE = {
+    "python": "3.13.12",
+    "sqlite": "3.51.1",
+    "pymupdf": "1.27.2.3",
+}
 
 
 @pytest.fixture(autouse=True)
@@ -110,6 +118,35 @@ def _module() -> Any:
     return importlib.import_module(
         "mke.evaluation.retrieval_order_compatibility"
     )
+
+
+def _live_historical_replay_profile() -> dict[str, str]:
+    return {
+        "python": ".".join(str(item) for item in sys.version_info[:3]),
+        "sqlite": sqlite3.sqlite_version,
+        "pymupdf": fitz.VersionBind,
+    }
+
+
+def _has_exact_historical_replay_profile(
+    profile: Mapping[str, str],
+) -> bool:
+    return dict(profile) == FROZEN_HISTORICAL_REPLAY_PROFILE
+
+
+def _require_exact_historical_replay_profile(
+    profile: Mapping[str, str] | None = None,
+) -> None:
+    candidate = (
+        _live_historical_replay_profile()
+        if profile is None
+        else profile
+    )
+    if not _has_exact_historical_replay_profile(candidate):
+        pytest.skip(
+            "exact historical replay not applicable: complete live "
+            "Python/SQLite/PyMuPDF profile differs from the frozen profile"
+        )
 
 
 def _fail_replay(*args: object, **kwargs: object) -> NoReturn:
@@ -177,11 +214,50 @@ def _block_all_replay(
 def compatibility_artifact(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> dict[str, object]:
+    _require_exact_historical_replay_profile()
     return _module().build_compatibility_artifact(
         protocol_path=PROTOCOL,
         repository_root=ROOT,
         workspace=tmp_path_factory.mktemp("compatibility-authority"),
     )
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement"),
+    (
+        ("python", "0.0.0"),
+        ("sqlite", "0.0.0"),
+        ("pymupdf", "0.0.0"),
+    ),
+    ids=("python", "sqlite", "pymupdf"),
+)
+def test_historical_replay_profile_classifier_requires_complete_match(
+    field: str,
+    replacement: str,
+) -> None:
+    profile = dict(FROZEN_HISTORICAL_REPLAY_PROFILE)
+
+    assert _has_exact_historical_replay_profile(profile)
+    _require_exact_historical_replay_profile(profile)
+
+    profile[field] = replacement
+
+    assert not _has_exact_historical_replay_profile(profile)
+    with pytest.raises(
+        pytest.skip.Exception,
+        match="complete live Python/SQLite/PyMuPDF profile differs",
+    ):
+        _require_exact_historical_replay_profile(profile)
+
+
+def test_live_historical_replay_profile_uses_patch_and_library_versions() -> (
+    None
+):
+    assert _live_historical_replay_profile() == {
+        "python": ".".join(str(item) for item in sys.version_info[:3]),
+        "sqlite": sqlite3.sqlite_version,
+        "pymupdf": fitz.VersionBind,
+    }
 
 
 def test_family_table_freezes_all_historical_authority_before_replay() -> None:
@@ -235,6 +311,7 @@ def test_family_table_requires_explicit_frozen_capability() -> None:
 def test_historical_capability_uses_exact_tree_runtime_and_two_replays(
     tmp_path: Path,
 ) -> None:
+    _require_exact_historical_replay_profile()
     module = _module()
 
     capability = module.freeze_historical_capabilities(
@@ -283,6 +360,40 @@ def test_historical_capability_uses_exact_tree_runtime_and_two_replays(
         }.issubset(query)
         for family in payload["families"].values()
         for query in family["queries"]
+    )
+
+
+@pytest.mark.parametrize(
+    "field",
+    ("python", "sqlite", "pymupdf"),
+)
+def test_historical_capability_downgrades_complete_runtime_profile_mismatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+) -> None:
+    module = _module()
+    mismatched = dict(FROZEN_HISTORICAL_REPLAY_PROFILE)
+    mismatched[field] = "0.0.0"
+    monkeypatch.setattr(module, "_RUNTIME_PROFILE", mismatched)
+
+    capability = module.freeze_historical_capabilities(
+        repository_root=ROOT,
+        workspace=tmp_path / field,
+    )
+
+    assert not _has_exact_historical_replay_profile(mismatched)
+    assert capability.status == "no_ordered_delta_authority"
+    assert capability.first_stdout == ""
+    assert capability.second_stdout == ""
+    assert capability.module_origins_valid is False
+    assert capability.input_identities_valid is False
+    table = module.family_capability_table(
+        historical_capability=capability
+    )
+    assert tuple(item.tie_group_authority for item in table[:2]) == (
+        "no_ordered_delta_authority",
+        "no_ordered_delta_authority",
     )
 
 
@@ -1364,6 +1475,7 @@ def test_historical_materialization_rejects_symlinked_paths_before_action(
 def test_compatibility_artifact_exposes_complete_family_differentials(
     tmp_path: Path,
 ) -> None:
+    _require_exact_historical_replay_profile()
     module = _module()
 
     artifact = module.build_compatibility_artifact(
@@ -1562,6 +1674,7 @@ def test_historical_child_artifact_mismatch_is_terminal_stop(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    _require_exact_historical_replay_profile()
     module = _module()
     capability = module.freeze_historical_capabilities(
         repository_root=ROOT,
@@ -1622,6 +1735,7 @@ def test_e3a_adapter_rejects_tampered_unselected_archived_binding(
 
 
 def test_repeated_builds_are_byte_identical(tmp_path: Path) -> None:
+    _require_exact_historical_replay_profile()
     module = _module()
     first = module.build_compatibility_artifact(
         protocol_path=PROTOCOL,
@@ -1743,6 +1857,7 @@ def test_temporary_record_and_read_only_validate(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    _require_exact_historical_replay_profile()
     module = _module()
     artifact = tmp_path / "compatibility.json"
 
