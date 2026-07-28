@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import stat
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Literal, cast
@@ -116,11 +118,13 @@ def load_retrieval_order_protocol_metadata(
     repository_root: Path,
 ) -> RetrievalOrderProtocolMetadata:
     try:
-        root = repository_root.resolve()
-        protocol_path = path.resolve()
-        payload = _object(
-            json.loads(protocol_path.read_text(encoding="utf-8"))
+        root = _preflight_repository_root(repository_root)
+        protocol_path = _preflight_repository_regular_file(
+            path,
+            repository_root=root,
         )
+        protocol_bytes = protocol_path.read_bytes()
+        payload = _object(json.loads(protocol_bytes))
         if set(payload) != {
             "schema_version",
             "protocol_id",
@@ -173,9 +177,7 @@ def load_retrieval_order_protocol_metadata(
             schema_version=_SCHEMA,
             protocol_id=_PROTOCOL_ID,
             protocol_path=protocol_path,
-            protocol_sha256=hashlib.sha256(
-                protocol_path.read_bytes()
-            ).hexdigest(),
+            protocol_sha256=hashlib.sha256(protocol_bytes).hexdigest(),
             key_contract=RetrievalOrderKeyContract(_FTS_KEY, _CJK_KEY),
             development=development,
             holdout=holdout,
@@ -199,9 +201,10 @@ def _load_partition_metadata(
     if set(record) != {"path", "bytes", "sha256", "cases"}:
         raise RetrievalOrderProtocolError
     relative_path = _relative_path(record["path"])
-    fixture_path = (root / relative_path).resolve()
-    if not fixture_path.is_relative_to(root) or not fixture_path.is_file():
-        raise RetrievalOrderProtocolError
+    fixture_path = _preflight_repository_regular_file(
+        root / relative_path,
+        repository_root=root,
+    )
     byte_count = record["bytes"]
     sha256 = record["sha256"]
     if (
@@ -264,6 +267,7 @@ def load_retrieval_order_protocol_partition(
             if partition == "development"
             else metadata.holdout
         )
+        _preflight_absolute_regular_file(record.path)
         data = record.path.read_bytes()
         if (
             len(data) != record.bytes
@@ -447,6 +451,133 @@ def _relative_path(value: object) -> str:
     if parsed.is_absolute() or ".." in parsed.parts or path != parsed.as_posix():
         raise RetrievalOrderProtocolError
     return path
+
+
+def _preflight_repository_root(repository_root: Path) -> Path:
+    root = (
+        repository_root
+        if repository_root.is_absolute()
+        else Path.cwd() / repository_root
+    )
+    if ".." in root.parts:
+        raise RetrievalOrderProtocolError
+    if _lexical_path_state(root, expected="directory") != "directory":
+        raise RetrievalOrderProtocolError
+    return root
+
+
+def _lexical_repository_path(
+    path: Path,
+    *,
+    repository_root: Path,
+) -> Path:
+    root = _preflight_repository_root(repository_root)
+    candidate = path if path.is_absolute() else root / path
+    if ".." in candidate.parts or not candidate.is_relative_to(root):
+        raise RetrievalOrderProtocolError
+    return candidate
+
+
+def _preflight_repository_regular_file(
+    path: Path,
+    *,
+    repository_root: Path,
+) -> Path:
+    candidate = _lexical_repository_path(
+        path,
+        repository_root=repository_root,
+    )
+    _preflight_absolute_regular_file(candidate)
+    return candidate
+
+
+def _preflight_repository_output(  # pyright: ignore[reportUnusedFunction]
+    path: Path,
+    *,
+    repository_root: Path,
+) -> tuple[Path, Literal["absent", "regular", "invalid"]]:
+    try:
+        candidate = _lexical_repository_path(
+            path,
+            repository_root=repository_root,
+        )
+    except RetrievalOrderProtocolError:
+        return path, "invalid"
+    state = _lexical_path_state(candidate, expected="output")
+    if state == "absent":
+        return candidate, "absent"
+    if state == "regular":
+        return candidate, "regular"
+    return candidate, "invalid"
+
+
+def _is_exact_repository_path(  # pyright: ignore[reportUnusedFunction]
+    path: Path,
+    *,
+    repository_root: Path,
+    relative_path: Path,
+) -> bool:
+    try:
+        root = _preflight_repository_root(repository_root)
+        candidate = _lexical_repository_path(
+            path,
+            repository_root=root,
+        )
+    except RetrievalOrderProtocolError:
+        return False
+    return (
+        candidate == root / relative_path
+        and _lexical_path_state(candidate, expected="output") != "invalid"
+    )
+
+
+def _preflight_absolute_regular_file(path: Path) -> None:
+    if _lexical_path_state(path, expected="regular") != "regular":
+        raise RetrievalOrderProtocolError
+
+
+def _lexical_path_state(
+    path: Path,
+    *,
+    expected: Literal["directory", "regular", "output"],
+) -> Literal["absent", "directory", "regular", "invalid"]:
+    if not path.is_absolute() or ".." in path.parts:
+        return "invalid"
+    current = Path(path.anchor)
+    parts = path.parts[1:]
+    for index, part in enumerate(parts):
+        final = index == len(parts) - 1
+        candidate = current / part
+        try:
+            with os.scandir(current) as entries:
+                exact_name = any(entry.name == part for entry in entries)
+        except OSError:
+            return "invalid"
+        if not exact_name:
+            try:
+                candidate.lstat()
+            except FileNotFoundError:
+                return "absent" if expected == "output" else "invalid"
+            except OSError:
+                return "invalid"
+            return "invalid"
+        try:
+            metadata = candidate.lstat()
+        except OSError:
+            return "invalid"
+        if stat.S_ISLNK(metadata.st_mode):
+            return "invalid"
+        if not final:
+            if not stat.S_ISDIR(metadata.st_mode):
+                return "invalid"
+            current = candidate
+            continue
+        if expected == "directory":
+            return "directory" if stat.S_ISDIR(metadata.st_mode) else "invalid"
+        if expected == "regular":
+            return "regular" if stat.S_ISREG(metadata.st_mode) else "invalid"
+        return "regular" if stat.S_ISREG(metadata.st_mode) else "invalid"
+    return "directory" if expected == "directory" else "invalid"
 
 
 def _unique_strings(value: object) -> list[str]:

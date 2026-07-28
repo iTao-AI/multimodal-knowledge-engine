@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+import os
 import sqlite3
 import subprocess
 import tempfile
@@ -845,6 +846,228 @@ def test_capability_rejects_copied_protocol_before_fixture_open(
             holdout_capability=capability,
         )
     assert opened == []
+
+
+@pytest.mark.parametrize(
+    "destination_kind",
+    ("regular", "dangling", "directory"),
+    ids=("regular", "dangling", "directory"),
+)
+def test_development_preflight_rejects_visible_destination_before_authority(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    destination_kind: str,
+) -> None:
+    root, protocol_path, _, _ = _synthetic_protocol(tmp_path)
+    destination = root / "benchmarks/retrieval/development-freeze.json"
+    destination.parent.mkdir(parents=True)
+    if destination_kind == "regular":
+        destination.write_bytes(b"retained development authority")
+    elif destination_kind == "dangling":
+        destination.symlink_to("missing-development-freeze.json")
+    else:
+        destination.mkdir()
+    before = destination.lstat()
+    retained_bytes = (
+        destination.read_bytes() if destination_kind == "regular" else None
+    )
+    retained_link = (
+        destination.readlink() if destination_kind == "dangling" else None
+    )
+    calls = _install_l3_authority_barriers(monkeypatch)
+
+    error: Exception | None = None
+    try:
+        retrieval_order_workflow._run_development(  # pyright: ignore[reportPrivateUsage]
+            protocol_path=protocol_path,
+            freeze_path=destination,
+            repository_root=root,
+        )
+    except Exception as caught:
+        error = caught
+
+    assert calls == [], "L3_DEVELOPMENT_DESTINATION_PREFLIGHT_LATE"
+    assert isinstance(
+        error,
+        retrieval_order_workflow.RetrievalOrderWorkflowError,
+    )
+    after = destination.lstat()
+    assert (after.st_dev, after.st_ino, after.st_mode) == (
+        before.st_dev,
+        before.st_ino,
+        before.st_mode,
+    )
+    if retained_bytes is not None:
+        assert destination.read_bytes() == retained_bytes
+    if retained_link is not None:
+        assert destination.readlink() == retained_link
+
+
+@pytest.mark.parametrize(
+    "alias_kind",
+    ("protocol-final", "protocol-parent", "output-parent"),
+    ids=("protocol-final", "protocol-parent", "output-parent"),
+)
+def test_development_preflight_rejects_protocol_and_output_aliases_before_authority(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    alias_kind: str,
+) -> None:
+    root, protocol_path, _, _ = _synthetic_protocol(tmp_path)
+    requested_protocol = protocol_path
+    destination = root / "benchmarks/retrieval/development-freeze.json"
+    if alias_kind == "protocol-final":
+        requested_protocol = root / "protocol-alias.json"
+        requested_protocol.symlink_to(protocol_path.name)
+    elif alias_kind == "protocol-parent":
+        alias_root = tmp_path / "repository-alias"
+        alias_root.symlink_to(root, target_is_directory=True)
+        requested_protocol = alias_root / protocol_path.name
+    else:
+        retained_parent = root / "retained-output-parent"
+        retained_parent.mkdir()
+        alias_parent = root / "benchmarks"
+        alias_parent.symlink_to(retained_parent, target_is_directory=True)
+        destination = alias_parent / "development-freeze.json"
+    calls = _install_l3_authority_barriers(monkeypatch)
+
+    error: Exception | None = None
+    try:
+        retrieval_order_workflow._run_development(  # pyright: ignore[reportPrivateUsage]
+            protocol_path=requested_protocol,
+            freeze_path=destination,
+            repository_root=root,
+        )
+    except Exception as caught:
+        error = caught
+
+    assert calls == [], "L3_DEVELOPMENT_ALIAS_PREFLIGHT_LATE"
+    assert isinstance(
+        error,
+        retrieval_order_workflow.RetrievalOrderWorkflowError,
+    )
+    assert not destination.exists()
+
+
+@pytest.mark.parametrize(
+    "output_case",
+    (
+        "receipt-regular",
+        "receipt-dangling",
+        "receipt-final-alias",
+        "receipt-parent-alias",
+        "artifact-regular",
+        "artifact-dangling",
+        "artifact-final-alias",
+        "artifact-parent-alias",
+    ),
+    ids=(
+        "receipt-regular",
+        "receipt-dangling",
+        "receipt-final-alias",
+        "receipt-parent-alias",
+        "artifact-regular",
+        "artifact-dangling",
+        "artifact-final-alias",
+        "artifact-parent-alias",
+    ),
+)
+def test_holdout_preflight_rejects_visible_or_aliased_outputs_before_authority(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    output_case: str,
+) -> None:
+    root, protocol_path, _, _ = _synthetic_protocol(tmp_path)
+    output_parent = root / "benchmarks/retrieval"
+    kind = output_case.split("-", 1)[1]
+    if kind == "parent-alias":
+        retained_parent = root / "retained-retrieval"
+        retained_parent.mkdir()
+        output_parent.parent.mkdir()
+        output_parent.symlink_to(retained_parent, target_is_directory=True)
+    else:
+        output_parent.mkdir(parents=True)
+    freeze = output_parent / "development-freeze.json"
+    freeze.write_bytes(b"synthetic retained freeze")
+    receipt = output_parent / "holdout-receipt.json"
+    artifact = output_parent / "artifact.json"
+    selected = receipt if output_case.startswith("receipt") else artifact
+    if kind == "regular":
+        selected.write_bytes(b"retained output authority")
+    elif kind == "dangling":
+        selected.symlink_to(f"missing-{selected.name}")
+    elif kind == "final-alias":
+        retained = selected.with_name(f"retained-{selected.name}")
+        retained.write_bytes(b"retained output authority")
+        selected.symlink_to(retained.name)
+    calls = _install_l3_authority_barriers(monkeypatch)
+
+    error: Exception | None = None
+    try:
+        retrieval_order_workflow._run_holdout(  # pyright: ignore[reportPrivateUsage]
+            protocol_path=protocol_path,
+            development_freeze_path=freeze,
+            receipt_path=receipt,
+            artifact_path=artifact,
+            repository_root=root,
+        )
+    except Exception as caught:
+        error = caught
+
+    assert calls == [], "L3_HOLDOUT_OUTPUT_PREFLIGHT_LATE"
+    assert isinstance(
+        error,
+        retrieval_order_workflow.RetrievalOrderWorkflowError,
+    )
+    if kind in {"regular", "final-alias"}:
+        assert os.path.lexists(selected)
+
+
+def test_case_alias_is_not_canonical_authority(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root, protocol_path, _, _ = _synthetic_protocol(tmp_path)
+    cased_root = root.with_name("SyntheticRepository")
+    root.rename(cased_root)
+    alias_root = cased_root.with_name("syntheticrepository")
+    try:
+        same_directory = alias_root.samefile(cased_root)
+    except FileNotFoundError:
+        same_directory = False
+    if not same_directory:
+        pytest.skip("filesystem does not provide a lexical case alias")
+    canonical_protocol = (
+        cased_root / "tests/fixtures/retrieval-order-v1/protocol.json"
+    )
+    canonical_protocol.parent.mkdir(parents=True)
+    (alias_root / protocol_path.name).rename(canonical_protocol)
+    requested_protocol = (
+        alias_root / "tests/fixtures/retrieval-order-v1/protocol.json"
+    )
+    requested_output = (
+        alias_root
+        / "benchmarks/retrieval/retrieval-order-v1-development-freeze.json"
+    )
+    calls = _install_l3_authority_barriers(monkeypatch)
+    monkeypatch.chdir(cased_root)
+
+    status = main(
+        [
+            "development",
+            "--protocol",
+            str(requested_protocol),
+            "--record-development-freeze",
+            str(requested_output),
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert calls == [], "L3_CASE_ALIAS_FALSE_CANONICAL"
+    assert status == 1
+    assert payload["canonical"] is False
 
 
 def test_candidate_head_mismatch_rejects_holdout_before_receipt_or_fixture(
@@ -1849,6 +2072,36 @@ def _install_publication_fault(
         "directory_fsync": "_fsync_directory",
     }[fault]
     monkeypatch.setattr(atomic_publication, target, fail)
+
+
+def _install_l3_authority_barriers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> list[str]:
+    calls: list[str] = []
+
+    def barrier(name: str):
+        def fail(*args: object, **kwargs: object) -> object:
+            del args, kwargs
+            calls.append(name)
+            raise RuntimeError(f"L3 barrier entered: {name}")
+
+        return fail
+
+    for name in (
+        "load_retrieval_order_protocol_metadata",
+        "_candidate_seal",
+        "observe_retrieval_order_partition",
+        "build_development_freeze",
+        "build_holdout_receipt",
+        "build_retrieval_order_artifact",
+        "_publish_or_stop",
+    ):
+        monkeypatch.setattr(
+            retrieval_order_workflow,
+            name,
+            barrier(name),
+        )
+    return calls
 
 
 def _observe_g1_case(

@@ -196,6 +196,92 @@ def test_protocol_metadata_records_exact_canonical_partition_identities() -> Non
     )
 
 
+@pytest.mark.parametrize("alias_kind", ("final", "parent"), ids=("final", "parent"))
+def test_protocol_input_aliases_are_rejected_before_read(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    alias_kind: str,
+) -> None:
+    root, protocol_path, _, _ = _synthetic_protocol(tmp_path)
+    if alias_kind == "final":
+        requested = root / "protocol-alias.json"
+        requested.symlink_to(protocol_path.name)
+    else:
+        requested_parent = tmp_path / "repository-alias"
+        requested_parent.symlink_to(root, target_is_directory=True)
+        requested = requested_parent / protocol_path.name
+    reads: list[Path] = []
+    original_read_text = Path.read_text
+    original_read_bytes = Path.read_bytes
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path.resolve() == protocol_path:
+            reads.append(path)
+        return original_read_text(path, *args, **kwargs)  # type: ignore[arg-type]
+
+    def read_bytes(path: Path) -> bytes:
+        if path.resolve() == protocol_path:
+            reads.append(path)
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+    monkeypatch.setattr(Path, "read_bytes", read_bytes)
+
+    error: Exception | None = None
+    try:
+        load_retrieval_order_protocol_metadata(
+            requested,
+            repository_root=root,
+        )
+    except Exception as caught:
+        error = caught
+
+    assert reads == [], "L3_PROTOCOL_ALIAS_READ"
+    assert isinstance(error, RetrievalOrderProtocolError)
+
+
+@pytest.mark.parametrize("alias_kind", ("final", "parent"), ids=("final", "parent"))
+def test_partition_input_aliases_are_rejected_before_read(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    alias_kind: str,
+) -> None:
+    root, protocol_path, development_path, holdout_path = (
+        _synthetic_protocol(tmp_path)
+    )
+    if alias_kind == "final":
+        retained = development_path.with_name("development-retained.json")
+        development_path.rename(retained)
+        development_path.symlink_to(retained.name)
+    else:
+        fixture_root = development_path.parent
+        retained_root = fixture_root.with_name("fixtures-retained")
+        fixture_root.rename(retained_root)
+        fixture_root.symlink_to(retained_root.name, target_is_directory=True)
+        retained = retained_root / development_path.name
+        holdout_path = retained_root / holdout_path.name
+    reads: list[Path] = []
+    original_read_bytes = Path.read_bytes
+
+    def read_bytes(path: Path) -> bytes:
+        if path.resolve() in {retained.resolve(), holdout_path.resolve()}:
+            reads.append(path)
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", read_bytes)
+
+    try:
+        metadata = load_retrieval_order_protocol_metadata(
+            protocol_path,
+            repository_root=root,
+        )
+        load_retrieval_order_protocol_partition(metadata, "development")
+    except RetrievalOrderProtocolError:
+        pass
+
+    assert reads == [], "L3_PARTITION_ALIAS_READ"
+
+
 def test_metadata_preflight_does_not_open_partition_fixtures(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

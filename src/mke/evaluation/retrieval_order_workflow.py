@@ -39,7 +39,12 @@ from mke.evaluation.retrieval_order_artifact import (
     validate_retrieval_order_artifact,
 )
 from mke.evaluation.retrieval_order_protocol import (
+    RetrievalOrderProtocolError,
     RetrievalOrderProtocolMetadata,
+    _is_exact_repository_path,  # pyright: ignore[reportPrivateUsage]
+    _preflight_repository_output,  # pyright: ignore[reportPrivateUsage]
+    _preflight_repository_regular_file,  # pyright: ignore[reportPrivateUsage]
+    _preflight_repository_root,  # pyright: ignore[reportPrivateUsage]
     load_retrieval_order_protocol_metadata,
     load_retrieval_order_protocol_partition,
 )
@@ -219,22 +224,29 @@ def _is_canonical_holdout_metadata(
     *,
     repository_root: Path,
 ) -> bool:
-    root = repository_root.resolve()
     return (
-        metadata.protocol_path == (root / _CANONICAL_PROTOCOL).resolve()
+        _is_exact_repository_path(
+            metadata.protocol_path,
+            repository_root=repository_root,
+            relative_path=_CANONICAL_PROTOCOL,
+        )
         and metadata.protocol_sha256 == _CANONICAL_PROTOCOL_SHA256
         and metadata.holdout.sha256 == _CANONICAL_HOLDOUT_SHA256
     )
 
 
 def _has_canonical_protocol_authority(repository_root: Path) -> bool:
-    protocol = repository_root.resolve() / _CANONICAL_PROTOCOL
     try:
+        root = _preflight_repository_root(repository_root)
+        protocol = _preflight_repository_regular_file(
+            root / _CANONICAL_PROTOCOL,
+            repository_root=root,
+        )
         return (
             hashlib.sha256(protocol.read_bytes()).hexdigest()
             == _CANONICAL_PROTOCOL_SHA256
         )
-    except OSError:
+    except (OSError, RetrievalOrderProtocolError):
         return False
 
 
@@ -431,10 +443,18 @@ def observe_retrieval_order_partition(
         SyntheticHoldoutCapability | _ProductionHoldoutCapability | None
     ) = None,
 ) -> dict[str, object]:
-    metadata = load_retrieval_order_protocol_metadata(
-        protocol_path,
-        repository_root=repository_root,
-    )
+    try:
+        metadata = load_retrieval_order_protocol_metadata(
+            protocol_path,
+            repository_root=repository_root,
+        )
+    except RetrievalOrderProtocolError as error:
+        message = (
+            "holdout capability is missing or mismatched"
+            if partition == "holdout"
+            else "retrieval order protocol path is invalid"
+        )
+        raise RetrievalOrderWorkflowError(message) from error
     if partition == "holdout":
         if type(holdout_capability) not in {
             SyntheticHoldoutCapability,
@@ -1159,13 +1179,117 @@ def _publish_or_stop(
     return result
 
 
+def _path_preflight_error(
+    message: str,
+) -> RetrievalOrderWorkflowError:
+    return RetrievalOrderWorkflowError(
+        message,
+        problem="retrieval_order_holdout_unauthorized",
+        cause="typed_capability_missing_or_mismatched",
+        next_step="restore_approved_transition",
+    )
+
+
+def _invalid_visible_output_error(
+    message: str,
+) -> RetrievalOrderWorkflowError:
+    publication = AtomicPublicationResult(
+        output_state="not_applicable",
+        publication_outcome="durability_unconfirmed",
+        sha256=None,
+        problem="retrieval_order_publication_failed",
+        cause="visible_output_could_not_be_validated",
+        next_step="do_not_retry_visible_output",
+    )
+    return RetrievalOrderWorkflowError(
+        message,
+        problem=cast(str, publication.problem),
+        cause=cast(str, publication.cause),
+        next_step=cast(str, publication.next_step),
+        publication=publication,
+    )
+
+
+def _preexisting_development_error() -> RetrievalOrderWorkflowError:
+    publication = AtomicPublicationResult(
+        output_state="complete_preexisting",
+        publication_outcome="not_attempted",
+        sha256=None,
+        problem="retrieval_order_holdout_already_started",
+        cause="development_freeze_exists",
+        next_step="retain_freeze_and_stop",
+    )
+    return RetrievalOrderWorkflowError(
+        "development freeze already exists",
+        problem=cast(str, publication.problem),
+        cause=cast(str, publication.cause),
+        next_step=cast(str, publication.next_step),
+        publication=publication,
+    )
+
+
+def _preexisting_receipt_error() -> RetrievalOrderWorkflowError:
+    publication = AtomicPublicationResult(
+        output_state="complete_preexisting",
+        publication_outcome="not_attempted",
+        sha256=None,
+        problem="retrieval_order_holdout_already_started",
+        cause="holdout_receipt_exists",
+        next_step="retain_receipt_and_stop",
+    )
+    return RetrievalOrderWorkflowError(
+        "holdout receipt already exists",
+        problem=cast(str, publication.problem),
+        cause=cast(str, publication.cause),
+        next_step=cast(str, publication.next_step),
+        publication=publication,
+    )
+
+
+def _preexisting_artifact_error() -> RetrievalOrderWorkflowError:
+    publication = AtomicPublicationResult(
+        output_state="complete_preexisting",
+        publication_outcome="not_attempted",
+        sha256=None,
+        problem="retrieval_order_holdout_unauthorized",
+        cause="typed_capability_missing_or_mismatched",
+        next_step="restore_approved_transition",
+    )
+    return RetrievalOrderWorkflowError(
+        "holdout artifact already exists",
+        problem=cast(str, publication.problem),
+        cause=cast(str, publication.cause),
+        next_step=cast(str, publication.next_step),
+        publication=publication,
+    )
+
+
 def _run_development(
     *,
     protocol_path: Path,
     freeze_path: Path,
     repository_root: Path,
 ) -> AtomicPublicationResult:
-    root = repository_root.resolve()
+    try:
+        root = _preflight_repository_root(repository_root)
+        protocol_path = _preflight_repository_regular_file(
+            protocol_path,
+            repository_root=root,
+        )
+        freeze_path, freeze_state = _preflight_repository_output(
+            freeze_path,
+            repository_root=root,
+        )
+    except RetrievalOrderProtocolError as error:
+        raise _path_preflight_error(
+            "development authority paths failed preflight"
+        ) from error
+    if freeze_state == "regular":
+        raise _preexisting_development_error()
+    if freeze_state == "invalid":
+        raise _invalid_visible_output_error(
+            "development destination is visibly invalid"
+        )
     metadata = load_retrieval_order_protocol_metadata(
         protocol_path,
         repository_root=root,
@@ -1174,9 +1298,11 @@ def _run_development(
         metadata,
         repository_root=root,
     )
-    canonical_destination = freeze_path.resolve() == (
-        root / _CANONICAL_DEVELOPMENT_FREEZE
-    ).resolve()
+    canonical_destination = _is_exact_repository_path(
+        freeze_path,
+        repository_root=root,
+        relative_path=_CANONICAL_DEVELOPMENT_FREEZE,
+    )
     if (
         canonical_metadata and not canonical_destination
     ) or (
@@ -1244,7 +1370,40 @@ def _run_holdout(
     artifact_path: Path,
     repository_root: Path,
 ) -> AtomicPublicationResult:
-    root = repository_root.resolve()
+    try:
+        root = _preflight_repository_root(repository_root)
+        protocol_path = _preflight_repository_regular_file(
+            protocol_path,
+            repository_root=root,
+        )
+        development_freeze_path = _preflight_repository_regular_file(
+            development_freeze_path,
+            repository_root=root,
+        )
+        receipt_path, receipt_state = _preflight_repository_output(
+            receipt_path,
+            repository_root=root,
+        )
+        artifact_path, artifact_state = _preflight_repository_output(
+            artifact_path,
+            repository_root=root,
+        )
+    except RetrievalOrderProtocolError as error:
+        raise _path_preflight_error(
+            "holdout authority paths failed preflight"
+        ) from error
+    if receipt_state == "regular":
+        raise _preexisting_receipt_error()
+    if receipt_state == "invalid":
+        raise _invalid_visible_output_error(
+            "holdout receipt destination is visibly invalid"
+        )
+    if artifact_state == "regular":
+        raise _preexisting_artifact_error()
+    if artifact_state == "invalid":
+        raise _invalid_visible_output_error(
+            "holdout artifact destination is visibly invalid"
+        )
     metadata = load_retrieval_order_protocol_metadata(
         protocol_path,
         repository_root=root,
@@ -1254,12 +1413,21 @@ def _run_holdout(
         repository_root=root,
     )
     canonical_outputs = (
-        development_freeze_path.resolve()
-        == (root / _CANONICAL_DEVELOPMENT_FREEZE).resolve()
-        and receipt_path.resolve()
-        == (root / _CANONICAL_HOLDOUT_RECEIPT).resolve()
-        and artifact_path.resolve()
-        == (root / _CANONICAL_RETRIEVAL_ARTIFACT).resolve()
+        _is_exact_repository_path(
+            development_freeze_path,
+            repository_root=root,
+            relative_path=_CANONICAL_DEVELOPMENT_FREEZE,
+        )
+        and _is_exact_repository_path(
+            receipt_path,
+            repository_root=root,
+            relative_path=_CANONICAL_HOLDOUT_RECEIPT,
+        )
+        and _is_exact_repository_path(
+            artifact_path,
+            repository_root=root,
+            relative_path=_CANONICAL_RETRIEVAL_ARTIFACT,
+        )
     )
     if (
         canonical_metadata and not canonical_outputs
@@ -1273,34 +1441,6 @@ def _run_holdout(
             problem="retrieval_order_holdout_unauthorized",
             cause="typed_capability_missing_or_mismatched",
             next_step="restore_approved_transition",
-        )
-    if receipt_path.exists():
-        raise RetrievalOrderWorkflowError(
-            "holdout receipt already exists",
-            problem="retrieval_order_holdout_already_started",
-            cause="holdout_receipt_exists",
-            next_step="retain_receipt_and_stop",
-            publication=AtomicPublicationResult(
-                output_state="complete_preexisting",
-                publication_outcome="not_attempted",
-                sha256=None,
-                problem="retrieval_order_holdout_already_started",
-            ),
-        )
-    if artifact_path.exists():
-        raise RetrievalOrderWorkflowError(
-            "holdout artifact already exists",
-            problem="retrieval_order_holdout_unauthorized",
-            cause="typed_capability_missing_or_mismatched",
-            next_step="restore_approved_transition",
-            publication=AtomicPublicationResult(
-                output_state="complete_preexisting",
-                publication_outcome="not_attempted",
-                sha256=hashlib.sha256(
-                    artifact_path.read_bytes()
-                ).hexdigest(),
-                problem="retrieval_order_holdout_unauthorized",
-            ),
         )
     candidate = _candidate_seal(
         root,
@@ -1557,31 +1697,43 @@ def main(argv: list[str] | None = None) -> int:
     holdout.add_argument("--json", action="store_true", required=True)
     args = parser.parse_args(argv)
     if args.phase != "current":
-        root = Path.cwd().resolve()
+        root = Path.cwd()
         mode = cast(str, args.phase)
         canonical = (
             (
-                args.record_development_freeze.resolve()
-                == (
-                    root
-                    / "benchmarks/retrieval/"
-                    "retrieval-order-v1-development-freeze.json"
-                ).resolve()
+                _is_exact_repository_path(
+                    args.protocol,
+                    repository_root=root,
+                    relative_path=_CANONICAL_PROTOCOL,
+                )
+                and _is_exact_repository_path(
+                    args.record_development_freeze,
+                    repository_root=root,
+                    relative_path=_CANONICAL_DEVELOPMENT_FREEZE,
+                )
             )
             if mode == "development"
             else (
-                args.record_holdout_receipt.resolve()
-                == (
-                    root
-                    / "benchmarks/retrieval/"
-                    "retrieval-order-v1-holdout-receipt.json"
-                ).resolve()
-                and args.record.resolve()
-                == (
-                    root
-                    / "benchmarks/retrieval/"
-                    "retrieval-order-v1-artifact.json"
-                ).resolve()
+                _is_exact_repository_path(
+                    args.protocol,
+                    repository_root=root,
+                    relative_path=_CANONICAL_PROTOCOL,
+                )
+                and _is_exact_repository_path(
+                    args.development_freeze,
+                    repository_root=root,
+                    relative_path=_CANONICAL_DEVELOPMENT_FREEZE,
+                )
+                and _is_exact_repository_path(
+                    args.record_holdout_receipt,
+                    repository_root=root,
+                    relative_path=_CANONICAL_HOLDOUT_RECEIPT,
+                )
+                and _is_exact_repository_path(
+                    args.record,
+                    repository_root=root,
+                    relative_path=_CANONICAL_RETRIEVAL_ARTIFACT,
+                )
             )
         )
         try:
