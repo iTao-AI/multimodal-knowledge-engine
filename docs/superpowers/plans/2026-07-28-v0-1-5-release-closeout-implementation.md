@@ -261,7 +261,7 @@ Require:
 
 ```bash
 test "$(git rev-parse HEAD)" = "$REVIEWED_PLAN_HEAD"
-test "$(git rev-list --count 6d9e3c120bcde6cf3a54f54d33af30466ceeac9a..HEAD)" -eq 1
+test "$(git rev-list --count 6d9e3c120bcde6cf3a54f54d33af30466ceeac9a..HEAD)" -eq 2
 test "$(git diff --name-only 6d9e3c120bcde6cf3a54f54d33af30466ceeac9a..HEAD)" = \
   "docs/superpowers/plans/2026-07-28-v0-1-5-release-closeout-implementation.md"
 git diff --quiet
@@ -712,6 +712,7 @@ consumer_smoke_failed
 demo_failed
 environment_create_failed
 external_isolation_failed
+fixture_setup_failed
 fixture_unavailable
 install_failed
 installed_identity_failed
@@ -737,6 +738,7 @@ runtime_root_inside_repository
 server_exit_nonzero
 source_pack_identity_mismatch
 source_pack_manifest_invalid
+venv_failed
 wheel_build_failed
 wheel_invalid
 wheel_unavailable
