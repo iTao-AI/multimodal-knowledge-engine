@@ -1819,6 +1819,621 @@ If tree equality fails, stop unpublished. Do not tag.
 
 ---
 
+## Plan Amendment C — Prepare Fresh Exact-Main Environment Before No-Sync Gates
+
+### Trigger And Authority Diagnosis
+
+Task 9 completed against the reviewed release tree:
+
+- PR #96 was marked Ready and squash merged;
+- merge commit
+  `168181cb4eae7ecd430efe723663f4993bff8d4f`;
+- sole merge parent
+  `33106ec2cfeabf6c1c448fad57fb2489e3712543`;
+- merge tree
+  `8910be7b673d8483e0b1a9deb3f9600b80074712`;
+- merge tree equals the reviewed branch tree exactly;
+- all nine observed post-merge checks completed successfully;
+- the remote feature branch was deleted by the repository's accepted server-side merge behavior.
+
+The first Task 10 exact-main attempt then created a fresh detached worktree as required. That
+worktree had no synchronized project environment. Task 10 Step 2 nevertheless began with:
+
+```bash
+UV_OFFLINE=1 UV_PYTHON_DOWNLOADS=never \
+uv run --frozen --no-sync pytest -q
+```
+
+Because `--no-sync` deliberately skips project-environment synchronization, uv created only a
+fresh virtual-environment shell and did not install the project or its development dependencies.
+The executable resolved for `pytest` was outside the fresh project environment, and collection
+stopped with 140 errors; the first concrete error was:
+
+```text
+ModuleNotFoundError: No module named 'mke'
+```
+
+The wrapper then used zsh's read-only variable name `status` while trying to retain the subprocess
+exit value. That secondary controller error prevented the wrapper from persisting its intended
+exit field, but it does not erase or replace the authoritative pytest failure.
+
+Classify the stopped run as an exact-main environment-preparation and controller-observability
+failure. It is not:
+
+- a product runtime, retrieval, Evidence, Publication, CLI, MCP, schema, or dependency regression;
+- a test assertion failure after successful collection;
+- a failure of the reviewed release tree or merge-tree equality;
+- a transcription, model, real-ASR, comparison, or quality result;
+- Task 10 completion or release readiness.
+
+The failed exact-main worktree, its incomplete `.venv`, raw stdout/stderr, seal, tracked inventory,
+BLOCKED record, and complete ledger inventory remain immutable non-acceptance history. They must
+not be repaired in place, retried, or reused as acceptance input.
+
+The authority sequence for a fresh project checkout is:
+
+```text
+exact merged source and lock
+-> one explicit locked offline environment sync
+-> project-environment and controller self-check
+-> no-sync proof gates
+-> retained exact-main ledger
+-> separate publication authorization
+```
+
+This amendment supersedes only the missing environment-preparation boundary between Task 10
+Step 1 and Task 10 Step 2, plus the controller exit-code capture used by the exact-main proof. It
+does not change Task 7 results, Task 8 or Task 9 history, the release scope, dependency graph,
+`uv.lock`, product source, tests, runtime behavior, canonical Evidence, release claims, or Task 11
+publication authority.
+
+### C0 — Land And Independently Review This Amendment
+
+Create a new short-lived plan-repair branch from the exact current `origin/main` merge commit
+`168181cb4eae7ecd430efe723663f4993bff8d4f`. Do not amend, rebase, or reuse the merged release
+branch as the public source of this correction.
+
+Before the write, require:
+
+- exact base HEAD and tree:
+  `168181cb4eae7ecd430efe723663f4993bff8d4f` /
+  `8910be7b673d8483e0b1a9deb3f9600b80074712`;
+- clean worktree and index;
+- package identity `0.1.5`;
+- existing implementation plan SHA-256
+  `743f872dfc2ebe51f1cb4f9382668567a6dd18b2d7001460d84a8dc4df9841c9`;
+- design specification SHA-256
+  `260b178bcac6255d7f3a7ad1a29272bca45234e1a5599939609147ff320da48e`;
+- `uv.lock` SHA-256
+  `1f2e215c08fefc9fe60b2a22467fadd546af2da13de0926282515d2211ffcab9`;
+- all nine protected hashes remain exact;
+- the first Task 10 stopped ledger and worktree remain present and unchanged;
+- no local or remote `v0.1.5` tag and no GitHub Release `v0.1.5`.
+
+Requirements:
+
+- modify only
+  `docs/superpowers/plans/2026-07-28-v0-1-5-release-closeout-implementation.md`;
+- insert this complete amendment immediately before
+  `## Task 10: Re-Prove Fresh Exact Main`;
+- retain one Markdown separator around the inserted block;
+- preserve every preexisting plan byte outside that insertion;
+- preserve the design specification, `uv.lock`, source, tests, release documentation, canonical
+  evidence, fixtures, and historical release bytes exactly;
+- verify source/extracted-block byte equality and SHA-256, inverse reconstruction of the parent
+  plan, balanced fences, unique Amendment C and C0–C7 headings, unchanged Task 0–13 heading
+  sequence, complete no-index/cached/committed diff, marker and credential scan, range
+  `git diff --check`, one-path scope, one-commit ancestry, and clean final state;
+- perform no environment sync, cache operation, test, build, proof, model operation, observation,
+  comparison, GitHub mutation, publication, tag, Release, or cleanup action;
+- terminal stop for independent actual plan-diff review.
+
+Use branch:
+
+```text
+codex/v0-1-5-exact-main-proof-plan
+```
+
+Use commit message:
+
+```text
+docs(plan): prepare fresh exact-main environment
+```
+
+The amendment creates a new reviewed plan candidate. C1 must not begin until the actual committed
+plan diff is independently review-clean.
+
+### C1 — Publish And Merge The Exact Plan Repair
+
+After the C0 actual diff is review-clean, re-prove:
+
+- local branch HEAD/tree and clean index/worktree;
+- the one-path C0 diff and exact amendment source identity;
+- current `origin/main` still equals the C0 base;
+- no matching remote branch or open PR exists;
+- the first Task 10 failed worktree and ledger remain unchanged;
+- no `v0.1.5` tag or GitHub Release exists.
+
+Push normally without force and create one Draft PR to `main`. The public-neutral PR body must
+state:
+
+- the exact Task 10 failure mechanism;
+- that the product/retrieval/runtime tree did not regress;
+- that the sole tracked change is a release-proof plan correction;
+- the new locked offline environment-preparation order;
+- the controller exit-capture correction;
+- preserved failure history and non-claims;
+- pending hosted checks, exact-tree review, squash merge, fresh exact-main proof, and separate
+  publication authority.
+
+Read back the persisted title, body bytes, Draft/open state, base, head branch, head SHA, URL, and
+complete check inventory. Require the PR head to equal the independently reviewed C0 HEAD.
+
+After all required checks are terminal-success and there are no actionable reviews, comments, or
+threads:
+
+1. reconcile the persisted PR body to the actual hosted state;
+2. read repository rules and merge settings;
+3. require mergeable/clean state and exact reviewed/checks head equality;
+4. mark Ready and read back;
+5. squash merge without changing the reviewed content;
+6. require the merge tree equals the reviewed C0 tree exactly;
+7. accept repository-configured server-side remote-branch deletion;
+8. read the complete post-merge check inventory on the amendment merge SHA.
+
+Any new substantive diff, failed check, unresolved finding, base movement, tree mismatch, ambiguous
+merge state, or publication artifact is terminal. Do not repair, repush, or merge a changed branch
+without a new bounded authority review.
+
+### C2 — Retain Both Historical Failure Layers
+
+Before creating a new proof checkout, freeze a read-only recovery record that binds:
+
+- the original reviewed release HEAD/tree;
+- PR #96 merge commit/tree and post-merge checks;
+- the first Task 10 `EXACT_MAIN_SEAL`;
+- the failed pytest argv, first concrete error, stdout/stderr digests, BLOCKED-record digest, and
+  ledger-inventory digest;
+- the secondary `status` variable controller defect;
+- the passed B1–B3 recovery-summary digest
+  `97367d9ec8c76388bc59a92de92a7457b6e9ef050a7202c34658a3e2ad89ec6b`, used only to prove
+  that the locked cache warm and a later offline transcription sync completed before Task 7;
+- the Amendment C reviewed HEAD/tree, PR identity, merge commit/tree, and post-merge checks;
+- exact plan, specification, lock, and nine protected identities;
+- absence of any Task 10 acceptance summary and absence of `v0.1.5` publication.
+
+The record must classify the first attempt as:
+
+```text
+product_regression=false
+environment_preparation_missing=true
+controller_exit_capture_invalid=true
+task_10=not_accepted
+retry_of_failed_worktree=forbidden
+```
+
+Do not copy results from either the branch proof or failed exact-main proof into the new acceptance
+ledger. Only immutable identities and explicit non-acceptance classifications may be referenced.
+
+### C3 — Create A Brand-New Exact-Main Proof Checkout
+
+Create a new detached, task-owned worktree at the Amendment C merge commit. It must use a new
+physical worktree path and a new absent physical ledger path. Do not reuse:
+
+- the first Task 10 worktree or its `.venv`;
+- the release-branch worktree or project environment;
+- any prior constraints file, wheel, receipt, claim, candidate, log, gate output, or summary;
+- any prior Task 7 or Task 10 controller invocation count.
+
+Require and retain:
+
+- exact current `origin/main` HEAD and tree;
+- detached HEAD at that exact commit;
+- clean index and worktree;
+- package identity `0.1.5`;
+- exact plan, design specification, `uv.lock`, and nine protected hashes;
+- absence of untracked repository outputs before environment preparation;
+- lexical and physical absence of `.venv` before environment preparation;
+- no local or remote `v0.1.5` tag and no GitHub Release `v0.1.5`;
+- a new `EXACT_MAIN_C_SEAL` containing complete tracked inventory and digests;
+- an explicit declaration that, after C6 passes, `EXACT_MAIN_C_SEAL` is the current
+  `EXACT_MAIN_SEAL` consumed by Task 11 and the failed first-attempt seal remains historical only;
+- a call-owned ledger root exported privately as `EXACT_MAIN_C_LEDGER`;
+- the exact physical CPython 3.13.12 interpreter already approved by Task 7 and B1–B3, bound as
+  `APPROVED_PROJECT_PYTHON` by path, resolved identity, version, implementation, mode, size, device,
+  inode, and digest; its private path remains ledger-only and is not copied into public text;
+- the exact approved uv 0.11.7 executable bound as `APPROVED_UV` by resolved path, version, mode,
+  size, device, inode, and digest, with `command -v uv` required to resolve to that same executable
+  inside the controller;
+- a call-owned proof-controller subprocess launched with `/bin/zsh -f`; its launcher enumerates
+  and removes every inherited environment variable whose name matches `UV_*`, plus
+  `VIRTUAL_ENV`, `PYTHONHOME`, and `PYTHONPATH`, before adding only `UV_OFFLINE=1`,
+  `UV_PYTHON_DOWNLOADS=never`, and `UV_NO_CONFIG=1`; the removed-name inventory and the exact
+  resulting three-name `UV_*` set are retained, while the caller's original environment remains
+  unchanged;
+- explicit proof that the normalized controller has no inherited project, workspace, Python,
+  cache, config, group, extra, editable, install-suppression, no-sync, lock/frozen, env-file,
+  source, index, or find-links routing, including the formerly hazardous
+  `UV_PROJECT_ENVIRONMENT`, `UV_PROJECT`, `UV_WORKING_DIR`, `UV_PYTHON`, `UV_CACHE_DIR`,
+  `UV_CONFIG_FILE`, `UV_NO_DEV`, `UV_NO_DEFAULT_GROUPS`, `UV_NO_GROUP`, `UV_NO_EDITABLE`,
+  `UV_NO_INSTALL_PROJECT`, and `UV_NO_INSTALL_WORKSPACE`;
+- every direct C4–C6 outer uv command uses `--no-config` and the exact bound
+  `APPROVED_PROJECT_PYTHON`, while every intentionally nested uv child inherits
+  `UV_NO_CONFIG=1`;
+- no network, model, ASR, comparison, observation, or publication action.
+
+Before environment preparation, materialize one exact executable runner at the absent path
+`$EXACT_MAIN_C_LEDGER/gate-runner.zsh`. Record its bytes and SHA-256 before its first use. The
+runner is outside the repository, is never sourced into the controller, and is the only primitive
+authorized to execute a C4–C6 child gate. Every use must invoke it as
+`/bin/zsh -f "$EXACT_MAIN_C_LEDGER/gate-runner.zsh" ...`; direct shebang execution is forbidden:
+
+```bash
+#!/bin/zsh
+set -euo pipefail
+
+test "$#" -ge 4
+gate_name="$1"
+expected_exit="$2"
+shift 2
+test "$1" = "--"
+shift
+[[ "$gate_name" =~ '^[a-z0-9][a-z0-9._-]*$' ]]
+[[ "$expected_exit" =~ '^[0-9]+$' ]]
+test "$expected_exit" -le 255
+test -n "${EXACT_MAIN_C_LEDGER:-}"
+test -n "${APPROVED_PROJECT_PYTHON:-}"
+test "$#" -gt 0
+
+stdout_path="$EXACT_MAIN_C_LEDGER/$gate_name.stdout"
+stderr_path="$EXACT_MAIN_C_LEDGER/$gate_name.stderr"
+exit_path="$EXACT_MAIN_C_LEDGER/$gate_name.exit"
+count_path="$EXACT_MAIN_C_LEDGER/$gate_name.count"
+argv_path="$EXACT_MAIN_C_LEDGER/$gate_name.argv"
+metadata_path="$EXACT_MAIN_C_LEDGER/$gate_name.metadata"
+
+for output_path in \
+  "$stdout_path" "$stderr_path" "$exit_path" "$count_path" "$argv_path" "$metadata_path"
+do
+  test ! -e "$output_path" && test ! -L "$output_path"
+done
+
+printf '%s\n' 1 >"$count_path"
+printf '%s\0' "$@" >"$argv_path"
+started_ns="$("$APPROVED_PROJECT_PYTHON" -c \
+  'import time; print(time.time_ns())')"
+set +e
+"$@" >"$stdout_path" 2>"$stderr_path"
+child_exit=$?
+set -e
+printf '%s\n' "$child_exit" >"$exit_path"
+finished_ns="$("$APPROVED_PROJECT_PYTHON" -c \
+  'import time; print(time.time_ns())')"
+test "$finished_ns" -ge "$started_ns"
+
+stdout_bytes="$(/usr/bin/wc -c <"$stdout_path" | /usr/bin/tr -d ' ')"
+stderr_bytes="$(/usr/bin/wc -c <"$stderr_path" | /usr/bin/tr -d ' ')"
+argv_bytes="$(/usr/bin/wc -c <"$argv_path" | /usr/bin/tr -d ' ')"
+test "$stdout_bytes" -le 16777216
+test "$stderr_bytes" -le 16777216
+stdout_sha256="$(/usr/bin/shasum -a 256 "$stdout_path" | /usr/bin/awk '{print $1}')"
+stderr_sha256="$(/usr/bin/shasum -a 256 "$stderr_path" | /usr/bin/awk '{print $1}')"
+argv_sha256="$(/usr/bin/shasum -a 256 "$argv_path" | /usr/bin/awk '{print $1}')"
+
+{
+  printf 'gate=%s\n' "$gate_name"
+  printf 'expected_exit=%s\n' "$expected_exit"
+  printf 'child_exit=%s\n' "$child_exit"
+  printf 'started_ns=%s\n' "$started_ns"
+  printf 'finished_ns=%s\n' "$finished_ns"
+  printf 'duration_ns=%s\n' "$((finished_ns - started_ns))"
+  printf 'stdout_bytes=%s\n' "$stdout_bytes"
+  printf 'stdout_sha256=%s\n' "$stdout_sha256"
+  printf 'stderr_bytes=%s\n' "$stderr_bytes"
+  printf 'stderr_sha256=%s\n' "$stderr_sha256"
+  printf 'argv_bytes=%s\n' "$argv_bytes"
+  printf 'argv_sha256=%s\n' "$argv_sha256"
+} >"$metadata_path"
+
+test "$child_exit" -eq "$expected_exit"
+```
+
+Before C4 sync, invoke that exact runner once with a fresh gate name:
+
+```bash
+/bin/zsh -f "$EXACT_MAIN_C_LEDGER/gate-runner.zsh" \
+  runner-pre-sync-self-test 23 -- \
+  /bin/sh -c '
+    printf "resolved_uv=%s\n" "$(command -v uv)"
+    /usr/bin/env | /usr/bin/sort
+    exit 23
+  '
+```
+
+Require retained exit `23`, invocation count `1`, bounded stdout/stderr, exact metadata, and a
+parsed child-visible inventory containing exactly `UV_OFFLINE=1`, `UV_PYTHON_DOWNLOADS=never`, and
+`UV_NO_CONFIG=1`, no other `UV_*`, `VIRTUAL_ENV`, `PYTHONHOME`, or `PYTHONPATH`, plus a
+`resolved_uv` path whose resolved identity equals `APPROVED_UV`. Also require unchanged
+parent-controller process state and unchanged repository authority. This establishes that the
+same `zsh -f` runner later used for sync, probes, and proof gates retains a nonzero child exit
+before it evaluates success and does not regain shell-startup configuration. Any runner
+materialization or self-test failure is terminal; do not edit the runner or start environment
+preparation in the same exact-main attempt.
+
+Any authority drift is terminal before environment preparation.
+
+### C4 — Prepare The Fresh Project Environment Offline
+
+This step authorizes exactly one project-environment synchronization invocation in the new
+exact-main worktree. Invoke it through the exact C3 runner, inside the exact C3 sanitized
+controller:
+
+```bash
+/bin/zsh -f "$EXACT_MAIN_C_LEDGER/gate-runner.zsh" environment-sync 0 -- \
+  uv sync --no-config --locked --extra transcription \
+    --python "$APPROVED_PROJECT_PYTHON"
+```
+
+This command must run before any `uv run --frozen --no-sync` gate.
+
+Before invocation, bind:
+
+- invocation count zero;
+- exact `EXACT_MAIN_C_SEAL`;
+- exact `uv` and approved Python identities;
+- exact `uv.lock`;
+- lexical and physical absence of `.venv`;
+- the exact B1–B3 recovery-summary digest and passed cache-warm/offline-sync statuses, without
+  importing any prior gate output as current acceptance evidence;
+- absence of every C3-listed routing/configuration variable in the call-owned proof-controller
+  subprocess;
+- exact `--no-config` and `--python "$APPROVED_PROJECT_PYTHON"` command authority;
+- network disabled and interpreter download disabled;
+- no model-download authorization.
+
+Require:
+
+- invocation count exactly one;
+- exit `0`;
+- no network access and no interpreter download;
+- no package installed into the fresh project `.venv` outside the existing locked project, default
+  development-group, and `transcription` extra closure;
+- no model download, model construction, media open, fixture consumption, ASR, product proof,
+  observation, comparison, or publication;
+- `uv.lock`, HEAD, tree, index tree, tracked bytes, protected hashes, and clean porcelain remain
+  exact;
+- exact argv, duration, exit code, bounded stdout/stderr bytes and digests, and before/after
+  authority identities are retained;
+- the runner bytes and SHA-256 are re-read immediately before and after the sync and still equal
+  the C3 authority.
+
+The sync is environment preparation, not a Task 10 product gate and not release evidence. It
+proves only that the already prepared local cache can realize the exact locked project environment
+with network disabled. It does not prove cold-cache, empty-cache, air-gapped, or cache-portable
+installation.
+
+Immediately after the sync, materialize the following exact probe outside the repository, record
+its bytes and SHA-256, and execute it exactly once through the same runner:
+
+```python
+from importlib.metadata import version
+from pathlib import Path
+import shutil
+import sys
+
+root = Path.cwd().resolve()
+expected_python = (root / ".venv" / "bin" / "python").resolve()
+expected_pytest = (root / ".venv" / "bin" / "pytest").resolve()
+
+assert Path(sys.executable).resolve() == expected_python
+assert Path(sys.prefix).resolve() == (root / ".venv").resolve()
+assert Path(sys.base_prefix).resolve() != Path(sys.prefix).resolve()
+pytest_executable = shutil.which("pytest")
+assert pytest_executable is not None
+assert Path(pytest_executable).resolve() == expected_pytest
+
+import mke
+import pytest
+
+assert (root / "src" / "mke") in Path(mke.__file__).resolve().parents
+assert (root / ".venv") in Path(pytest.__file__).resolve().parents
+
+expected = {
+    "multimodal-knowledge-engine": "0.1.5",
+    "pytest": "9.1.1",
+    "setuptools": "83.0.0",
+    "ctranslate2": "4.8.0",
+    "faster-whisper": "1.2.1",
+}
+observed = {name: version(name) for name in expected}
+assert observed == expected, observed
+
+print("exact_main_project_environment=passed")
+```
+
+Use the exact top-level invocation:
+
+```bash
+/bin/zsh -f "$EXACT_MAIN_C_LEDGER/gate-runner.zsh" environment-probe 0 -- \
+  uv run --frozen --no-sync --no-config --no-env-file \
+    --python "$APPROVED_PROJECT_PYTHON" \
+    python "$EXACT_MAIN_C_LEDGER/environment-probe.py"
+```
+
+Re-read the runner bytes and SHA-256 immediately before and after the probe.
+
+Any sync or probe failure is terminal. Do not retry, repair the environment in place, fall back to
+the branch `.venv`, permit network, or start Task 10 gates.
+
+### C5 — Re-Prove Controller Exit Capture Through The Prepared Environment
+
+Before the full matrix, invoke the unchanged, hash-bound C3 runner with a new gate name:
+
+```bash
+/bin/zsh -f "$EXACT_MAIN_C_LEDGER/gate-runner.zsh" controller-uv-self-test 23 -- \
+  uv run --frozen --no-sync --no-config --no-env-file \
+    --python "$APPROVED_PROJECT_PYTHON" \
+    python -c 'raise SystemExit(23)'
+```
+
+Require:
+
+- the six runner output paths are call-owned, absent before invocation, and outside the
+  repository;
+- the child executes exactly once;
+- retained exit value is exactly `23`;
+- stdout is empty;
+- bounded stderr, stdout, and exit-file bytes and digests are retained;
+- the runner bytes and SHA-256 equal the runner proven before C4;
+- no read-only-shell-variable error occurs;
+- the parent shell's cwd, umask, selected environment variables, signal state, and resource limits
+  equal their pre-self-test values;
+- repository HEAD/tree/index, tracked bytes, protected hashes, clean porcelain, project
+  environment, and locked dependency identities remain exact;
+
+Any failure is terminal. Do not alter the controller and retry in the same exact-main attempt.
+
+### C6 — Run The Complete Task 10 Matrix From Scratch
+
+Only after C2–C5 pass may the complete Task 10 matrix begin.
+
+Requirements:
+
+- create fresh output paths for every gate;
+- initialize every Task 10 invocation count at zero;
+- run every original Task 10 Step 2 gate in its approved order;
+- execute every top-level Task 10 child through
+  `/bin/zsh -f "$EXACT_MAIN_C_LEDGER/gate-runner.zsh"` with the unchanged, hash-bound C3 runner and
+  its preregistered exact expected exit; expected-negative gates use their approved nonzero exit
+  rather than weakening the runner;
+- re-read the runner bytes and SHA-256 immediately before and after every child invocation;
+- use `UV_OFFLINE=1 UV_PYTHON_DOWNLOADS=never` for every top-level repository and model-free gate;
+- run every top-level uv command inside the exact C3 sanitized controller environment with
+  `--no-config` and the same bound `APPROVED_PROJECT_PYTHON`;
+- supersede every top-level repository `uv run` from the original Task 7/Task 10 matrix, including
+  commands that were previously plain `uv run`, to the exact prefix
+  `uv run --frozen --no-sync --no-config --no-env-file --python "$APPROVED_PROJECT_PYTHON"`;
+  preserve the original command, arguments, order, result contract, and expected exit after this
+  prefix;
+- for the Task 7 Step 4 committed CI body, retain the exact workflow body bytes and SHA-256, apply
+  the already approved matrix-placeholder rendering, then mechanically normalize every rendered
+  top-level `uv run` occurrence to that same frozen/no-sync/no-config/no-env-file/approved-Python
+  prefix; retain the rendered-before and rendered-after bytes, digests, exact normalization diff,
+  occurrence count, and proof that no plain rendered `uv run` remains; execute only the normalized
+  script, with every other line byte-identical to the approved rendered body;
+- treat that normalized Step 4 script as one runner child with expected exit `0`; its internal
+  numeric invocation must still exit `1` and match the exact approved negative tuple before the
+  script proceeds, so normalization does not weaken the expected-negative authority;
+- normalize non-`run` top-level uv commands only by adding their supported `--no-config` and
+  `--python "$APPROVED_PROJECT_PYTHON"` options while preserving the original subcommand,
+  arguments, order, outputs, and result contract;
+- retain the already approved environment logic inside intentional nested consumer, installed,
+  compiled-export, and MCP proof controllers; those child-created environments are not rewritten
+  into the top-level project `.venv` contract, but every nested uv process must inherit the exact
+  controller values `UV_OFFLINE=1`, `UV_PYTHON_DOWNLOADS=never`, and `UV_NO_CONFIG=1`;
+- the full pytest gate must resolve to the fresh worktree's `.venv/bin/pytest`;
+- do not reuse any branch, Task 7, first Task 10, PR, CI, build, wheel, receipt, constraints,
+  compatibility, source-pack, installed-proof, MCP, digest, or summary result as exact-main
+  acceptance evidence;
+- preserve one-shot source-pack and other terminal-lane invocation limits from Task 7;
+- re-read every retained result and digest before aggregation;
+- stop at the first failed gate without retry, repair, fallback, substitution, continuation, tag,
+  Release, or cleanup;
+- retain failures as non-acceptance evidence.
+
+A complete pass must include every original Task 10 item:
+
+- full pytest;
+- Ruff;
+- Pyright;
+- ordinary build;
+- product proof;
+- demo;
+- local knowledge proof;
+- Evidence provenance proof;
+- model-free direct-audio proof;
+- presentation audit;
+- canonical pure validation;
+- fixed-profile query-plan routing;
+- strict-live numeric expected negative;
+- temporary compatibility record/validate with seven zero-delta families;
+- source-pack candidate without `--attempt-claim`;
+- exact-wheel release consumer on Python 3.12 and 3.13;
+- explicit-wheel compiled Library proof;
+- independent MCP completeness proof on Python 3.12 and 3.13;
+- remaining immutable, interface, installed-artifact, and documentation gates.
+
+The final summary must bind:
+
+- Amendment C merge commit/tree and complete post-merge checks;
+- `EXACT_MAIN_C_SEAL`;
+- exact runner bytes/SHA-256 plus pre-sync and post-sync self-test identities;
+- C4 sync and environment-probe identities;
+- every Task 10 command, duration, exit, bounded output digest, result, and invocation count;
+- exact-main wheel and receipt identities per controller;
+- exact plan, specification, lock, protected hashes, and final clean state;
+- explicit non-claims.
+
+### C7 — Reconcile Public State And Stop Before Task 11
+
+After and only after C6 passes:
+
+1. re-prove current public `main` equals the Amendment C merge commit/tree;
+2. re-prove complete post-merge checks are successful;
+3. re-prove the exact-main source seal and every retained Task 10 result;
+4. bind accepted `EXACT_MAIN_C_SEAL` as the current `EXACT_MAIN_SEAL` consumed by Task 11 while
+   retaining the first-attempt seal as historical non-acceptance evidence;
+5. confirm local and remote `v0.1.5` tag and GitHub Release remain absent;
+6. record each existing persisted PR body byte length and SHA-256, preserve that complete text and
+   its original chronology, then append one UTC-Z-dated post-merge closeout section to PR #96 and
+   one to the Amendment C PR; each appended section must explicitly record the stopped first Task
+   10 attempt, the later Amendment C plan-only correction and merge, the still-later accepted fresh
+   exact-main proof, and Task 11 publication remaining pending; no earlier pending sentence may be
+   silently rewritten to imply that the later proof existed before either merge;
+7. read both persisted bodies back exactly;
+8. retain the failed first Task 10 history separately from the accepted Amendment C exact-main
+   proof;
+9. terminal stop for separate Task 11 tag and GitHub Release publication authorization.
+
+The reconciliation must not add a code or documentation commit, change a tag, create a Release,
+publish to PyPI, deploy a service, promote retrieval behavior, rerun an observation/comparison, or
+delete retained evidence.
+
+### Acceptance And Non-Claims
+
+Amendment C is accepted only when:
+
+1. C0 lands as an exact one-path plan commit and passes independent actual-diff review;
+2. the exact reviewed C0 tree passes hosted checks and squash merges with tree equality;
+3. the first Task 10 failure remains unchanged and classified as non-acceptance history;
+4. C3 creates a brand-new exact-main worktree and ledger at the Amendment C merge commit;
+5. C4 performs exactly one locked offline environment sync before any no-sync proof gate;
+6. the C4 probe proves `mke`, `pytest`, and the locked transcription dependencies come from the
+   fresh project environment;
+7. C5 proves the controller retains a nonzero child exit without a read-only-variable failure or
+   process-state leak;
+8. C6 reruns every Task 10 gate from scratch and all gates pass;
+9. public main, post-merge checks, exact-main proof, protected bytes, and final clean state agree;
+10. both relevant PR bodies preserve their historical text and append a truthful dated
+    completed/pending lifecycle reconciliation;
+11. no Task 11 publication or unrelated lifecycle action occurs.
+
+Stable non-claims:
+
+- no product runtime, retrieval, Evidence, Publication, API, CLI, MCP, schema, dependency, version,
+  marker, source, or lock change;
+- no reuse of branch proof or failed exact-main results as current acceptance evidence;
+- no cold-cache, empty-cache, air-gapped, cache-portability, or cross-machine installation claim;
+- no model download, real ASR, transcription-quality, performance, cross-platform, deployment,
+  adoption, business-value, or production-readiness claim;
+- no comparison result, contextual-retrieval or segmentation conclusion, runtime promotion, PyPI
+  publication, hosted service, tag, GitHub Release, or release completion from Amendment C alone.
+
+Task 11 remains the only authority for annotated tag creation, tag push, zero-asset GitHub Release,
+public archive verification, and final release closeout.
+
+---
+
 ## Task 10: Re-Prove Fresh Exact Main
 
 **Files:** no tracked files.
