@@ -1424,6 +1424,302 @@ Even on success, do not claim cold-cache portability, air-gapped package acquisi
 model quality, retrieval quality improvement, runtime promotion, production adoption, or release
 publication. The result is only a cache-warmed, lock-bound, model-free release-candidate proof.
 
+## Plan Amendment B — Separate Lock-Bound Cache Warm From Offline Proof
+
+### Trigger And Authority Diagnosis
+
+Plan Amendment A was executed once against its newly reviewed candidate and stopped at its first
+required preparation failure. Its exact local wheel, one-file wheelhouse, manifest, lock identity,
+and dry-run checks all passed. The dry run nevertheless reported that one package would still be
+downloaded. The only authorized non-dry-run preparation command then failed while trying to obtain
+the locked `setuptools==83.0.0` registry artifact with network disabled.
+
+This is the second substantive failure in the same Task 7 transcription-prerequisite lane:
+
+1. the original Task 7 run proved that the registry artifact recorded in `uv.lock` was absent from
+   the uv cache;
+2. Amendment A proved that an exact matching wheel supplied through `--find-links` can participate
+   in candidate discovery without becoming the cached identity used by the locked registry
+   artifact during installation.
+
+The retained evidence therefore falsifies Amendment A's A3 recovery mechanism. Classify this as a
+proof-orchestration and package-cache authority error, not as:
+
+- a product runtime regression;
+- a dependency-set, version, marker, source, or lock change;
+- a transcription-quality or model failure;
+- a failure of the local wheel's filename, size, digest, metadata, or compatibility;
+- cold-offline, air-gapped, or cache-portability evidence;
+- Task 7 completion or release readiness.
+
+The authoritative uv behavior for this recovery is:
+
+- `--locked` keeps `uv.lock` unchanged;
+- `--extra transcription` selects the already-declared optional dependency closure;
+- `--offline` permits only cached data and locally available inputs;
+- `--find-links` adds candidate distribution locations but is not accepted here as a cache-import
+  or registry-URL alias.
+
+The final bullet is bound by the two observed runs, not asserted as a general uv cache-format
+contract.
+
+This amendment supersedes Amendment A A3 and A4. A1 and A2 remain retained diagnostic evidence but
+do not authorize another local-wheel preparation, another `--find-links` invocation, manual
+installation, or cache mutation. The two stopped Task 7 histories and the stopped Amendment A
+history remain non-acceptance evidence and may not be reused to accept a later candidate.
+
+This amendment does not change the release scope, project dependency set, `uv.lock`, runtime,
+public API, CLI, MCP, schemas, retrieval behavior, Evidence authority, comparison boundary, release
+claims, or publication authority.
+
+### B0 — Land And Review This Amendment
+
+Land this complete amendment immediately after Amendment A and before Task 8 as one plan-only
+commit.
+
+Before the write, require:
+
+- starting HEAD
+  `4ec8cd86fb31e4ee9ff753b4a35e4fdfe44c6e8d`;
+- starting tree and index tree
+  `1249b1b7d2a7bea82924e55d42770fd0ede3833d`;
+- clean worktree and index;
+- current plan SHA-256
+  `01019d5e15d9a7b6cd6b0a742d2da58d7478a97bb94d4f940d8335874af99a9c`;
+- design specification SHA-256
+  `260b178bcac6255d7f3a7ad1a29272bca45234e1a5599939609147ff320da48e`;
+- `uv.lock` SHA-256
+  `1f2e215c08fefc9fe60b2a22467fadd546af2da13de0926282515d2211ffcab9`;
+- all nine protected hashes remain exact;
+- all stopped-ledger, source-wheel, wheelhouse, manifest, and failure-record identities remain
+  unchanged.
+
+Requirements:
+
+- modify only
+  `docs/superpowers/plans/2026-07-28-v0-1-5-release-closeout-implementation.md`;
+- preserve the approved design specification, `uv.lock`, source, tests, release documentation,
+  canonical evidence, fixtures, and historical release bytes exactly;
+- insert the approved amendment bytes with one Markdown separator and preserve Task 8 onward
+  byte-for-byte;
+- verify source/extracted-block equality, SHA-256, inverse reconstruction of the parent plan,
+  balanced fences, unique Amendment B and B0–B4 headings, unchanged Task 0–13 heading sequence,
+  complete no-index/cached/committed diff, marker scan, range `git diff --check`, one-path scope,
+  one-commit ancestry, and clean final state;
+- perform no sync, package or interpreter download, cache mutation, environment preparation, test,
+  build, proof, model operation, observation, comparison, GitHub, publication, release, or cleanup
+  action;
+- terminal stop for independent actual plan-diff review.
+
+Use commit message:
+
+```text
+docs(plan): separate cache warm from offline proof
+```
+
+The plan-only commit creates a new candidate HEAD/tree. B1 must not begin until its actual plan diff
+is review-clean and the new exact candidate seal has been returned to the execution controller.
+
+### B1 — Re-Seal The Candidate And Retained Failure Authority
+
+After B0 review passes, create a fresh call-owned prerequisite-recovery ledger outside the
+repository under a physical no-symlink ancestor chain. Do not reuse either Task 7 ledger or the
+Amendment A prerequisite root as the new ledger.
+
+Before any sync, bind:
+
+- the new reviewed HEAD, tree, and index tree;
+- clean worktree and index;
+- exact plan, design specification, `uv.lock`, and nine protected hashes;
+- exact Python and uv identities already approved by Task 7;
+- exact project-environment identity and metadata state;
+- the original Task 7 failure record and failure-log digests;
+- the Amendment A manifest, dry-run log, preparation-failure log, and BLOCKED-record digests;
+- the retained source wheel and copied wheel identities without opening, copying, installing, or
+  otherwise consuming them again;
+- absence of any Task 7 acceptance ledger for the new candidate;
+- absence of real ASR, model download, observation, comparison, GitHub, or publication actions.
+
+The new ledger must state:
+
+```text
+failure_count_same_lane=2
+amendment_a_recovery=falsified
+network_cache_warm=approved_pending
+offline_proof=not_started
+task_7=not_started
+```
+
+Any candidate, source, lock, protected-byte, retained-evidence, environment-identity, or cleanliness
+drift is terminal before network use. Do not repair or continue in the same invocation.
+
+### B2 — Perform One Lock-Bound Online Cache Warm
+
+This step is the sole approved network package-acquisition action. It occurs before offline proof
+and is not itself release acceptance evidence.
+
+Immediately before the command, re-prove every B1 identity. Record:
+
+- `uv.lock` bytes and SHA-256;
+- HEAD, tree, index tree, and porcelain;
+- project-environment identity and metadata state;
+- the absence of interpreter or model-download authorization;
+- the expected missing locked distribution:
+  `setuptools==83.0.0`,
+  filename `setuptools-83.0.0-py3-none-any.whl`,
+  size `1008090`,
+  SHA-256
+  `29b23c360f22f414dc7336bb39178cc7bcbf6021ed2733cde173f09dba19abb3`;
+- a controller invocation count of zero.
+
+Invoke exactly once:
+
+```bash
+UV_PYTHON_DOWNLOADS=never \
+uv sync --locked --extra transcription
+```
+
+Do not set `UV_OFFLINE`. Do not add `--find-links`, `--no-index`, `--refresh`, `--upgrade`,
+`--inexact`, another index, another cache directory, or another package argument.
+
+Require:
+
+- invocation count exactly one;
+- exit `0`;
+- `uv.lock` remains byte-identical with its exact pre-command SHA-256;
+- the selected dependency graph remains the existing locked `transcription` extra;
+- no dependency version, source, marker, or resolution change;
+- no interpreter download;
+- no transcription-model download, model construction, fixture open, ASR, product proof,
+  observation, comparison, or publication action;
+- the command output identifies no newly acquired package outside the exact locked missing
+  `setuptools==83.0.0` distribution;
+- HEAD, tree, index tree, tracked bytes, and clean porcelain remain exact after the command;
+- the controller records exact argv, start and finish times, exit code, bounded stdout/stderr
+  bytes and digests, and before/after authority identities.
+
+This gate does not claim a single HTTP request, a particular internal cache path, a portable cache
+layout, or a cold-offline installation. Normal uv-managed cache and project-environment writes are
+authorized only as effects of this one command.
+
+Any nonzero exit, second invocation requirement, package outside the existing lock, lock rewrite,
+interpreter request, model action, source drift, or repository mutation is terminal. Do not retry,
+fall back to the retained wheel, alter the cache, or continue to B3.
+
+### B3 — Prove The Original Offline Prerequisite
+
+Only after B2 passes, re-prove:
+
+- the exact new candidate seal and clean repository state;
+- byte-identical plan, design specification, `uv.lock`, and nine protected files;
+- the B2 command ledger and its single invocation count;
+- no model download, ASR, observation, comparison, or publication action;
+- the retained Amendment A evidence remains unchanged.
+
+Then invoke the original Task 7 prerequisite command exactly once and without `--find-links`:
+
+```bash
+UV_OFFLINE=1 UV_PYTHON_DOWNLOADS=never \
+uv sync --locked --extra transcription
+```
+
+Immediately after that command, run this read-only environment probe exactly once:
+
+```bash
+UV_OFFLINE=1 UV_PYTHON_DOWNLOADS=never \
+uv run --frozen --no-sync python - <<'PY'
+from importlib.metadata import version
+
+expected = {
+    "ctranslate2": "4.8.0",
+    "faster-whisper": "1.2.1",
+    "setuptools": "83.0.0",
+}
+observed = {name: version(name) for name in expected}
+assert observed == expected, observed
+
+import ctranslate2  # noqa: F401
+import faster_whisper  # noqa: F401
+
+print("transcription_extra_environment=passed")
+PY
+```
+
+Require:
+
+- invocation count exactly one;
+- exit `0`;
+- no network or interpreter download;
+- no unavailable distribution;
+- no lock, dependency, source, marker, or resolution drift;
+- no model download, model construction, fixture open, or real ASR;
+- `uv.lock`, HEAD, tree, index tree, tracked bytes, and clean porcelain remain exact;
+- a final offline environment probe executed with `uv run --frozen --no-sync` observes installed
+  `setuptools` version exactly `83.0.0` and imports the already-locked transcription dependency
+  surface without constructing a model or opening media;
+- exact argv, duration, exit code, bounded stdout/stderr bytes and digests, environment probe
+  result, and post-command authority identities are retained.
+
+The B3 result proves only that this prepared environment can execute the exact locked
+transcription-extra sync with network disabled. It does not prove that a fresh empty cache can do
+so.
+
+Any failure is terminal. Do not run another online warm, another offline sync, another local-wheel
+preparation, Task 7, or a weakened substitute gate.
+
+### B4 — Re-Seal And Run Task 7 Once From The Beginning
+
+Only after B1–B3 pass and the candidate remains exact may Task 7 restart.
+
+Requirements:
+
+- create a fresh absent physical Task 7 ledger at a path unrelated to the original Task 7 attempt,
+  Amendment A, and B1–B3; do not copy their ledger files or logs, and do not count any earlier
+  command as a Task 7 gate execution;
+- bind the new reviewed plan-only HEAD/tree as the sole candidate;
+- rerun every Task 7 Step 1–9 gate in the approved order;
+- preserve the original Step 8 command shape and its model-free, no-real-ASR boundary;
+- do not reuse any prior test output, build, wheel, receipt, constraints export, compatibility
+  result, source-pack result, installed proof, MCP result, digest bundle, or partial summary;
+- retain the two stopped Task 7 ledgers, Amendment A evidence, B1–B3 recovery ledger, and fresh
+  Task 7 ledger as separate histories;
+- bind only the immutable B1–B3 recovery-ledger digest and passed statuses as prerequisite
+  authority; record the online cache warm outside the offline proof result, and do not copy its
+  command output into Task 7 gate results;
+- if any Task 7 gate fails, terminal stop at the first failure without retry, repair, fallback,
+  continuation, or Task 8 action;
+- no Task 8 action until the complete fresh Task 7 ledger and actual candidate diff pass independent
+  authority review.
+
+### Acceptance And Non-Claims
+
+Amendment B is accepted only when:
+
+1. its exact plan diff is independently review-clean;
+2. B1 binds the new candidate and all retained failures without consuming old evidence as
+   acceptance input;
+3. B2 runs exactly one lock-bound online cache warm and preserves `uv.lock` and repository bytes;
+4. B3 runs the unchanged offline transcription-extra sync exactly once and passes;
+5. a completely fresh Task 7 run passes every Step 1–9 gate without reuse;
+6. all protected bytes and historical release evidence remain exact;
+7. the final repository is clean and no unapproved lifecycle action occurred.
+
+Stable non-claims:
+
+- no new dependency, version, source, marker, lock, runtime, API, CLI, MCP, schema, retrieval, or
+  Evidence behavior;
+- no cold-offline, empty-cache, air-gapped, cache-portability, or single-request guarantee;
+- no model download, real ASR, transcription-quality, performance, cross-platform, deployment,
+  adoption, or business-value claim;
+- no comparison result, runtime promotion, PyPI publication, hosted service, tag, GitHub Release,
+  or release completion from prerequisite preparation alone;
+- online dependency acquisition is disclosed as pre-proof cache warm and is never reported as part
+  of offline proof.
+
+The only next authority after a clean B0 plan review is B1–B4 execution under this amendment.
+Push, PR, merge, tag, GitHub Release, PyPI, deployment, promotion, cleanup, and comparison work
+remain separately gated by the original plan and current user authorization.
+
 ---
 
 ## Task 8: Push And Open A Draft Pull Request
