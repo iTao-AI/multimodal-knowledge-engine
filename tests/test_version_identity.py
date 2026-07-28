@@ -6,7 +6,7 @@ from pathlib import Path
 import mke
 
 
-def test_package_version_identity_is_v0_1_4() -> None:
+def test_package_version_identity_is_v0_1_5() -> None:
     pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
 
     assert pyproject["project"]["version"] == "0.1.5"

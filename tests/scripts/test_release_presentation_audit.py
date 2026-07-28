@@ -8,6 +8,26 @@ from scripts.release_presentation_audit import audit_release_presentation
 
 ROOT = Path(__file__).resolve().parents[2]
 
+COMPLETE_PUBLICATION_VERIFICATION = """
+## Publication verification
+
+- Tag: `v0.1.5`
+- Merge commit: `1111111111111111111111111111111111111111`
+- Merge tree: `2222222222222222222222222222222222222222`
+- GitHub Release URL: https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.5
+- Published timestamp: `2026-07-28T12:00:00Z`
+- Assets: zero
+- Hosted checks: all required checks passed on the merge commit
+- Archive descriptor SHA-256: `3333333333333333333333333333333333333333333333333333333333333333`
+- Archive manifest SHA-256: `4444444444444444444444444444444444444444444444444444444444444444`
+- Archive wheel: `multimodal_knowledge_engine-0.1.5-py3-none-any.whl`
+- Git-less allowlist: passed
+- Exact-main proof: passed
+- Canonical evidence hashes: unchanged
+- Temporary compatibility: seven families with all six delta classes zero
+- Limitations and non-claims: no retrieval-quality, performance, deployment, or adoption claim
+"""
+
 
 def test_audit_targets_v0_1_5_release_identity() -> None:
     from scripts import release_presentation_audit as audit
@@ -431,6 +451,153 @@ def test_audit_accepts_complete_release_presentation(tmp_path: Path) -> None:
     _write_release_tree(tmp_path)
 
     assert audit_release_presentation(tmp_path) == []
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "This release improves relevance, recall, and precision.",
+        "This release improves recall.",
+        "This release improves precision.",
+        "This release improves latency.",
+        "This release improves throughput.",
+        "Agents get faster retrieval with lower latency and higher throughput.",
+        "Search is exhaustive across the corpus and returns total counts.",
+        "Search returns total counts.",
+        "Segmentation and contextual-retrieval quality are improved.",
+        "Segmentation quality is improved.",
+        "Contextual-retrieval quality is improved.",
+        "Offline installation works from an empty machine with a cold cache.",
+        "Offline installation works with a cold cache.",
+        "Offline installation works on an empty machine.",
+        "Dense retrieval is promoted into the runtime.",
+        "RRF is promoted into the runtime.",
+        "The reranker is promoted into the runtime.",
+        "MKE is deployed in production with user adoption and business value.",
+        "MKE has production adoption.",
+        "MKE delivers business value.",
+        "GraphRAG ships in this release.",
+        "OCR runtime ships in this release.",
+        "An Agent loop ships in this release.",
+        "HTTP/SaaS ships in this release.",
+        "A new provider ships in this release.",
+        "MKE is published on PyPI.",
+        "Uploaded Release assets are included.",
+        "We verified that this release delivers faster Agent retrieval.",
+    ],
+)
+def test_audit_rejects_v015_affirmative_or_wrapped_overclaims(
+    tmp_path: Path,
+    claim: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "docs/releases/v0.1.5.md"
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{claim}\n",
+        encoding="utf-8",
+    )
+
+    assert "v015_release_overclaim" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "safe_boundary",
+    [
+        "MKE does not improve relevance, recall, or precision.",
+        "Search is not exhaustive and does not return total counts.",
+        "Dense, RRF, and reranker are not runtime features.",
+        "Cold-cache and empty-machine offline installation are not claimed.",
+        "GraphRAG, OCR runtime, an Agent loop, HTTP/SaaS, providers, PyPI, and uploaded assets "
+        "remain excluded.",
+    ],
+)
+def test_audit_preserves_v015_negated_non_claims(
+    tmp_path: Path,
+    safe_boundary: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "docs/releases/v0.1.5.md"
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{safe_boundary}\n",
+        encoding="utf-8",
+    )
+
+    assert "v015_release_overclaim" not in _rules(tmp_path)
+
+
+def test_audit_accepts_absent_or_complete_publication_verification(
+    tmp_path: Path,
+) -> None:
+    _write_release_tree(tmp_path)
+    assert "v015_publication_verification" not in _rules(tmp_path)
+
+    target = tmp_path / "docs/releases/v0.1.5.md"
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n"
+        f"{COMPLETE_PUBLICATION_VERIFICATION.strip()}\n",
+        encoding="utf-8",
+    )
+
+    assert "v015_publication_verification" not in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "required_field",
+    [
+        "Tag:",
+        "Merge commit:",
+        "Merge tree:",
+        "GitHub Release URL:",
+        "Published timestamp:",
+        "Assets: zero",
+        "Hosted checks:",
+        "Archive descriptor SHA-256:",
+        "Archive manifest SHA-256:",
+        "Archive wheel:",
+        "Git-less allowlist:",
+        "Exact-main proof:",
+        "Canonical evidence hashes:",
+        "Temporary compatibility:",
+        "seven families",
+        "all six delta classes zero",
+        "Limitations and non-claims:",
+    ],
+)
+def test_audit_rejects_partial_publication_verification(
+    tmp_path: Path,
+    required_field: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "docs/releases/v0.1.5.md"
+    incomplete = COMPLETE_PUBLICATION_VERIFICATION.replace(required_field, "", 1)
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{incomplete.strip()}\n",
+        encoding="utf-8",
+    )
+
+    assert "v015_publication_verification" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "placeholder",
+    ["TBD", "TODO", "<placeholder>", "to be filled", "0" * 40],
+)
+def test_audit_rejects_publication_verification_placeholders(
+    tmp_path: Path,
+    placeholder: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "docs/releases/v0.1.5.md"
+    publication = COMPLETE_PUBLICATION_VERIFICATION.replace(
+        "1111111111111111111111111111111111111111",
+        placeholder,
+    )
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{publication.strip()}\n",
+        encoding="utf-8",
+    )
+
+    assert "v015_publication_verification" in _rules(tmp_path)
 
 
 def test_audit_rejects_version_mismatch(tmp_path: Path) -> None:

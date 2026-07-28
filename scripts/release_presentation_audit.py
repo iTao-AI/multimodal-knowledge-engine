@@ -1036,6 +1036,109 @@ def _audit_v015_contract(root: Path) -> list[Violation]:
                 message="v0.1.5 release note must preserve the exact current contract",
             )
         )
+    normalized = " ".join(release.split())
+    affirmative_overclaims = (
+        re.compile(
+            r"\b(?<!not )(?:improves?|improved|increases?|better) "
+            r"(?:relevance|recall|precision|latency|throughput)\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:faster (?:agent )?retrieval|lower latency|higher throughput)\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:search is exhaustive|exhaustive across the corpus|"
+            r"(?<!not )returns? total counts?)\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:segmentation|contextual[- ]retrieval quality).{0,24}"
+            r"\b(?:is |are |was |were )?improved\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:offline installation works (?:from|on) an empty machine|"
+            r"offline installation works with a cold cache|"
+            r"empty machine with a cold cache)\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:dense retrieval|rrf|(?:the )?reranker) "
+            r"(?:is|are) promoted into the runtime\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\b(?:is deployed in production|user adoption|has production adoption|"
+            r"business value)\b",
+            re.IGNORECASE,
+        ),
+        re.compile(r"\bgraphrag ships in this release\b", re.IGNORECASE),
+        re.compile(r"\bocr runtime ships in this release\b", re.IGNORECASE),
+        re.compile(r"\ban agent loop ships in this release\b", re.IGNORECASE),
+        re.compile(r"\bhttp/saas ships in this release\b", re.IGNORECASE),
+        re.compile(r"\ba new provider ships in this release\b", re.IGNORECASE),
+        re.compile(r"\b(?:is|was) published on pypi\b", re.IGNORECASE),
+        re.compile(
+            r"\buploaded release assets are included\b",
+            re.IGNORECASE,
+        ),
+    )
+    if any(pattern.search(normalized) for pattern in affirmative_overclaims):
+        violations.append(
+            Violation(
+                file="docs/releases/v0.1.5.md",
+                rule="v015_release_overclaim",
+                message="v0.1.5 release note contains an affirmative excluded claim",
+            )
+        )
+
+    publication_heading = re.search(
+        r"(?m)^## Publication verification\s*$",
+        release,
+    )
+    if publication_heading is not None:
+        publication = release[publication_heading.end() :]
+        next_heading = re.search(r"(?m)^## ", publication)
+        if next_heading is not None:
+            publication = publication[: next_heading.start()]
+        publication_fields = (
+            "Tag:",
+            "Merge commit:",
+            "Merge tree:",
+            "GitHub Release URL:",
+            "Published timestamp:",
+            "Assets: zero",
+            "Hosted checks:",
+            "Archive descriptor SHA-256:",
+            "Archive manifest SHA-256:",
+            "Archive wheel:",
+            "Git-less allowlist:",
+            "Exact-main proof:",
+            "Canonical evidence hashes:",
+            "Temporary compatibility:",
+            "seven families",
+            "all six delta classes zero",
+            "Limitations and non-claims:",
+        )
+        placeholders = re.compile(
+            r"\b(?:tbd|todo|to be filled|to be created|placeholder)\b"
+            r"|<placeholder>|(?<![0-9a-f])0{40}(?![0-9a-f])",
+            re.IGNORECASE,
+        )
+        if not _contains_all_terms(publication, publication_fields) or placeholders.search(
+            publication
+        ):
+            violations.append(
+                Violation(
+                    file="docs/releases/v0.1.5.md",
+                    rule="v015_publication_verification",
+                    message=(
+                        "Publication verification must contain the complete immutable "
+                        "public field inventory without placeholders"
+                    ),
+                )
+            )
     for file_name in ENTRY_POINT_FILES:
         text = _read_text(root, file_name)
         if len(re.findall(r"(?m)^# ", text)) != 1:
@@ -1060,6 +1163,11 @@ def _audit_consumer_smoke_wheel_selection(
         current_text = text
         if file_name == "docs/how-to/verify-release.md" and "## Stage 1" in text:
             current_text = text.split("## Stage 1", maxsplit=1)[1]
+            if "## Completed v0.1.4 Release Record" in current_text:
+                current_text = current_text.split(
+                    "## Completed v0.1.4 Release Record",
+                    maxsplit=1,
+                )[0]
         if exact_wheel not in current_text:
             violations.append(
                 Violation(

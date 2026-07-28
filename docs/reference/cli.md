@@ -672,7 +672,7 @@ against active Publication Evidence. For `cjk-active-scan-overlap-v1`, `rebuild`
 not implemented.
 
 `mke mcp --help` prints the command-specific options. Databases created by `mke ingest` can be
-reused with `mke mcp --db <path>`.
+reused with `mke --db <path> mcp`.
 
 ## Error Contract
 

@@ -9,8 +9,6 @@
 - Bounded MCP selection completeness, continuation, exact active Evidence reconstruction, and
   deterministic equal-score ordering as the current Agent-consumption release contract.
 
-### Added
-
 - Additive `search_library_v2` selection/excerpt completeness and bounded
   `read_evidence_v1` exact active Evidence reads.
 - Exact current ten-tool discovery fixture and same-wheel offline Python 3.12/3.13 stdio proof.
@@ -24,8 +22,9 @@
 
 ### Not included
 
-- No release, production deployment, hosted service, adoption, performance, exhaustive Search,
-  semantic summarization, SDK 2.x migration, or arbitrary-size Evidence claim.
+- No production deployment, hosted service, adoption, performance, exhaustive Search, semantic
+  summarization, SDK 2.x migration, or arbitrary-size Evidence claim. PyPI publication and
+  uploaded Release assets remain excluded.
 
 ## [0.1.4] - 2026-07-23
 

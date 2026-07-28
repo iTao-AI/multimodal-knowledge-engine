@@ -70,10 +70,10 @@ outside MKE runtime and Evidence authority.
   does not combine raw lexical and dense scores.
 - [Evaluate The Relevance Gate Reranker Candidate](./how-to/evaluate-relevance-gate-reranker.md)
 
-The runtime boundary remains fixed for `v0.1.4`: only E3-F changes the default retrieval strategy.
-Comparison-only dense preparation does not change normal Search, Ask, MCP, or the runtime default.
-Dense, RRF, and relevance-gate/reranker artifacts remain evaluation artifacts, not runtime
-features.
+v0.1.5 retains the historical v0.1.4 runtime boundary: only E3-F changes the default retrieval
+strategy. Comparison-only dense preparation does not change normal Search, Ask, MCP, or the runtime
+default. Dense, RRF, and relevance-gate/reranker artifacts remain evaluation artifacts, not
+runtime features.
 
 ## Documentation Areas
 
