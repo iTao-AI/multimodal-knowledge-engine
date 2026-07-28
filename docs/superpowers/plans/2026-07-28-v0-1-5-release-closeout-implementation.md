@@ -1249,6 +1249,181 @@ non-claims
 
 No Task 7 output is committed. Terminal stop for push/PR approval.
 
+## Plan Amendment A — Complete Offline Transcription Prerequisite Authority
+
+### Trigger And Classification
+
+The first Task 7 branch-proof attempt stopped at the first required Step 8 prerequisite failure:
+
+```text
+UV_OFFLINE=1 uv sync --locked --extra transcription
+```
+
+The exact missing distribution was the locked
+`setuptools-83.0.0-py3-none-any.whl` required by the transcription dependency graph.
+The prior Task 0 offline prerequisite check covered only the development environment:
+
+```text
+UV_OFFLINE=1 UV_PYTHON_DOWNLOADS=never uv sync --locked --dev
+```
+
+It therefore did not falsify the later transcription-extra cache requirement. Classify this as an
+incomplete prerequisite inventory, not a product regression, dependency-resolution change,
+transcription-quality failure, or release-candidate success.
+
+All outputs from the stopped Task 7 attempt remain retained non-acceptance history. They may support
+diagnosis, but no test, build, wheel, receipt, compatibility result, MCP result, or partial ledger
+from that attempt may be reused to accept a later candidate.
+
+This amendment supersedes Task 0 Step 4 for the next candidate attempt and defines the only
+authorized recovery. It does not change the release scope, runtime, dependency set, lock semantics,
+public API, retrieval evidence, comparison boundary, or publication authority.
+
+### A0 — Land And Review This Amendment
+
+Land this amendment as one plan-only commit after the stopped candidate HEAD.
+
+Requirements:
+
+- modify only this implementation plan;
+- keep the approved design specification byte-identical;
+- keep all nine protected files and all historical release bytes byte-identical;
+- keep `uv.lock`, source, tests, documentation outside this plan, and generated evidence unchanged;
+- perform no prerequisite preparation, sync, test, build, proof, GitHub, release, comparison, or
+  cleanup action in the landing task;
+- verify the exact inserted block, complete diff, marker scan, balanced fences, Task 0–13 heading
+  sequence, range `git diff --check`, and clean final state;
+- terminal stop for independent actual plan-diff review.
+
+The plan-only commit invalidates the former reviewed HEAD/tree and branch seal. A clean actual
+plan-diff review must record a new reviewed HEAD/tree before any recovery or Task 7 command.
+
+### A1 — Bind The Existing Local Wheel Input
+
+After the amendment diff is review-clean, one existing operator-provided local wheel may be used as
+the sole missing prerequisite input. Before reading or copying its bytes, require:
+
+- an explicit absolute physical source path outside the repository;
+- every existing lexical ancestor and the source itself is non-symlink;
+- the source is a readable regular file;
+- exact basename `setuptools-83.0.0-py3-none-any.whl`;
+- exact size `1008090`;
+- exact SHA-256
+  `29b23c360f22f414dc7336bb39178cc7bcbf6021ed2733cde173f09dba19abb3`;
+- exact equality with the corresponding filename, size, and SHA-256 already recorded in `uv.lock`;
+- wheel metadata identifies project `setuptools`, version `83.0.0`, and a compatible universal
+  Python wheel;
+- the source is not inside an unfinished comparison worktree, protected comparison evidence, or the
+  repository.
+
+Any identity, path-kind, metadata, lock, or readability mismatch is terminal. Do not search for a
+substitute, use a second wheel, contact an index, download a package, or edit cache internals.
+
+The existing wheel is prerequisite input only. Its presence does not prove cache portability,
+cold-offline installation, air-gapped acquisition, or release readiness.
+
+### A2 — Create A Fresh Call-Owned Prerequisite Wheelhouse
+
+Create a fresh absent physical `PREREQUISITE_ROOT` outside the repository and under a no-symlink
+ancestor chain. Create one child wheelhouse and copy only the verified wheel into it.
+
+Before use, require:
+
+- the copied path is a readable non-symlink regular file;
+- its basename, size, SHA-256, and wheel metadata equal A1 exactly;
+- the wheelhouse contains exactly one file and no symlink, directory alias, or extra distribution;
+- the source wheel remains unchanged after the copy;
+- a private manifest records source identity, copied identity, lock identity, and byte equality.
+
+Do not move, overwrite, chmod, delete, or otherwise mutate the retained source wheel. Do not write
+the wheelhouse, its manifest, or any cache material into the repository.
+
+### A3 — Falsify Then Prepare The Complete Offline Extra
+
+Before each command below, re-prove:
+
+- the new reviewed HEAD/tree and index tree are exact;
+- worktree/index porcelain is clean;
+- `uv.lock` and all nine protected hashes are exact;
+- the copied wheel identity and wheelhouse inventory are exact;
+- network and interpreter downloads remain disabled;
+- no real ASR, model download, observation, comparison, or publication action has occurred.
+
+First run one dry run whose no-write guarantee is limited to the lockfile and project environment:
+
+```bash
+UV_OFFLINE=1 UV_PYTHON_DOWNLOADS=never \
+uv sync --locked --extra transcription \
+  --find-links "$PREREQUISITE_WHEELHOUSE" \
+  --dry-run
+```
+
+Require exit `0`, no unavailable distribution, no lock rewrite, and no project-environment
+modification. The dry run authorizes at most one preparation invocation:
+
+```bash
+UV_OFFLINE=1 UV_PYTHON_DOWNLOADS=never \
+uv sync --locked --extra transcription \
+  --find-links "$PREREQUISITE_WHEELHOUSE"
+```
+
+Require exit `0`. The resolver must remain bound to `uv.lock`; `--find-links` may satisfy only the
+exact A1 wheel. Any other missing package, version/source drift, lock rewrite, interpreter request,
+network requirement, ambiguous wheel, or second preparation requirement is terminal.
+
+Immediately re-prove repository identity and run the original cache-warmed command once without
+`--find-links`:
+
+```bash
+UV_OFFLINE=1 UV_PYTHON_DOWNLOADS=never \
+uv sync --locked --extra transcription
+```
+
+Require exit `0`. This plain-command pass is mandatory: a pass that depends on retaining
+`--find-links` in the Task 7 command is not accepted. Re-read the exact wheelhouse manifest,
+`uv.lock`, protected hashes, HEAD/tree/index, and clean porcelain after the command.
+
+No direct or manual write to the uv cache is authorized. Project-environment changes may occur only
+through the two non-dry-run `uv sync` invocations above. Normal uv-managed cache reads or writes may
+occur only as side effects of the three enumerated commands and are not acceptance evidence. The
+dry run is required not to write the lockfile or modify the project environment; no stronger
+cache-side-effect claim is made. Do not use `uv cache clean`, `uv cache prune`, manual cache
+copying, manual site-packages installation, network fallback, or a network package-index request.
+
+### A4 — Re-Seal And Re-Run Task 7 From The Beginning
+
+Only after A1–A3 pass may Task 7 restart.
+
+Requirements:
+
+- use the new reviewed plan-only HEAD/tree as the candidate;
+- create a fresh Task 7 ledger at a new absent physical path;
+- invoke every Task 7 Step 1–9 gate again in the approved order;
+- do not reuse any prior Task 7 command output, temporary compatibility artifact, build, wheel,
+  receipt, constraint export, installed proof, or digest;
+- preserve the original Step 8 command shape and no-real-ASR boundary;
+- retain both the failed historical ledger and the fresh ledger as separate evidence;
+- if the same prerequisite, another cache input, or any later required gate fails, terminal stop
+  without retry, repair, fallback, or continuation;
+- no Task 8 action unless the fresh Task 7 ledger closes completely and passes independent
+  authority review.
+
+### Acceptance And Non-Claims
+
+This amendment is accepted only when:
+
+1. its actual plan diff is review-clean;
+2. A1 binds the exact locked local wheel;
+3. the dry run, one preparation invocation, and plain offline recheck all pass;
+4. repository identity remains exact throughout;
+5. a completely fresh Task 7 Step 1–9 ledger passes;
+6. the final candidate summary clearly separates the stopped historical attempt from the accepted
+   fresh attempt.
+
+Even on success, do not claim cold-cache portability, air-gapped package acquisition, real ASR,
+model quality, retrieval quality improvement, runtime promotion, production adoption, or release
+publication. The result is only a cache-warmed, lock-bound, model-free release-candidate proof.
+
 ---
 
 ## Task 8: Push And Open A Draft Pull Request
