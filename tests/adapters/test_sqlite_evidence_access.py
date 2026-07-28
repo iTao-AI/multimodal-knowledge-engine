@@ -1,5 +1,9 @@
+import copy
+import hashlib
+import json
+import sqlite3
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast
 
 import pytest
 
@@ -12,6 +16,36 @@ from mke.domain import (
     ActiveAuthoritySnapshot,
     CandidateEvidence,
     RunManifest,
+    RunState,
+)
+
+ROOT = Path(__file__).resolve().parents[2]
+FTS_QUERY_PLAN = (
+    ROOT / "tests/fixtures/retrieval-order-v1/fts-query-plan.json"
+)
+FTS_QUERY_PLAN_SHA256 = (
+    "1f6a70a69edb9a3b182e21a9b125a37d81ed4dca869c16d1f5d5b807554ffdc1"
+)
+FTS_QUERY_PLAN_LIMITATIONS = (
+    "fixed_profile_structural_evidence_only",
+    "not_wall_clock_performance_evidence",
+    "not_relevance_quality_evidence",
+    "not_segmentation_or_contextual_retrieval_evidence",
+    "not_runtime_promotion_evidence",
+    "not_cross_sqlite_portability_guarantee",
+    "not_production_performance_guarantee",
+    "not_future_sqlite_planner_stability_guarantee",
+)
+FTS_QUERY_PLAN_PROFILE_FIELDS = (
+    "active_evidence_fts_sql",
+    "automatic_index",
+    "compile_options",
+    "fts5_rank_configuration",
+    "fts5_source_id",
+    "journal_mode",
+    "sqlite_source_id",
+    "sqlite_version",
+    "temp_store",
 )
 
 
@@ -160,6 +194,328 @@ def test_fts_page_uses_metadata_limit_offset_without_gaps(
         engine.close()
 
 
+def test_fts_page_fixed_profile_plan_matches_frozen_record(
+    tmp_path: Path,
+) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    try:
+        _publish(
+            engine,
+            tuple(
+                f"authority active page {index}"
+                for index in range(12)
+            ),
+        )
+        engine.ensure_source("inactive.pdf", "b" * 64)
+
+        candidate_source = engine.ensure_source(
+            "candidate.pdf",
+            "c" * 64,
+        )
+        candidate = engine.create_run(candidate_source.source_id)
+        _persist_candidate(
+            engine,
+            run_id=candidate.run_id,
+            asset_sha256="c" * 64,
+            evidence_id="ev_candidate",
+            text="authority candidate must remain inactive",
+        )
+
+        failed_source = engine.ensure_source("failed.pdf", "d" * 64)
+        failed = engine.create_run(failed_source.source_id)
+        engine._store.mark_run_failed(  # pyright: ignore[reportPrivateUsage]
+            failed.run_id
+        )
+
+        superseded_source = engine.ensure_source(
+            "superseded.pdf",
+            "e" * 64,
+        )
+        superseded = engine.create_run(superseded_source.source_id)
+        newer = engine.create_run(superseded_source.source_id)
+        _persist_candidate(
+            engine,
+            run_id=superseded.run_id,
+            asset_sha256="e" * 64,
+            evidence_id="ev_superseded",
+            text="authority superseded must remain inactive",
+        )
+        activation = engine.activate_publication(superseded.run_id)
+        assert activation.published is False
+        assert activation.run_state is RunState.SUPERSEDED
+        assert engine.get_run(newer.run_id).state is RunState.QUEUED
+
+        connection = (
+            engine._store._connection  # pyright: ignore[reportPrivateUsage]
+        )
+        fts_ids = {
+            str(row["evidence_id"])
+            for row in connection.execute(
+                "SELECT evidence_id FROM active_evidence_fts"
+            ).fetchall()
+        }
+        active_ids = {
+            f"ev_{index:032x}" for index in range(1, 13)
+        }
+        assert fts_ids == active_ids
+        assert "ev_candidate" not in fts_ids
+        assert "ev_superseded" not in fts_ids
+
+        statements: list[str] = []
+        connection.set_trace_callback(statements.append)
+        page = engine.search_evidence_page(
+            "authority",
+            position=0,
+            page_size=3,
+            authority_validator=lambda _authority: None,
+        )
+        connection.set_trace_callback(None)
+
+        assert [
+            item.provenance.result.evidence_id
+            for item in page.results
+        ] == [
+            f"ev_{index:032x}" for index in range(1, 4)
+        ]
+        page_queries = [
+            statement
+            for statement in statements
+            if "WITH matched AS MATERIALIZED" in statement
+            and "page AS (" in statement
+        ]
+        assert len(page_queries) == 1
+        page_query = page_queries[0]
+        assert page_query.count(" MATCH ") == 1
+        assert "active_evidence_fts.text" not in page_query
+        assert "evidence.text," not in page_query
+        page_order = (
+            page_query.split("page AS (", maxsplit=1)[1]
+            .split("LIMIT", maxsplit=1)[0]
+            .rsplit("ORDER BY", maxsplit=1)[1]
+        )
+        final_order = page_query.rsplit("ORDER BY", maxsplit=1)[1]
+        assert all(
+            ".text" not in order
+            for order in (page_order, final_order)
+        )
+        top_level_statements = [
+            statement
+            for statement in statements
+            if not statement.lstrip().startswith("--")
+            and statement.lstrip().upper().startswith(
+                ("SELECT", "WITH")
+            )
+        ]
+        assert len(top_level_statements) == 6
+        assert sum(
+            "FROM libraries" in statement
+            for statement in top_level_statements
+        ) == 1
+        assert sum(
+            "COUNT(*) AS source_count" in statement
+            for statement in top_level_statements
+        ) == 1
+        assert sum(
+            "run_manifests.extractor_fingerprint" in statement
+            and "GROUP BY sources.source_id" in statement
+            for statement in top_level_statements
+        ) == 1
+        assert sum(
+            "WITH matched AS MATERIALIZED" in statement
+            for statement in top_level_statements
+        ) == 1
+        assert len(
+            [
+                statement
+                for statement in top_level_statements
+                if "SELECT evidence_id, text" in statement
+                and "WHERE evidence_id IN (" in statement
+            ]
+        ) == 1
+        assert len(
+            [
+                statement
+                for statement in top_level_statements
+                if "WHERE evidence.evidence_id IN (" in statement
+            ]
+        ) == 1
+
+        plan_rows = connection.execute(
+            "EXPLAIN QUERY PLAN " + page_query
+        ).fetchall()
+        normalized_nodes = [
+            {
+                "operator": str(row["detail"]).split(maxsplit=1)[0],
+                "detail": str(row["detail"]),
+            }
+            for row in plan_rows
+        ]
+        details = [node["detail"] for node in normalized_nodes]
+        assert "MATERIALIZE matched" in details
+        assert any(
+            detail.startswith(
+                "SCAN active_evidence_fts VIRTUAL TABLE INDEX"
+            )
+            for detail in details
+        )
+        assert any("SCAN matched" in detail for detail in details)
+        assert any(
+            detail == "USE TEMP B-TREE FOR ORDER BY"
+            for detail in details
+        )
+
+        compile_options = {
+            str(row[0])
+            for row in connection.execute(
+                "PRAGMA compile_options"
+            ).fetchall()
+        }
+        table_sql_row = connection.execute(
+            """
+            SELECT sql
+            FROM sqlite_schema
+            WHERE type = 'table' AND name = 'active_evidence_fts'
+            """
+        ).fetchone()
+        assert table_sql_row is not None
+        live_record = {
+            "schema_version": (
+                "mke.retrieval_order_fts_query_plan.v1"
+            ),
+            "sqlite_profile": {
+                "sqlite_version": sqlite3.sqlite_version,
+                "sqlite_source_id": str(
+                    connection.execute(
+                        "SELECT sqlite_source_id()"
+                    ).fetchone()[0]
+                ),
+                "fts5_source_id": str(
+                    connection.execute(
+                        "SELECT fts5_source_id()"
+                    ).fetchone()[0]
+                ),
+                "compile_options": sorted(
+                    option
+                    for option in compile_options
+                    if option == "ENABLE_FTS5"
+                    or option.startswith("TEMP_STORE=")
+                    or option.startswith("THREADSAFE=")
+                ),
+                "journal_mode": str(
+                    connection.execute(
+                        "PRAGMA journal_mode"
+                    ).fetchone()[0]
+                ),
+                "temp_store": int(
+                    connection.execute(
+                        "PRAGMA temp_store"
+                    ).fetchone()[0]
+                ),
+                "automatic_index": int(
+                    connection.execute(
+                        "PRAGMA automatic_index"
+                    ).fetchone()[0]
+                ),
+                "fts5_rank_configuration": (
+                    "sqlite_fts5_default_bm25"
+                ),
+                "active_evidence_fts_sql": " ".join(
+                    str(table_sql_row["sql"]).split()
+                ),
+            },
+            "strategy_revision": 2,
+            "query_policy_revision": 1,
+            "fixture_authority": {
+                "active_only": True,
+                "active_fts_row_count": len(fts_ids),
+                "inactive_source_count": 1,
+                "validated_candidate_count": 1,
+                "failed_run_count": 1,
+                "superseded_evidence_count": 1,
+            },
+            "query": {
+                "parameters": ['"authority"', 4, 0],
+                "expanded_sql_sha256": hashlib.sha256(
+                    page_query.encode()
+                ).hexdigest(),
+                "statement_count": len(top_level_statements),
+                "fts_match_count": page_query.count(" MATCH "),
+                "metadata_only_page_selection": True,
+                "bulk_text_load_count": 1,
+                "bulk_provenance_load_count": 1,
+            },
+            "normalized_nodes": normalized_nodes,
+            "limitations": list(FTS_QUERY_PLAN_LIMITATIONS),
+        }
+        comparison = _fixed_profile_comparison(
+            live_record=live_record,
+            frozen_bytes=FTS_QUERY_PLAN.read_bytes(),
+        )
+        if comparison == "not_applicable":
+            pytest.skip(
+                "exact fixed-profile equality not applicable: "
+                "complete live SQLite/FTS profile differs from "
+                "the sealed profile"
+            )
+        assert comparison == "exact"
+    finally:
+        engine.close()
+
+
+def test_fixed_profile_comparison_accepts_exact_sealed_profile() -> None:
+    frozen_bytes = FTS_QUERY_PLAN.read_bytes()
+    frozen_record = json.loads(frozen_bytes)
+
+    assert _fixed_profile_comparison(
+        live_record=frozen_record,
+        frozen_bytes=frozen_bytes,
+    ) == "exact"
+
+
+@pytest.mark.parametrize(
+    "profile_field",
+    FTS_QUERY_PLAN_PROFILE_FIELDS,
+)
+def test_fixed_profile_comparison_routes_every_profile_mismatch(
+    profile_field: str,
+) -> None:
+    frozen_bytes = FTS_QUERY_PLAN.read_bytes()
+    live_record = copy.deepcopy(json.loads(frozen_bytes))
+    profile = live_record["sqlite_profile"]
+    original = profile[profile_field]
+    if isinstance(original, list):
+        profile[profile_field] = [*original, "DIFFERENT_PROFILE"]
+    elif isinstance(original, int):
+        profile[profile_field] = original + 1
+    else:
+        profile[profile_field] = f"different:{original}"
+
+    assert _fixed_profile_comparison(
+        live_record=live_record,
+        frozen_bytes=frozen_bytes,
+    ) == "not_applicable"
+
+
+def test_fixed_profile_comparison_rejects_tampered_fixture_before_routing(
+) -> None:
+    frozen_bytes = FTS_QUERY_PLAN.read_bytes()
+    live_record = copy.deepcopy(json.loads(frozen_bytes))
+    live_record["sqlite_profile"]["sqlite_version"] = "different"
+    tampered_bytes = frozen_bytes.replace(
+        b"not_wall_clock_performance_evidence",
+        b"not_wall_clock_performance_claim",
+    )
+
+    with pytest.raises(
+        AssertionError,
+        match="L6_FTS_QUERY_PLAN_FIXTURE_BYTES_INVALID",
+    ):
+        _fixed_profile_comparison(
+            live_record=live_record,
+            frozen_bytes=tampered_bytes,
+        )
+
+
 def test_fts_page_text_budget_always_progresses_first_candidate(
     tmp_path: Path,
 ) -> None:
@@ -298,3 +654,141 @@ def _publish(engine: KnowledgeEngine, pages: tuple[str, ...]) -> str:
     )
     engine.activate_publication(run.run_id)
     return evidence[0].evidence_id
+
+
+def _persist_candidate(
+    engine: KnowledgeEngine,
+    *,
+    run_id: str,
+    asset_sha256: str,
+    evidence_id: str,
+    text: str,
+) -> None:
+    engine.persist_validated_candidate(
+        run_id,
+        [
+            CandidateEvidence(
+                evidence_id=evidence_id,
+                locator_kind="page",
+                locator_start=1,
+                locator_end=1,
+                text=text,
+            )
+        ],
+        RunManifest(
+            run_id=run_id,
+            evidence_count=1,
+            required_stages=tuple(sorted(REQUIRED_PDF_STAGES)),
+            extractor_fingerprint=PDF_EXTRACTOR_FINGERPRINT,
+            asset_sha256=asset_sha256,
+        ),
+    )
+
+
+def _fixed_profile_comparison(
+    *,
+    live_record: dict[str, Any],
+    frozen_bytes: bytes,
+) -> Literal["exact", "not_applicable"]:
+    assert (
+        hashlib.sha256(frozen_bytes).hexdigest()
+        == FTS_QUERY_PLAN_SHA256
+    ), "L6_FTS_QUERY_PLAN_FIXTURE_BYTES_INVALID"
+    frozen_value: object = json.loads(frozen_bytes)
+    frozen_record = _string_keyed_dict(frozen_value)
+    assert set(frozen_record) == {
+        "fixture_authority",
+        "limitations",
+        "normalized_nodes",
+        "query",
+        "query_policy_revision",
+        "schema_version",
+        "sqlite_profile",
+        "strategy_revision",
+    }
+    assert (
+        frozen_record["schema_version"]
+        == "mke.retrieval_order_fts_query_plan.v1"
+    )
+    assert frozen_record["strategy_revision"] == 2
+    assert frozen_record["query_policy_revision"] == 1
+    assert frozen_record["limitations"] == list(
+        FTS_QUERY_PLAN_LIMITATIONS
+    )
+    assert frozen_record["fixture_authority"] == {
+        "active_fts_row_count": 12,
+        "active_only": True,
+        "failed_run_count": 1,
+        "inactive_source_count": 1,
+        "superseded_evidence_count": 1,
+        "validated_candidate_count": 1,
+    }
+    query = _string_keyed_dict(frozen_record["query"])
+    assert set(query) == {
+        "bulk_provenance_load_count",
+        "bulk_text_load_count",
+        "expanded_sql_sha256",
+        "fts_match_count",
+        "metadata_only_page_selection",
+        "parameters",
+        "statement_count",
+    }
+    assert query["parameters"] == ['"authority"', 4, 0]
+    assert query["statement_count"] == 6
+    assert query["fts_match_count"] == 1
+    assert query["metadata_only_page_selection"] is True
+    assert query["bulk_text_load_count"] == 1
+    assert query["bulk_provenance_load_count"] == 1
+    expanded_sql_sha256 = query["expanded_sql_sha256"]
+    assert isinstance(expanded_sql_sha256, str)
+    assert len(expanded_sql_sha256) == 64
+    assert set(expanded_sql_sha256) <= set("0123456789abcdef")
+    normalized_nodes_value = frozen_record["normalized_nodes"]
+    assert isinstance(normalized_nodes_value, list)
+    normalized_nodes = cast(list[object], normalized_nodes_value)
+    assert normalized_nodes
+    for node_value in normalized_nodes:
+        node = _string_keyed_dict(node_value)
+        assert set(node) == {"detail", "operator"}
+        assert isinstance(node["detail"], str)
+        assert isinstance(node["operator"], str)
+    frozen_profile = _string_keyed_dict(
+        frozen_record["sqlite_profile"]
+    )
+    assert set(frozen_profile) == set(
+        FTS_QUERY_PLAN_PROFILE_FIELDS
+    )
+    compile_options_value = frozen_profile["compile_options"]
+    assert isinstance(compile_options_value, list)
+    compile_option_objects = cast(
+        list[object],
+        compile_options_value,
+    )
+    assert all(
+        isinstance(option, str)
+        for option in compile_option_objects
+    )
+    compile_options = cast(list[str], compile_option_objects)
+    assert compile_options == sorted(set(compile_options))
+    assert "ENABLE_FTS5" in compile_options
+    live_profile = live_record.get("sqlite_profile")
+    assert isinstance(live_profile, dict)
+    if live_profile != frozen_profile:
+        return "not_applicable"
+    assert live_record == frozen_record, (
+        "L6_FTS_QUERY_PLAN_RECORD_MISSING_OR_DRIFT\n"
+        + json.dumps(
+            live_record,
+            ensure_ascii=True,
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    return "exact"
+
+
+def _string_keyed_dict(value: object) -> dict[str, object]:
+    assert isinstance(value, dict)
+    object_dict = cast(dict[object, object], value)
+    assert all(isinstance(key, str) for key in object_dict)
+    return cast(dict[str, object], object_dict)

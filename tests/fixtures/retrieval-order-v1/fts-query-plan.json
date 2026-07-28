@@ -1,0 +1,117 @@
+{
+  "fixture_authority": {
+    "active_fts_row_count": 12,
+    "active_only": true,
+    "failed_run_count": 1,
+    "inactive_source_count": 1,
+    "superseded_evidence_count": 1,
+    "validated_candidate_count": 1
+  },
+  "limitations": [
+    "fixed_profile_structural_evidence_only",
+    "not_wall_clock_performance_evidence",
+    "not_relevance_quality_evidence",
+    "not_segmentation_or_contextual_retrieval_evidence",
+    "not_runtime_promotion_evidence",
+    "not_cross_sqlite_portability_guarantee",
+    "not_production_performance_guarantee",
+    "not_future_sqlite_planner_stability_guarantee"
+  ],
+  "normalized_nodes": [
+    {
+      "detail": "CO-ROUTINE integrity",
+      "operator": "CO-ROUTINE"
+    },
+    {
+      "detail": "SCAN CONSTANT ROW",
+      "operator": "SCAN"
+    },
+    {
+      "detail": "SCALAR SUBQUERY 2",
+      "operator": "SCALAR"
+    },
+    {
+      "detail": "MATERIALIZE matched",
+      "operator": "MATERIALIZE"
+    },
+    {
+      "detail": "SCAN active_evidence_fts VIRTUAL TABLE INDEX 0:M6",
+      "operator": "SCAN"
+    },
+    {
+      "detail": "SEARCH evidence USING INDEX sqlite_autoindex_evidence_1 (evidence_id=?)",
+      "operator": "SEARCH"
+    },
+    {
+      "detail": "SEARCH sources USING INDEX sqlite_autoindex_sources_1 (source_id=?)",
+      "operator": "SEARCH"
+    },
+    {
+      "detail": "SEARCH assets USING INDEX sqlite_autoindex_assets_1 (asset_id=?)",
+      "operator": "SEARCH"
+    },
+    {
+      "detail": "SCAN matched",
+      "operator": "SCAN"
+    },
+    {
+      "detail": "USE TEMP B-TREE FOR GROUP BY",
+      "operator": "USE"
+    },
+    {
+      "detail": "MATERIALIZE page",
+      "operator": "MATERIALIZE"
+    },
+    {
+      "detail": "SCAN matched",
+      "operator": "SCAN"
+    },
+    {
+      "detail": "USE TEMP B-TREE FOR ORDER BY",
+      "operator": "USE"
+    },
+    {
+      "detail": "SCAN integrity",
+      "operator": "SCAN"
+    },
+    {
+      "detail": "SCAN page LEFT-JOIN",
+      "operator": "SCAN"
+    },
+    {
+      "detail": "USE TEMP B-TREE FOR ORDER BY",
+      "operator": "USE"
+    }
+  ],
+  "query": {
+    "bulk_provenance_load_count": 1,
+    "bulk_text_load_count": 1,
+    "expanded_sql_sha256": "928381e51a9ce75274ef68520d1f2551714c87a90b8e0833d08e8a3994c08191",
+    "fts_match_count": 1,
+    "metadata_only_page_selection": true,
+    "parameters": [
+      "\"authority\"",
+      4,
+      0
+    ],
+    "statement_count": 6
+  },
+  "query_policy_revision": 1,
+  "schema_version": "mke.retrieval_order_fts_query_plan.v1",
+  "sqlite_profile": {
+    "active_evidence_fts_sql": "CREATE VIRTUAL TABLE active_evidence_fts USING fts5( library_id UNINDEXED, source_id UNINDEXED, publication_id UNINDEXED, evidence_id UNINDEXED, locator_label UNINDEXED, text )",
+    "automatic_index": 1,
+    "compile_options": [
+      "ENABLE_FTS5",
+      "TEMP_STORE=1",
+      "THREADSAFE=1"
+    ],
+    "fts5_rank_configuration": "sqlite_fts5_default_bm25",
+    "fts5_source_id": "fts5: 2025-11-28 17:28:25 281fc0e9afc38674b9b0991943b9e9d1e64c6cbdb133d35f6f5c87ff6af38a88",
+    "journal_mode": "wal",
+    "sqlite_source_id": "2025-11-28 17:28:25 281fc0e9afc38674b9b0991943b9e9d1e64c6cbdb133d35f6f5c87ff6af38a88",
+    "sqlite_version": "3.51.1",
+    "temp_store": 0
+  },
+  "strategy_revision": 2
+}

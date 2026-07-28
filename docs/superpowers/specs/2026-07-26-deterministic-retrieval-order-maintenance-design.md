@@ -352,8 +352,24 @@ under a strategy-only same-owner change, Search/Read expiry after owner restart,
 and inverse ingestion/opaque-ID schedules. The holdout stays minimal.
 
 Performance acceptance is structural: one FTS `MATCH`, no N+1, no full text in ordering, bounded
-statement count, unchanged CJK row/byte caps, and a recorded fixed-profile query plan.
-Wall-clock timing is informational unless a stable threshold is separately preregistered.
+statement count, unchanged CJK row/byte caps, and the fixed-profile query plan recorded at
+`tests/fixtures/retrieval-order-v1/fts-query-plan.json`. That public-neutral record binds SQLite
+and FTS5 source/profile identity, relevant compile configuration, strategy revision 2,
+query-policy revision 1, the exact application query shape and parameters, and the emitted order
+of normalized planner details. Its deterministic synthetic authority contains only active
+Publication Evidence; inactive, candidate, failed, and superseded rows are explicit negative
+controls. Every supported Python/SQLite profile must execute the portable structural assertions:
+active-only authority, one FTS `MATCH`, bounded statements, metadata-only ordering and selection,
+no N+1 access, and the required materialization, scan, and temporary-order facts. Exact record
+equality is applicable only when every recorded SQLite/FTS profile field matches the live profile;
+a different complete profile is explicitly not applicable to that singular equality check, while
+fixture schema, limitations, and byte identity remain mandatory.
+
+This record is fixed-profile structural evidence only. It does not establish wall-clock
+improvement, relevance quality, segmentation or contextual-retrieval value, promotion,
+cross-SQLite portability, production performance, or stability under future SQLite planner
+changes. Wall-clock timing remains informational unless a stable threshold is separately
+preregistered.
 
 This maintenance adds no public `mke eval` subcommand or request flag. Freeze these internal
 maintainer entry points:
