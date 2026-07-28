@@ -1701,6 +1701,44 @@ def test_validator_rejects_authority_tampering(
         )
 
 
+def test_strict_live_validator_rejects_future_current_source_mismatch(
+    compatibility_artifact: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module()
+    calls = 0
+
+    def future_current_source(root: Path) -> dict[str, object]:
+        nonlocal calls
+        assert root == ROOT
+        calls += 1
+        return {
+            "files": [
+                {
+                    "path": "src/mke/unrelated_future.py",
+                    "bytes": 17,
+                    "sha256": "0" * 64,
+                }
+            ],
+            "sha256": "0" * 64,
+        }
+
+    monkeypatch.setattr(
+        module,
+        "_current_source_identity",
+        future_current_source,
+    )
+
+    with pytest.raises(module.RetrievalOrderCompatibilityError):
+        module.validate_compatibility_artifact(
+            compatibility_artifact,
+            protocol_path=PROTOCOL,
+            repository_root=ROOT,
+        )
+
+    assert calls == 1
+
+
 def test_temporary_record_and_read_only_validate(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -2902,6 +2940,11 @@ def test_canonical_validate_is_pure_and_preserves_existing_bytes(
     monkeypatch.setattr(
         module,
         "validate_compatibility_artifact",
+        _accept_validation,
+    )
+    monkeypatch.setattr(
+        module,
+        "_validate_compatibility_artifact",
         _accept_validation,
     )
     recorded = module.record_canonical_compatibility(

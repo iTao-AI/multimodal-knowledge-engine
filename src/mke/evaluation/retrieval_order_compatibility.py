@@ -740,6 +740,21 @@ def validate_compatibility_artifact(
     protocol_path: Path,
     repository_root: Path,
 ) -> None:
+    _validate_compatibility_artifact(
+        artifact,
+        protocol_path=protocol_path,
+        repository_root=repository_root,
+        strict_live=True,
+    )
+
+
+def _validate_compatibility_artifact(
+    artifact: object,
+    *,
+    protocol_path: Path,
+    repository_root: Path,
+    strict_live: bool,
+) -> None:
     root = repository_root.resolve()
     protocol = protocol_path.resolve()
     value = _object(artifact)
@@ -806,7 +821,14 @@ def validate_compatibility_artifact(
         and stdout_sha256 is not None
     ):
         raise RetrievalOrderCompatibilityError
-    if value["current_source"] != _current_source_identity(root):
+    try:
+        validate_recorded_source_identity(value["current_source"])
+    except ValueError as error:
+        raise RetrievalOrderCompatibilityError from error
+    if (
+        strict_live
+        and value["current_source"] != _current_source_identity(root)
+    ):
         raise RetrievalOrderCompatibilityError
     raw_families = value["families"]
     if not isinstance(raw_families, list):
@@ -1157,6 +1179,7 @@ def validate_temporary_compatibility(
                 protocol_path=protocol_path,
                 repository_root=root,
                 expected_authority=authority,
+                retained=True,
             )
         else:
             validate_compatibility_artifact(
@@ -1571,6 +1594,7 @@ def _validate_canonical_artifact(
     protocol_path: Path,
     repository_root: Path,
     expected_authority: dict[str, object],
+    retained: bool = False,
 ) -> None:
     artifact = _object(value)
     if set(artifact) != {
@@ -1621,11 +1645,19 @@ def _validate_canonical_artifact(
         *canonical_limitations[:-1],
         "public_holdout_not_observed",
     ]
-    validate_compatibility_artifact(
-        base,
-        protocol_path=protocol_path,
-        repository_root=repository_root,
-    )
+    if retained:
+        _validate_compatibility_artifact(
+            base,
+            protocol_path=protocol_path,
+            repository_root=repository_root,
+            strict_live=False,
+        )
+    else:
+        validate_compatibility_artifact(
+            base,
+            protocol_path=protocol_path,
+            repository_root=repository_root,
+        )
 
 
 def record_canonical_compatibility(

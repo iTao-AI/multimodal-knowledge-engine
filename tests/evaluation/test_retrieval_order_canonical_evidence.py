@@ -147,6 +147,40 @@ def test_committed_canonical_retrieval_evidence_validates_purely(
         forbidden,
     )
 
+    future_files = [
+        {
+            "path": "src/mke/unrelated_future.py",
+            "bytes": len(b"unrelated = True\n"),
+            "sha256": hashlib.sha256(
+                b"unrelated = True\n"
+            ).hexdigest(),
+        }
+    ]
+    future_source: dict[str, object] = {
+        "files": future_files,
+        "sha256": hashlib.sha256(
+            json.dumps(
+                future_files,
+                ensure_ascii=True,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode()
+        ).hexdigest(),
+    }
+    current_source_calls = 0
+
+    def future_current_source(root: Path) -> dict[str, object]:
+        nonlocal current_source_calls
+        assert root == ROOT
+        current_source_calls += 1
+        return future_source
+
+    monkeypatch.setattr(
+        compatibility,
+        "_current_source_identity",
+        future_current_source,
+    )
+
     base_validation_calls = 0
     base_validator = compatibility.validate_compatibility_artifact
     attempt_validation_calls = 0
@@ -219,8 +253,9 @@ def test_committed_canonical_retrieval_evidence_validates_purely(
         ],
         "historical_revision": 1,
         "current_revision": 2,
-    }
-    assert base_validation_calls == 1
+    }, "L1_CANONICAL_AUTHORITY_EXPIRED_ON_FUTURE_SOURCE"
+    assert current_source_calls == 0
+    assert base_validation_calls == 0
     assert attempt_validation_calls == 1
 
     assert set(attempt) == {
