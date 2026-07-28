@@ -1610,6 +1610,39 @@ def test_downgraded_family_uses_immutable_recorded_order() -> None:
         )
 
 
+def test_downgraded_e1_raw_wrapper_does_not_create_false_verdict_delta() -> None:
+    module = _module()
+    capability = module._capability(
+        status="no_ordered_delta_authority",
+        first="",
+        second="",
+        origins=False,
+        inputs=False,
+    )
+    archived_queries = module._archived_order_queries("e1_baseline", ROOT)
+    archived_semantics = module._archived_semantic_report(
+        "e1_baseline",
+        ROOT,
+    )
+
+    result = module._e1_e2_family(
+        family="e1_baseline",
+        capability=capability,
+        historical_payload=None,
+        current_payload={
+            "queries": deepcopy(archived_queries),
+            "semantic_report": deepcopy(archived_semantics),
+        },
+        current_source=module._current_source_identity(ROOT),
+        root=ROOT,
+    )
+
+    assert result["status"] == "passed"
+    assert result["metric_delta"] == 0
+    assert result["gate_delta"] == 0
+    assert result["verdict_delta"] == 0
+
+
 def test_historical_child_cannot_replace_immutable_e1_authority() -> None:
     module = _module()
     capability = module._capability(

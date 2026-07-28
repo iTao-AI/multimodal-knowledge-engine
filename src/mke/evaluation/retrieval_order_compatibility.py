@@ -2649,12 +2649,7 @@ def _e1_e2_family(
     if historical_payload is None:
         before_queries = _archived_order_queries(family, root)
         authority: TieGroupAuthority = "no_ordered_delta_authority"
-        archived = _load_object(root / _HISTORICAL_INPUTS[family][0])
-        historical_report = (
-            archived
-            if family == "e1_baseline"
-            else archived["comparison"]
-        )
+        historical_report = _archived_semantic_report(family, root)
     else:
         child_family_payload = _object(
             _object(historical_payload["families"])[family]
