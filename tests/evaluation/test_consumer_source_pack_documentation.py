@@ -276,6 +276,26 @@ def test_consumer_source_pack_how_to_documents_candidate_artifact_handoff() -> N
         assert required in prose
 
 
+def test_consumer_source_pack_how_to_links_durable_claim_authority() -> None:
+    text = HOW_TO.read_text(encoding="utf-8")
+    prose = normalized(text)
+
+    assert (
+        "run-deterministic-retrieval-order-proof.md"
+        in text
+    )
+    assert (
+        "normal source-pack flow does not create the durable "
+        "Task 8R attempt claim"
+        in prose
+    )
+    assert (
+        "deterministic retrieval-order guide owns the preclaim "
+        "rejection and terminal durable-attempt rules"
+        in prose
+    )
+
+
 def test_consumer_source_pack_how_to_documents_closed_public_output() -> None:
     text = HOW_TO.read_text(encoding="utf-8")
 

@@ -38,6 +38,10 @@ UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
   --json
 ```
 
+This normal source-pack flow does not create the durable Task 8R attempt claim. The deterministic
+retrieval-order guide owns the preclaim rejection and terminal durable-attempt rules; see
+[Run The Deterministic Retrieval Order Proof](./run-deterministic-retrieval-order-proof.md).
+
 The target directory must not already exist. Candidate creation also requires a clean Git
 checkout using the `sha1` object format. Before building, the controller pins that commit and
 creates an immutable tracked snapshot with `git archive`; the wheel, locked dependency export,

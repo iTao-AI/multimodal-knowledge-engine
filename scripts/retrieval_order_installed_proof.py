@@ -474,7 +474,17 @@ def _parser() -> argparse.ArgumentParser:
         description=(
             "Installed deterministic-order proof: explicit prebuilt "
             "wheel only.\n"
-            "It never rebuilds or discovers a wheel."
+            "It never rebuilds or discovers a wheel.\n"
+            "It establishes explicit wheel/receipt/input identity "
+            "preflight; installed module, distribution, strategy "
+            "revision, and query-policy revision; and validator "
+            "function availability under Python 3.12 and Python "
+            "3.13.\n"
+            "This proof checks validator availability only; it does "
+            "not execute either validator. Canonical checkout content "
+            "is validated separately by "
+            "tests/evaluation/"
+            "test_retrieval_order_canonical_evidence.py."
         )
     )
     parser.add_argument(

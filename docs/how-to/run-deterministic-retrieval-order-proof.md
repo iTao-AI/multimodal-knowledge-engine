@@ -38,10 +38,15 @@ uv run pytest -q \
   tests/evaluation/test_retrieval_order_protocol.py \
   tests/evaluation/test_retrieval_order_workflow.py \
   tests/evaluation/test_retrieval_order_artifact.py
-uv run mke eval retrieval-numeric
+uv run mke eval retrieval-numeric --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json --json
 ```
 
-A stale numeric source lock is a strict-live failure, not a compatibility-closure failure.
+A stale numeric source lock is a strict-live failure, not a compatibility-closure failure. The
+strict-live exit `1` tuple is:
+
+- `problem=retrieval_numeric_fixture_invalid`;
+- `cause=protocol-bound input identity mismatch`;
+- `next_step=restore_numeric_protocol_inputs`.
 
 ## 2. Record Temporary Compatibility
 
@@ -123,8 +128,9 @@ UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
   --attempt-claim "$EXTERNAL_ATTEMPT_CLAIM" --json
 ```
 
-The external no-replace claim is complete before build or child execution. It is retained on any
-later failure.
+The claim path requires a real nonsymlink lexical ancestor chain. A symlink-alias preclaim
+rejection is not a durable attempt. Once a complete claim is visible, the durable attempt is
+terminal: retain it on any later failure and do not retry.
 
 ## 8. Prove The Exact Installed Wheel
 
@@ -142,7 +148,15 @@ uv run python scripts/retrieval_order_installed_proof.py \
   --compatibility "$COPIED_COMPATIBILITY_ARTIFACT" --json
 ```
 
-The installed proof never discovers, chooses, or rebuilds a wheel.
+The installed proof never discovers, chooses, or rebuilds a wheel. It establishes:
+
+- explicit wheel/receipt/input identity preflight;
+- installed module, distribution, strategy revision, and query-policy revision; and
+- validator function availability under Python 3.12 and Python 3.13.
+
+This proof checks validator availability only; it does not execute either validator. Canonical
+checkout content is validated separately by
+`tests/evaluation/test_retrieval_order_canonical_evidence.py`.
 
 ## Recovery And Non-claims
 

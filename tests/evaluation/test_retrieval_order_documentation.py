@@ -136,6 +136,39 @@ def test_how_to_freezes_authority_mapping_and_fast_to_expensive_order() -> None:
     assert "holdout will pass" not in text
 
 
+def test_how_to_states_exact_proof_and_claim_recovery_boundaries() -> None:
+    text = HOW_TO.read_text(encoding="utf-8")
+    prose = " ".join(text.replace("`", "").split())
+
+    assert (
+        "uv run mke eval retrieval-numeric --protocol "
+        "tests/fixtures/retrieval-numeric-v1/protocol-lock.json --json"
+        in text
+    )
+    for expected in (
+        "strict-live exit `1`",
+        "`problem=retrieval_numeric_fixture_invalid`",
+        "`cause=protocol-bound input identity mismatch`",
+        "`next_step=restore_numeric_protocol_inputs`",
+    ):
+        assert expected in text
+    for expected in (
+        "explicit wheel/receipt/input identity preflight",
+        "installed module, distribution, strategy revision, and "
+        "query-policy revision",
+        "validator function availability under Python 3.12 and "
+        "Python 3.13",
+        "This proof checks validator availability only; it does not "
+        "execute either validator. Canonical checkout content is "
+        "validated separately by "
+        "tests/evaluation/test_retrieval_order_canonical_evidence.py.",
+        "real nonsymlink lexical ancestor chain",
+        "symlink-alias preclaim rejection is not a durable attempt",
+        "complete claim is visible, the durable attempt is terminal",
+    ):
+        assert expected in prose
+
+
 def test_retrieval_order_docs_are_linked_and_public_neutral() -> None:
     linked_paths = (
         ROOT / "docs/explanation/architecture.md",

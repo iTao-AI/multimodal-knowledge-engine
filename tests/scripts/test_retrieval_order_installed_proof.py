@@ -50,6 +50,28 @@ def test_help_requires_explicit_same_wheel_and_all_authority_inputs(
         assert option in output
     assert "explicit prebuilt wheel only" in output
     assert "never rebuilds or discovers a wheel" in output
+    normalized = " ".join(output.split())
+    assert (
+        "explicit wheel/receipt/input identity preflight"
+        in normalized
+    )
+    assert (
+        "installed module, distribution, strategy revision, and "
+        "query-policy revision"
+        in normalized
+    )
+    assert (
+        "validator function availability under Python 3.12 and "
+        "Python 3.13"
+        in normalized
+    )
+    assert (
+        "This proof checks validator availability only; it does not "
+        "execute either validator. Canonical checkout content is "
+        "validated separately by "
+        "tests/evaluation/test_retrieval_order_canonical_evidence.py."
+        in normalized
+    )
 
 
 def test_installed_proof_uses_exact_same_wheel_without_build_or_discovery(
