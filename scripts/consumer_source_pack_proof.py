@@ -893,31 +893,46 @@ def _preflight_candidate_output(
         )
 
 
+def _require_absent_attempt_claim_slot(target: Path) -> None:
+    try:
+        target_stat = target.lstat()
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise ControllerError(
+            "retrieval_order_source_pack_claim_invalid"
+        ) from exc
+    if stat.S_ISREG(target_stat.st_mode):
+        raise ControllerError(
+            "retrieval_order_source_pack_already_started"
+        )
+    raise ControllerError(
+        "retrieval_order_source_pack_claim_invalid"
+    )
+
+
 def _bind_attempt_claim(
     requested: Path,
     *,
     repository: Path,
     candidate_output: Path,
 ) -> _AttemptClaimBinding:
-    _preflight_candidate_output(
-        candidate_output,
-        repository=repository,
-    )
     if requested.name in {"", ".", ".."}:
         raise ControllerError(
             "retrieval_order_source_pack_claim_invalid"
         )
     lexical_target = _lexical_absolute(requested)
     lexical_parent = lexical_target.parent
-    if (
-        requested.is_symlink()
-        or requested.exists()
-        or _lexically_within(lexical_target, candidate_output)
-    ):
+    parent_stat = _require_nonsymlink_directory_chain(lexical_parent)
+    _require_absent_attempt_claim_slot(lexical_target)
+    if _lexically_within(lexical_target, candidate_output):
         raise ControllerError(
             "retrieval_order_source_pack_claim_invalid"
         )
-    parent_stat = _require_nonsymlink_directory_chain(lexical_parent)
+    _preflight_candidate_output(
+        candidate_output,
+        repository=repository,
+    )
     try:
         resolved_parent = lexical_parent.resolve(strict=True)
     except (OSError, RuntimeError) as exc:
@@ -927,8 +942,6 @@ def _bind_attempt_claim(
     target = resolved_parent / requested.name
     if (
         target.parent != resolved_parent
-        or target.is_symlink()
-        or target.exists()
         or _repository_identity_in_ancestry(
             resolved_parent,
             repository=repository,
@@ -939,13 +952,15 @@ def _bind_attempt_claim(
         raise ControllerError(
             "retrieval_order_source_pack_claim_invalid"
         )
-    return _AttemptClaimBinding(
+    binding = _AttemptClaimBinding(
         lexical_parent=lexical_parent,
         resolved_parent=resolved_parent,
         basename=requested.name,
         parent_device=parent_stat.st_dev,
         parent_inode=parent_stat.st_ino,
     )
+    _recheck_attempt_claim(binding)
+    return binding
 
 
 def _recheck_attempt_claim(binding: _AttemptClaimBinding) -> None:
@@ -963,12 +978,11 @@ def _recheck_attempt_claim(binding: _AttemptClaimBinding) -> None:
         resolved_parent != binding.resolved_parent
         or parent_stat.st_dev != binding.parent_device
         or parent_stat.st_ino != binding.parent_inode
-        or target.is_symlink()
-        or target.exists()
     ):
         raise ControllerError(
             "retrieval_order_source_pack_claim_invalid"
         )
+    _require_absent_attempt_claim_slot(target)
 
 
 def _publish_task8r_attempt_claim(
@@ -1036,7 +1050,7 @@ def _publish_task8r_attempt_claim(
         return publication
     if publication.output_state == "complete_preexisting":
         raise ControllerError(
-            "retrieval_order_source_pack_claim_invalid"
+            "retrieval_order_source_pack_already_started"
         )
     if publication.publication_outcome == "durability_unconfirmed":
         raise ControllerError(
@@ -1380,7 +1394,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "claim preflight invalid -> correct the path; no attempt started\n"
-            "claim visible -> any later failure is terminal; retain the claim and stop\n"
+            "claim path invalid -> correct the path; no attempt started\n"
+            "claim already started -> retain the claim and stop; do not retry\n"
+            "claim published by this run -> any later failure is terminal; "
+            "retain the claim and stop\n"
             "non-claim: the final lexical recheck is not a directory-FD or "
             "race-free binding afterward"
         ),

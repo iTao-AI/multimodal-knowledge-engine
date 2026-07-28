@@ -1506,9 +1506,153 @@ def test_help_exposes_task8r_attempt_claim(
         in output
     )
     assert (
-        "claim visible -> any later failure is terminal; retain the claim "
-        "and stop"
+        "claim already started -> retain the claim and stop; do not retry"
     ) in output
+    assert "claim path invalid -> correct the path; no attempt started" in output
+
+
+def test_preexisting_regular_attempt_claim_is_already_started_before_side_effects(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    claim_parent = tmp_path / "claim-parent"
+    claim_parent.mkdir()
+    claim = claim_parent / "attempt.json"
+    claim.write_bytes(b"operator-owned durable claim\n")
+    output_parent = tmp_path / "candidate-parent"
+    output_parent.mkdir()
+    output = output_parent / "candidate"
+    before = claim.stat()
+    original_read_bytes = Path.read_bytes
+    calls: list[str] = []
+
+    def guarded_read_bytes(path: Path) -> bytes:
+        if path == claim:
+            calls.append("claim_read")
+            raise AssertionError("preexisting claim must not be read")
+        return original_read_bytes(path)
+
+    def forbidden(*args: object, **kwargs: object) -> NoReturn:
+        del args, kwargs
+        calls.append("side_effect")
+        raise AssertionError("proof side effect must not start")
+
+    monkeypatch.setattr(Path, "read_bytes", guarded_read_bytes)
+    for name in (
+        "_preflight_candidate_output",
+        "_clean_sha1_source_commit",
+        "_candidate_target",
+        "_command",
+        "_stage_candidate_output",
+        "publish_json_no_replace",
+        "_run_proof_with_bound_inputs",
+    ):
+        monkeypatch.setattr(proof, name, forbidden)
+
+    exit_code = proof.main(
+        [
+            "--python",
+            sys.executable,
+            "--python",
+            sys.executable,
+            "--candidate-output",
+            str(output),
+            "--attempt-claim",
+            str(claim),
+            "--json",
+        ]
+    )
+
+    after = claim.stat()
+    assert (
+        exit_code == 1
+        and json.loads(capsys.readouterr().out)
+        == {
+            "status": "failed",
+            "code": "retrieval_order_source_pack_already_started",
+        }
+        and calls == []
+        and (after.st_dev, after.st_ino, after.st_size)
+        == (before.st_dev, before.st_ino, before.st_size)
+        and original_read_bytes(claim) == b"operator-owned durable claim\n"
+        and not output.exists()
+    ), "L4_PREEXISTING_REGULAR_CLAIM_FALSE_PASS"
+
+
+def test_racing_regular_attempt_claim_is_already_started_before_source_preparation(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    claim_parent = tmp_path / "claim-parent"
+    claim_parent.mkdir()
+    claim = claim_parent / "attempt.json"
+    output_parent = tmp_path / "candidate-parent"
+    output_parent.mkdir()
+    output = output_parent / "candidate"
+    original_preflight = proof._preflight_candidate_output
+    original_read_bytes = Path.read_bytes
+    calls: list[str] = []
+
+    def race(requested: Path, *, repository: Path) -> None:
+        original_preflight(requested, repository=repository)
+        claim.write_bytes(b"race-winner durable claim\n")
+
+    def guarded_read_bytes(path: Path) -> bytes:
+        if path == claim:
+            calls.append("claim_read")
+            raise AssertionError("race winner must not be read")
+        return original_read_bytes(path)
+
+    def forbidden(*args: object, **kwargs: object) -> NoReturn:
+        del args, kwargs
+        calls.append("side_effect")
+        raise AssertionError("source preparation must not start")
+
+    monkeypatch.setattr(
+        proof,
+        "_preflight_candidate_output",
+        race,
+    )
+    monkeypatch.setattr(Path, "read_bytes", guarded_read_bytes)
+    for name in (
+        "_clean_sha1_source_commit",
+        "_candidate_target",
+        "_command",
+        "_stage_candidate_output",
+        "publish_json_no_replace",
+        "_run_proof_with_bound_inputs",
+    ):
+        monkeypatch.setattr(proof, name, forbidden)
+
+    exit_code = proof.main(
+        [
+            "--python",
+            sys.executable,
+            "--python",
+            sys.executable,
+            "--candidate-output",
+            str(output),
+            "--attempt-claim",
+            str(claim),
+            "--json",
+        ]
+    )
+
+    assert (
+        exit_code == 1
+        and json.loads(capsys.readouterr().out)
+        == {
+            "status": "failed",
+            "code": "retrieval_order_source_pack_already_started",
+        }
+        and calls == []
+        and original_read_bytes(claim) == b"race-winner durable claim\n"
+        and not output.exists()
+    ), "L4_RACE_WINNER_REGULAR_CLAIM_FALSE_PASS"
 
 
 def test_attempt_claim_rejects_repository_identity_alias_before_side_effects(
@@ -1743,7 +1887,8 @@ def test_attempt_claim_preflights_candidate_output_before_source_preparation(
         "direct_symlink",
         "dangling_symlink",
         "symlink_parent",
-        "existing_regular",
+        "existing_directory",
+        "malformed_basename",
         "inside_repository",
         "inside_candidate_output",
     ),
@@ -1773,8 +1918,10 @@ def test_attempt_claim_rejects_invalid_lexical_scope_before_side_effects(
         real_parent.mkdir()
         claim_parent.rmdir()
         claim_parent.symlink_to(real_parent, target_is_directory=True)
-    elif claim_kind == "existing_regular":
-        claim.write_text("{}\n", encoding="utf-8")
+    elif claim_kind == "existing_directory":
+        claim.mkdir()
+    elif claim_kind == "malformed_basename":
+        claim = Path(".")
     elif claim_kind == "inside_repository":
         claim = repository / "attempt.json"
     elif claim_kind == "inside_candidate_output":
@@ -1810,13 +1957,21 @@ def test_attempt_claim_rejects_invalid_lexical_scope_before_side_effects(
 
 
 @pytest.mark.parametrize(
-    "retarget",
-    ("parent_replaced", "parent_symlink", "basename_visible"),
+    ("retarget", "expected_code"),
+    (
+        ("parent_replaced", "retrieval_order_source_pack_claim_invalid"),
+        ("parent_symlink", "retrieval_order_source_pack_claim_invalid"),
+        (
+            "basename_visible",
+            "retrieval_order_source_pack_already_started",
+        ),
+    ),
 )
 def test_attempt_claim_rechecks_parent_and_basename_before_publication(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     retarget: str,
+    expected_code: str,
 ) -> None:
     proof = _load()
     repository = _candidate_runtime_repository(tmp_path)
@@ -1873,7 +2028,7 @@ def test_attempt_claim_rechecks_parent_and_basename_before_publication(
             )
         )
 
-    assert raised.value.code == "retrieval_order_source_pack_claim_invalid"
+    assert raised.value.code == expected_code
     assert calls == []
     assert not output.exists()
 
@@ -1929,6 +2084,90 @@ def test_attempt_claim_stable_external_parent_publishes_once(
         "attempt_claim"
     ] == str(claim)
     assert not output.exists()
+
+
+def test_attempt_claim_no_replace_race_winner_is_already_started(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    interpreters = _synthetic_interpreters(tmp_path)
+    output_parent = tmp_path / "candidate-parent"
+    output_parent.mkdir()
+    output = output_parent / "candidate"
+    claim_parent = tmp_path / "claim-parent"
+    claim_parent.mkdir()
+    claim = claim_parent / "attempt.json"
+    binding = proof._bind_attempt_claim(
+        claim,
+        repository=repository,
+        candidate_output=output,
+    )
+    original_read_bytes = Path.read_bytes
+    calls: list[str] = []
+
+    def guarded_read_bytes(path: Path) -> bytes:
+        if path == claim:
+            calls.append("claim_read")
+            raise AssertionError("race winner must not be read by controller")
+        return original_read_bytes(path)
+
+    def race_winner(
+        destination: Path,
+        content: bytes,
+        *,
+        validate: object,
+    ) -> Any:
+        del validate
+        calls.append("publish")
+        destination.write_bytes(content)
+        return proof.AtomicPublicationResult(
+            output_state="complete_preexisting",
+            publication_outcome="not_attempted",
+            sha256=hashlib.sha256(content).hexdigest(),
+            problem="retrieval_order_output_exists",
+            cause="destination_already_contains_a_complete_record",
+            next_step="validate_or_choose_a_new_temporary_output",
+        )
+
+    def forbidden(*args: object, **kwargs: object) -> NoReturn:
+        del args, kwargs
+        calls.append("side_effect")
+        raise AssertionError("build or candidate preparation must not start")
+
+    monkeypatch.setattr(Path, "read_bytes", guarded_read_bytes)
+    monkeypatch.setattr(proof, "publish_json_no_replace", race_winner)
+    for name in (
+        "_clean_sha1_source_commit",
+        "_command",
+        "_stage_candidate_output",
+        "_run_proof_with_bound_inputs",
+    ):
+        monkeypatch.setattr(proof, name, forbidden)
+
+    with pytest.raises(proof.ControllerError) as raised:
+        proof._publish_task8r_attempt_claim(
+            proof.ProofConfig(
+                repository,
+                interpreters,
+                3,
+                10_000,
+                10_000,
+                candidate_output=output,
+                attempt_claim=claim,
+            ),
+            binding=binding,
+            source_commit="a" * 40,
+            candidate_target=output,
+        )
+
+    assert (
+        raised.value.code
+        == "retrieval_order_source_pack_already_started"
+        and calls == ["publish"]
+        and claim.is_file()
+    ), "L4_NO_REPLACE_RACE_WINNER_FALSE_PASS"
 
 
 def test_attempt_claim_is_published_before_build_and_retained_on_failure(
@@ -2007,7 +2246,7 @@ def test_attempt_claim_is_published_before_build_and_retained_on_failure(
 
     with pytest.raises(
         proof.ControllerError,
-        match="retrieval_order_source_pack_claim_invalid",
+        match="retrieval_order_source_pack_already_started",
     ):
         proof.run_proof(config)
     assert build_calls == 1

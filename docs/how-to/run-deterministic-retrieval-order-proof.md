@@ -128,9 +128,12 @@ UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
   --attempt-claim "$EXTERNAL_ATTEMPT_CLAIM" --json
 ```
 
-The claim path requires a real nonsymlink lexical ancestor chain. A symlink-alias preclaim
-rejection is not a durable attempt. Once a complete claim is visible, the durable attempt is
-terminal: retain it on any later failure and do not retry.
+The claim path requires a real nonsymlink lexical ancestor chain. Any preexisting regular entry at
+the lexical claim slot means the durable attempt already started; do not read it to authorize a
+retry. Retain the claim and stop. A no-replace race winner that leaves a complete regular claim is
+also already-started. A symlink, nonregular, malformed, or preclaim path-authority failure remains
+claim-invalid and proves that no durable attempt started. Once this run publishes a complete claim,
+the durable attempt is terminal: retain it on any later failure and do not retry.
 
 ## 8. Prove The Exact Installed Wheel
 

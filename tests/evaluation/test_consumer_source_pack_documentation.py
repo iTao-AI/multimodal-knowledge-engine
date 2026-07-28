@@ -5,6 +5,9 @@ from pathlib import Path
 import pytest
 
 HOW_TO = Path("docs/how-to/run-consumer-source-pack-proof.md")
+DETERMINISTIC_ORDER_HOW_TO = Path(
+    "docs/how-to/run-deterministic-retrieval-order-proof.md"
+)
 README = Path("README.md")
 DOCS_INDEX = Path("docs/README.md")
 SPEC = Path("docs/superpowers/specs/2026-07-12-consumer-ready-source-pack-proof-design.md")
@@ -294,6 +297,27 @@ def test_consumer_source_pack_how_to_links_durable_claim_authority() -> None:
         "rejection and terminal durable-attempt rules"
         in prose
     )
+
+
+def test_deterministic_order_how_to_distinguishes_started_and_invalid_claims() -> None:
+    prose = normalized(
+        DETERMINISTIC_ORDER_HOW_TO.read_text(encoding="utf-8")
+    ).lower()
+
+    assert (
+        "any preexisting regular entry at the lexical claim slot means "
+        "the durable attempt already started"
+    ) in prose
+    assert "do not read it to authorize a retry" in prose
+    assert "retain the claim and stop" in prose
+    assert (
+        "a no-replace race winner that leaves a complete regular claim "
+        "is also already-started"
+    ) in prose
+    assert (
+        "symlink, nonregular, malformed, or preclaim path-authority "
+        "failure remains claim-invalid"
+    ) in prose
 
 
 def test_consumer_source_pack_how_to_documents_closed_public_output() -> None:
