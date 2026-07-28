@@ -7204,7 +7204,7 @@ SHA256
 shasum -a 256 tests/fixtures/mcp-context-completeness-v1/mcp-tool-schemas.json
 test -z "$(git diff 7af0ba1ecf662e9bebb125c85b429e675233fbe4..HEAD -- src/mke)"
 git diff --check
-test "$(git rev-list --count b0c2522e45b2f951180ee343f1edfc65871e41c3..HEAD)" -eq 5
+test "$(git rev-list --count b0c2522e45b2f951180ee343f1edfc65871e41c3..HEAD)" -eq 7
 diff -u \
   <(printf '%s\n' \
     docs/how-to/run-consumer-source-pack-proof.md \
