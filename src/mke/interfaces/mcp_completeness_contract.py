@@ -55,6 +55,7 @@ from mke.interfaces.mcp_schemas import (
     SearchSelectionMoreV2,
     TimestampLocatorV1,
 )
+from mke.retrieval.errors import RetrievalAuthorityError
 from mke.retrieval.query_policy import QUERY_POLICY_REVISION
 from mke.retrieval.strategy import get_retrieval_strategy_descriptor
 from mke.runtime import build_engine
@@ -136,6 +137,8 @@ def search_library_v2(
             "mandatory response metadata exceeds the response limit",
             "reduce_query_scope_or_report_contract_limit",
         )
+    except RetrievalAuthorityError as error:
+        return _search_error(error.problem, error.cause, error.next_step)
     except Exception:
         return _search_error(
             "internal_error",

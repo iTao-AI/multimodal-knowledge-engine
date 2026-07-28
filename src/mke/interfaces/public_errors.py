@@ -109,6 +109,7 @@ _ALLOWLISTED_CAUSES = frozenset(
         "active Evidence is not available",
         "mandatory response metadata exceeds the response limit",
         "active Evidence exceeds the readable size limit",
+        "active retrieval candidates contain duplicate stable Evidence locators",
     }
 )
 

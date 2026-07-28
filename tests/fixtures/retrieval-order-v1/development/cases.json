@@ -1,0 +1,190 @@
+{
+  "schema_version": "mke.retrieval_order_cases.v1",
+  "partition": "development",
+  "workspace_schedules": [
+    "forward_ids",
+    "reverse_ids"
+  ],
+  "page_sizes": [
+    1,
+    2,
+    "full"
+  ],
+  "cases": [
+    {
+      "case_id": "dev-fts-page",
+      "strategy": "fts",
+      "query_id": "dev-query-fts-page",
+      "query": "amber mechanism probe",
+      "candidates": [
+        {
+          "source_id": "dev-source-amber-a",
+          "content_fingerprint": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "asset_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "locator_kind": "page",
+          "locator_start": 1,
+          "locator_end": 1,
+          "text": "amber mechanism probe"
+        },
+        {
+          "source_id": "dev-source-amber-b",
+          "content_fingerprint": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "asset_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+          "locator_kind": "page",
+          "locator_start": 1,
+          "locator_end": 1,
+          "text": "amber mechanism probe"
+        },
+        {
+          "source_id": "dev-source-amber-a",
+          "content_fingerprint": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "asset_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "locator_kind": "page",
+          "locator_start": 2,
+          "locator_end": 2,
+          "text": "amber mechanism probe"
+        }
+      ],
+      "expected_stable_projections": [
+        [
+          "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "page",
+          1,
+          1
+        ],
+        [
+          "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "page",
+          1,
+          1
+        ],
+        [
+          "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "page",
+          2,
+          2
+        ]
+      ]
+    },
+    {
+      "case_id": "dev-fts-timestamp",
+      "strategy": "fts",
+      "query_id": "dev-query-fts-timestamp",
+      "query": "cobalt timeline probe",
+      "candidates": [
+        {
+          "source_id": "dev-source-cobalt-a",
+          "content_fingerprint": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "asset_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+          "locator_kind": "timestamp_ms",
+          "locator_start": 0,
+          "locator_end": 1000,
+          "text": "cobalt timeline probe"
+        },
+        {
+          "source_id": "dev-source-cobalt-b",
+          "content_fingerprint": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "asset_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+          "locator_kind": "timestamp_ms",
+          "locator_start": 0,
+          "locator_end": 1200,
+          "text": "cobalt timeline probe"
+        }
+      ],
+      "expected_stable_projections": [
+        [
+          "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "timestamp_ms",
+          0,
+          1000
+        ],
+        [
+          "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "timestamp_ms",
+          0,
+          1200
+        ]
+      ]
+    },
+    {
+      "case_id": "dev-cjk-page",
+      "strategy": "cjk",
+      "query_id": "dev-query-cjk-page",
+      "query": "青铜机制验证",
+      "candidates": [
+        {
+          "source_id": "dev-source-cjk-page-a",
+          "content_fingerprint": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+          "asset_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "locator_kind": "page",
+          "locator_start": 1,
+          "locator_end": 1,
+          "text": "青铜机制验证"
+        },
+        {
+          "source_id": "dev-source-cjk-page-b",
+          "content_fingerprint": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "asset_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "locator_kind": "page",
+          "locator_start": 1,
+          "locator_end": 1,
+          "text": "青铜机制验证"
+        }
+      ],
+      "expected_stable_projections": [
+        [
+          "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+          "page",
+          1,
+          1
+        ],
+        [
+          "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "page",
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "case_id": "dev-cjk-timestamp",
+      "strategy": "cjk",
+      "query_id": "dev-query-cjk-timestamp",
+      "query": "白银时间验证",
+      "candidates": [
+        {
+          "source_id": "dev-source-cjk-time-a",
+          "content_fingerprint": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "asset_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+          "locator_kind": "timestamp_ms",
+          "locator_start": 100,
+          "locator_end": 900,
+          "text": "白银时间验证"
+        },
+        {
+          "source_id": "dev-source-cjk-time-b",
+          "content_fingerprint": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+          "asset_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+          "locator_kind": "timestamp_ms",
+          "locator_start": 100,
+          "locator_end": 1000,
+          "text": "白银时间验证"
+        }
+      ],
+      "expected_stable_projections": [
+        [
+          "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "timestamp_ms",
+          100,
+          900
+        ],
+        [
+          "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+          "timestamp_ms",
+          100,
+          1000
+        ]
+      ]
+    }
+  ]
+}

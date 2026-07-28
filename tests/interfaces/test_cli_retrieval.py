@@ -51,6 +51,7 @@ def test_retrieval_doctor_reports_not_ready_without_active_publication(
             {"name": "sqlite_domain_truth", "status": "ready"},
             {"name": "active_publication", "status": "not_ready"},
             {"name": "active_fts_projection", "status": "ready"},
+            {"name": "stable_locator_identity", "status": "ready"},
             {"name": "additional_cjk_projection", "status": "not_required"},
         ],
     }
@@ -170,8 +171,69 @@ def test_retrieval_doctor_rejects_missing_active_fts_projection(
         "sqlite_domain_truth": "ready",
         "active_publication": "ready",
         "active_fts_projection": "not_ready",
+        "stable_locator_identity": "ready",
         "additional_cjk_projection": "not_required",
     }
+
+
+def test_retrieval_doctor_rejects_duplicate_stable_locator_identity(
+    tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "mke.sqlite"
+    _publish_text(db_path, "duplicate stable locator probe")
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            """
+            INSERT INTO evidence(
+              evidence_id, run_id, source_id, locator_kind,
+              locator_start, locator_end, text
+            )
+            SELECT 'evidence_duplicate', run_id, source_id, locator_kind,
+                   locator_start, locator_end, text
+            FROM evidence
+            WHERE evidence_id = 'evidence_1'
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO active_evidence_fts(
+              library_id, source_id, publication_id, evidence_id,
+              locator_label, text
+            )
+            SELECT library_id, source_id, publication_id,
+                   'evidence_duplicate', locator_label, text
+            FROM active_evidence_fts
+            WHERE evidence_id = 'evidence_1'
+            """
+        )
+
+    assert (
+        main(
+            [
+                "--db",
+                str(db_path),
+                "retrieval",
+                "doctor",
+                "--strategy",
+                "cjk-active-scan-overlap-v1",
+                "--json",
+            ]
+        )
+        == 1
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["problem"] == "retrieval_authority_invalid"
+    assert payload["cause"] == (
+        "active retrieval candidates contain duplicate stable Evidence locators"
+    )
+    assert payload["next_step"] == (
+        "restore_valid_database_or_reingest_into_new_database"
+    )
+    assert payload["active_publication_impact"] == "unchanged"
+    assert {check["name"]: check["status"] for check in payload["checks"]}[
+        "stable_locator_identity"
+    ] == "not_ready"
+    assert str(tmp_path) not in json.dumps(payload)
 
 
 def test_retrieval_doctor_rejects_inconsistent_active_fts_projection(
@@ -343,6 +405,51 @@ def test_cli_search_renders_stable_active_scan_budget_error(
     assert "problem=cjk_scan_budget_exceeded" in output
     assert "cause=CJK active Evidence scan would exceed configured local budget" in output
     assert "next_step=narrow_query_or_use_projection_strategy" in output
+
+
+def test_cli_search_renders_retrieval_authority_invalid(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    capsys: CaptureFixture[str],
+) -> None:
+    from mke.retrieval.errors import RetrievalAuthorityError
+
+    class InvalidAuthorityEngine:
+        def search(self, query: str, limit: int | None = None) -> object:
+            del query, limit
+            raise RetrievalAuthorityError
+
+        def close(self) -> None:
+            return None
+
+    def build_invalid_engine(_config: RuntimeConfig) -> InvalidAuthorityEngine:
+        return InvalidAuthorityEngine()
+
+    monkeypatch.setattr(mke.cli, "build_engine", build_invalid_engine)
+
+    assert (
+        main(
+            [
+                "--db",
+                str(tmp_path / "mke.sqlite"),
+                "search",
+                "redacted query",
+            ]
+        )
+        == 1
+    )
+    output = capsys.readouterr().out
+    assert "problem=retrieval_authority_invalid" in output
+    assert (
+        "cause=active retrieval candidates contain duplicate stable Evidence locators"
+        in output
+    )
+    assert "active_publication_impact=unchanged" in output
+    assert (
+        "next_step=restore_valid_database_or_reingest_into_new_database"
+        in output
+    )
+    assert "redacted query" not in output
     assert str(tmp_path) not in output
 
 

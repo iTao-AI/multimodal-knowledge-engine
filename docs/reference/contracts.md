@@ -1,5 +1,13 @@
 # Public Contracts
 
+## Deterministic Retrieval Order Evaluation
+
+The deterministic retrieval order maintenance interface is internal evaluation authority, not a
+new Search, Ask, CLI, or MCP product contract. Its revision-2 order preserves scores and allows
+only tie reordering; default numeric evaluation remains strict-live. Canonical outputs are
+atomic, no-replace, and one-shot. See the
+[proof workflow](../how-to/run-deterministic-retrieval-order-proof.md).
+
 These contracts are organized around one application service layer and project-owned DTOs. The
 current implementation exposes the PDF and short-video CLI path plus a deterministic local product
 proof needed to prove active Publication Search and Ask semantics across CLI-equivalent and MCP

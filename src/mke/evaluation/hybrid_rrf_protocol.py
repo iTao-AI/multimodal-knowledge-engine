@@ -8,8 +8,10 @@ from pathlib import Path, PurePosixPath
 from typing import cast
 
 from mke.evaluation.rrf_fusion import RrfCandidateConfig
+from mke.evaluation.source_identity import validate_recorded_file_identity
 
 SCHEMA_VERSION = "mke.hybrid_rrf_protocol.v1"
+_RECORDED_PROTOCOL = "tests/fixtures/retrieval-hybrid-rrf-v1/protocol-lock.json"
 CANDIDATE_ID = "cjk-active-scan-qwen3-rrf-v1"
 CANDIDATE_REVISION = 1
 LEXICAL_ARM_ID = "cjk-active-scan-overlap-v1"
@@ -120,6 +122,7 @@ def validate_hybrid_rrf_protocol_lock(
     _validate_splits(protocol.get("splits"))
     _validate_state(protocol.get("state"))
     _validate_inputs(protocol.get("inputs"), repository_root=repository_root)
+    expected["inputs"] = protocol["inputs"]
     if protocol != expected:
         raise HybridRrfProtocolError("hybrid RRF protocol identity drift")
 
@@ -182,15 +185,28 @@ def _validate_inputs(value: object, *, repository_root: Path) -> None:
     data = _object(value, "input identities")
     if set(data) != set(_INPUTS):
         raise HybridRrfProtocolError("input identities are invalid")
-    root = repository_root.resolve()
+    recorded = _recorded_inputs(repository_root, _RECORDED_PROTOCOL)
     for name, expected_path in _INPUTS.items():
         record = _object(data.get(name), f"{name} identity")
-        recorded_path = record.get("path")
-        if type(recorded_path) is not str:
+        if record.get("path") != expected_path:
             raise HybridRrfProtocolError("repository path is invalid")
-        _repository_path(root, recorded_path)
-        if record != _file_identity(root, expected_path):
+        try:
+            validate_recorded_file_identity(
+                record, expected_path=expected_path
+            )
+        except ValueError as error:
+            raise HybridRrfProtocolError("input identity drift") from error
+        if record != recorded[name]:
             raise HybridRrfProtocolError("input identity drift")
+
+
+def _recorded_inputs(root: Path, relative_path: str) -> dict[str, object]:
+    try:
+        payload = json.loads((root / relative_path).read_text(encoding="utf-8"))
+        inputs = cast(dict[str, object], cast(dict[str, object], payload)["inputs"])
+    except Exception as error:
+        raise HybridRrfProtocolError("input identity drift") from error
+    return inputs
 
 
 def _file_identity(root: Path, relative_path: str) -> dict[str, object]:

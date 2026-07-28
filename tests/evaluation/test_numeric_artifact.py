@@ -15,33 +15,63 @@ from mke.evaluation.numeric_artifact import (
     validate_numeric_artifact,
 )
 from mke.evaluation.numeric_comparison import (
+    refresh_numeric_protocol_scope,
     render_numeric_comparison_json,
     run_numeric_comparison,
 )
 
 PROTOCOL = Path("tests/fixtures/retrieval-numeric-v1/protocol-lock.json")
-REPOSITORY = Path(".")
 
 
-def _observed(tmp_path: Path) -> Path:
+def _current_numeric_repository(tmp_path: Path) -> tuple[Path, Path]:
+    repository = tmp_path / "current-repository"
+    shutil.copytree("src", repository / "src")
+    shutil.copy2("pyproject.toml", repository / "pyproject.toml")
+    shutil.copy2("uv.lock", repository / "uv.lock")
+    fixture_root = repository / "tests/fixtures"
+    for relative in (
+        "retrieval-numeric-v1/protocol-lock.json",
+        "retrieval-numeric-v1/development.json",
+        "retrieval-numeric-v1/holdout.json",
+        "retrieval-numeric-v1/development.pdf",
+        "retrieval-numeric-v1/holdout.pdf",
+        "retrieval-eval-v1.json",
+        "eval/retrieval/usgs-volcano-hazards.pdf",
+        "eval/retrieval/usgs-water-use-2005.pdf",
+        "video/short-audio.mp4",
+        "video/short-audio.mp4.mke-transcript.json",
+    ):
+        target = fixture_root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(Path("tests/fixtures") / relative, target)
+    protocol = repository / PROTOCOL
+    refresh_numeric_protocol_scope(
+        protocol_path=protocol,
+        repository_root=repository,
+    )
+    return repository, protocol
+
+
+def _observed(tmp_path: Path) -> tuple[Path, Path, Path]:
+    repository, protocol = _current_numeric_repository(tmp_path)
     path = tmp_path / "observed.json"
     path.write_text(
-        render_numeric_comparison_json(run_numeric_comparison(PROTOCOL)),
+        render_numeric_comparison_json(run_numeric_comparison(protocol)),
         encoding="utf-8",
     )
-    return path
+    return path, protocol, repository
 
 
-def _record(tmp_path: Path) -> tuple[Path, Path]:
-    observed = _observed(tmp_path)
+def _record(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
+    observed, protocol, repository = _observed(tmp_path)
     artifact = tmp_path / "artifact.json"
     record_numeric_artifact(
         observed_path=observed,
         artifact_path=artifact,
-        protocol_path=PROTOCOL,
-        repository_root=REPOSITORY,
+        protocol_path=protocol,
+        repository_root=repository,
     )
-    return artifact, observed
+    return artifact, observed, protocol, repository
 
 
 def _mutate_candidate(payload: dict[str, object]) -> None:
@@ -227,13 +257,13 @@ def _add_unknown_locator_to_preserved_control(
 def test_recorded_artifact_validates_against_fresh_observation(
     tmp_path: Path,
 ) -> None:
-    artifact, observed = _record(tmp_path)
+    artifact, observed, protocol, repository = _record(tmp_path)
 
     validate_numeric_artifact(
         artifact_path=artifact,
         observed_path=observed,
-        protocol_path=PROTOCOL,
-        repository_root=REPOSITORY,
+        protocol_path=protocol,
+        repository_root=repository,
     )
 
     payload = json.loads(artifact.read_text())
@@ -268,7 +298,7 @@ def test_validator_rejects_mutated_bound_fields(
     tmp_path: Path,
     mutation: Callable[[dict[str, object]], None],
 ) -> None:
-    artifact, observed = _record(tmp_path)
+    artifact, observed, protocol, repository = _record(tmp_path)
     payload = json.loads(artifact.read_text())
     mutation(payload)
     artifact.write_text(json.dumps(payload), encoding="utf-8")
@@ -280,8 +310,8 @@ def test_validator_rejects_mutated_bound_fields(
         validate_numeric_artifact(
             artifact_path=artifact,
             observed_path=observed,
-            protocol_path=PROTOCOL,
-            repository_root=REPOSITORY,
+            protocol_path=protocol,
+            repository_root=repository,
         )
 
 
@@ -300,7 +330,7 @@ def test_validator_rejects_self_consistent_malformed_nested_payload(
     tmp_path: Path,
     mutation: Callable[[dict[str, object]], None],
 ) -> None:
-    artifact, observed = _record(tmp_path)
+    artifact, observed, protocol, repository = _record(tmp_path)
     artifact_payload = json.loads(artifact.read_text())
     observed_payload = json.loads(observed.read_text())
     mutation(artifact_payload)
@@ -315,15 +345,15 @@ def test_validator_rejects_self_consistent_malformed_nested_payload(
         validate_numeric_artifact(
             artifact_path=artifact,
             observed_path=observed,
-            protocol_path=PROTOCOL,
-            repository_root=REPOSITORY,
+            protocol_path=protocol,
+            repository_root=repository,
         )
 
 
 def test_validator_rejects_claimed_e1_improvement_when_candidate_equals_current(
     tmp_path: Path,
 ) -> None:
-    artifact, observed = _record(tmp_path)
+    artifact, observed, protocol, repository = _record(tmp_path)
     artifact_payload = json.loads(artifact.read_text())
     observed_payload = json.loads(observed.read_text())
     _replace_e1_candidate_with_current(artifact_payload)
@@ -338,8 +368,8 @@ def test_validator_rejects_claimed_e1_improvement_when_candidate_equals_current(
         validate_numeric_artifact(
             artifact_path=artifact,
             observed_path=observed,
-            protocol_path=PROTOCOL,
-            repository_root=REPOSITORY,
+            protocol_path=protocol,
+            repository_root=repository,
         )
 
 
@@ -360,7 +390,7 @@ def test_validator_rejects_self_consistent_bool_as_nested_integer(
     tmp_path: Path,
     mutation: Callable[[dict[str, object]], None],
 ) -> None:
-    artifact, observed = _record(tmp_path)
+    artifact, observed, protocol, repository = _record(tmp_path)
     artifact_payload = json.loads(artifact.read_text())
     observed_payload = json.loads(observed.read_text())
     mutation(artifact_payload)
@@ -375,15 +405,15 @@ def test_validator_rejects_self_consistent_bool_as_nested_integer(
         validate_numeric_artifact(
             artifact_path=artifact,
             observed_path=observed,
-            protocol_path=PROTOCOL,
-            repository_root=REPOSITORY,
+            protocol_path=protocol,
+            repository_root=repository,
         )
 
 
 def test_validator_rejects_self_consistent_locator_outside_manifest_inventory(
     tmp_path: Path,
 ) -> None:
-    artifact, observed = _record(tmp_path)
+    artifact, observed, protocol, repository = _record(tmp_path)
     artifact_payload = json.loads(artifact.read_text())
     observed_payload = json.loads(observed.read_text())
     _add_unknown_locator_to_preserved_control(artifact_payload)
@@ -398,34 +428,17 @@ def test_validator_rejects_self_consistent_locator_outside_manifest_inventory(
         validate_numeric_artifact(
             artifact_path=artifact,
             observed_path=observed,
-            protocol_path=PROTOCOL,
-            repository_root=REPOSITORY,
+            protocol_path=protocol,
+            repository_root=repository,
         )
 
 
 def test_validator_rejects_source_content_change(tmp_path: Path) -> None:
-    artifact, observed = _record(tmp_path)
-    repository = tmp_path / "repository"
-    shutil.copytree("src", repository / "src")
-    copied_protocol = repository / PROTOCOL
-    copied_protocol.parent.mkdir(parents=True)
-    shutil.copy2(PROTOCOL, copied_protocol)
-    fixtures_root = PROTOCOL.parent.parent
-    for relative in (
-        "retrieval-numeric-v1/development.json",
-        "retrieval-numeric-v1/holdout.json",
-        "retrieval-numeric-v1/development.pdf",
-        "retrieval-numeric-v1/holdout.pdf",
-        "retrieval-eval-v1.json",
-        "eval/retrieval/usgs-volcano-hazards.pdf",
-        "eval/retrieval/usgs-water-use-2005.pdf",
-        "video/short-audio.mp4",
-        "video/short-audio.mp4.mke-transcript.json",
-    ):
-        target = repository / fixtures_root / relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(fixtures_root / relative, target)
-    source = repository / "src/mke/retrieval/query_policy.py"
+    artifact, observed, protocol, repository = _record(tmp_path)
+    mutated_repository = tmp_path / "mutated-repository"
+    shutil.copytree(repository, mutated_repository)
+    copied_protocol = mutated_repository / protocol.relative_to(repository)
+    source = mutated_repository / "src/mke/retrieval/query_policy.py"
     source.write_text(source.read_text() + "\n# mutation\n")
 
     with pytest.raises(
@@ -436,14 +449,14 @@ def test_validator_rejects_source_content_change(tmp_path: Path) -> None:
             artifact_path=artifact,
             observed_path=observed,
             protocol_path=copied_protocol,
-            repository_root=repository,
+            repository_root=mutated_repository,
         )
 
 
 def test_self_consistent_rejected_candidate_artifact_is_valid(
     tmp_path: Path,
 ) -> None:
-    observed = _observed(tmp_path)
+    observed, protocol, repository = _observed(tmp_path)
     payload = json.loads(observed.read_text())
     payload["candidate_status"] = "rejected"
     payload["gates"][12].update(
@@ -459,21 +472,21 @@ def test_self_consistent_rejected_candidate_artifact_is_valid(
     record_numeric_artifact(
         observed_path=observed,
         artifact_path=artifact,
-        protocol_path=PROTOCOL,
-        repository_root=REPOSITORY,
+        protocol_path=protocol,
+        repository_root=repository,
     )
     validate_numeric_artifact(
         artifact_path=artifact,
         observed_path=observed,
-        protocol_path=PROTOCOL,
-        repository_root=REPOSITORY,
+        protocol_path=protocol,
+        repository_root=repository,
     )
 
 
 def test_validation_accepts_recorded_environment_from_another_ci_runtime(
     tmp_path: Path,
 ) -> None:
-    artifact, observed = _record(tmp_path)
+    artifact, observed, protocol, repository = _record(tmp_path)
     payload = json.loads(artifact.read_text())
     payload["environment"]["python"] = "3.12.0"
     artifact.write_text(json.dumps(payload), encoding="utf-8")
@@ -481,15 +494,15 @@ def test_validation_accepts_recorded_environment_from_another_ci_runtime(
     validate_numeric_artifact(
         artifact_path=artifact,
         observed_path=observed,
-        protocol_path=PROTOCOL,
-        repository_root=REPOSITORY,
+        protocol_path=protocol,
+        repository_root=repository,
     )
 
 
 def test_validation_rejects_malformed_recorded_environment(
     tmp_path: Path,
 ) -> None:
-    artifact, observed = _record(tmp_path)
+    artifact, observed, protocol, repository = _record(tmp_path)
     payload = json.loads(artifact.read_text())
     payload["environment"]["python"] = "unknown"
     artifact.write_text(json.dumps(payload), encoding="utf-8")
@@ -501,21 +514,17 @@ def test_validation_rejects_malformed_recorded_environment(
         validate_numeric_artifact(
             artifact_path=artifact,
             observed_path=observed,
-            protocol_path=PROTOCOL,
-            repository_root=REPOSITORY,
+            protocol_path=protocol,
+            repository_root=repository,
         )
 
 
 def test_validation_does_not_require_feature_commit_ancestry(
     tmp_path: Path,
 ) -> None:
-    artifact, observed = _record(tmp_path)
+    artifact, observed, _protocol, current_repository = _record(tmp_path)
     repository = tmp_path / "source-repository"
-    repository.mkdir()
-    for relative in ("src", "tests/fixtures"):
-        shutil.copytree(relative, repository / relative)
-    shutil.copy2("pyproject.toml", repository / "pyproject.toml")
-    shutil.copy2("uv.lock", repository / "uv.lock")
+    shutil.copytree(current_repository, repository)
     (repository / "benchmarks/retrieval").mkdir(parents=True)
     shutil.copy2(artifact, repository / "benchmarks/retrieval/artifact.json")
     shutil.copy2(observed, repository / "observed.json")

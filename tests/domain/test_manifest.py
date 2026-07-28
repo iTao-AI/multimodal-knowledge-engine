@@ -71,6 +71,47 @@ def test_manifest_validation_accepts_timestamp_evidence() -> None:
     validate_manifest(manifest, evidence)
 
 
+def test_manifest_rejects_duplicate_page_locator() -> None:
+    evidence = [
+        _make_evidence(evidence_id="ev_1"),
+        _make_evidence(evidence_id="ev_2"),
+    ]
+
+    with pytest.raises(
+        ManifestValidationError,
+        match="Evidence locators must be unique within one Run",
+    ):
+        validate_manifest(_make_manifest(evidence_count=2), evidence)
+
+
+def test_manifest_rejects_duplicate_timestamp_locator() -> None:
+    manifest = _make_manifest(
+        evidence_count=2,
+        required_stages=tuple(sorted(REQUIRED_VIDEO_STAGES)),
+        extractor_fingerprint=VIDEO_TRANSCRIPT_FINGERPRINT,
+    )
+    evidence = [
+        _make_evidence(
+            evidence_id="ev_1",
+            locator_kind="timestamp_ms",
+            locator_start=0,
+            locator_end=1200,
+        ),
+        _make_evidence(
+            evidence_id="ev_2",
+            locator_kind="timestamp_ms",
+            locator_start=0,
+            locator_end=1200,
+        ),
+    ]
+
+    with pytest.raises(
+        ManifestValidationError,
+        match="Evidence locators must be unique within one Run",
+    ):
+        validate_manifest(manifest, evidence)
+
+
 def test_manifest_validation_accepts_exact_faster_whisper_fingerprint() -> None:
     manifest = _make_manifest(
         required_stages=tuple(sorted(REQUIRED_VIDEO_STAGES)),

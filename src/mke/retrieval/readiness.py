@@ -55,6 +55,9 @@ def doctor_retrieval_strategy(
                 """
             ).fetchone()
             active_fts_ready = _active_fts_projection_is_consistent(connection)
+            stable_locator_identity_ready = (
+                _stable_locator_identity_is_valid(connection)
+            )
     except (OSError, sqlite3.Error):
         return RetrievalReadiness(
             status="not_ready",
@@ -66,6 +69,7 @@ def doctor_retrieval_strategy(
                 RetrievalReadinessCheck("sqlite_domain_truth", "not_ready"),
                 RetrievalReadinessCheck("active_publication", "not_ready"),
                 RetrievalReadinessCheck("active_fts_projection", "not_ready"),
+                RetrievalReadinessCheck("stable_locator_identity", "not_ready"),
                 additional_projection_check,
             ),
         )
@@ -83,6 +87,32 @@ def doctor_retrieval_strategy(
                 RetrievalReadinessCheck("sqlite_domain_truth", "ready"),
                 active_publication_check,
                 RetrievalReadinessCheck("active_fts_projection", "not_ready"),
+                RetrievalReadinessCheck(
+                    "stable_locator_identity",
+                    "ready" if stable_locator_identity_ready else "not_ready",
+                ),
+                additional_projection_check,
+            ),
+        )
+    stable_locator_identity_check = RetrievalReadinessCheck(
+        "stable_locator_identity",
+        "ready" if stable_locator_identity_ready else "not_ready",
+    )
+    if not stable_locator_identity_ready:
+        return RetrievalReadiness(
+            status="not_ready",
+            strategy=strategy,
+            problem="retrieval_authority_invalid",
+            cause=(
+                "active retrieval candidates contain duplicate stable "
+                "Evidence locators"
+            ),
+            next_step="restore_valid_database_or_reingest_into_new_database",
+            checks=(
+                RetrievalReadinessCheck("sqlite_domain_truth", "ready"),
+                active_publication_check,
+                RetrievalReadinessCheck("active_fts_projection", "ready"),
+                stable_locator_identity_check,
                 additional_projection_check,
             ),
         )
@@ -97,6 +127,7 @@ def doctor_retrieval_strategy(
                 RetrievalReadinessCheck("sqlite_domain_truth", "ready"),
                 active_publication_check,
                 RetrievalReadinessCheck("active_fts_projection", "ready"),
+                stable_locator_identity_check,
                 additional_projection_check,
             ),
         )
@@ -110,6 +141,7 @@ def doctor_retrieval_strategy(
             RetrievalReadinessCheck("sqlite_domain_truth", "ready"),
             active_publication_check,
             RetrievalReadinessCheck("active_fts_projection", "ready"),
+            stable_locator_identity_check,
             additional_projection_check,
         ),
     )
@@ -176,3 +208,23 @@ def _active_fts_projection_is_consistent(connection: sqlite3.Connection) -> bool
         and counts_and_differences[2] == 0
         and counts_and_differences[3] == 0
     )
+
+
+def _stable_locator_identity_is_valid(connection: sqlite3.Connection) -> bool:
+    duplicate = connection.execute(
+        """
+        SELECT 1
+        FROM sources
+        JOIN assets ON assets.asset_id = sources.asset_id
+        JOIN publications
+          ON publications.publication_id = sources.active_publication_id
+        JOIN evidence
+          ON evidence.run_id = publications.run_id
+         AND evidence.source_id = sources.source_id
+        GROUP BY assets.sha256, evidence.locator_kind,
+                 evidence.locator_start, evidence.locator_end
+        HAVING COUNT(*) > 1
+        LIMIT 1
+        """
+    ).fetchone()
+    return duplicate is None

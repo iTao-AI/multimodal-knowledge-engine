@@ -217,6 +217,31 @@ def load_numeric_protocol(
     *,
     snapshot_root: Path | None = None,
 ) -> NumericProtocol:
+    return _load_numeric_protocol(
+        path,
+        snapshot_root=snapshot_root,
+        archived_scope=False,
+    )
+
+
+def load_archived_numeric_protocol(
+    path: Path,
+    *,
+    snapshot_root: Path | None = None,
+) -> NumericProtocol:
+    return _load_numeric_protocol(
+        path,
+        snapshot_root=snapshot_root,
+        archived_scope=True,
+    )
+
+
+def _load_numeric_protocol(
+    path: Path,
+    *,
+    snapshot_root: Path | None,
+    archived_scope: bool,
+) -> NumericProtocol:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError as error:
@@ -288,6 +313,7 @@ def load_numeric_protocol(
     sqlite_schema_sha256 = _validate_scope_fence(
         payload["scope_fence"],
         protocol_root.parent.parent,
+        compare_current_bytes=not archived_scope,
     )
     if snapshot_root is not None:
         manifests, loaded = _snapshot_protocol_inputs(
@@ -340,90 +366,97 @@ def run_numeric_comparison(protocol_path: Path) -> NumericComparisonReport:
                 next_step="fix_numeric_protocol",
             )
 
-        reports: dict[str, dict[str, RetrievalEvaluationReport]] = {}
-        observations: dict[str, dict[str, RetrievalEvaluationObservation]] = {}
-        for partition in ("development", "holdout", "e1"):
-            reports[partition] = {}
-            observations[partition] = {}
-            for policy in ("current", CANDIDATE_ID):
-                try:
-                    observation = _observe_retrieval_evaluation(
-                        protocol.manifests[partition],
-                        query_policy=policy,
-                    )
-                except Exception:
-                    observation = RetrievalEvaluationObservation(
-                        report=_empty_evaluation_report(partition),
-                        evidence=None,
-                    )
-                report = observation.report
-                if report.status != "passed":
-                    if any(
-                        failure.problem == "retrieval_eval_nondeterministic"
-                        for failure in report.integrity_failures
-                    ):
-                        return _failed_report(
-                            started,
-                            problem="retrieval_numeric_nondeterministic",
-                            cause=(
-                                "numeric comparison results were not deterministic"
-                            ),
-                            next_step="inspect_numeric_comparison_runtime",
-                            protocol=protocol,
-                        )
+        return _evaluate_numeric_protocol(protocol, _started_at=started)
+
+
+def _evaluate_numeric_protocol(
+    protocol: NumericProtocol,
+    *,
+    _started_at: float | None = None,
+) -> NumericComparisonReport:
+    started = time.monotonic() if _started_at is None else _started_at
+    reports: dict[str, dict[str, RetrievalEvaluationReport]] = {}
+    observations: dict[str, dict[str, RetrievalEvaluationObservation]] = {}
+    for partition in ("development", "holdout", "e1"):
+        reports[partition] = {}
+        observations[partition] = {}
+        for policy in ("current", CANDIDATE_ID):
+            try:
+                observation = _observe_retrieval_evaluation(
+                    protocol.manifests[partition],
+                    query_policy=policy,
+                )
+            except Exception:
+                observation = RetrievalEvaluationObservation(
+                    report=_empty_evaluation_report(partition),
+                    evidence=None,
+                )
+            report = observation.report
+            if report.status != "passed":
+                if any(
+                    failure.problem == "retrieval_eval_nondeterministic"
+                    for failure in report.integrity_failures
+                ):
                     return _failed_report(
                         started,
-                        problem="retrieval_numeric_evaluation_incomplete",
-                        cause=f"{partition} {policy} evaluation failed",
-                        next_step="inspect_numeric_comparison_inputs",
+                        problem="retrieval_numeric_nondeterministic",
+                        cause="numeric comparison results were not deterministic",
+                        next_step="inspect_numeric_comparison_runtime",
                         protocol=protocol,
                     )
-                reports[partition][policy] = report
-                observations[partition][policy] = observation
-
-        try:
-            compiled = _compiled_queries(protocol)
-            partition_observations = {
-                partition: _partition_observation(
-                    protocol.loaded_manifests[partition],
-                    reports[partition]["current"],
-                    reports[partition][CANDIDATE_ID],
+                return _failed_report(
+                    started,
+                    problem="retrieval_numeric_evaluation_incomplete",
+                    cause=f"{partition} {policy} evaluation failed",
+                    next_step="inspect_numeric_comparison_inputs",
+                    protocol=protocol,
                 )
-                for partition in ("development", "holdout", "e1")
-            }
-            gates = _evaluate_gates(
-                protocol,
-                reports,
-                observations,
-                compiled,
+            reports[partition][policy] = report
+            observations[partition][policy] = observation
+
+    try:
+        compiled = _compiled_queries(protocol)
+        partition_observations = {
+            partition: _partition_observation(
+                protocol.loaded_manifests[partition],
+                reports[partition]["current"],
+                reports[partition][CANDIDATE_ID],
             )
-            candidate_status: CandidateStatus = (
-                "passed"
-                if all(gate.status == "passed" for gate in gates)
-                else "rejected"
-            )
-            return NumericComparisonReport(
-                protocol_id=protocol.protocol_id,
-                candidate_id=protocol.candidate_id,
-                candidate_revision=protocol.candidate_revision,
-                integrity_status="passed",
-                candidate_status=candidate_status,
-                development=partition_observations["development"],
-                holdout=partition_observations["holdout"],
-                e1=partition_observations["e1"],
-                compiled_queries=compiled,
-                gates=gates,
-                integrity_failures=(),
-                duration_ms=_elapsed_ms(started),
-            )
-        except Exception:
-            return _failed_report(
-                started,
-                problem="retrieval_numeric_comparison_incomplete",
-                cause="numeric comparison evaluation failed",
-                next_step="inspect_numeric_comparison_inputs",
-                protocol=protocol,
-            )
+            for partition in ("development", "holdout", "e1")
+        }
+        gates = _evaluate_gates(
+            protocol,
+            reports,
+            observations,
+            compiled,
+        )
+        candidate_status: CandidateStatus = (
+            "passed"
+            if all(gate.status == "passed" for gate in gates)
+            else "rejected"
+        )
+        return NumericComparisonReport(
+            protocol_id=protocol.protocol_id,
+            candidate_id=protocol.candidate_id,
+            candidate_revision=protocol.candidate_revision,
+            integrity_status="passed",
+            candidate_status=candidate_status,
+            development=partition_observations["development"],
+            holdout=partition_observations["holdout"],
+            e1=partition_observations["e1"],
+            compiled_queries=compiled,
+            gates=gates,
+            integrity_failures=(),
+            duration_ms=_elapsed_ms(started),
+        )
+    except Exception:
+        return _failed_report(
+            started,
+            problem="retrieval_numeric_comparison_incomplete",
+            cause="numeric comparison evaluation failed",
+            next_step="inspect_numeric_comparison_inputs",
+            protocol=protocol,
+        )
 
 
 def render_numeric_comparison_json(report: NumericComparisonReport) -> str:
@@ -880,7 +913,12 @@ def _validate_partition_independence(
         raise _ProtocolValidationError
 
 
-def _validate_scope_fence(value: object, repository_root: Path) -> str:
+def _validate_scope_fence(
+    value: object,
+    repository_root: Path,
+    *,
+    compare_current_bytes: bool,
+) -> str:
     payload = _object(value)
     _require_keys(payload, {"files", "sqlite_schema_sha256"})
     raw_schema_sha256 = payload["sqlite_schema_sha256"]
@@ -895,13 +933,16 @@ def _validate_scope_fence(value: object, repository_root: Path) -> str:
     for raw, expected_path in zip(files, _EXPECTED_SCOPE_PATHS, strict=True):
         record = _object(raw)
         _require_keys(record, {"path", "sha256"})
+        _validate_repository_relative_path(record["path"], expected_path)
+        if not _is_sha256(record["sha256"]):
+            raise _ProtocolValidationError
+        if not compare_current_bytes:
+            continue
         path = _resolve_repository_path(
             repository_root,
             record["path"],
             expected_path,
         )
-        if not _is_sha256(record["sha256"]):
-            raise _ProtocolValidationError
         if record["sha256"] != _sha256_bound(path):
             raise _ProtocolFixtureError
     return cast(str, raw_schema_sha256)
@@ -1008,16 +1049,21 @@ def _resolve_repository_path(
     value: object,
     expected: str,
 ) -> Path:
-    if not isinstance(value, str) or value != expected:
-        raise _ProtocolValidationError
-    relative = Path(value)
-    if relative.is_absolute() or ".." in relative.parts or "\\" in value:
-        raise _ProtocolValidationError
+    _validate_repository_relative_path(value, expected)
+    relative = Path(cast(str, value))
     resolved_root = root.resolve()
     resolved = (resolved_root / relative).resolve()
     if not resolved.is_relative_to(resolved_root):
         raise _ProtocolValidationError
     return resolved
+
+
+def _validate_repository_relative_path(value: object, expected: str) -> None:
+    if not isinstance(value, str) or value != expected:
+        raise _ProtocolValidationError
+    relative = Path(value)
+    if relative.is_absolute() or ".." in relative.parts or "\\" in value:
+        raise _ProtocolValidationError
 
 
 def _require_keys(payload: dict[str, object], expected: set[str]) -> None:

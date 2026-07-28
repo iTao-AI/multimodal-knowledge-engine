@@ -27,6 +27,26 @@ def test_canonical_reference_documents_complete_ten_tool_contract() -> None:
         assert literal in text
 
 
+def test_mcp_reference_documents_stable_locator_recovery_and_id_boundary() -> None:
+    text = REFERENCE.read_text(encoding="utf-8")
+    prose = " ".join(text.split())
+
+    for literal in (
+        "`stable_locator_identity`",
+        "`retrieval_authority_invalid`",
+        "active retrieval candidates contain duplicate stable "
+        "Evidence locators",
+        "`restore_valid_database_or_reingest_into_new_database`",
+        "`unchanged`",
+    ):
+        assert literal in text
+    assert (
+        "Opaque Evidence IDs are addressing identity, not ranking "
+        "authority and not a cross-strategy display-order promise."
+        in prose
+    )
+
+
 def test_user_how_to_has_absolute_quickstart_and_contract_boundaries() -> None:
     text = HOW_TO.read_text(encoding="utf-8")
     for literal in (

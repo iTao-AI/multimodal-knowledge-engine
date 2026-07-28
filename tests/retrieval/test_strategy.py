@@ -46,6 +46,27 @@ def test_active_scan_strategy_is_the_promoted_default() -> None:
     assert descriptor.rerank == "none"
 
 
+def test_runtime_retrieval_order_revisions_are_two() -> None:
+    from mke.retrieval.cjk_active_scan import CJK_ACTIVE_SCAN_PARAMETERS
+    from mke.retrieval.query_policy import QUERY_POLICY_REVISION
+    from mke.retrieval.strategy import get_retrieval_strategy_descriptor
+
+    assert {
+        strategy: get_retrieval_strategy_descriptor(strategy).revision
+        for strategy in (
+            "current",
+            "numeric-grouping-v1",
+            "cjk-active-scan-overlap-v1",
+        )
+    } == {
+        "current": 2,
+        "numeric-grouping-v1": 2,
+        "cjk-active-scan-overlap-v1": 2,
+    }
+    assert CJK_ACTIVE_SCAN_PARAMETERS.revision == 2
+    assert QUERY_POLICY_REVISION == 1
+
+
 @pytest.mark.parametrize("value", ["unknown", "", "true"])
 def test_invalid_strategy_fails_with_stable_error(value: str) -> None:
     from mke.retrieval.strategy import require_retrieval_strategy

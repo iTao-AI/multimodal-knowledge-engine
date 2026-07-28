@@ -48,6 +48,7 @@ from mke.interfaces.mcp_schemas import (
 )
 from mke.interfaces.public_errors import public_error_from_cause
 from mke.retrieval.cjk_active_scan import CjkActiveScanError
+from mke.retrieval.errors import RetrievalAuthorityError
 from mke.runtime import RuntimeConfig, SidecarTranscriptionConfig, build_engine
 
 logger = logging.getLogger(__name__)
@@ -245,7 +246,7 @@ def search_library(
         engine = build_engine(config.runtime)
         try:
             matches = engine.search(normalized_query, limit=limit)
-        except CjkActiveScanError as error:
+        except (CjkActiveScanError, RetrievalAuthorityError) as error:
             return _failure(error.problem, error.cause, error.next_step)
         results = [_evidence_from_search_result(match) for match in matches]
         return {"ok": True, "query": normalized_query, "results": results}
@@ -275,7 +276,11 @@ def ask_library(
         engine = build_engine(config.runtime)
         try:
             result = engine.ask(question, limit=limit)
-        except (AskValidationError, CjkActiveScanError) as error:
+        except (
+            AskValidationError,
+            CjkActiveScanError,
+            RetrievalAuthorityError,
+        ) as error:
             return _failure(error.problem, error.cause, error.next_step)
         return {
             "ok": True,
@@ -347,7 +352,11 @@ def search_library_v1(
                 results=[_evidence_ref_v1(item) for item in snapshot.results],
             )
         )
-    except (AskValidationError, CjkActiveScanError) as error:
+    except (
+        AskValidationError,
+        CjkActiveScanError,
+        RetrievalAuthorityError,
+    ) as error:
         return SearchLibraryResponseV1(
             root=SearchLibraryErrorV1(
                 ok=False, problem=error.problem, cause=error.cause, next_step=error.next_step
@@ -397,7 +406,11 @@ def ask_library_v1(
                 limitations=list(snapshot.result.limitations),
             )
         )
-    except (AskValidationError, CjkActiveScanError) as error:
+    except (
+        AskValidationError,
+        CjkActiveScanError,
+        RetrievalAuthorityError,
+    ) as error:
         return AskLibraryResponseV1(
             root=AskLibraryErrorV1(
                 ok=False, problem=error.problem, cause=error.cause, next_step=error.next_step

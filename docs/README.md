@@ -21,6 +21,9 @@ auditing implementation history.
 - [Run The Consumer Source-Pack Proof](./how-to/run-consumer-source-pack-proof.md) documents a
   source-built regression and consumer proof for the current source checkout; it was a historical
   `v0.1.4` release-candidate verification gate.
+- [Run The Deterministic Retrieval Order Proof](./how-to/run-deterministic-retrieval-order-proof.md)
+  documents the gated deterministic retrieval order authority, one-shot publication, exact-wheel
+  proof, recovery, and non-claims.
 
 `v0.1.4` adds bounded direct-audio MP3, WAV/PCM, and M4A/AAC intake with timestamp Evidence and
 Compiled Library Export v2. It retains `mke.compiled_library_export.v1`, readable
@@ -100,6 +103,8 @@ private planning notes do not belong in this repository.
 - [ADR-0009](./decisions/0009-versioned-evidence-provenance-contract.md) defines the additive strict Evidence provenance read contract.
 - [ADR-0010](./decisions/0010-pdf-ocr-evaluation-manifest-fingerprint.md) defines the evaluation-only PDF OCR manifest fingerprint and its non-production boundary.
 - [ADR-0011](./decisions/0011-bounded-direct-audio-intake.md) defines v0.1.4 bounded audio authority and rollback.
+- [ADR-0012](./decisions/0012-deterministic-retrieval-order.md) defines stable semantic tie
+  ordering, revision-2 cursor invalidation, and layered compatibility authority.
 
 ## Implementation History
 

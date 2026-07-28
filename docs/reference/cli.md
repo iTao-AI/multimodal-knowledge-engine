@@ -1,5 +1,10 @@
 # CLI Reference
 
+The deterministic retrieval order proof is an internal maintainer workflow. It does not add a
+public runtime selector or promotion command. `mke eval retrieval-numeric` stays strict-live;
+temporary and one-shot compatibility commands, result schemas, and recovery are documented in
+[Run The Deterministic Retrieval Order Proof](../how-to/run-deterministic-retrieval-order-proof.md).
+
 The CLI is intentionally narrow until the PDF and video lifecycle is proven.
 
 ## Primary Proof

@@ -179,7 +179,7 @@ def test_cli_eval_distinguishes_invalid_json_from_missing_manifest(
     assert payload["integrity_failures"][0]["cause"] == "manifest is not valid JSON"
 
 
-def test_cli_eval_numeric_outputs_passing_json(
+def test_cli_eval_numeric_outputs_exact_stale_lock_json(
     capsys: CaptureFixture[str],
 ) -> None:
     assert main(
@@ -190,20 +190,31 @@ def test_cli_eval_numeric_outputs_passing_json(
             str(NUMERIC_PROTOCOL),
             "--json",
         ]
-    ) == 0
+    ) == 1
 
     output = capsys.readouterr()
     payload = json.loads(output.out)
     assert output.err == ""
     assert payload["schema_version"] == "mke.retrieval_numeric_comparison.v1"
-    assert payload["integrity_status"] == "passed"
-    assert payload["candidate_status"] == "passed"
-    assert len(payload["gates"]) == 14
+    assert payload["protocol_id"] == "unknown"
+    assert payload["candidate_id"] == "numeric-grouping-v1"
+    assert payload["candidate_revision"] == 1
+    assert payload["integrity_status"] == "failed"
+    assert payload["candidate_status"] == "not_recorded"
+    assert payload["gates"] == []
+    assert payload["integrity_failures"] == [
+        {
+            "problem": "retrieval_numeric_fixture_invalid",
+            "cause": "protocol-bound input identity mismatch",
+            "next_step": "restore_numeric_protocol_inputs",
+            "subject_id": None,
+        }
+    ]
     assert "/Users/" not in output.out
     assert "Traceback" not in output.out
 
 
-def test_cli_eval_numeric_outputs_human_status_first(
+def test_cli_eval_numeric_outputs_exact_stale_lock_human_status(
     capsys: CaptureFixture[str],
 ) -> None:
     assert main(
@@ -213,13 +224,22 @@ def test_cli_eval_numeric_outputs_human_status_first(
             "--protocol",
             str(NUMERIC_PROTOCOL),
         ]
-    ) == 0
+    ) == 1
 
-    lines = capsys.readouterr().out.splitlines()
-    assert lines[0] == "mke eval retrieval-numeric"
-    assert "protocol=retrieval-numeric-v1" in lines[1]
-    assert "candidate=numeric-grouping-v1 revision=1" in lines[1]
-    assert lines[2] == "integrity_status=passed candidate_status=passed"
+    output = capsys.readouterr()
+    assert output.err == ""
+    assert output.out.splitlines() == [
+        "mke eval retrieval-numeric",
+        "protocol=unknown candidate=numeric-grouping-v1 revision=1",
+        "integrity_status=failed candidate_status=not_recorded",
+        (
+            "problem=retrieval_numeric_fixture_invalid "
+            "cause=protocol-bound_input_identity_mismatch "
+            "next_step=restore_numeric_protocol_inputs"
+        ),
+    ]
+    assert "/Users/" not in output.out
+    assert "Traceback" not in output.out
 
 
 def test_cli_eval_numeric_missing_protocol_path_is_exit_one_and_redacted(

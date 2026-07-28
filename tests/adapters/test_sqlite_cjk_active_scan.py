@@ -49,6 +49,7 @@ def test_sqlite_active_scan_returns_expected_evidence_without_trigram_projection
     tmp_path: Path,
 ) -> None:
     engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    statements: list[str] = []
     try:
         _publish_text(
             engine,
@@ -61,15 +62,34 @@ def test_sqlite_active_scan_returns_expected_evidence_without_trigram_projection
             ),
         )
 
-        results = engine._store.search_cjk_active_scan(  # pyright: ignore[reportPrivateUsage]
-            "发布证据检索"
-        )
+        connection = engine._store._connection  # pyright: ignore[reportPrivateUsage]
+        connection.set_trace_callback(statements.append)
+        try:
+            results = engine._store.search_cjk_active_scan(  # pyright: ignore[reportPrivateUsage]
+                "发布证据检索"
+            )
+        finally:
+            connection.set_trace_callback(None)
         cjk_tables = engine._store._connection.execute(  # pyright: ignore[reportPrivateUsage]
             "SELECT name FROM sqlite_master WHERE name LIKE '%cjk%'"
         ).fetchall()
 
         assert [item.locator_start for item in results] == [1]
         assert cjk_tables == []
+        candidate_queries = [
+            statement
+            for statement in statements
+            if "assets.sha256 AS source_sha256" in statement
+        ]
+        assert len(candidate_queries) == 1
+        assert "JOIN assets ON assets.asset_id = sources.asset_id" in candidate_queries[0]
+        budget_queries = [
+            statement
+            for statement in statements
+            if "COUNT(*) AS active_row_count" in statement
+        ]
+        assert len(budget_queries) == 1
+        assert "assets" not in budget_queries[0]
     finally:
         engine.close()
 

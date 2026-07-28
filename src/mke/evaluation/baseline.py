@@ -17,6 +17,10 @@ from mke.evaluation.manifest import (
     StableLocator,
     load_retrieval_manifest,
 )
+from mke.evaluation.source_identity import (
+    build_source_identity,
+    validate_recorded_source_identity,
+)
 
 _SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 _COMMIT_RE = re.compile(r"[0-9a-f]{40}\Z")
@@ -501,52 +505,34 @@ def _commit_sha(value: object, name: str) -> str:
 def _validate_evaluation_content_identity(
     code: dict[str, object], repository_root: Path
 ) -> None:
+    del repository_root
     raw_files = code["evaluation_content_files"]
-    if not isinstance(raw_files, list):
-        raise BaselineValidationError("baseline evaluation content identity is invalid")
-    file_items = cast(list[object], raw_files)
-    files = [_object(item, "baseline evaluation content file") for item in file_items]
     try:
-        expected_identity = _source_content_identity(repository_root)
-    except (OSError, BaselineValidationError) as error:
+        validate_recorded_source_identity(
+            {
+                "sha256": code["evaluation_content_sha256"],
+                "files": raw_files,
+            }
+        )
+    except ValueError as error:
         raise BaselineValidationError(
-            "baseline evaluation content identity could not be verified"
+            "baseline evaluation content identity is invalid"
         ) from error
-    expected_files = cast(list[dict[str, object]], expected_identity["files"])
-    if files != expected_files:
-        raise BaselineValidationError("baseline evaluation content identity is invalid")
-    if (
-        not isinstance(code["evaluation_content_sha256"], str)
-        or _SHA256_RE.fullmatch(code["evaluation_content_sha256"]) is None
-        or code["evaluation_content_sha256"] != expected_identity["sha256"]
-    ):
-        raise BaselineValidationError("baseline evaluation content identity is invalid")
 
 
 def _source_content_identity(repository_root: Path) -> dict[str, object]:
     repository_root = repository_root.resolve()
-    source_paths = sorted(repository_root.glob("src/mke/**/*.py"))
-    if not source_paths:
+    relative_paths = tuple(
+        path.relative_to(repository_root).as_posix()
+        for path in sorted(repository_root.glob("src/mke/**/*.py"))
+        if path.is_file() and path.resolve().is_relative_to(repository_root)
+    )
+    if not relative_paths:
         raise BaselineValidationError
-    files: list[dict[str, object]] = []
-    for source_path in source_paths:
-        path = source_path.resolve()
-        if not path.is_relative_to(repository_root) or not path.is_file():
-            raise BaselineValidationError
-        files.append(
-            {
-                "path": path.relative_to(repository_root).as_posix(),
-                "bytes": path.stat().st_size,
-                "sha256": _sha256(path),
-            }
-        )
-    encoded_files = json.dumps(
-        files, ensure_ascii=True, separators=(",", ":"), sort_keys=True
-    ).encode()
-    return {
-        "sha256": hashlib.sha256(encoded_files).hexdigest(),
-        "files": files,
-    }
+    try:
+        return build_source_identity(repository_root, relative_paths)
+    except ValueError as error:
+        raise BaselineValidationError from error
 
 
 def _integer(value: object) -> int:

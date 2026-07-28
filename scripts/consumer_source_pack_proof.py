@@ -12,6 +12,7 @@ import os
 import re
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import tarfile
@@ -23,6 +24,11 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO, cast
+
+from mke.evaluation._atomic_json_publication import (
+    AtomicPublicationResult,
+    publish_json_no_replace,
+)
 
 _DIRTY_ENV = frozenset({"PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"})
 _DISTRIBUTION = "multimodal-knowledge-engine"
@@ -56,6 +62,11 @@ _STABLE_FAILURE_CODES = frozenset(
         "candidate_artifact_invalid",
         "cleanup_failed",
         "proof_failed",
+        "retrieval_order_source_pack_already_started",
+        "retrieval_order_source_pack_claim_invalid",
+        "retrieval_order_source_pack_attempt_terminal",
+        "retrieval_order_publication_failed_before_visibility",
+        "retrieval_order_publication_durability_unconfirmed",
     }
 )
 _CLIENT_FAILURE_CODES = frozenset(
@@ -157,6 +168,20 @@ class ProofConfig:
     max_stdout_bytes: int
     max_stderr_bytes: int
     candidate_output: Path | None = None
+    attempt_claim: Path | None = None
+
+
+@dataclass(frozen=True)
+class _AttemptClaimBinding:
+    lexical_parent: Path
+    resolved_parent: Path
+    basename: str
+    parent_device: int
+    parent_inode: int
+
+    @property
+    def target(self) -> Path:
+        return self.resolved_parent / self.basename
 
 
 def isolated_environment(base: Mapping[str, str]) -> dict[str, str]:
@@ -749,16 +774,300 @@ def _candidate_source_snapshot(
     return snapshot
 
 
-def run_proof(config: ProofConfig) -> dict[str, object]:
-    repository = config.repository.resolve()
-    if len(config.python_interpreters) != 2:
+def _render_claim(value: Mapping[str, object]) -> bytes:
+    return (
+        json.dumps(
+            value,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        + "\n"
+    ).encode()
+
+
+def _validate_claim(
+    value: object,
+    *,
+    expected: dict[str, object],
+) -> None:
+    if not isinstance(value, dict) or value != expected:
+        raise ValueError("source-pack attempt claim is invalid")
+
+
+def _lexical_absolute(path: Path) -> Path:
+    return path if path.is_absolute() else Path.cwd() / path
+
+
+def _require_nonsymlink_directory_chain(path: Path) -> os.stat_result:
+    absolute = _lexical_absolute(path)
+    anchor = Path(absolute.anchor)
+    current = anchor
+    try:
+        for part in absolute.parts[1:]:
+            current /= part
+            current_stat = current.lstat()
+            if stat.S_ISLNK(current_stat.st_mode):
+                raise ControllerError(
+                    "retrieval_order_source_pack_claim_invalid"
+                )
+        parent_stat = absolute.lstat()
+    except ControllerError:
+        raise
+    except (OSError, RuntimeError) as exc:
+        raise ControllerError(
+            "retrieval_order_source_pack_claim_invalid"
+        ) from exc
+    if not stat.S_ISDIR(parent_stat.st_mode):
+        raise ControllerError(
+            "retrieval_order_source_pack_claim_invalid"
+        )
+    return parent_stat
+
+
+def _lexically_within(path: Path, parent: Path) -> bool:
+    try:
+        _lexical_absolute(path).relative_to(_lexical_absolute(parent))
+    except ValueError:
+        return False
+    return True
+
+
+def _stat_identity(path: Path) -> tuple[int, int]:
+    metadata = path.stat()
+    return metadata.st_dev, metadata.st_ino
+
+
+def _repository_identity_in_ancestry(
+    path: Path,
+    *,
+    repository: Path,
+) -> bool:
+    try:
+        repository_identity = _stat_identity(repository)
+        current = path.resolve(strict=True)
+        while True:
+            if _stat_identity(current) == repository_identity:
+                return True
+            if current == current.parent:
+                return False
+            current = current.parent
+    except (OSError, RuntimeError) as exc:
+        raise ControllerError(
+            "retrieval_order_source_pack_claim_invalid"
+        ) from exc
+
+
+def _preflight_candidate_output(
+    requested: Path,
+    *,
+    repository: Path,
+) -> None:
+    if requested.name in {"", ".", ".."}:
+        raise ControllerError(
+            "retrieval_order_source_pack_claim_invalid"
+        )
+    lexical_target = _lexical_absolute(requested)
+    if (
+        lexical_target.is_symlink()
+        or lexical_target.exists()
+        or _lexically_within(lexical_target, repository)
+    ):
+        raise ControllerError(
+            "retrieval_order_source_pack_claim_invalid"
+        )
+    lexical_parent = lexical_target.parent
+    _require_nonsymlink_directory_chain(lexical_parent)
+    try:
+        resolved_parent = lexical_parent.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise ControllerError(
+            "retrieval_order_source_pack_claim_invalid"
+        ) from exc
+    if _repository_identity_in_ancestry(
+        resolved_parent,
+        repository=repository,
+    ):
+        raise ControllerError(
+            "retrieval_order_source_pack_claim_invalid"
+        )
+
+
+def _require_absent_attempt_claim_slot(target: Path) -> None:
+    try:
+        target_stat = target.lstat()
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise ControllerError(
+            "retrieval_order_source_pack_claim_invalid"
+        ) from exc
+    if stat.S_ISREG(target_stat.st_mode):
+        raise ControllerError(
+            "retrieval_order_source_pack_already_started"
+        )
+    raise ControllerError(
+        "retrieval_order_source_pack_claim_invalid"
+    )
+
+
+def _bind_attempt_claim(
+    requested: Path,
+    *,
+    repository: Path,
+    candidate_output: Path,
+) -> _AttemptClaimBinding:
+    if requested.name in {"", ".", ".."}:
+        raise ControllerError(
+            "retrieval_order_source_pack_claim_invalid"
+        )
+    lexical_target = _lexical_absolute(requested)
+    lexical_parent = lexical_target.parent
+    parent_stat = _require_nonsymlink_directory_chain(lexical_parent)
+    _require_absent_attempt_claim_slot(lexical_target)
+    if _lexically_within(lexical_target, candidate_output):
+        raise ControllerError(
+            "retrieval_order_source_pack_claim_invalid"
+        )
+    _preflight_candidate_output(
+        candidate_output,
+        repository=repository,
+    )
+    try:
+        resolved_parent = lexical_parent.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise ControllerError(
+            "retrieval_order_source_pack_claim_invalid"
+        ) from exc
+    target = resolved_parent / requested.name
+    if (
+        target.parent != resolved_parent
+        or _repository_identity_in_ancestry(
+            resolved_parent,
+            repository=repository,
+        )
+        or _within(target, repository)
+        or _within(target, candidate_output)
+    ):
+        raise ControllerError(
+            "retrieval_order_source_pack_claim_invalid"
+        )
+    binding = _AttemptClaimBinding(
+        lexical_parent=lexical_parent,
+        resolved_parent=resolved_parent,
+        basename=requested.name,
+        parent_device=parent_stat.st_dev,
+        parent_inode=parent_stat.st_ino,
+    )
+    _recheck_attempt_claim(binding)
+    return binding
+
+
+def _recheck_attempt_claim(binding: _AttemptClaimBinding) -> None:
+    parent_stat = _require_nonsymlink_directory_chain(
+        binding.lexical_parent
+    )
+    try:
+        resolved_parent = binding.lexical_parent.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise ControllerError(
+            "retrieval_order_source_pack_claim_invalid"
+        ) from exc
+    target = binding.target
+    if (
+        resolved_parent != binding.resolved_parent
+        or parent_stat.st_dev != binding.parent_device
+        or parent_stat.st_ino != binding.parent_inode
+    ):
+        raise ControllerError(
+            "retrieval_order_source_pack_claim_invalid"
+        )
+    _require_absent_attempt_claim_slot(target)
+
+
+def _publish_task8r_attempt_claim(
+    config: ProofConfig,
+    *,
+    binding: _AttemptClaimBinding,
+    source_commit: str,
+    candidate_target: Path,
+) -> AtomicPublicationResult:
+    if config.attempt_claim is None:
         raise ControllerError("proof_failed")
-    candidate_source_commit = (
-        _clean_sha1_source_commit(repository) if config.candidate_output is not None else None
+    claim = binding.target
+    interpreters: list[Path] = []
+    for supplied in config.python_interpreters:
+        try:
+            resolved = supplied.resolve(strict=True)
+        except OSError as exc:
+            raise ControllerError("proof_failed") from exc
+        if not resolved.is_file() or supplied.is_symlink():
+            raise ControllerError("proof_failed")
+        interpreters.append(resolved)
+    if len(interpreters) != 2 or interpreters[0] == interpreters[1]:
+        raise ControllerError("proof_failed")
+    script = Path(__file__).resolve()
+    normalized_command = [
+        str(script),
+        "--python",
+        str(interpreters[0]),
+        "--python",
+        str(interpreters[1]),
+        "--attempt-claim",
+        str(claim),
+        "--candidate-output",
+        str(candidate_target),
+        "--command-timeout",
+        str(config.command_timeout_seconds),
+        "--max-stdout-bytes",
+        str(config.max_stdout_bytes),
+        "--max-stderr-bytes",
+        str(config.max_stderr_bytes),
+        "--json",
+    ]
+    expected: dict[str, object] = {
+        "schema_version": "mke.retrieval_order_source_pack_attempt.v1",
+        "command_schema": "mke.consumer_source_pack_task8r.v1",
+        "candidate_seal": source_commit,
+        "normalized_command": normalized_command,
+        "python_interpreters": [
+            str(interpreter) for interpreter in interpreters
+        ],
+        "candidate_output": str(candidate_target),
+        "attempt_claim": str(claim),
+        "script_sha256": hashlib.sha256(script.read_bytes()).hexdigest(),
+    }
+    _recheck_attempt_claim(binding)
+    publication = publish_json_no_replace(
+        claim,
+        _render_claim(expected),
+        validate=lambda value: _validate_claim(
+            value,
+            expected=expected,
+        ),
     )
-    candidate_target = (
-        _candidate_target(config.candidate_output) if config.candidate_output is not None else None
+    if publication.publication_outcome == "published":
+        return publication
+    if publication.output_state == "complete_preexisting":
+        raise ControllerError(
+            "retrieval_order_source_pack_already_started"
+        )
+    if publication.publication_outcome == "durability_unconfirmed":
+        raise ControllerError(
+            "retrieval_order_source_pack_attempt_terminal"
+        )
+    raise ControllerError(
+        "retrieval_order_publication_failed_before_visibility"
     )
+
+
+def _run_proof_with_bound_inputs(
+    config: ProofConfig,
+    *,
+    repository: Path,
+    candidate_source_commit: str | None,
+    candidate_target: Path | None,
+) -> dict[str, object]:
     root = Path(tempfile.mkdtemp(prefix="mke-consumer-source-pack-"))
     owned: list[Path] = [root]
     functional: dict[str, object] | None = None
@@ -1023,14 +1332,90 @@ def run_proof(config: ProofConfig) -> dict[str, object]:
     }
 
 
+def run_proof(config: ProofConfig) -> dict[str, object]:
+    repository = config.repository.resolve()
+    if len(config.python_interpreters) != 2:
+        raise ControllerError("proof_failed")
+    claim_binding: _AttemptClaimBinding | None = None
+    if config.attempt_claim is not None:
+        if config.candidate_output is None:
+            raise ControllerError(
+                "retrieval_order_source_pack_claim_invalid"
+            )
+        claim_binding = _bind_attempt_claim(
+            config.attempt_claim,
+            repository=repository,
+            candidate_output=config.candidate_output,
+        )
+    candidate_source_commit = (
+        _clean_sha1_source_commit(repository)
+        if config.candidate_output is not None
+        else None
+    )
+    candidate_target = (
+        _candidate_target(config.candidate_output)
+        if config.candidate_output is not None
+        else None
+    )
+    claim_publication: AtomicPublicationResult | None = None
+    if claim_binding is not None:
+        assert candidate_source_commit is not None
+        assert candidate_target is not None
+        claim_publication = _publish_task8r_attempt_claim(
+            config,
+            binding=claim_binding,
+            source_commit=candidate_source_commit,
+            candidate_target=candidate_target,
+        )
+    try:
+        return _run_proof_with_bound_inputs(
+            config,
+            repository=repository,
+            candidate_source_commit=candidate_source_commit,
+            candidate_target=candidate_target,
+        )
+    except BaseException as exc:
+        if (
+            claim_publication is not None
+            and claim_publication.publication_outcome == "published"
+        ):
+            raise ControllerError(
+                "retrieval_order_source_pack_attempt_terminal"
+            ) from exc
+        raise
+
+
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description=(
+            "Task 8R only: --attempt-claim is published before build "
+            "or child execution."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "claim preflight invalid -> correct the path; no attempt started\n"
+            "claim path invalid -> correct the path; no attempt started\n"
+            "claim already started -> retain the claim and stop; do not retry\n"
+            "claim published by this run -> any later failure is terminal; "
+            "retain the claim and stop\n"
+            "non-claim: the final lexical recheck is not a directory-FD or "
+            "race-free binding afterward"
+        ),
+    )
     parser.add_argument("--python", action="append", type=Path, required=True)
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--command-timeout", type=float, default=600.0)
     parser.add_argument("--max-stdout-bytes", type=int, default=2 * 1024 * 1024)
     parser.add_argument("--max-stderr-bytes", type=int, default=512 * 1024)
     parser.add_argument("--candidate-output", type=Path)
+    parser.add_argument(
+        "--attempt-claim",
+        type=Path,
+        help=(
+            "Task 8R only; no-replace claim published before build "
+            "or child execution"
+        ),
+    )
     args = parser.parse_args(argv)
     try:
         if len(args.python) != 2:
@@ -1043,6 +1428,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.max_stdout_bytes,
                 args.max_stderr_bytes,
                 args.candidate_output,
+                args.attempt_claim,
             )
         )
         print(json.dumps(result, sort_keys=True, separators=(",", ":")))

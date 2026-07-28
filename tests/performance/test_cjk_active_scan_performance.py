@@ -19,6 +19,13 @@ from mke.retrieval.cjk_active_scan import (
 _PERFORMANCE_BUDGET_SECONDS = 2.0
 
 
+def test_structural_scan_caps_remain_frozen() -> None:
+    assert CJK_ACTIVE_SCAN_PARAMETERS.max_results == 10
+    assert CJK_ACTIVE_SCAN_PARAMETERS.max_active_evidence_rows == 10_000
+    assert CJK_ACTIVE_SCAN_PARAMETERS.max_active_evidence_text_bytes == 16 * 1024 * 1024
+    assert CJK_ACTIVE_SCAN_PARAMETERS.max_candidate_pool == 1_000
+
+
 def test_long_query_fanout_fails_within_fixed_budget() -> None:
     started = perf_counter()
 

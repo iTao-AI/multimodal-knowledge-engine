@@ -292,7 +292,7 @@ def test_validator_derives_evaluation_content_identity(
         "src/mke/adapters/video/providers.py",
     ],
 )
-def test_validator_rejects_changes_to_runtime_source_tree(
+def test_recorded_identity_survives_changes_to_current_runtime_source_tree(
     tmp_path: Path,
     relative_path: str,
 ) -> None:
@@ -308,15 +308,11 @@ def test_validator_rejects_changes_to_runtime_source_tree(
         encoding="utf-8",
     )
 
-    with pytest.raises(
-        BaselineValidationError,
-        match="baseline evaluation content identity is invalid",
-    ):
-        validate_retrieval_baseline(
-            artifact_path=artifact,
-            manifest_path=repository / MANIFEST,
-            repository_root=repository,
-        )
+    validate_retrieval_baseline(
+        artifact_path=artifact,
+        manifest_path=repository / MANIFEST,
+        repository_root=repository,
+    )
 
 
 @pytest.mark.parametrize(
@@ -466,6 +462,21 @@ def test_refresh_source_changes_only_current_source_identity(tmp_path: Path) -> 
     }
     assert after == before
     _validate(artifact)
+
+
+def test_recorded_source_identity_survives_unrelated_current_source_change(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "repository"
+    shutil.copytree(REPOSITORY / "src", repository / "src")
+    unrelated = repository / "src/mke/evaluation/unrelated_addition.py"
+    unrelated.write_text("unrelated = True\n", encoding="utf-8")
+
+    validate_retrieval_baseline(
+        artifact_path=ARTIFACT,
+        manifest_path=MANIFEST,
+        repository_root=repository,
+    )
 
 
 def test_refresh_source_leaves_invalid_artifact_byte_identical(

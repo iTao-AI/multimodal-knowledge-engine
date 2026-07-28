@@ -165,6 +165,10 @@ def test_bound_input_cleanup_preserves_replacement_root(
     source.write_bytes(b"original")
     bound = bind_allowed_file(tmp_path, source.name)
     original_remove = mke.interfaces.input_authority._remove_owned_root_entry  # pyright: ignore[reportPrivateUsage]
+    original_root_identity: tuple[int, int, int] | None = None
+    replacement_root_identity: tuple[int, int, int] | None = None
+    marker_identity: tuple[int, int, int, int, int, int] | None = None
+    marker_bytes: bytes | None = None
 
     def allocate(*, prefix: str) -> str:
         assert prefix == "mke-bound-ingest-"
@@ -176,8 +180,40 @@ def test_bound_input_cleanup_preserves_replacement_root(
         root_identity: tuple[int, int, int],
         root_descriptor: int,
     ) -> bool:
+        nonlocal marker_bytes
+        nonlocal marker_identity
+        nonlocal original_root_identity
+        nonlocal replacement_root_identity
+        original_root_identity = root_identity
         os.replace(root, displaced_root)
         root.mkdir(mode=0o750)
+        root.chmod(0o750)
+        marker = root / "operator-owned.txt"
+        marker.write_bytes(b"operator state")
+        marker.chmod(0o640)
+        replacement = root.stat()
+        replacement_root_identity = (
+            replacement.st_dev,
+            replacement.st_ino,
+            replacement.st_mode,
+        )
+        observed_marker = marker.stat()
+        marker_identity = (
+            observed_marker.st_dev,
+            observed_marker.st_ino,
+            observed_marker.st_mode,
+            observed_marker.st_size,
+            observed_marker.st_mtime_ns,
+            observed_marker.st_ctime_ns,
+        )
+        marker_bytes = marker.read_bytes()
+        displaced = displaced_root.stat()
+        assert (
+            displaced.st_dev,
+            displaced.st_ino,
+            displaced.st_mode,
+        ) == root_identity
+        assert replacement_root_identity[:2] != root_identity[:2]
         return original_remove(root, root_identity, root_descriptor)
 
     monkeypatch.setattr(mke.interfaces.input_authority.tempfile, "mkdtemp", allocate)
@@ -196,8 +232,30 @@ def test_bound_input_cleanup_preserves_replacement_root(
         with pytest.raises(IngestFileAuthorityError, match="changed during validation"):
             with bound.materialize() as materialized:
                 assert materialized.read_bytes() == b"original"
+        assert original_root_identity is not None
+        assert replacement_root_identity is not None
+        assert marker_identity is not None
+        assert marker_bytes == b"operator state"
         assert owned_root.is_dir()
-        assert owned_root.stat().st_mode & 0o777 == 0o750
+        replacement = owned_root.stat()
+        assert (
+            replacement.st_dev,
+            replacement.st_ino,
+            replacement.st_mode,
+        ) == replacement_root_identity
+        marker = owned_root / "operator-owned.txt"
+        observed_marker = marker.stat()
+        assert (
+            observed_marker.st_dev,
+            observed_marker.st_ino,
+            observed_marker.st_mode,
+            observed_marker.st_size,
+            observed_marker.st_mtime_ns,
+            observed_marker.st_ctime_ns,
+        ) == marker_identity
+        assert marker.read_bytes() == marker_bytes
+        assert replacement.st_mode & 0o777 == 0o750
+        assert observed_marker.st_mode & 0o777 == 0o640
         assert not displaced_root.exists()
     finally:
         bound.close()

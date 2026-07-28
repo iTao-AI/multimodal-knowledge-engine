@@ -20,6 +20,10 @@ from mke.evaluation.cjk_lexical_comparison import (
     cjk_lexical_comparison_payload,
     run_cjk_lexical_comparison,
 )
+from mke.evaluation.source_identity import (
+    build_source_identity,
+    validate_recorded_file_identity,
+)
 
 ARTIFACT_SCHEMA = "mke.cjk_lexical_comparison_artifact.v1"
 _SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
@@ -89,6 +93,7 @@ def validate_cjk_lexical_artifact(
     try:
         artifact = _load_object(artifact_path)
         _validate_artifact_schema(artifact)
+        _validate_archived_source_identity(artifact["source"])
         observed = _load_object(observed_path)
         protocol = load_chinese_retrieval_protocol(protocol_path)
         fresh = _fresh_comparison(protocol_path)
@@ -99,6 +104,7 @@ def validate_cjk_lexical_artifact(
             protocol_path=protocol_path,
             repository_root=repository_root.resolve(),
         )
+        expected["source"] = artifact["source"]
         if artifact != expected:
             raise CjkLexicalArtifactValidationError
     except CjkLexicalArtifactValidationError:
@@ -237,21 +243,25 @@ def _validate_artifact_schema(artifact: dict[str, object]) -> None:
 
 
 def _source_identity(repository_root: Path) -> dict[str, object]:
-    files: list[dict[str, object]] = []
-    for raw_path in _SOURCE_PATHS:
-        path = repository_root / raw_path
-        data = path.read_bytes()
-        files.append(
-            {
-                "path": raw_path,
-                "bytes": len(data),
-                "sha256": hashlib.sha256(data).hexdigest(),
-            }
-        )
-    return {
-        "sha256": _digest(files),
-        "files": files,
-    }
+    return build_source_identity(repository_root, _SOURCE_PATHS)
+
+
+def _validate_archived_source_identity(value: object) -> None:
+    source = _object(value)
+    if set(source) != {"sha256", "files"}:
+        raise CjkLexicalArtifactValidationError
+    raw_files = source["files"]
+    if not isinstance(raw_files, list) or not raw_files:
+        raise CjkLexicalArtifactValidationError
+    files = cast(list[dict[str, object]], raw_files)
+    try:
+        for item in files:
+            validate_recorded_file_identity(item)
+    except ValueError as error:
+        raise CjkLexicalArtifactValidationError from error
+    paths = [item["path"] for item in files]
+    if len(paths) != len(set(paths)) or source["sha256"] != _digest(files):
+        raise CjkLexicalArtifactValidationError
 
 
 def _load_object(path: Path) -> dict[str, object]:

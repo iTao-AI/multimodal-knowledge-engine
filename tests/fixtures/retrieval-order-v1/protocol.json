@@ -1,0 +1,182 @@
+{
+  "schema_version": "mke.retrieval_order_protocol.v1",
+  "protocol_id": "retrieval-order-v1",
+  "key_contract": {
+    "fts": [
+      "rank",
+      "locator_start",
+      "locator_kind",
+      "locator_end",
+      "assets.sha256"
+    ],
+    "cjk": [
+      "-overlap_count",
+      "-overlap_ratio",
+      "content_fingerprint",
+      "locator_kind",
+      "locator_start",
+      "locator_end"
+    ]
+  },
+  "runtime_profile_fields": [
+    "python",
+    "sqlite",
+    "sqlite_source_id",
+    "sqlite_compile_options",
+    "fts5_rank_configuration",
+    "strategy_revision",
+    "query_policy_revision"
+  ],
+  "partition_rules": {
+    "public_nonblind": true,
+    "mechanism_only": true,
+    "holdout_execution_limit": 1,
+    "after_publication_status": "development_material",
+    "promotion_status": "not_evaluated"
+  },
+  "partitions": {
+    "development": {
+      "path": "tests/fixtures/retrieval-order-v1/development/cases.json",
+      "bytes": 6196,
+      "sha256": "e37e9519d899fc934c1758860f1b40d3605ed065a11b1921fdac914746f733f5",
+      "cases": {
+        "case_ids": [
+          "dev-cjk-page",
+          "dev-cjk-timestamp",
+          "dev-fts-page",
+          "dev-fts-timestamp"
+        ],
+        "source_ids": [
+          "dev-source-amber-a",
+          "dev-source-amber-b",
+          "dev-source-cjk-page-a",
+          "dev-source-cjk-page-b",
+          "dev-source-cjk-time-a",
+          "dev-source-cjk-time-b",
+          "dev-source-cobalt-a",
+          "dev-source-cobalt-b"
+        ],
+        "query_ids": [
+          "dev-query-cjk-page",
+          "dev-query-cjk-timestamp",
+          "dev-query-fts-page",
+          "dev-query-fts-timestamp"
+        ],
+        "coverage": [
+          "cjk",
+          "fts",
+          "page",
+          "timestamp"
+        ],
+        "expected_stable_projections": [
+          [
+            "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "page",
+            1,
+            1
+          ],
+          [
+            "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "page",
+            1,
+            1
+          ],
+          [
+            "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "page",
+            2,
+            2
+          ],
+          [
+            "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms",
+            0,
+            1000
+          ],
+          [
+            "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+            "timestamp_ms",
+            0,
+            1200
+          ],
+          [
+            "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+            "page",
+            1,
+            1
+          ],
+          [
+            "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "page",
+            1,
+            1
+          ],
+          [
+            "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+            "timestamp_ms",
+            100,
+            900
+          ],
+          [
+            "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+            "timestamp_ms",
+            100,
+            1000
+          ]
+        ]
+      }
+    },
+    "holdout": {
+      "path": "tests/fixtures/retrieval-order-v1/holdout/cases.json",
+      "bytes": 2896,
+      "sha256": "e95c5253d0284f8127754591b9da9aa71b30a8ceae2670ca4751456cf7d4a080",
+      "cases": {
+        "case_ids": [
+          "holdout-cjk-page",
+          "holdout-fts-page"
+        ],
+        "source_ids": [
+          "holdout-source-gold-a",
+          "holdout-source-gold-b",
+          "holdout-source-violet-a",
+          "holdout-source-violet-b"
+        ],
+        "query_ids": [
+          "holdout-query-cjk-page",
+          "holdout-query-fts-page"
+        ],
+        "coverage": [
+          "cjk",
+          "fts",
+          "page"
+        ],
+        "expected_stable_projections": [
+          [
+            "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "page",
+            3,
+            3
+          ],
+          [
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "page",
+            3,
+            3
+          ],
+          [
+            "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "page",
+            4,
+            4
+          ],
+          [
+            "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "page",
+            4,
+            4
+          ]
+        ]
+      }
+    }
+  }
+}

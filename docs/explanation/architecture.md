@@ -1,5 +1,26 @@
 # Architecture
 
+## Deterministic Retrieval Order
+
+FTS orders in SQL by
+`score, locator_start, locator_kind, locator_end, source_sha256`.
+CJK active scan orders in Python by
+`-overlap_count, -overlap_ratio, content_fingerprint, locator_kind, locator_start, locator_end`.
+The CJK key is not SQL-derived. `source_sha256` binds immutable Source bytes on the FTS path;
+`content_fingerprint` binds immutable Source bytes on the CJK active-scan path.
+
+Opaque identifiers remain identity fields, not ordering authority.
+Publication revision and Evidence text identity are not current tie-break fields.
+The owner-selected FTS and CJK strategies have strategy-specific tie semantics.
+This contract does not promise one cross-strategy display order.
+
+The deterministic retrieval order contract uses retrieval strategy revision 2. It keeps active
+Publication authority unchanged, invalidates older cursors rather than mixing revisions, and
+separates historical byte validation, current replay, tie-only differential evidence, and one-shot
+canonical publication. See
+[ADR-0012](../decisions/0012-deterministic-retrieval-order.md) and the
+[proof workflow](../how-to/run-deterministic-retrieval-order-proof.md).
+
 ## Product Boundary
 
 Multimodal Knowledge Engine converts documents and media into published Evidence that users and Agents can search, cite, and ask questions over.

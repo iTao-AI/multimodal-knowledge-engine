@@ -12,9 +12,11 @@ import sys
 import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 import pytest
+
+import mke.evaluation._atomic_json_publication as atomic_publication
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/consumer_source_pack_proof.py"
@@ -42,6 +44,11 @@ STABLE_FAILURE_CODES = (
     "candidate_artifact_invalid",
     "cleanup_failed",
     "proof_failed",
+    "retrieval_order_source_pack_already_started",
+    "retrieval_order_source_pack_claim_invalid",
+    "retrieval_order_source_pack_attempt_terminal",
+    "retrieval_order_publication_failed_before_visibility",
+    "retrieval_order_publication_durability_unconfirmed",
 )
 CLIENT_FAILURE_CODES = (
     "source_pack_manifest_invalid",
@@ -1479,6 +1486,858 @@ def test_main_accepts_candidate_output_without_changing_success_stdout(
     assert exit_code == 0
     assert observed[0].candidate_output == output
     assert json.loads(capsys.readouterr().out) == success
+
+
+def test_help_exposes_task8r_attempt_claim(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    proof = _load()
+
+    with pytest.raises(SystemExit) as raised:
+        proof.main(["--help"])
+
+    assert raised.value.code == 0
+    output = capsys.readouterr().out
+    assert "--attempt-claim" in output
+    assert "published before build or child execution" in output
+    assert "Task 8R only" in output
+    assert (
+        "claim preflight invalid -> correct the path; no attempt started"
+        in output
+    )
+    assert (
+        "claim already started -> retain the claim and stop; do not retry"
+    ) in output
+    assert "claim path invalid -> correct the path; no attempt started" in output
+
+
+def test_preexisting_regular_attempt_claim_is_already_started_before_side_effects(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    claim_parent = tmp_path / "claim-parent"
+    claim_parent.mkdir()
+    claim = claim_parent / "attempt.json"
+    claim.write_bytes(b"operator-owned durable claim\n")
+    output_parent = tmp_path / "candidate-parent"
+    output_parent.mkdir()
+    output = output_parent / "candidate"
+    before = claim.stat()
+    original_read_bytes = Path.read_bytes
+    calls: list[str] = []
+
+    def guarded_read_bytes(path: Path) -> bytes:
+        if path == claim:
+            calls.append("claim_read")
+            raise AssertionError("preexisting claim must not be read")
+        return original_read_bytes(path)
+
+    def forbidden(*args: object, **kwargs: object) -> NoReturn:
+        del args, kwargs
+        calls.append("side_effect")
+        raise AssertionError("proof side effect must not start")
+
+    monkeypatch.setattr(Path, "read_bytes", guarded_read_bytes)
+    for name in (
+        "_preflight_candidate_output",
+        "_clean_sha1_source_commit",
+        "_candidate_target",
+        "_command",
+        "_stage_candidate_output",
+        "publish_json_no_replace",
+        "_run_proof_with_bound_inputs",
+    ):
+        monkeypatch.setattr(proof, name, forbidden)
+
+    exit_code = proof.main(
+        [
+            "--python",
+            sys.executable,
+            "--python",
+            sys.executable,
+            "--candidate-output",
+            str(output),
+            "--attempt-claim",
+            str(claim),
+            "--json",
+        ]
+    )
+
+    after = claim.stat()
+    assert (
+        exit_code == 1
+        and json.loads(capsys.readouterr().out)
+        == {
+            "status": "failed",
+            "code": "retrieval_order_source_pack_already_started",
+        }
+        and calls == []
+        and (after.st_dev, after.st_ino, after.st_size)
+        == (before.st_dev, before.st_ino, before.st_size)
+        and original_read_bytes(claim) == b"operator-owned durable claim\n"
+        and not output.exists()
+    ), "L4_PREEXISTING_REGULAR_CLAIM_FALSE_PASS"
+
+
+def test_racing_regular_attempt_claim_is_already_started_before_source_preparation(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    claim_parent = tmp_path / "claim-parent"
+    claim_parent.mkdir()
+    claim = claim_parent / "attempt.json"
+    output_parent = tmp_path / "candidate-parent"
+    output_parent.mkdir()
+    output = output_parent / "candidate"
+    original_preflight = proof._preflight_candidate_output
+    original_read_bytes = Path.read_bytes
+    calls: list[str] = []
+
+    def race(requested: Path, *, repository: Path) -> None:
+        original_preflight(requested, repository=repository)
+        claim.write_bytes(b"race-winner durable claim\n")
+
+    def guarded_read_bytes(path: Path) -> bytes:
+        if path == claim:
+            calls.append("claim_read")
+            raise AssertionError("race winner must not be read")
+        return original_read_bytes(path)
+
+    def forbidden(*args: object, **kwargs: object) -> NoReturn:
+        del args, kwargs
+        calls.append("side_effect")
+        raise AssertionError("source preparation must not start")
+
+    monkeypatch.setattr(
+        proof,
+        "_preflight_candidate_output",
+        race,
+    )
+    monkeypatch.setattr(Path, "read_bytes", guarded_read_bytes)
+    for name in (
+        "_clean_sha1_source_commit",
+        "_candidate_target",
+        "_command",
+        "_stage_candidate_output",
+        "publish_json_no_replace",
+        "_run_proof_with_bound_inputs",
+    ):
+        monkeypatch.setattr(proof, name, forbidden)
+
+    exit_code = proof.main(
+        [
+            "--python",
+            sys.executable,
+            "--python",
+            sys.executable,
+            "--candidate-output",
+            str(output),
+            "--attempt-claim",
+            str(claim),
+            "--json",
+        ]
+    )
+
+    assert (
+        exit_code == 1
+        and json.loads(capsys.readouterr().out)
+        == {
+            "status": "failed",
+            "code": "retrieval_order_source_pack_already_started",
+        }
+        and calls == []
+        and original_read_bytes(claim) == b"race-winner durable claim\n"
+        and not output.exists()
+    ), "L4_RACE_WINNER_REGULAR_CLAIM_FALSE_PASS"
+
+
+def test_attempt_claim_rejects_repository_identity_alias_before_side_effects(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    claim_parent = tmp_path / "external" / "nested"
+    claim_parent.mkdir(parents=True)
+    claim = claim_parent / "attempt.json"
+    output = tmp_path / "candidate"
+    repository_identity = repository.stat().st_dev, repository.stat().st_ino
+
+    def stat_identity(path: Path) -> tuple[int, int]:
+        if path == claim_parent:
+            return repository_identity
+        metadata = path.stat()
+        return metadata.st_dev, metadata.st_ino
+
+    monkeypatch.setattr(proof, "_stat_identity", stat_identity, raising=False)
+    try:
+        proof._bind_attempt_claim(
+            claim,
+            repository=repository,
+            candidate_output=output,
+        )
+    except proof.ControllerError as error:
+        assert error.code == "retrieval_order_source_pack_claim_invalid"
+    else:
+        pytest.fail("G3_REPOSITORY_IDENTITY_ALIAS_FALSE_PASS")
+
+
+def test_candidate_output_rejects_existing_repository_identity_alias_before_side_effects(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    claim_parent = tmp_path / "claim"
+    claim_parent.mkdir()
+    claim = claim_parent / "attempt.json"
+    output = tmp_path / "existing-output"
+    output.mkdir()
+    repository_identity = repository.stat().st_dev, repository.stat().st_ino
+
+    def stat_identity(path: Path) -> tuple[int, int]:
+        if path == output:
+            return repository_identity
+        metadata = path.stat()
+        return metadata.st_dev, metadata.st_ino
+
+    monkeypatch.setattr(proof, "_stat_identity", stat_identity, raising=False)
+    try:
+        proof._bind_attempt_claim(
+            claim,
+            repository=repository,
+            candidate_output=output,
+        )
+    except proof.ControllerError as error:
+        assert error.code == "retrieval_order_source_pack_claim_invalid"
+    else:
+        pytest.fail("G3_CANDIDATE_OUTPUT_IDENTITY_ALIAS_FALSE_PASS")
+
+
+@pytest.mark.parametrize(
+    "identity_hit",
+    ("root", "direct", "multilevel", "external"),
+)
+def test_repository_identity_walk_visits_root_direct_and_multilevel_ancestors(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    identity_hit: str,
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    claim_parent = tmp_path / "external" / "direct" / "multilevel"
+    claim_parent.mkdir(parents=True)
+    visited: list[Path] = []
+    hit = {
+        "root": claim_parent,
+        "direct": claim_parent.parent,
+        "multilevel": claim_parent.parent.parent,
+        "external": repository,
+    }[identity_hit]
+    repository_identity = repository.stat().st_dev, repository.stat().st_ino
+
+    def stat_identity(path: Path) -> tuple[int, int]:
+        visited.append(path)
+        if path == hit:
+            return repository_identity
+        metadata = path.stat()
+        return metadata.st_dev, metadata.st_ino
+
+    monkeypatch.setattr(proof, "_stat_identity", stat_identity, raising=False)
+    result = proof._repository_identity_in_ancestry(
+        claim_parent,
+        repository=repository,
+    )
+
+    ancestry = [claim_parent]
+    while ancestry[-1] != ancestry[-1].parent:
+        ancestry.append(ancestry[-1].parent)
+    expected_visit = ancestry[: ancestry.index(hit) + 1] if hit in ancestry else ancestry
+    assert visited[0] == repository
+    assert visited[1:] == expected_visit
+    assert result is (identity_hit != "external")
+
+
+def test_repository_identity_lookup_failure_is_claim_invalid_before_side_effects(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    claim_parent = tmp_path / "external"
+    claim_parent.mkdir()
+
+    def stat_identity(_path: Path) -> tuple[int, int]:
+        raise OSError("identity unavailable")
+
+    monkeypatch.setattr(proof, "_stat_identity", stat_identity, raising=False)
+    try:
+        proof._bind_attempt_claim(
+            claim_parent / "attempt.json",
+            repository=repository,
+            candidate_output=tmp_path / "candidate",
+        )
+    except proof.ControllerError as error:
+        assert error.code == "retrieval_order_source_pack_claim_invalid"
+    else:
+        pytest.fail("G3_IDENTITY_ERROR_FALSE_PASS")
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Darwin case-alias supplement")
+def test_attempt_claim_rejects_live_darwin_repository_case_alias(
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    repository = tmp_path / "CaseSensitiveProbe"
+    repository.mkdir()
+    alias = tmp_path / "casesensitiveprobe"
+    try:
+        same_identity = alias.exists() and os.path.samefile(alias, repository)
+    except OSError:
+        same_identity = False
+    if not same_identity:
+        pytest.skip("temporary filesystem cannot construct a case alias")
+    claim = alias / "nested" / "attempt.json"
+    claim.parent.mkdir()
+    with pytest.raises(proof.ControllerError) as raised:
+        proof._bind_attempt_claim(
+            claim,
+            repository=repository,
+            candidate_output=tmp_path / "candidate",
+        )
+    assert raised.value.code == "retrieval_order_source_pack_claim_invalid"
+
+
+@pytest.mark.parametrize(
+    "output_kind",
+    (
+        "inside-repository",
+        "preexisting-external",
+        "dangling-symlink",
+        "symlink-parent",
+        "aliased-parent-into-repository",
+    ),
+)
+def test_attempt_claim_preflights_candidate_output_before_source_preparation(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    output_kind: str,
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    interpreters = _synthetic_interpreters(tmp_path)
+    claim_parent = tmp_path / "claim"
+    claim_parent.mkdir()
+    claim = claim_parent / "attempt.json"
+    external = tmp_path / "external"
+    external.mkdir()
+    output = external / "candidate"
+    if output_kind == "inside-repository":
+        output = repository / "candidate"
+    elif output_kind == "preexisting-external":
+        output.mkdir()
+    elif output_kind == "dangling-symlink":
+        output.symlink_to(tmp_path / "missing-output")
+    elif output_kind == "symlink-parent":
+        real_parent = tmp_path / "real-output-parent"
+        real_parent.mkdir()
+        external.rmdir()
+        external.symlink_to(real_parent, target_is_directory=True)
+    elif output_kind == "aliased-parent-into-repository":
+        external.rmdir()
+        external.symlink_to(repository, target_is_directory=True)
+    calls: list[str] = []
+
+    def forbidden(*args: object, **kwargs: object) -> NoReturn:
+        del args, kwargs
+        calls.append("side-effect")
+        raise AssertionError("source preparation must not start")
+
+    monkeypatch.setattr(proof, "_clean_sha1_source_commit", forbidden)
+    monkeypatch.setattr(proof, "_command", forbidden)
+    monkeypatch.setattr(proof, "_stage_candidate_output", forbidden)
+    monkeypatch.setattr(proof, "publish_json_no_replace", forbidden)
+    with pytest.raises(proof.ControllerError) as raised:
+        proof.run_proof(
+            proof.ProofConfig(
+                repository,
+                interpreters,
+                3,
+                10_000,
+                10_000,
+                candidate_output=output,
+                attempt_claim=claim,
+            )
+        )
+
+    assert (
+        raised.value.code == "retrieval_order_source_pack_claim_invalid"
+        and calls == []
+        and not claim.exists()
+    ), "G4_CANDIDATE_OUTPUT_PREFLIGHT_FALSE_PASS"
+
+
+@pytest.mark.parametrize(
+    "claim_kind",
+    (
+        "direct_symlink",
+        "dangling_symlink",
+        "symlink_parent",
+        "existing_directory",
+        "malformed_basename",
+        "inside_repository",
+        "inside_candidate_output",
+    ),
+)
+def test_attempt_claim_rejects_invalid_lexical_scope_before_side_effects(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    claim_kind: str,
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    interpreters = _synthetic_interpreters(tmp_path)
+    output_parent = tmp_path / "candidate-parent"
+    output_parent.mkdir()
+    output = output_parent / "candidate"
+    claim_parent = tmp_path / "claim-parent"
+    claim_parent.mkdir()
+    claim = claim_parent / "attempt.json"
+    if claim_kind == "direct_symlink":
+        target = tmp_path / "existing-target"
+        target.write_text("{}\n", encoding="utf-8")
+        claim.symlink_to(target)
+    elif claim_kind == "dangling_symlink":
+        claim.symlink_to(tmp_path / "missing-target")
+    elif claim_kind == "symlink_parent":
+        real_parent = tmp_path / "real-claim-parent"
+        real_parent.mkdir()
+        claim_parent.rmdir()
+        claim_parent.symlink_to(real_parent, target_is_directory=True)
+    elif claim_kind == "existing_directory":
+        claim.mkdir()
+    elif claim_kind == "malformed_basename":
+        claim = Path(".")
+    elif claim_kind == "inside_repository":
+        claim = repository / "attempt.json"
+    elif claim_kind == "inside_candidate_output":
+        claim = output / "attempt.json"
+    calls: list[str] = []
+
+    def forbidden(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        calls.append("side_effect")
+        raise AssertionError("proof side effect must not start")
+
+    monkeypatch.setattr(proof, "_candidate_target", forbidden)
+    monkeypatch.setattr(proof, "_command", forbidden)
+    monkeypatch.setattr(proof, "_stage_candidate_output", forbidden)
+    monkeypatch.setattr(proof, "publish_json_no_replace", forbidden)
+
+    with pytest.raises(proof.ControllerError) as raised:
+        proof.run_proof(
+            proof.ProofConfig(
+                repository,
+                interpreters,
+                3,
+                10_000,
+                10_000,
+                candidate_output=output,
+                attempt_claim=claim,
+            )
+        )
+
+    assert raised.value.code == "retrieval_order_source_pack_claim_invalid"
+    assert calls == []
+    assert not output.exists()
+
+
+@pytest.mark.parametrize(
+    ("retarget", "expected_code"),
+    (
+        ("parent_replaced", "retrieval_order_source_pack_claim_invalid"),
+        ("parent_symlink", "retrieval_order_source_pack_claim_invalid"),
+        (
+            "basename_visible",
+            "retrieval_order_source_pack_already_started",
+        ),
+    ),
+)
+def test_attempt_claim_rechecks_parent_and_basename_before_publication(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    retarget: str,
+    expected_code: str,
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    interpreters = _synthetic_interpreters(tmp_path)
+    output_parent = tmp_path / "candidate-parent"
+    output_parent.mkdir()
+    output = output_parent / "candidate"
+    claim_parent = tmp_path / "claim-parent"
+    claim_parent.mkdir()
+    claim = claim_parent / "attempt.json"
+    original_candidate_target = proof._candidate_target
+    calls: list[str] = []
+
+    def mutate_after_claim_binding(requested: Path) -> Path:
+        target = original_candidate_target(requested)
+        if retarget == "basename_visible":
+            claim.write_text("{}\n", encoding="utf-8")
+        else:
+            retained = claim_parent.with_name("retained-claim-parent")
+            claim_parent.rename(retained)
+            if retarget == "parent_replaced":
+                claim_parent.mkdir()
+            else:
+                claim_parent.symlink_to(
+                    retained,
+                    target_is_directory=True,
+                )
+        return target
+
+    def forbidden(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        calls.append("side_effect")
+        raise AssertionError("claim publication or proof must not start")
+
+    monkeypatch.setattr(
+        proof,
+        "_candidate_target",
+        mutate_after_claim_binding,
+    )
+    monkeypatch.setattr(proof, "_command", forbidden)
+    monkeypatch.setattr(proof, "_stage_candidate_output", forbidden)
+    monkeypatch.setattr(proof, "publish_json_no_replace", forbidden)
+
+    with pytest.raises(proof.ControllerError) as raised:
+        proof.run_proof(
+            proof.ProofConfig(
+                repository,
+                interpreters,
+                3,
+                10_000,
+                10_000,
+                candidate_output=output,
+                attempt_claim=claim,
+            )
+        )
+
+    assert raised.value.code == expected_code
+    assert calls == []
+    assert not output.exists()
+
+
+def test_attempt_claim_stable_external_parent_publishes_once(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    interpreters = _synthetic_interpreters(tmp_path)
+    output_parent = tmp_path / "candidate-parent"
+    output_parent.mkdir()
+    output = output_parent / "candidate"
+    claim_parent = tmp_path / "claim-parent"
+    claim_parent.mkdir()
+    claim = claim_parent / "attempt.json"
+    build_calls = 0
+
+    def fail_build(
+        code: str,
+        command: Sequence[str],
+        **kwargs: object,
+    ) -> None:
+        nonlocal build_calls
+        del kwargs
+        assert code == "wheel_build_failed"
+        assert list(command)[:2] == ["uv", "build"]
+        build_calls += 1
+        raise proof.ControllerError(code)
+
+    monkeypatch.setattr(proof, "_command", fail_build)
+
+    with pytest.raises(proof.ControllerError) as raised:
+        proof.run_proof(
+            proof.ProofConfig(
+                repository,
+                interpreters,
+                3,
+                10_000,
+                10_000,
+                candidate_output=output,
+                attempt_claim=claim,
+            )
+        )
+
+    assert raised.value.code == (
+        "retrieval_order_source_pack_attempt_terminal"
+    )
+    assert build_calls == 1
+    assert claim.is_file()
+    assert json.loads(claim.read_text(encoding="utf-8"))[
+        "attempt_claim"
+    ] == str(claim)
+    assert not output.exists()
+
+
+def test_attempt_claim_no_replace_race_winner_is_already_started(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    interpreters = _synthetic_interpreters(tmp_path)
+    output_parent = tmp_path / "candidate-parent"
+    output_parent.mkdir()
+    output = output_parent / "candidate"
+    claim_parent = tmp_path / "claim-parent"
+    claim_parent.mkdir()
+    claim = claim_parent / "attempt.json"
+    binding = proof._bind_attempt_claim(
+        claim,
+        repository=repository,
+        candidate_output=output,
+    )
+    original_read_bytes = Path.read_bytes
+    calls: list[str] = []
+
+    def guarded_read_bytes(path: Path) -> bytes:
+        if path == claim:
+            calls.append("claim_read")
+            raise AssertionError("race winner must not be read by controller")
+        return original_read_bytes(path)
+
+    def race_winner(
+        destination: Path,
+        content: bytes,
+        *,
+        validate: object,
+    ) -> Any:
+        del validate
+        calls.append("publish")
+        destination.write_bytes(content)
+        return proof.AtomicPublicationResult(
+            output_state="complete_preexisting",
+            publication_outcome="not_attempted",
+            sha256=hashlib.sha256(content).hexdigest(),
+            problem="retrieval_order_output_exists",
+            cause="destination_already_contains_a_complete_record",
+            next_step="validate_or_choose_a_new_temporary_output",
+        )
+
+    def forbidden(*args: object, **kwargs: object) -> NoReturn:
+        del args, kwargs
+        calls.append("side_effect")
+        raise AssertionError("build or candidate preparation must not start")
+
+    monkeypatch.setattr(Path, "read_bytes", guarded_read_bytes)
+    monkeypatch.setattr(proof, "publish_json_no_replace", race_winner)
+    for name in (
+        "_clean_sha1_source_commit",
+        "_command",
+        "_stage_candidate_output",
+        "_run_proof_with_bound_inputs",
+    ):
+        monkeypatch.setattr(proof, name, forbidden)
+
+    with pytest.raises(proof.ControllerError) as raised:
+        proof._publish_task8r_attempt_claim(
+            proof.ProofConfig(
+                repository,
+                interpreters,
+                3,
+                10_000,
+                10_000,
+                candidate_output=output,
+                attempt_claim=claim,
+            ),
+            binding=binding,
+            source_commit="a" * 40,
+            candidate_target=output,
+        )
+
+    assert (
+        raised.value.code
+        == "retrieval_order_source_pack_already_started"
+        and calls == ["publish"]
+        and claim.is_file()
+    ), "L4_NO_REPLACE_RACE_WINNER_FALSE_PASS"
+
+
+def test_attempt_claim_is_published_before_build_and_retained_on_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    interpreters = _synthetic_interpreters(tmp_path)
+    (tmp_path / "external").mkdir()
+    output = tmp_path / "external/candidate"
+    claim = tmp_path / "external/source-pack-attempt.claim.json"
+    build_calls = 0
+
+    def fail_after_claim(
+        code: str,
+        command: Sequence[str],
+        **kwargs: object,
+    ) -> Any:
+        nonlocal build_calls
+        del kwargs
+        if list(command)[:2] == ["uv", "build"]:
+            build_calls += 1
+            assert claim.exists()
+            raise proof.ControllerError(code)
+        raise AssertionError("build must be the first proof command")
+
+    monkeypatch.setattr(proof, "_command", fail_after_claim)
+    config = proof.ProofConfig(
+        repository,
+        interpreters,
+        3,
+        10_000,
+        10_000,
+        candidate_output=output,
+        attempt_claim=claim,
+    )
+
+    with pytest.raises(
+        proof.ControllerError,
+        match="retrieval_order_source_pack_attempt_terminal",
+    ):
+        proof.run_proof(config)
+
+    payload = json.loads(claim.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == (
+        "mke.retrieval_order_source_pack_attempt.v1"
+    )
+    assert payload["command_schema"] == (
+        "mke.consumer_source_pack_task8r.v1"
+    )
+    assert payload["candidate_seal"] == subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert payload["python_interpreters"] == [
+        str(path.resolve()) for path in interpreters
+    ]
+    assert payload["candidate_output"] == str(output.resolve())
+    assert payload["attempt_claim"] == str(claim.resolve())
+    assert len(payload["script_sha256"]) == 64
+    assert payload["normalized_command"][-7:] == [
+        "--command-timeout",
+        "3",
+        "--max-stdout-bytes",
+        "10000",
+        "--max-stderr-bytes",
+        "10000",
+        "--json",
+    ]
+    assert build_calls == 1
+    assert not output.exists()
+
+    with pytest.raises(
+        proof.ControllerError,
+        match="retrieval_order_source_pack_already_started",
+    ):
+        proof.run_proof(config)
+    assert build_calls == 1
+
+
+@pytest.mark.parametrize(
+    "fault",
+    ("write", "file_fsync", "readback", "publish", "directory_fsync"),
+)
+def test_attempt_claim_publication_fault_never_starts_build(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    fault: str,
+) -> None:
+    proof = _load()
+    repository = _candidate_runtime_repository(tmp_path)
+    interpreters = _synthetic_interpreters(tmp_path)
+    (tmp_path / "external").mkdir()
+    output = tmp_path / "external/candidate"
+    claim = tmp_path / "external/source-pack-attempt.claim.json"
+    def forbidden_command(
+        *args: object,
+        **kwargs: object,
+    ) -> None:
+        del args, kwargs
+        raise AssertionError("build must not start")
+
+    monkeypatch.setattr(proof, "_command", forbidden_command)
+    _install_atomic_fault(monkeypatch, fault)
+
+    with pytest.raises(proof.ControllerError) as raised:
+        proof.run_proof(
+            proof.ProofConfig(
+                repository,
+                interpreters,
+                3,
+                10_000,
+                10_000,
+                candidate_output=output,
+                attempt_claim=claim,
+            )
+        )
+
+    expected = (
+        "retrieval_order_source_pack_attempt_terminal"
+        if fault == "directory_fsync"
+        else "retrieval_order_publication_failed_before_visibility"
+    )
+    assert raised.value.code == expected
+    assert claim.exists() is (fault == "directory_fsync")
+    assert not output.exists()
+
+
+def _synthetic_interpreters(tmp_path: Path) -> tuple[Path, Path]:
+    interpreters = (tmp_path / "python312", tmp_path / "python313")
+    for interpreter in interpreters:
+        interpreter.write_bytes(b"synthetic interpreter")
+        interpreter.chmod(0o755)
+    return interpreters
+
+
+def _install_atomic_fault(
+    monkeypatch: pytest.MonkeyPatch,
+    fault: str,
+) -> None:
+    if fault == "readback":
+        def invalid_readback(path: Path) -> bytes:
+            del path
+            return b"{}"
+
+        monkeypatch.setattr(
+            atomic_publication,
+            "_readback_bytes",
+            invalid_readback,
+        )
+        return
+
+    def fail(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        raise OSError("synthetic publication fault")
+
+    monkeypatch.setattr(
+        atomic_publication,
+        {
+            "write": "_write_bytes",
+            "file_fsync": "_fsync_file",
+            "publish": "_publish_no_replace",
+            "directory_fsync": "_fsync_directory",
+        }[fault],
+        fail,
+    )
 
 
 @pytest.mark.parametrize("code", STABLE_FAILURE_CODES)

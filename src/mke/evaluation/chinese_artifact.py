@@ -29,6 +29,10 @@ from mke.evaluation.graded_metrics import (
     calculate_graded_metrics,
 )
 from mke.evaluation.manifest import StableLocator
+from mke.evaluation.source_identity import (
+    build_source_identity,
+    validate_recorded_source_identity,
+)
 from mke.retrieval.query_policy import compile_fts5_query_diagnostic
 
 ARTIFACT_SCHEMA = "mke.retrieval_chinese_baseline.v1"
@@ -148,12 +152,14 @@ def validate_chinese_artifact(
         observed = _load_object(observed_path)
         protocol = load_chinese_retrieval_protocol(protocol_path)
         _validate_observed(observed, protocol)
+        validate_recorded_source_identity(artifact["source_identity"])
         expected = _canonical_artifact(
             observed,
             protocol=protocol,
             protocol_path=protocol_path,
             repository_root=repository_root.resolve(),
         )
+        expected["source_identity"] = artifact["source_identity"]
         if not _same_json_value(artifact, expected):
             raise ChineseArtifactValidationError(
                 "Chinese retrieval baseline artifact is invalid"
@@ -910,26 +916,21 @@ def _seed_replay_partition(
 
 
 def _source_identity(repository_root: Path) -> dict[str, object]:
-    files = [
-        {
-            "path": path.relative_to(repository_root).as_posix(),
-            "bytes": path.stat().st_size,
-            "sha256": _sha256(path),
-        }
+    relative_paths = tuple(
+        path.relative_to(repository_root).as_posix()
         for path in sorted(repository_root.glob("src/mke/**/*.py"))
         if path.is_file() and path.resolve().is_relative_to(repository_root)
-    ]
-    if not files:
+    )
+    if not relative_paths:
         raise ChineseArtifactValidationError(
             "Chinese retrieval baseline artifact is invalid"
         )
-    encoded = json.dumps(
-        files, ensure_ascii=True, separators=(",", ":"), sort_keys=True
-    ).encode()
-    return {
-        "sha256": hashlib.sha256(encoded).hexdigest(),
-        "files": files,
-    }
+    try:
+        return build_source_identity(repository_root, relative_paths)
+    except ValueError as error:
+        raise ChineseArtifactValidationError(
+            "Chinese retrieval baseline artifact is invalid"
+        ) from error
 
 
 def _page_text_inventory(

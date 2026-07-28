@@ -1,5 +1,10 @@
 # MCP Contract Reference
 
+The deterministic retrieval order change does not add or alter an MCP tool. MCP Search and Ask
+continue to use the owner-selected active-Publication strategy; revision-2 tie ordering and cursor
+invalidation are documented in the
+[proof workflow](../how-to/run-deterministic-retrieval-order-proof.md).
+
 This page is the canonical complete MCP inventory. MKE exposes exactly ten tools:
 
 - `list_libraries`
@@ -143,9 +148,18 @@ a cursor.
 | `response_too_large` | mandatory response metadata exceeds the response limit | `reduce_query_scope_or_report_contract_limit` |
 | `invalid_request` | max_bytes must be between 4 and 16384 | `choose_max_bytes_between_4_and_16384` |
 
+Agent-facing active-authority recovery is explicit:
+
+| Check | `problem` | Stable public-safe cause | `next_step` | Active Publication impact |
+|---|---|---|---|---|
+| `stable_locator_identity` | `retrieval_authority_invalid` | active retrieval candidates contain duplicate stable Evidence locators | `restore_valid_database_or_reingest_into_new_database` | `unchanged` |
+
 Unknown, inactive, superseded, inadmissible, and cross-Publication Evidence identifiers share the
 same `evidence_not_found` response. Errors do not disclose internal identity state, paths,
 tracebacks, queries, or Evidence.
+
+Opaque Evidence IDs are addressing identity, not ranking authority and not a cross-strategy
+display-order promise.
 
 Valid bounded legacy and strict-v1 calls remain unchanged. Oversized strict-v1 Search or Ask
 returns its existing frozen error shape with `problem="response_too_large"` and directs the

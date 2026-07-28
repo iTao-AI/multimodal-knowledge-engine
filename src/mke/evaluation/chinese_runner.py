@@ -620,45 +620,56 @@ def _validate_rank_profile(
 
 
 def _valid_rank_sql_trace(statements: tuple[str, ...]) -> bool:
-    match_statements = tuple(
-        " ".join(statement.split())
+    normalized = tuple(
+        " ".join(statement.split()).casefold()
         for statement in statements
-        if "active_evidence_fts MATCH" in statement
+    )
+    match_statements = tuple(
+        statement
+        for statement in normalized
+        if "active_evidence_fts match" in statement
     )
     if len(match_statements) != 2:
         return False
-    lowered = tuple(statement.casefold() for statement in match_statements)
-    common = (
+    rank_statements = tuple(
+        statement
+        for statement in match_statements
+        if "rank as score" in statement
+        and "bm25(active_evidence_fts) as score" not in statement
+    )
+    bm25_statements = tuple(
+        statement
+        for statement in match_statements
+        if "bm25(active_evidence_fts) as score" in statement
+    )
+    return (
+        len(rank_statements) == 1
+        and len(bm25_statements) == 1
+        and all(
+            _valid_match_rank_statement(statement)
+            for statement in match_statements
+        )
+    )
+
+
+def _valid_match_rank_statement(statement: str) -> bool:
+    requirements = (
         "join evidence on evidence.evidence_id = active_evidence_fts.evidence_id",
         "join sources on sources.source_id = evidence.source_id",
+        "join assets on assets.asset_id = sources.asset_id",
         "sources.active_publication_id = active_evidence_fts.publication_id",
+        (
+            "order by matched.score, matched.locator_start, "
+            "matched.locator_kind, matched.locator_end, "
+            "matched.source_sha256"
+        ),
     )
-    if any(" limit " in statement for statement in lowered) or any(
-        requirement not in statement
-        for statement in lowered
-        for requirement in common
+    if " limit " in statement or any(
+        requirement not in statement for requirement in requirements
     ):
         return False
-    return (
-        any(
-            "rank as score" in statement
-            and (
-                "order by rank, evidence.locator_start, "
-                "evidence.evidence_id"
-            )
-            in statement
-            for statement in lowered
-        )
-        and any(
-            "bm25(active_evidence_fts) as score" in statement
-            and (
-                "order by bm25(active_evidence_fts), "
-                "evidence.locator_start, evidence.evidence_id"
-            )
-            in statement
-            for statement in lowered
-        )
-    )
+    _, separator, order_by = statement.rpartition(" order by ")
+    return bool(separator) and "evidence_id" not in order_by
 
 
 def _stable_evidence_identity(locator: StableLocator) -> str:

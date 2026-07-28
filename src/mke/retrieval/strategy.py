@@ -41,7 +41,7 @@ class RetrievalStrategyDescriptor:
 _DESCRIPTORS: dict[RetrievalStrategy, RetrievalStrategyDescriptor] = {
     "current": RetrievalStrategyDescriptor(
         strategy_id="current",
-        revision=1,
+        revision=2,
         base_query_policy="current",
         required_projections=("active_evidence_fts",),
         additional_projections=(),
@@ -55,7 +55,7 @@ _DESCRIPTORS: dict[RetrievalStrategy, RetrievalStrategyDescriptor] = {
     ),
     "numeric-grouping-v1": RetrievalStrategyDescriptor(
         strategy_id="numeric-grouping-v1",
-        revision=1,
+        revision=2,
         base_query_policy="numeric-grouping-v1",
         required_projections=("active_evidence_fts",),
         additional_projections=(),
@@ -69,7 +69,7 @@ _DESCRIPTORS: dict[RetrievalStrategy, RetrievalStrategyDescriptor] = {
     ),
     "cjk-active-scan-overlap-v1": RetrievalStrategyDescriptor(
         strategy_id="cjk-active-scan-overlap-v1",
-        revision=1,
+        revision=2,
         base_query_policy="numeric-grouping-v1",
         required_projections=("active_evidence_fts",),
         additional_projections=(),

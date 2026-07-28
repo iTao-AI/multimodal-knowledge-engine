@@ -31,6 +31,10 @@ from mke.evaluation.dense_threshold import (
     select_dense_threshold,
     validate_threshold_report,
 )
+from mke.evaluation.source_identity import (
+    validate_recorded_file_identity,
+    validate_recorded_source_identity,
+)
 
 DensePhase = Literal["development", "holdout"]
 _CHINESE_PROTOCOL = "tests/fixtures/retrieval-chinese-v1/protocol.json"
@@ -278,13 +282,21 @@ def _load_development_freeze(
     if not isinstance(value, dict):
         raise DenseWorkflowError("development freeze is invalid")
     freeze = cast(dict[str, Any], value)
+    try:
+        validate_recorded_file_identity(
+            freeze.get("protocol"),
+            expected_path=protocol.resolve().relative_to(root).as_posix(),
+        )
+        validate_recorded_file_identity(
+            freeze.get("compatibility"), expected_path=_COMPATIBILITY
+        )
+        validate_recorded_source_identity(freeze.get("source"))
+    except ValueError as error:
+        raise DenseWorkflowError("development freeze identity drift") from error
     if (
         freeze.get("schema_version") != "mke.dense_development_freeze.v1"
         or freeze.get("candidate")
         != {"candidate_id": CANDIDATE_ID, "candidate_revision": CANDIDATE_REVISION}
-        or freeze.get("protocol") != _file_identity(protocol)
-        or freeze.get("compatibility") != _file_identity(root / _COMPATIBILITY)
-        or freeze.get("source") != dense_source_identity(root)
     ):
         raise DenseWorkflowError("development freeze identity drift")
     threshold = freeze.get("threshold_report")

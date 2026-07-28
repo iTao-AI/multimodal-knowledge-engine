@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from mke.retrieval.errors import RetrievalAuthorityError
+
 
 @dataclass(frozen=True)
 class CjkActiveScanParameters:
@@ -35,7 +37,7 @@ class CjkActiveScanCandidate:
     locator_start: int
     locator_end: int
     text: str
-    document_id: str | None = None
+    document_id: str
 
 
 @dataclass(frozen=True)
@@ -50,7 +52,7 @@ class CjkActiveScanResult:
     overlap_count: int
     overlap_ratio: float
     matched_terms: tuple[str, ...]
-    document_id: str | None = None
+    document_id: str
 
 
 @dataclass(frozen=True)
@@ -72,7 +74,7 @@ class CjkActiveScanError(ValueError):
 
 CJK_ACTIVE_SCAN_PARAMETERS = CjkActiveScanParameters(
     strategy_id="cjk-active-scan-overlap-v1",
-    revision=1,
+    revision=2,
     minimum_overlap_count=2,
     minimum_overlap_ratio=0.30,
     max_results=10,
@@ -137,6 +139,17 @@ def select_cjk_active_scan_candidates(
 ) -> CjkActiveScanSelection:
     if not terms:
         return CjkActiveScanSelection((), 0, False)
+    seen: set[tuple[str, str, int, int]] = set()
+    for candidate in candidates:
+        projection = (
+            candidate.document_id,
+            candidate.locator_kind,
+            candidate.locator_start,
+            candidate.locator_end,
+        )
+        if projection in seen:
+            raise RetrievalAuthorityError
+        seen.add(projection)
     scored: list[CjkActiveScanResult] = []
     for candidate in candidates:
         normalized_text = _normalize_cjk_text(candidate.text)
@@ -175,9 +188,10 @@ def select_cjk_active_scan_candidates(
             key=lambda item: (
                 -item.overlap_count,
                 -item.overlap_ratio,
-                item.document_id or item.source_id,
+                item.document_id,
+                item.locator_kind,
                 item.locator_start,
-                item.evidence_id,
+                item.locator_end,
             ),
         )
     )

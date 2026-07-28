@@ -7,7 +7,10 @@ from hashlib import sha256
 from pathlib import Path, PurePosixPath
 from typing import cast
 
+from mke.evaluation.source_identity import validate_recorded_file_identity
+
 SCHEMA_VERSION = "mke.relevance_gate_protocol.v1"
+_RECORDED_PROTOCOL = "tests/fixtures/retrieval-relevance-gate-v1/protocol-lock.json"
 CANDIDATE_ID = "cjk-relevance-gate-reranker-v1"
 CANDIDATE_REVISION = 1
 
@@ -164,6 +167,7 @@ def validate_relevance_gate_protocol_lock(
     _validate_selection_objective(protocol.get("selection_objective"))
     _validate_development_gates(protocol.get("development_gates"))
     _validate_state(protocol.get("state"))
+    expected["inputs"] = protocol["inputs"]
     if protocol != expected:
         raise _error(
             "protocol identity drift",
@@ -207,23 +211,46 @@ def _validate_inputs(value: object, *, repository_root: Path) -> None:
             "bound input inventory does not match E3-E protocol",
             "Restore the protocol input inventory.",
         )
-    root = repository_root.resolve()
+    recorded = _recorded_inputs(repository_root, _RECORDED_PROTOCOL)
     for name, expected_path in _INPUTS.items():
         record = _object(data.get(name), f"{name} identity")
-        recorded_path = record.get("path")
-        if type(recorded_path) is not str:
+        if record.get("path") != expected_path:
             raise _error(
                 "repository path is invalid",
                 f"{name} path must be repository-relative",
-                "Regenerate the protocol with repository-relative paths.",
+                "Restore the frozen repository-relative path.",
             )
-        _repository_path(root, recorded_path)
-        if record != _file_identity(root, expected_path):
+        try:
+            validate_recorded_file_identity(
+                record, expected_path=expected_path
+            )
+        except ValueError as error:
             raise _error(
                 "input identity drift",
-                f"{name} bytes or sha256 does not match the repository file",
-                "Confirm semantic equality before refreshing protocol identity.",
+                f"{name} recorded identity is invalid",
+                "Restore the frozen recorded input identity.",
+            ) from error
+        if record != recorded[name]:
+            raise _error(
+                "input identity drift",
+                f"{name} recorded identity differs from the frozen protocol",
+                "Restore the frozen recorded input identity.",
             )
+
+
+def _recorded_inputs(root: Path, relative_path: str) -> dict[str, object]:
+    try:
+        payload = json.loads((root / relative_path).read_text(encoding="utf-8"))
+        return cast(
+            dict[str, object],
+            cast(dict[str, object], payload)["inputs"],
+        )
+    except Exception as error:
+        raise _error(
+            "input identity drift",
+            "frozen protocol inputs are unavailable",
+            "Restore the checked-in protocol lock.",
+        ) from error
 
 
 def _validate_source_inventory(value: object) -> None:
