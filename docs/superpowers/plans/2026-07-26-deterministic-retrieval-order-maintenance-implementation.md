@@ -7277,3 +7277,249 @@ completion does not authorize push or PR; publication requires a separate user d
 - [ ] Independent actual-diff review is clean before any publication decision.
 
 <!-- PUBLIC AMENDMENT K END -->
+
+## Amendment L — Final aggregate-review closure
+
+### L0. Authority and scope
+
+The complete pre-publication review found retained-evidence lifecycle, atomic publication, one-shot
+workflow, proof-input, and structural-performance gaps that are not closed by a green aggregate
+test ledger. Amendment L is a bounded final-review repair. It does not rerun or replace any
+canonical observation, compatibility record, source-pack attempt, installed proof, or candidate
+artifact.
+
+The five committed canonical JSON files remain byte-immutable. The retrieval runtime candidate
+remains `7af0ba1ecf662e9bebb125c85b429e675233fbe4`. Evaluation-only repairs after that seal do not
+retroactively become candidate-runtime evidence. Strict-live current-source comparison remains a
+separate temporary/live authority; retained canonical validation must validate the frozen candidate
+record rather than require every future checkout to equal the old candidate source tree.
+
+Non-goals remain unchanged: no ranking, tokenization, segmentation, contextual retrieval, relevance,
+dense/RRF/reranker, OCR, Agent-loop, provider, dependency, public schema, promotion, release, or
+deployment change. Do not modify retrieval runtime SQL in this amendment.
+
+### L1. Separate retained canonical evidence from strict-live current checkout
+
+Modify only:
+
+- `src/mke/evaluation/retrieval_order_compatibility.py`;
+- `tests/evaluation/test_retrieval_order_compatibility.py`;
+- `tests/evaluation/test_retrieval_order_canonical_evidence.py`.
+
+Preserve `validate_compatibility_artifact()` as the strict-live base validator for temporary/current
+artifacts. It must continue comparing the artifact current-source record with the live checkout.
+For the canonical-aware path only, validate the frozen `current_source` record with the existing
+recorded-source schema/digest authority, then bind it to the exact immutable canonical artifact hash,
+canonical authority envelope, candidate seal, attempt receipt, protocol, and five-file K1 freeze.
+Canonical validation must not rebuild current-source identity from the future checkout and must not
+invoke Git, observers, runners, recorders, historical replay, or publication.
+
+Targeted RED must prove that the current canonical-aware validator fails when an unrelated future
+`src/mke` file changes solely because `_current_source_identity(root)` differs. GREEN must prove:
+
+1. the unchanged committed canonical bytes still validate purely;
+2. canonical validation does not call `_current_source_identity`;
+3. tampering the recorded source fields or canonical bytes still fails;
+4. the strict-live base/temporary path still rejects a current-source mismatch; and
+5. no public function signature or result schema changes.
+
+Commit:
+
+`fix(eval): separate retained compatibility authority`
+
+Stop for focused code-diff review.
+
+### L2. Close atomic no-replace visibility states
+
+Modify only:
+
+- `src/mke/evaluation/_atomic_json_publication.py`;
+- `tests/evaluation/test_atomic_json_publication.py`.
+
+Use no-follow lexical-state checks. A surviving destination entry is visible even when it is a
+dangling symlink, directory, or other nonregular entry. It must never be reported as `absent` or
+retryable. Cover both preexisting state and the race between initial preflight and no-replace
+publication.
+
+Do not let temporary-file cleanup errors overwrite a result after the destination became visible.
+If cleanup raises, re-read and validate the destination without following an untrusted lexical
+alias. Complete candidate bytes are terminal `durability_unconfirmed`; a different or invalid
+visible entry is terminal invalid-visible state; only a genuinely absent destination can remain a
+before-visibility failure. Preserve bounded public-safe fields and never expose a temporary path.
+
+Preregister REDs for:
+
+- preexisting dangling symlink;
+- race-created dangling symlink;
+- race-created directory/nonregular entry;
+- temporary unlink failure after complete visibility; and
+- temporary unlink failure without destination visibility.
+
+Commit:
+
+`fix(eval): preserve atomic publication visibility`
+
+Stop for focused code-diff review.
+
+### L3. Fail before repeated observation and preserve lexical canonical paths
+
+Modify only:
+
+- `src/mke/evaluation/retrieval_order_protocol.py`;
+- `src/mke/evaluation/retrieval_order_workflow.py`;
+- `tests/evaluation/test_retrieval_order_protocol.py`;
+- `tests/evaluation/test_retrieval_order_workflow.py`.
+
+Before metadata loading, candidate sealing, fixture reads, or observation, preflight every requested
+protocol/output path with component-by-component `lstat`. Preserve the original argv path until
+canonical spelling and no-follow ancestry are established. `.resolve()` equality is not canonical
+path authority.
+
+A lexically occupied development-freeze destination must stop before
+`observe_retrieval_order_partition`. A complete regular freeze is an already-started/retain-and-stop
+state. A dangling symlink, directory, or invalid nonregular destination is terminal visible-invalid
+state. Bytes and file identity must remain unchanged and observer/builder/publication call counts
+must be zero.
+
+Apply the same no-follow preexistence and exact lexical canonical-path rules to holdout receipt and
+artifact inputs/outputs. Synthetic temporary workflows remain supported under a real nonsymlink
+repository root; they are not labelled canonical. Add parent/final symlink and, where the filesystem
+supports it, lexical case-alias regressions. Do not open canonical holdout fixture bytes in these
+tests.
+
+Commit:
+
+`fix(eval): preflight one-shot workflow paths`
+
+Stop for focused code-diff review.
+
+### L4. Preserve durable source-pack attempt terminality
+
+Modify only:
+
+- `scripts/consumer_source_pack_proof.py`;
+- `tests/scripts/test_consumer_source_pack_proof.py`;
+- `docs/how-to/run-deterministic-retrieval-order-proof.md`;
+- `tests/evaluation/test_consumer_source_pack_documentation.py`.
+
+Any preexisting regular entry at the lexical attempt-claim slot is terminal already-started state;
+the controller must not read it or run Git merely to decide whether a retry is allowed. Return
+`retrieval_order_source_pack_already_started` with retain-and-stop guidance before Git, build, child
+process, candidate preparation, or publication. Use `retrieval_order_source_pack_claim_invalid`
+only for a malformed requested path, symlink/nonregular state, or path-authority failure that proves
+no durable claim started. A race winner that leaves a complete regular claim is also
+already-started, not preclaim rejection.
+
+The stable `already_started` code already exists and must become reachable. Update exact tests/help
+without running the real source-pack proof or creating a claim.
+
+Commit:
+
+`fix(proof): retain started source-pack claims`
+
+Stop for focused code-diff review.
+
+### L5. Bind installed proof to semantic inputs
+
+Modify only:
+
+- `scripts/retrieval_order_installed_proof.py`;
+- `tests/scripts/test_retrieval_order_installed_proof.py`;
+- `docs/how-to/run-deterministic-retrieval-order-proof.md`;
+- `tests/evaluation/test_retrieval_order_documentation.py`.
+
+Require `source_commit` to match exact lowercase hexadecimal `[0-9a-f]{40}` before any command or
+environment creation. Require the two explicitly supplied interpreters to prove exactly one Python
+3.12 minor and one Python 3.13 minor; distinct filesystem paths alone are insufficient. Preserve the
+v1 public result schema unless an existing field can carry measured identity without widening it.
+
+The proof consumes the explicitly supplied wheel only. Remove sibling-wheel globbing and the
+single-wheel-directory requirement; an unrelated adjacent wheel must not be read and must not affect
+the retained wheel selected by exact path, filename, bytes, SHA-256, and receipt binding.
+
+Preregister mutations for nonhex 40-character commit, duplicate interpreter minor, wrong minor, and
+an unread/irrelevant sibling wheel. Nonhex commit and explicit-wheel checks must fail without any
+subprocess. Measure interpreter versions with one bounded identity-only probe per supplied executable
+before virtual-environment creation or wheel installation; the probe may use `_run` or a dedicated
+bounded runner, but must not import MKE, install packages, or execute the installed proof. Version
+mismatch must stop before every environment/install command. Do not execute the real installed proof
+or build a wheel.
+
+Commit:
+
+`fix(proof): validate installed proof identities`
+
+Stop for focused code-diff review.
+
+### L6. Record the fixed-profile FTS query plan without changing runtime
+
+Modify only:
+
+- `tests/adapters/test_sqlite_evidence_access.py`;
+- `tests/fixtures/retrieval-order-v1/fts-query-plan.json` (new);
+- `docs/superpowers/specs/2026-07-26-deterministic-retrieval-order-maintenance-design.md`.
+
+Use a deterministic synthetic active-only FTS fixture and `EXPLAIN QUERY PLAN` against the exact
+revision-2 page query. Record a public-neutral normalized plan for the sealed SQLite profile. The
+record must bind schema version, SQLite source/profile identity, query-policy and strategy revisions,
+normalized nodes, and explicit structural limitations. Ignore unstable numeric node IDs while
+preserving operator/detail order and materialization/scan/temp-order facts.
+
+The test must also retain the existing one-`MATCH`, bounded-statement, metadata-only ordering, and
+no-N+1 assertions. This task records and tests the approved structural evidence; it must not modify
+`src/mke/adapters/sqlite`, optimize the query, claim wall-clock improvement, or reinterpret a
+materialized matched-metadata scan as a relevance or promotion result. If the observed normalized
+plan cannot satisfy the design's existing structural contract, stop for a separate runtime decision
+instead of changing SQL after the one-shot seal.
+
+Commit:
+
+`test(retrieval): freeze fixed-profile query plan`
+
+Stop for focused actual-diff review.
+
+### L7. Aggregate verification and lifecycle closeout
+
+After L1-L6 focused reviews are clean, run the affected focused/adjacent suites, full `pytest`, Ruff,
+Pyright, canonical pure validation, strict-live/temporary compatibility CI parity, and exact hash
+checks. Ordinary temporary compatibility is allowed; canonical observation/recording and all real
+proofs remain forbidden.
+
+Require:
+
+- all five canonical JSON hashes unchanged;
+- no diff from candidate seal in retrieval runtime, application, domain, public interfaces, CLI, or
+  MCP runtime paths;
+- canonical retained validation passes without current-checkout equality;
+- strict-live temporary validation remains current-source bound;
+- no observer, canonical recorder, source-pack attempt, installed proof, wheel build, push, PR,
+  merge, release, deployment, or promotion;
+- clean worktree and `git diff --check`.
+
+Then update only the design and implementation plan to record the verified Amendment L state, the
+fixed-profile query-plan record hash, the unchanged candidate/runtime and canonical hashes, the
+new evaluation/proof repair commits, exact non-claims, and final aggregate-review status. Replace the
+old all-`src/mke` post-seal assertion with an exact runtime-scope assertion; evaluation-only review
+repairs must not be presented as candidate-runtime evidence.
+
+Commit lifecycle documentation separately as:
+
+`docs(retrieval): close final review findings`
+
+Stop for final independent targeted re-review. Review-clean local completion still does not authorize
+push or PR.
+
+### Amendment L acceptance
+
+- [ ] Retained canonical evidence no longer expires on unrelated future source changes.
+- [ ] Strict-live temporary compatibility remains bound to the current checkout.
+- [ ] Atomic publication never reports a visible lexical entry as absent/retryable.
+- [ ] Cleanup failure cannot erase terminal publication visibility.
+- [ ] Repeated development and invalid canonical aliases stop before observation or fixture reads.
+- [ ] A complete durable source-pack claim is always terminal already-started state.
+- [ ] Installed proof rejects nonhex Git identity and wrong/duplicate Python minors without wheel discovery.
+- [ ] Fixed-profile query-plan evidence is recorded without runtime SQL change or performance overclaim.
+- [ ] Full/static/hash/scope gates pass and five canonical bytes remain exact.
+- [ ] Final independent review is clean before any publication decision.
+
+<!-- PUBLIC AMENDMENT L END -->
