@@ -6991,10 +6991,21 @@ The test must:
 1. assert the exact five paths and SHA-256 values;
 2. run `validate_retrieval_order_artifact()` against the committed retrieval artifact, thereby
    validating its development freeze and holdout receipt;
-3. run `validate_compatibility_artifact()` against the committed compatibility artifact;
+3. run the canonical-aware production entry `validate_temporary_compatibility()` against the
+   committed compatibility artifact and require the exact result payload:
+   `schema_version=mke.retrieval_order_compatibility_validate_result.v1`, `status=passed`,
+   `mode=validate`, `authority_layer=artifact_validation`, `canonical=true`,
+   `output_state=complete_preexisting`, `publication_outcome=not_attempted`, `problem=none`,
+   `cause=none`, `next_step=none`, `first_failed_gate=none`,
+   `stage_statuses=[{"name":"compatibility","status":"passed"}]`,
+   `historical_revision=1`, and `current_revision=2`;
 4. validate the attempt receipt separately by exact path/hash/schema, candidate seal, target, and
-   referenced development/holdout/retrieval digests;
-5. never claim that the standalone compatibility validator validates the attempt receipt;
+   referenced development/holdout/retrieval digests, even though the canonical-aware entry also
+   validates the retained attempt as part of canonical authority;
+5. state the authority layering precisely: the canonical-aware entry validates the canonical
+   envelope and retained authority, then delegates its stripped base projection to
+   `validate_compatibility_artifact()`; never claim that the standalone base validator accepts the
+   canonical envelope or independently validates the attempt receipt;
 6. prove canonical bytes unchanged;
 7. fail if artifact builders, retrieval observers/runners, compatibility builders/recorders, or
    historical replay are entered.
