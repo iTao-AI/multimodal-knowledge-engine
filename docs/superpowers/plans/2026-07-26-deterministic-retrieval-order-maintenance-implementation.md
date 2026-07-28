@@ -6922,3 +6922,329 @@ They require separate evidence and must not be smuggled into this repair.
   full, CI, and same-wheel installed/export proof plus read-only source-pack result validation
   without canonical holdout replay.
 - [ ] **C12 (P1)** — Commit only five canonical proof artifacts and return for authority review.
+
+<!-- PUBLIC AMENDMENT K START -->
+
+## Amendment K — Minimal Evidence Honesty Closure
+
+### K0. Purpose and authority
+
+This amendment closes four post-seal gaps:
+
+1. committed canonical retrieval evidence is hash-preserved but not directly pure-validated by a
+   checked-in test;
+2. the mutable current MCP expectation is missing one current public-safe cause;
+3. installed-wheel proof wording is broader than the callable-presence behavior it executes;
+4. operator and lifecycle documentation is stale.
+
+It does not reopen runtime implementation or observation.
+
+The runtime/observation candidate remains:
+
+- HEAD `7af0ba1ecf662e9bebb125c85b429e675233fbe4`;
+- tree `9332d68bbe9c9a76b44d7d8eb82ccf2ee24b28a0`.
+
+The Amendment K landing parent is:
+
+- HEAD `b0c2522e45b2f951180ee343f1edfc65871e41c3`;
+- tree `68776e38d3a63a558d698352ddef23608598a31c`.
+
+The five canonical SHA-256 values are:
+
+- development freeze:
+  `0d8761037e9132461a1d6bbf2eac0a39471dfaa38c65acbdc2400a87ff8bffd8`;
+- holdout receipt:
+  `8f390ada3632c12527eb75747a2ce21721317fffdd30bd9fc177e8f305dc3203`;
+- retrieval artifact:
+  `104a41a6aa0c719313d508c79d00886a18483bbf3eeeadcdbc8899dd927283c1`;
+- compatibility attempt:
+  `df18d9738548fa33af5c7f76dfa26e89a721f1c08a2df0e034a7688c67e81604`;
+- compatibility artifact:
+  `f9a5883f3ac47652cbd18ef0bb08b61ceb00065955a3db575df0fd41689240ba`.
+
+The frozen release MCP fixture SHA-256 is
+`f372f9733c8c352d7610d16412d9f98304dde325dd235ce81e30b4c6253cc3cd`.
+
+### K0.1. Global prohibitions
+
+Amendment K must not:
+
+- modify `src/mke/**`, `.github/workflows/ci.yml`, the five canonical JSON files, or the frozen
+  release MCP fixture;
+- add a public safe-cause ABI;
+- modify source-pack client/proof controllers;
+- add installed-proof CLI inputs, output fields, mirror logic, or validator execution;
+- run development, holdout, observation, record, replay, build, installed proof, source-pack proof,
+  publication, cleanup, or promotion;
+- add dependencies, providers, GraphRAG, dense/RRF/reranker runtime, OCR, Agent loops, HTTP/SaaS,
+  segmentation, or contextual retrieval;
+- claim retrieval quality, latency, production adoption, release, or promotion.
+
+### K1. Validate committed canonical evidence
+
+Add:
+
+- `tests/evaluation/test_retrieval_order_canonical_evidence.py`
+
+The test must:
+
+1. assert the exact five paths and SHA-256 values;
+2. run `validate_retrieval_order_artifact()` against the committed retrieval artifact, thereby
+   validating its development freeze and holdout receipt;
+3. run `validate_compatibility_artifact()` against the committed compatibility artifact;
+4. validate the attempt receipt separately by exact path/hash/schema, candidate seal, target, and
+   referenced development/holdout/retrieval digests;
+5. never claim that the standalone compatibility validator validates the attempt receipt;
+6. prove canonical bytes unchanged;
+7. fail if artifact builders, retrieval observers/runners, compatibility builders/recorders, or
+   historical replay are entered.
+
+This is regression/corpus-only coverage. Do not manufacture a RED. A semantic failure is terminal
+authority drift; canonical bytes and runtime code must not be repaired in K1.
+
+The existing full-suite matrix automatically collects the new test. Do not add a dedicated CI step.
+
+Verify the focused test, adjacent artifact/compatibility/freeze tests, Ruff, Pyright, and exact
+hashes. Commit:
+
+`test(eval): validate committed retrieval evidence`
+
+Stop for independent actual-diff review.
+
+### K2. Align the mutable current MCP snapshot
+
+Add:
+
+- `tests/interfaces/test_mcp_current_contract_fixture.py`
+
+Modify only:
+
+- `tests/fixtures/mcp-context-completeness-v1/mcp-tool-schemas.json`
+
+The exact-current test must bind:
+
+- schema version;
+- complete ten-tool inventory and exact tool schemas/metadata;
+- unique canonical-sorted `safe_causes`;
+- repository-current equality with the producer allowlist;
+- presence of
+  `active retrieval candidates contain duplicate stable Evidence locators`.
+
+The preregistered RED is exactly current fixture count `101` versus current producer count `102`,
+with only that missing cause. Any second cause or tool-schema difference is terminal.
+
+Append only the verified missing cause and preserve canonical ordering. Repository-internal test
+access to the internal allowlist does not make it a public ABI.
+
+Do not modify the frozen release fixture, runtime source, MCP/source-pack consumer, or proof
+controller. Verify focused and adjacent current/release tests, Ruff, Pyright, and the frozen release
+fixture hash. Commit:
+
+`test(mcp): align current safe error snapshot`
+
+Stop for independent actual-diff review.
+
+### K3. State exact proof and recovery boundaries
+
+Modify only:
+
+- `scripts/retrieval_order_installed_proof.py`;
+- `tests/scripts/test_retrieval_order_installed_proof.py`;
+- `docs/how-to/run-deterministic-retrieval-order-proof.md`;
+- `docs/how-to/run-consumer-source-pack-proof.md`;
+- `docs/reference/mcp-contract.md`;
+- `tests/evaluation/test_retrieval_order_documentation.py`;
+- `tests/evaluation/test_consumer_source_pack_documentation.py`;
+- `tests/evaluation/test_mcp_context_completeness_documentation.py`.
+
+Change installed-proof help/documentation text only. Preserve execution, arguments, v1 result
+schema, stage names, and historical receipts.
+
+The text must say the installed proof establishes:
+
+- explicit wheel/receipt/input identity preflight;
+- installed module, distribution, strategy revision, and query-policy revision;
+- validator function availability under Python 3.12 and 3.13.
+
+The help and documentation must say:
+
+> This proof checks validator availability only; it does not execute either validator. Canonical
+> checkout content is validated separately by
+> `tests/evaluation/test_retrieval_order_canonical_evidence.py`.
+
+Correct the numeric command to:
+
+`uv run mke eval retrieval-numeric --protocol tests/fixtures/retrieval-numeric-v1/protocol-lock.json --json`
+
+Document its existing strict-live exit `1` tuple:
+
+- `problem=retrieval_numeric_fixture_invalid`;
+- `cause=protocol-bound input identity mismatch`;
+- `next_step=restore_numeric_protocol_inputs`.
+
+In the deterministic-order guide, document that the source-pack claim path needs a real nonsymlink
+lexical ancestor chain, a symlink-alias preclaim rejection is not a durable attempt, and a complete
+visible claim makes the durable attempt terminal. In the ordinary source-pack guide, add only a
+cross-link explaining that its normal flow does not create this durable claim and that the
+deterministic-order guide owns the preclaim/terminal rules.
+
+Add the Agent-facing MCP recovery row:
+
+- check `stable_locator_identity`;
+- problem `retrieval_authority_invalid`;
+- cause `active retrieval candidates contain duplicate stable Evidence locators`;
+- next step `restore_valid_database_or_reingest_into_new_database`;
+- active Publication impact `unchanged`.
+
+State that opaque Evidence IDs are addressing identity, not ranking authority or a cross-strategy
+display-order promise.
+
+Use targeted help/documentation REDs for only these missing contracts. Verify the focused script and
+documentation tests, Ruff, and Pyright. Commit:
+
+`docs(retrieval): state proof and recovery boundaries`
+
+Stop for independent actual-diff review.
+
+### K4. Reconcile lifecycle status
+
+Modify only:
+
+- `docs/superpowers/specs/2026-07-26-deterministic-retrieval-order-maintenance-design.md`;
+- `docs/superpowers/plans/2026-07-26-deterministic-retrieval-order-maintenance-implementation.md`.
+
+Record only verified state:
+
+- runtime candidate seal `7af0ba1...`;
+- deterministic order maintenance and bounded one-shot mechanism observation locally completed;
+- five canonical artifacts committed and read-only validated;
+- installed proof limited to identity/capability and validator availability;
+- source-pack count remains `2 / 1 / 1`;
+- no post-seal `src/mke` change;
+- local branch only;
+- no push, PR, merge, release, deployment, or promotion;
+- no relevance, segmentation, contextual retrieval, or general RAG quality conclusion.
+
+Reconcile C1-C12 only from actual committed evidence. Add a concise closeout, not a new review file
+or duplicate index. Do not self-reference the K4 commit SHA inside its own bytes.
+
+Run:
+
+```bash
+rg -n \
+  'candidate seal|five canonical artifacts|2.*CLI.*1.*preclaim.*1.*durable|src/mke|local branch|push|promotion|C1|C12|Amendment K' \
+  docs/superpowers/specs/2026-07-26-deterministic-retrieval-order-maintenance-design.md \
+  docs/superpowers/plans/2026-07-26-deterministic-retrieval-order-maintenance-implementation.md
+if rg -n '/U[s]ers/|C[a]reer|\.g[s]tack|source[_]thread|host[I]d|求''职' \
+  docs/superpowers/specs/2026-07-26-deterministic-retrieval-order-maintenance-design.md \
+  docs/superpowers/plans/2026-07-26-deterministic-retrieval-order-maintenance-implementation.md; then
+  exit 1
+fi
+uv run pytest -q \
+  tests/evaluation/test_retrieval_order_documentation.py \
+  tests/evaluation/test_consumer_source_pack_documentation.py \
+  tests/evaluation/test_mcp_context_completeness_documentation.py
+shasum -a 256 -c <<'SHA256'
+0d8761037e9132461a1d6bbf2eac0a39471dfaa38c65acbdc2400a87ff8bffd8  benchmarks/retrieval/retrieval-order-v1-development-freeze.json
+8f390ada3632c12527eb75747a2ce21721317fffdd30bd9fc177e8f305dc3203  benchmarks/retrieval/retrieval-order-v1-holdout-receipt.json
+104a41a6aa0c719313d508c79d00886a18483bbf3eeeadcdbc8899dd927283c1  benchmarks/retrieval/retrieval-order-v1-artifact.json
+df18d9738548fa33af5c7f76dfa26e89a721f1c08a2df0e034a7688c67e81604  benchmarks/retrieval/retrieval-order-v2-compatibility-attempt.json
+f9a5883f3ac47652cbd18ef0bb08b61ceb00065955a3db575df0fd41689240ba  benchmarks/retrieval/retrieval-order-v2-compatibility.json
+f372f9733c8c352d7610d16412d9f98304dde325dd235ce81e30b4c6253cc3cd  tests/fixtures/consumer-source-pack-v1/mcp-tool-schemas.json
+SHA256
+git diff --check
+```
+
+Commit:
+
+`docs(retrieval): close deterministic order maintenance`
+
+Stop for independent actual-diff review.
+
+### K5. Normal completion verification
+
+Run:
+
+```bash
+uv run pytest -q tests/evaluation/test_retrieval_order_canonical_evidence.py
+uv run pytest -q \
+  tests/interfaces/test_mcp_current_contract_fixture.py \
+  tests/interfaces/test_mcp_context_completeness.py \
+  tests/scripts/test_retrieval_order_installed_proof.py \
+  tests/evaluation/test_retrieval_order_documentation.py \
+  tests/evaluation/test_consumer_source_pack_documentation.py \
+  tests/evaluation/test_mcp_context_completeness_documentation.py
+uv run pytest -q
+uv run ruff check .
+uv run pyright
+```
+
+Then run:
+
+```bash
+shasum -a 256 -c <<'SHA256'
+0d8761037e9132461a1d6bbf2eac0a39471dfaa38c65acbdc2400a87ff8bffd8  benchmarks/retrieval/retrieval-order-v1-development-freeze.json
+8f390ada3632c12527eb75747a2ce21721317fffdd30bd9fc177e8f305dc3203  benchmarks/retrieval/retrieval-order-v1-holdout-receipt.json
+104a41a6aa0c719313d508c79d00886a18483bbf3eeeadcdbc8899dd927283c1  benchmarks/retrieval/retrieval-order-v1-artifact.json
+df18d9738548fa33af5c7f76dfa26e89a721f1c08a2df0e034a7688c67e81604  benchmarks/retrieval/retrieval-order-v2-compatibility-attempt.json
+f9a5883f3ac47652cbd18ef0bb08b61ceb00065955a3db575df0fd41689240ba  benchmarks/retrieval/retrieval-order-v2-compatibility.json
+f372f9733c8c352d7610d16412d9f98304dde325dd235ce81e30b4c6253cc3cd  tests/fixtures/consumer-source-pack-v1/mcp-tool-schemas.json
+SHA256
+shasum -a 256 tests/fixtures/mcp-context-completeness-v1/mcp-tool-schemas.json
+test -z "$(git diff 7af0ba1ecf662e9bebb125c85b429e675233fbe4..HEAD -- src/mke)"
+git diff --check
+test "$(git rev-list --count b0c2522e45b2f951180ee343f1edfc65871e41c3..HEAD)" -eq 5
+diff -u \
+  <(printf '%s\n' \
+    docs/how-to/run-consumer-source-pack-proof.md \
+    docs/how-to/run-deterministic-retrieval-order-proof.md \
+    docs/reference/mcp-contract.md \
+    docs/superpowers/plans/2026-07-26-deterministic-retrieval-order-maintenance-implementation.md \
+    docs/superpowers/specs/2026-07-26-deterministic-retrieval-order-maintenance-design.md \
+    scripts/retrieval_order_installed_proof.py \
+    tests/evaluation/test_consumer_source_pack_documentation.py \
+    tests/evaluation/test_mcp_context_completeness_documentation.py \
+    tests/evaluation/test_retrieval_order_canonical_evidence.py \
+    tests/evaluation/test_retrieval_order_documentation.py \
+    tests/fixtures/mcp-context-completeness-v1/mcp-tool-schemas.json \
+    tests/interfaces/test_mcp_current_contract_fixture.py \
+    tests/scripts/test_retrieval_order_installed_proof.py | sort) \
+  <(git diff --name-only b0c2522e45b2f951180ee343f1edfc65871e41c3..HEAD | sort)
+git log --format='%H %s' \
+  b0c2522e45b2f951180ee343f1edfc65871e41c3..HEAD
+test -z "$(git status --porcelain=v1)"
+```
+
+Do not run local workflow-body parity, build, product proof, demo, installed proof, source-pack proof,
+observation, record, replay, publication, push, PR, merge, release, or promotion.
+
+Return the command ledger and identities for independent authority review.
+
+### K6. Failure routing and review
+
+- canonical/hash/runtime drift: terminal `BLOCKED`;
+- exact K2 one-cause RED: apply only the approved fixture correction;
+- task-owned test/help/doc defect: repair only approved K paths and rerun targeted/final checks;
+- unrelated full-suite failure: stop for authority review;
+- transient process failure: preserve evidence and rerun only after classification.
+
+Ordinary tests are rerunnable. No-retry authority applies to observation/publication and the frozen
+source-pack attempt.
+
+The review authority reads the existing K0-K4 review seals and examines only the K5 aggregate
+ledger, final HEAD/path inventory, identities, and non-claims. It repeats a sealed diff review only
+if the aggregate ledger exposes drift or a new cross-commit interaction. Review-clean local
+completion does not authorize push or PR; publication requires a separate user decision.
+
+### Amendment K acceptance
+
+- [ ] K0 exact plan block landed and independently reviewed.
+- [ ] K1 committed canonical pure-validation test passed without side effects.
+- [ ] K2 exact current MCP snapshot passed; frozen release fixture unchanged.
+- [ ] K3 proof/help/operator contracts state exact authority and recovery boundaries.
+- [ ] K4 lifecycle state reconciled without new claims or duplicate review artifact.
+- [ ] K5 focused/full/static/hash/source-scope gates passed at one clean HEAD.
+- [ ] Candidate/runtime, canonical evidence, source-pack counts, and non-claims remain exact.
+- [ ] Independent actual-diff review is clean before any publication decision.
+
+<!-- PUBLIC AMENDMENT K END -->
