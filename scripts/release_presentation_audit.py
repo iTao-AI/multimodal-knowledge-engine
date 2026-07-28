@@ -10,7 +10,7 @@ from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-EXPECTED_VERSION = "0.1.4"
+EXPECTED_VERSION = "0.1.5"
 RUNTIME_STRATEGY = "cjk-active-scan-overlap-v1"
 
 RELEASE_FACING_FILES = (
@@ -18,7 +18,7 @@ RELEASE_FACING_FILES = (
     "README_CN.md",
     "docs/README.md",
     "CHANGELOG.md",
-    "docs/releases/v0.1.4.md",
+    "docs/releases/v0.1.5.md",
     "docs/how-to/verify-release.md",
 )
 COMPILED_LIBRARY_CLAIM_FILES = (
@@ -67,16 +67,17 @@ STALE_TERMINAL_ASR_DENIAL_PATTERNS = (
 )
 RELEASE_NOTE_FILES = (
     "CHANGELOG.md",
-    "docs/releases/v0.1.4.md",
+    "docs/releases/v0.1.5.md",
 )
 HISTORICAL_RELEASE_FILES = (
     "docs/releases/v0.1.2.md",
     "docs/releases/v0.1.3.md",
+    "docs/releases/v0.1.4.md",
 )
 CONSUMER_SMOKE_COMMAND_FILES = (
     "README.md",
     "README_CN.md",
-    "docs/releases/v0.1.4.md",
+    "docs/releases/v0.1.5.md",
     "docs/how-to/verify-release.md",
 )
 CURRENT_BUILD_WHEEL_COMMAND_FILES = (
@@ -1004,12 +1005,56 @@ def _audit_stale_status(root: Path, files: Iterable[str]) -> list[Violation]:
     return violations
 
 
+def _audit_v015_contract(root: Path) -> list[Violation]:
+    release = _read_text(root, "docs/releases/v0.1.5.md")
+    required = (
+        "search_library_v2",
+        "complete",
+        "more_available",
+        "capped",
+        "read_evidence_v1",
+        "evidence_text_sha256",
+        "active Publication",
+        "ten tools",
+        "deterministic",
+        "Source-byte-bound",
+        "revision 2",
+        "legacy",
+        "v1",
+        "no runtime promotion",
+        "source archive or checkout",
+        "zero assets",
+        "no PyPI",
+        "cache-warmed",
+    )
+    violations: list[Violation] = []
+    if not _contains_all_terms(release, required):
+        violations.append(
+            Violation(
+                file="docs/releases/v0.1.5.md",
+                rule="v015_release_contract",
+                message="v0.1.5 release note must preserve the exact current contract",
+            )
+        )
+    for file_name in ENTRY_POINT_FILES:
+        text = _read_text(root, file_name)
+        if len(re.findall(r"(?m)^# ", text)) != 1:
+            violations.append(
+                Violation(
+                    file=file_name,
+                    rule="single_h1",
+                    message="current entry point must contain exactly one H1",
+                )
+            )
+    return violations
+
+
 def _audit_consumer_smoke_wheel_selection(
     root: Path,
     files: Iterable[str],
 ) -> list[Violation]:
     violations: list[Violation] = []
-    exact_wheel = "dist/multimodal_knowledge_engine-0.1.4-py3-none-any.whl"
+    exact_wheel = "dist/multimodal_knowledge_engine-0.1.5-py3-none-any.whl"
     for file_name in files:
         text = _read_text(root, file_name)
         current_text = text
@@ -1043,7 +1088,7 @@ def _audit_consumer_smoke_wheel_selection(
 
 def _audit_current_build_wheel_selection(root: Path) -> list[Violation]:
     violations: list[Violation] = []
-    current_wheel = "multimodal_knowledge_engine-0.1.4-py3-none-any.whl"
+    current_wheel = "multimodal_knowledge_engine-0.1.5-py3-none-any.whl"
     stale_wheel = "multimodal_knowledge_engine-0.1.3-py3-none-any.whl"
     for file_name in CURRENT_BUILD_WHEEL_COMMAND_FILES:
         text = _read_text(root, file_name)
@@ -1164,6 +1209,7 @@ def audit_release_presentation(root: Path) -> list[Violation]:
     violations.extend(_audit_release_notes_links(root))
     violations.extend(_audit_v013_contract(root))
     violations.extend(_audit_v014_contract(root))
+    violations.extend(_audit_v015_contract(root))
     violations.extend(_audit_stale_status(root, release_files))
     violations.extend(_audit_consumer_smoke_wheel_selection(root, CONSUMER_SMOKE_COMMAND_FILES))
     violations.extend(_audit_current_build_wheel_selection(root))
@@ -1173,7 +1219,7 @@ def audit_release_presentation(root: Path) -> list[Violation]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Audit v0.1.4 release presentation docs.")
+    parser = argparse.ArgumentParser(description="Audit v0.1.5 release presentation docs.")
     parser.add_argument("--root", type=Path, default=Path("."))
     parser.add_argument("--json", action="store_true", help="emit the closed JSON result")
     args = parser.parse_args(argv)

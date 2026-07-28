@@ -2,6 +2,11 @@
 
 [English](./README.md) | [中文](./README_CN.md)
 
+`v0.1.5` 将 completeness-aware local stdio MCP Agent path 设为当前入口：
+`search_library_v2` 报告有界 selection completeness，`read_evidence_v1` 重建 exact active
+Evidence 并校验最终 digest。Equal-score order 是确定性的；这不构成 relevance improvement
+或 runtime promotion 声明。参见 [v0.1.5](./docs/releases/v0.1.5.md)。
+
 Multimodal Knowledge Engine 是一个本地优先、可被 Agent 调用的 Evidence 引擎，用于导入、检索和问答文档与媒体资料。它把
 source processing、Publication activation、retrieval 和 Agent-facing interfaces 收在同一个可验证的本地
 application boundary 内。
@@ -144,7 +149,7 @@ uv run mke proof run
 uv run mke demo --verify
 uv run python scripts/release_presentation_audit.py --root .
 uv run python scripts/release_consumer_smoke.py \
-  --wheel dist/multimodal_knowledge_engine-0.1.4-py3-none-any.whl --json
+  --wheel dist/multimodal_knowledge_engine-0.1.5-py3-none-any.whl --json
 ```
 
 ## Local Knowledge Proof
@@ -314,7 +319,7 @@ uv build
 ## License
 
 MIT，详见 [LICENSE](./LICENSE)。
-# MCP 上下文完整性
+## MCP 上下文完整性
 
 十工具清单、完整性语义、精确 Evidence 读取契约与稳定恢复操作统一维护在
 [MCP 契约参考](./docs/reference/mcp-contract.md)。安装 wheel 后的验证方式见

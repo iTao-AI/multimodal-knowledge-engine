@@ -6,6 +6,8 @@ auditing implementation history.
 
 ## Release And First Run
 
+- [v0.1.5 Release Notes](./releases/v0.1.5.md) — current completeness-aware local stdio MCP Agent
+  path, exact active Evidence recovery, and deterministic equal-score ordering.
 - [v0.1.4 Release Notes](./releases/v0.1.4.md)
 - [v0.1.3 Release Notes](./releases/v0.1.3.md)
 - [v0.1.2 Release Notes](./releases/v0.1.2.md)
@@ -126,7 +128,7 @@ how-to guides, reference docs, and ADRs.
 Use the verified bootstrap commands in the [Getting Started tutorial](./tutorials/getting-started.md)
 before changing product behavior. Follow the [contributor workflow](./how-to/contribute.md) for
 risk-based verification, pull requests, and safe task-owned cleanup.
-# MCP completeness
+## MCP completeness
 
 - [Canonical MCP contract](./reference/mcp-contract.md)
 - [Use MKE as a local MCP server](./how-to/use-mke-mcp.md)

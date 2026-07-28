@@ -1,5 +1,9 @@
 # Verify The Release
 
+For v0.1.5 evaluators, use the source archive or checkout in a prepared cache-warmed environment:
+build one exact wheel, run `release_consumer_smoke.py`, then follow the completeness-aware stdio MCP
+flow. GitHub Release has zero assets and PyPI is absent.
+
 This guide separates four ordered stages:
 
 1. Stage 1 repository readiness on the release-candidate branch.
@@ -167,7 +171,7 @@ Run:
 ```bash
 UV_OFFLINE=1 uv build
 uv run python scripts/release_consumer_smoke.py \
-  --wheel dist/multimodal_knowledge_engine-0.1.4-py3-none-any.whl --json
+  --wheel dist/multimodal_knowledge_engine-0.1.5-py3-none-any.whl --json
 
 candidate_parent="$(mktemp -d)"
 candidate_output="${candidate_parent}/mke-v0.1.4-candidate"
@@ -197,7 +201,7 @@ assert len(entries) == 2
 assert all(not entry.is_symlink() and entry.is_file(follow_symlinks=False) for entry in entries)
 
 receipt_name = "candidate-artifact-receipt.json"
-expected_wheel_name = "multimodal_knowledge_engine-0.1.4-py3-none-any.whl"
+expected_wheel_name = "multimodal_knowledge_engine-0.1.5-py3-none-any.whl"
 assert {entry.name for entry in entries} == {receipt_name, expected_wheel_name}
 receipt_bytes = (root / receipt_name).read_bytes()
 receipt = json.loads(receipt_bytes)

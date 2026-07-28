@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-07-28
+
+### Added
+
+- Bounded MCP selection completeness, continuation, exact active Evidence reconstruction, and
+  deterministic equal-score ordering as the current Agent-consumption release contract.
+
 ### Added
 
 - Additive `search_library_v2` selection/excerpt completeness and bounded

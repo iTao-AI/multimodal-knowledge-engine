@@ -9,11 +9,14 @@ from scripts.release_presentation_audit import audit_release_presentation
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_audit_targets_v0_1_4_release_identity() -> None:
+def test_audit_targets_v0_1_5_release_identity() -> None:
     from scripts import release_presentation_audit as audit
 
-    assert audit.EXPECTED_VERSION == "0.1.4"
-    assert "docs/releases/v0.1.4.md" in audit.RELEASE_FACING_FILES
+    assert audit.EXPECTED_VERSION == "0.1.5"
+    assert "docs/releases/v0.1.5.md" in audit.RELEASE_FACING_FILES
+    assert "docs/releases/v0.1.4.md" in audit.HISTORICAL_RELEASE_FILES
+    assert callable(audit.__dict__["_audit_v014_contract"])
+    assert callable(audit.__dict__["_audit_v015_contract"])
     assert "docs/releases/v0.1.3.md" in audit.HISTORICAL_RELEASE_FILES
     assert "docs/releases/v0.1.2.md" in audit.HISTORICAL_RELEASE_FILES
     assert "docs/releases/v0.1.0.md" not in audit.RELEASE_FACING_FILES
@@ -32,8 +35,8 @@ def test_audit_targets_current_build_wheel_command_docs() -> None:
     )
 
 
-def test_current_build_wheel_command_docs_use_v0_1_4() -> None:
-    current_wheel = "multimodal_knowledge_engine-0.1.4-py3-none-any.whl"
+def test_current_build_wheel_command_docs_use_v0_1_5() -> None:
+    current_wheel = "multimodal_knowledge_engine-0.1.5-py3-none-any.whl"
     stale_wheel = "multimodal_knowledge_engine-0.1.3-py3-none-any.whl"
     paths = (
         "docs/how-to/prepare-local-embeddings.md",
@@ -388,6 +391,36 @@ Search/Ask/MCP 读取 active Publication Evidence。
         "dist/multimodal_knowledge_engine-0.1.4-py3-none-any.whl --json`\n",
         encoding="utf-8",
     )
+    current_release = (
+        (root / "docs/releases/v0.1.4.md")
+        .read_text(encoding="utf-8")
+        .replace("v0.1.4", "v0.1.5")
+        .replace("0.1.4-py3", "0.1.5-py3")
+    )
+    current_release += (
+        "\nsearch_library_v2 complete more_available capped read_evidence_v1 "
+        "evidence_text_sha256 active Publication ten tools deterministic "
+        "Source-byte-bound revision 2 legacy v1 no runtime promotion "
+        "source archive or checkout zero assets no PyPI cache-warmed\n"
+    )
+    (root / "docs/releases/v0.1.5.md").write_text(current_release, encoding="utf-8")
+    for relative in (
+        "pyproject.toml",
+        "src/mke/__init__.py",
+        "README.md",
+        "README_CN.md",
+        "docs/README.md",
+        "CHANGELOG.md",
+        "docs/how-to/verify-release.md",
+    ):
+        path = root / relative
+        text = path.read_text(encoding="utf-8")
+        if relative in {"pyproject.toml", "src/mke/__init__.py"}:
+            text = text.replace("0.1.4", "0.1.5")
+        else:
+            text = text.replace("0.1.4-py3", "0.1.5-py3")
+            text += "\nCurrent release: v0.1.5.\n"
+        path.write_text(text, encoding="utf-8")
 
 
 def _rules(root: Path) -> set[str]:
@@ -582,8 +615,8 @@ def test_audit_rejects_release_docs_presenting_comparison_candidates_as_runtime(
     tmp_path: Path,
 ) -> None:
     _write_release_tree(tmp_path)
-    (tmp_path / "docs/releases/v0.1.4.md").write_text(
-        "# v0.1.4\n\nProof, demo, CLI, MCP, and retrieval evaluation docs are linked.\n"
+    (tmp_path / "docs/releases/v0.1.5.md").write_text(
+        "# v0.1.5\n\nProof, demo, CLI, MCP, and retrieval evaluation docs are linked.\n"
         "Dense/RRF/reranker runtime is part of this release.\n",
         encoding="utf-8",
     )
@@ -593,8 +626,8 @@ def test_audit_rejects_release_docs_presenting_comparison_candidates_as_runtime(
 
 def test_audit_requires_comparison_only_language_for_e3_candidates(tmp_path: Path) -> None:
     _write_release_tree(tmp_path)
-    (tmp_path / "docs/releases/v0.1.4.md").write_text(
-        "# v0.1.4\n\nE3-C dense, E3-D RRF, and E3-E reranker are documented.\n",
+    (tmp_path / "docs/releases/v0.1.5.md").write_text(
+        "# v0.1.5\n\nE3-C dense, E3-D RRF, and E3-E reranker are documented.\n",
         encoding="utf-8",
     )
 
@@ -638,7 +671,7 @@ def test_audit_rejects_separate_branch_stage2_wording(tmp_path: Path) -> None:
     [
         "README.md",
         "README_CN.md",
-        "docs/releases/v0.1.4.md",
+        "docs/releases/v0.1.5.md",
         "docs/how-to/verify-release.md",
     ],
 )
@@ -677,7 +710,7 @@ def test_audit_rejects_old_exact_consumer_smoke_wheel(tmp_path: Path) -> None:
     target = tmp_path / "docs/how-to/verify-release.md"
     target.write_text(
         target.read_text(encoding="utf-8").replace(
-            "dist/multimodal_knowledge_engine-0.1.4-py3-none-any.whl",
+            "dist/multimodal_knowledge_engine-0.1.5-py3-none-any.whl",
             "dist/multimodal_knowledge_engine-0.1.2-py3-none-any.whl",
         ),
         encoding="utf-8",
@@ -917,20 +950,20 @@ def test_audit_limits_current_wheel_rule_to_command_docs(tmp_path: Path) -> None
     ("path", "stale_text"),
     [
         (
-            "docs/releases/v0.1.4.md",
+            "docs/releases/v0.1.5.md",
             "GitHub Release metadata records the final tag and target commit when Stage 3 "
             "creates the release from the verified commit.",
         ),
         (
-            "docs/releases/v0.1.4.md",
+            "docs/releases/v0.1.5.md",
             "This document describes release scope and verification before publication.",
         ),
         (
-            "docs/releases/v0.1.4.md",
+            "docs/releases/v0.1.5.md",
             "This document does not predeclare a future tag target.",
         ),
         (
-            "docs/releases/v0.1.4.md",
+            "docs/releases/v0.1.5.md",
             "Tag and GitHub Release publication remain a separate authorized Stage 3 action.",
         ),
         (
@@ -965,7 +998,7 @@ def test_audit_allows_verify_release_generic_stage3_instructions(tmp_path: Path)
         "with explicit authorization. Then verify the public archive from a clean temporary "
         "directory.\n"
         "`uv run python scripts/release_consumer_smoke.py --wheel "
-        "dist/multimodal_knowledge_engine-0.1.4-py3-none-any.whl --json`\n",
+        "dist/multimodal_knowledge_engine-0.1.5-py3-none-any.whl --json`\n",
         encoding="utf-8",
     )
 
@@ -987,8 +1020,8 @@ def test_audit_rejects_unresolved_release_placeholders(
     placeholder: str,
 ) -> None:
     _write_release_tree(tmp_path)
-    (tmp_path / "docs/releases/v0.1.4.md").write_text(
-        "# v0.1.4\n\n"
+    (tmp_path / "docs/releases/v0.1.5.md").write_text(
+        "# v0.1.5\n\n"
         "Proof, demo, CLI, MCP, and retrieval evaluation docs are linked.\n"
         "E3-C dense, E3-D RRF, and E3-E reranker remain comparison-only evidence.\n"
         f"{placeholder}\n",
@@ -1466,8 +1499,8 @@ def test_audit_rejects_private_paths_gstack_artifacts_credentials_and_tracebacks
     tmp_path: Path,
 ) -> None:
     _write_release_tree(tmp_path)
-    (tmp_path / "docs/releases/v0.1.4.md").write_text(
-        "# v0.1.4\n\n/Users/mac/.gstack/rollout token=secret\nTraceback (most recent call last):\n",
+    (tmp_path / "docs/releases/v0.1.5.md").write_text(
+        "# v0.1.5\n\n/Users/mac/.gstack/rollout token=secret\nTraceback (most recent call last):\n",
         encoding="utf-8",
     )
 
