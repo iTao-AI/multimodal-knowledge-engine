@@ -8,6 +8,7 @@ import sys
 import tomllib
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
 
 EXPECTED_VERSION = "0.1.5"
@@ -1152,10 +1153,28 @@ def _audit_v015_contract(root: Path) -> list[Violation]:
                 duplicate = True
             values[label] = value.strip()
 
-        def unquote(value: str) -> str:
+        def decode(value: str) -> str:
+            value = value.strip()
             if len(value) >= 2 and value.startswith("`") and value.endswith("`"):
-                return value[1:-1]
-            return value
+                value = value[1:-1]
+            return value.strip()
+
+        def valid_identity(value: str, length: int) -> bool:
+            decoded = decode(value)
+            return (
+                re.fullmatch(rf"[0-9a-f]{{{length}}}", decoded) is not None
+                and set(decoded) != {"0"}
+            )
+
+        def valid_utc_timestamp(value: str) -> bool:
+            decoded = decode(value)
+            if re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", decoded) is None:
+                return False
+            try:
+                datetime.strptime(decoded, "%Y-%m-%dT%H:%M:%SZ")
+            except ValueError:
+                return False
+            return True
 
         bounded_fields = (
             "Hosted checks",
@@ -1169,40 +1188,27 @@ def _audit_v015_contract(root: Path) -> list[Violation]:
             len(parsed) == len(nonempty_lines)
             and not duplicate
             and set(values) == set(field_names)
-            and unquote(values.get("Tag", "")) == "v0.1.5"
-            and re.fullmatch(r"[0-9a-f]{40}", unquote(values.get("Merge commit", "")))
-            is not None
-            and re.fullmatch(r"[0-9a-f]{40}", unquote(values.get("Merge tree", "")))
-            is not None
+            and decode(values.get("Tag", "")) == "v0.1.5"
+            and valid_identity(values.get("Merge commit", ""), 40)
+            and valid_identity(values.get("Merge tree", ""), 40)
             and values.get("GitHub Release URL")
             == (
                 "https://github.com/iTao-AI/multimodal-knowledge-engine/"
                 "releases/tag/v0.1.5"
             )
-            and re.fullmatch(
-                r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z",
-                unquote(values.get("Published timestamp", "")),
-            )
-            is not None
+            and valid_utc_timestamp(values.get("Published timestamp", ""))
             and values.get("Assets") == "zero"
-            and re.fullmatch(
-                r"[0-9a-f]{64}",
-                unquote(values.get("Archive descriptor SHA-256", "")),
-            )
-            is not None
-            and re.fullmatch(
-                r"[0-9a-f]{64}",
-                unquote(values.get("Archive manifest SHA-256", "")),
-            )
-            is not None
-            and unquote(values.get("Archive wheel", ""))
+            and valid_identity(values.get("Archive descriptor SHA-256", ""), 64)
+            and valid_identity(values.get("Archive manifest SHA-256", ""), 64)
+            and decode(values.get("Archive wheel", ""))
             == "multimodal_knowledge_engine-0.1.5-py3-none-any.whl"
             and all(
-                0 < len(values.get(field, "")) <= 500 for field in bounded_fields
+                0 < len(decode(values.get(field, ""))) <= 500
+                for field in bounded_fields
             )
-            and "seven families" in values.get("Temporary compatibility", "")
+            and "seven families" in decode(values.get("Temporary compatibility", ""))
             and "all six delta classes zero"
-            in values.get("Temporary compatibility", "")
+            in decode(values.get("Temporary compatibility", ""))
             and placeholders.search(publication) is None
         )
         if not shape_valid:

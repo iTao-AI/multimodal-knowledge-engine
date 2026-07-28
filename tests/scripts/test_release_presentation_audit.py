@@ -750,6 +750,105 @@ def test_audit_rejects_placeholder_or_unbounded_publication_values(
     assert "v015_publication_verification" in _rules(tmp_path)
 
 
+@pytest.mark.parametrize(
+    ("old", "label"),
+    [
+        (
+            "- Hosted checks: all required checks passed on the merge commit",
+            "Hosted checks",
+        ),
+        ("- Git-less allowlist: passed", "Git-less allowlist"),
+        ("- Exact-main proof: passed", "Exact-main proof"),
+        ("- Canonical evidence hashes: unchanged", "Canonical evidence hashes"),
+        (
+            "- Temporary compatibility: seven families with all six delta classes zero",
+            "Temporary compatibility",
+        ),
+        (
+            "- Limitations and non-claims: "
+            "no retrieval-quality, performance, deployment, or adoption claim",
+            "Limitations and non-claims",
+        ),
+    ],
+)
+def test_audit_rejects_semantically_empty_markdown_publication_values(
+    tmp_path: Path,
+    old: str,
+    label: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "docs/releases/v0.1.5.md"
+    malformed = COMPLETE_PUBLICATION_VERIFICATION.replace(
+        old,
+        f"- {label}:   ``  ",
+        1,
+    )
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{malformed.strip()}\n",
+        encoding="utf-8",
+    )
+
+    assert "v015_publication_verification" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "timestamp",
+    [
+        "2026-99-99T99:99:99Z",
+        "2026-02-30T12:34:56Z",
+        "2026-07-28T24:00:00Z",
+    ],
+)
+def test_audit_rejects_impossible_utc_publication_timestamp(
+    tmp_path: Path,
+    timestamp: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "docs/releases/v0.1.5.md"
+    malformed = COMPLETE_PUBLICATION_VERIFICATION.replace(
+        "`2026-07-28T12:34:56Z`",
+        f"`{timestamp}`",
+        1,
+    )
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{malformed.strip()}\n",
+        encoding="utf-8",
+    )
+
+    assert "v015_publication_verification" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("old", "zero_identity"),
+    [
+        ("`1234567890abcdef1234567890abcdef12345678`", "`" + "0" * 40 + "`"),
+        ("`234567890abcdef1234567890abcdef123456789`", "`" + "0" * 40 + "`"),
+        (
+            "`34567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12`",
+            "`" + "0" * 64 + "`",
+        ),
+        (
+            "`4567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123`",
+            "`" + "0" * 64 + "`",
+        ),
+    ],
+)
+def test_audit_rejects_all_zero_publication_identities(
+    tmp_path: Path,
+    old: str,
+    zero_identity: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "docs/releases/v0.1.5.md"
+    malformed = COMPLETE_PUBLICATION_VERIFICATION.replace(old, zero_identity, 1)
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{malformed.strip()}\n",
+        encoding="utf-8",
+    )
+
+    assert "v015_publication_verification" in _rules(tmp_path)
+
+
 def test_audit_rejects_retained_malformed_publication_diagnostic(
     tmp_path: Path,
 ) -> None:
