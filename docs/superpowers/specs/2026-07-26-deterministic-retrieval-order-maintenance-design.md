@@ -1,7 +1,8 @@
 # Deterministic Retrieval Order Maintenance
 
-Status: approved design for mechanical public spec landing and implementation planning.
-Runtime implementation, push, pull request, merge, release, and promotion remain pending.
+Status: deterministic-order maintenance and its bounded one-shot mechanism observation are
+completed locally. Amendment K evidence-honesty closure is in progress; push, pull request,
+merge, release, deployment, and promotion remain pending.
 
 Planning baseline: `main@eea3d51c36c0b3b845b8efb60eff553ddc200b88`.
 
@@ -515,6 +516,22 @@ only permits a separately approved restart of retrieval-coverage evaluation.
    restart. Segmentation and contextual retrieval remain deferred until that evaluation has frozen
    development and holdout evidence.
 
+## Local Lifecycle Closeout
+
+The runtime and observation candidate seal remains
+`7af0ba1ecf662e9bebb125c85b429e675233fbe4`. Deterministic-order maintenance and the bounded
+one-shot mechanism observation completed locally. The five canonical artifacts are committed and
+have been validated read-only. No post-seal `src/mke` change exists.
+
+The installed proof establishes explicit input identity and capability bindings plus validator
+function availability under the required interpreters; it does not execute either validator or
+validate canonical checkout content.
+
+Source-pack ledger: `2 CLI processes / 1 preclaim rejection / 1 durable attempt-build-proof`
+(`2 / 1 / 1`). This evidence remains on the local branch only. No push, pull request, merge,
+release, deployment, or promotion has occurred. It supports no relevance, segmentation,
+contextual-retrieval, or general RAG-quality conclusion.
+
 ## Non-Claims
 
 - Stable tie order is not better relevance.
@@ -522,4 +539,5 @@ only permits a separately approved restart of retrieval-coverage evaluation.
 - Passing local or CI proof is not production deployment or external adoption.
 - This design does not identify any unrelated stopped observation's exact differing pair.
 - No segmentation or contextual-retrieval candidate is approved or promoted.
-- No implementation, release, or runtime outcome exists yet.
+- Local maintenance and mechanism observation are not a release, deployment, runtime promotion,
+  or product-quality outcome.

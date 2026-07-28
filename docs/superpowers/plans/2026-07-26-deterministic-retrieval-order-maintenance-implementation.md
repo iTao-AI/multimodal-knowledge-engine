@@ -6897,31 +6897,49 @@ They require separate evidence and must not be smuggled into this repair.
 
 ## Final Acceptance
 
-- [ ] **C1 (P1)** — Add Task 6R numeric live/archive REDs and explicit loader separation.
-- [ ] **C2 (P1)** — Remove the numeric shadow validator while preserving corpus facts.
-- [ ] **C3 (P1)** — Add Chinese MATCH-only trace REDs, config-probe allowance, and privacy test.
-- [ ] **C4 (P1)** — Replace stale live workflow assertions with archived-record validation.
-- [ ] **C5 (P1)** — Run Task 6R gates, commit, and obtain authority code-diff review.
-- [ ] **C6 (P1)** — Implement the shared absent-or-complete atomic publication helper, Task 7A
+- [x] **C1 (P1)** — Add Task 6R numeric live/archive REDs and explicit loader separation.
+- [x] **C2 (P1)** — Remove the numeric shadow validator while preserving corpus facts.
+- [x] **C3 (P1)** — Add Chinese MATCH-only trace REDs, config-probe allowance, and privacy test.
+- [x] **C4 (P1)** — Replace stale live workflow assertions with archived-record validation.
+- [x] **C5 (P1)** — Run Task 6R gates, commit, and obtain authority code-diff review.
+- [x] **C6 (P1)** — Implement the shared absent-or-complete atomic publication helper, Task 7A
   temporary compatibility, and dynamic numeric test scaffolding without weakening production
   defaults.
-- [ ] **C7 (P1)** — Freeze E1/E2 historical subprocess capability before current replay, assert
+- [x] **C7 (P1)** — Freeze E1/E2 historical subprocess capability before current replay, assert
   exact interpreter/module origins and 14-item authority; reject temporary canonical output; run
   the 133-test historical matrix plus compatibility/runtime gates, commit, and obtain authority
   review.
-- [ ] **C8 (P1)** — Implement Task 8A workflow/artifact state machine with receipt-bound canonical
+- [x] **C8 (P1)** — Implement Task 8A workflow/artifact state machine with receipt-bound canonical
   holdout capability on every holdout path, metadata-only/lazy partition loading, pure read-only
   validators, synthetic holdout tests, pre-seal `record-canonical` integration, atomic publication
   reuse, stable error/help contracts, then verify and commit.
-- [ ] **C9 (P1)** — Complete original Task 9 installed-proof code/tests, ADR, docs, and
+- [x] **C9 (P1)** — Complete original Task 9 installed-proof code/tests, ADR, docs, and
   documentation tests; run pre-observation verification and seal the final clean HEAD.
-- [ ] **C10 (P1)** — Run Task 8B development once, then holdout once if development authorizes it.
-- [ ] **C11 (P1)** — Atomically record canonical compatibility after holdout; create the detached
+- [x] **C10 (P1)** — Run Task 8B development once, then holdout once if development authorizes it.
+- [x] **C11 (P1)** — Atomically record canonical compatibility after holdout; create the detached
   attempt receipt and compatibility artifact; create the detached clean proof worktree; publish
   one external source-pack attempt claim; run source-pack build/proof once; run final historical,
   full, CI, and same-wheel installed/export proof plus read-only source-pack result validation
   without canonical holdout replay.
-- [ ] **C12 (P1)** — Commit only five canonical proof artifacts and return for authority review.
+- [x] **C12 (P1)** — Commit only five canonical proof artifacts and return for authority review.
+
+### Local Lifecycle Closeout
+
+The runtime and observation candidate seal remains
+`7af0ba1ecf662e9bebb125c85b429e675233fbe4`. Deterministic-order maintenance and the bounded
+one-shot mechanism observation completed locally. The five canonical artifacts are committed and
+have been validated read-only, and no post-seal `src/mke` change exists.
+
+The installed proof establishes explicit wheel, receipt, and input identity preflight; installed
+module, distribution, strategy revision, and query-policy revision; and validator function
+availability under Python 3.12 and 3.13. It does not execute either validator or validate canonical
+checkout content.
+
+Source-pack ledger: `2 CLI processes / 1 preclaim rejection / 1 durable attempt-build-proof`
+(`2 / 1 / 1`). This evidence remains on the local branch only. No push, pull request, merge, release,
+deployment, or promotion has occurred. It establishes no relevance, segmentation,
+contextual-retrieval, or general RAG-quality conclusion. Amendment K K5 aggregate verification and
+final independent review remain pending.
 
 <!-- PUBLIC AMENDMENT K START -->
 
@@ -7249,11 +7267,11 @@ completion does not authorize push or PR; publication requires a separate user d
 
 ### Amendment K acceptance
 
-- [ ] K0 exact plan block landed and independently reviewed.
-- [ ] K1 committed canonical pure-validation test passed without side effects.
-- [ ] K2 exact current MCP snapshot passed; frozen release fixture unchanged.
-- [ ] K3 proof/help/operator contracts state exact authority and recovery boundaries.
-- [ ] K4 lifecycle state reconciled without new claims or duplicate review artifact.
+- [x] K0 exact plan block landed and independently reviewed.
+- [x] K1 committed canonical pure-validation test passed without side effects.
+- [x] K2 exact current MCP snapshot passed; frozen release fixture unchanged.
+- [x] K3 proof/help/operator contracts state exact authority and recovery boundaries.
+- [x] K4 lifecycle state reconciled without new claims or duplicate review artifact.
 - [ ] K5 focused/full/static/hash/source-scope gates passed at one clean HEAD.
 - [ ] Candidate/runtime, canonical evidence, source-pack counts, and non-claims remain exact.
 - [ ] Independent actual-diff review is clean before any publication decision.
