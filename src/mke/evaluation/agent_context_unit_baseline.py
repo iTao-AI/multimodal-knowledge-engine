@@ -86,7 +86,7 @@ def run_agent_context_unit_baseline(
         raise ValueError("baseline workspace must be fresh")
     workspace.mkdir(parents=True)
     db_path = workspace / "mke.sqlite"
-    engine = KnowledgeEngine(db_path)
+    engine = KnowledgeEngine(db_path, retrieval_strategy="numeric-grouping-v1")
     try:
         for receipt in contract.sources:
             source_path = repository_root / receipt.path
@@ -123,7 +123,12 @@ def _observe_case(
         authority_validator=lambda _authority: None,
     )
     compiled_fts = compile_fts5_query_diagnostic(case.query_text).compiled_query
-    route = "fts5" if compiled_fts else "cjk-active-scan-overlap-v1"
+    route = (
+        "cjk-active-scan-overlap-v1"
+        if not compiled_fts
+        and page.strategy_id == "cjk-active-scan-overlap-v1"
+        else "fts5"
+    )
     if route == "fts5":
         ranked = _fts_rank(diagnostics, case, bounds)
     elif route == "cjk-active-scan-overlap-v1":
@@ -193,7 +198,7 @@ def _observe_case(
         item.content_fingerprint in case.source_content_fingerprints for item in items
     )
     statuses = (
-        "query_policy_hit" if page.normalized_query else "query_policy_miss",
+        "query_policy_hit" if compiled_fts else "query_policy_miss",
         "candidate_hit" if ranked else "candidate_miss",
         "rank_hit" if complete else "rank_miss",
         "delivery_hit" if items else "delivery_miss",

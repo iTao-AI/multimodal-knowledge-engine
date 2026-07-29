@@ -196,3 +196,31 @@ def test_cjk_runtime_uses_public_selector_projection(tmp_path: Path) -> None:
         "cjk-active-scan-overlap-v1",
     )
     assert portable.items[0].score.kind == "cjk_overlap"
+
+
+def test_current_fts_runtime_records_compiled_empty_cjk_as_policy_miss(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "mke.sqlite"
+    engine = KnowledgeEngine(db_path, retrieval_strategy="numeric-grouping-v1")
+    _publish(engine, ("发布证据检索完整页面",))
+    case = AgentContextObserverCase(
+        query_id="q-cjk-policy-miss",
+        query_text="发布证据检索",
+        source_content_fingerprints=("sha256:" + "1" * 64,),
+        runtime_route_profile="fts5",
+        observation_ids=("current-runtime-baseline-v1",),
+    )
+    try:
+        observed = observe_prepared_agent_context_runtime(
+            engine=engine,
+            db_path=db_path,
+            cases=(case,),
+        )
+    finally:
+        engine.close()
+
+    portable = observed[0].portable
+    assert portable.expected_route == "fts5"
+    assert portable.statuses[0] == "query_policy_miss"
+    assert portable.statuses[6] == "provenance_complete"

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
-import sys
+import types
 from dataclasses import asdict, replace
 
 import pytest
 
 from mke.application.evidence_access import EvidenceExcerpt
+from mke.evaluation import agent_context_unit_observation
 from mke.evaluation.agent_context_unit_observation import (
     AuthorityObservation,
     ObservationBounds,
@@ -152,9 +153,11 @@ def test_portable_observation_rejects_opaque_score_and_byte_drift() -> None:
 
 def test_observation_module_has_no_grading_or_holdout_import_authority() -> None:
     imported = {
-        name
-        for name in sys.modules
-        if name.startswith("mke.evaluation.agent_context_unit")
+        value.__name__
+        for value in vars(agent_context_unit_observation).values()
+        if isinstance(value, types.ModuleType)
     }
-    assert "mke.evaluation.agent_context_unit_grading_protocol" not in imported
+    assert (
+        "mke.evaluation.agent_context_unit_grading_protocol" not in imported
+    )
     assert not any("holdout" in name for name in imported)
