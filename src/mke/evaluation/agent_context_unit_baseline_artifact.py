@@ -339,6 +339,23 @@ def _portable_observations(
             raise ValueError("observation route is invalid")
         if tuple(item.rank for item in items) != tuple(range(1, len(items) + 1)):
             raise ValueError("observation rank inventory is invalid")
+        candidate_count = _integer(
+            row["candidate_count"], "observation candidate count"
+        )
+        selected_count = _integer(
+            row["selected_count"], "observation selected count"
+        )
+        delivered_utf8_bytes = _integer(
+            row["delivered_utf8_bytes"], "observation delivered bytes"
+        )
+        if (
+            (statuses[1] == "candidate_hit") != (candidate_count > 0)
+            or (statuses[2] == "rank_hit") != (statuses[4] == "output_complete")
+            or (statuses[3] == "delivery_hit") != bool(items)
+            or (statuses[4] == "output_complete")
+            != (statuses[5] == "exact_read_complete")
+        ):
+            raise ValueError("observation status inventory is invalid")
         observations.append(
             PortableObservation(
                 query_id=_string(row["query_id"], "observation query"),
@@ -349,15 +366,9 @@ def _portable_observations(
                 ),
                 statuses=statuses,
                 items=items,
-                candidate_count=_integer(
-                    row["candidate_count"], "observation candidate count"
-                ),
-                selected_count=_integer(
-                    row["selected_count"], "observation selected count"
-                ),
-                delivered_utf8_bytes=_integer(
-                    row["delivered_utf8_bytes"], "observation delivered bytes"
-                ),
+                candidate_count=candidate_count,
+                selected_count=selected_count,
+                delivered_utf8_bytes=delivered_utf8_bytes,
             )
         )
     return tuple(observations)
@@ -396,10 +407,14 @@ def _portable_item(value: dict[str, object]) -> PortableObservationItem:
         excerpt_value["suffix_omitted"], "observation excerpt"
     )
     complete = _boolean(excerpt_value["complete"], "observation excerpt")
+    original_utf8_bytes = _integer(
+        value["original_utf8_bytes"], "observation bytes"
+    )
     if (
         start < 0
         or end != start + returned
         or returned != len(excerpt_text.encode("utf-8"))
+        or end > original_utf8_bytes
         or complete != (not prefix_omitted and not suffix_omitted)
     ):
         raise ValueError("observation excerpt is invalid")
@@ -433,9 +448,7 @@ def _portable_item(value: dict[str, object]) -> PortableObservationItem:
         exact_read_sha256=_string(
             value["exact_read_sha256"], "observation digest"
         ),
-        original_utf8_bytes=_integer(
-            value["original_utf8_bytes"], "observation bytes"
-        ),
+        original_utf8_bytes=original_utf8_bytes,
         excerpt_utf8_bytes=_integer(
             value["excerpt_utf8_bytes"], "observation bytes"
         ),

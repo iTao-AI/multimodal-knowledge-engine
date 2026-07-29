@@ -43,6 +43,9 @@ def _span() -> AgentContextRequiredSpan:
 
 
 def _observation(*, covered: bool) -> bytes:
+    excerpt_text = "0123456789abcdef" if covered else "abcdef"
+    excerpt_start = 0 if covered else 10
+    excerpt_bytes = len(excerpt_text.encode())
     item = PortableObservationItem(
         content_fingerprint="sha256:" + "1" * 64,
         locator_kind="page",
@@ -55,17 +58,17 @@ def _observation(*, covered: bool) -> bytes:
         hints=("target",),
         excerpt=EvidenceExcerpt(
             "query_window",
-            "0123456789abcdef",
-            0 if covered else 10,
-            16 if covered else 26,
+            excerpt_text,
+            excerpt_start,
+            excerpt_start + excerpt_bytes,
             False,
             False,
             True,
-            16,
+            excerpt_bytes,
         ),
         exact_read_sha256="sha256:" + "2" * 64,
         original_utf8_bytes=16,
-        excerpt_utf8_bytes=16,
+        excerpt_utf8_bytes=excerpt_bytes,
         exact_read_utf8_bytes=16,
     )
     observation = PortableObservation(
@@ -85,7 +88,7 @@ def _observation(*, covered: bool) -> bytes:
         items=(item,),
         candidate_count=1,
         selected_count=1,
-        delivered_utf8_bytes=16,
+        delivered_utf8_bytes=excerpt_bytes,
     )
     return seal_portable_observations((observation,)).bytes
 
@@ -259,6 +262,39 @@ def test_retained_validator_rejects_excerpt_accounting_forgery() -> None:
     _close_forged_artifact(artifact)
 
     with pytest.raises(ValueError, match="excerpt"):
+        validate_agent_context_unit_baseline_artifact(
+            artifact, AgentContextBaselineGradingPayload((_span(),))
+        )
+
+
+def test_retained_validator_rejects_excerpt_outside_original_bytes() -> None:
+    artifact = _build(covered=False)
+    observation = cast(dict[str, object], artifact["observation"])
+    rows = cast(list[object], observation["observations"])
+    row = cast(dict[str, object], rows[0])
+    items = cast(list[object], row["items"])
+    item = cast(dict[str, object], items[0])
+    excerpt = cast(dict[str, object], item["excerpt"])
+    excerpt["start_utf8_byte"] = 16
+    excerpt["end_utf8_byte"] = 22
+    _close_forged_artifact(artifact)
+
+    with pytest.raises(ValueError, match="excerpt"):
+        validate_agent_context_unit_baseline_artifact(
+            artifact, AgentContextBaselineGradingPayload((_span(),))
+        )
+
+
+def test_retained_validator_rejects_status_inventory_contradiction() -> None:
+    artifact = _build(covered=False)
+    observation = cast(dict[str, object], artifact["observation"])
+    rows = cast(list[object], observation["observations"])
+    row = cast(dict[str, object], rows[0])
+    statuses = cast(list[object], row["statuses"])
+    statuses[1] = "candidate_miss"
+    _close_forged_artifact(artifact)
+
+    with pytest.raises(ValueError, match="status"):
         validate_agent_context_unit_baseline_artifact(
             artifact, AgentContextBaselineGradingPayload((_span(),))
         )
