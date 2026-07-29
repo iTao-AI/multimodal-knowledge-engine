@@ -108,6 +108,31 @@ def _invalid_visible_result() -> AtomicPublicationResult:
     )
 
 
+def _invalid_parent_result() -> AtomicPublicationResult:
+    return AtomicPublicationResult(
+        output_state="not_applicable",
+        publication_outcome="not_attempted",
+        sha256=None,
+        problem="retrieval_order_publication_failed",
+        cause="destination_parent_authority_invalid",
+        next_step="provide_a_no_follow_destination_parent",
+    )
+
+
+def _parent_chain_is_no_follow(path: Path) -> bool:
+    absolute = path.absolute()
+    current = Path(absolute.anchor)
+    for component in absolute.parent.parts[1:]:
+        current /= component
+        try:
+            metadata = current.lstat()
+        except OSError:
+            return False
+        if not stat.S_ISDIR(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
+            return False
+    return True
+
+
 def _lexical_state(path: Path) -> Literal["absent", "regular", "invalid"]:
     try:
         metadata = path.lstat()
@@ -199,10 +224,11 @@ def publish_json_no_replace(
     except (UnicodeError, ValueError, TypeError, json.JSONDecodeError):
         return _invalid_result()
 
+    if not _parent_chain_is_no_follow(destination):
+        return _invalid_parent_result()
     if _lexical_state(destination) != "absent":
         return _existing_result(destination, validate=validate)
 
-    destination.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=f".{destination.name}.",
         suffix=".tmp",

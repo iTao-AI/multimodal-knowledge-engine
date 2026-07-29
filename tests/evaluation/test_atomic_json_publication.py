@@ -208,6 +208,27 @@ def test_invalid_json_is_rejected_before_temporary_creation(
     assert result.problem == "retrieval_order_output_invalid"
 
 
+def test_parent_symlink_is_rejected_before_temporary_creation(
+    tmp_path: Path,
+) -> None:
+    module = _module()
+    real = tmp_path / "real"
+    real.mkdir()
+    alias = tmp_path / "alias"
+    alias.symlink_to(real, target_is_directory=True)
+
+    result = module.publish_json_no_replace(
+        alias / "artifact.json",
+        _content(),
+        validate=_validate,
+    )
+
+    assert list(real.iterdir()) == []
+    assert result.output_state == "not_applicable"
+    assert result.publication_outcome == "not_attempted"
+    assert result.cause == "destination_parent_authority_invalid"
+
+
 def test_publish_then_oserror_is_classified_as_visible_terminal(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

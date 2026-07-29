@@ -2,42 +2,110 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import stat
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import cast
 
 FILE_FIELDS = {"path", "bytes", "sha256"}
 SOURCE_FIELDS = {"sha256", "files"}
 _SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
+_MAX_SOURCE_IDENTITY_FILES = 1024
+
+
+@dataclass(frozen=True)
+class DirectFileRead:
+    content: bytes
+    identity: dict[str, object]
+    physical_identity: tuple[int, int]
+
+
+def read_no_follow_regular_file(
+    repository_root: Path, relative_path: str
+) -> DirectFileRead:
+    validate_recorded_file_identity(
+        {"path": relative_path, "bytes": 0, "sha256": "0" * 64},
+        expected_path=relative_path,
+    )
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    directory_flag = getattr(os, "O_DIRECTORY", None)
+    if nofollow is None or directory_flag is None:
+        raise OSError("no-follow reads are unavailable")
+    root_fd = os.open(repository_root, os.O_RDONLY | directory_flag | nofollow)
+    descriptors = [root_fd]
+    try:
+        parts = PurePosixPath(relative_path).parts
+        parent_fd = root_fd
+        for part in parts[:-1]:
+            parent_fd = os.open(
+                part,
+                os.O_RDONLY | directory_flag | nofollow,
+                dir_fd=parent_fd,
+            )
+            descriptors.append(parent_fd)
+        file_fd = os.open(parts[-1], os.O_RDONLY | nofollow, dir_fd=parent_fd)
+        descriptors.append(file_fd)
+        before = os.fstat(file_fd)
+        if not stat.S_ISREG(before.st_mode):
+            raise ValueError("source identity path is invalid")
+        chunks: list[bytes] = []
+        while chunk := os.read(file_fd, 1024 * 1024):
+            chunks.append(chunk)
+        after = os.fstat(file_fd)
+        lexical = os.stat(parts[-1], dir_fd=parent_fd, follow_symlinks=False)
+        stable_fields = ("st_dev", "st_ino", "st_mode", "st_size", "st_mtime_ns")
+        if any(getattr(before, field) != getattr(after, field) for field in stable_fields):
+            raise ValueError("source identity changed during read")
+        if (lexical.st_dev, lexical.st_ino) != (before.st_dev, before.st_ino):
+            raise ValueError("source identity changed during read")
+        content = b"".join(chunks)
+        if len(content) != before.st_size:
+            raise ValueError("source identity changed during read")
+        return DirectFileRead(
+            content=content,
+            identity={
+                "path": relative_path,
+                "bytes": len(content),
+                "sha256": hashlib.sha256(content).hexdigest(),
+            },
+            physical_identity=(before.st_dev, before.st_ino),
+        )
+    except (FileNotFoundError, NotADirectoryError, OSError) as error:
+        raise ValueError("source identity path is invalid") from error
+    finally:
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
 
 
 def build_file_identity(
     repository_root: Path, relative_path: str
 ) -> dict[str, object]:
-    root = repository_root.resolve()
-    validate_recorded_file_identity(
-        {"path": relative_path, "bytes": 0, "sha256": "0" * 64},
-        expected_path=relative_path,
-    )
-    path = (root / relative_path).resolve()
-    if not path.is_relative_to(root) or not path.is_file():
-        raise ValueError("source identity path is invalid")
-    data = path.read_bytes()
-    return {
-        "path": relative_path,
-        "bytes": len(data),
-        "sha256": hashlib.sha256(data).hexdigest(),
-    }
+    return read_no_follow_regular_file(repository_root, relative_path).identity
 
 
 def build_source_identity(
     repository_root: Path, relative_paths: Sequence[str]
 ) -> dict[str, object]:
-    paths = sorted(relative_paths)
-    if not paths or len(paths) != len(set(paths)):
+    paths = list(relative_paths)
+    if (
+        not paths
+        or len(paths) > _MAX_SOURCE_IDENTITY_FILES
+        or len(paths) != len(set(paths))
+    ):
+        suffix = " capacity" if len(paths) > _MAX_SOURCE_IDENTITY_FILES else ""
+        raise ValueError(f"source identity{suffix} paths are invalid")
+    reads = [
+        read_no_follow_regular_file(repository_root, path) for path in sorted(paths)
+    ]
+    physical = [item.physical_identity for item in reads]
+    if len(physical) != len(set(physical)):
+        raise ValueError("source identity physical aliases are invalid")
+    files = [item.identity for item in reads]
+    if not files:
         raise ValueError("source identity paths are invalid")
-    files = [build_file_identity(repository_root, path) for path in paths]
     return {
         "sha256": _source_digest(files),
         "files": files,
