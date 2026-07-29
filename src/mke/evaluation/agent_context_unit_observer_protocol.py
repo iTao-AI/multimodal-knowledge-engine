@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from pathlib import Path
 
 from mke.evaluation.agent_context_unit_protocol import (
-    AgentContextProtocolAuthority,
-    load_agent_context_unit_protocol_authority,
+    AgentContextObserverAuthority,
     validate_agent_context_unit_file_read,
 )
 from mke.evaluation.source_identity import read_no_follow_regular_file
@@ -40,29 +38,20 @@ class AgentContextObserverContract:
 
 
 def load_agent_context_unit_observer_contract(
-    protocol_authority: Path | AgentContextProtocolAuthority,
+    authority: AgentContextObserverAuthority,
 ) -> AgentContextObserverContract:
-    authority = (
-        protocol_authority
-        if isinstance(protocol_authority, AgentContextProtocolAuthority)
-        else load_agent_context_unit_protocol_authority(protocol_authority)
-    )
-    metadata = authority.metadata
     root = authority.repository_root
-    partition = metadata.partitions["development"]
-    receipt_read = read_no_follow_regular_file(
-        root, partition.source_receipts.path
-    )
-    case_read = read_no_follow_regular_file(root, partition.observer_cases.path)
+    receipt_read = read_no_follow_regular_file(root, authority.source_receipts.path)
+    case_read = read_no_follow_regular_file(root, authority.observer_cases.path)
     if receipt_read.physical_identity == case_read.physical_identity:
         raise ValueError("observer fixture physical aliases are invalid")
     validate_agent_context_unit_file_read(
-        partition.source_receipts,
+        authority.source_receipts,
         receipt_read,
         name="development source receipts",
     )
     validate_agent_context_unit_file_read(
-        partition.observer_cases,
+        authority.observer_cases,
         case_read,
         name="development observer cases",
     )
@@ -99,9 +88,9 @@ def load_agent_context_unit_observer_contract(
         )
         for item in cases["cases"]
     )
-    if tuple(item.source_id for item in source_records) != partition.source_ids:
+    if tuple(item.source_id for item in source_records) != authority.source_ids:
         raise ValueError("observer source inventory is invalid")
-    if tuple(item.query_id for item in case_records) != partition.query_ids:
+    if tuple(item.query_id for item in case_records) != authority.query_ids:
         raise ValueError("observer query inventory is invalid")
     source_projection = [
         {
@@ -127,9 +116,9 @@ def load_agent_context_unit_observer_contract(
     ]
     if (
         _canonical_sha256(source_projection)
-        != authority.development_source_projection_sha256
+        != authority.source_projection_sha256
         or _canonical_sha256(case_projection)
-        != authority.development_case_projection_sha256
+        != authority.case_projection_sha256
     ):
         raise ValueError("observer scientific projection is invalid")
     return AgentContextObserverContract(sources=source_records, cases=case_records)

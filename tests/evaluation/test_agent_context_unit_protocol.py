@@ -188,7 +188,9 @@ def test_retained_authority_reads_protocol_once_and_survives_path_replacement(
 
     observer = importlib.import_module(
         "mke.evaluation.agent_context_unit_observer_protocol"
-    ).load_agent_context_unit_observer_contract(authority)
+    ).load_agent_context_unit_observer_contract(
+        module.build_agent_context_unit_observer_authority(authority)
+    )
     grading = importlib.import_module(
         "mke.evaluation.agent_context_unit_grading_protocol"
     ).load_agent_context_unit_baseline_grading_payload(authority)

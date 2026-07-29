@@ -30,9 +30,18 @@ def _copy_fixture_repository(tmp_path: Path) -> tuple[Path, Path]:
     return repository, target / "protocol.json"
 
 
+def _observer_authority(protocol: Path):
+    module = importlib.import_module("mke.evaluation.agent_context_unit_protocol")
+    return module.build_agent_context_unit_observer_authority(
+        module.load_agent_context_unit_protocol_authority(protocol)
+    )
+
+
 def test_development_observer_contract_is_label_blind() -> None:
     module = _observer_module()
-    contract = module.load_agent_context_unit_observer_contract(PROTOCOL)
+    contract = module.load_agent_context_unit_observer_contract(
+        _observer_authority(PROTOCOL)
+    )
 
     assert len(contract.sources) == 7
     assert len(contract.cases) == 11
@@ -60,7 +69,9 @@ def test_observer_contract_rejects_receipt_whitespace_identity_drift(
     receipts.write_bytes(receipts.read_bytes() + b"\n")
 
     with pytest.raises(ValueError, match="source receipts identity"):
-        _observer_module().load_agent_context_unit_observer_contract(protocol)
+        _observer_module().load_agent_context_unit_observer_contract(
+            _observer_authority(protocol)
+        )
 
 
 def test_observer_contract_rejects_symlinked_case_authority(
@@ -76,7 +87,9 @@ def test_observer_contract_rejects_symlinked_case_authority(
     cases.symlink_to(retained)
 
     with pytest.raises(ValueError, match="source identity path is invalid"):
-        _observer_module().load_agent_context_unit_observer_contract(protocol)
+        _observer_module().load_agent_context_unit_observer_contract(
+            _observer_authority(protocol)
+        )
 
 
 @pytest.mark.parametrize("fixture_kind", ("source_receipts", "observer_cases"))
@@ -111,7 +124,9 @@ def test_observer_contract_rejects_scientific_projection_drift(
     )
 
     with pytest.raises(ValueError, match="scientific projection"):
-        _observer_module().load_agent_context_unit_observer_contract(protocol)
+        _observer_module().load_agent_context_unit_observer_contract(
+            _observer_authority(protocol)
+        )
 
 
 def test_observer_module_cannot_import_grading_protocol() -> None:
@@ -121,3 +136,5 @@ def test_observer_module_cannot_import_grading_protocol() -> None:
         for value in vars(module).values()
         if isinstance(value, type(importlib))
     }
+    assert not hasattr(module, "AgentContextProtocolAuthority")
+    assert not hasattr(module, "load_agent_context_unit_protocol_authority")

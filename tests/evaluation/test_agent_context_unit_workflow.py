@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import shutil
 import subprocess
@@ -24,7 +25,10 @@ from mke.evaluation.agent_context_unit_observation import (
     PortableObservationItem,
     PortableScoreToken,
 )
-from mke.evaluation.agent_context_unit_protocol import AgentContextProtocolAuthority
+from mke.evaluation.agent_context_unit_protocol import (
+    AgentContextObserverAuthority,
+    AgentContextProtocolAuthority,
+)
 from mke.evaluation.agent_context_unit_workflow import (
     PUBLIC_RESULT_FIELDS,
     execute_baseline,
@@ -311,7 +315,7 @@ def test_protocol_swap_during_preflight_cannot_change_retained_receipt_authority
     observer_loader = workflow.load_agent_context_unit_observer_contract
     swapped = False
 
-    def swap_before_observer(authority: AgentContextProtocolAuthority):
+    def swap_before_observer(authority: AgentContextObserverAuthority):
         nonlocal swapped
         if not swapped:
             protocol.write_bytes(replacement_bytes)
@@ -356,6 +360,141 @@ def test_protocol_swap_during_preflight_cannot_change_retained_receipt_authority
     assert retained["protocol_sha256"] == original_sha256
     assert retained_receipt["protocol_sha256"] == original_sha256
     assert result["diagnostic_receipt_status"] == "complete_visible"
+
+
+def test_preflight_passes_only_label_blind_observer_authority(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository, protocol = _copy_fixture_repository(tmp_path)
+    observer_loader = workflow.load_agent_context_unit_observer_contract
+    delivered: list[object] = []
+
+    def capture_observer_authority(authority: AgentContextObserverAuthority):
+        delivered.append(authority)
+        return observer_loader(authority)
+
+    monkeypatch.setattr(
+        workflow,
+        "load_agent_context_unit_observer_contract",
+        capture_observer_authority,
+    )
+    protocol_authority, contract, _retained = workflow._preflight(  # pyright: ignore[reportPrivateUsage]
+        protocol,
+        tmp_path / "baseline.json",
+        tmp_path / "receipt.json",
+        repository,
+    )
+
+    assert len(delivered) == 1
+    observer_authority = delivered[0]
+    assert type(observer_authority).__name__ == "AgentContextObserverAuthority"
+    assert set(vars(observer_authority)) == {
+        "repository_root",
+        "source_ids",
+        "query_ids",
+        "source_receipts",
+        "observer_cases",
+        "source_projection_sha256",
+        "case_projection_sha256",
+    }
+    serialized = repr(observer_authority).lower()
+    for forbidden in (
+        "scientific_lock",
+        "required_span",
+        "labels",
+        "holdout",
+        "grading",
+        "protocol_read",
+        "metadata",
+    ):
+        assert forbidden not in serialized
+    assert protocol_authority.scientific_lock_read.content
+    assert len(contract.sources) == 7
+    assert len(contract.cases) == 11
+
+
+def test_post_seal_grading_uses_retained_protocol_after_path_replacement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _repository, protocol = _copy_fixture_repository(tmp_path)
+    record = tmp_path / "baseline.json"
+    receipt = tmp_path / "receipt.json"
+    original_protocol = protocol.read_bytes()
+    replacement = json.loads(original_protocol)
+    replacement["candidate_profile"]["hard_page_boundary"] = False
+    replacement_bytes = (
+        json.dumps(
+            replacement,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        + "\n"
+    ).encode()
+    observer_loader = workflow.load_agent_context_unit_observer_contract
+    original_seal = workflow.seal_portable_observations
+    observation_sealed = False
+
+    def replace_after_observer(authority: AgentContextObserverAuthority):
+        contract = observer_loader(authority)
+        protocol.write_bytes(replacement_bytes)
+        return contract
+
+    def record_seal(observations: tuple[PortableObservation, ...]):
+        nonlocal observation_sealed
+        sealed = original_seal(observations)
+        observation_sealed = True
+        return sealed
+
+    grading_module = importlib.import_module(
+        "mke.evaluation.agent_context_unit_grading_protocol"
+    )
+    grading_loader = grading_module.load_agent_context_unit_baseline_grading_payload
+    grading_authorities: list[AgentContextProtocolAuthority] = []
+
+    def capture_grading_authority(authority: AgentContextProtocolAuthority):
+        assert observation_sealed is True
+        grading_authorities.append(authority)
+        return grading_loader(authority)
+
+    monkeypatch.setattr(
+        workflow,
+        "load_agent_context_unit_observer_contract",
+        replace_after_observer,
+    )
+    monkeypatch.setattr(workflow, "seal_portable_observations", record_seal)
+    monkeypatch.setattr(
+        grading_module,
+        "load_agent_context_unit_baseline_grading_payload",
+        capture_grading_authority,
+    )
+
+    def observe(
+        _contract: object,
+        _root: Path,
+        _workspace: Path,
+        start_observation: Callable[[], None],
+    ) -> tuple[AuthorityObservation, ...]:
+        start_observation()
+        return (_synthetic_authority(),)
+
+    exit_code, result = execute_baseline(
+        protocol_path=protocol,
+        record_path=record,
+        diagnostic_receipt_path=receipt,
+        baseline_runner=observe,
+    )
+
+    assert exit_code == 0
+    assert result["status"] == "passed"
+    assert len(grading_authorities) == 1
+    retained = grading_authorities[0]
+    assert isinstance(retained, AgentContextProtocolAuthority)
+    assert retained.protocol_read.content == original_protocol
+    assert record.is_file()
+    assert not receipt.exists()
 
 
 def test_mkdtemp_failure_before_source_open_has_no_receipt(

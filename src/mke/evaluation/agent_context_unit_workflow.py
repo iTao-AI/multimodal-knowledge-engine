@@ -39,6 +39,7 @@ from mke.evaluation.agent_context_unit_observer_protocol import (
 )
 from mke.evaluation.agent_context_unit_protocol import (
     AgentContextProtocolAuthority,
+    build_agent_context_unit_observer_authority,
     load_agent_context_unit_protocol_authority,
 )
 from mke.evaluation.source_identity import build_source_identity
@@ -450,7 +451,10 @@ def _preflight(
         raise ValueError("protocol repository root is invalid")
     repository_root = protocol_authority.repository_root
     metadata = protocol_authority.metadata
-    contract = load_agent_context_unit_observer_contract(protocol_authority)
+    observer_authority = build_agent_context_unit_observer_authority(
+        protocol_authority
+    )
+    contract = load_agent_context_unit_observer_contract(observer_authority)
     evaluator = build_source_identity(repository_root, metadata.o0_evaluator_paths)
     runtime_source = build_source_identity(repository_root, _RUNTIME_SOURCE_PATHS)
     runtime_profile = _runtime_profile()

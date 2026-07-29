@@ -84,6 +84,32 @@ class AgentContextProtocolAuthority:
     development_span_projection_sha256: str
 
 
+@dataclass(frozen=True)
+class AgentContextObserverAuthority:
+    repository_root: Path
+    source_ids: tuple[str, ...]
+    query_ids: tuple[str, ...]
+    source_receipts: AgentContextFileReference
+    observer_cases: AgentContextFileReference
+    source_projection_sha256: str
+    case_projection_sha256: str
+
+
+def build_agent_context_unit_observer_authority(
+    authority: AgentContextProtocolAuthority,
+) -> AgentContextObserverAuthority:
+    development = authority.metadata.partitions["development"]
+    return AgentContextObserverAuthority(
+        repository_root=authority.repository_root,
+        source_ids=development.source_ids,
+        query_ids=development.query_ids,
+        source_receipts=development.source_receipts,
+        observer_cases=development.observer_cases,
+        source_projection_sha256=authority.development_source_projection_sha256,
+        case_projection_sha256=authority.development_case_projection_sha256,
+    )
+
+
 def _closed_mapping(value: object, fields: set[str], name: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"{name} field set is invalid")
