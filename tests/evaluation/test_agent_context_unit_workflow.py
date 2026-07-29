@@ -8,6 +8,7 @@ import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -37,6 +38,44 @@ from mke.evaluation.agent_context_unit_workflow import (
 
 ROOT = Path(__file__).resolve().parents[2]
 PROTOCOL = ROOT / "tests/fixtures/agent-context-unit-v2/protocol.json"
+BASELINE = ROOT / "benchmarks/retrieval/agent-context-unit-v2-baseline.json"
+_CANDIDATE_MODULES = (
+    "agent_context_unit_segmentation.py",
+    "agent_context_unit_ranking.py",
+    "agent_context_unit_assembly.py",
+    "agent_context_unit_grading.py",
+    "agent_context_unit_artifact.py",
+)
+_UNEVALUATED_MECHANISMS = {
+    "adjacent-page-assembly-v1": "not_evaluated",
+    "deterministic-unit-rank-v1": "not_evaluated",
+    "fixed-rank-delivery-v1": "not_evaluated",
+    "source-context-delivery-v1": "not_evaluated",
+    "source-context-index-v1": "not_evaluated",
+}
+_BASELINE_FIELDS = {
+    "candidate_target_query_ids",
+    "content_digest",
+    "coverage",
+    "evaluator_source_sha256",
+    "fixture_sha256",
+    "holdout_status",
+    "integrity_status",
+    "limitations",
+    "mechanism_statuses",
+    "observation",
+    "observation_sha256",
+    "phase",
+    "protocol_sha256",
+    "role_coverage",
+    "runtime_profile",
+    "runtime_profile_sha256",
+    "runtime_promotion_status",
+    "schema_version",
+    "stage_outcome",
+    "status",
+    "targeted_failure_observed",
+}
 
 
 def _copy_fixture_repository(tmp_path: Path) -> tuple[Path, Path]:
@@ -98,15 +137,153 @@ def test_validate_baseline_is_pure_and_emits_one_closed_result(
     assert result["first_failed_gate"] == "authority_preflight"
 
 
+def _candidate_modules_allowed(baseline_path: Path) -> bool:
+    try:
+        if baseline_path.is_symlink() or not baseline_path.is_file():
+            return False
+        encoded = baseline_path.read_bytes()
+        decoded = cast(object, json.loads(encoded))
+        if not isinstance(decoded, dict):
+            return False
+        artifact = cast(dict[str, object], decoded)
+        if (
+            set(artifact) != _BASELINE_FIELDS
+            or encoded
+            != (
+                json.dumps(
+                    artifact,
+                    ensure_ascii=True,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                )
+                + "\n"
+            ).encode()
+        ):
+            return False
+        digest = artifact.get("content_digest")
+        without_digest = dict(artifact)
+        without_digest.pop("content_digest", None)
+        if (
+            not isinstance(digest, str)
+            or hashlib.sha256(
+                json.dumps(
+                    without_digest,
+                    ensure_ascii=True,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ).encode()
+            ).hexdigest()
+            != digest
+        ):
+            return False
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return False
+    return (
+        artifact.get("schema_version") == "mke.agent_context_unit_baseline.v2"
+        and artifact.get("phase") == "baseline"
+        and artifact.get("status") == "passed"
+        and artifact.get("integrity_status") == "passed"
+        and artifact.get("stage_outcome") == "baseline_red_observed"
+        and artifact.get("targeted_failure_observed") is True
+        and artifact.get("holdout_status") == "not_evaluated"
+        and artifact.get("runtime_promotion_status") == "not_evaluated"
+        and artifact.get("mechanism_statuses") == _UNEVALUATED_MECHANISMS
+    )
+
+
+def _assert_candidate_modules_follow_baseline(
+    repository_root: Path, baseline_path: Path
+) -> None:
+    if _candidate_modules_allowed(baseline_path):
+        return
+    for name in _CANDIDATE_MODULES:
+        assert not (repository_root / "src/mke/evaluation" / name).exists()
+
+
+def _write_closed_baseline(path: Path, artifact: dict[str, object]) -> None:
+    record = dict(artifact)
+    record.pop("content_digest", None)
+    record["content_digest"] = hashlib.sha256(
+        json.dumps(
+            record, ensure_ascii=True, separators=(",", ":"), sort_keys=True
+        ).encode()
+    ).hexdigest()
+    path.write_bytes(
+        (
+            json.dumps(
+                record,
+                ensure_ascii=True,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            + "\n"
+        ).encode()
+    )
+
+
+def _candidate_gate_repository(tmp_path: Path) -> tuple[Path, Path]:
+    repository = tmp_path / "repository"
+    module_root = repository / "src/mke/evaluation"
+    module_root.mkdir(parents=True)
+    (module_root / "agent_context_unit_segmentation.py").write_text(
+        "# candidate\n", encoding="utf-8"
+    )
+    return repository, tmp_path / "baseline.json"
+
+
+def test_candidate_modules_remain_absent_without_canonical_baseline(
+    tmp_path: Path,
+) -> None:
+    repository, missing = _candidate_gate_repository(tmp_path)
+
+    with pytest.raises(AssertionError):
+        _assert_candidate_modules_follow_baseline(repository, missing)
+
+    (repository / "src/mke/evaluation/agent_context_unit_segmentation.py").unlink()
+    _assert_candidate_modules_follow_baseline(repository, missing)
+
+
+def test_docs_regression_only_baseline_keeps_candidate_modules_absent(
+    tmp_path: Path,
+) -> None:
+    repository, baseline = _candidate_gate_repository(tmp_path)
+    artifact = cast(dict[str, object], json.loads(BASELINE.read_bytes()))
+    artifact["stage_outcome"] = "docs_regression_only"
+    artifact["targeted_failure_observed"] = False
+    _write_closed_baseline(baseline, artifact)
+
+    with pytest.raises(AssertionError):
+        _assert_candidate_modules_follow_baseline(repository, baseline)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("status", "failed"),
+        ("integrity_status", "failed"),
+        ("stage_outcome", "evaluation_inconclusive"),
+        ("targeted_failure_observed", False),
+        ("holdout_status", "passed"),
+        ("runtime_promotion_status", "promoted"),
+        ("mechanism_statuses", {}),
+        ("unknown_field", True),
+    ),
+)
+def test_invalid_baseline_state_fails_candidate_modules_closed(
+    tmp_path: Path, field: str, value: object
+) -> None:
+    repository, baseline = _candidate_gate_repository(tmp_path)
+    artifact = cast(dict[str, object], json.loads(BASELINE.read_bytes()))
+    artifact[field] = value
+    _write_closed_baseline(baseline, artifact)
+
+    with pytest.raises(AssertionError):
+        _assert_candidate_modules_follow_baseline(repository, baseline)
+
+
 def test_candidate_modules_remain_absent() -> None:
-    for name in (
-        "agent_context_unit_segmentation.py",
-        "agent_context_unit_ranking.py",
-        "agent_context_unit_assembly.py",
-        "agent_context_unit_grading.py",
-        "agent_context_unit_artifact.py",
-    ):
-        assert not (ROOT / "src/mke/evaluation" / name).exists()
+    assert _candidate_modules_allowed(BASELINE)
+    _assert_candidate_modules_follow_baseline(ROOT, BASELINE)
 
 
 def _synthetic_authority() -> AuthorityObservation:
