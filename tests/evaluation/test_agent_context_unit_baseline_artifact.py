@@ -183,6 +183,117 @@ def test_retained_validator_rejects_unknown_sealed_observation_fields() -> None:
         )
 
 
+def _close_forged_artifact(artifact: dict[str, object]) -> None:
+    observation = cast(dict[str, object], artifact["observation"])
+    sealed = (
+        json.dumps(
+            observation,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        + "\n"
+    ).encode()
+    artifact["observation_sha256"] = hashlib.sha256(sealed).hexdigest()
+    body = dict(artifact)
+    del body["content_digest"]
+    artifact["content_digest"] = hashlib.sha256(
+        json.dumps(
+            body, ensure_ascii=True, separators=(",", ":"), sort_keys=True
+        ).encode()
+    ).hexdigest()
+
+
+@pytest.mark.parametrize(
+    ("field", "forged"),
+    (
+        ("candidate_count", "1"),
+        ("selected_count", True),
+        ("statuses", ["query_policy_hit"] * 7),
+        ("expected_route", "cjk-active-scan-overlap-v1"),
+    ),
+)
+def test_retained_validator_rebuilds_typed_observation_contract(
+    field: str,
+    forged: object,
+) -> None:
+    artifact = _build(covered=False)
+    observation = cast(dict[str, object], artifact["observation"])
+    rows = cast(list[object], observation["observations"])
+    row = cast(dict[str, object], rows[0])
+    row[field] = forged
+    _close_forged_artifact(artifact)
+
+    with pytest.raises(ValueError, match="observation"):
+        validate_agent_context_unit_baseline_artifact(
+            artifact, AgentContextBaselineGradingPayload((_span(),))
+        )
+
+
+def test_retained_validator_rejects_self_consistent_item_forgery() -> None:
+    artifact = _build(covered=False)
+    observation = cast(dict[str, object], artifact["observation"])
+    rows = cast(list[object], observation["observations"])
+    row = cast(dict[str, object], rows[0])
+    items = cast(list[object], row["items"])
+    item = cast(dict[str, object], items[0])
+    score = cast(dict[str, object], item["score"])
+    score["primary"] = "not-a-float"
+    _close_forged_artifact(artifact)
+
+    with pytest.raises(ValueError, match="score token"):
+        validate_agent_context_unit_baseline_artifact(
+            artifact, AgentContextBaselineGradingPayload((_span(),))
+        )
+
+
+def test_retained_validator_rejects_excerpt_accounting_forgery() -> None:
+    artifact = _build(covered=False)
+    observation = cast(dict[str, object], artifact["observation"])
+    rows = cast(list[object], observation["observations"])
+    row = cast(dict[str, object], rows[0])
+    items = cast(list[object], row["items"])
+    item = cast(dict[str, object], items[0])
+    excerpt = cast(dict[str, object], item["excerpt"])
+    excerpt["returned_utf8_bytes"] = 15
+    _close_forged_artifact(artifact)
+
+    with pytest.raises(ValueError, match="excerpt"):
+        validate_agent_context_unit_baseline_artifact(
+            artifact, AgentContextBaselineGradingPayload((_span(),))
+        )
+
+
+def test_retained_validator_rejects_duplicate_query_identity() -> None:
+    artifact = _build(covered=False)
+    observation = cast(dict[str, object], artifact["observation"])
+    rows = cast(list[object], observation["observations"])
+    rows.append(json.loads(json.dumps(rows[0])))
+    _close_forged_artifact(artifact)
+
+    with pytest.raises(ValueError, match="observation"):
+        validate_agent_context_unit_baseline_artifact(
+            artifact, AgentContextBaselineGradingPayload((_span(),))
+        )
+
+
+def test_retained_validator_rejects_noncanonical_query_order() -> None:
+    artifact = _build(covered=False)
+    observation = cast(dict[str, object], artifact["observation"])
+    rows = cast(list[object], observation["observations"])
+    later_value: object = json.loads(json.dumps(rows[0]))
+    assert isinstance(later_value, dict)
+    later = cast(dict[str, object], later_value)
+    later["query_id"] = "q-z"
+    rows.insert(0, later)
+    _close_forged_artifact(artifact)
+
+    with pytest.raises(ValueError, match="observation"):
+        validate_agent_context_unit_baseline_artifact(
+            artifact, AgentContextBaselineGradingPayload((_span(),))
+        )
+
+
 def test_strict_live_validator_is_separate() -> None:
     artifact = _build(covered=False)
     validate_agent_context_unit_baseline_artifact_live(

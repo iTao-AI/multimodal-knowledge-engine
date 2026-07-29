@@ -5,11 +5,18 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from typing import cast
+from typing import Literal, cast
 
+from mke.application.evidence_access import EvidenceExcerpt
 from mke.evaluation.agent_context_unit_grading_protocol import (
     AgentContextBaselineGradingPayload,
     AgentContextRequiredSpan,
+)
+from mke.evaluation.agent_context_unit_observation import (
+    PortableObservation,
+    PortableObservationItem,
+    PortableScoreToken,
+    seal_portable_observations,
 )
 
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
@@ -112,6 +119,9 @@ def build_agent_context_unit_baseline_artifact(
     if sealed_observation_bytes != _observation_bytes(observation):
         raise ValueError("sealed observation bytes are not canonical")
     observations = _observation_rows(observation)
+    portable = _portable_observations(observations)
+    if seal_portable_observations(portable).bytes != sealed_observation_bytes:
+        raise ValueError("sealed observation semantics are invalid")
     _require_complete_observations(observations)
     coverage = tuple(
         _span_coverage(span, observations) for span in grading_payload.required_spans
@@ -298,6 +308,168 @@ def _observation_bytes(value: object) -> bytes:
         )
         + "\n"
     ).encode("utf-8")
+
+
+def _portable_observations(
+    rows: tuple[dict[str, object], ...],
+) -> tuple[PortableObservation, ...]:
+    observations: list[PortableObservation] = []
+    status_slots = (
+        {"query_policy_hit", "query_policy_miss"},
+        {"candidate_hit", "candidate_miss"},
+        {"rank_hit", "rank_miss"},
+        {"delivery_hit", "delivery_miss"},
+        {"output_complete", "output_incomplete"},
+        {"exact_read_complete", "exact_read_incomplete"},
+        {"provenance_complete", "provenance_incomplete"},
+    )
+    for row in rows:
+        statuses = _string_list(row["statuses"], "observation statuses")
+        if len(statuses) != len(status_slots) or any(
+            status not in allowed
+            for status, allowed in zip(statuses, status_slots, strict=True)
+        ):
+            raise ValueError("observation status inventory is invalid")
+        raw_items = cast(list[object], row["items"])
+        items = tuple(
+            _portable_item(cast(dict[str, object], item)) for item in raw_items
+        )
+        expected_route = _string(row["expected_route"], "observation route")
+        if any(item.route != expected_route for item in items):
+            raise ValueError("observation route is invalid")
+        if tuple(item.rank for item in items) != tuple(range(1, len(items) + 1)):
+            raise ValueError("observation rank inventory is invalid")
+        observations.append(
+            PortableObservation(
+                query_id=_string(row["query_id"], "observation query"),
+                query_text=_string(row["query_text"], "observation query"),
+                expected_route=expected_route,
+                profile_identity=_string(
+                    row["profile_identity"], "observation profile"
+                ),
+                statuses=statuses,
+                items=items,
+                candidate_count=_integer(
+                    row["candidate_count"], "observation candidate count"
+                ),
+                selected_count=_integer(
+                    row["selected_count"], "observation selected count"
+                ),
+                delivered_utf8_bytes=_integer(
+                    row["delivered_utf8_bytes"], "observation delivered bytes"
+                ),
+            )
+        )
+    return tuple(observations)
+
+
+def _portable_item(value: dict[str, object]) -> PortableObservationItem:
+    score_value = cast(dict[str, object], value["score"])
+    excerpt_value = cast(dict[str, object], value["excerpt"])
+    score_kind = _string(score_value["kind"], "observation score")
+    if score_kind not in {"fts5_rank", "cjk_overlap"}:
+        raise ValueError("observation score token is invalid")
+    route = _string(value["route"], "observation route")
+    if route not in {"fts5", "cjk-active-scan-overlap-v1"}:
+        raise ValueError("observation route is invalid")
+    locator_kind = _string(value["locator_kind"], "observation locator")
+    if locator_kind not in {"page", "timestamp_ms"}:
+        raise ValueError("observation locator is invalid")
+    excerpt_kind = _string(excerpt_value["kind"], "observation excerpt")
+    if excerpt_kind not in {"query_window", "prefix_fallback"}:
+        raise ValueError("observation excerpt is invalid")
+    content_trust = _string(
+        excerpt_value["content_trust"], "observation excerpt"
+    )
+    if content_trust != "untrusted_evidence":
+        raise ValueError("observation excerpt is invalid")
+    excerpt_text = _string(excerpt_value["text"], "observation excerpt")
+    start = _integer(excerpt_value["start_utf8_byte"], "observation excerpt")
+    end = _integer(excerpt_value["end_utf8_byte"], "observation excerpt")
+    returned = _integer(
+        excerpt_value["returned_utf8_bytes"], "observation excerpt"
+    )
+    prefix_omitted = _boolean(
+        excerpt_value["prefix_omitted"], "observation excerpt"
+    )
+    suffix_omitted = _boolean(
+        excerpt_value["suffix_omitted"], "observation excerpt"
+    )
+    complete = _boolean(excerpt_value["complete"], "observation excerpt")
+    if (
+        start < 0
+        or end != start + returned
+        or returned != len(excerpt_text.encode("utf-8"))
+        or complete != (not prefix_omitted and not suffix_omitted)
+    ):
+        raise ValueError("observation excerpt is invalid")
+    return PortableObservationItem(
+        content_fingerprint=_string(
+            value["content_fingerprint"], "observation digest"
+        ),
+        locator_kind=cast(Literal["page", "timestamp_ms"], locator_kind),
+        locator_start=_integer(value["locator_start"], "observation locator"),
+        locator_end=_integer(value["locator_end"], "observation locator"),
+        text_sha256=_string(value["text_sha256"], "observation digest"),
+        route=cast(Literal["fts5", "cjk-active-scan-overlap-v1"], route),
+        rank=_integer(value["rank"], "observation rank"),
+        score=PortableScoreToken(
+            cast(Literal["fts5_rank", "cjk_overlap"], score_kind),
+            _string(score_value["primary"], "observation score"),
+            _string(score_value["secondary"], "observation score"),
+        ),
+        hints=_string_list(value["hints"], "observation hints"),
+        excerpt=EvidenceExcerpt(
+            cast(Literal["query_window", "prefix_fallback"], excerpt_kind),
+            excerpt_text,
+            start,
+            end,
+            prefix_omitted,
+            suffix_omitted,
+            complete,
+            returned,
+            content_trust,
+        ),
+        exact_read_sha256=_string(
+            value["exact_read_sha256"], "observation digest"
+        ),
+        original_utf8_bytes=_integer(
+            value["original_utf8_bytes"], "observation bytes"
+        ),
+        excerpt_utf8_bytes=_integer(
+            value["excerpt_utf8_bytes"], "observation bytes"
+        ),
+        exact_read_utf8_bytes=_integer(
+            value["exact_read_utf8_bytes"], "observation bytes"
+        ),
+    )
+
+
+def _string(value: object, name: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{name} is invalid")
+    return value
+
+
+def _integer(value: object, name: str) -> int:
+    if type(value) is not int or value < 0:
+        raise ValueError(f"{name} is invalid")
+    return value
+
+
+def _boolean(value: object, name: str) -> bool:
+    if type(value) is not bool:
+        raise ValueError(f"{name} is invalid")
+    return value
+
+
+def _string_list(value: object, name: str) -> tuple[str, ...]:
+    if not isinstance(value, list):
+        raise ValueError(f"{name} is invalid")
+    items = cast(list[object], value)
+    if not all(isinstance(item, str) and item for item in items):
+        raise ValueError(f"{name} is invalid")
+    return tuple(cast(list[str], items))
 
 
 def _require_complete_observations(
