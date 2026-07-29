@@ -8,6 +8,13 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import cast
 
+from mke.evaluation.agent_context_unit_protocol import (
+    AgentContextProtocolAuthority,
+    load_agent_context_unit_protocol_authority,
+    validate_agent_context_unit_file_read,
+)
+from mke.evaluation.source_identity import read_no_follow_regular_file
+
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _SPAN_FIELDS = {
     "byte_range",
@@ -71,31 +78,21 @@ class AgentContextBaselineGradingPayload:
 
 
 def load_agent_context_unit_baseline_grading_payload(
-    protocol_path: Path,
+    protocol_authority: Path | AgentContextProtocolAuthority,
 ) -> AgentContextBaselineGradingPayload:
-    if protocol_path.name != "protocol.json":
+    if isinstance(protocol_authority, Path) and protocol_authority.name != "protocol.json":
         raise ValueError("baseline grading authority must be development protocol")
-    protocol_value: object = json.loads(protocol_path.read_bytes())
-    if not isinstance(protocol_value, dict):
-        raise ValueError("protocol is invalid")
-    protocol = cast(dict[str, object], protocol_value)
-    partitions = protocol.get("partitions")
-    if not isinstance(partitions, dict):
-        raise ValueError("protocol is invalid")
-    partitions = cast(dict[str, object], partitions)
-    development = partitions.get("development")
-    if not isinstance(development, dict):
-        raise ValueError("development grading authority is invalid")
-    development = cast(dict[str, object], development)
-    labels = development.get("labels")
-    if not isinstance(labels, dict):
-        raise ValueError("development grading authority is invalid")
-    labels = cast(dict[str, object], labels)
-    if set(labels) != {"bytes", "path", "sha256"}:
-        raise ValueError("development grading authority is invalid")
-    relative = labels["path"]
-    if not isinstance(relative, str):
-        raise ValueError("development grading authority is invalid")
+    authority = (
+        protocol_authority
+        if isinstance(protocol_authority, AgentContextProtocolAuthority)
+        else load_agent_context_unit_protocol_authority(protocol_authority)
+    )
+    if PurePosixPath(
+        cast(str, authority.protocol_read.identity["path"])
+    ).name != "protocol.json":
+        raise ValueError("baseline grading authority must be development protocol")
+    labels = authority.metadata.partitions["development"].labels
+    relative = labels.path
     pure = PurePosixPath(relative)
     if (
         pure.is_absolute()
@@ -104,17 +101,13 @@ def load_agent_context_unit_baseline_grading_payload(
         or "holdout" in pure.parts
     ):
         raise ValueError("development grading authority is invalid")
-    root = _repository_root(protocol_path)
-    label_path = root / relative
-    content = label_path.read_bytes()
-    if (
-        type(labels["bytes"]) is not int
-        or len(content) != labels["bytes"]
-        or not isinstance(labels["sha256"], str)
-        or _digest(content) != labels["sha256"]
-    ):
-        raise ValueError("development grading identity is invalid")
-    payload_value: object = json.loads(content)
+    labels_read = read_no_follow_regular_file(authority.repository_root, relative)
+    validate_agent_context_unit_file_read(
+        labels,
+        labels_read,
+        name="development grading",
+    )
+    payload_value: object = json.loads(labels_read.content)
     if not isinstance(payload_value, dict):
         raise ValueError("development grading payload is invalid")
     payload = cast(dict[str, object], payload_value)
@@ -125,8 +118,14 @@ def load_agent_context_unit_baseline_grading_payload(
         or not isinstance(payload["required_spans"], list)
     ):
         raise ValueError("development grading payload is invalid")
+    required_spans = cast(list[object], payload["required_spans"])
+    if (
+        _canonical_sha256(required_spans)
+        != authority.development_span_projection_sha256
+    ):
+        raise ValueError("development grading scientific projection is invalid")
     spans: list[AgentContextRequiredSpan] = []
-    for value in cast(list[object], payload["required_spans"]):
+    for value in required_spans:
         if not isinstance(value, dict):
             raise ValueError("development grading payload is invalid")
         item = cast(dict[str, object], value)
@@ -164,14 +163,6 @@ def load_agent_context_unit_baseline_grading_payload(
     return AgentContextBaselineGradingPayload(tuple(spans))
 
 
-def _repository_root(path: Path) -> Path:
-    resolved = path.resolve(strict=True)
-    for parent in resolved.parents:
-        if (parent / "pyproject.toml").is_file() and (parent / "src/mke").is_dir():
-            return parent
-    raise ValueError("protocol repository root is invalid")
-
-
 def _string(value: object) -> str:
     if not isinstance(value, str) or not value:
         raise ValueError("development grading payload is invalid")
@@ -184,7 +175,11 @@ def _integer(value: object) -> int:
     return value
 
 
-def _digest(content: bytes) -> str:
+def _canonical_sha256(value: object) -> str:
     from hashlib import sha256
 
-    return sha256(content).hexdigest()
+    return sha256(
+        json.dumps(
+            value, ensure_ascii=True, separators=(",", ":"), sort_keys=True
+        ).encode()
+    ).hexdigest()

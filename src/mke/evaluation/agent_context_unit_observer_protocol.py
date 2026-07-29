@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from mke.evaluation.agent_context_unit_protocol import (
-    load_agent_context_unit_protocol_metadata,
+    AgentContextProtocolAuthority,
+    load_agent_context_unit_protocol_authority,
     validate_agent_context_unit_file_read,
 )
 from mke.evaluation.source_identity import read_no_follow_regular_file
@@ -38,19 +39,16 @@ class AgentContextObserverContract:
     cases: tuple[AgentContextObserverCase, ...]
 
 
-def _repository_root(protocol_path: Path) -> Path:
-    resolved = protocol_path.resolve(strict=True)
-    for parent in resolved.parents:
-        if (parent / "pyproject.toml").is_file() and (parent / "src/mke").is_dir():
-            return parent
-    raise ValueError("protocol repository root is invalid")
-
-
 def load_agent_context_unit_observer_contract(
-    protocol_path: Path,
+    protocol_authority: Path | AgentContextProtocolAuthority,
 ) -> AgentContextObserverContract:
-    metadata = load_agent_context_unit_protocol_metadata(protocol_path)
-    root = _repository_root(protocol_path)
+    authority = (
+        protocol_authority
+        if isinstance(protocol_authority, AgentContextProtocolAuthority)
+        else load_agent_context_unit_protocol_authority(protocol_authority)
+    )
+    metadata = authority.metadata
+    root = authority.repository_root
     partition = metadata.partitions["development"]
     receipt_read = read_no_follow_regular_file(
         root, partition.source_receipts.path
@@ -105,4 +103,43 @@ def load_agent_context_unit_observer_contract(
         raise ValueError("observer source inventory is invalid")
     if tuple(item.query_id for item in case_records) != partition.query_ids:
         raise ValueError("observer query inventory is invalid")
+    source_projection = [
+        {
+            "source_id": item.source_id,
+            "content_fingerprint": item.content_fingerprint,
+            "bytes": item.bytes,
+            "pages": item.pages,
+            "nonempty_text_pages": item.nonempty_text_pages,
+            "extracted_text_utf8_bytes": item.extracted_text_utf8_bytes,
+            "pymupdf_version": item.pymupdf_version,
+        }
+        for item in source_records
+    ]
+    case_projection = [
+        {
+            "query_id": item.query_id,
+            "query_text": item.query_text,
+            "source_content_fingerprints": list(item.source_content_fingerprints),
+            "runtime_route_profile": item.runtime_route_profile,
+            "observation_ids": list(item.observation_ids),
+        }
+        for item in case_records
+    ]
+    if (
+        _canonical_sha256(source_projection)
+        != authority.development_source_projection_sha256
+        or _canonical_sha256(case_projection)
+        != authority.development_case_projection_sha256
+    ):
+        raise ValueError("observer scientific projection is invalid")
     return AgentContextObserverContract(sources=source_records, cases=case_records)
+
+
+def _canonical_sha256(value: object) -> str:
+    from hashlib import sha256
+
+    return sha256(
+        json.dumps(
+            value, ensure_ascii=True, separators=(",", ":"), sort_keys=True
+        ).encode()
+    ).hexdigest()

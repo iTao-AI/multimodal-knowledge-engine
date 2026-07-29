@@ -38,8 +38,8 @@ from mke.evaluation.agent_context_unit_observer_protocol import (
     load_agent_context_unit_observer_contract,
 )
 from mke.evaluation.agent_context_unit_protocol import (
-    AgentContextProtocolMetadata,
-    load_agent_context_unit_protocol_metadata,
+    AgentContextProtocolAuthority,
+    load_agent_context_unit_protocol_authority,
 )
 from mke.evaluation.source_identity import build_source_identity
 
@@ -134,7 +134,6 @@ def execute_baseline(
     ]
     | None = None,
 ) -> tuple[int, dict[str, object]]:
-    repository_root = _repository_root(protocol_path)
     observation_started = False
     observation_sha256: str | None = None
     output_state = "absent"
@@ -142,12 +141,12 @@ def execute_baseline(
     completed: list[AgentContextStageSuccess] = []
     retained_authority: dict[str, object] | None = None
     try:
-        _metadata, contract, authority = _preflight(
+        protocol_authority, contract, authority = _preflight(
             protocol_path,
             record_path,
             diagnostic_receipt_path,
-            repository_root,
         )
+        repository_root = protocol_authority.repository_root
         retained_authority = authority
         completed.append(
             run_diagnostic_stage(
@@ -211,7 +210,7 @@ def execute_baseline(
         )
 
         grading_payload = load_agent_context_unit_baseline_grading_payload(
-            protocol_path
+            protocol_authority
         )
         targets = tuple(
             case.query_id
@@ -433,9 +432,9 @@ def _preflight(
     protocol_path: Path,
     record_path: Path,
     receipt_path: Path,
-    repository_root: Path,
+    repository_root: Path | None = None,
 ) -> tuple[
-    AgentContextProtocolMetadata,
+    AgentContextProtocolAuthority,
     AgentContextObserverContract,
     dict[str, object],
 ]:
@@ -443,25 +442,30 @@ def _preflight(
         receipt_path
     ):
         raise ValueError("output path authority is invalid")
-    metadata = load_agent_context_unit_protocol_metadata(protocol_path)
-    contract = load_agent_context_unit_observer_contract(protocol_path)
+    protocol_authority = load_agent_context_unit_protocol_authority(protocol_path)
+    if (
+        repository_root is not None
+        and repository_root != protocol_authority.repository_root
+    ):
+        raise ValueError("protocol repository root is invalid")
+    repository_root = protocol_authority.repository_root
+    metadata = protocol_authority.metadata
+    contract = load_agent_context_unit_observer_contract(protocol_authority)
     evaluator = build_source_identity(repository_root, metadata.o0_evaluator_paths)
     runtime_source = build_source_identity(repository_root, _RUNTIME_SOURCE_PATHS)
     runtime_profile = _runtime_profile()
     if set(runtime_profile) != set(metadata.runtime_profile_fields):
         raise ValueError("runtime profile field inventory is invalid")
-    scientific_lock = (
-        repository_root
-        / "tests/fixtures/agent-context-unit-v2/scientific-input-lock.json"
-    )
     authority: dict[str, object] = {
-        "protocol_sha256": _sha256_file(protocol_path),
+        "protocol_sha256": protocol_authority.protocol_read.identity["sha256"],
         "evaluator_source_sha256": evaluator["sha256"],
         "runtime_source_sha256": runtime_source["sha256"],
         "runtime_profile": runtime_profile,
-        "fixture_sha256": _sha256_file(scientific_lock),
+        "fixture_sha256": protocol_authority.scientific_lock_read.identity[
+            "sha256"
+        ],
     }
-    return metadata, contract, authority
+    return protocol_authority, contract, authority
 
 
 def _runtime_profile() -> dict[str, object]:
@@ -510,18 +514,6 @@ def _absent_regular_destination(path: Path) -> bool:
     except OSError:
         return False
     return False
-
-
-def _repository_root(path: Path) -> Path:
-    resolved = path.resolve(strict=True)
-    for parent in resolved.parents:
-        if (parent / "pyproject.toml").is_file() and (parent / "src/mke").is_dir():
-            return parent
-    raise ValueError("protocol repository root is invalid")
-
-
-def _sha256_file(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _canonical(value: object) -> bytes:

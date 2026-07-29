@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import importlib
+import json
 import shutil
 from pathlib import Path
 
@@ -74,6 +76,41 @@ def test_observer_contract_rejects_symlinked_case_authority(
     cases.symlink_to(retained)
 
     with pytest.raises(ValueError, match="source identity path is invalid"):
+        _observer_module().load_agent_context_unit_observer_contract(protocol)
+
+
+@pytest.mark.parametrize("fixture_kind", ("source_receipts", "observer_cases"))
+def test_observer_contract_rejects_scientific_projection_drift(
+    tmp_path: Path,
+    fixture_kind: str,
+) -> None:
+    repository, protocol = _copy_fixture_repository(tmp_path)
+    protocol_value = json.loads(protocol.read_bytes())
+    reference = protocol_value["partitions"]["development"][fixture_kind]
+    fixture = repository / reference["path"]
+    value = json.loads(fixture.read_bytes())
+    if fixture_kind == "source_receipts":
+        value["sources"][0]["pages"] += 1
+    else:
+        value["cases"][0]["query_text"] += " drift"
+    content = (
+        json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+        + "\n"
+    ).encode()
+    fixture.write_bytes(content)
+    reference["bytes"] = len(content)
+    reference["sha256"] = hashlib.sha256(content).hexdigest()
+    protocol.write_text(
+        json.dumps(
+            protocol_value,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        + "\n"
+    )
+
+    with pytest.raises(ValueError, match="scientific projection"):
         _observer_module().load_agent_context_unit_observer_contract(protocol)
 
 

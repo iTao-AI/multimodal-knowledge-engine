@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import shutil
 import subprocess
 import sys
 from collections.abc import Callable
@@ -13,6 +15,7 @@ from mke.evaluation import _atomic_json_publication
 from mke.evaluation import agent_context_unit_workflow as workflow
 from mke.evaluation.agent_context_unit_diagnostics import (
     AgentContextStageError,
+    AgentContextStageSuccess,
     AgentContextSubstage,
 )
 from mke.evaluation.agent_context_unit_observation import (
@@ -21,6 +24,7 @@ from mke.evaluation.agent_context_unit_observation import (
     PortableObservationItem,
     PortableScoreToken,
 )
+from mke.evaluation.agent_context_unit_protocol import AgentContextProtocolAuthority
 from mke.evaluation.agent_context_unit_workflow import (
     PUBLIC_RESULT_FIELDS,
     execute_baseline,
@@ -29,6 +33,15 @@ from mke.evaluation.agent_context_unit_workflow import (
 
 ROOT = Path(__file__).resolve().parents[2]
 PROTOCOL = ROOT / "tests/fixtures/agent-context-unit-v2/protocol.json"
+
+
+def _copy_fixture_repository(tmp_path: Path) -> tuple[Path, Path]:
+    repository = tmp_path / "repository"
+    shutil.copytree(ROOT / "src", repository / "src")
+    shutil.copy2(ROOT / "pyproject.toml", repository / "pyproject.toml")
+    target = repository / "tests/fixtures/agent-context-unit-v2"
+    shutil.copytree(PROTOCOL.parent, target)
+    return repository, target / "protocol.json"
 
 
 def test_cli_exposes_only_o0_commands() -> None:
@@ -209,12 +222,11 @@ def test_started_failure_receipt_uses_retained_preflight_authority(
     receipt = tmp_path / "receipt.json"
     preflight_evaluator = "a" * 64
     preflight_profile = workflow._runtime_profile()  # pyright: ignore[reportPrivateUsage]
-    protocol_digest = "c" * 64
+    protocol_digest = hashlib.sha256(PROTOCOL.read_bytes()).hexdigest()
     later_evaluator = "b" * 64
     later_profile = {**preflight_profile, "python": "later"}
     source_calls = 0
     profile_calls = 0
-    sha_calls = 0
 
     def source_identity(
         _root: Path, _paths: object
@@ -241,14 +253,8 @@ def test_started_failure_receipt_uses_retained_preflight_authority(
             else dict(later_profile)
         )
 
-    def file_sha256(_path: Path) -> str:
-        nonlocal sha_calls
-        sha_calls += 1
-        return protocol_digest if sha_calls == 1 else "d" * 64
-
     monkeypatch.setattr(workflow, "build_source_identity", source_identity)
     monkeypatch.setattr(workflow, "_runtime_profile", runtime_profile)
-    monkeypatch.setattr(workflow, "_sha256_file", file_sha256)
 
     def fail(
         _contract: object,
@@ -280,7 +286,76 @@ def test_started_failure_receipt_uses_retained_preflight_authority(
     ).hexdigest()
     assert source_calls == 2
     assert profile_calls == 1
-    assert sha_calls == 2
+
+
+def test_protocol_swap_during_preflight_cannot_change_retained_receipt_authority(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository, protocol = _copy_fixture_repository(tmp_path)
+    record = tmp_path / "baseline.json"
+    receipt = tmp_path / "receipt.json"
+    original_bytes = protocol.read_bytes()
+    original_sha256 = hashlib.sha256(original_bytes).hexdigest()
+    replacement = json.loads(original_bytes)
+    replacement["candidate_profile"]["hard_page_boundary"] = False
+    replacement_bytes = (
+        json.dumps(
+            replacement,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        + "\n"
+    ).encode()
+    observer_loader = workflow.load_agent_context_unit_observer_contract
+    swapped = False
+
+    def swap_before_observer(authority: AgentContextProtocolAuthority):
+        nonlocal swapped
+        if not swapped:
+            protocol.write_bytes(replacement_bytes)
+            swapped = True
+        return observer_loader(authority)
+
+    monkeypatch.setattr(
+        workflow,
+        "load_agent_context_unit_observer_contract",
+        swap_before_observer,
+    )
+    protocol_authority, _contract, retained = workflow._preflight(  # pyright: ignore[reportPrivateUsage]
+        protocol,
+        record,
+        receipt,
+        repository,
+    )
+    error = AgentContextStageError(
+        AgentContextSubstage.RUNTIME_BASELINE,
+        "synthetic_runtime_failure",
+        "integrity",
+        completed=(
+            AgentContextStageSuccess(
+                AgentContextSubstage.AUTHORITY_PREFLIGHT,
+                "f" * 64,
+            ),
+        ),
+    )
+    _exit_code, result = workflow._failure_result(  # pyright: ignore[reportPrivateUsage]
+        error=error,
+        observation_started=True,
+        diagnostic_receipt_path=receipt,
+        retained_authority=retained,
+        observation_sha256=None,
+        output_state="absent",
+        publication_outcome="not_attempted",
+    )
+
+    retained_receipt = json.loads(receipt.read_bytes())
+    assert swapped is True
+    assert protocol_authority.protocol_read.content == original_bytes
+    assert retained["protocol_sha256"] == original_sha256
+    assert retained_receipt["protocol_sha256"] == original_sha256
+    assert result["diagnostic_receipt_status"] == "complete_visible"
 
 
 def test_mkdtemp_failure_before_source_open_has_no_receipt(
