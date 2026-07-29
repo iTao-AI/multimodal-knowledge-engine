@@ -119,17 +119,40 @@ def _invalid_parent_result() -> AtomicPublicationResult:
     )
 
 
-def _parent_chain_is_no_follow(path: Path) -> bool:
+def _prepare_parent_chain_no_follow(path: Path) -> bool:
     absolute = path.absolute()
-    current = Path(absolute.anchor)
-    for component in absolute.parent.parts[1:]:
-        current /= component
-        try:
-            metadata = current.lstat()
-        except OSError:
-            return False
-        if not stat.S_ISDIR(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
-            return False
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    directory = getattr(os, "O_DIRECTORY", None)
+    if nofollow is None or directory is None:
+        return False
+    descriptors: list[int] = []
+    try:
+        parent_fd = os.open(absolute.anchor, os.O_RDONLY | directory | nofollow)
+        descriptors.append(parent_fd)
+        for component in absolute.parent.parts[1:]:
+            try:
+                child_fd = os.open(
+                    component,
+                    os.O_RDONLY | directory | nofollow,
+                    dir_fd=parent_fd,
+                )
+            except FileNotFoundError:
+                try:
+                    os.mkdir(component, dir_fd=parent_fd)
+                except FileExistsError:
+                    pass
+                child_fd = os.open(
+                    component,
+                    os.O_RDONLY | directory | nofollow,
+                    dir_fd=parent_fd,
+                )
+            descriptors.append(child_fd)
+            parent_fd = child_fd
+    except OSError:
+        return False
+    finally:
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
     return True
 
 
@@ -224,7 +247,7 @@ def publish_json_no_replace(
     except (UnicodeError, ValueError, TypeError, json.JSONDecodeError):
         return _invalid_result()
 
-    if not _parent_chain_is_no_follow(destination):
+    if not _prepare_parent_chain_no_follow(destination):
         return _invalid_parent_result()
     if _lexical_state(destination) != "absent":
         return _existing_result(destination, validate=validate)

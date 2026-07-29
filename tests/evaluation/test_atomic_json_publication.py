@@ -229,6 +229,23 @@ def test_parent_symlink_is_rejected_before_temporary_creation(
     assert result.cause == "destination_parent_authority_invalid"
 
 
+def test_missing_nested_parents_are_created_without_following_aliases(
+    tmp_path: Path,
+) -> None:
+    module = _module()
+    destination = tmp_path / "new" / "nested" / "artifact.json"
+
+    result = module.publish_json_no_replace(
+        destination,
+        _content(),
+        validate=_validate,
+    )
+
+    assert result.output_state == "complete_visible"
+    assert result.publication_outcome == "published"
+    assert destination.read_bytes() == _content()
+
+
 def test_publish_then_oserror_is_classified_as_visible_terminal(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
