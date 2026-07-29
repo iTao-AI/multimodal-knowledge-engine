@@ -129,7 +129,8 @@ def execute_baseline(
     record_path: Path,
     diagnostic_receipt_path: Path,
     baseline_runner: Callable[
-        [AgentContextObserverContract, Path, Path], tuple[AuthorityObservation, ...]
+        [AgentContextObserverContract, Path, Path, Callable[[], None]],
+        tuple[AuthorityObservation, ...],
     ]
     | None = None,
 ) -> tuple[int, dict[str, object]]:
@@ -139,6 +140,7 @@ def execute_baseline(
     output_state = "absent"
     publication_outcome = "not_attempted"
     completed: list[AgentContextStageSuccess] = []
+    retained_authority: dict[str, object] | None = None
     try:
         _metadata, contract, authority = _preflight(
             protocol_path,
@@ -146,21 +148,31 @@ def execute_baseline(
             diagnostic_receipt_path,
             repository_root,
         )
+        retained_authority = authority
         completed.append(
             run_diagnostic_stage(
                 AgentContextSubstage.AUTHORITY_PREFLIGHT,
                 lambda: _canonical(authority),
             )
         )
-        observation_started = True
         workspace_root = Path(
             tempfile.mkdtemp(prefix="mke-agent-context-v2-baseline-")
         )
         workspace = workspace_root / "workspace"
         runner = baseline_runner or _default_baseline_runner
+
+        def mark_observation_started() -> None:
+            nonlocal observation_started
+            observation_started = True
+
         observations = _run_stage(
             AgentContextSubstage.RUNTIME_BASELINE,
-            lambda: runner(contract, repository_root, workspace),
+            lambda: runner(
+                contract,
+                repository_root,
+                workspace,
+                mark_observation_started,
+            ),
             completed,
         )
         sealed = seal_portable_observations(
@@ -265,8 +277,8 @@ def execute_baseline(
         return _failure_result(
             error=error,
             observation_started=observation_started,
-            protocol_path=protocol_path,
             diagnostic_receipt_path=diagnostic_receipt_path,
+            retained_authority=retained_authority,
             observation_sha256=observation_sha256,
             output_state=output_state,
             publication_outcome=publication_outcome,
@@ -285,8 +297,8 @@ def execute_baseline(
         return _failure_result(
             error=error,
             observation_started=observation_started,
-            protocol_path=protocol_path,
             diagnostic_receipt_path=diagnostic_receipt_path,
+            retained_authority=retained_authority,
             observation_sha256=observation_sha256,
             output_state=output_state,
             publication_outcome=publication_outcome,
@@ -297,11 +309,13 @@ def _default_baseline_runner(
     contract: AgentContextObserverContract,
     repository_root: Path,
     workspace: Path,
+    start_observation: Callable[[], None],
 ) -> tuple[AuthorityObservation, ...]:
     return run_agent_context_unit_baseline(
         contract=contract,
         repository_root=repository_root,
         workspace=workspace,
+        on_source_open=start_observation,
     )
 
 
@@ -332,13 +346,13 @@ def _failure_result(
     *,
     error: AgentContextStageError,
     observation_started: bool,
-    protocol_path: Path,
     diagnostic_receipt_path: Path,
+    retained_authority: dict[str, object] | None,
     observation_sha256: str | None,
     output_state: str,
     publication_outcome: str,
 ) -> tuple[int, dict[str, object]]:
-    if not observation_started:
+    if not observation_started or retained_authority is None:
         return 1, _result(
             status="failed",
             integrity_status="failed",
@@ -350,14 +364,13 @@ def _failure_result(
             next_step="correct_preflight_under_separate_authority",
             first_failed_gate=error.first_failed_gate,
         )
-    root = _repository_root(protocol_path)
-    metadata = load_agent_context_unit_protocol_metadata(protocol_path)
-    source = build_source_identity(root, metadata.o0_evaluator_paths)
-    profile = _runtime_profile()
+    profile = cast(dict[str, object], retained_authority["runtime_profile"])
     receipt = build_agent_context_diagnostic_receipt(
-        protocol_sha256=_sha256_file(protocol_path),
+        protocol_sha256=cast(str, retained_authority["protocol_sha256"]),
         profile_sha256=hashlib.sha256(_canonical(profile)).hexdigest(),
-        evaluator_source_sha256=cast(str, source["sha256"]),
+        evaluator_source_sha256=cast(
+            str, retained_authority["evaluator_source_sha256"]
+        ),
         observation_sha256=observation_sha256,
         phase="baseline",
         attempt_kind="o0",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from hashlib import sha256
 from pathlib import Path
 
@@ -81,6 +82,7 @@ def run_agent_context_unit_baseline(
     contract: AgentContextObserverContract,
     repository_root: Path,
     workspace: Path,
+    on_source_open: Callable[[], None] | None = None,
 ) -> tuple[AuthorityObservation, ...]:
     """Ingest the frozen development sources into one caller-owned fresh workspace."""
     if workspace.exists():
@@ -89,10 +91,24 @@ def run_agent_context_unit_baseline(
     source_staging = workspace / "source-inputs"
     source_staging.mkdir()
     db_path = workspace / "mke.sqlite"
+    source_opened = False
+
+    def mark_first_source_open() -> None:
+        nonlocal source_opened
+        if source_opened:
+            return
+        source_opened = True
+        if on_source_open is not None:
+            on_source_open()
+
     engine = KnowledgeEngine(db_path, retrieval_strategy="numeric-grouping-v1")
     try:
         for index, receipt in enumerate(contract.sources):
-            source = read_no_follow_regular_file(repository_root, receipt.path)
+            source = read_no_follow_regular_file(
+                repository_root,
+                receipt.path,
+                on_open=mark_first_source_open,
+            )
             if (
                 source.identity["bytes"] != receipt.bytes
                 or f"sha256:{source.identity['sha256']}"

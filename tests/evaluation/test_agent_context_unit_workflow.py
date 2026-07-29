@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
 from mke.application.evidence_access import EvidenceExcerpt
 from mke.evaluation import _atomic_json_publication
+from mke.evaluation import agent_context_unit_workflow as workflow
 from mke.evaluation.agent_context_unit_diagnostics import (
     AgentContextStageError,
     AgentContextSubstage,
@@ -144,9 +146,13 @@ def test_synthetic_baseline_publishes_noncanonical_artifact_without_receipt(
     receipt = tmp_path / "receipt.json"
 
     def observe(
-        _contract: object, _root: Path, workspace: Path
+        _contract: object,
+        _root: Path,
+        workspace: Path,
+        start_observation: Callable[[], None],
     ) -> tuple[AuthorityObservation, ...]:
         assert not workspace.exists()
+        start_observation()
         return (_synthetic_authority(),)
 
     exit_code, result = execute_baseline(
@@ -169,8 +175,12 @@ def test_started_synthetic_failure_publishes_receipt_and_no_artifact(
     receipt = tmp_path / "receipt.json"
 
     def fail(
-        _contract: object, _root: Path, _workspace: Path
+        _contract: object,
+        _root: Path,
+        _workspace: Path,
+        start_observation: Callable[[], None],
     ) -> tuple[AuthorityObservation, ...]:
+        start_observation()
         raise AgentContextStageError(
             AgentContextSubstage.RUNTIME_BASELINE,
             "synthetic_runtime_failure",
@@ -188,6 +198,144 @@ def test_started_synthetic_failure_publishes_receipt_and_no_artifact(
     assert result["first_failed_gate"] == "runtime_baseline"
     assert result["diagnostic_receipt_status"] == "complete_visible"
     assert receipt.is_file()
+    assert not record.exists()
+
+
+def test_started_failure_receipt_uses_retained_preflight_authority(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    record = tmp_path / "baseline.json"
+    receipt = tmp_path / "receipt.json"
+    preflight_evaluator = "a" * 64
+    preflight_profile = workflow._runtime_profile()  # pyright: ignore[reportPrivateUsage]
+    protocol_digest = "c" * 64
+    later_evaluator = "b" * 64
+    later_profile = {**preflight_profile, "python": "later"}
+    source_calls = 0
+    profile_calls = 0
+    sha_calls = 0
+
+    def source_identity(
+        _root: Path, _paths: object
+    ) -> dict[str, object]:
+        nonlocal source_calls
+        source_calls += 1
+        digest = (
+            preflight_evaluator
+            if source_calls == 1
+            else ("e" * 64 if source_calls == 2 else later_evaluator)
+        )
+        return {
+            "schema_version": "test",
+            "files": [],
+            "sha256": digest,
+        }
+
+    def runtime_profile() -> dict[str, object]:
+        nonlocal profile_calls
+        profile_calls += 1
+        return (
+            dict(preflight_profile)
+            if profile_calls == 1
+            else dict(later_profile)
+        )
+
+    def file_sha256(_path: Path) -> str:
+        nonlocal sha_calls
+        sha_calls += 1
+        return protocol_digest if sha_calls == 1 else "d" * 64
+
+    monkeypatch.setattr(workflow, "build_source_identity", source_identity)
+    monkeypatch.setattr(workflow, "_runtime_profile", runtime_profile)
+    monkeypatch.setattr(workflow, "_sha256_file", file_sha256)
+
+    def fail(
+        _contract: object,
+        _root: Path,
+        _workspace: Path,
+        start_observation: Callable[[], None],
+    ) -> tuple[AuthorityObservation, ...]:
+        start_observation()
+        raise AgentContextStageError(
+            AgentContextSubstage.RUNTIME_BASELINE,
+            "synthetic_runtime_failure",
+            "integrity",
+        )
+
+    exit_code, result = execute_baseline(
+        protocol_path=PROTOCOL,
+        record_path=record,
+        diagnostic_receipt_path=receipt,
+        baseline_runner=fail,
+    )
+
+    retained = json.loads(receipt.read_bytes())
+    assert exit_code == 1
+    assert result["diagnostic_receipt_status"] == "complete_visible"
+    assert retained["protocol_sha256"] == protocol_digest
+    assert retained["evaluator_source_sha256"] == preflight_evaluator
+    assert retained["profile_sha256"] == workflow.hashlib.sha256(
+        workflow._canonical(preflight_profile)  # pyright: ignore[reportPrivateUsage]
+    ).hexdigest()
+    assert source_calls == 2
+    assert profile_calls == 1
+    assert sha_calls == 2
+
+
+def test_mkdtemp_failure_before_source_open_has_no_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    record = tmp_path / "baseline.json"
+    receipt = tmp_path / "receipt.json"
+
+    def fail_workspace(*_args: object, **_kwargs: object) -> Path:
+        raise OSError("private")
+
+    monkeypatch.setattr(
+        "mke.evaluation.agent_context_unit_workflow.tempfile.mkdtemp",
+        fail_workspace,
+    )
+
+    exit_code, result = execute_baseline(
+        protocol_path=PROTOCOL,
+        record_path=record,
+        diagnostic_receipt_path=receipt,
+    )
+
+    assert exit_code == 1
+    assert result["stage_outcome"] == "pre_observation_blocked"
+    assert result["diagnostic_receipt_status"] == "absent"
+    assert not receipt.exists()
+    assert not record.exists()
+
+
+def test_runner_setup_failure_before_source_open_has_no_receipt(
+    tmp_path: Path,
+) -> None:
+    record = tmp_path / "baseline.json"
+    receipt = tmp_path / "receipt.json"
+
+    def fail_before_open(
+        _contract: object,
+        _root: Path,
+        _workspace: Path,
+        _start_observation: Callable[[], None],
+    ) -> tuple[AuthorityObservation, ...]:
+        raise OSError("private")
+
+    exit_code, result = execute_baseline(
+        protocol_path=PROTOCOL,
+        record_path=record,
+        diagnostic_receipt_path=receipt,
+        baseline_runner=fail_before_open,
+    )
+
+    assert exit_code == 1
+    assert result["stage_outcome"] == "pre_observation_blocked"
+    assert result["diagnostic_receipt_status"] == "absent"
+    assert not receipt.exists()
     assert not record.exists()
 
 
@@ -209,13 +357,21 @@ def test_visible_publication_failure_is_retained_and_reported(
     monkeypatch.setattr(
         _atomic_json_publication, "_fsync_directory", fail_first_directory_sync
     )
+
+    def observe(
+        _contract: object,
+        _root: Path,
+        _workspace: Path,
+        start_observation: Callable[[], None],
+    ) -> tuple[AuthorityObservation, ...]:
+        start_observation()
+        return (_synthetic_authority(),)
+
     exit_code, result = execute_baseline(
         protocol_path=PROTOCOL,
         record_path=record,
         diagnostic_receipt_path=receipt,
-        baseline_runner=lambda _contract, _root, _workspace: (
-            _synthetic_authority(),
-        ),
+        baseline_runner=observe,
     )
 
     assert exit_code == 1

@@ -162,6 +162,46 @@ def test_baseline_rejects_symlink_source_before_ingest(
     assert calls == 0
 
 
+def test_baseline_marks_observation_started_once_at_first_source_open(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "repository"
+    root.mkdir()
+    first = b"first source"
+    second = b"second source"
+    (root / "first.pdf").write_bytes(first)
+    (root / "second.pdf").write_bytes(second)
+    contracts = tuple(
+        _source_contract(name, content).sources[0]
+        for name, content in (("first.pdf", first), ("second.pdf", second))
+    )
+    starts = 0
+
+    def start() -> None:
+        nonlocal starts
+        starts += 1
+
+    def ingest(_engine: KnowledgeEngine, _path: Path) -> object:
+        return object()
+
+    monkeypatch.setattr(KnowledgeEngine, "ingest_pdf", ingest)
+    monkeypatch.setattr(
+        "mke.evaluation.agent_context_unit_baseline."
+        "observe_prepared_agent_context_runtime",
+        _empty_observation,
+    )
+
+    run_agent_context_unit_baseline(
+        contract=AgentContextObserverContract(sources=contracts, cases=()),
+        repository_root=root,
+        workspace=tmp_path / "workspace",
+        on_source_open=start,
+    )
+
+    assert starts == 1
+
+
 def test_real_runtime_uses_public_search_read_and_independent_diagnostics(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

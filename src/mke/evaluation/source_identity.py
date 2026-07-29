@@ -5,7 +5,7 @@ import json
 import os
 import re
 import stat
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import cast
@@ -24,7 +24,10 @@ class DirectFileRead:
 
 
 def read_no_follow_regular_file(
-    repository_root: Path, relative_path: str
+    repository_root: Path,
+    relative_path: str,
+    *,
+    on_open: Callable[[], None] | None = None,
 ) -> DirectFileRead:
     validate_recorded_file_identity(
         {"path": relative_path, "bytes": 0, "sha256": "0" * 64},
@@ -51,6 +54,8 @@ def read_no_follow_regular_file(
         before = os.fstat(file_fd)
         if not stat.S_ISREG(before.st_mode):
             raise ValueError("source identity path is invalid")
+        if on_open is not None:
+            on_open()
         chunks: list[bytes] = []
         while chunk := os.read(file_fd, 1024 * 1024):
             chunks.append(chunk)
