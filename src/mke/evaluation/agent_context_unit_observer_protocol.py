@@ -6,7 +6,9 @@ from pathlib import Path
 
 from mke.evaluation.agent_context_unit_protocol import (
     load_agent_context_unit_protocol_metadata,
+    validate_agent_context_unit_file_read,
 )
+from mke.evaluation.source_identity import read_no_follow_regular_file
 
 
 @dataclass(frozen=True)
@@ -50,8 +52,24 @@ def load_agent_context_unit_observer_contract(
     metadata = load_agent_context_unit_protocol_metadata(protocol_path)
     root = _repository_root(protocol_path)
     partition = metadata.partitions["development"]
-    receipts = json.loads((root / partition.source_receipts_path).read_bytes())
-    cases = json.loads((root / partition.observer_cases_path).read_bytes())
+    receipt_read = read_no_follow_regular_file(
+        root, partition.source_receipts.path
+    )
+    case_read = read_no_follow_regular_file(root, partition.observer_cases.path)
+    if receipt_read.physical_identity == case_read.physical_identity:
+        raise ValueError("observer fixture physical aliases are invalid")
+    validate_agent_context_unit_file_read(
+        partition.source_receipts,
+        receipt_read,
+        name="development source receipts",
+    )
+    validate_agent_context_unit_file_read(
+        partition.observer_cases,
+        case_read,
+        name="development observer cases",
+    )
+    receipts = json.loads(receipt_read.content)
+    cases = json.loads(case_read.content)
     if set(receipts) != {"schema_version", "sources"} or receipts[
         "schema_version"
     ] != "mke.agent_context_unit_source_receipts.v2":

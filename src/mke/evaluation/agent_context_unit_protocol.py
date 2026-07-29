@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 from typing import Any, cast
+
+from mke.evaluation.source_identity import DirectFileRead, read_no_follow_regular_file
 
 _PROTOCOL_FIELDS = {
     "candidate_profile",
@@ -27,14 +30,30 @@ _PARTITION_FIELDS = {
     "source_ids",
     "source_receipts",
 }
+_SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+
+
+@dataclass(frozen=True)
+class AgentContextFileReference:
+    path: str
+    bytes: int
+    sha256: str
 
 
 @dataclass(frozen=True)
 class AgentContextPartitionMetadata:
     source_ids: tuple[str, ...]
     query_ids: tuple[str, ...]
-    source_receipts_path: str
-    observer_cases_path: str
+    source_receipts: AgentContextFileReference
+    observer_cases: AgentContextFileReference
+
+    @property
+    def source_receipts_path(self) -> str:
+        return self.source_receipts.path
+
+    @property
+    def observer_cases_path(self) -> str:
+        return self.observer_cases.path
 
 
 @dataclass(frozen=True)
@@ -49,6 +68,7 @@ class AgentContextProtocolMetadata:
     o0_evaluator_paths: tuple[str, ...]
     development_evaluator_paths: tuple[str, ...]
     partitions: Mapping[str, AgentContextPartitionMetadata]
+    scientific_input_lock: AgentContextFileReference
 
 
 def _closed_mapping(value: object, fields: set[str], name: str) -> dict[str, Any]:
@@ -90,16 +110,42 @@ def _source_paths(value: object, name: str) -> tuple[str, ...]:
     return result
 
 
-def _file_reference(value: object, name: str) -> str:
+def _file_reference(value: object, name: str) -> AgentContextFileReference:
     record = _closed_mapping(value, {"bytes", "path", "sha256"}, name)
     if (
         type(record["bytes"]) is not int
         or record["bytes"] < 0
         or not isinstance(record["sha256"], str)
-        or len(record["sha256"]) != 64
+        or _SHA256.fullmatch(record["sha256"]) is None
     ):
         raise ValueError(f"{name} identity is invalid")
-    return _relative_path(record["path"])
+    return AgentContextFileReference(
+        path=_relative_path(record["path"]),
+        bytes=record["bytes"],
+        sha256=record["sha256"],
+    )
+
+
+def validate_agent_context_unit_file_read(
+    reference: AgentContextFileReference,
+    read: DirectFileRead,
+    *,
+    name: str,
+) -> None:
+    if read.identity != {
+        "path": reference.path,
+        "bytes": reference.bytes,
+        "sha256": reference.sha256,
+    }:
+        raise ValueError(f"{name} identity is invalid")
+
+
+def _repository_root(path: Path) -> Path:
+    resolved = path.resolve(strict=True)
+    for parent in resolved.parents:
+        if (parent / "pyproject.toml").is_file() and (parent / "src/mke").is_dir():
+            return parent
+    raise ValueError("protocol repository root is invalid")
 
 
 def load_agent_context_unit_protocol_metadata(
@@ -120,10 +166,10 @@ def load_agent_context_unit_protocol_metadata(
         partitions[name] = AgentContextPartitionMetadata(
             source_ids=_string_tuple(partition["source_ids"], f"{name} source ids"),
             query_ids=_string_tuple(partition["query_ids"], f"{name} query ids"),
-            source_receipts_path=_file_reference(
+            source_receipts=_file_reference(
                 partition["source_receipts"], f"{name} source receipts"
             ),
-            observer_cases_path=_file_reference(
+            observer_cases=_file_reference(
                 partition["observer_cases"], f"{name} observer cases"
             ),
         )
@@ -131,6 +177,17 @@ def load_agent_context_unit_protocol_metadata(
         record["projection_bounds"], dict
     ):
         raise ValueError("protocol profile is invalid")
+    scientific_input_lock = _file_reference(
+        record["scientific_input_lock"], "scientific input lock"
+    )
+    lock_read = read_no_follow_regular_file(
+        _repository_root(protocol_path), scientific_input_lock.path
+    )
+    validate_agent_context_unit_file_read(
+        scientific_input_lock,
+        lock_read,
+        name="scientific input lock",
+    )
     return AgentContextProtocolMetadata(
         schema_version=record["schema_version"],
         protocol_id=record["protocol_id"],
@@ -152,4 +209,5 @@ def load_agent_context_unit_protocol_metadata(
             record["development_evaluator_paths"], "development evaluator paths"
         ),
         partitions=MappingProxyType(partitions),
+        scientific_input_lock=scientific_input_lock,
     )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import shutil
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,15 @@ def _observer_module():
         )
     except ModuleNotFoundError:
         pytest.fail("V2_OBSERVER_PROTOCOL_MISSING")
+
+
+def _copy_fixture_repository(tmp_path: Path) -> tuple[Path, Path]:
+    repository = tmp_path / "repository"
+    (repository / "src/mke").mkdir(parents=True)
+    (repository / "pyproject.toml").write_text("[project]\nname='test'\n")
+    target = repository / "tests/fixtures/agent-context-unit-v2"
+    shutil.copytree(PROTOCOL.parent, target)
+    return repository, target / "protocol.json"
 
 
 def test_development_observer_contract_is_label_blind() -> None:
@@ -35,6 +45,36 @@ def test_development_observer_contract_is_label_blind() -> None:
         "labels",
     ):
         assert forbidden not in serialized
+
+
+def test_observer_contract_rejects_receipt_whitespace_identity_drift(
+    tmp_path: Path,
+) -> None:
+    repository, protocol = _copy_fixture_repository(tmp_path)
+    receipts = (
+        repository
+        / "tests/fixtures/agent-context-unit-v2/development/source-receipts.json"
+    )
+    receipts.write_bytes(receipts.read_bytes() + b"\n")
+
+    with pytest.raises(ValueError, match="source receipts identity"):
+        _observer_module().load_agent_context_unit_observer_contract(protocol)
+
+
+def test_observer_contract_rejects_symlinked_case_authority(
+    tmp_path: Path,
+) -> None:
+    repository, protocol = _copy_fixture_repository(tmp_path)
+    cases = (
+        repository
+        / "tests/fixtures/agent-context-unit-v2/development/observer-cases.json"
+    )
+    retained = repository / "retained-observer-cases.json"
+    cases.rename(retained)
+    cases.symlink_to(retained)
+
+    with pytest.raises(ValueError, match="source identity path is invalid"):
+        _observer_module().load_agent_context_unit_observer_contract(protocol)
 
 
 def test_observer_module_cannot_import_grading_protocol() -> None:
