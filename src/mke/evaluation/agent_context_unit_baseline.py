@@ -152,18 +152,20 @@ def _observe_case(
         else "fts5"
     )
     if route == "fts5":
-        ranked = _fts_rank(diagnostics, case, bounds)
+        ranked, candidate_count = _fts_rank(diagnostics, case, bounds)
     elif route == "cjk-active-scan-overlap-v1":
-        ranked = _cjk_rank(evidence, source_fingerprints, case, bounds)
+        ranked, candidate_count = _cjk_rank(
+            evidence, source_fingerprints, case, bounds
+        )
     else:
-        ranked = {}
+        ranked, candidate_count = {}, 0
     validate_observation_inventory(
         bounds,
         source_count=len(source_fingerprints),
         evidence_count=len(evidence),
         page_count=sum(item.locator_kind == "page" for item in evidence),
         source_text_utf8_bytes=sum(len(item.text.encode("utf-8")) for item in evidence),
-        candidate_count=len(ranked),
+        candidate_count=candidate_count,
         rank_count=len(ranked),
         result_count=len(page.results),
     )
@@ -221,7 +223,7 @@ def _observe_case(
     )
     statuses = (
         "query_policy_hit" if compiled_fts else "query_policy_miss",
-        "candidate_hit" if ranked else "candidate_miss",
+        "candidate_hit" if candidate_count else "candidate_miss",
         "rank_hit" if complete else "rank_miss",
         "delivery_hit" if items else "delivery_miss",
         "output_complete" if complete else "output_incomplete",
@@ -235,7 +237,7 @@ def _observe_case(
         profile_identity=case.observation_ids[0],
         statuses=statuses,
         items=tuple(items),
-        candidate_count=len(ranked),
+        candidate_count=candidate_count,
         selected_count=len(items),
         delivered_utf8_bytes=sum(item.excerpt_utf8_bytes for item in items),
     )
@@ -252,24 +254,28 @@ def _fts_rank(
     diagnostics: SQLiteStore,
     case: AgentContextObserverCase,
     bounds: ObservationBounds,
-) -> dict[str, tuple[int, PortableScoreToken]]:
+) -> tuple[dict[str, tuple[int, PortableScoreToken]], int]:
     query = compile_fts5_query_diagnostic(case.query_text).compiled_query
     if not query:
-        return {}
+        return {}, 0
     profile = diagnostics.observe_fts5_rank(query)
-    if len(profile.rank_order) > bounds.max_candidate_pool:
+    candidate_count = len(profile.rank_order)
+    if candidate_count > bounds.max_candidate_pool:
         raise ValueError("observation capacity exceeded")
-    return {
-        item.evidence_id: (
-            position,
-            PortableScoreToken(
-                "fts5_rank", item.rank_score.hex(), item.bm25_score.hex()
-            ),
-        )
-        for position, item in enumerate(
-            profile.rank_order[: bounds.max_diagnostic_rank], start=1
-        )
-    }
+    return (
+        {
+            item.evidence_id: (
+                position,
+                PortableScoreToken(
+                    "fts5_rank", item.rank_score.hex(), item.bm25_score.hex()
+                ),
+            )
+            for position, item in enumerate(
+                profile.rank_order[: bounds.max_diagnostic_rank], start=1
+            )
+        },
+        candidate_count,
+    )
 
 
 def _cjk_rank(
@@ -277,7 +283,7 @@ def _cjk_rank(
     source_fingerprints: dict[str, str],
     case: AgentContextObserverCase,
     bounds: ObservationBounds,
-) -> dict[str, tuple[int, PortableScoreToken]]:
+) -> tuple[dict[str, tuple[int, PortableScoreToken]], int]:
     candidates = tuple(
         CjkActiveScanCandidate(
             evidence_id=item.evidence_id,
@@ -295,19 +301,22 @@ def _cjk_rank(
     selected = select_cjk_active_scan_candidates(candidates, terms.terms)
     if selected.eligible_count > bounds.max_candidate_pool:
         raise ValueError("observation capacity exceeded")
-    return {
-        item.evidence_id: (
-            position,
-            PortableScoreToken(
-                "cjk_overlap",
-                float(item.overlap_count).hex(),
-                item.overlap_ratio.hex(),
-            ),
-        )
-        for position, item in enumerate(
-            selected.results[: bounds.max_diagnostic_rank], start=1
-        )
-    }
+    return (
+        {
+            item.evidence_id: (
+                position,
+                PortableScoreToken(
+                    "cjk_overlap",
+                    float(item.overlap_count).hex(),
+                    item.overlap_ratio.hex(),
+                ),
+            )
+            for position, item in enumerate(
+                selected.results[: bounds.max_diagnostic_rank], start=1
+            )
+        },
+        selected.eligible_count,
+    )
 
 
 def _require_same_authority(expected: object, actual: object) -> None:

@@ -309,6 +309,61 @@ def test_candidate_capacity_rejects_before_exact_reads(
     assert reads == 0
 
 
+@pytest.mark.parametrize("eligible_count", (10, 11))
+def test_fts_candidate_count_retains_full_eligible_inventory(
+    tmp_path: Path,
+    eligible_count: int,
+) -> None:
+    db_path = tmp_path / "mke.sqlite"
+    engine = KnowledgeEngine(db_path)
+    _publish(
+        engine,
+        tuple(
+            f"volcano evidence eligible page {index}"
+            for index in range(eligible_count)
+        ),
+    )
+    try:
+        observed = observe_prepared_agent_context_runtime(
+            engine=engine,
+            db_path=db_path,
+            cases=(_case(),),
+        )
+    finally:
+        engine.close()
+
+    portable = observed[0].portable
+    assert portable.candidate_count == eligible_count
+    assert portable.selected_count == 5
+
+
+@pytest.mark.parametrize("eligible_count", (10, 11))
+def test_cjk_candidate_count_retains_full_eligible_inventory(
+    tmp_path: Path,
+    eligible_count: int,
+) -> None:
+    db_path = tmp_path / "mke.sqlite"
+    engine = KnowledgeEngine(
+        db_path, retrieval_strategy="cjk-active-scan-overlap-v1"
+    )
+    _publish(
+        engine,
+        tuple(f"发布证据检索完整页面{index}" for index in range(eligible_count)),
+    )
+    try:
+        observed = observe_prepared_agent_context_runtime(
+            engine=engine,
+            db_path=db_path,
+            cases=(_cjk_case(),),
+        )
+    finally:
+        engine.close()
+
+    portable = observed[0].portable
+    assert portable.candidate_count == eligible_count
+    assert portable.selected_count == 5
+
+
 def test_cjk_runtime_uses_public_selector_projection(tmp_path: Path) -> None:
     db_path = tmp_path / "mke.sqlite"
     engine = KnowledgeEngine(
