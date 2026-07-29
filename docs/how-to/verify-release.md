@@ -340,10 +340,61 @@ source archive. That controller binds a clean Git snapshot before it handles a s
 `--mke-wheel` does not replace source authority. Do not synthesize `.git` metadata for archive
 smoke.
 
-The completed `v0.1.4` and `v0.1.3` records below are durable results of this procedure. Future
-releases must record their own tag object SHA, target commit, publication timestamp, archive
-filename, archive SHA-256, and smoke result after those facts exist.
+The completed release records below are durable results of this procedure. Future releases must
+record their own tag object SHA, target commit, publication timestamp, archive filename, archive
+SHA-256, and smoke result after those facts exist.
 
+
+## Completed v0.1.5 Release Record
+
+- Tag: `v0.1.5`
+- Annotated tag object SHA: `1ca0a0b348638369e8407270ca5f363b0e551a9e`
+- Tag target commit: `d258c10dc40bd9eccd67c858b56f4e4cf5fe4610`
+- Merge commit: `d258c10dc40bd9eccd67c858b56f4e4cf5fe4610`
+- Merge tree: `22756fdfa8ef131d3e28fc2a44acc3f2b6fa32f0`
+- GitHub Release URL: https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.5
+- Published timestamp: `2026-07-29T01:31:18Z`
+- Release state: public, non-draft, non-prerelease.
+- Assets: zero
+- Post-merge hosted checks: `8/8 SUCCESS` on the merge commit: python 3.12/3.13,
+  embedding extra 3.12/3.13, compiled Library export proof, consumer source-pack proof, and
+  Analyze actions/python.
+- Exact-main proof: full suite `3745 passed, 4 skipped`; Ruff clean; Pyright 0; build, product,
+  demo, local-knowledge, Evidence-provenance, model-free direct-audio, presentation, canonical,
+  query-plan, numeric, and temporary compatibility gates passed.
+- Canonical development freeze SHA-256:
+  `0d8761037e9132461a1d6bbf2eac0a39471dfaa38c65acbdc2400a87ff8bffd8`.
+- Canonical holdout receipt SHA-256:
+  `8f390ada3632c12527eb75747a2ce21721317fffdd30bd9fc177e8f305dc3203`.
+- Canonical retrieval artifact SHA-256:
+  `104a41a6aa0c719313d508c79d00886a18483bbf3eeeadcdbc8899dd927283c1`.
+- Canonical compatibility attempt receipt SHA-256:
+  `df18d9738548fa33af5c7f76dfa26e89a721f1c08a2df0e034a7688c67e81604`.
+- Canonical compatibility artifact SHA-256:
+  `f9a5883f3ac47652cbd18ef0bb08b61ceb00065955a3db575df0fd41689240ba`.
+- Fixed query-plan fixture SHA-256:
+  `1f6a70a69edb9a3b182e21a9b125a37d81ed4dca869c16d1f5d5b807554ffdc1`.
+- Temporary compatibility: seven families; membership, score_hex, non-tied-pair, metric, gate,
+  and verdict were all six delta classes zero.
+- Release archive: `multimodal-knowledge-engine-v0.1.5.tar.gz`
+- Release archive bytes: `4609206`
+- Release archive SHA-256: `baccc11f339b1241a454458b80f4faecf0a72297f0fc84184d004942c564dac4`
+- Archive manifest SHA-256: `d3c682e085592034c02596a8278cadd309b3464ba3d5249e85c7b2b4e45474ec`
+- Normalized archive manifest SHA-256:
+  `2214f7478a692b0ddd67baa98dc509e050abc97fa2a0c86d4a33990dacdf6d98`.
+- Tagged tree manifest SHA-256:
+  `96f9bd404f15d279555e5c2f073b9f5e894d660114e3e6f059fb287b6cc2501d`.
+- Public archive source inventory: 602 files, byte-identical before and after proof.
+- Archive wheel: `multimodal_knowledge_engine-0.1.5-py3-none-any.whl`
+- Archive wheel identity: `421538 bytes`, SHA-256
+  `4c2da1a84871e1865b05a720c6ef7b7d2122ed570ec8eb0035627493ba96d281`;
+  module and package metadata both report `0.1.5`.
+- Git-less allowlist: passed with product proof `8/8`, demo, local-knowledge,
+  Evidence-provenance, model-free direct-audio, presentation audit, dual-Python MCP completeness
+  on python 3.12/3.13 with 10 tools, native PDF/video ingest, Library export plus standalone
+  consumer, and the approved tests `11 passed, 5 warnings`.
+- Publication did not change runtime behavior, schema, dependencies, or canonical Evidence.
+- Limitations and non-claims: no real ASR or model download; no network during archive sync, build, or proofs; no PyPI, deployment, or runtime promotion; no quality/performance, cold-cache, empty-machine, air-gapped, or cache-portability claim; no comparison or observation conclusion.
 
 ## Completed v0.1.4 Release Record
 
