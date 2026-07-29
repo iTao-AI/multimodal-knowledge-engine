@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -15,9 +16,12 @@ from mke.domain import (
 )
 from mke.evaluation.agent_context_unit_baseline import (
     observe_prepared_agent_context_runtime,
+    run_agent_context_unit_baseline,
 )
 from mke.evaluation.agent_context_unit_observer_protocol import (
     AgentContextObserverCase,
+    AgentContextObserverContract,
+    AgentContextSourceReceipt,
 )
 
 
@@ -66,6 +70,96 @@ def _cjk_case() -> AgentContextObserverCase:
         runtime_route_profile="cjk-active-scan-overlap-v1",
         observation_ids=("current-runtime-baseline-v1",),
     )
+
+
+def _source_contract(path: str, content: bytes) -> AgentContextObserverContract:
+    return AgentContextObserverContract(
+        sources=(
+            AgentContextSourceReceipt(
+                source_id="source-one",
+                path=path,
+                content_fingerprint=f"sha256:{hashlib.sha256(content).hexdigest()}",
+                bytes=len(content),
+                pages=1,
+                nonempty_text_pages=1,
+                extracted_text_utf8_bytes=1,
+                pymupdf_version="test",
+            ),
+        ),
+        cases=(),
+    )
+
+
+def _empty_observation(**_kwargs: object) -> tuple[()]:
+    return ()
+
+
+def test_baseline_ingests_descriptor_bound_source_bytes_after_path_replacement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "repository"
+    root.mkdir()
+    source = root / "source.pdf"
+    original = b"stable source bytes"
+    replacement = b"replacement content"
+    assert len(original) == len(replacement)
+    source.write_bytes(original)
+    ingested: list[bytes] = []
+
+    def ingest_stable(_engine: KnowledgeEngine, path: Path) -> object:
+        source.write_bytes(replacement)
+        ingested.append(path.read_bytes())
+        return object()
+
+    monkeypatch.setattr(KnowledgeEngine, "ingest_pdf", ingest_stable)
+    monkeypatch.setattr(
+        "mke.evaluation.agent_context_unit_baseline."
+        "observe_prepared_agent_context_runtime",
+        _empty_observation,
+    )
+
+    run_agent_context_unit_baseline(
+        contract=_source_contract("source.pdf", original),
+        repository_root=root,
+        workspace=tmp_path / "workspace",
+    )
+
+    assert ingested == [original]
+
+
+def test_baseline_rejects_symlink_source_before_ingest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "repository"
+    root.mkdir()
+    content = b"stable source bytes"
+    real = root / "real.pdf"
+    real.write_bytes(content)
+    (root / "source.pdf").symlink_to(real)
+    calls = 0
+
+    def reject_ingest(_engine: KnowledgeEngine, _path: Path) -> object:
+        nonlocal calls
+        calls += 1
+        return object()
+
+    monkeypatch.setattr(KnowledgeEngine, "ingest_pdf", reject_ingest)
+    monkeypatch.setattr(
+        "mke.evaluation.agent_context_unit_baseline."
+        "observe_prepared_agent_context_runtime",
+        _empty_observation,
+    )
+
+    with pytest.raises(ValueError, match="source identity path is invalid"):
+        run_agent_context_unit_baseline(
+            contract=_source_contract("source.pdf", content),
+            repository_root=root,
+            workspace=tmp_path / "workspace",
+        )
+
+    assert calls == 0
 
 
 def test_real_runtime_uses_public_search_read_and_independent_diagnostics(

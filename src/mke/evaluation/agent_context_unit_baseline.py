@@ -24,6 +24,7 @@ from mke.evaluation.diagnostic_ports import (
     EvaluationEvidenceSnapshot,
     validate_fts_projection,
 )
+from mke.evaluation.source_identity import read_no_follow_regular_file
 from mke.retrieval.cjk_active_scan import (
     CjkActiveScanCandidate,
     compile_cjk_overlap_terms,
@@ -85,19 +86,24 @@ def run_agent_context_unit_baseline(
     if workspace.exists():
         raise ValueError("baseline workspace must be fresh")
     workspace.mkdir(parents=True)
+    source_staging = workspace / "source-inputs"
+    source_staging.mkdir()
     db_path = workspace / "mke.sqlite"
     engine = KnowledgeEngine(db_path, retrieval_strategy="numeric-grouping-v1")
     try:
-        for receipt in contract.sources:
-            source_path = repository_root / receipt.path
-            stat = source_path.stat()
+        for index, receipt in enumerate(contract.sources):
+            source = read_no_follow_regular_file(repository_root, receipt.path)
             if (
-                not source_path.is_file()
-                or stat.st_size != receipt.bytes
-                or f"sha256:{_sha256_file(source_path)}" != receipt.content_fingerprint
+                source.identity["bytes"] != receipt.bytes
+                or f"sha256:{source.identity['sha256']}"
+                != receipt.content_fingerprint
             ):
                 raise ValueError("baseline source identity is invalid")
-            engine.ingest_pdf(source_path)
+            stable_path = source_staging / f"{index:04d}.pdf"
+            stable_path.write_bytes(source.content)
+            if stable_path.read_bytes() != source.content:
+                raise ValueError("baseline stable source copy is invalid")
+            engine.ingest_pdf(stable_path)
         return observe_prepared_agent_context_runtime(
             engine=engine,
             db_path=db_path,
@@ -291,11 +297,3 @@ def _cjk_rank(
 def _require_same_authority(expected: object, actual: object) -> None:
     if expected != actual:
         raise ValueError("Search and Read authority differ")
-
-
-def _sha256_file(path: Path) -> str:
-    digest = sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
