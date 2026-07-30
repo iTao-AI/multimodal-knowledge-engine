@@ -305,10 +305,10 @@ source_snapshot
 unit_projection
 unit_rank
 fixed_rank_delivery
+residual_gate
 adjacent_page_assembly
 source_context_index
 source_context_delivery
-residual_gate
 complete_observation_seal
 grading
 artifact_validation
@@ -1396,6 +1396,10 @@ after the O1/O2 intermediate seal:
 
 - O3 reuses exact O1 units;
 - frozen source-context treatment only;
+- every O1 unit is an independent O3 retrieval document, so the same provenance-bound heading or
+  neighboring unit may be reused across documents;
+- duplicate kinds, ranges, or payloads remain invalid within one O3 document, while O4/O5 retain
+  their existing cross-selected-output delivery deduplication;
 - unit origin and context origin separate;
 - context-only component attribution exact;
 - unit text delivered unchanged;
@@ -1523,6 +1527,9 @@ Cover:
 - the workflow opens the frozen development grading payload exactly once at `residual_gate`, only
   after O1/O2 intermediate equality;
 - residual gates derive only from that frozen payload plus sealed O0/O1/O2 observations;
+- typed gate dispatch is validated and `residual_gate` completes before any O3/O4/O5 candidate
+  entry; label-load, derivation, and injected gate failures retain
+  `first_failed_gate=residual_gate`;
 - O3/O4/O5 receive only typed gate decisions, the label-blind observer contract, and existing
   frozen candidate inputs; they cannot receive the grading payload, required spans, labels, qrels,
   expected locators, or hypothesis and verdict hints;
@@ -1867,3 +1874,26 @@ The plan completes in exactly one of three states:
    ledger, and no retry.
 
 Any other state is incomplete.
+
+## 28. Amendment E — Residual-Gate Diagnostics And O3 Context Reuse
+
+This amendment closes two Task 10 pre-observation authority mismatches without changing the
+scientific protocol.
+
+The stable public substage vocabulary remains 14 tokens, but `residual_gate` now follows
+`fixed_rank_delivery` and precedes all O3/O4/O5 mechanism stages. After byte-identical O1/O2
+intermediate seals, the workflow opens the development grading payload once, derives and validates
+one typed gate set, completes `residual_gate`, and only then enters residual candidate modules.
+Gate-load, gate-derivation, and injected gate failures stop before candidate side effects and are
+reported at `residual_gate`; later mechanism failures retain their own exact stage.
+
+O3 builds an independent retrieval document for each exact O1 unit. Source-derived context is
+validated per document, so the same provenance range may be reused by different unit documents
+without row-order-dependent ambiguity. Duplicate context kinds, ranges, or payloads within one O3
+document remain invalid. O4/O5 delivery continues to enforce its existing cross-selected-output
+deduplication and no-duplicate delivery contract.
+
+The amendment authorizes only the corresponding design, plan, review, diagnostics, workflow, and
+focused-test repair. It changes no protocol or scientific-input bytes, mechanism parameters,
+context order, residual or verdict rules, artifact schema, runtime product path, dependency,
+holdout boundary, or observation count. O0 remains retained and development remains uninvoked.

@@ -1,6 +1,6 @@
 # Diagnostic-First Context Mechanism Separation v2 Plan Review
 
-Status: **CLEAN / RECOMMENDED FOR APPROVAL — TARGETED STAGE-ORDER RECONCILIATION APPLIED**
+Status: **CLEAN / RECOMMENDED FOR APPROVAL — TARGETED AUTHORITY RECONCILIATIONS APPLIED**
 
 This public-neutral record captures the plan review for:
 
@@ -72,6 +72,13 @@ Engineering review identified and closed the following plan-level findings befor
     explicit unrelated-source-addition regression. The shared historical gate now includes that
     regression and canonical retrieval-evidence validation so additive v2 modules cannot silently
     recreate the previous identity failure.
+12. **Residual-gate diagnostic order:** the stable 14-token vocabulary now places
+    `residual_gate` after the O1/O2 intermediate stages and before every residual candidate stage.
+    Label-load, gate-derivation, and typed-dispatch failures therefore stop before candidate entry
+    and cannot be rewritten as `adjacent_page_assembly`.
+13. **O3 per-document context authority:** every exact O1 unit owns an independent retrieval
+    document. Provenance-bound context can be reused across unit documents, while duplicates
+    remain forbidden within one O3 document and O4/O5 retain cross-output delivery deduplication.
 
 The plan preserves strict Pyright and prohibits the prototype's file-level type-check weakening.
 No unresolved engineering decision remains.
@@ -137,6 +144,26 @@ corpus, queries, labels, required spans, mechanism profiles, bounds, residual-ga
 rules. O0 was not rerun and development had not started when the authority conflict was found.
 Candidate modules remain label-blind, and pure grading remains after the complete observation
 seal. This record does not claim that Task 10 implementation or verification is complete.
+
+## Targeted Task 10 Amendment E Reconciliation
+
+Actual-diff review found that the public `residual_gate` stage still followed O3/O4/O5 even though
+the grading payload and gate set are required before dispatch. Amendment E preserves the same 14
+public tokens but orders `residual_gate` immediately after `fixed_rank_delivery`. The workflow
+must complete O1/O2 equality, load the development grading payload exactly once, derive and
+validate the typed gate set, and complete `residual_gate` before any residual mechanism entry.
+Candidate-stage failures continue to retain their own distinct stages.
+
+The same review found that one shared deduplication inventory made O3 context consumption depend
+on unit enumeration order. Amendment E separates index-time and delivery-time authority. O3 may
+reuse the same provenance-bound heading or neighboring unit across independent O1 retrieval
+documents, while each document rejects duplicate kinds, ranges, and payloads. O4/O5 keep their
+existing cross-selected-output delivery deduplication.
+
+No corpus, query, label, required span, profile, bound, mechanism parameter, context order,
+residual rule, verdict rule, artifact schema, product runtime, dependency, holdout boundary, or
+scientific observation changes. O0 remains the single retained invocation, and development has
+not started. This record does not claim that the corresponding code or tests are complete.
 
 ## Final Decision
 

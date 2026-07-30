@@ -9,6 +9,7 @@ import sys
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
@@ -1215,8 +1216,75 @@ def test_development_rejects_forged_candidate_gate_digest(
     )
 
     assert exit_code == 1
-    assert result["first_failed_gate"] == "residual_gate"
+    assert result["first_failed_gate"] == "adjacent_page_assembly"
     assert result["cause"] == "residual_gate_dispatch_mismatch"
+    assert not record.exists()
+    assert receipt.is_file()
+
+
+@pytest.mark.parametrize("failure", ("grading_payload", "gate_derivation"))
+def test_development_reports_pre_dispatch_gate_failures_at_residual_gate(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
+) -> None:
+    events: list[object] = []
+
+    def fail(*_args: object, **_kwargs: object) -> object:
+        raise AgentContextStageError(
+            AgentContextSubstage.RESIDUAL_GATE,
+            f"synthetic_{failure}_failure",
+            "authority",
+        )
+
+    if failure == "grading_payload":
+        monkeypatch.setattr(
+            grading_protocol,
+            "load_agent_context_unit_development_grading_payload",
+            fail,
+        )
+    else:
+        monkeypatch.setattr(grading, "derive_residual_gates", fail)
+
+    exit_code, result, record, receipt = _execute_synthetic_development(
+        tmp_path,
+        events=events,
+    )
+
+    assert exit_code == 1
+    assert result["first_failed_gate"] == "residual_gate"
+    assert result["cause"] == f"synthetic_{failure}_failure"
+    assert [
+        cast(tuple[object, ...], event)[0] for event in events
+    ] == ["base", "base"]
+    assert not record.exists()
+    assert receipt.is_file()
+
+
+def test_development_residual_gate_fault_prevents_candidate_dispatch(
+    tmp_path: Path,
+) -> None:
+    events: list[object] = []
+
+    def fail() -> None:
+        raise AgentContextStageError(
+            AgentContextSubstage.RESIDUAL_GATE,
+            "synthetic_residual_gate_failure",
+            "integrity",
+        )
+
+    exit_code, result, record, receipt = _execute_synthetic_development(
+        tmp_path,
+        events=events,
+        stage_faults={AgentContextSubstage.RESIDUAL_GATE: fail},
+    )
+
+    assert exit_code == 1
+    assert result["first_failed_gate"] == "residual_gate"
+    assert result["cause"] == "synthetic_residual_gate_failure"
+    assert [
+        cast(tuple[object, ...], event)[0] for event in events
+    ] == ["base", "base"]
     assert not record.exists()
     assert receipt.is_file()
 
@@ -1441,3 +1509,109 @@ def test_default_candidate_controller_uses_fresh_synthetic_workspaces_only(
         cast(grading.SealedMechanismObservation, item).portable_bytes
         for item in residual_b.observations
     )
+
+
+def _o3_context_driver() -> tuple[Any, tuple[Any, ...]]:
+    from mke.evaluation.agent_context_unit_ranking import (
+        build_unit_projection,
+    )
+    from mke.evaluation.agent_context_unit_segmentation import (
+        DEFAULT_SEGMENTATION_PROFILE,
+        ParentPageEvidence,
+        SegmentationProfile,
+        segment_page_context_units,
+    )
+
+    text = (
+        b"COMMON HEADING\n"
+        b"alpha filler sentence.\n\n"
+        b"sharedneedle middle text.\n\n"
+        b"omega filler sentence.\n\n"
+        b"final filler sentence."
+    )
+    source_fingerprint = "sha256:" + "1" * 64
+    parent = ParentPageEvidence(
+        source_id="opaque-source",
+        source_content_fingerprint=source_fingerprint,
+        publication_id="opaque-publication",
+        evidence_id="opaque-evidence",
+        locator_kind="page",
+        locator_start=1,
+        locator_end=1,
+        text_bytes=text,
+    )
+    profile = SegmentationProfile(
+        target_utf8_bytes=28,
+        minimum_utf8_bytes=5,
+        maximum_utf8_bytes=40,
+        overlap_utf8_bytes=0,
+        hard_page_boundary=True,
+        original_whitespace_retained=True,
+        heading_patterns=DEFAULT_SEGMENTATION_PROFILE.heading_patterns,
+    )
+    rows = build_unit_projection(
+        segment_page_context_units(parent, profile=profile)
+    )
+    driver = object.__new__(workflow._CandidateWorkspaceDriver)  # pyright: ignore[reportPrivateUsage]
+    driver._rows = rows  # pyright: ignore[reportPrivateUsage]
+    driver._parent_text = {  # pyright: ignore[reportPrivateUsage]
+        (source_fingerprint, 1): text
+    }
+    return driver, rows
+
+
+def _o3_result(driver: Any, query_text: str) -> Any:
+    return driver._rank_o3(  # pyright: ignore[reportPrivateUsage]
+        SimpleNamespace(
+            query_id=f"q-{query_text}",
+            query_text=query_text,
+            runtime_route_profile="fts5",
+        ),
+        None,
+    )[0]
+
+
+def test_o3_reuses_same_heading_for_each_page_local_unit_document() -> None:
+    driver, rows = _o3_context_driver()
+
+    result = _o3_result(driver, "COMMON HEADING")
+    attributions = {
+        item.stable_context_unit_id: item
+        for item in result.attributions
+    }
+
+    assert (
+        "heading"
+        in attributions[rows[1].stable_context_unit_id].component_kinds
+    )
+    assert (
+        "heading"
+        in attributions[rows[2].stable_context_unit_id].component_kinds
+    )
+
+
+def test_o3_reuses_one_unit_as_context_for_two_independent_documents() -> None:
+    driver, rows = _o3_context_driver()
+
+    result = _o3_result(driver, "sharedneedle")
+    attributions = {
+        item.stable_context_unit_id: item
+        for item in result.attributions
+    }
+
+    assert attributions[rows[0].stable_context_unit_id].component_kinds == (
+        "next_unit",
+    )
+    assert attributions[rows[2].stable_context_unit_id].component_kinds == (
+        "previous_unit",
+    )
+
+
+def test_o3_portable_result_is_independent_of_projection_enumeration_order() -> None:
+    driver, rows = _o3_context_driver()
+    canonical = _o3_result(driver, "COMMON HEADING").portable_bytes()
+
+    driver._rows = tuple(reversed(rows))  # pyright: ignore[reportPrivateUsage]
+    reordered = _o3_result(driver, "COMMON HEADING").portable_bytes()
+
+    assert reordered == canonical

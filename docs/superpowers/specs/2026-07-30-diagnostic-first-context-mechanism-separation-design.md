@@ -305,6 +305,9 @@ Page-crossing context is excluded from ContextUnit construction and belongs only
 - Uses the exact O1 units.
 - Runs only when the preregistered residual indexing/ranking gate remains after O1/O2.
 - Adds one frozen source-derived context treatment to retrieval text.
+- Treats every exact O1 unit as an independent retrieval document. The same provenance-bound
+  heading or neighboring unit may therefore appear in more than one unit document, while
+  duplicate kinds, ranges, or payloads remain forbidden within one document.
 - Delivers unchanged unit text.
 - Records unit-origin, context-origin, context-only, and component attribution.
 - Names only `context_index_effect`.
@@ -366,10 +369,10 @@ One observation advances through these stable substages:
 4. `unit_projection`
 5. `unit_rank`
 6. `fixed_rank_delivery`
-7. `adjacent_page_assembly`
-8. `source_context_index`
-9. `source_context_delivery`
-10. `residual_gate`
+7. `residual_gate`
+8. `adjacent_page_assembly`
+9. `source_context_index`
+10. `source_context_delivery`
 11. `complete_observation_seal`
 12. `grading`
 13. `artifact_validation`
@@ -576,8 +579,8 @@ in-place repair.
    intermediate portable seal for each workspace, and require the O1/O2 portable bytes to be
    byte-identical. This intermediate seal does not add a public diagnostic substage token.
 6. Only after the O1/O2 intermediate seal succeeds, open the frozen development grading payload
-   exactly once in the workflow and derive residual gates only from that payload plus the sealed
-   O0/O1/O2 observations.
+   exactly once in the workflow, derive residual gates only from that payload plus the sealed
+   O0/O1/O2 observations, validate the typed dispatch, and complete `residual_gate`.
 7. Pass O3/O4/O5 candidate modules only typed residual-gate decisions, the label-blind observer
    contract, and existing frozen candidate inputs. Do not pass the grading payload, required spans,
    labels, qrels, expected locators, or hypothesis and verdict hints into candidate modules.
@@ -588,7 +591,9 @@ in-place repair.
 10. Pure-grade the complete seal, validate the artifact, and publish atomically.
 
 The O1/O2 intermediate seal is an internal workflow authority boundary. The stable 14-stage public
-substage taxonomy remains unchanged.
+substage vocabulary remains unchanged. Its development order places `residual_gate` immediately
+after `fixed_rank_delivery` so label-load, derivation, and dispatch-integrity failures remain
+distinct from O3/O4/O5 mechanism failures.
 
 Development receives no retry and no attempt 2.
 
@@ -896,3 +901,23 @@ Even a successful holdout remains comparison evidence. A runtime change would re
 - documentation that distinguishes constructed-case evidence from production claims.
 
 This specification does not authorize that work.
+
+## 32. Amendment E — Residual-Gate Diagnostics And O3 Document Authority
+
+Task 10 authority review found two pre-observation Harness mismatches. First, the public
+`residual_gate` substage followed the residual mechanisms even though the workflow must load the
+development grading payload, derive the gate set, and validate typed dispatch before those
+mechanisms run. The public 14-stage vocabulary is unchanged, but its order now places
+`residual_gate` before `adjacent_page_assembly`, `source_context_index`, and
+`source_context_delivery`. A gate-load, gate-derivation, or injected gate failure therefore stops
+before residual candidate entry and retains `first_failed_gate=residual_gate`.
+
+Second, O3 context is scoped to each exact O1 unit document. A provenance-bound heading or
+neighboring unit may be reused by multiple independent unit documents without becoming ambiguous
+because another document used it first. Duplicate kinds, ranges, and payloads remain invalid
+within one O3 document. O4/O5 delivery retains its existing cross-selected-output duplication
+authority and no-duplicate delivery contract.
+
+This amendment changes no corpus, query, label, required span, profile, bound, mechanism ID,
+context order, residual rule, verdict rule, artifact schema, runtime behavior, or holdout
+authority. O0 is not rerun, and no development observation is authorized by this amendment.

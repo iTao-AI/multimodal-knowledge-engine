@@ -292,10 +292,10 @@ def execute_baseline(
             AgentContextSubstage.UNIT_PROJECTION,
             AgentContextSubstage.UNIT_RANK,
             AgentContextSubstage.FIXED_RANK_DELIVERY,
+            AgentContextSubstage.RESIDUAL_GATE,
             AgentContextSubstage.ADJACENT_PAGE_ASSEMBLY,
             AgentContextSubstage.SOURCE_CONTEXT_INDEX,
             AgentContextSubstage.SOURCE_CONTEXT_DELIVERY,
-            AgentContextSubstage.RESIDUAL_GATE,
         ):
             completed.append(run_diagnostic_stage(stage, lambda value=stage: value.value.encode()))
         completed.append(
@@ -611,6 +611,25 @@ def execute_development(
             o2=by_mechanism[grading_payload.mechanism_ids["o2"]],
         )
         dispatches = _gate_dispatches(grading_payload, gates)
+        _complete_development_stage(
+            AgentContextSubstage.RESIDUAL_GATE,
+            _canonical(
+                {
+                    "dispatches": [
+                        {
+                            "enabled": item.enabled,
+                            "gate_digest": item.gate_digest,
+                            "mechanism_id": item.mechanism_id,
+                            "query_ids": item.query_ids,
+                            "reason": item.reason,
+                        }
+                        for item in dispatches
+                    ]
+                }
+            ),
+            completed,
+            faults,
+        )
         residual = tuple(
             driver.observe_residual(dispatches) for driver in drivers
         )
@@ -631,6 +650,13 @@ def execute_development(
             ],
             residual,
         )
+        if any(item.gate_digest != gates.gate_digest for item in residual):
+            raise AgentContextStageError(
+                AgentContextSubstage.ADJACENT_PAGE_ASSEMBLY,
+                "residual_gate_dispatch_mismatch",
+                "authority",
+                completed=tuple(completed),
+            )
         for stage, index in (
             (AgentContextSubstage.ADJACENT_PAGE_ASSEMBLY, 0),
             (AgentContextSubstage.SOURCE_CONTEXT_INDEX, 1),
@@ -657,32 +683,6 @@ def execute_development(
                 completed,
                 faults,
             )
-        if any(item.gate_digest != gates.gate_digest for item in residual):
-            raise AgentContextStageError(
-                AgentContextSubstage.RESIDUAL_GATE,
-                "residual_gate_dispatch_mismatch",
-                "authority",
-                completed=tuple(completed),
-            )
-        _complete_development_stage(
-            AgentContextSubstage.RESIDUAL_GATE,
-            _canonical(
-                {
-                    "dispatches": [
-                        {
-                            "enabled": item.enabled,
-                            "gate_digest": item.gate_digest,
-                            "mechanism_id": item.mechanism_id,
-                            "query_ids": item.query_ids,
-                            "reason": item.reason,
-                        }
-                        for item in dispatches
-                    ]
-                }
-            ),
-            completed,
-            faults,
-        )
         residual_a = _sealed_observation_inventory(
             residual[0].observations
         )
@@ -1472,129 +1472,168 @@ class _CandidateWorkspaceDriver:
     def _source_context_inventory(
         self, rank: Any
     ) -> tuple[Any, ...]:
-        return self._context_inventory(
-            rank.primary_stable_context_unit_ids,
-            adjacent=False,
+        return self._delivery_source_context_inventory(
+            rank.primary_stable_context_unit_ids
         )
 
     def _adjacent_context_inventory(
         self, rank: Any
     ) -> tuple[Any, ...]:
-        return self._context_inventory(
-            rank.primary_stable_context_unit_ids,
-            adjacent=True,
+        return self._delivery_adjacent_context_inventory(
+            rank.primary_stable_context_unit_ids
         )
 
-    def _context_inventory(
-        self,
-        selected_ids: tuple[str, ...],
-        *,
-        adjacent: bool,
-    ) -> tuple[Any, ...]:
-        from mke.evaluation.agent_context_unit_assembly import (
-            ContextComponentInput,
-        )
-
-        by_id = {
-            row.stable_context_unit_id: row for row in self._rows
-        }
-        stable_rows = tuple(self._rows)
+    def _source_context_index_inventory(self) -> tuple[Any, ...]:
+        stable_rows = self._page_local_context_rows()
         positions = {
             row.stable_context_unit_id: index
             for index, row in enumerate(stable_rows)
         }
-        result: list[ContextComponentInput] = []
-        seen_context: set[tuple[str, tuple[str, int, int], int, int]] = set()
+        return tuple(
+            component
+            for row in stable_rows
+            for component in self._source_context_components(
+                row.stable_context_unit_id,
+                stable_rows,
+                positions,
+            )
+        )
+
+    def _delivery_source_context_inventory(
+        self,
+        selected_ids: tuple[str, ...],
+    ) -> tuple[Any, ...]:
+        stable_rows = self._page_local_context_rows()
+        positions = {
+            row.stable_context_unit_id: index
+            for index, row in enumerate(stable_rows)
+        }
+        seen_context: set[
+            tuple[str, tuple[str, int, int], int, int]
+        ] = set()
+        result: list[Any] = []
         for selected_id in selected_ids:
-            selected = by_id[selected_id]
-            if adjacent:
-                candidates = (
-                    (
-                        "previous_page_tail",
-                        selected.parent_locator[1] - 1,
-                    ),
-                    (
-                        "next_page_head",
-                        selected.parent_locator[1] + 1,
-                    ),
-                )
-                for kind, page in candidates:
-                    component = _page_context_component(
-                            selected,
-                            selected_id,
-                            kind,
-                            page,
-                            self._parent_text,
-                        )
-                    result.append(
-                        _deduplicated_context_component(
-                            component,
-                            seen_context,
-                        )
-                    )
-                continue
-            position = positions[selected_id]
-            previous = (
-                stable_rows[position - 1] if position > 0 else None
-            )
-            following = (
-                stable_rows[position + 1]
-                if position + 1 < len(stable_rows)
-                else None
-            )
-            parent_bytes = self._parent_text[
-                (
-                    selected.source_content_fingerprint,
-                    selected.parent_locator[1],
-                )
-            ]
-            heading_end = parent_bytes.find(b"\n")
-            heading_end = (
-                len(parent_bytes) if heading_end < 0 else heading_end
-            )
-            components = (
-                (
-                    _unit_context_component(
-                        selected,
-                        selected_id,
-                        "heading",
-                        parent_bytes[:heading_end],
-                        0,
-                        heading_end,
-                    ),
-                    _neighbor_context_component(
-                        selected,
-                        selected_id,
-                        "previous_unit",
-                        previous,
-                    ),
-                    _neighbor_context_component(
-                        selected,
-                        selected_id,
-                        "next_unit",
-                        following,
-                    ),
-                )
-            )
-            if heading_end > selected.start_utf8_byte:
-                components = (
-                    _empty_context_component(
-                        selected,
-                        selected_id,
-                        "heading",
-                        status="missing",
-                    ),
-                    components[1],
-                    components[2],
-                )
             result.extend(
                 _deduplicated_context_component(
                     component,
                     seen_context,
                 )
-                for component in components
+                for component in self._source_context_components(
+                    selected_id,
+                    stable_rows,
+                    positions,
+                )
             )
         return tuple(result)
+
+    def _delivery_adjacent_context_inventory(
+        self,
+        selected_ids: tuple[str, ...],
+    ) -> tuple[Any, ...]:
+        by_id = {
+            row.stable_context_unit_id: row for row in self._rows
+        }
+        seen_context: set[
+            tuple[str, tuple[str, int, int], int, int]
+        ] = set()
+        result: list[Any] = []
+        for selected_id in selected_ids:
+            selected = by_id[selected_id]
+            for kind, page in (
+                (
+                    "previous_page_tail",
+                    selected.parent_locator[1] - 1,
+                ),
+                (
+                    "next_page_head",
+                    selected.parent_locator[1] + 1,
+                ),
+            ):
+                result.append(
+                    _deduplicated_context_component(
+                        _page_context_component(
+                            selected,
+                            selected_id,
+                            kind,
+                            page,
+                            self._parent_text,
+                        ),
+                        seen_context,
+                    )
+                )
+        return tuple(result)
+
+    def _page_local_context_rows(self) -> tuple[Any, ...]:
+        return tuple(
+            sorted(
+                self._rows,
+                key=lambda row: (
+                    row.source_content_fingerprint.encode(),
+                    row.parent_locator,
+                    row.start_utf8_byte,
+                    row.end_utf8_byte,
+                    row.stable_context_unit_id.encode(),
+                ),
+            )
+        )
+
+    def _source_context_components(
+        self,
+        selected_id: str,
+        stable_rows: tuple[Any, ...],
+        positions: Mapping[str, int],
+    ) -> tuple[Any, Any, Any]:
+        by_id = {
+            row.stable_context_unit_id: row for row in stable_rows
+        }
+        selected = by_id[selected_id]
+        position = positions[selected_id]
+        previous = stable_rows[position - 1] if position > 0 else None
+        following = (
+            stable_rows[position + 1]
+            if position + 1 < len(stable_rows)
+            else None
+        )
+        parent_bytes = self._parent_text[
+            (
+                selected.source_content_fingerprint,
+                selected.parent_locator[1],
+            )
+        ]
+        heading_end = parent_bytes.find(b"\n")
+        heading_end = (
+            len(parent_bytes) if heading_end < 0 else heading_end
+        )
+        heading = _unit_context_component(
+            selected,
+            selected_id,
+            "heading",
+            parent_bytes[:heading_end],
+            0,
+            heading_end,
+        )
+        if heading_end > selected.start_utf8_byte:
+            heading = _empty_context_component(
+                selected,
+                selected_id,
+                "heading",
+                status="missing",
+            )
+        return (
+            heading,
+            _neighbor_context_component(
+                selected,
+                selected_id,
+                "previous_unit",
+                previous,
+            ),
+            _neighbor_context_component(
+                selected,
+                selected_id,
+                "next_unit",
+                following,
+            ),
+        )
 
     def _rank_o3(
         self,
@@ -1608,10 +1647,7 @@ class _CandidateWorkspaceDriver:
             rank_source_context_fts,
         )
 
-        context = self._context_inventory(
-            tuple(row.stable_context_unit_id for row in self._rows),
-            adjacent=False,
-        )
+        context = self._source_context_index_inventory()
         components = tuple(
             SourceContextProjectionComponent(
                 stable_context_unit_id=(

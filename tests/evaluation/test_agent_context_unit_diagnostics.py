@@ -7,12 +7,71 @@ import pytest
 
 from mke.evaluation.agent_context_unit_diagnostics import (
     AgentContextStageError,
+    AgentContextStageSuccess,
     AgentContextSubstage,
     build_agent_context_diagnostic_receipt,
     execute_diagnostic_stages,
     render_agent_context_diagnostic_receipt,
     validate_agent_context_diagnostic_receipt,
 )
+
+
+def test_public_substage_order_seals_residual_gate_before_residual_mechanisms() -> None:
+    assert tuple(stage.value for stage in AgentContextSubstage) == (
+        "authority_preflight",
+        "runtime_baseline",
+        "source_snapshot",
+        "unit_projection",
+        "unit_rank",
+        "fixed_rank_delivery",
+        "residual_gate",
+        "adjacent_page_assembly",
+        "source_context_index",
+        "source_context_delivery",
+        "complete_observation_seal",
+        "grading",
+        "artifact_validation",
+        "publication",
+    )
+
+
+def test_receipt_accepts_residual_gate_before_adjacent_page_failure() -> None:
+    stage_order = (
+        AgentContextSubstage.AUTHORITY_PREFLIGHT,
+        AgentContextSubstage.RUNTIME_BASELINE,
+        AgentContextSubstage.SOURCE_SNAPSHOT,
+        AgentContextSubstage.UNIT_PROJECTION,
+        AgentContextSubstage.UNIT_RANK,
+        AgentContextSubstage.FIXED_RANK_DELIVERY,
+        AgentContextSubstage.RESIDUAL_GATE,
+    )
+    completed = tuple(
+        AgentContextStageSuccess(stage, hashlib.sha256(stage.value.encode()).hexdigest())
+        for stage in stage_order
+    )
+    error = AgentContextStageError(
+        AgentContextSubstage.ADJACENT_PAGE_ASSEMBLY,
+        "adjacent_page_assembly_invalid",
+        "integrity",
+        completed=completed,
+    )
+    receipt = build_agent_context_diagnostic_receipt(
+        protocol_sha256="1" * 64,
+        profile_sha256="2" * 64,
+        evaluator_source_sha256="3" * 64,
+        observation_sha256=None,
+        phase="development",
+        attempt_kind="development",
+        observation_started=True,
+        completed=completed,
+        error=error,
+        output_state="absent",
+        publication_outcome="not_attempted",
+        stderr_bytes=0,
+        stderr_sha256=hashlib.sha256(b"").hexdigest(),
+    )
+
+    validate_agent_context_diagnostic_receipt(receipt)
 
 
 @pytest.mark.parametrize("failed_index", range(14))
