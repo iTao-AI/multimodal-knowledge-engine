@@ -191,8 +191,8 @@ def test_plan_records_task_13_completion_without_holdout_or_promotion() -> None:
         in prose
     )
     assert (
-        "Task 13 documentation and CI closeout is locally complete; "
-        "independent actual-branch-diff review remains pending."
+        "Task 13 documentation and CI closeout is complete; independent "
+        "actual-branch-diff review is complete; publication remains pending."
         in prose
     )
     for item in (
@@ -203,8 +203,8 @@ def test_plan_records_task_13_completion_without_holdout_or_promotion() -> None:
     ):
         assert f"- [x] {item}" in plan
     assert (
-        "Task 13 implementation status: local closeout complete; "
-        "independent final review pending."
+        "Task 13 implementation status: complete; independent "
+        "actual-branch-diff review complete; publication pending."
         in prose
     )
 

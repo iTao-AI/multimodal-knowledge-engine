@@ -2,8 +2,8 @@
 
 **Status:** Complete development comparison — the deterministic comparison rejected the candidate
 under the frozen development protocol; holdout and runtime promotion remain `not_evaluated`.
-Task 13 documentation and CI closeout is locally complete; independent actual-branch-diff review
-remains pending.
+Task 13 documentation and CI closeout is complete; independent actual-branch-diff review is
+complete; publication remains pending.
 
 > **For Codex:** Required implementation skill: use `superpowers:executing-plans` as the primary
 > controller, `superpowers:test-driven-development` for every behavior change, and
@@ -1731,7 +1731,8 @@ diagnostic-maintenance-only closeout.
 Run only for a complete development artifact. The O0 docs-only branch is closed by Task 6A and
 must not enter this task.
 
-Task 13 implementation status: local closeout complete; independent final review pending.
+Task 13 implementation status: complete; independent actual-branch-diff review complete;
+publication pending.
 
 - [x] Document the exact development result and non-claims
 - [x] Add pure, model-free CI validation and canonical absence guards
