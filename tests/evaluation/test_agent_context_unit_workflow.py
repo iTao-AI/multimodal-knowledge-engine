@@ -7,13 +7,16 @@ import shutil
 import subprocess
 import sys
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
 
 from mke.application.evidence_access import EvidenceExcerpt
 from mke.evaluation import _atomic_json_publication
+from mke.evaluation import agent_context_unit_grading as grading
+from mke.evaluation import agent_context_unit_grading_protocol as grading_protocol
 from mke.evaluation import agent_context_unit_workflow as workflow
 from mke.evaluation.agent_context_unit_diagnostics import (
     AgentContextStageError,
@@ -26,9 +29,15 @@ from mke.evaluation.agent_context_unit_observation import (
     PortableObservationItem,
     PortableScoreToken,
 )
+from mke.evaluation.agent_context_unit_observer_protocol import (
+    AgentContextObserverContract,
+    load_agent_context_unit_observer_contract,
+)
 from mke.evaluation.agent_context_unit_protocol import (
     AgentContextObserverAuthority,
     AgentContextProtocolAuthority,
+    build_agent_context_unit_observer_authority,
+    load_agent_context_unit_protocol_authority,
 )
 from mke.evaluation.agent_context_unit_workflow import (
     PUBLIC_RESULT_FIELDS,
@@ -87,7 +96,7 @@ def _copy_fixture_repository(tmp_path: Path) -> tuple[Path, Path]:
     return repository, target / "protocol.json"
 
 
-def test_cli_exposes_only_o0_commands() -> None:
+def test_cli_exposes_development_and_no_holdout_command() -> None:
     completed = subprocess.run(
         [
             sys.executable,
@@ -105,7 +114,8 @@ def test_cli_exposes_only_o0_commands() -> None:
     assert "baseline" in completed.stdout
     assert "validate-baseline" in completed.stdout
     assert "validate-receipt" in completed.stdout
-    assert "development" not in completed.stdout
+    assert "development" in completed.stdout
+    assert "validate-development" in completed.stdout
     assert "holdout" not in completed.stdout
 
 
@@ -793,3 +803,641 @@ def test_observer_import_graph_does_not_open_grading_authority() -> None:
         text=True,
     )
     assert completed.returncode == 0, completed.stderr
+
+
+def _empty_mechanism_case(
+    case: Any,
+    mechanism_id: str,
+    rank_profile_id: str,
+) -> grading.MechanismCaseObservation:
+    return grading.MechanismCaseObservation(
+        query_id=case.query_id,
+        mechanism_id=mechanism_id,
+        route=("fts" if case.runtime_route_profile == "fts5" else "cjk"),
+        rank_profile_id=rank_profile_id,
+        query_terms=tuple(case.query_text.casefold().split()),
+        retrieval_text="",
+        candidate_count=0,
+        unique_parent_count=0,
+        ranked=(),
+        selected_stable_identities=(),
+        delivered_ranges=(),
+        context_ranges=(),
+        delivered_utf8_bytes=0,
+        context_attribution_unique=True,
+        output_complete=True,
+        exact_read_complete=True,
+        provenance_exact=True,
+    )
+
+
+def _seal_cases(
+    contract: Any,
+    mechanism_id: str,
+    query_ids: tuple[str, ...],
+) -> grading.SealedMechanismObservation:
+    profiles = {
+        "deterministic-unit-rank-v1": "deterministic-unit-rank-v1",
+        "fixed-rank-delivery-v1": "deterministic-unit-rank-v1",
+        "source-context-index-v1": "source-context-index-v1:heading:rank",
+        "source-context-delivery-v1": "deterministic-unit-rank-v1",
+        "adjacent-page-assembly-v1": "deterministic-unit-rank-v1",
+    }
+    by_query = {case.query_id: case for case in contract.cases}
+    return grading.seal_mechanism_observation(
+        mechanism_id,
+        tuple(
+            _empty_mechanism_case(
+                by_query[query_id],
+                mechanism_id,
+                profiles[mechanism_id],
+            )
+            for query_id in query_ids
+        ),
+    )
+
+
+class _SyntheticDevelopmentDriver:
+    def __init__(
+        self,
+        *,
+        contract: Any,
+        workspace: Path,
+        start_observation: Callable[[], None],
+        events: list[object],
+        mutate_intermediate: bool = False,
+        mutate_complete: bool = False,
+        forge_gate_digest: bool = False,
+    ) -> None:
+        self._contract = contract
+        self._workspace = workspace
+        self._start_observation = start_observation
+        self._events = events
+        self._mutate_intermediate = mutate_intermediate
+        self._mutate_complete = mutate_complete
+        self._forge_gate_digest = forge_gate_digest
+
+    def observe_o1_o2(self) -> Any:
+        assert not self._workspace.exists()
+        self._workspace.mkdir(parents=True)
+        self._start_observation()
+        self._events.append(("base", self._workspace))
+        query_ids = tuple(case.query_id for case in self._contract.cases)
+        o1 = _seal_cases(
+            self._contract,
+            "deterministic-unit-rank-v1",
+            query_ids,
+        )
+        o2 = _seal_cases(
+            self._contract,
+            "fixed-rank-delivery-v1",
+            query_ids,
+        )
+        if self._mutate_intermediate:
+            first, *rest = o2.cases
+            o2 = grading.seal_mechanism_observation(
+                o2.mechanism_id,
+                (
+                    replace(first, retrieval_text="workspace drift"),
+                    *rest,
+                ),
+            )
+        return workflow.CandidateIntermediateObservation(
+            observations=(o1, o2),
+            source_snapshot_bytes=b"source-snapshot-v1",
+            unit_projection_bytes=b"unit-projection-v1",
+            unit_rank_bytes=o1.portable_bytes,
+            fixed_rank_delivery_bytes=o2.portable_bytes,
+        )
+
+    def observe_residual(
+        self,
+        dispatches: tuple[Any, ...],
+    ) -> Any:
+        self._events.append(("residual", self._workspace, dispatches))
+        forbidden = {
+            "grading_payload",
+            "required_spans",
+            "labels",
+            "qrels",
+            "expected_locators",
+            "hypothesis",
+            "verdict",
+        }
+        assert all(
+            forbidden.isdisjoint(
+                cast(dict[str, object], vars(dispatch))
+            )
+            for dispatch in dispatches
+        )
+        observations: tuple[grading.SealedMechanismObservation, ...] = tuple(
+            _seal_cases(
+                self._contract,
+                dispatch.mechanism_id,
+                dispatch.query_ids,
+            )
+            for dispatch in dispatches
+            if dispatch.enabled
+        )
+        if self._mutate_complete and not observations:
+            dispatch = dispatches[0]
+            observations = (
+                _seal_cases(
+                    self._contract,
+                    dispatch.mechanism_id,
+                    dispatch.query_ids,
+                ),
+            )
+        if self._mutate_complete and observations:
+            first_observation, *rest_observations = observations
+            first_case, *rest_cases = first_observation.cases
+            observations = (
+                grading.seal_mechanism_observation(
+                    first_observation.mechanism_id,
+                    (
+                        replace(first_case, retrieval_text="workspace drift"),
+                        *rest_cases,
+                    ),
+                ),
+                *rest_observations,
+            )
+        gate_digest = (
+            "f" * 64
+            if self._forge_gate_digest
+            else dispatches[0].gate_digest
+        )
+        by_mechanism = {item.mechanism_id: item for item in observations}
+        stage_override = b"not-evaluated" if self._mutate_complete else None
+
+        def stage_bytes(mechanism_id: str) -> bytes:
+            item = by_mechanism.get(mechanism_id)
+            return (
+                stage_override
+                if stage_override is not None
+                else (
+                    b"not-evaluated"
+                    if item is None
+                    else item.portable_bytes
+                )
+            )
+
+        return workflow.CandidateResidualObservation(
+            observations=observations,
+            gate_digest=gate_digest,
+            adjacent_page_assembly_bytes=stage_bytes(
+                "adjacent-page-assembly-v1"
+            ),
+            source_context_index_bytes=stage_bytes(
+                "source-context-index-v1"
+            ),
+            source_context_delivery_bytes=stage_bytes(
+                "source-context-delivery-v1"
+            ),
+        )
+
+
+def _development_driver_factory(
+    events: list[object],
+    *,
+    mutate_intermediate_b: bool = False,
+    mutate_complete_b: bool = False,
+    forge_gate_b: bool = False,
+) -> Callable[..., _SyntheticDevelopmentDriver]:
+    created = 0
+
+    def factory(
+        contract: Any,
+        _repository_root: Path,
+        workspace: Path,
+        start_observation: Callable[[], None],
+    ) -> _SyntheticDevelopmentDriver:
+        nonlocal created
+        created += 1
+        return _SyntheticDevelopmentDriver(
+            contract=contract,
+            workspace=workspace,
+            start_observation=start_observation,
+            events=events,
+            mutate_intermediate=mutate_intermediate_b and created == 2,
+            mutate_complete=mutate_complete_b and created == 2,
+            forge_gate_digest=forge_gate_b and created == 2,
+        )
+
+    return factory
+
+
+def _execute_synthetic_development(
+    tmp_path: Path,
+    *,
+    events: list[object] | None = None,
+    factory: Callable[..., Any] | None = None,
+    stage_faults: dict[AgentContextSubstage, Callable[[], None]] | None = None,
+) -> tuple[int, dict[str, object], Path, Path]:
+    record = tmp_path / "development.json"
+    receipt = tmp_path / "receipt.json"
+    event_log = events if events is not None else []
+    exit_code, result = workflow.execute_development(
+        protocol_path=PROTOCOL,
+        baseline_path=BASELINE,
+        record_path=record,
+        diagnostic_receipt_path=receipt,
+        development_driver_factory=(
+            factory or _development_driver_factory(event_log)
+        ),
+        stage_faults=stage_faults,
+        synthetic_noncanonical=True,
+    )
+    return exit_code, result, record, receipt
+
+
+def test_development_orders_intermediate_seal_before_single_label_open(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[object] = []
+    original = grading_protocol.load_agent_context_unit_development_grading_payload
+    label_calls = 0
+
+    def load_once(authority: AgentContextProtocolAuthority):
+        nonlocal label_calls
+        label_calls += 1
+        events.append("labels")
+        return original(authority)
+
+    monkeypatch.setattr(
+        grading_protocol,
+        "load_agent_context_unit_development_grading_payload",
+        load_once,
+    )
+
+    exit_code, result, record, receipt = _execute_synthetic_development(
+        tmp_path,
+        events=events,
+    )
+
+    assert exit_code == 0
+    assert result["phase"] == "development"
+    assert result["integrity_status"] == "passed"
+    assert record.is_file()
+    assert not receipt.exists()
+    assert label_calls == 1
+    assert [
+        cast(tuple[object, ...], event)[0] for event in events[:2]
+    ] == ["base", "base"]
+    assert events[2] == "labels"
+    assert [
+        cast(tuple[object, ...], event)[0] for event in events[3:]
+    ] == ["residual", "residual"]
+    workspace_paths = [cast(tuple[object, Path], event)[1] for event in events[:2]]
+    assert workspace_paths[0] != workspace_paths[1]
+    residual_dispatches = cast(tuple[object, Path, tuple[Any, ...]], events[3])[2]
+    assert residual_dispatches
+    assert all(
+        type(dispatch) is workflow.CandidateGateDispatch
+        for dispatch in residual_dispatches
+    )
+    assert len({dispatch.gate_digest for dispatch in residual_dispatches}) == 1
+
+
+def test_development_rejects_non_red_retained_baseline_before_candidate_start(
+    tmp_path: Path,
+) -> None:
+    baseline = tmp_path / "baseline.json"
+    artifact = cast(dict[str, object], json.loads(BASELINE.read_bytes()))
+    artifact["stage_outcome"] = "docs_regression_only"
+    artifact["targeted_failure_observed"] = False
+    _write_closed_baseline(baseline, artifact)
+    events: list[object] = []
+
+    exit_code, result = workflow.execute_development(
+        protocol_path=PROTOCOL,
+        baseline_path=baseline,
+        record_path=tmp_path / "development.json",
+        diagnostic_receipt_path=tmp_path / "receipt.json",
+        development_driver_factory=_development_driver_factory(events),
+        synthetic_noncanonical=True,
+    )
+
+    assert exit_code == 1
+    assert result["stage_outcome"] == "pre_observation_blocked"
+    assert result["first_failed_gate"] == "runtime_baseline"
+    assert events == []
+    assert not (tmp_path / "development.json").exists()
+    assert not (tmp_path / "receipt.json").exists()
+
+
+def test_development_rejects_symlinked_retained_baseline_before_candidate_start(
+    tmp_path: Path,
+) -> None:
+    baseline = tmp_path / "baseline.json"
+    baseline.symlink_to(BASELINE)
+    events: list[object] = []
+
+    exit_code, result = workflow.execute_development(
+        protocol_path=PROTOCOL,
+        baseline_path=baseline,
+        record_path=tmp_path / "development.json",
+        diagnostic_receipt_path=tmp_path / "receipt.json",
+        development_driver_factory=_development_driver_factory(events),
+        synthetic_noncanonical=True,
+    )
+
+    assert exit_code == 1
+    assert result["stage_outcome"] == "pre_observation_blocked"
+    assert result["first_failed_gate"] == "runtime_baseline"
+    assert events == []
+    assert not (tmp_path / "development.json").exists()
+    assert not (tmp_path / "receipt.json").exists()
+
+
+def test_development_rejects_intermediate_workspace_mismatch_before_label_open(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[object] = []
+    label_calls = 0
+
+    def forbidden_label_open(_authority: object) -> object:
+        nonlocal label_calls
+        label_calls += 1
+        raise AssertionError("labels opened before intermediate equality")
+
+    monkeypatch.setattr(
+        grading_protocol,
+        "load_agent_context_unit_development_grading_payload",
+        forbidden_label_open,
+    )
+
+    exit_code, result, record, receipt = _execute_synthetic_development(
+        tmp_path,
+        events=events,
+        factory=_development_driver_factory(
+            events,
+            mutate_intermediate_b=True,
+        ),
+    )
+
+    assert exit_code == 1
+    assert result["first_failed_gate"] == "unit_rank"
+    assert result["cause"] == "workspace_intermediate_portable_mismatch"
+    assert label_calls == 0
+    assert not record.exists()
+    assert receipt.is_file()
+
+
+def test_development_rejects_complete_workspace_mismatch(
+    tmp_path: Path,
+) -> None:
+    events: list[object] = []
+
+    exit_code, result, record, receipt = _execute_synthetic_development(
+        tmp_path,
+        events=events,
+        factory=_development_driver_factory(events, mutate_complete_b=True),
+    )
+
+    assert exit_code == 1
+    assert result["first_failed_gate"] == "complete_observation_seal"
+    assert result["cause"] == "workspace_complete_portable_mismatch"
+    assert not record.exists()
+    assert receipt.is_file()
+
+
+def test_development_rejects_forged_candidate_gate_digest(
+    tmp_path: Path,
+) -> None:
+    events: list[object] = []
+
+    exit_code, result, record, receipt = _execute_synthetic_development(
+        tmp_path,
+        events=events,
+        factory=_development_driver_factory(events, forge_gate_b=True),
+    )
+
+    assert exit_code == 1
+    assert result["first_failed_gate"] == "residual_gate"
+    assert result["cause"] == "residual_gate_dispatch_mismatch"
+    assert not record.exists()
+    assert receipt.is_file()
+
+
+@pytest.mark.parametrize("substage", tuple(AgentContextSubstage))
+def test_development_fault_matrix_preserves_each_public_substage(
+    tmp_path: Path,
+    substage: AgentContextSubstage,
+) -> None:
+    def fail() -> None:
+        raise AgentContextStageError(
+            substage,
+            f"synthetic_{substage.value}_failure",
+            (
+                "capacity"
+                if substage
+                in {
+                    AgentContextSubstage.SOURCE_SNAPSHOT,
+                    AgentContextSubstage.UNIT_PROJECTION,
+                }
+                else "integrity"
+            ),
+        )
+
+    exit_code, result, record, receipt = _execute_synthetic_development(
+        tmp_path,
+        stage_faults={substage: fail},
+    )
+
+    assert exit_code == 1
+    assert result["first_failed_gate"] == substage.value
+    assert result["cause"] == f"synthetic_{substage.value}_failure"
+    assert not record.exists()
+    if substage in {
+        AgentContextSubstage.AUTHORITY_PREFLIGHT,
+        AgentContextSubstage.RUNTIME_BASELINE,
+    }:
+        assert result["stage_outcome"] == "pre_observation_blocked"
+        assert not receipt.exists()
+    else:
+        assert result["stage_outcome"] == "evaluation_inconclusive"
+        assert receipt.is_file()
+
+
+@pytest.mark.parametrize(
+    ("substage", "error_code", "error_family"),
+    (
+        (
+            AgentContextSubstage.SOURCE_SNAPSHOT,
+            "candidate_source_capacity_exceeded",
+            "capacity",
+        ),
+        (
+            AgentContextSubstage.UNIT_PROJECTION,
+            "candidate_projection_capacity_exceeded",
+            "capacity",
+        ),
+        (
+            AgentContextSubstage.UNIT_RANK,
+            "candidate_observation_integrity_failed",
+            "integrity",
+        ),
+        (
+            AgentContextSubstage.SOURCE_CONTEXT_DELIVERY,
+            "source_context_attribution_mismatch",
+            "authority",
+        ),
+        (
+            AgentContextSubstage.PUBLICATION,
+            "output_visibility_state_invalid",
+            "publication",
+        ),
+    ),
+)
+def test_development_historical_fault_classes_keep_distinct_taxonomy(
+    tmp_path: Path,
+    substage: AgentContextSubstage,
+    error_code: str,
+    error_family: str,
+) -> None:
+    def fail() -> None:
+        raise AgentContextStageError(
+            substage,
+            error_code,
+            error_family,
+        )
+
+    exit_code, result, record, receipt = _execute_synthetic_development(
+        tmp_path,
+        stage_faults={substage: fail},
+    )
+
+    assert exit_code == 1
+    assert result["first_failed_gate"] == substage.value
+    assert result["cause"] == error_code
+    assert not record.exists()
+    assert receipt.is_file()
+
+
+def test_validate_development_is_pure_and_does_not_create_output(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    exit_code, _result, record, receipt = _execute_synthetic_development(
+        tmp_path
+    )
+    assert exit_code == 0
+    before = record.read_bytes()
+    assert not receipt.exists()
+
+    def forbidden_factory(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("pure validation entered candidate observation")
+
+    monkeypatch.setattr(
+        workflow,
+        "_default_development_driver_factory",
+        forbidden_factory,
+        raising=False,
+    )
+    validate_exit = main(
+        [
+            "validate-development",
+            "--protocol",
+            str(PROTOCOL),
+            "--baseline",
+            str(BASELINE),
+            "--artifact",
+            str(record),
+            "--json",
+        ]
+    )
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+
+    assert validate_exit == 0
+    assert result["phase"] == "development"
+    assert result["output_state"] == "complete_preexisting"
+    assert captured.out.endswith("\n")
+    assert captured.err == ""
+    assert record.read_bytes() == before
+    assert not receipt.exists()
+
+
+def test_default_candidate_controller_uses_fresh_synthetic_workspaces_only(
+    tmp_path: Path,
+) -> None:
+    authority = load_agent_context_unit_protocol_authority(PROTOCOL)
+    contract = load_agent_context_unit_observer_contract(
+        build_agent_context_unit_observer_authority(authority)
+    )
+    synthetic_contract = AgentContextObserverContract(
+        sources=tuple(
+            source
+            for source in contract.sources
+            if source.source_id == "dev-synthetic-boundaries"
+        ),
+        cases=tuple(
+            case
+            for case in contract.cases
+            if case.query_id == "q-misleading-name"
+        ),
+    )
+    starts = 0
+
+    def mark_started() -> None:
+        nonlocal starts
+        starts += 1
+
+    workspace_a = tmp_path / "workspace-a"
+    workspace_b = tmp_path / "workspace-b"
+    driver_a = workflow._default_development_driver_factory(  # pyright: ignore[reportPrivateUsage]
+        synthetic_contract,
+        ROOT,
+        workspace_a,
+        mark_started,
+    )
+    driver_b = workflow._default_development_driver_factory(  # pyright: ignore[reportPrivateUsage]
+        synthetic_contract,
+        ROOT,
+        workspace_b,
+        mark_started,
+    )
+
+    result_a = driver_a.observe_o1_o2()
+    result_b = driver_b.observe_o1_o2()
+
+    assert starts == 2
+    assert workspace_a.is_dir()
+    assert workspace_b.is_dir()
+    assert workspace_a != workspace_b
+    assert result_a.stage_bytes == result_b.stage_bytes
+    assert tuple(
+        cast(grading.SealedMechanismObservation, item).portable_bytes
+        for item in result_a.observations
+    ) == tuple(
+        cast(grading.SealedMechanismObservation, item).portable_bytes
+        for item in result_b.observations
+    )
+    gate_digest = "a" * 64
+    dispatches = tuple(
+        workflow.CandidateGateDispatch(
+            mechanism_id=mechanism_id,
+            enabled=True,
+            reason="synthetic_controller_self_test",
+            query_ids=("q-misleading-name",),
+            gate_digest=gate_digest,
+        )
+        for mechanism_id in (
+            "source-context-index-v1",
+            "source-context-delivery-v1",
+            "adjacent-page-assembly-v1",
+        )
+    )
+    residual_a = driver_a.observe_residual(dispatches)
+    residual_b = driver_b.observe_residual(dispatches)
+    assert residual_a.stage_bytes == residual_b.stage_bytes
+    assert tuple(
+        cast(grading.SealedMechanismObservation, item).portable_bytes
+        for item in residual_a.observations
+    ) == tuple(
+        cast(grading.SealedMechanismObservation, item).portable_bytes
+        for item in residual_b.observations
+    )

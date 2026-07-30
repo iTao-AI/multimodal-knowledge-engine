@@ -5,7 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from typing import Literal, cast
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Literal, cast
 
 from mke.application.evidence_access import EvidenceExcerpt
 from mke.evaluation.agent_context_unit_grading_protocol import (
@@ -18,6 +19,11 @@ from mke.evaluation.agent_context_unit_observation import (
     PortableScoreToken,
     seal_portable_observations,
 )
+
+if TYPE_CHECKING:
+    from mke.evaluation.agent_context_unit_grading import (
+        SealedMechanismObservation,
+    )
 
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _MECHANISM_STATUSES = {
@@ -89,6 +95,17 @@ _EXCERPT_FIELDS = {
     "text",
 }
 _SCORE_FIELDS = {"kind", "primary", "secondary"}
+
+
+@dataclass(frozen=True)
+class RetainedAgentContextBaselineAuthority:
+    content: bytes
+    artifact_sha256: str
+    content_digest: str
+    protocol_sha256: str
+    evaluator_source_sha256: str
+    fixture_sha256: str
+    runtime_profile_sha256: str
 
 
 def _canonical(value: object) -> bytes:
@@ -222,6 +239,179 @@ def validate_agent_context_unit_baseline_artifact_live(
     )
     if actual != (protocol_sha256, evaluator_source_sha256, fixture_sha256):
         raise ValueError("baseline live authority differs")
+
+
+def load_retained_agent_context_unit_baseline_authority(
+    content: bytes,
+) -> RetainedAgentContextBaselineAuthority:
+    if (
+        type(content) is not bytes
+        or not content.endswith(b"\n")
+        or content.count(b"\n") != 1
+    ):
+        raise ValueError("baseline retained authority is invalid")
+    try:
+        value: object = json.loads(content)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError("baseline retained authority is invalid") from error
+    artifact = _artifact(value)
+    if (
+        content != _canonical(artifact) + b"\n"
+        or artifact["stage_outcome"] != "baseline_red_observed"
+        or artifact["targeted_failure_observed"] is not True
+    ):
+        raise ValueError("baseline retained authority is invalid")
+    rows = _observation_rows(artifact["observation"])
+    portable = _portable_observations(rows)
+    sealed = seal_portable_observations(portable)
+    if (
+        sealed.bytes != _observation_bytes(artifact["observation"])
+        or sealed.sha256.removeprefix("sha256:")
+        != artifact["observation_sha256"]
+    ):
+        raise ValueError("baseline retained authority is invalid")
+    return RetainedAgentContextBaselineAuthority(
+        content=content,
+        artifact_sha256=hashlib.sha256(content).hexdigest(),
+        content_digest=_digest_field(artifact, "content_digest"),
+        protocol_sha256=_digest_field(artifact, "protocol_sha256"),
+        evaluator_source_sha256=_digest_field(
+            artifact, "evaluator_source_sha256"
+        ),
+        fixture_sha256=_digest_field(artifact, "fixture_sha256"),
+        runtime_profile_sha256=_digest_field(
+            artifact, "runtime_profile_sha256"
+        ),
+    )
+
+
+def build_retained_agent_context_baseline_observation(
+    authority: RetainedAgentContextBaselineAuthority,
+    grading_payload: object,
+) -> SealedMechanismObservation:
+    from mke.evaluation.agent_context_unit_grading import (
+        MechanismCaseObservation,
+        ObservedRange,
+        ObservedRankedCandidate,
+        seal_mechanism_observation,
+    )
+    from mke.evaluation.agent_context_unit_grading_protocol import (
+        AgentContextBaselineGradingPayload,
+        AgentContextDevelopmentGradingPayload,
+    )
+
+    if (
+        type(authority) is not RetainedAgentContextBaselineAuthority
+        or type(grading_payload) is not AgentContextDevelopmentGradingPayload
+    ):
+        raise ValueError("baseline retained authority is invalid")
+    payload = grading_payload
+    artifact_value: object = json.loads(authority.content)
+    validate_agent_context_unit_baseline_artifact(
+        artifact_value,
+        AgentContextBaselineGradingPayload(payload.required_spans),
+    )
+    artifact = cast(dict[str, object], artifact_value)
+    portable = _portable_observations(
+        _observation_rows(artifact["observation"])
+    )
+    cases: list[MechanismCaseObservation] = []
+    mechanism_id = payload.mechanism_ids["o0"]
+    for observation in portable:
+        ranges: list[ObservedRange] = []
+        ranked: list[ObservedRankedCandidate] = []
+        parent_ranks: dict[tuple[str, str, int, int], int] = {}
+        stable_ids: list[str] = []
+        retrieval_parts: list[str] = []
+        for item in observation.items:
+            range_record = ObservedRange(
+                source_content_fingerprint=item.content_fingerprint,
+                locator_kind=cast(Literal["page"], item.locator_kind),
+                locator_start=item.locator_start,
+                locator_end=item.locator_end,
+                start_utf8_byte=item.excerpt.start_utf8_byte,
+                end_utf8_byte=item.excerpt.end_utf8_byte,
+                origin_evidence_ref=_retained_origin_ref(item),
+                component_kind="unit",
+            )
+            stable_identity = _retained_item_identity(item)
+            parent_key = (
+                item.content_fingerprint,
+                item.locator_kind,
+                item.locator_start,
+                item.locator_end,
+            )
+            if parent_key not in parent_ranks:
+                parent_ranks[parent_key] = len(parent_ranks) + 1
+            ranges.append(range_record)
+            ranked.append(
+                ObservedRankedCandidate(
+                    stable_identity=stable_identity,
+                    rank=item.rank,
+                    parent_collapsed_rank=parent_ranks[parent_key],
+                    authority_range=range_record,
+                )
+            )
+            stable_ids.append(stable_identity)
+            retrieval_parts.append(item.excerpt.text)
+        statuses = set(observation.statuses)
+        cases.append(
+            MechanismCaseObservation(
+                query_id=observation.query_id,
+                mechanism_id=mechanism_id,
+                route=(
+                    "fts"
+                    if observation.expected_route == "fts5"
+                    else "cjk"
+                ),
+                rank_profile_id=mechanism_id,
+                query_terms=payload.query_terms_by_query[
+                    observation.query_id
+                ],
+                retrieval_text="".join(retrieval_parts),
+                candidate_count=observation.candidate_count,
+                unique_parent_count=len(parent_ranks),
+                ranked=tuple(ranked),
+                selected_stable_identities=tuple(stable_ids),
+                delivered_ranges=tuple(ranges),
+                context_ranges=(),
+                delivered_utf8_bytes=observation.delivered_utf8_bytes,
+                context_attribution_unique=True,
+                output_complete="output_complete" in statuses,
+                exact_read_complete="exact_read_complete" in statuses,
+                provenance_exact="provenance_complete" in statuses,
+            )
+        )
+    return seal_mechanism_observation(mechanism_id, tuple(cases))
+
+
+def _retained_item_identity(item: PortableObservationItem) -> str:
+    return "sha256:" + hashlib.sha256(
+        _canonical(
+            {
+                "content_fingerprint": item.content_fingerprint,
+                "locator_end": item.locator_end,
+                "locator_kind": item.locator_kind,
+                "locator_start": item.locator_start,
+                "rank": item.rank,
+                "text_sha256": item.text_sha256,
+            }
+        )
+    ).hexdigest()
+
+
+def _retained_origin_ref(item: PortableObservationItem) -> str:
+    return "sha256:" + hashlib.sha256(
+        _canonical(
+            {
+                "content_fingerprint": item.content_fingerprint,
+                "locator_end": item.locator_end,
+                "locator_kind": item.locator_kind,
+                "locator_start": item.locator_start,
+                "text_sha256": item.text_sha256,
+            }
+        )
+    ).hexdigest()
 
 
 def _artifact(value: object) -> dict[str, object]:
