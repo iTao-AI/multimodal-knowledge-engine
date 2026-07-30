@@ -572,12 +572,23 @@ in-place repair.
 2. Run the complete regression and compatibility matrix.
 3. Invoke development exactly once.
 4. Use two fresh workspaces inside the single invocation.
-5. Require byte-identical portable observations.
-6. Run O1/O2 before deriving residual gates.
-7. Run O3/O4 only when their preregistered gates are true.
-8. Run O5 only for preregistered cross-page hypotheses.
-9. Open labels only after complete observation seal.
-10. Grade, validate, and publish atomically.
+5. Before any development label is opened, complete O1/O2 in both fresh workspaces, form an
+   intermediate portable seal for each workspace, and require the O1/O2 portable bytes to be
+   byte-identical. This intermediate seal does not add a public diagnostic substage token.
+6. Only after the O1/O2 intermediate seal succeeds, open the frozen development grading payload
+   exactly once in the workflow and derive residual gates only from that payload plus the sealed
+   O0/O1/O2 observations.
+7. Pass O3/O4/O5 candidate modules only typed residual-gate decisions, the label-blind observer
+   contract, and existing frozen candidate inputs. Do not pass the grading payload, required spans,
+   labels, qrels, expected locators, or hypothesis and verdict hints into candidate modules.
+8. Run O3/O4 only when their preregistered residual gates are true, run O5 only for
+   preregistered cross-page hypotheses, and use the same gate set in both workspaces.
+9. After every dispatched mechanism completes, form `complete_observation_seal` and again require
+   the complete workspace A/B portable observation bytes to be byte-identical.
+10. Pure-grade the complete seal, validate the artifact, and publish atomically.
+
+The O1/O2 intermediate seal is an internal workflow authority boundary. The stable 14-stage public
+substage taxonomy remains unchanged.
 
 Development receives no retry and no attempt 2.
 
@@ -672,7 +683,10 @@ A mechanism is `candidate_qualified` only when:
 2. current-success and hard-negative development cases do not regress;
 3. query policy, route, active-only, provenance, and deterministic equality pass;
 4. all source, unit, candidate, context, and delivery ceilings pass;
-5. no qrel, label, filename, opaque ID, or workspace order influences observation;
+5. no qrel, label, filename, opaque ID, or workspace order influences candidate ranking,
+   selection, delivery or context bytes, or portable observation serialization; development labels
+   may affect only preregistered residual-gate dispatch after the O1/O2 intermediate seal and never
+   flow into candidate modules;
 6. mechanism attribution is unique under the frozen contrasts; and
 7. the result is independently recomputed from sealed bytes.
 

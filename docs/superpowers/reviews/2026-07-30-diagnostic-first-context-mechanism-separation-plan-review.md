@@ -1,6 +1,6 @@
 # Diagnostic-First Context Mechanism Separation v2 Plan Review
 
-Status: **CLEAN / RECOMMENDED FOR APPROVAL**
+Status: **CLEAN / RECOMMENDED FOR APPROVAL — TARGETED STAGE-ORDER RECONCILIATION APPLIED**
 
 This public-neutral record captures the plan review for:
 
@@ -64,7 +64,9 @@ Engineering review identified and closed the following plan-level findings befor
 10. **Physical protocol authority:** common metadata, label-blind observer inputs, and grading
     payloads now live in separate modules. Observation, baseline, diagnostics, segmentation,
     ranking, and assembly cannot import grading loaders; workflow may reach them only after the
-    portable observation seal.
+    O0 complete observation seal or, for development residual-gate derivation, after both
+    workspaces have formed byte-identical O1/O2 intermediate portable seals. Candidate modules
+    receive only typed gate decisions and remain unable to reach grading or label authority.
 11. **Historical whole-source recurrence:** current `main` still has a whole-`src/mke` refresh
     helper for the legacy baseline, but retained validation is recorded-authority-only and has an
     explicit unrelated-source-addition regression. The shared historical gate now includes that
@@ -117,6 +119,24 @@ Evaluation review confirms:
 
 This matches the required falsification-first Context/Evidence/Evaluation framing while leaving
 project facts to code, protocol, tests, artifacts, and one-shot process evidence.
+
+## Targeted Task 10 Stage-Order Reconciliation
+
+Task 10 review exposed a conflict between residual-gate derivation and the earlier label-open
+ordering: residual dispatch requires the frozen development grading payload, while candidate
+observation must remain label-blind. The reconciled authority uses two distinct seal boundaries.
+Both fresh workspaces first complete O1/O2 and produce byte-identical intermediate portable seals
+before any development label access. The workflow then opens the frozen grading payload exactly
+once, derives one residual-gate set from that payload and sealed O0/O1/O2 observations, and passes
+candidate modules only typed gate decisions plus label-blind frozen inputs. After all dispatched
+residual observations complete, the workflow forms the existing `complete_observation_seal`,
+requires complete workspace equality, and only then pure-grades, validates, and publishes.
+
+This reconciliation does not add a public diagnostic substage token and does not change the
+corpus, queries, labels, required spans, mechanism profiles, bounds, residual-gate rules, or verdict
+rules. O0 was not rerun and development had not started when the authority conflict was found.
+Candidate modules remain label-blind, and pure grading remains after the complete observation
+seal. This record does not claim that Task 10 implementation or verification is complete.
 
 ## Final Decision
 

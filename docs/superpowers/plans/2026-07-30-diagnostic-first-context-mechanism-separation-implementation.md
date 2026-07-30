@@ -14,8 +14,11 @@ Evidence granularity, delivery completeness, source context, or bounded adjacent
 typed substage diagnostics, label-blind observations, pure grading, and no-replace artifact
 publication. Run one O0 current-runtime observation. Candidate modules are created only if O0
 records the preregistered targeted failure. A successful development phase runs two fresh
-workspaces inside one invocation, seals portable observations before labels open, and publishes one
-comparison-only artifact. Holdout and runtime promotion remain outside this plan.
+workspaces inside one invocation, seals and compares O1/O2 portable observations before any label
+access, opens the frozen grading payload exactly once in the workflow, derives residual gates,
+dispatches label-blind residual candidates through typed gate decisions, seals and compares the
+complete observations, and only then pure-grades and publishes one comparison-only artifact.
+Holdout and runtime promotion remain outside this plan.
 
 **Tech Stack:** Python 3.12/3.13, standard library, existing `KnowledgeEngine`, existing
 `SQLiteStore` evaluation diagnostics, PyMuPDF already pinned by the repository, pytest, Ruff,
@@ -895,8 +898,11 @@ git commit -m "feat(eval): observe current context delivery"
 Require `agent_context_unit_grading_protocol.py` to:
 
 - own `load_agent_context_unit_baseline_grading_payload`;
-- open development labels only when the workflow calls it after
+- open the baseline grading payload only when the O0 workflow calls it after the O0
   `complete_observation_seal`;
+- reserve development grading-payload access for a later workflow call made exactly once after both
+  fresh development workspaces have byte-identical O1/O2 intermediate portable seals; O3/O4/O5
+  receive only typed gate decisions and label-blind frozen inputs;
 - expose no holdout payload loader;
 - reject label, expected-answer, verdict, or grading access through the common or observer
   protocol modules;
@@ -906,7 +912,8 @@ Require `agent_context_unit_grading_protocol.py` to:
 Require the pure builder/validator to:
 
 - receive sealed portable observation bytes;
-- open labels only through an explicit grading payload passed after the seal;
+- receive labels only through an explicit baseline grading payload passed after the O0
+  `complete_observation_seal`;
 - recompute required-span and role coverage;
 - classify only `baseline_red_observed` or `docs_regression_only`;
 - recompute the targeted-failure predicate from frozen spans and controls;
@@ -973,7 +980,7 @@ The workflow is orchestration only. It may:
 
 - preflight direct source seals and output paths;
 - call typed stages;
-- open grading payload after portable observation seal;
+- open the baseline grading payload after the O0 portable observation seal;
 - call the pure baseline artifact builder;
 - publish canonical bytes;
 - publish a failure receipt;
@@ -1374,7 +1381,8 @@ git commit -m "feat(eval): assemble fixed context delivery"
 
 ### Step 1: Write residual-gate REDs
 
-From sealed O0/O1/O2 bytes only:
+From sealed O0/O1/O2 bytes plus the frozen development grading payload opened by the workflow only
+after the O1/O2 intermediate seal:
 
 - O3 runs only for residual indexing/ranking failure;
 - O4 runs only for residual delivery failure;
@@ -1382,7 +1390,7 @@ From sealed O0/O1/O2 bytes only:
 - gate schema, inputs, reason, and digest are closed;
 - a false gate makes the mechanism `not_evaluated`;
 - dispatch cannot accept a forged gate;
-- no label or expected answer influences rank/selection.
+- no label or expected answer reaches candidate ranking or selection.
 
 ### Step 2: Write O3 REDs
 
@@ -1510,11 +1518,18 @@ Cover:
 - observation starts at first candidate workspace ingestion;
 - exactly two fresh workspaces inside one process invocation;
 - workspace A/B authority handles may differ;
-- portable observations must be byte-identical;
-- O1/O2 always run before residual gate;
-- O3/O4/O5 dispatch only through frozen gates;
-- labels open only after `complete_observation_seal`;
-- pure grader and artifact validator;
+- both workspaces complete O1/O2 and form byte-identical intermediate portable seals before any
+  development label access; this internal seal adds no public substage token;
+- the workflow opens the frozen development grading payload exactly once at `residual_gate`, only
+  after O1/O2 intermediate equality;
+- residual gates derive only from that frozen payload plus sealed O0/O1/O2 observations;
+- O3/O4/O5 receive only typed gate decisions, the label-blind observer contract, and existing
+  frozen candidate inputs; they cannot receive the grading payload, required spans, labels, qrels,
+  expected locators, or hypothesis and verdict hints;
+- O3/O4/O5 dispatch only through the same frozen gate set in both workspaces;
+- `complete_observation_seal` occurs only after every dispatched residual mechanism completes, and
+  complete workspace A/B portable observation bytes must be byte-identical;
+- the pure grader and artifact validator run only after `complete_observation_seal`;
 - success publishes artifact and no receipt;
 - started failure publishes receipt and no artifact;
 - scientific outcomes exit 0;
@@ -1592,6 +1607,11 @@ Review the complete post-O0 candidate range. Required risk surfaces:
 - O3/O4 residual-gate authority;
 - O5 page adjacency;
 - label-blind observations;
+- O1/O2 intermediate seal and byte equality before label access;
+- exactly one workflow-owned development grading-payload open;
+- typed gate-only dataflow into residual candidate modules;
+- candidate import and label/grading-access barriers;
+- complete observation seal after all dispatched residual observations;
 - pure grading/validation;
 - two-workspace equality;
 - no holdout command/import/open;
