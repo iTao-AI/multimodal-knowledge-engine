@@ -92,9 +92,7 @@ def _stable_unit_id(row: ranking.UnitProjectionRow) -> str:
         "start_utf8_byte": row.start_utf8_byte,
         "text_sha256": row.text_sha256,
     }
-    encoded = json.dumps(
-        payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True
-    ).encode()
+    encoded = json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode()
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
@@ -103,10 +101,7 @@ def test_default_bounds_match_protocol_and_scientific_lock() -> None:
         (ROOT / "tests/fixtures/agent-context-unit-v2/protocol.json").read_bytes()
     )
     scientific_lock = json.loads(
-        (
-            ROOT
-            / "tests/fixtures/agent-context-unit-v2/scientific-input-lock.json"
-        ).read_bytes()
+        (ROOT / "tests/fixtures/agent-context-unit-v2/scientific-input-lock.json").read_bytes()
     )
     expected = {
         "max_projection_rows": 16_384,
@@ -117,12 +112,8 @@ def test_default_bounds_match_protocol_and_scientific_lock() -> None:
     }
 
     assert ranking.DEFAULT_RANKING_BOUNDS == ranking.RankingBounds(**expected)
-    assert {
-        key: protocol["projection_bounds"][key] for key in expected
-    } == expected
-    assert {
-        key: scientific_lock["projection_bounds"][key] for key in expected
-    } == expected
+    assert {key: protocol["projection_bounds"][key] for key in expected} == expected
+    assert {key: scientific_lock["projection_bounds"][key] for key in expected} == expected
 
 
 def test_projection_rows_bind_exact_bytes_and_stable_provenance() -> None:
@@ -139,19 +130,14 @@ def test_projection_rows_bind_exact_bytes_and_stable_provenance() -> None:
 
 def test_rank_profile_id_matches_frozen_o1_scientific_authority() -> None:
     scientific_lock = json.loads(
-        (
-            ROOT
-            / "tests/fixtures/agent-context-unit-v2/scientific-input-lock.json"
-        ).read_bytes()
+        (ROOT / "tests/fixtures/agent-context-unit-v2/scientific-input-lock.json").read_bytes()
     )
     o1_profile = scientific_lock["mechanism_profile"]["o1"]
     o1_mechanism_id = scientific_lock["mechanism_profile"]["mechanism_ids"]["o1"]
     assert o1_profile["rank_profile_id"] == o1_mechanism_id
 
     fts_rows = ranking.build_unit_projection(_whole_units("alpha beta"))
-    cjk_rows = ranking.build_unit_projection(
-        _whole_units("中华人民共和国数据安全治理")
-    )
+    cjk_rows = ranking.build_unit_projection(_whole_units("中华人民共和国数据安全治理"))
     fts_result = ranking.rank_fts_units(
         fts_rows,
         query_id="q-frozen-fts-profile",
@@ -211,15 +197,11 @@ def test_projection_rejects_duplicate_gap_and_authority_tamper() -> None:
     with pytest.raises(ValueError, match="projection parent coverage is invalid"):
         ranking.build_unit_projection(units[1:])
     with pytest.raises(ValueError, match="projection row authority is invalid"):
-        ranking.build_unit_projection(
-            (replace(units[0], text_sha256="0" * 64), *units[1:])
-        )
+        ranking.build_unit_projection((replace(units[0], text_sha256="0" * 64), *units[1:]))
 
 
 def test_fts_rank_uses_canonical_finite_float_hex_and_separate_arm() -> None:
-    rows = ranking.build_unit_projection(
-        _small_units("alpha beta gamma alpha beta gamma")
-    )
+    rows = ranking.build_unit_projection(_small_units("alpha beta gamma alpha beta gamma"))
 
     result = ranking.rank_fts_units(rows, query_id="q-fts", query_text="alpha")
 
@@ -227,9 +209,7 @@ def test_fts_rank_uses_canonical_finite_float_hex_and_separate_arm() -> None:
     assert result.rank_profile_id == "deterministic-unit-rank-v1"
     assert result.candidate_count > 0
     assert all(item.score.arm == "fts" for item in result.diagnostic)
-    scores = tuple(
-        cast(ranking.FtsUnitScore, item.score) for item in result.diagnostic
-    )
+    scores = tuple(cast(ranking.FtsUnitScore, item.score) for item in result.diagnostic)
     assert all(
         math.isfinite(float.fromhex(score.rank_score_hex))
         and float.fromhex(score.rank_score_hex).hex() == score.rank_score_hex
@@ -260,9 +240,7 @@ def test_fts_score_rejects_divergent_rank_and_bm25_tokens() -> None:
 
 
 def test_cjk_rank_records_exact_overlap_ratio_and_matched_terms() -> None:
-    rows = ranking.build_unit_projection(
-        _whole_units("中华人民共和国数据安全治理")
-    )
+    rows = ranking.build_unit_projection(_whole_units("中华人民共和国数据安全治理"))
 
     result = ranking.rank_cjk_units(
         rows,
@@ -279,8 +257,7 @@ def test_cjk_rank_records_exact_overlap_ratio_and_matched_terms() -> None:
         ranking.compile_cjk_overlap_terms_for_units("中华人民共和国数据安全")
     )
     assert float.fromhex(first.score.overlap_ratio_hex) == pytest.approx(
-        first.score.overlap_count
-        / first.score.query_term_count
+        first.score.overlap_count / first.score.query_term_count
     )
     assert first.score.matched_terms == tuple(dict.fromkeys(first.score.matched_terms))
 
@@ -364,12 +341,8 @@ def test_stable_ties_ignore_opaque_ids_and_insertion_order() -> None:
     forward = ranking.build_unit_projection((*first_units, *second_units))
     reverse = ranking.build_unit_projection((*second_units, *first_units))
 
-    forward_result = ranking.rank_fts_units(
-        forward, query_id="q-tie", query_text="alpha"
-    )
-    reverse_result = ranking.rank_fts_units(
-        reverse, query_id="q-tie", query_text="alpha"
-    )
+    forward_result = ranking.rank_fts_units(forward, query_id="q-tie", query_text="alpha")
+    reverse_result = ranking.rank_fts_units(reverse, query_id="q-tie", query_text="alpha")
 
     assert forward_result.portable_bytes() == reverse_result.portable_bytes()
     assert [item.parent_locator for item in forward_result.diagnostic] == [
@@ -413,9 +386,7 @@ def test_fts_ties_use_byte_offsets_before_source_fingerprint() -> None:
         _parent("xxxx\nalpha", fingerprint_digit="1"),
         profile=profile,
     )
-    earlier = segment_page_context_units(
-        _parent("alpha", fingerprint_digit="9")
-    )
+    earlier = segment_page_context_units(_parent("alpha", fingerprint_digit="9"))
     rows = ranking.build_unit_projection((*later, *earlier))
 
     result = ranking.rank_fts_units(rows, query_id="q-byte-tie", query_text="alpha")
@@ -507,9 +478,7 @@ def test_top_limits_parent_collapse_and_candidate_expansion_are_exact() -> None:
     result = ranking.rank_fts_units(rows, query_id="q-expand", query_text="alpha")
 
     assert len(result.diagnostic) == min(10, result.candidate_count)
-    assert len(result.primary_stable_context_unit_ids) == min(
-        5, result.candidate_count
-    )
+    assert len(result.primary_stable_context_unit_ids) == min(5, result.candidate_count)
     assert result.unique_parent_count == 1
     assert {item.parent_collapsed_rank for item in result.diagnostic} == {1}
     assert result.candidate_expansion.unit_candidate_count == result.candidate_count
@@ -533,9 +502,10 @@ def test_candidate_pool_exact_boundary_passes_and_one_over_fails(route: str) -> 
         rank(rows, query_id=f"q-{route}", query_text=query, bounds=bounds)
 
     one = ranking.build_unit_projection(_small_units(query, page=1))
-    assert rank(
-        one, query_id=f"q-{route}-boundary", query_text=query, bounds=bounds
-    ).candidate_count == 1
+    assert (
+        rank(one, query_id=f"q-{route}-boundary", query_text=query, bounds=bounds).candidate_count
+        == 1
+    )
 
 
 def test_fresh_workspace_projection_and_rank_bytes_are_identical() -> None:
@@ -554,12 +524,8 @@ def test_fresh_workspace_projection_and_rank_bytes_are_identical() -> None:
 
     rows_a = ranking.build_unit_projection(workspace_a)
     rows_b = ranking.build_unit_projection(workspace_b)
-    result_a = ranking.rank_fts_units(
-        rows_a, query_id="q-portable", query_text="alpha"
-    )
-    result_b = ranking.rank_fts_units(
-        rows_b, query_id="q-portable", query_text="alpha"
-    )
+    result_a = ranking.rank_fts_units(rows_a, query_id="q-portable", query_text="alpha")
+    result_b = ranking.rank_fts_units(rows_b, query_id="q-portable", query_text="alpha")
 
     assert rows_a == rows_b
     assert result_a.portable_bytes() == result_b.portable_bytes()
@@ -583,3 +549,171 @@ def test_ranking_contract_has_no_label_filename_or_delivery_authority() -> None:
     source = inspect.getsource(ranking)
     assert "agent_context_unit_grading" not in source
     assert "agent_context_unit_assembly" not in source
+
+
+def _context_component(
+    row: ranking.UnitProjectionRow,
+    *,
+    kind: str = "heading",
+    text: bytes = b"source heading",
+) -> ranking.SourceContextProjectionComponent:
+    return ranking.SourceContextProjectionComponent(
+        stable_context_unit_id=row.stable_context_unit_id,
+        kind=kind,
+        status="available",
+        source_content_fingerprint=row.source_content_fingerprint,
+        publication_identity="sha256:" + "2" * 64,
+        origin_evidence_ref="sha256:" + "3" * 64,
+        parent_locator=row.parent_locator,
+        origin_start_utf8_byte=0,
+        origin_end_utf8_byte=len(text),
+        text_bytes=text,
+        text_sha256=hashlib.sha256(text).hexdigest(),
+    )
+
+
+def test_o3_projection_reuses_o1_units_and_separates_context_origin() -> None:
+    rows = ranking.build_unit_projection(_whole_units("alpha body"))
+    component = _context_component(rows[0])
+
+    projection = ranking.build_source_context_projection(
+        rows,
+        (component,),
+        variant="heading",
+    )
+
+    assert len(projection) == 1
+    assert projection[0].unit == rows[0]
+    assert projection[0].unit.text_bytes == b"alpha body"
+    assert projection[0].retrieval_text_bytes == b"alpha body\n[heading]\nsource heading"
+    assert projection[0].components == (component,)
+    assert projection[0].projection_policy_id == ("source-context-index-v1:heading:projection")
+    assert projection[0].rank_profile_id == "source-context-index-v1:heading:rank"
+
+
+def test_o3_route_specific_rank_preserves_selected_evidence_and_attribution() -> None:
+    fts_rows = ranking.build_unit_projection(_whole_units("plain body"))
+    fts_projection = ranking.build_source_context_projection(
+        fts_rows,
+        (_context_component(fts_rows[0], text=b"needle heading"),),
+        variant="heading",
+    )
+    fts_result = ranking.rank_source_context_fts(
+        fts_projection,
+        query_id="q-o3-fts",
+        query_text="needle",
+    )
+    assert fts_result.rank.route == "fts"
+    assert fts_result.rank.primary_stable_context_unit_ids == (fts_rows[0].stable_context_unit_id,)
+    assert fts_result.attributions[0].unit_match is False
+    assert fts_result.attributions[0].context_only is True
+    assert fts_result.attributions[0].component_kinds == ("heading",)
+    assert fts_result.attributions[0].origin_evidence_refs == ("sha256:" + "3" * 64,)
+
+    cjk_rows = ranking.build_unit_projection(_whole_units("不含检索词"))
+    cjk_projection = ranking.build_source_context_projection(
+        cjk_rows,
+        (_context_component(cjk_rows[0], text="数据安全治理".encode()),),
+        variant="heading",
+    )
+    cjk_result = ranking.rank_source_context_cjk(
+        cjk_projection,
+        query_id="q-o3-cjk",
+        query_text="数据安全治理",
+    )
+    assert cjk_result.rank.route == "cjk"
+    assert cjk_result.attributions[0].context_only is True
+
+
+def test_o3_false_authority_and_capacity_fail_before_decode() -> None:
+    row = ranking.build_unit_projection(_whole_units("alpha"))[0]
+    component = _context_component(row, text=b"x" * 513)
+    with pytest.raises(ValueError, match="source context capacity exceeded"):
+        ranking.build_source_context_projection(
+            (row,),
+            (component,),
+            variant="heading",
+        )
+
+    malformed = dataclasses.replace(
+        _context_component(row),
+        text_bytes=b"\xff",
+        text_sha256=hashlib.sha256(b"\xff").hexdigest(),
+    )
+    with pytest.raises(ValueError, match="source context authority is invalid"):
+        ranking.build_source_context_projection(
+            (row,),
+            (malformed,),
+            variant="heading",
+        )
+
+
+def test_o3_rejects_filename_labels_duplicates_and_variant_drift() -> None:
+    row = ranking.build_unit_projection(_whole_units("alpha"))[0]
+    component = _context_component(row)
+    with pytest.raises(ValueError, match="source context authority is invalid"):
+        ranking.build_source_context_projection(
+            (row,),
+            (dataclasses.replace(component, kind="filename"),),
+            variant="heading",
+        )
+    with pytest.raises(ValueError, match="source context authority is invalid"):
+        ranking.build_source_context_projection(
+            (row,),
+            (component, component),
+            variant="heading",
+        )
+    with pytest.raises(ValueError, match="source context authority is invalid"):
+        ranking.build_source_context_projection(
+            (row,),
+            (component,),
+            variant="combined",
+        )
+
+
+def test_o3_rank_rejects_forged_retrieval_text_and_component_duplication() -> None:
+    row = ranking.build_unit_projection(_whole_units("plain body"))[0]
+    component = _context_component(row, text=b"needle")
+    projection = ranking.build_source_context_projection((row,), (component,), variant="heading")
+    forged_text = b"forged needle"
+    forged = dataclasses.replace(
+        projection[0],
+        retrieval_text_bytes=forged_text,
+        retrieval_text_sha256=hashlib.sha256(forged_text).hexdigest(),
+    )
+    with pytest.raises(ValueError, match="source context ranking request is invalid"):
+        ranking.rank_source_context_fts((forged,), query_id="q-forged", query_text="needle")
+
+    duplicated = _context_component(
+        row,
+        kind="previous_unit",
+        text=component.text_bytes,
+    )
+    with pytest.raises(ValueError, match="source context authority is invalid"):
+        ranking.build_source_context_projection(
+            (row,),
+            (
+                component,
+                duplicated,
+                _context_component(row, kind="next_unit", text=b"next"),
+            ),
+            variant="combined",
+        )
+
+
+def test_o3_bounds_and_row_types_fail_closed_before_field_access() -> None:
+    row = ranking.build_unit_projection(_whole_units("plain body"))[0]
+    component = _context_component(row)
+    with pytest.raises(ValueError, match="ranking bounds are invalid"):
+        ranking.build_source_context_projection(
+            (row,),
+            (component,),
+            variant="heading",
+            bounds=cast(ranking.RankingBounds, None),
+        )
+    with pytest.raises(ValueError, match="source context authority is invalid"):
+        ranking.build_source_context_projection(
+            cast(tuple[ranking.UnitProjectionRow, ...], (object(),)),
+            (component,),
+            variant="heading",
+        )

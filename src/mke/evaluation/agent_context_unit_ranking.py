@@ -20,6 +20,14 @@ from mke.retrieval.query_policy import compile_fts5_query_diagnostic
 _PREFIXED_SHA256 = re.compile(r"sha256:[0-9a-f]{64}\Z")
 _BARE_SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _O1_RANK_PROFILE_ID = "deterministic-unit-rank-v1"
+_O3_VARIANTS = ("heading", "previous_unit", "next_unit", "combined")
+_O3_CONTEXT_ORDER = ("heading", "previous_unit", "next_unit")
+_O3_LABELS = {
+    "heading": b"\n[heading]\n",
+    "previous_unit": b"\n[p]\n",
+    "next_unit": b"\n[n]\n",
+}
+_O3_MAX_CONTEXT_UTF8_BYTES = 512
 
 
 @dataclass(frozen=True)
@@ -94,8 +102,7 @@ class CjkUnitScore:
             or self.query_term_count < self.overlap_count
             or not _canonical_finite_float_hex(self.overlap_ratio_hex)
             or not 0.0 < float.fromhex(self.overlap_ratio_hex) <= 1.0
-            or float.fromhex(self.overlap_ratio_hex)
-            != self.overlap_count / self.query_term_count
+            or float.fromhex(self.overlap_ratio_hex) != self.overlap_count / self.query_term_count
             or type(self.matched_terms) is not tuple
             or len(self.matched_terms) != self.overlap_count
             or not self.matched_terms
@@ -136,10 +143,7 @@ class CandidateExpansion:
             or not _canonical_finite_float_hex(self.ratio_hex)
             or (
                 self.unit_candidate_count == 0
-                and (
-                    self.unique_parent_count != 0
-                    or float.fromhex(self.ratio_hex) != 0.0
-                )
+                and (self.unique_parent_count != 0 or float.fromhex(self.ratio_hex) != 0.0)
             )
             or (
                 self.unit_candidate_count > 0
@@ -174,6 +178,62 @@ class UnitRankResult:
             )
             + "\n"
         ).encode("utf-8")
+
+
+@dataclass(frozen=True)
+class SourceContextProjectionComponent:
+    stable_context_unit_id: str
+    kind: str
+    status: str
+    source_content_fingerprint: str
+    publication_identity: str
+    origin_evidence_ref: str
+    parent_locator: tuple[Literal["page"], int, int]
+    origin_start_utf8_byte: int
+    origin_end_utf8_byte: int
+    text_bytes: bytes
+    text_sha256: str
+
+
+@dataclass(frozen=True)
+class SourceContextProjectionRow:
+    unit: UnitProjectionRow
+    variant: str
+    components: tuple[SourceContextProjectionComponent, ...]
+    retrieval_text_bytes: bytes
+    retrieval_text_sha256: str
+    projection_policy_id: str
+    rank_profile_id: str
+
+
+@dataclass(frozen=True)
+class SourceContextRankAttribution:
+    stable_context_unit_id: str
+    unit_match: bool
+    context_only: bool
+    component_kinds: tuple[str, ...]
+    origin_evidence_refs: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SourceContextRankResult:
+    rank: UnitRankResult
+    attributions: tuple[SourceContextRankAttribution, ...]
+
+    def portable_bytes(self) -> bytes:
+        payload = {
+            "attributions": [asdict(item) for item in self.attributions],
+            "rank": json.loads(self.rank.portable_bytes()),
+        }
+        return (
+            json.dumps(
+                payload,
+                ensure_ascii=True,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            + "\n"
+        ).encode()
 
 
 def build_unit_projection(
@@ -223,17 +283,12 @@ def rank_fts_units(
             "USING fts5(stable_context_unit_id UNINDEXED, text)"
         )
         connection.executemany(
-            "INSERT INTO unit_projection_fts(stable_context_unit_id, text) "
-            "VALUES (?, ?)",
-            (
-                (row.stable_context_unit_id, row.text_bytes.decode("utf-8"))
-                for row in rows
-            ),
+            "INSERT INTO unit_projection_fts(stable_context_unit_id, text) VALUES (?, ?)",
+            ((row.stable_context_unit_id, row.text_bytes.decode("utf-8")) for row in rows),
         )
         candidate_count = int(
             connection.execute(
-                "SELECT count(*) FROM unit_projection_fts "
-                "WHERE unit_projection_fts MATCH ?",
+                "SELECT count(*) FROM unit_projection_fts WHERE unit_projection_fts MATCH ?",
                 (compiled,),
             ).fetchone()[0]
         )
@@ -256,9 +311,7 @@ def rank_fts_units(
     finally:
         connection.close()
 
-    ordered = tuple(
-        sorted(scored, key=lambda item: (item[1], _fts_tie_key(item[0])))
-    )
+    ordered = tuple(sorted(scored, key=lambda item: (item[1], _fts_tie_key(item[0]))))
     return _rank_result(
         query_id=query_id,
         route="fts",
@@ -341,6 +394,252 @@ def rank_cjk_units(
     )
 
 
+def build_source_context_projection(
+    rows: tuple[UnitProjectionRow, ...],
+    components: tuple[SourceContextProjectionComponent, ...],
+    *,
+    variant: str,
+    bounds: RankingBounds = DEFAULT_RANKING_BOUNDS,
+) -> tuple[SourceContextProjectionRow, ...]:
+    if type(bounds) is not RankingBounds:
+        raise ValueError("ranking bounds are invalid")
+    if (
+        type(rows) is not tuple
+        or type(components) is not tuple
+        or type(variant) is not str
+        or variant not in _O3_VARIANTS
+        or not rows
+        or any(type(row) is not UnitProjectionRow for row in rows)
+        or len(rows) > bounds.max_projection_rows
+        or len(components) > len(rows) * len(_O3_CONTEXT_ORDER)
+    ):
+        raise ValueError("source context authority is invalid")
+    if any(
+        type(component) is not SourceContextProjectionComponent
+        or type(component.text_bytes) is not bytes
+        for component in components
+    ):
+        raise ValueError("source context authority is invalid")
+    grouped: dict[str, dict[str, SourceContextProjectionComponent]] = {}
+    for component in components:
+        per_unit = grouped.setdefault(component.stable_context_unit_id, {})
+        if component.kind in per_unit:
+            raise ValueError("source context authority is invalid")
+        per_unit[component.kind] = component
+    expected_kinds = _O3_CONTEXT_ORDER if variant == "combined" else (variant,)
+    if any(set(grouped.get(row.stable_context_unit_id, ())) != set(expected_kinds) for row in rows):
+        raise ValueError("source context authority is invalid")
+    context_rendered_sizes = tuple(
+        sum(
+            len(_O3_LABELS[kind]) + len(per_unit[kind].text_bytes)
+            for kind in expected_kinds
+            if per_unit[kind].status == "available"
+        )
+        for per_unit in (grouped[row.stable_context_unit_id] for row in rows)
+    )
+    if any(size > _O3_MAX_CONTEXT_UTF8_BYTES for size in context_rendered_sizes):
+        raise ValueError("source context capacity exceeded")
+    projected_sizes = tuple(
+        len(row.text_bytes) + context_size
+        for row, context_size in zip(rows, context_rendered_sizes, strict=True)
+    )
+    if sum(projected_sizes) > bounds.max_projection_utf8_bytes:
+        raise ValueError("projection byte capacity exceeded")
+
+    result: list[SourceContextProjectionRow] = []
+    for row in rows:
+        _validate_projection_row(row)
+        ordered_components = tuple(
+            grouped[row.stable_context_unit_id][kind] for kind in expected_kinds
+        )
+        for component in ordered_components:
+            _validate_source_context_component(component, row)
+        available = tuple(
+            component for component in ordered_components if component.status == "available"
+        )
+        if len({component.text_bytes for component in available}) != len(available) or len(
+            {
+                (
+                    component.origin_evidence_ref,
+                    component.parent_locator,
+                    component.origin_start_utf8_byte,
+                    component.origin_end_utf8_byte,
+                )
+                for component in available
+            }
+        ) != len(available):
+            raise ValueError("source context authority is invalid")
+        rendered = b"".join(
+            _O3_LABELS[component.kind] + component.text_bytes
+            for component in ordered_components
+            if component.status == "available"
+        )
+        retrieval_text = row.text_bytes + rendered
+        retrieval_text.decode("utf-8")
+        result.append(
+            SourceContextProjectionRow(
+                unit=row,
+                variant=variant,
+                components=ordered_components,
+                retrieval_text_bytes=retrieval_text,
+                retrieval_text_sha256=hashlib.sha256(retrieval_text).hexdigest(),
+                projection_policy_id=(f"source-context-index-v1:{variant}:projection"),
+                rank_profile_id=f"source-context-index-v1:{variant}:rank",
+            )
+        )
+    return tuple(sorted(result, key=lambda item: _stable_row_key(item.unit)))
+
+
+def rank_source_context_fts(
+    rows: tuple[SourceContextProjectionRow, ...],
+    *,
+    query_id: str,
+    query_text: str,
+    bounds: RankingBounds = DEFAULT_RANKING_BOUNDS,
+) -> SourceContextRankResult:
+    if type(bounds) is not RankingBounds:
+        raise ValueError("ranking bounds are invalid")
+    _validate_source_context_rank_request(rows, query_id, query_text, bounds)
+    compiled = compile_fts5_query_diagnostic(query_text).compiled_query
+    if not compiled:
+        return SourceContextRankResult(
+            rank=_rank_result(
+                query_id=query_id,
+                route="fts",
+                rank_profile_id=rows[0].rank_profile_id,
+                ranked=(),
+                bounds=bounds,
+            ),
+            attributions=(),
+        )
+    by_id = {row.unit.stable_context_unit_id: row for row in rows}
+    connection = sqlite3.connect(":memory:")
+    try:
+        connection.execute(
+            "CREATE VIRTUAL TABLE source_context_fts "
+            "USING fts5(stable_context_unit_id UNINDEXED, text)"
+        )
+        connection.executemany(
+            "INSERT INTO source_context_fts(stable_context_unit_id, text) VALUES (?, ?)",
+            (
+                (
+                    row.unit.stable_context_unit_id,
+                    row.retrieval_text_bytes.decode("utf-8"),
+                )
+                for row in rows
+            ),
+        )
+        candidate_count = int(
+            connection.execute(
+                "SELECT count(*) FROM source_context_fts WHERE source_context_fts MATCH ?",
+                (compiled,),
+            ).fetchone()[0]
+        )
+        if candidate_count > bounds.max_candidate_pool:
+            raise ValueError("candidate pool capacity exceeded")
+        scored = tuple(
+            (
+                by_id[str(stable_id)],
+                float(rank_score),
+                float(bm25_score),
+            )
+            for stable_id, rank_score, bm25_score in connection.execute(
+                "SELECT stable_context_unit_id, rank, "
+                "bm25(source_context_fts) FROM source_context_fts "
+                "WHERE source_context_fts MATCH ?",
+                (compiled,),
+            )
+        )
+    finally:
+        connection.close()
+    ordered = tuple(sorted(scored, key=lambda item: (item[1], _fts_tie_key(item[0].unit))))
+    rank = _rank_result(
+        query_id=query_id,
+        route="fts",
+        rank_profile_id=rows[0].rank_profile_id,
+        ranked=tuple(
+            (
+                item.unit,
+                FtsUnitScore(
+                    arm="fts",
+                    rank_score_hex=rank_score.hex(),
+                    bm25_score_hex=bm25_score.hex(),
+                ),
+            )
+            for item, rank_score, bm25_score in ordered
+        ),
+        bounds=bounds,
+    )
+    selected = set(item.stable_context_unit_id for item in rank.diagnostic)
+    attributions = tuple(
+        _fts_source_context_attribution(item, compiled)
+        for item, _rank_score, _bm25_score in ordered
+        if item.unit.stable_context_unit_id in selected
+    )
+    return SourceContextRankResult(rank=rank, attributions=attributions)
+
+
+def rank_source_context_cjk(
+    rows: tuple[SourceContextProjectionRow, ...],
+    *,
+    query_id: str,
+    query_text: str,
+    bounds: RankingBounds = DEFAULT_RANKING_BOUNDS,
+) -> SourceContextRankResult:
+    if type(bounds) is not RankingBounds:
+        raise ValueError("ranking bounds are invalid")
+    _validate_source_context_rank_request(rows, query_id, query_text, bounds)
+    terms = compile_cjk_overlap_terms_for_units(query_text)
+    scored: list[tuple[SourceContextProjectionRow, CjkUnitScore]] = []
+    for row in rows:
+        normalized = _normalized_cjk_text(row.retrieval_text_bytes)
+        matched = tuple(term for term in terms if term in normalized)
+        ratio = len(matched) / len(terms)
+        if (
+            len(matched) < CJK_ACTIVE_SCAN_PARAMETERS.minimum_overlap_count
+            or ratio < CJK_ACTIVE_SCAN_PARAMETERS.minimum_overlap_ratio
+        ):
+            continue
+        if len(scored) + 1 > bounds.max_candidate_pool:
+            raise ValueError("candidate pool capacity exceeded")
+        scored.append(
+            (
+                row,
+                CjkUnitScore(
+                    arm="cjk",
+                    overlap_count=len(matched),
+                    query_term_count=len(terms),
+                    overlap_ratio_hex=ratio.hex(),
+                    matched_terms=matched,
+                ),
+            )
+        )
+    ordered = tuple(
+        sorted(
+            scored,
+            key=lambda item: (
+                -item[1].overlap_count,
+                -float.fromhex(item[1].overlap_ratio_hex),
+                _stable_row_key(item[0].unit),
+            ),
+        )
+    )
+    rank = _rank_result(
+        query_id=query_id,
+        route="cjk",
+        rank_profile_id=rows[0].rank_profile_id,
+        ranked=tuple((item.unit, score) for item, score in ordered),
+        bounds=bounds,
+    )
+    selected = set(item.stable_context_unit_id for item in rank.diagnostic)
+    attributions = tuple(
+        _cjk_source_context_attribution(item, score.matched_terms)
+        for item, score in ordered
+        if item.unit.stable_context_unit_id in selected
+    )
+    return SourceContextRankResult(rank=rank, attributions=attributions)
+
+
 def compare_arm_local_scores(left: UnitScore, right: UnitScore) -> int:
     if left.arm != right.arm:
         raise ValueError("cross-arm score comparison is forbidden")
@@ -353,6 +652,168 @@ def compare_arm_local_scores(left: UnitScore, right: UnitScore) -> int:
     else:
         raise ValueError("score authority is invalid")
     return (left_key > right_key) - (left_key < right_key)
+
+
+def _validate_source_context_component(
+    component: SourceContextProjectionComponent,
+    row: UnitProjectionRow,
+) -> None:
+    if (
+        type(component) is not SourceContextProjectionComponent
+        or type(component.stable_context_unit_id) is not str
+        or type(component.kind) is not str
+        or type(component.status) is not str
+        or type(component.source_content_fingerprint) is not str
+        or type(component.publication_identity) is not str
+        or type(component.origin_evidence_ref) is not str
+        or type(component.parent_locator) is not tuple
+        or len(component.parent_locator) != 3
+        or type(component.parent_locator[0]) is not str
+        or type(component.parent_locator[1]) is not int
+        or type(component.parent_locator[2]) is not int
+        or type(component.origin_start_utf8_byte) is not int
+        or type(component.origin_end_utf8_byte) is not int
+        or type(component.text_bytes) is not bytes
+        or type(component.text_sha256) is not str
+    ):
+        raise ValueError("source context authority is invalid")
+    if (
+        component.kind not in _O3_CONTEXT_ORDER
+        or component.status not in {"available", "missing", "ambiguous", "inactive"}
+        or component.stable_context_unit_id != row.stable_context_unit_id
+        or component.source_content_fingerprint != row.source_content_fingerprint
+        or _PREFIXED_SHA256.fullmatch(component.publication_identity) is None
+        or _PREFIXED_SHA256.fullmatch(component.origin_evidence_ref) is None
+        or component.parent_locator != row.parent_locator
+        or component.origin_start_utf8_byte < 0
+        or component.origin_end_utf8_byte
+        != component.origin_start_utf8_byte + len(component.text_bytes)
+        or _BARE_SHA256.fullmatch(component.text_sha256) is None
+        or component.text_sha256 != hashlib.sha256(component.text_bytes).hexdigest()
+        or (component.status == "available" and not component.text_bytes)
+        or (
+            component.status != "available"
+            and (
+                component.text_bytes
+                or component.origin_start_utf8_byte != component.origin_end_utf8_byte
+            )
+        )
+    ):
+        raise ValueError("source context authority is invalid")
+    try:
+        component.text_bytes.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise ValueError("source context authority is invalid") from error
+
+
+def _validate_source_context_rank_request(
+    rows: tuple[SourceContextProjectionRow, ...],
+    query_id: str,
+    query_text: str,
+    bounds: RankingBounds,
+) -> None:
+    if (
+        type(rows) is not tuple
+        or not rows
+        or len(rows) > bounds.max_projection_rows
+        or type(query_id) is not str
+        or not query_id
+        or type(query_text) is not str
+        or not query_text
+        or any(type(row) is not SourceContextProjectionRow for row in rows)
+    ):
+        raise ValueError("source context ranking request is invalid")
+    if sum(len(row.retrieval_text_bytes) for row in rows) > (bounds.max_projection_utf8_bytes):
+        raise ValueError("projection byte capacity exceeded")
+    variants = {row.variant for row in rows}
+    profiles = {row.rank_profile_id for row in rows}
+    if len(variants) != 1 or len(profiles) != 1:
+        raise ValueError("source context ranking request is invalid")
+    for row in rows:
+        _validate_projection_row(row.unit)
+        expected_kinds = _O3_CONTEXT_ORDER if row.variant == "combined" else (row.variant,)
+        if tuple(component.kind for component in row.components) != expected_kinds:
+            raise ValueError("source context ranking request is invalid")
+        for component in row.components:
+            _validate_source_context_component(component, row.unit)
+        expected_retrieval = row.unit.text_bytes + b"".join(
+            _O3_LABELS[component.kind] + component.text_bytes
+            for component in row.components
+            if component.status == "available"
+        )
+        if (
+            row.variant not in _O3_VARIANTS
+            or row.projection_policy_id != f"source-context-index-v1:{row.variant}:projection"
+            or row.rank_profile_id != f"source-context-index-v1:{row.variant}:rank"
+            or row.retrieval_text_sha256 != hashlib.sha256(row.retrieval_text_bytes).hexdigest()
+            or row.retrieval_text_bytes != expected_retrieval
+        ):
+            raise ValueError("source context ranking request is invalid")
+
+
+def _fts_text_matches(text: bytes, compiled_query: str) -> bool:
+    connection = sqlite3.connect(":memory:")
+    try:
+        connection.execute("CREATE VIRTUAL TABLE probe USING fts5(text)")
+        connection.execute("INSERT INTO probe(text) VALUES (?)", (text.decode("utf-8"),))
+        return (
+            int(
+                connection.execute(
+                    "SELECT count(*) FROM probe WHERE probe MATCH ?",
+                    (compiled_query,),
+                ).fetchone()[0]
+            )
+            == 1
+        )
+    finally:
+        connection.close()
+
+
+def _fts_source_context_attribution(
+    row: SourceContextProjectionRow,
+    compiled_query: str,
+) -> SourceContextRankAttribution:
+    unit_match = _fts_text_matches(row.unit.text_bytes, compiled_query)
+    matched = tuple(
+        component
+        for component in row.components
+        if component.status == "available"
+        and _fts_text_matches(component.text_bytes, compiled_query)
+    )
+    return SourceContextRankAttribution(
+        stable_context_unit_id=row.unit.stable_context_unit_id,
+        unit_match=unit_match,
+        context_only=not unit_match and bool(matched),
+        component_kinds=tuple(component.kind for component in matched),
+        origin_evidence_refs=tuple(component.origin_evidence_ref for component in matched),
+    )
+
+
+def _normalized_cjk_text(text: bytes) -> str:
+    return "".join(
+        character for character in text.decode("utf-8").casefold() if not character.isspace()
+    )
+
+
+def _cjk_source_context_attribution(
+    row: SourceContextProjectionRow,
+    matched_terms: tuple[str, ...],
+) -> SourceContextRankAttribution:
+    unit_text = _normalized_cjk_text(row.unit.text_bytes)
+    unit_match = all(term in unit_text for term in matched_terms)
+    matched = tuple(
+        component
+        for component in row.components
+        if component.status == "available"
+        and any(term in _normalized_cjk_text(component.text_bytes) for term in matched_terms)
+    )
+    return SourceContextRankAttribution(
+        stable_context_unit_id=row.unit.stable_context_unit_id,
+        unit_match=unit_match,
+        context_only=not unit_match and bool(matched),
+        component_kinds=tuple(component.kind for component in matched),
+        origin_evidence_refs=tuple(component.origin_evidence_ref for component in matched),
+    )
 
 
 def _projection_row(unit: ContextUnit) -> UnitProjectionRow:
@@ -369,17 +830,19 @@ def _projection_row(unit: ContextUnit) -> UnitProjectionRow:
         "start_utf8_byte": unit.start_utf8_byte,
         "text_sha256": text_digest,
     }
-    stable_id = "sha256:" + hashlib.sha256(
-        json.dumps(
-            stable_payload,
-            ensure_ascii=True,
-            separators=(",", ":"),
-            sort_keys=True,
-        ).encode("utf-8")
-    ).hexdigest()
+    stable_id = (
+        "sha256:"
+        + hashlib.sha256(
+            json.dumps(
+                stable_payload,
+                ensure_ascii=True,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
+    )
     if (
-        unit.parent_locator
-        != (unit.locator_kind, unit.locator_start, unit.locator_end)
+        unit.parent_locator != (unit.locator_kind, unit.locator_start, unit.locator_end)
         or unit.locator_kind != "page"
         or unit.locator_start < 1
         or unit.locator_end != unit.locator_start
@@ -428,9 +891,7 @@ def _validate_parent_coverage(rows: tuple[UnitProjectionRow, ...]) -> None:
                 left.end_utf8_byte != right.start_utf8_byte
                 for left, right in zip(ordered, ordered[1:], strict=False)
             )
-            or hashlib.sha256(
-                b"".join(row.text_bytes for row in ordered)
-            ).hexdigest()
+            or hashlib.sha256(b"".join(row.text_bytes for row in ordered)).hexdigest()
             != ordered[0].parent_text_sha256
         ):
             raise ValueError("projection parent coverage is invalid")
@@ -449,8 +910,7 @@ def _validate_rank_request(
         or type(query_text) is not str
         or not query_text
         or len(rows) > bounds.max_projection_rows
-        or sum(len(row.text_bytes) for row in rows)
-        > bounds.max_projection_utf8_bytes
+        or sum(len(row.text_bytes) for row in rows) > bounds.max_projection_utf8_bytes
     ):
         raise ValueError("ranking request authority is invalid")
     if len({row.stable_context_unit_id for row in rows}) != len(rows):
@@ -504,8 +964,7 @@ def _rank_result(
         ),
         diagnostic=diagnostic,
         primary_stable_context_unit_ids=tuple(
-            item.stable_context_unit_id
-            for item in diagnostic[: bounds.max_primary_results]
+            item.stable_context_unit_id for item in diagnostic[: bounds.max_primary_results]
         ),
     )
 
@@ -589,14 +1048,17 @@ def _stable_unit_id(row: UnitProjectionRow) -> str:
         "start_utf8_byte": row.start_utf8_byte,
         "text_sha256": row.text_sha256,
     }
-    return "sha256:" + hashlib.sha256(
-        json.dumps(
-            stable_payload,
-            ensure_ascii=True,
-            separators=(",", ":"),
-            sort_keys=True,
-        ).encode("utf-8")
-    ).hexdigest()
+    return (
+        "sha256:"
+        + hashlib.sha256(
+            json.dumps(
+                stable_payload,
+                ensure_ascii=True,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
+    )
 
 
 def _canonical_finite_float_hex(value: str) -> bool:
