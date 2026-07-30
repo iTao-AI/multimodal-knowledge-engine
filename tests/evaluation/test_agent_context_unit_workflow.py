@@ -23,6 +23,8 @@ from mke.evaluation.agent_context_unit_diagnostics import (
     AgentContextStageError,
     AgentContextStageSuccess,
     AgentContextSubstage,
+    build_agent_context_diagnostic_receipt,
+    render_agent_context_diagnostic_receipt,
 )
 from mke.evaluation.agent_context_unit_observation import (
     AuthorityObservation,
@@ -88,6 +90,30 @@ _BASELINE_FIELDS = {
 }
 
 
+def _closed_diagnostic_receipt_bytes() -> bytes:
+    error = AgentContextStageError(
+        AgentContextSubstage.AUTHORITY_PREFLIGHT,
+        "synthetic_authority_failure",
+        "integrity",
+    )
+    receipt = build_agent_context_diagnostic_receipt(
+        protocol_sha256="1" * 64,
+        profile_sha256="2" * 64,
+        evaluator_source_sha256="3" * 64,
+        observation_sha256=None,
+        phase="baseline",
+        attempt_kind="o0",
+        observation_started=False,
+        completed=(),
+        error=error,
+        output_state="absent",
+        publication_outcome="not_attempted",
+        stderr_bytes=0,
+        stderr_sha256=hashlib.sha256(b"").hexdigest(),
+    )
+    return render_agent_context_diagnostic_receipt(receipt)
+
+
 def _copy_fixture_repository(tmp_path: Path) -> tuple[Path, Path]:
     repository = tmp_path / "repository"
     shutil.copytree(ROOT / "src", repository / "src")
@@ -146,6 +172,208 @@ def test_validate_baseline_is_pure_and_emits_one_closed_result(
     assert captured.err == ""
     assert set(result) == PUBLIC_RESULT_FIELDS
     assert result["first_failed_gate"] == "authority_preflight"
+
+
+@pytest.mark.parametrize("link_kind", ("final", "parent"))
+def test_validate_baseline_rejects_symlinked_retained_authority(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    link_kind: str,
+) -> None:
+    real_parent = tmp_path / "real"
+    real_parent.mkdir()
+    retained = real_parent / "baseline.json"
+    retained.write_bytes(BASELINE.read_bytes())
+    if link_kind == "final":
+        artifact = tmp_path / "baseline.json"
+        artifact.symlink_to(retained)
+    else:
+        alias = tmp_path / "alias"
+        alias.symlink_to(real_parent, target_is_directory=True)
+        artifact = alias / "baseline.json"
+
+    exit_code = main(
+        [
+            "validate-baseline",
+            "--protocol",
+            str(PROTOCOL),
+            "--artifact",
+            str(artifact),
+            "--json",
+        ]
+    )
+    result = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 1
+    assert result["status"] == "failed"
+    assert result["cause"] == "baseline_artifact_invalid"
+    assert result["first_failed_gate"] == "authority_preflight"
+
+
+@pytest.mark.parametrize("link_kind", ("final", "parent"))
+def test_validate_receipt_rejects_symlinked_retained_authority(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    link_kind: str,
+) -> None:
+    real_parent = tmp_path / "real"
+    real_parent.mkdir()
+    retained = real_parent / "receipt.json"
+    retained.write_bytes(_closed_diagnostic_receipt_bytes())
+    if link_kind == "final":
+        receipt = tmp_path / "receipt.json"
+        receipt.symlink_to(retained)
+    else:
+        alias = tmp_path / "alias"
+        alias.symlink_to(real_parent, target_is_directory=True)
+        receipt = alias / "receipt.json"
+
+    exit_code = main(
+        [
+            "validate-receipt",
+            "--receipt",
+            str(receipt),
+            "--json",
+        ]
+    )
+    result = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 1
+    assert result["status"] == "failed"
+    assert result["cause"] == "diagnostic_receipt_invalid"
+    assert result["first_failed_gate"] == "authority_preflight"
+
+
+def test_validate_baseline_uses_one_retained_snapshot_after_path_replacement(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact = tmp_path / "baseline.json"
+    artifact.write_bytes(BASELINE.read_bytes())
+    original_reader = workflow._read_no_follow_absolute  # pyright: ignore[reportPrivateUsage]
+    read_count = 0
+
+    def replace_after_read(path: Path) -> bytes:
+        nonlocal read_count
+        read_count += 1
+        retained = original_reader(path)
+        path.unlink()
+        path.write_bytes(b"{}\n")
+        return retained
+
+    monkeypatch.setattr(
+        workflow, "_read_no_follow_absolute", replace_after_read
+    )
+    exit_code = main(
+        [
+            "validate-baseline",
+            "--protocol",
+            str(PROTOCOL),
+            "--artifact",
+            str(artifact),
+            "--json",
+        ]
+    )
+    result = json.loads(capsys.readouterr().out)
+
+    assert read_count == 1
+    assert exit_code == 0
+    assert result["status"] == "passed"
+    assert result["stage_outcome"] == "baseline_red_observed"
+
+
+def test_validate_receipt_uses_one_snapshot_for_validation_and_digest(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    receipt = tmp_path / "receipt.json"
+    retained = _closed_diagnostic_receipt_bytes()
+    receipt.write_bytes(retained)
+    original_reader = workflow._read_no_follow_absolute  # pyright: ignore[reportPrivateUsage]
+    read_count = 0
+
+    def replace_after_read(path: Path) -> bytes:
+        nonlocal read_count
+        read_count += 1
+        content = original_reader(path)
+        path.unlink()
+        path.write_bytes(b"{}\n")
+        return content
+
+    monkeypatch.setattr(
+        workflow, "_read_no_follow_absolute", replace_after_read
+    )
+    exit_code = main(
+        [
+            "validate-receipt",
+            "--receipt",
+            str(receipt),
+            "--json",
+        ]
+    )
+    result = json.loads(capsys.readouterr().out)
+
+    assert read_count == 1
+    assert exit_code == 0
+    assert result["status"] == "passed"
+    assert result["diagnostic_receipt_sha256"] == hashlib.sha256(
+        retained
+    ).hexdigest()
+
+
+@pytest.mark.parametrize("command", ("validate-baseline", "validate-receipt"))
+def test_retained_pure_validators_do_not_enter_observation_or_publication(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    command: str,
+) -> None:
+    def forbidden(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("pure retained validation entered execution")
+
+    monkeypatch.setattr(workflow, "execute_baseline", forbidden)
+    monkeypatch.setattr(workflow, "execute_development", forbidden)
+    monkeypatch.setattr(
+        workflow, "load_agent_context_unit_observer_contract", forbidden
+    )
+    monkeypatch.setattr(
+        workflow, "_default_development_driver_factory", forbidden
+    )
+    monkeypatch.setattr(grading, "grade_context_mechanisms", forbidden)
+    monkeypatch.setattr(
+        grading_protocol,
+        "load_agent_context_unit_development_grading_payload",
+        forbidden,
+    )
+    monkeypatch.setattr(
+        _atomic_json_publication, "publish_json_no_replace", forbidden
+    )
+    if command == "validate-baseline":
+        arguments = [
+            command,
+            "--protocol",
+            str(PROTOCOL),
+            "--artifact",
+            str(BASELINE),
+            "--json",
+        ]
+    else:
+        receipt = tmp_path / "receipt.json"
+        receipt.write_bytes(_closed_diagnostic_receipt_bytes())
+        arguments = [
+            command,
+            "--receipt",
+            str(receipt),
+            "--json",
+        ]
+
+    exit_code = main(arguments)
+    result = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert result["status"] == "passed"
 
 
 def _candidate_modules_allowed(baseline_path: Path) -> bool:

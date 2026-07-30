@@ -2374,7 +2374,7 @@ def _validate_baseline_command(
         )
 
         payload = load_agent_context_unit_baseline_grading_payload(protocol_path)
-        artifact = json.loads(artifact_path.read_bytes())
+        artifact = json.loads(_read_no_follow_absolute(artifact_path))
         validate_agent_context_unit_baseline_artifact(artifact, payload)
     except Exception:
         return 1, _result(
@@ -2401,7 +2401,8 @@ def _validate_receipt_command(
     receipt_path: Path,
 ) -> tuple[int, dict[str, object]]:
     try:
-        receipt = json.loads(receipt_path.read_bytes())
+        receipt_content = _read_no_follow_absolute(receipt_path)
+        receipt = json.loads(receipt_content)
         validate_agent_context_diagnostic_receipt(receipt)
     except Exception:
         return 1, _result(
@@ -2423,7 +2424,7 @@ def _validate_receipt_command(
         publication_outcome="not_attempted",
         diagnostic_receipt_status="complete_visible",
         diagnostic_receipt_sha256=hashlib.sha256(
-            receipt_path.read_bytes()
+            receipt_content
         ).hexdigest(),
     )
 
