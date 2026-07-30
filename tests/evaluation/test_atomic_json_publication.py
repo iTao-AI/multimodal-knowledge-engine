@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 from pathlib import Path
 from typing import Any, NoReturn, cast
 
@@ -208,6 +209,89 @@ def test_invalid_json_is_rejected_before_temporary_creation(
     assert result.problem == "retrieval_order_output_invalid"
 
 
+def test_parent_symlink_is_rejected_before_temporary_creation(
+    tmp_path: Path,
+) -> None:
+    module = _module()
+    real = tmp_path / "real"
+    real.mkdir()
+    alias = tmp_path / "alias"
+    alias.symlink_to(real, target_is_directory=True)
+
+    result = module.publish_json_no_replace(
+        alias / "artifact.json",
+        _content(),
+        validate=_validate,
+    )
+
+    assert list(real.iterdir()) == []
+    assert result.output_state == "not_applicable"
+    assert result.publication_outcome == "not_attempted"
+    assert result.cause == "destination_parent_authority_invalid"
+
+
+def test_parent_replacement_race_never_publishes_into_new_symlink_target(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module()
+    trusted = tmp_path / "trusted"
+    trusted.mkdir()
+    moved = tmp_path / "moved"
+    attacker = tmp_path / "attacker"
+    attacker.mkdir()
+    destination = trusted / "artifact.json"
+    original_open = module.os.open
+    replaced = False
+
+    def replace_parent_before_create(
+        path: object,
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        nonlocal replaced
+        if flags & os.O_CREAT and not replaced:
+            trusted.rename(moved)
+            trusted.symlink_to(attacker, target_is_directory=True)
+            replaced = True
+        if dir_fd is None:
+            return original_open(path, flags, mode)
+        return original_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(module.os, "open", replace_parent_before_create)
+
+    result = module.publish_json_no_replace(
+        destination,
+        _content(),
+        validate=_validate,
+    )
+
+    assert replaced is True
+    assert list(attacker.iterdir()) == []
+    assert list(moved.iterdir()) == []
+    assert result.output_state == "absent"
+    assert result.publication_outcome == "failed_before_visibility"
+
+
+def test_missing_nested_parents_are_created_without_following_aliases(
+    tmp_path: Path,
+) -> None:
+    module = _module()
+    destination = tmp_path / "new" / "nested" / "artifact.json"
+
+    result = module.publish_json_no_replace(
+        destination,
+        _content(),
+        validate=_validate,
+    )
+
+    assert result.output_state == "complete_visible"
+    assert result.publication_outcome == "published"
+    assert destination.read_bytes() == _content()
+
+
 def test_publish_then_oserror_is_classified_as_visible_terminal(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -390,7 +474,7 @@ def test_cleanup_failure_after_complete_visibility_is_terminal(
     destination = tmp_path / "artifact.json"
     content = _content()
 
-    monkeypatch.setattr(Path, "unlink", _raise_private_path)
+    monkeypatch.setattr(module, "_unlink_temporary", _raise_private_path)
 
     try:
         result = module.publish_json_no_replace(
@@ -420,7 +504,7 @@ def test_cleanup_failure_without_destination_remains_before_visibility(
     module = _module()
     destination = tmp_path / "artifact.json"
     monkeypatch.setattr(module, "_write_bytes", _raise_private)
-    monkeypatch.setattr(Path, "unlink", _raise_private_path)
+    monkeypatch.setattr(module, "_unlink_temporary", _raise_private_path)
 
     try:
         result = module.publish_json_no_replace(

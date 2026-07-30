@@ -102,6 +102,20 @@ jobs:
           --durations=50 --durations-min=1.0
           -o faulthandler_timeout=120
           -o faulthandler_exit_on_timeout=true
+      - name: Validate diagnostic-first context comparison evidence
+        run: |
+          test ! -e "benchmarks/retrieval/agent-context-unit-v2-holdout-receipt.json"
+          test ! -e "benchmarks/retrieval/agent-context-unit-v2-comparison.json"
+          uv run pytest -q tests/evaluation/test_agent_context_unit_*.py
+          uv run python -m mke.evaluation.agent_context_unit_workflow validate-baseline \
+            --protocol tests/fixtures/agent-context-unit-v2/protocol.json \
+            --artifact benchmarks/retrieval/agent-context-unit-v2-baseline.json \
+            --json
+          uv run python -m mke.evaluation.agent_context_unit_workflow validate-development \
+            --protocol tests/fixtures/agent-context-unit-v2/protocol.json \
+            --baseline benchmarks/retrieval/agent-context-unit-v2-baseline.json \
+            --artifact benchmarks/retrieval/agent-context-unit-v2-development.json \
+            --json
       - run: uv run ruff check .
       - run: uv run pyright
       - name: Run retrieval evaluation baseline
