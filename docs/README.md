@@ -26,6 +26,9 @@ auditing implementation history.
 - [Run The Deterministic Retrieval Order Proof](./how-to/run-deterministic-retrieval-order-proof.md)
   documents the gated deterministic retrieval order authority, one-shot publication, exact-wheel
   proof, recovery, and non-claims.
+- [Validate The Diagnostic-First Context Mechanism Comparison](./how-to/run-agent-context-mechanism-comparison.md)
+  records the comparison-only result that rejected the candidate under the frozen development
+  protocol; holdout and runtime promotion remain `not_evaluated`.
 
 `v0.1.4` adds bounded direct-audio MP3, WAV/PCM, and M4A/AAC intake with timestamp Evidence and
 Compiled Library Export v2. It retains `mke.compiled_library_export.v1`, readable
