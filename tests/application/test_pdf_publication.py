@@ -367,6 +367,39 @@ def test_failed_pdf_ingest_persists_failure_report(tmp_path: Path) -> None:
     assert engine.search("anything") == []
 
 
+def test_failed_pdf_report_write_marks_run_failed_and_preserves_active_publication(
+    tmp_path: Path,
+) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    engine.ingest_pdf(PDF_FIXTURES / "text-layer.pdf")
+    before_observation = engine.observe_active_publications()
+    before_search = engine.search("trustworthy")
+    engine._store._connection.executescript(  # pyright: ignore[reportPrivateUsage]
+        """
+        CREATE TRIGGER fail_pdf_report
+        BEFORE INSERT ON pdf_intake_reports
+        BEGIN
+          SELECT RAISE(ABORT, 'injected failed-report sqlite trigger SYNTHETIC_TRIGGER_PATH');
+        END;
+        """
+    )
+    engine._store._connection.commit()  # pyright: ignore[reportPrivateUsage]
+
+    with pytest.raises(PdfIngestError) as error:
+        engine.reprocess_pdf(PDF_FIXTURES / "no-text.pdf")
+
+    run_id = error.value.run_id
+    assert str(error.value) == "operation failed; details were redacted"
+    assert "injected failed-report sqlite trigger" not in str(error.value)
+    assert "SYNTHETIC_TRIGGER_PATH" not in str(error.value)
+    assert run_id is not None
+    assert engine.get_run(run_id).state is RunState.FAILED
+    assert engine.get_pdf_intake_report(run_id) is None
+    assert engine.observe_active_publications() == before_observation
+    assert engine.search("trustworthy") == before_search
+    assert engine.search("anything") == []
+
+
 def _stub_report() -> PdfIntakeReport:
     return PdfIntakeReport(
         total_pages=1,

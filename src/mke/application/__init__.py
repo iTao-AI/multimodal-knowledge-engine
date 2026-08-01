@@ -591,7 +591,14 @@ class KnowledgeEngine:
             if run is None:
                 raise PdfIngestError(str(error)) from error
             if isinstance(error, PdfExtractionError) and error.report is not None:
-                self._persist_pdf_intake_report(run.run_id, error.report)
+                try:
+                    self._persist_pdf_intake_report(run.run_id, error.report)
+                except PdfIngestError as report_error:
+                    try:
+                        self._store.mark_run_failed(run.run_id)
+                    except RunTransitionError:
+                        raise PdfIngestError(_REDACTED_FAILURE, run.run_id) from report_error
+                    raise report_error
             if failure_point in {
                 FailurePoint.AFTER_PUBLICATION_INSERT,
                 FailurePoint.DURING_ACTIVE_FTS_REPLACEMENT,

@@ -216,6 +216,65 @@ def test_mcp_pdf_report_insert_failure_is_redacted_with_run_id(tmp_path: Path) -
     assert "Traceback" not in rendered
 
 
+def test_mcp_failed_pdf_report_write_is_redacted_and_run_failed(tmp_path: Path) -> None:
+    db_path = tmp_path / "mke.sqlite"
+    config = _config(tmp_path, PDF_FIXTURES)
+    initial = ingest_file(config, "text-layer.pdf")
+    assert initial["ok"] is True
+
+    before_engine = KnowledgeEngine(db_path)
+    before_search = before_engine.search("trustworthy")
+    before_observation = before_engine.observe_active_publications()
+    before_engine.close()
+
+    store = SQLiteStore(db_path)
+    store._connection.executescript(  # pyright: ignore[reportPrivateUsage]
+        """
+        CREATE TRIGGER fail_pdf_report
+        BEFORE INSERT ON pdf_intake_reports
+        BEGIN
+          SELECT RAISE(ABORT, 'injected failed-report sqlite trigger SYNTHETIC_TRIGGER_PATH');
+        END;
+        """
+    )
+    store._connection.commit()  # pyright: ignore[reportPrivateUsage]
+    store.close()
+
+    result = ingest_file(config, "no-text.pdf")
+    rendered = json.dumps(result)
+
+    assert result == {
+        "ok": False,
+        "problem": "pdf_ingest_failed",
+        "cause": "operation failed; details were redacted",
+        "active_publication_impact": "unchanged",
+        "next_step": "fix_input_or_retry",
+        "run_id": result["run_id"],
+    }
+    assert isinstance(result["run_id"], str)
+    assert result["run_id"].startswith("run_")
+    assert "injected failed-report sqlite trigger" not in rendered
+    assert "SYNTHETIC_TRIGGER_PATH" not in rendered
+    assert "Traceback" not in rendered
+
+    after_engine = KnowledgeEngine(db_path, recover_unfinished_runs=False)
+    try:
+        assert after_engine.get_run(str(result["run_id"])).state is RunState.FAILED
+        assert after_engine.search("trustworthy") == before_search
+        after_observation = after_engine.observe_active_publications()
+        assert after_observation.state == before_observation.state
+        assert (
+            after_observation.active_publication_count
+            == before_observation.active_publication_count
+        )
+        assert (
+            after_observation.active_evidence_count
+            == before_observation.active_evidence_count
+        )
+    finally:
+        after_engine.close()
+
+
 def test_mcp_search_and_ask_use_owner_retrieval_policy_without_request_override(
     tmp_path: Path,
 ) -> None:

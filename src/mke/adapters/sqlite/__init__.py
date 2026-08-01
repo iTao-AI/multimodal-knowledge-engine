@@ -931,6 +931,15 @@ class SQLiteStore:
                     "PDF intake report does not match candidate Evidence"
                 )
             seen_pages.add(locator_start)
+        nonzero_report_pages = {
+            page_number
+            for page_number, char_count in enumerate(report.page_char_counts, start=1)
+            if char_count > 0
+        }
+        if seen_pages != nonzero_report_pages:
+            raise ManifestValidationError(
+                "PDF intake report does not match candidate Evidence"
+            )
 
     def _insert_transcript_intake_report(
         self, run_id: str, report: TranscriptIntakeReport

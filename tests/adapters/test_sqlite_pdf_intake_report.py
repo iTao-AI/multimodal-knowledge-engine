@@ -92,6 +92,67 @@ def test_pdf_report_insert_failure_preserves_previous_active_publication(
     assert _count_rows(store, "publications") == 1
 
 
+def test_pdf_activation_rejects_nonzero_page_without_candidate_evidence(
+    tmp_path: Path,
+) -> None:
+    store = SQLiteStore(tmp_path / "mke.sqlite")
+    source = store.ensure_source("forged-first.pdf", "a" * 64)
+    run_id = _validated_pdf_run(store, source.source_id, "candidate evidence")
+    report = _two_page_report("candidate evidence", second_page_chars=5)
+
+    with pytest.raises(ManifestValidationError, match="does not match candidate Evidence"):
+        store.activate_publication(run_id, pdf_intake_report=report)
+
+    assert store.get_run(run_id).state is RunState.VALIDATED
+    assert store.get_pdf_intake_report(run_id) is None
+    assert store.get_source(source.source_id).active_publication_id is None
+    assert _count_rows(store, "publications") == 0
+    assert _count_rows(store, "active_evidence_fts") == 0
+
+
+def test_pdf_reprocess_rejects_nonzero_page_without_candidate_evidence(
+    tmp_path: Path,
+) -> None:
+    store = SQLiteStore(tmp_path / "mke.sqlite")
+    source = store.ensure_source("forged-reprocess.pdf", "a" * 64)
+    first_run_id = _validated_pdf_run(store, source.source_id, "previous active")
+    first_activation = store.activate_publication(
+        first_run_id,
+        pdf_intake_report=_pdf_report("previous active"),
+    )
+    assert first_activation.published
+    before_source = store.get_source(source.source_id)
+    before_search = store.search("previous active")
+
+    second_run_id = _validated_pdf_run(store, source.source_id, "replacement evidence")
+    report = _two_page_report("replacement evidence", second_page_chars=5)
+
+    with pytest.raises(ManifestValidationError, match="does not match candidate Evidence"):
+        store.activate_publication(second_run_id, pdf_intake_report=report)
+
+    assert store.get_run(second_run_id).state is RunState.VALIDATED
+    assert store.get_pdf_intake_report(second_run_id) is None
+    after_source = store.get_source(source.source_id)
+    assert after_source.active_publication_id == before_source.active_publication_id
+    assert after_source.active_revision == before_source.active_revision
+    assert store.search("previous active") == before_search
+    assert store.search("replacement evidence") == []
+    assert _count_rows(store, "publications") == 1
+
+
+def test_pdf_activation_accepts_exact_nonzero_page_inventory(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "mke.sqlite")
+    source = store.ensure_source("exact-boundary.pdf", "a" * 64)
+    text = "exact page evidence"
+    run_id = _validated_pdf_run(store, source.source_id, text)
+    report = _two_page_report(text, second_page_chars=0)
+
+    activation = store.activate_publication(run_id, pdf_intake_report=report)
+
+    assert activation.published
+    assert store.get_pdf_intake_report(run_id) == report
+
+
 @pytest.mark.parametrize(
     ("report", "message"),
     [
@@ -149,6 +210,19 @@ def _pdf_report(text: str, *, failure_reason: str | None = None) -> PdfIntakeRep
         suspected_scanned_pages=0,
         extraction_mode="project-owned-test",
         failure_reason=failure_reason,
+    )
+
+
+def _two_page_report(text: str, *, second_page_chars: int) -> PdfIntakeReport:
+    return PdfIntakeReport(
+        total_pages=2,
+        extracted_pages=1,
+        empty_pages=1,
+        total_extracted_chars=len(text) + second_page_chars,
+        page_char_counts=(len(text), second_page_chars),
+        suspected_scanned_pages=0,
+        extraction_mode="project-owned-test",
+        failure_reason=None,
     )
 
 
