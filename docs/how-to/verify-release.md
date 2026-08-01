@@ -2,7 +2,8 @@
 
 For v0.1.6 evaluators, use the source archive or checkout in a prepared cache-warmed environment:
 build one exact wheel, run `release_consumer_smoke.py`, then follow the completeness-aware stdio MCP
-flow. GitHub Release has zero assets and PyPI is absent.
+flow. Stage 4 publication verification requires a GitHub Release with zero assets; PyPI publication
+is outside this release boundary.
 
 ## Stable proof code recovery
 

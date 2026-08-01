@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
@@ -75,6 +76,15 @@ HISTORICAL_RELEASE_FILES = (
     "docs/releases/v0.1.3.md",
     "docs/releases/v0.1.4.md",
     "docs/releases/v0.1.5.md",
+)
+_V015_HISTORICAL_SHA256 = (
+    "c15bf918e9358c28fea020591cb0ad179db9a0fe6d6f420d5b321d4cb258be89"
+)
+_PREPUBLICATION_PUBLICATION_CLAIM_PATTERNS = (
+    re.compile(r"\b(?:the )?GitHub Release has zero (?:extra )?assets\b", re.IGNORECASE),
+    re.compile(r"\bPyPI is absent\b", re.IGNORECASE),
+    re.compile(r"\bthere is no PyPI\b", re.IGNORECASE),
+    re.compile(r"\b(?:no|without) PyPI (?:publication|distribution)\b", re.IGNORECASE),
 )
 CONSUMER_SMOKE_COMMAND_FILES = (
     "README.md",
@@ -1007,6 +1017,38 @@ def _audit_stale_status(root: Path, files: Iterable[str]) -> list[Violation]:
     return violations
 
 
+def _audit_v015_contract(root: Path) -> list[Violation]:
+    file_name = "docs/releases/v0.1.5.md"
+    path = root / file_name
+    if path.is_symlink() or not path.is_file():
+        return [
+            Violation(
+                file=file_name,
+                rule="v015_historical_contract",
+                message="v0.1.5 historical release note is missing or not a regular file",
+            )
+        ]
+    try:
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return [
+            Violation(
+                file=file_name,
+                rule="v015_historical_contract",
+                message="v0.1.5 historical release note could not be read",
+            )
+        ]
+    if digest != _V015_HISTORICAL_SHA256:
+        return [
+            Violation(
+                file=file_name,
+                rule="v015_historical_contract",
+                message="v0.1.5 historical release note immutable digest mismatch",
+            )
+        ]
+    return []
+
+
 def _audit_v016_contract(root: Path) -> list[Violation]:
     release = _read_text(root, "docs/releases/v0.1.6.md")
     required = (
@@ -1026,7 +1068,7 @@ def _audit_v016_contract(root: Path) -> list[Violation]:
         "no runtime promotion",
         "source archive or checkout",
         "zero assets",
-        "no PyPI",
+        "PyPI distribution is outside",
         "cache-warmed",
         "atomic",
         "PdfIntakeReport",
@@ -1246,6 +1288,38 @@ def _audit_v016_contract(root: Path) -> list[Violation]:
     return violations
 
 
+def _audit_prepublication_publication_claims(root: Path) -> list[Violation]:
+    violations: list[Violation] = []
+    for file_name in ("docs/releases/v0.1.6.md", "docs/how-to/verify-release.md"):
+        text = _read_text(root, file_name)
+        if file_name == "docs/releases/v0.1.6.md":
+            if re.search(r"(?m)^## Publication verification\s*$", text) is not None:
+                continue
+        else:
+            historical_heading = re.search(
+                r"(?m)^## Completed v0\.1\.5 Release Record\s*$",
+                text,
+            )
+            if historical_heading is not None:
+                text = text[: historical_heading.start()]
+        normalized = " ".join(text.split())
+        if any(
+            pattern.search(normalized)
+            for pattern in _PREPUBLICATION_PUBLICATION_CLAIM_PATTERNS
+        ):
+            violations.append(
+                Violation(
+                    file=file_name,
+                    rule="v016_prepublication_publication_claim",
+                    message=(
+                        "current release surface must use publication policy wording until "
+                        "Publication verification is present"
+                    ),
+                )
+            )
+    return violations
+
+
 def _audit_consumer_smoke_wheel_selection(
     root: Path,
     files: Iterable[str],
@@ -1412,7 +1486,9 @@ def audit_release_presentation(root: Path) -> list[Violation]:
     violations.extend(_audit_release_notes_links(root))
     violations.extend(_audit_v013_contract(root))
     violations.extend(_audit_v014_contract(root))
+    violations.extend(_audit_v015_contract(root))
     violations.extend(_audit_v016_contract(root))
+    violations.extend(_audit_prepublication_publication_claims(root))
     violations.extend(_audit_stale_status(root, release_files))
     violations.extend(_audit_consumer_smoke_wheel_selection(root, CONSUMER_SMOKE_COMMAND_FILES))
     violations.extend(_audit_current_build_wheel_selection(root))

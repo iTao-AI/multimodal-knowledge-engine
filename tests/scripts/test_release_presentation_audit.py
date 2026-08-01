@@ -37,6 +37,7 @@ def test_audit_targets_v0_1_6_release_identity() -> None:
     assert "docs/releases/v0.1.4.md" in audit.HISTORICAL_RELEASE_FILES
     assert "docs/releases/v0.1.5.md" in audit.HISTORICAL_RELEASE_FILES
     assert callable(audit.__dict__["_audit_v014_contract"])
+    assert callable(audit.__dict__["_audit_v015_contract"])
     assert callable(audit.__dict__["_audit_v016_contract"])
     assert "docs/releases/v0.1.3.md" in audit.HISTORICAL_RELEASE_FILES
     assert "docs/releases/v0.1.2.md" in audit.HISTORICAL_RELEASE_FILES
@@ -412,17 +413,26 @@ Search/Ask/MCP 读取 active Publication Evidence。
         "dist/multimodal_knowledge_engine-0.1.4-py3-none-any.whl --json`\n",
         encoding="utf-8",
     )
+    (root / "docs/releases/v0.1.5.md").write_bytes(
+        (ROOT / "docs/releases/v0.1.5.md").read_bytes()
+    )
     current_release = (
         (root / "docs/releases/v0.1.4.md")
         .read_text(encoding="utf-8")
         .replace("v0.1.4", "v0.1.6")
         .replace("0.1.4-py3", "0.1.6-py3")
     )
+    current_release = current_release.replace(
+        "The GitHub Release has zero extra assets. There is no PyPI or package registry "
+        "publication.",
+        "Stage 4 publication verification requires a GitHub Release with zero assets. "
+        "PyPI publication is outside this release boundary.",
+    )
     current_release += (
         "\nsearch_library_v2 complete more_available capped read_evidence_v1 "
         "evidence_text_sha256 active Publication ten tools deterministic "
         "Source-byte-bound revision 2 legacy v1 no runtime promotion "
-        "source archive or checkout zero assets no PyPI cache-warmed atomic "
+        "source archive or checkout zero assets PyPI distribution is outside cache-warmed atomic "
         "PdfIntakeReport failed extraction FAILED unchanged no schema no dependency\n"
     )
     (root / "docs/releases/v0.1.6.md").write_text(current_release, encoding="utf-8")
@@ -485,6 +495,66 @@ def test_audit_accepts_complete_release_presentation(tmp_path: Path) -> None:
     _write_release_tree(tmp_path)
 
     assert audit_release_presentation(tmp_path) == []
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("- Tag: `v0.1.5`", "- Tag: `v0.1.4`"),
+        (
+            "- Merge commit: `d258c10dc40bd9eccd67c858b56f4e4cf5fe4610`",
+            "- Merge commit: `0000000000000000000000000000000000000000`",
+        ),
+        (
+            "- Archive descriptor SHA-256: "
+            "`baccc11f339b1241a454458b80f4faecf0a72297f0fc84184d004942c564dac4`",
+            "- Archive descriptor SHA-256: `"
+            "0000000000000000000000000000000000000000000000000000000000000000`",
+        ),
+    ],
+)
+def test_audit_rejects_mutated_v015_historical_contract(
+    tmp_path: Path,
+    old: str,
+    new: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "docs/releases/v0.1.5.md"
+    text = target.read_text(encoding="utf-8")
+    assert old in text
+    target.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+    assert "v015_historical_contract" in _rules(tmp_path)
+
+
+def test_audit_rejects_removed_v015_historical_contract(tmp_path: Path) -> None:
+    _write_release_tree(tmp_path)
+    (tmp_path / "docs/releases/v0.1.5.md").unlink()
+
+    assert "v015_historical_contract" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["docs/releases/v0.1.6.md", "docs/how-to/verify-release.md"],
+)
+def test_audit_rejects_prepublication_persisted_state_claims(
+    tmp_path: Path,
+    path: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    _append_current_surface_text(
+        tmp_path / path,
+        "The GitHub Release has zero assets. PyPI is absent.",
+    )
+
+    violations = audit_release_presentation(tmp_path)
+
+    assert any(
+        violation.file == path
+        and violation.rule == "v016_prepublication_publication_claim"
+        for violation in violations
+    )
 
 
 @pytest.mark.parametrize(
