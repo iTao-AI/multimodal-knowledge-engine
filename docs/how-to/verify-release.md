@@ -346,6 +346,27 @@ record their own tag object SHA, target commit, publication timestamp, archive f
 SHA-256, and smoke result after those facts exist.
 
 
+## Completed v0.1.6 Release Record
+
+- Annotated tag object SHA: `49c4dd511c3dcfcc5c2c4cb1cb918f724e83e6c4`
+- Tag target commit: `7d1b0363a2ea06ef936ad5788c20ec387b2db7fd`
+- Merge commit: `7d1b0363a2ea06ef936ad5788c20ec387b2db7fd`
+- Merge tree: `dde4a671b9e9f0faaf923bd9ea07fd8254027207`
+- GitHub Release ID: `363582984`
+- GitHub Release URL: https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.6
+- Published timestamp: `2026-08-01T17:26:15Z`
+- Release state: public, non-draft, non-prerelease.
+- Assets: zero
+- Post-merge hosted checks: `9/9 SUCCESS` on merge commit `7d1b0363a2ea06ef936ad5788c20ec387b2db7fd`: CI Python 3.12/3.13 and embedding extra 3.12/3.13, CodeQL actions/python, Dependency Graph, Compiled Library export proof, and Consumer source-pack proof.
+- Exact-main proof: full suite `4098 passed, 14 skipped, 5 warnings`; Ruff, Pyright, `uv lock --check`, build, product proof `8/8`, demo, release presentation audit, receipt-bound source-pack, installed-wheel, same-wheel Python 3.12/3.13, Compiled Library v2, and real-stdio MCP completeness passed.
+- Candidate wheel: `multimodal_knowledge_engine-0.1.6-py3-none-any.whl`, `491764` bytes, SHA-256 `5a1c902a720248c78c611b1accdcbd1a08f5c0d2b40dd9a00ada9a4463824ece`.
+- Candidate receipt: file SHA-256 `7bb7e2781b3dc47d20515399e34b4f70fa05e81426719b2afd30a140a04ce398`; payload SHA-256 `070f31035c40907873ae9fdf7457daa0bc9b84052bf7040b6ad66c5c58436daa`.
+- Release archive: `multimodal-knowledge-engine-v0.1.6.tar.gz`, `6024822` bytes, SHA-256 `194a04db5f5a194bfbc6556e762c684027274ac8991e2a7d509fef3241f5395a`.
+- Archive manifest: normalized 650-file manifest SHA-256 `aa34d85e517a30c9634830063f93527be32b154ad885b2ad3015fe52dad10c8a`, equal to the tagged tree; safe extraction contained no `.git` metadata.
+- Git-less allowlist: passed; locked archive sync/build, product proof `8/8`, demo, local knowledge, Evidence provenance, model-free direct-audio, native Compiled Library export and standalone consumer, installed-wheel, and dual-Python MCP completeness with ten tools all passed.
+- Limitations and non-claims: no PyPI publication, deployment, runtime promotion, uploaded assets, cold-cache or empty-machine installation, air-gapped/cache portability, quality or performance, adoption, or real ASR/model download claim.
+
+
 ## Completed v0.1.5 Release Record
 
 - Tag: `v0.1.5`
