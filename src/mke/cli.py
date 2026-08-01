@@ -1324,7 +1324,9 @@ def _ingest(engine: KnowledgeEngine, path: Path, *, json_output: bool = False) -
     try:
         result = engine.ingest_file(path)
     except PdfIngestError as error:
-        _print_error_contract(str(error), json_output=json_output)
+        _print_error_contract(
+            str(error), json_output=json_output, run_id=error.run_id
+        )
         return 1
     except VideoIngestError as error:
         _print_error_contract(

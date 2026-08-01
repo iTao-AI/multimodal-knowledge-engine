@@ -67,7 +67,7 @@ candidate Evidence + RunManifest
   -> create Publication
   -> replace this Source's active FTS5 rows
   -> switch Source.active_publication_id
-  -> persist a successful transcript intake report when required
+  -> persist a successful PDF or transcript intake report when required
   -> mark Run published
 ```
 
@@ -76,9 +76,15 @@ Search reads only active Publication rows and joins back through the active Publ
 A stale Run that loses the Source generation or active revision check is marked `superseded`
 without changing active Search visibility.
 
+The normal PDF application path supplies its successful `PdfIntakeReport` to activation. SQLite
+validates the report against the candidate page Evidence and inserts it through the same
+activation transaction. A prepared candidate or manual activation may retain the existing
+optional-report behavior, while failed extraction reports remain on the separate report path.
+
 For recognized `faster-whisper-v1:<64 lowercase hex>` Manifests, activation additionally requires
 a validated `TranscriptIntakeReport`. The Publication row, active FTS5 replacement, Source pointer,
-successful report, `published` Run state, and publication event commit in one SQLite transaction.
+required successful PDF or transcript report, `published` Run state, and publication event commit
+in one SQLite transaction.
 Any failure rolls all of them back. Failed and superseded Runs therefore cannot expose a successful
 report, and legacy PDF or sidecar video Publications remain valid without one.
 
