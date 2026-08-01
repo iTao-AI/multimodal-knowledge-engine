@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+import asyncio
+import re
 from pathlib import Path
 
+from mke.interfaces.mcp_contract import McpRuntimeConfig
+from mke.interfaces.mcp_server import build_mcp_server
+from mke.runtime import RuntimeConfig
+
 REFERENCE = Path("docs/reference/mcp-contract.md")
+CONTRACTS = Path("docs/reference/contracts.md")
 HOW_TO = Path("docs/how-to/use-mke-mcp.md")
 PROOF = Path("docs/how-to/run-mcp-context-completeness-proof.md")
 CLI = Path("docs/reference/cli.md")
@@ -59,6 +66,26 @@ STABLE_PROOF_CODES = (
     "wheel_unavailable",
 )
 
+EXPECTED_MCP_TOOL_NAMES = (
+    "ask_library",
+    "ask_library_v1",
+    "get_run",
+    "ingest_file",
+    "list_libraries",
+    "list_libraries_v1",
+    "read_evidence_v1",
+    "search_library",
+    "search_library_v1",
+    "search_library_v2",
+)
+
+
+def _documented_mcp_inventory(text: str) -> tuple[str, ...]:
+    marker = "MKE exposes exactly ten tools:\n\n"
+    section = text.split(marker, maxsplit=1)[1]
+    block = section.split("\n\n", maxsplit=1)[0]
+    return tuple(re.findall(r"^- `([^`]+)`$", block, flags=re.MULTILINE))
+
 
 def test_canonical_reference_documents_complete_ten_tool_contract() -> None:
     text = REFERENCE.read_text(encoding="utf-8")
@@ -78,6 +105,27 @@ def test_canonical_reference_documents_complete_ten_tool_contract() -> None:
         "96 KiB",
     ):
         assert literal in text
+
+
+def test_public_contracts_mcp_summary_matches_live_canonical_ten_tool_inventory(
+    tmp_path: Path,
+) -> None:
+    server = build_mcp_server(
+        McpRuntimeConfig(RuntimeConfig(tmp_path / "mke.sqlite"), tmp_path)
+    )
+    live_inventory = tuple(sorted(tool.name for tool in asyncio.run(server.list_tools())))
+    canonical = _documented_mcp_inventory(REFERENCE.read_text(encoding="utf-8"))
+    summary = _documented_mcp_inventory(CONTRACTS.read_text(encoding="utf-8"))
+
+    assert live_inventory == EXPECTED_MCP_TOOL_NAMES
+    assert tuple(sorted(canonical)) == live_inventory
+    assert tuple(sorted(summary)) == live_inventory
+    stale = CONTRACTS.read_text(encoding="utf-8").casefold()
+    assert "status: partially implemented" not in stale
+    assert "implemented tools:" not in stale
+    assert "five-tool" not in stale
+    assert "five tools" not in stale
+    assert "[mcp contract reference](./mcp-contract.md)" in stale
 
 
 def test_mcp_reference_documents_stable_locator_recovery_and_id_boundary() -> None:

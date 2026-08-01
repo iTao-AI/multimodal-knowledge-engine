@@ -570,6 +570,10 @@ class SQLiteStore:
         return _run_from_row(row)
 
     def persist_pdf_intake_report(self, run_id: str, report: PdfIntakeReport) -> None:
+        with self._connection:
+            self._insert_pdf_intake_report(run_id, report)
+
+    def _insert_pdf_intake_report(self, run_id: str, report: PdfIntakeReport) -> None:
         self._connection.execute(
             """
             INSERT OR REPLACE INTO pdf_intake_reports(
@@ -589,7 +593,6 @@ class SQLiteStore:
                 report.failure_reason,
             ),
         )
-        self._connection.commit()
 
     def get_pdf_intake_report(self, run_id: str) -> PdfIntakeReport | None:
         row = self._connection.execute(
@@ -715,6 +718,7 @@ class SQLiteStore:
         run_id: str,
         failure_point: FailurePoint | None = None,
         *,
+        pdf_intake_report: PdfIntakeReport | None = None,
         transcript_intake_report: TranscriptIntakeReport | None = None,
     ) -> ActivationResult:
         with self._connection:
@@ -774,6 +778,8 @@ class SQLiteStore:
                 "SELECT * FROM evidence WHERE run_id = ? ORDER BY locator_start, evidence_id",
                 (run_id,),
             ).fetchall()
+            if pdf_intake_report is not None:
+                self._validate_pdf_intake_report(pdf_intake_report, evidence_rows)
             if is_faster_whisper_audio and transcript_intake_report is not None:
                 report_fingerprint = audio_extractor_fingerprint(
                     TranscriptionProvenance(
@@ -852,6 +858,8 @@ class SQLiteStore:
             )
             if failure_point == FailurePoint.AFTER_ACTIVE_POINTER_SWITCH:
                 raise InjectedStorageFailure(failure_point.value)
+            if pdf_intake_report is not None:
+                self._insert_pdf_intake_report(run_id, pdf_intake_report)
             if transcript_intake_report is not None:
                 self._insert_transcript_intake_report(run_id, transcript_intake_report)
             self._transition_run(
@@ -861,6 +869,68 @@ class SQLiteStore:
                 event_type=RunEventType.PUBLICATION_ACTIVATED,
             )
         return ActivationResult(run_id, RunState.PUBLISHED, True, publication_id)
+
+    @staticmethod
+    def _validate_pdf_intake_report(
+        report: PdfIntakeReport, evidence_rows: list[sqlite3.Row]
+    ) -> None:
+        if type(report) is not PdfIntakeReport or report.failure_reason is not None:
+            raise ManifestValidationError(
+                "activation requires a successful PDF intake report"
+            )
+        if type(report.total_pages) is not int or report.total_pages <= 0:
+            raise ManifestValidationError("PDF intake report total pages are invalid")
+        if type(report.extracted_pages) is not int or report.extracted_pages <= 0:
+            raise ManifestValidationError("PDF intake report extracted pages are invalid")
+        if type(report.empty_pages) is not int or report.empty_pages < 0:
+            raise ManifestValidationError("PDF intake report empty pages are invalid")
+        if type(report.total_extracted_chars) is not int or report.total_extracted_chars < 0:
+            raise ManifestValidationError("PDF intake report character count is invalid")
+        if type(report.suspected_scanned_pages) is not int or report.suspected_scanned_pages < 0:
+            raise ManifestValidationError("PDF intake report scanned-page count is invalid")
+        if type(report.page_char_counts) is not tuple or any(
+            type(value) is not int or value < 0 for value in report.page_char_counts
+        ):
+            raise ManifestValidationError("PDF intake report page character counts are invalid")
+        if type(report.extraction_mode) is not str or not report.extraction_mode.strip():
+            raise ManifestValidationError("PDF intake report extraction mode is invalid")
+        if (
+            len(report.page_char_counts) != report.total_pages
+            or report.extracted_pages + report.empty_pages != report.total_pages
+            or report.suspected_scanned_pages > report.empty_pages
+            or report.total_extracted_chars != sum(report.page_char_counts)
+        ):
+            raise ManifestValidationError("PDF intake report structure is invalid")
+        if report.extracted_pages != len(evidence_rows):
+            raise ManifestValidationError(
+                "PDF intake report does not match candidate Evidence"
+            )
+
+        seen_pages: set[int] = set()
+        for row in evidence_rows:
+            locator_kind = row["locator_kind"]
+            locator_start = row["locator_start"]
+            locator_end = row["locator_end"]
+            text = row["text"]
+            if (
+                locator_kind != "page"
+                or type(locator_start) is not int
+                or type(locator_end) is not int
+                or locator_start != locator_end
+                or not 1 <= locator_start <= report.total_pages
+                or type(text) is not str
+            ):
+                raise ManifestValidationError(
+                    "PDF intake report does not match candidate Evidence"
+                )
+            if (
+                locator_start in seen_pages
+                or len(text) != report.page_char_counts[locator_start - 1]
+            ):
+                raise ManifestValidationError(
+                    "PDF intake report does not match candidate Evidence"
+                )
+            seen_pages.add(locator_start)
 
     def _insert_transcript_intake_report(
         self, run_id: str, report: TranscriptIntakeReport

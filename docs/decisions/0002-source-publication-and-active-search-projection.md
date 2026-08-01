@@ -39,6 +39,10 @@ Publication protocol for the first PDF slice.
 - The activation transaction creates the `Publication`, replaces that Source's active FTS5 rows,
   switches `Source.active_publication_id`, increments `Source.active_revision`, marks the Run
   `published`, and appends the publication event.
+- When the normal PDF application path has a successful `PdfIntakeReport`, activation validates
+  its structure and page-Evidence consistency and inserts the report in that same transaction.
+  Failed extraction reports and non-activated prepared candidates retain the separately committing
+  report path.
 - Search reads active FTS5 rows and still joins back through active Publication identity.
 
 ## Consequences

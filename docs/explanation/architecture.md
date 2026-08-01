@@ -76,6 +76,12 @@ Search reads only active Publication rows and joins back through the active Publ
 A stale Run that loses the Source generation or active revision check is marked `superseded`
 without changing active Search visibility.
 
+The normal PDF application path supplies its successful `PdfIntakeReport` to activation. SQLite
+validates the report against the candidate page Evidence and inserts it through the same
+activation transaction. A prepared candidate or manual activation may retain the existing
+optional-report behavior, while failed extraction reports remain on the separate validated
+candidate persistence path.
+
 For recognized `faster-whisper-v1:<64 lowercase hex>` Manifests, activation additionally requires
 a validated `TranscriptIntakeReport`. The Publication row, active FTS5 replacement, Source pointer,
 successful report, `published` Run state, and publication event commit in one SQLite transaction.

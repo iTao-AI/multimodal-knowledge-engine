@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import sqlite3
 import stat
 import tempfile
 from collections.abc import Callable
@@ -76,6 +77,7 @@ from mke.retrieval.strategy import require_retrieval_strategy
 from mke.runtime_owner import AdmissionOverloadedError, BoundedAdmissionController
 
 _SHA256_CHUNK_BYTES = 1024 * 1024
+_REDACTED_FAILURE = "operation failed; details were redacted"
 DEFAULT_ASK_LIMIT = 5
 MIN_ASK_LIMIT = 1
 MAX_ASK_LIMIT = 20
@@ -299,6 +301,12 @@ class KnowledgeEngine:
     def _begin_publication_commit(self) -> None:
         if self._publication_commit is not None and not self._publication_commit():
             raise _PublicationCommitCancelled
+
+    def _persist_pdf_intake_report(self, run_id: str, report: PdfIntakeReport) -> None:
+        try:
+            self._store.persist_pdf_intake_report(run_id, report)
+        except sqlite3.Error as error:
+            raise PdfIngestError(_REDACTED_FAILURE, run_id) from error
 
     def activate_publication(
         self, run_id: str, failure_point: FailurePoint | None = None
@@ -547,7 +555,7 @@ class KnowledgeEngine:
                 failure_point=failure_point,
             )
             if not activate:
-                self._store.persist_pdf_intake_report(run.run_id, extraction.report)
+                self._persist_pdf_intake_report(run.run_id, extraction.report)
                 return IngestResult(
                     run.run_id,
                     RunState.VALIDATED,
@@ -555,9 +563,14 @@ class KnowledgeEngine:
                     retry_of_run_id,
                     extraction.report,
                 )
-            activation = self.activate_publication(run.run_id, failure_point=failure_point)
-            if activation.published:
-                self._store.persist_pdf_intake_report(run.run_id, extraction.report)
+            try:
+                activation = self._store.activate_publication(
+                    run.run_id,
+                    failure_point=failure_point,
+                    pdf_intake_report=extraction.report,
+                )
+            except sqlite3.Error as error:
+                raise PdfIngestError(_REDACTED_FAILURE, run.run_id) from error
             return IngestResult(
                 run_id=run.run_id,
                 run_state=activation.run_state,
@@ -578,7 +591,7 @@ class KnowledgeEngine:
             if run is None:
                 raise PdfIngestError(str(error)) from error
             if isinstance(error, PdfExtractionError) and error.report is not None:
-                self._store.persist_pdf_intake_report(run.run_id, error.report)
+                self._persist_pdf_intake_report(run.run_id, error.report)
             if failure_point in {
                 FailurePoint.AFTER_PUBLICATION_INSERT,
                 FailurePoint.DURING_ACTIVE_FTS_REPLACEMENT,

@@ -72,6 +72,9 @@ built-in PDF extractor uses PyMuPDF behind the adapter boundary and extracts tex
 with `page.get_text("text", sort=True)`. Successful PDF ingest and Run inspection expose
 `PdfIntakeReport` summary fields: total pages, extracted pages, empty pages, extracted characters,
 page character counts, suspected scanned pages, extraction mode, and failure reason when present.
+The normal PDF ingest path validates and persists a successful `PdfIntakeReport` in the same
+SQLite transaction as Publication activation; a report insertion failure leaves the attempted Run
+retryable and the active Publication unchanged.
 The default video transcript adapter supports the documented short MP4 fixture profile with a
 local `mke.video_transcript.v1` sidecar. D3-A adds a project-owned `TranscriptProvider` port and an
 optional trusted-local `LocalCommandTranscriptProvider` that reads the same transcript JSON shape
@@ -158,17 +161,22 @@ hybrid retrieval, RRF, reranking, query rewrite, OCR, or request DTO.
 
 ## MCP
 
-Status: partially implemented.
+Status: implemented for the exact current ten-tool inventory. The canonical detailed contract is
+the [MCP Contract Reference](./mcp-contract.md); this summary must remain aligned with that page
+and the live server inventory.
 
-Implemented tools:
+MKE exposes exactly ten tools:
 
-```text
-list_libraries
-ingest_file
-get_run
-search_library
-ask_library
-```
+- `list_libraries`
+- `ingest_file`
+- `get_run`
+- `search_library`
+- `ask_library`
+- `list_libraries_v1`
+- `search_library_v1`
+- `ask_library_v1`
+- `search_library_v2`
+- `read_evidence_v1`
 
 `ask_library` returns deterministic Evidence packets, not model-generated answers. Successful
 responses include:
@@ -199,6 +207,9 @@ download policy.
 MCP rejects PDF inputs larger than 100 MB with `problem="input_file_too_large"` before opening the
 PDF extractor. PDF `ingest_file` success and `get_run` responses include `intake_report` when a
 Run has one.
+Normal PDF ingest validates and persists a successful `PdfIntakeReport` in the same SQLite
+transaction as Publication activation; a report insertion failure returns the stable
+`pdf_ingest_failed` error with unchanged active-Publication impact and no raw storage details.
 When faster-whisper is selected, startup performs cache-only readiness checks before stdio begins.
 Cancellation and shutdown terminate registered adapter children and wait for Run cleanup.
 `search_library` and `ask_library` read active Publication Evidence only and share the same

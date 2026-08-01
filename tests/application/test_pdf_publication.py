@@ -250,6 +250,36 @@ def test_successful_extraction_report_is_not_persisted_when_activation_fails(
     assert engine.get_pdf_intake_report(run_id) is None
 
 
+def test_pdf_report_insert_failure_is_redacted_and_preserves_active_publication(
+    tmp_path: Path,
+) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    engine.ingest_pdf(PDF_FIXTURES / "text-layer.pdf")
+    before = engine.search("trustworthy")
+    engine._store._connection.executescript(  # pyright: ignore[reportPrivateUsage]
+        """
+        CREATE TRIGGER fail_pdf_report
+        BEFORE INSERT ON pdf_intake_reports
+        BEGIN
+          SELECT RAISE(ABORT, 'injected sqlite trigger SYNTHETIC_TRIGGER_PATH');
+        END;
+        """
+    )
+    engine._store._connection.commit()  # pyright: ignore[reportPrivateUsage]
+
+    with pytest.raises(PdfIngestError) as error:
+        engine.reprocess_pdf(PDF_FIXTURES / "text-layer-revised.pdf")
+
+    assert str(error.value) == "operation failed; details were redacted"
+    assert "injected sqlite trigger" not in str(error.value)
+    assert "SYNTHETIC_TRIGGER_PATH" not in str(error.value)
+    assert error.value.run_id is not None
+    assert engine.get_run(error.value.run_id).state is RunState.VALIDATED
+    assert engine.get_pdf_intake_report(error.value.run_id) is None
+    assert engine.search("trustworthy") == before
+    assert engine.search("revised") == []
+
+
 def test_interrupted_pdf_run_cannot_validate_or_change_active_results(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

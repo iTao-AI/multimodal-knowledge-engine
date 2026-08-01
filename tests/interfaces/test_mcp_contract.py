@@ -8,6 +8,7 @@ from typing import Any, cast
 import pytest
 
 import mke.interfaces.mcp_contract
+from mke.adapters.sqlite import SQLiteStore
 from mke.application import (
     AudioIngestError,
     IngestDispatchError,
@@ -177,6 +178,42 @@ def test_ingest_file_publishes_pdf_and_search_returns_page_evidence(tmp_path: Pa
     result = search["results"][0]
     assert result["locator"] == {"kind": "page", "start": 2, "end": 2}
     assert "Publication search returns only active page two." in result["text"]
+
+
+def test_mcp_pdf_report_insert_failure_is_redacted_with_run_id(tmp_path: Path) -> None:
+    db_path = tmp_path / "mke.sqlite"
+    store = SQLiteStore(db_path)
+    store._connection.executescript(  # pyright: ignore[reportPrivateUsage]
+        """
+        CREATE TRIGGER fail_pdf_report
+        BEFORE INSERT ON pdf_intake_reports
+        BEGIN
+          SELECT RAISE(ABORT, 'injected sqlite trigger SYNTHETIC_TRIGGER_PATH');
+        END;
+        """
+    )
+    store._connection.commit()  # pyright: ignore[reportPrivateUsage]
+    store.close()
+
+    result = ingest_file(
+        McpRuntimeConfig(RuntimeConfig(db_path), PDF_FIXTURES),
+        "text-layer.pdf",
+    )
+    rendered = json.dumps(result)
+
+    assert result == {
+        "ok": False,
+        "problem": "pdf_ingest_failed",
+        "cause": "operation failed; details were redacted",
+        "active_publication_impact": "unchanged",
+        "next_step": "fix_input_or_retry",
+        "run_id": result["run_id"],
+    }
+    assert isinstance(result["run_id"], str)
+    assert result["run_id"].startswith("run_")
+    assert "injected sqlite trigger" not in rendered
+    assert "SYNTHETIC_TRIGGER_PATH" not in rendered
+    assert "Traceback" not in rendered
 
 
 def test_mcp_search_and_ask_use_owner_retrieval_policy_without_request_override(

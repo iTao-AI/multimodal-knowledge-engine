@@ -4,10 +4,51 @@ import pytest
 from pytest import CaptureFixture, MonkeyPatch
 
 import mke.cli
+from mke.application import KnowledgeEngine
 from mke.cli import main
 from tests.conftest import PDF_FIXTURES
 
 NUMERIC_FIXTURE = Path("tests/fixtures/retrieval-numeric-v1/development.pdf")
+
+
+def test_cli_pdf_report_insert_failure_is_redacted_with_run_id(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+    monkeypatch: MonkeyPatch,
+) -> None:
+    db_path = tmp_path / "mke.sqlite"
+    engine = KnowledgeEngine(db_path)
+    engine.ingest_pdf(PDF_FIXTURES / "text-layer.pdf")
+    engine._store._connection.executescript(  # pyright: ignore[reportPrivateUsage]
+        """
+        CREATE TRIGGER fail_pdf_report
+        BEFORE INSERT ON pdf_intake_reports
+        BEGIN
+          SELECT RAISE(ABORT, 'injected sqlite trigger SYNTHETIC_TRIGGER_PATH');
+        END;
+        """
+    )
+    engine._store._connection.commit()  # pyright: ignore[reportPrivateUsage]
+
+    def build(_config: object) -> KnowledgeEngine:
+        return engine
+
+    monkeypatch.setattr(mke.cli, "build_engine", build)
+
+    assert (
+        main(["--db", str(db_path), "ingest", str(PDF_FIXTURES / "text-layer-revised.pdf")])
+        == 1
+    )
+
+    output = capsys.readouterr().out
+    assert "problem=pdf_ingest_failed" in output
+    assert "cause=operation failed; details were redacted" in output
+    assert "active_publication_impact=unchanged" in output
+    assert "next_step=fix_input_or_retry" in output
+    assert "run_id=run_" in output
+    assert "injected sqlite trigger" not in output
+    assert "SYNTHETIC_TRIGGER_PATH" not in output
+    assert "Traceback" not in output
 
 
 def test_cli_ingest_and_search_pdf(tmp_path: Path, capsys: CaptureFixture[str]) -> None:
