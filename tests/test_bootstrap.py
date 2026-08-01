@@ -5,7 +5,7 @@ from mke.cli import main
 
 
 def test_package_exposes_bootstrap_version() -> None:
-    assert __version__ == "0.1.5"
+    assert __version__ == "0.1.6"
 
 
 def test_cli_reports_bootstrap_status(capsys: CaptureFixture[str]) -> None:

@@ -14,7 +14,7 @@ HOW_TO = Path("docs/how-to/use-mke-mcp.md")
 PROOF = Path("docs/how-to/run-mcp-context-completeness-proof.md")
 CLI = Path("docs/reference/cli.md")
 VERIFY = Path("docs/how-to/verify-release.md")
-RELEASE = Path("docs/releases/v0.1.5.md")
+RELEASE = Path("docs/releases/v0.1.6.md")
 
 STABLE_PROOF_CODES = (
     "candidate_artifact_invalid",
@@ -229,27 +229,27 @@ def test_stable_proof_code_table_has_exact_inventory_and_bounded_actions() -> No
             assert "Historical maintenance only" in actions[code]
 
 
-def test_current_release_workflow_precedes_immutable_history_and_is_v015_exact() -> None:
+def test_current_release_workflow_precedes_immutable_history_and_is_v016_exact() -> None:
     text = VERIFY.read_text(encoding="utf-8")
     stage_1 = text.index("## Stage 1 Release Candidate Readiness")
     stage_4 = text.index("## Stage 4 Tag, GitHub Release, And Archive Smoke")
-    history = text.index("## Completed v0.1.4 Release Record")
+    history = text.index("## Completed v0.1.5 Release Record")
     current = text[stage_1:history]
 
     assert stage_1 < stage_4 < history
-    assert 'candidate_output="${candidate_parent}/mke-v0.1.5-candidate"' in current
-    assert 'receipt["package_version"] == project["version"] == "0.1.5"' in current
-    assert "installed `mke.__version__` and package metadata both equal `0.1.5`" in current
-    assert "gh release download v0.1.5" in current
-    assert "multimodal-knowledge-engine-v0.1.5.tar.gz" in current
-    assert "cd multimodal-knowledge-engine-0.1.5" in current
+    assert 'candidate_output="${candidate_parent}/mke-v0.1.6-candidate"' in current
+    assert 'receipt["package_version"] == project["version"] == "0.1.6"' in current
+    assert "installed `mke.__version__` and package metadata both equal `0.1.6`" in current
+    assert "gh release download v0.1.6" in current
+    assert "multimodal-knowledge-engine-v0.1.6.tar.gz" in current
+    assert "cd multimodal-knowledge-engine-0.1.6" in current
 
 
 def test_current_candidate_proofs_bind_both_lanes_exact_wheel_and_offline_commands() -> None:
     text = VERIFY.read_text(encoding="utf-8")
     current = text[
         text.index("## Stage 1 Release Candidate Readiness") :
-        text.index("## Completed v0.1.4 Release Record")
+        text.index("## Completed v0.1.5 Release Record")
     ]
 
     assert current.count("scripts/release_consumer_smoke.py") >= 3
@@ -258,7 +258,7 @@ def test_current_candidate_proofs_bind_both_lanes_exact_wheel_and_offline_comman
     assert '--mke-wheel "${candidate_wheel}"' in current
     assert (
         "UV_OFFLINE=1 uv run python scripts/release_consumer_smoke.py \\\n"
-        "  --wheel dist/multimodal_knowledge_engine-0.1.5-py3-none-any.whl --json"
+        "  --wheel dist/multimodal_knowledge_engine-0.1.6-py3-none-any.whl --json"
         in current
     )
     for line in current.splitlines():
@@ -276,9 +276,9 @@ def test_current_candidate_proofs_bind_both_lanes_exact_wheel_and_offline_comman
 
 def test_all_primary_mcp_documentation_surfaces_route_the_current_contract() -> None:
     requirements = {
-        Path("README.md"): ("v0.1.5", "search_library_v2", "read_evidence_v1"),
-        Path("README_CN.md"): ("v0.1.5", "search_library_v2", "read_evidence_v1"),
-        Path("docs/README.md"): ("v0.1.5", "MCP", "exact active Evidence"),
+        Path("README.md"): ("v0.1.6", "search_library_v2", "read_evidence_v1"),
+        Path("README_CN.md"): ("v0.1.6", "search_library_v2", "read_evidence_v1"),
+        Path("docs/README.md"): ("v0.1.6", "MCP", "exact active Evidence"),
         Path("docs/tutorials/getting-started.md"): (
             "search_library_v2",
             "read_evidence_v1",
@@ -287,8 +287,8 @@ def test_all_primary_mcp_documentation_surfaces_route_the_current_contract() -> 
         HOW_TO: ("search_library_v2", "read_evidence_v1", "more_available"),
         PROOF: ("ten-tool", "Python 3.12", "Python 3.13", "UV_OFFLINE=1"),
         CLI: ("ten-tool", "search_library_v2", "read_evidence_v1"),
-        VERIFY: ("v0.1.5", "Stable proof code recovery", "Stage 4"),
-        RELEASE: ("v0.1.5", "search_library_v2", "read_evidence_v1"),
+        VERIFY: ("v0.1.6", "Stable proof code recovery", "Stage 4"),
+        RELEASE: ("v0.1.6", "search_library_v2", "read_evidence_v1"),
         REFERENCE: ("exactly ten tools", "search_library_v2", "read_evidence_v1"),
     }
     for path, literals in requirements.items():
@@ -297,19 +297,35 @@ def test_all_primary_mcp_documentation_surfaces_route_the_current_contract() -> 
             assert literal in text, f"{path} is missing {literal!r}"
 
 
-def test_current_presentation_links_and_runtime_boundary_are_v015_authoritative() -> None:
-    assert "- [Release notes](./docs/releases/v0.1.5.md)" in Path("README.md").read_text(
+def test_current_presentation_links_and_runtime_boundary_are_v016_authoritative() -> None:
+    assert "- [Release notes](./docs/releases/v0.1.6.md)" in Path("README.md").read_text(
         encoding="utf-8"
     )
-    assert "- [Release notes](./docs/releases/v0.1.5.md)" in Path(
+    assert "- [Release notes](./docs/releases/v0.1.6.md)" in Path(
         "README_CN.md"
     ).read_text(encoding="utf-8")
     docs_index = Path("docs/README.md").read_text(encoding="utf-8")
-    assert "v0.1.5 retains the historical v0.1.4 runtime boundary" in docs_index
+    assert "v0.1.6 retains the historical v0.1.4 runtime boundary" in docs_index
 
     changelog = Path("CHANGELOG.md").read_text(encoding="utf-8")
-    current = changelog.split("## [0.1.5]", maxsplit=1)[1].split(
-        "## [0.1.4]", maxsplit=1
+    current = changelog.split("## [0.1.6]", maxsplit=1)[1].split(
+        "## [0.1.5]", maxsplit=1
     )[0]
     assert current.count("### Added") == 1
     assert "No release" not in current
+
+
+def test_v016_release_note_documents_atomic_pdf_publication_repair() -> None:
+    assert RELEASE.is_file()
+    text = RELEASE.read_text(encoding="utf-8")
+    for literal in (
+        "atomic",
+        "PdfIntakeReport",
+        "failed extraction",
+        "FAILED",
+        "active Publication",
+        "unchanged",
+        "no schema",
+        "no dependency",
+    ):
+        assert literal in text

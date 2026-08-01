@@ -2,10 +2,11 @@
 
 [English](./README.md) | [中文](./README_CN.md)
 
-`v0.1.5` 将 completeness-aware local stdio MCP Agent path 设为当前入口：
+`v0.1.6` 保持 completeness-aware local stdio MCP Agent path 为当前入口，并使成功 PDF
+intake-report publication 原子化：
 `search_library_v2` 报告有界 selection completeness，`read_evidence_v1` 重建 exact active
 Evidence 并校验最终 digest。Equal-score order 是确定性的；这不构成 relevance improvement
-或 runtime promotion 声明。参见 [v0.1.5](./docs/releases/v0.1.5.md)。
+或 runtime promotion 声明。参见 [v0.1.6](./docs/releases/v0.1.6.md)。
 
 Multimodal Knowledge Engine 是一个本地优先、可被 Agent 调用的 Evidence 引擎，用于导入、检索和问答文档与媒体资料。它把
 source processing、Publication activation、retrieval 和 Agent-facing interfaces 收在同一个可验证的本地
@@ -149,7 +150,7 @@ uv run mke proof run
 uv run mke demo --verify
 uv run python scripts/release_presentation_audit.py --root .
 uv run python scripts/release_consumer_smoke.py \
-  --wheel dist/multimodal_knowledge_engine-0.1.5-py3-none-any.whl --json
+  --wheel dist/multimodal_knowledge_engine-0.1.6-py3-none-any.whl --json
 ```
 
 ## Local Knowledge Proof
@@ -284,7 +285,7 @@ media support、hostile-media sandbox、business adoption 或 real-user outcomes
 
 ## 文档
 
-- [Release notes](./docs/releases/v0.1.5.md)
+- [Release notes](./docs/releases/v0.1.6.md)
 - [Verify The Release](./docs/how-to/verify-release.md)
 - [Documentation index](./docs/README.md)
 - [Run The Local Product Proof](./docs/how-to/run-local-product-proof.md)

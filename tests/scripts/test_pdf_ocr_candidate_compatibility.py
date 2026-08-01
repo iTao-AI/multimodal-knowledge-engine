@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import time
+import tomllib
 import zipfile
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -1171,7 +1172,34 @@ def test_no_dependency_files_are_modified() -> None:
             check=True,
             capture_output=True,
         ).stdout
-        assert (root / relative).read_bytes() == committed
+        current = (root / relative).read_bytes()
+        assert _normalize_release_version(relative, current) == _normalize_release_version(
+            relative, committed
+        )
+
+
+def _normalize_release_version(relative: str, encoded: bytes) -> Any:
+    parsed: dict[str, Any] = tomllib.loads(encoded.decode("utf-8"))
+    if relative == "pyproject.toml":
+        project = parsed["project"]
+        assert isinstance(project, dict)
+        project = cast(dict[str, Any], project)
+        project.pop("version")
+        return parsed
+
+    packages = parsed["package"]
+    assert isinstance(packages, list)
+    package_values = cast(list[object], packages)
+    assert all(isinstance(package, dict) for package in package_values)
+    package_entries = cast(list[dict[str, Any]], package_values)
+    matches = [
+        package
+        for package in package_entries
+        if package.get("name") == "multimodal-knowledge-engine"
+    ]
+    assert len(matches) == 1
+    matches[0].pop("version")
+    return parsed
 
 
 def _model_metadata(

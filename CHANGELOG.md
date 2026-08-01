@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-08-01
+
+### Added
+
+- Regression coverage for atomic PDF `PdfIntakeReport` publication, closed candidate page
+  inventories, redacted CLI/MCP failures, and the exact ten-tool contract.
+
+### Fixed
+
+- Successful PDF intake reports now commit atomically with Publication activation. Failed-extraction
+  report-write faults close the same Run as `FAILED` without changing active Publication visibility.
+
+### Compatibility
+
+- Existing manual, superseded, validated non-activate, failed-extraction, CLI, MCP, Search, Ask,
+  and ten-tool contracts remain compatible. No schema, dependency, request-field, or runtime-option
+  change is included.
+
+### Not included
+
+- No OCR, segmentation/contextual retrieval, dense/RRF/reranker promotion, remote provider, Agent
+  loop, HTTP/UI, hosted service, PyPI, deployment, performance, or retrieval-quality claim.
+
 ## [0.1.5] - 2026-07-28
 
 ### Added
