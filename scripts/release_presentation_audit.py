@@ -1296,6 +1296,12 @@ def _audit_prepublication_publication_claims(root: Path) -> list[Violation]:
             if re.search(r"(?m)^## Publication verification\s*$", text) is not None:
                 continue
         else:
+            completed_heading = re.search(
+                r"(?m)^## Completed v0\.1\.6 Release Record\s*$",
+                text,
+            )
+            if completed_heading is not None:
+                text = text[: completed_heading.start()]
             historical_heading = re.search(
                 r"(?m)^## Completed v0\.1\.5 Release Record\s*$",
                 text,

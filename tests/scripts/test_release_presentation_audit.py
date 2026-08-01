@@ -557,6 +557,19 @@ def test_audit_rejects_prepublication_persisted_state_claims(
     )
 
 
+def test_audit_accepts_completed_v016_publication_record_on_verify_release(
+    tmp_path: Path,
+) -> None:
+    _write_release_tree(tmp_path)
+    _append_current_surface_text(
+        tmp_path / "docs/how-to/verify-release.md",
+        "## Completed v0.1.6 Release Record\n\n"
+        "The GitHub Release has zero assets. PyPI is absent.",
+    )
+
+    assert "v016_prepublication_publication_claim" not in _rules(tmp_path)
+
+
 @pytest.mark.parametrize(
     "claim",
     [
