@@ -6,8 +6,11 @@ auditing implementation history.
 
 ## Release And First Run
 
-- [v0.1.5 Release Notes](./releases/v0.1.5.md) — current completeness-aware local stdio MCP Agent
+- [v0.1.6 Release Notes](./releases/v0.1.6.md) — atomic PDF intake-report publication and the
+  current completeness-aware local stdio MCP Agent
   path, exact active Evidence recovery, and deterministic equal-score ordering.
+- [v0.1.5 Release Notes](./releases/v0.1.5.md) — historical completeness-aware MCP contract
+  closeout.
 - [v0.1.4 Release Notes](./releases/v0.1.4.md)
 - [v0.1.3 Release Notes](./releases/v0.1.3.md)
 - [v0.1.2 Release Notes](./releases/v0.1.2.md)
@@ -73,7 +76,7 @@ outside MKE runtime and Evidence authority.
   does not combine raw lexical and dense scores.
 - [Evaluate The Relevance Gate Reranker Candidate](./how-to/evaluate-relevance-gate-reranker.md)
 
-v0.1.5 retains the historical v0.1.4 runtime boundary: only E3-F changes the default retrieval
+v0.1.6 retains the historical v0.1.4 runtime boundary: only E3-F changes the default retrieval
 strategy. Comparison-only dense preparation does not change normal Search, Ask, MCP, or the runtime
 default. Dense, RRF, and relevance-gate/reranker artifacts remain evaluation artifacts, not
 runtime features.

@@ -11,16 +11,16 @@ ROOT = Path(__file__).resolve().parents[2]
 COMPLETE_PUBLICATION_VERIFICATION = """
 ## Publication verification
 
-- Tag: `v0.1.5`
+- Tag: `v0.1.6`
 - Merge commit: `1234567890abcdef1234567890abcdef12345678`
 - Merge tree: `234567890abcdef1234567890abcdef123456789`
-- GitHub Release URL: https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.5
+- GitHub Release URL: https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.6
 - Published timestamp: `2026-07-28T12:34:56Z`
 - Assets: zero
 - Hosted checks: all required checks passed on the merge commit
 - Archive descriptor SHA-256: `34567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12`
 - Archive manifest SHA-256: `4567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123`
-- Archive wheel: `multimodal_knowledge_engine-0.1.5-py3-none-any.whl`
+- Archive wheel: `multimodal_knowledge_engine-0.1.6-py3-none-any.whl`
 - Git-less allowlist: passed
 - Exact-main proof: passed
 - Canonical evidence hashes: unchanged
@@ -29,14 +29,16 @@ COMPLETE_PUBLICATION_VERIFICATION = """
 """
 
 
-def test_audit_targets_v0_1_5_release_identity() -> None:
+def test_audit_targets_v0_1_6_release_identity() -> None:
     from scripts import release_presentation_audit as audit
 
-    assert audit.EXPECTED_VERSION == "0.1.5"
-    assert "docs/releases/v0.1.5.md" in audit.RELEASE_FACING_FILES
+    assert audit.EXPECTED_VERSION == "0.1.6"
+    assert "docs/releases/v0.1.6.md" in audit.RELEASE_FACING_FILES
     assert "docs/releases/v0.1.4.md" in audit.HISTORICAL_RELEASE_FILES
+    assert "docs/releases/v0.1.5.md" in audit.HISTORICAL_RELEASE_FILES
     assert callable(audit.__dict__["_audit_v014_contract"])
     assert callable(audit.__dict__["_audit_v015_contract"])
+    assert callable(audit.__dict__["_audit_v016_contract"])
     assert "docs/releases/v0.1.3.md" in audit.HISTORICAL_RELEASE_FILES
     assert "docs/releases/v0.1.2.md" in audit.HISTORICAL_RELEASE_FILES
     assert "docs/releases/v0.1.0.md" not in audit.RELEASE_FACING_FILES
@@ -55,8 +57,8 @@ def test_audit_targets_current_build_wheel_command_docs() -> None:
     )
 
 
-def test_current_build_wheel_command_docs_use_v0_1_5() -> None:
-    current_wheel = "multimodal_knowledge_engine-0.1.5-py3-none-any.whl"
+def test_current_build_wheel_command_docs_use_v0_1_6() -> None:
+    current_wheel = "multimodal_knowledge_engine-0.1.6-py3-none-any.whl"
     stale_wheel = "multimodal_knowledge_engine-0.1.3-py3-none-any.whl"
     paths = (
         "docs/how-to/prepare-local-embeddings.md",
@@ -411,19 +413,29 @@ Search/Ask/MCP 读取 active Publication Evidence。
         "dist/multimodal_knowledge_engine-0.1.4-py3-none-any.whl --json`\n",
         encoding="utf-8",
     )
+    (root / "docs/releases/v0.1.5.md").write_bytes(
+        (ROOT / "docs/releases/v0.1.5.md").read_bytes()
+    )
     current_release = (
         (root / "docs/releases/v0.1.4.md")
         .read_text(encoding="utf-8")
-        .replace("v0.1.4", "v0.1.5")
-        .replace("0.1.4-py3", "0.1.5-py3")
+        .replace("v0.1.4", "v0.1.6")
+        .replace("0.1.4-py3", "0.1.6-py3")
+    )
+    current_release = current_release.replace(
+        "The GitHub Release has zero extra assets. There is no PyPI or package registry "
+        "publication.",
+        "Stage 4 publication verification requires a GitHub Release with zero assets. "
+        "PyPI publication is outside this release boundary.",
     )
     current_release += (
         "\nsearch_library_v2 complete more_available capped read_evidence_v1 "
         "evidence_text_sha256 active Publication ten tools deterministic "
         "Source-byte-bound revision 2 legacy v1 no runtime promotion "
-        "source archive or checkout zero assets no PyPI cache-warmed\n"
+        "source archive or checkout zero assets PyPI distribution is outside cache-warmed atomic "
+        "PdfIntakeReport failed extraction FAILED unchanged no schema no dependency\n"
     )
-    (root / "docs/releases/v0.1.5.md").write_text(current_release, encoding="utf-8")
+    (root / "docs/releases/v0.1.6.md").write_text(current_release, encoding="utf-8")
     for relative in (
         "pyproject.toml",
         "src/mke/__init__.py",
@@ -436,20 +448,25 @@ Search/Ask/MCP 读取 active Publication Evidence。
         path = root / relative
         text = path.read_text(encoding="utf-8")
         if relative in {"pyproject.toml", "src/mke/__init__.py"}:
-            text = text.replace("0.1.4", "0.1.5")
+            text = text.replace("0.1.4", "0.1.6")
         else:
-            text = text.replace("0.1.4-py3", "0.1.5-py3")
-            text += "\nCurrent release: v0.1.5.\n"
+            text = text.replace("0.1.4-py3", "0.1.6-py3")
+            text += "\nCurrent release: v0.1.6.\n"
             if relative == "CHANGELOG.md":
                 text = text.replace(
+                    "## [0.1.4]",
+                    "## [0.1.5] - 2026-07-29\n\nHistorical v0.1.5 facts.\n\n## [0.1.4]",
+                    1,
+                )
+                text = text.replace(
                     "# Changelog\n\n",
-                    "# Changelog\n\n## [0.1.5] - 2026-07-28\n\n"
-                    "Current release: v0.1.5.\n\n",
+                    "# Changelog\n\n## [0.1.6] - 2026-07-28\n\n"
+                    "Current release: v0.1.6.\n\n",
                     1,
                 )
             elif relative == "docs/how-to/verify-release.md":
                 text += (
-                    "\n## Completed v0.1.4 Release Record\n\n"
+                    "\n## Completed v0.1.5 Release Record\n\n"
                     "Immutable historical v0.1.4 facts.\n"
                 )
         path.write_text(text, encoding="utf-8")
@@ -463,9 +480,9 @@ def _append_current_surface_text(target: Path, addition: str) -> None:
     text = target.read_text(encoding="utf-8").rstrip()
     marker = None
     if target.name == "CHANGELOG.md":
-        marker = "## [0.1.4]"
+        marker = "## [0.1.5]"
     elif target.name == "verify-release.md":
-        marker = "## Completed v0.1.4 Release Record"
+        marker = "## Completed v0.1.5 Release Record"
     if marker is None:
         updated = f"{text}\n\n{addition}\n"
     else:
@@ -478,6 +495,66 @@ def test_audit_accepts_complete_release_presentation(tmp_path: Path) -> None:
     _write_release_tree(tmp_path)
 
     assert audit_release_presentation(tmp_path) == []
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("- Tag: `v0.1.5`", "- Tag: `v0.1.4`"),
+        (
+            "- Merge commit: `d258c10dc40bd9eccd67c858b56f4e4cf5fe4610`",
+            "- Merge commit: `0000000000000000000000000000000000000000`",
+        ),
+        (
+            "- Archive descriptor SHA-256: "
+            "`baccc11f339b1241a454458b80f4faecf0a72297f0fc84184d004942c564dac4`",
+            "- Archive descriptor SHA-256: `"
+            "0000000000000000000000000000000000000000000000000000000000000000`",
+        ),
+    ],
+)
+def test_audit_rejects_mutated_v015_historical_contract(
+    tmp_path: Path,
+    old: str,
+    new: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "docs/releases/v0.1.5.md"
+    text = target.read_text(encoding="utf-8")
+    assert old in text
+    target.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+    assert "v015_historical_contract" in _rules(tmp_path)
+
+
+def test_audit_rejects_removed_v015_historical_contract(tmp_path: Path) -> None:
+    _write_release_tree(tmp_path)
+    (tmp_path / "docs/releases/v0.1.5.md").unlink()
+
+    assert "v015_historical_contract" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["docs/releases/v0.1.6.md", "docs/how-to/verify-release.md"],
+)
+def test_audit_rejects_prepublication_persisted_state_claims(
+    tmp_path: Path,
+    path: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    _append_current_surface_text(
+        tmp_path / path,
+        "The GitHub Release has zero assets. PyPI is absent.",
+    )
+
+    violations = audit_release_presentation(tmp_path)
+
+    assert any(
+        violation.file == path
+        and violation.rule == "v016_prepublication_publication_claim"
+        for violation in violations
+    )
 
 
 @pytest.mark.parametrize(
@@ -513,18 +590,18 @@ def test_audit_accepts_complete_release_presentation(tmp_path: Path) -> None:
         "We verified that this release delivers faster Agent retrieval.",
     ],
 )
-def test_audit_rejects_v015_affirmative_or_wrapped_overclaims(
+def test_audit_rejects_v016_affirmative_or_wrapped_overclaims(
     tmp_path: Path,
     claim: str,
 ) -> None:
     _write_release_tree(tmp_path)
-    target = tmp_path / "docs/releases/v0.1.5.md"
+    target = tmp_path / "docs/releases/v0.1.6.md"
     target.write_text(
         f"{target.read_text(encoding='utf-8').rstrip()}\n\n{claim}\n",
         encoding="utf-8",
     )
 
-    assert "v015_release_overclaim" in _rules(tmp_path)
+    assert "v016_release_overclaim" in _rules(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -539,44 +616,44 @@ def test_audit_rejects_v015_affirmative_or_wrapped_overclaims(
         "remain excluded.",
     ],
 )
-def test_audit_preserves_v015_negated_non_claims(
+def test_audit_preserves_v016_negated_non_claims(
     tmp_path: Path,
     safe_boundary: str,
 ) -> None:
     _write_release_tree(tmp_path)
-    target = tmp_path / "docs/releases/v0.1.5.md"
+    target = tmp_path / "docs/releases/v0.1.6.md"
     target.write_text(
         f"{target.read_text(encoding='utf-8').rstrip()}\n\n{safe_boundary}\n",
         encoding="utf-8",
     )
 
-    assert "v015_release_overclaim" not in _rules(tmp_path)
+    assert "v016_release_overclaim" not in _rules(tmp_path)
 
 
 def test_audit_accepts_absent_publication_verification(tmp_path: Path) -> None:
     _write_release_tree(tmp_path)
 
-    assert "v015_publication_verification" not in _rules(tmp_path)
+    assert "v016_publication_verification" not in _rules(tmp_path)
 
 
 def test_audit_accepts_shape_valid_complete_publication_verification(
     tmp_path: Path,
 ) -> None:
     _write_release_tree(tmp_path)
-    target = tmp_path / "docs/releases/v0.1.5.md"
+    target = tmp_path / "docs/releases/v0.1.6.md"
     target.write_text(
         f"{target.read_text(encoding='utf-8').rstrip()}\n\n"
         f"{COMPLETE_PUBLICATION_VERIFICATION.strip()}\n",
         encoding="utf-8",
     )
 
-    assert "v015_publication_verification" not in _rules(tmp_path)
+    assert "v016_publication_verification" not in _rules(tmp_path)
 
 
 @pytest.mark.parametrize(
     ("old", "new"),
     [
-        ("- Tag: `v0.1.5`", "- Tag: `v0.1.4`"),
+        ("- Tag: `v0.1.6`", "- Tag: `v0.1.4`"),
         (
             "- Merge commit: `1234567890abcdef1234567890abcdef12345678`",
             "- Merge commit: `not-a-commit`",
@@ -591,7 +668,7 @@ def test_audit_accepts_shape_valid_complete_publication_verification(
         ),
         (
             "- GitHub Release URL: "
-            "https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.5",
+            "https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.6",
             "- GitHub Release URL: "
             "https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.4",
         ),
@@ -612,7 +689,7 @@ def test_audit_accepts_shape_valid_complete_publication_verification(
             "`4567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF123`",
         ),
         (
-            "- Archive wheel: `multimodal_knowledge_engine-0.1.5-py3-none-any.whl`",
+            "- Archive wheel: `multimodal_knowledge_engine-0.1.6-py3-none-any.whl`",
             "- Archive wheel: `multimodal_knowledge_engine-0.1.4-py3-none-any.whl`",
         ),
         (
@@ -639,14 +716,14 @@ def test_audit_rejects_malformed_or_empty_publication_facts(
     new: str,
 ) -> None:
     _write_release_tree(tmp_path)
-    target = tmp_path / "docs/releases/v0.1.5.md"
+    target = tmp_path / "docs/releases/v0.1.6.md"
     malformed = COMPLETE_PUBLICATION_VERIFICATION.replace(old, new, 1)
     target.write_text(
         f"{target.read_text(encoding='utf-8').rstrip()}\n\n{malformed.strip()}\n",
         encoding="utf-8",
     )
 
-    assert "v015_publication_verification" in _rules(tmp_path)
+    assert "v016_publication_verification" in _rules(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -674,7 +751,7 @@ def test_audit_rejects_duplicate_publication_labels(
     label: str,
 ) -> None:
     _write_release_tree(tmp_path)
-    target = tmp_path / "docs/releases/v0.1.5.md"
+    target = tmp_path / "docs/releases/v0.1.6.md"
     duplicate = next(
         line
         for line in COMPLETE_PUBLICATION_VERIFICATION.splitlines()
@@ -686,7 +763,7 @@ def test_audit_rejects_duplicate_publication_labels(
         encoding="utf-8",
     )
 
-    assert "v015_publication_verification" in _rules(tmp_path)
+    assert "v016_publication_verification" in _rules(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -714,7 +791,7 @@ def test_audit_rejects_missing_publication_labels(
     label: str,
 ) -> None:
     _write_release_tree(tmp_path)
-    target = tmp_path / "docs/releases/v0.1.5.md"
+    target = tmp_path / "docs/releases/v0.1.6.md"
     incomplete = "\n".join(
         line
         for line in COMPLETE_PUBLICATION_VERIFICATION.splitlines()
@@ -725,7 +802,7 @@ def test_audit_rejects_missing_publication_labels(
         encoding="utf-8",
     )
 
-    assert "v015_publication_verification" in _rules(tmp_path)
+    assert "v016_publication_verification" in _rules(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -737,7 +814,7 @@ def test_audit_rejects_placeholder_or_unbounded_publication_values(
     invalid_value: str,
 ) -> None:
     _write_release_tree(tmp_path)
-    target = tmp_path / "docs/releases/v0.1.5.md"
+    target = tmp_path / "docs/releases/v0.1.6.md"
     malformed = COMPLETE_PUBLICATION_VERIFICATION.replace(
         "all required checks passed on the merge commit",
         invalid_value,
@@ -747,7 +824,7 @@ def test_audit_rejects_placeholder_or_unbounded_publication_values(
         encoding="utf-8",
     )
 
-    assert "v015_publication_verification" in _rules(tmp_path)
+    assert "v016_publication_verification" in _rules(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -777,7 +854,7 @@ def test_audit_rejects_semantically_empty_markdown_publication_values(
     label: str,
 ) -> None:
     _write_release_tree(tmp_path)
-    target = tmp_path / "docs/releases/v0.1.5.md"
+    target = tmp_path / "docs/releases/v0.1.6.md"
     malformed = COMPLETE_PUBLICATION_VERIFICATION.replace(
         old,
         f"- {label}:   ``  ",
@@ -788,7 +865,7 @@ def test_audit_rejects_semantically_empty_markdown_publication_values(
         encoding="utf-8",
     )
 
-    assert "v015_publication_verification" in _rules(tmp_path)
+    assert "v016_publication_verification" in _rules(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -804,7 +881,7 @@ def test_audit_rejects_impossible_utc_publication_timestamp(
     timestamp: str,
 ) -> None:
     _write_release_tree(tmp_path)
-    target = tmp_path / "docs/releases/v0.1.5.md"
+    target = tmp_path / "docs/releases/v0.1.6.md"
     malformed = COMPLETE_PUBLICATION_VERIFICATION.replace(
         "`2026-07-28T12:34:56Z`",
         f"`{timestamp}`",
@@ -815,7 +892,7 @@ def test_audit_rejects_impossible_utc_publication_timestamp(
         encoding="utf-8",
     )
 
-    assert "v015_publication_verification" in _rules(tmp_path)
+    assert "v016_publication_verification" in _rules(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -839,21 +916,21 @@ def test_audit_rejects_all_zero_publication_identities(
     zero_identity: str,
 ) -> None:
     _write_release_tree(tmp_path)
-    target = tmp_path / "docs/releases/v0.1.5.md"
+    target = tmp_path / "docs/releases/v0.1.6.md"
     malformed = COMPLETE_PUBLICATION_VERIFICATION.replace(old, zero_identity, 1)
     target.write_text(
         f"{target.read_text(encoding='utf-8').rstrip()}\n\n{malformed.strip()}\n",
         encoding="utf-8",
     )
 
-    assert "v015_publication_verification" in _rules(tmp_path)
+    assert "v016_publication_verification" in _rules(tmp_path)
 
 
 def test_audit_rejects_retained_malformed_publication_diagnostic(
     tmp_path: Path,
 ) -> None:
     _write_release_tree(tmp_path)
-    target = tmp_path / "docs/releases/v0.1.5.md"
+    target = tmp_path / "docs/releases/v0.1.6.md"
     malformed = (
         COMPLETE_PUBLICATION_VERIFICATION.replace(
             "`1234567890abcdef1234567890abcdef12345678`",
@@ -873,7 +950,7 @@ def test_audit_rejects_retained_malformed_publication_diagnostic(
         encoding="utf-8",
     )
 
-    assert "v015_publication_verification" in _rules(tmp_path)
+    assert "v016_publication_verification" in _rules(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -883,7 +960,7 @@ def test_audit_rejects_retained_malformed_publication_diagnostic(
         "README_CN.md",
         "docs/README.md",
         "CHANGELOG.md",
-        "docs/releases/v0.1.5.md",
+        "docs/releases/v0.1.6.md",
         "docs/how-to/verify-release.md",
     ],
 )
@@ -900,7 +977,7 @@ def test_audit_rejects_current_overclaim_on_every_release_facing_surface(
 
     violations = audit_release_presentation(tmp_path)
     assert any(
-        violation.rule == "v015_release_overclaim" and violation.file == path
+        violation.rule == "v016_release_overclaim" and violation.file == path
         for violation in violations
     )
 
@@ -912,7 +989,7 @@ def test_audit_rejects_current_overclaim_on_every_release_facing_surface(
         "README_CN.md",
         "docs/README.md",
         "CHANGELOG.md",
-        "docs/releases/v0.1.5.md",
+        "docs/releases/v0.1.6.md",
         "docs/how-to/verify-release.md",
     ],
 )
@@ -928,7 +1005,7 @@ def test_audit_accepts_matched_negated_control_on_every_current_surface(
     )
 
     assert not any(
-        violation.rule == "v015_release_overclaim" and violation.file == path
+        violation.rule == "v016_release_overclaim" and violation.file == path
         for violation in audit_release_presentation(tmp_path)
     )
 
@@ -952,7 +1029,7 @@ def test_audit_does_not_treat_historical_v014_record_as_current_overclaim(
     target.write_text(text, encoding="utf-8")
 
     assert not any(
-        violation.rule == "v015_release_overclaim" and violation.file == path
+        violation.rule == "v016_release_overclaim" and violation.file == path
         for violation in audit_release_presentation(tmp_path)
     )
 
@@ -1139,8 +1216,8 @@ def test_audit_rejects_release_docs_presenting_comparison_candidates_as_runtime(
     tmp_path: Path,
 ) -> None:
     _write_release_tree(tmp_path)
-    (tmp_path / "docs/releases/v0.1.5.md").write_text(
-        "# v0.1.5\n\nProof, demo, CLI, MCP, and retrieval evaluation docs are linked.\n"
+    (tmp_path / "docs/releases/v0.1.6.md").write_text(
+        "# v0.1.6\n\nProof, demo, CLI, MCP, and retrieval evaluation docs are linked.\n"
         "Dense/RRF/reranker runtime is part of this release.\n",
         encoding="utf-8",
     )
@@ -1150,8 +1227,8 @@ def test_audit_rejects_release_docs_presenting_comparison_candidates_as_runtime(
 
 def test_audit_requires_comparison_only_language_for_e3_candidates(tmp_path: Path) -> None:
     _write_release_tree(tmp_path)
-    (tmp_path / "docs/releases/v0.1.5.md").write_text(
-        "# v0.1.5\n\nE3-C dense, E3-D RRF, and E3-E reranker are documented.\n",
+    (tmp_path / "docs/releases/v0.1.6.md").write_text(
+        "# v0.1.6\n\nE3-C dense, E3-D RRF, and E3-E reranker are documented.\n",
         encoding="utf-8",
     )
 
@@ -1195,7 +1272,7 @@ def test_audit_rejects_separate_branch_stage2_wording(tmp_path: Path) -> None:
     [
         "README.md",
         "README_CN.md",
-        "docs/releases/v0.1.5.md",
+        "docs/releases/v0.1.6.md",
         "docs/how-to/verify-release.md",
     ],
 )
@@ -1234,7 +1311,7 @@ def test_audit_rejects_old_exact_consumer_smoke_wheel(tmp_path: Path) -> None:
     target = tmp_path / "docs/how-to/verify-release.md"
     target.write_text(
         target.read_text(encoding="utf-8").replace(
-            "dist/multimodal_knowledge_engine-0.1.5-py3-none-any.whl",
+            "dist/multimodal_knowledge_engine-0.1.6-py3-none-any.whl",
             "dist/multimodal_knowledge_engine-0.1.2-py3-none-any.whl",
         ),
         encoding="utf-8",
@@ -1474,20 +1551,20 @@ def test_audit_limits_current_wheel_rule_to_command_docs(tmp_path: Path) -> None
     ("path", "stale_text"),
     [
         (
-            "docs/releases/v0.1.5.md",
+            "docs/releases/v0.1.6.md",
             "GitHub Release metadata records the final tag and target commit when Stage 3 "
             "creates the release from the verified commit.",
         ),
         (
-            "docs/releases/v0.1.5.md",
+            "docs/releases/v0.1.6.md",
             "This document describes release scope and verification before publication.",
         ),
         (
-            "docs/releases/v0.1.5.md",
+            "docs/releases/v0.1.6.md",
             "This document does not predeclare a future tag target.",
         ),
         (
-            "docs/releases/v0.1.5.md",
+            "docs/releases/v0.1.6.md",
             "Tag and GitHub Release publication remain a separate authorized Stage 3 action.",
         ),
         (
@@ -1522,7 +1599,7 @@ def test_audit_allows_verify_release_generic_stage3_instructions(tmp_path: Path)
         "with explicit authorization. Then verify the public archive from a clean temporary "
         "directory.\n"
         "`uv run python scripts/release_consumer_smoke.py --wheel "
-        "dist/multimodal_knowledge_engine-0.1.5-py3-none-any.whl --json`\n",
+        "dist/multimodal_knowledge_engine-0.1.6-py3-none-any.whl --json`\n",
         encoding="utf-8",
     )
 
@@ -1544,8 +1621,8 @@ def test_audit_rejects_unresolved_release_placeholders(
     placeholder: str,
 ) -> None:
     _write_release_tree(tmp_path)
-    (tmp_path / "docs/releases/v0.1.5.md").write_text(
-        "# v0.1.5\n\n"
+    (tmp_path / "docs/releases/v0.1.6.md").write_text(
+        "# v0.1.6\n\n"
         "Proof, demo, CLI, MCP, and retrieval evaluation docs are linked.\n"
         "E3-C dense, E3-D RRF, and E3-E reranker remain comparison-only evidence.\n"
         f"{placeholder}\n",
@@ -2023,8 +2100,8 @@ def test_audit_rejects_private_paths_gstack_artifacts_credentials_and_tracebacks
     tmp_path: Path,
 ) -> None:
     _write_release_tree(tmp_path)
-    (tmp_path / "docs/releases/v0.1.5.md").write_text(
-        "# v0.1.5\n\n/Users/mac/.gstack/rollout token=secret\nTraceback (most recent call last):\n",
+    (tmp_path / "docs/releases/v0.1.6.md").write_text(
+        "# v0.1.6\n\n/Users/mac/.gstack/rollout token=secret\nTraceback (most recent call last):\n",
         encoding="utf-8",
     )
 
