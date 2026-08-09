@@ -4,6 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
+CI_WORKFLOW = Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml"
+
 
 def test_proof_config_accepts_only_supported_python_and_wheel(
     tmp_path: Path,
@@ -78,6 +80,24 @@ def test_proof_install_uses_offline_constraints_and_isolated_python(
         str(tmp_path / "constraints.txt"),
         str(tmp_path / "mke.whl"),
     )
+
+
+def test_ci_installed_wheel_proof_binds_install_to_locked_constraints() -> None:
+    workflow = CI_WORKFLOW.read_text(encoding="utf-8")
+    start = workflow.index('      - run: |\n          constraints="')
+    end = workflow.index("      - name: Measure Chinese retrieval delivery", start)
+    installed_wheel = workflow[start:end]
+
+    constraints = '$RUNNER_TEMP/mke-wheel-constraints-${{ matrix.python-version }}.txt'
+    assert "uv export --locked --no-dev --no-emit-project" in installed_wheel
+    assert f'constraints="{constraints}"' in installed_wheel
+    assert '--output-file "$constraints"' in installed_wheel
+    assert "uv venv /tmp/mke-wheel-env" in installed_wheel
+    assert "--no-python-downloads" in installed_wheel
+    assert "uv pip install --offline" in installed_wheel
+    assert '--constraint "$constraints"' in installed_wheel
+    assert installed_wheel.index("uv export") < installed_wheel.index("uv pip install")
+    assert 'cd "$RUNNER_TEMP"' in installed_wheel
 
 
 def test_proof_rejects_source_tree_import(tmp_path: Path) -> None:

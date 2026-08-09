@@ -362,8 +362,13 @@ jobs:
             > /tmp/mke-direct-audio-proof.json
           python -c 'import json; p=json.load(open("/tmp/mke-direct-audio-proof.json")); assert p["status"] == "passed"; assert p["network_access"] == "not_used"; assert p["proof_mode"] == "model_free"; assert p["asr_execution"] == "not_performed"'
       - run: |
-          uv venv /tmp/mke-wheel-env --python "${{ matrix.python-version }}"
-          uv pip install --python /tmp/mke-wheel-env/bin/python dist/*.whl
+          constraints="$RUNNER_TEMP/mke-wheel-constraints-${{ matrix.python-version }}.txt"
+          uv export --locked --no-dev --no-emit-project \
+            --output-file "$constraints"
+          uv venv /tmp/mke-wheel-env --python "${{ matrix.python-version }}" \
+            --no-python-downloads
+          uv pip install --offline --python /tmp/mke-wheel-env/bin/python \
+            --constraint "$constraints" dist/*.whl
           /tmp/mke-wheel-env/bin/mke
           /tmp/mke-wheel-env/bin/mke demo --verify
           (
