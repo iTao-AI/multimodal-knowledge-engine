@@ -82,7 +82,7 @@ def test_proof_install_uses_offline_constraints_and_isolated_python(
     )
 
 
-def test_ci_installed_wheel_proof_binds_install_to_locked_constraints() -> None:
+def test_ci_installed_wheel_proof_hydrates_before_offline_wheel_install() -> None:
     workflow = CI_WORKFLOW.read_text(encoding="utf-8")
     start = workflow.index('      - run: |\n          constraints="')
     end = workflow.index("      - name: Measure Chinese retrieval delivery", start)
@@ -94,9 +94,14 @@ def test_ci_installed_wheel_proof_binds_install_to_locked_constraints() -> None:
     assert '--output-file "$constraints"' in installed_wheel
     assert "uv venv /tmp/mke-wheel-env" in installed_wheel
     assert "--no-python-downloads" in installed_wheel
-    assert "uv pip install --offline" in installed_wheel
-    assert '--constraint "$constraints"' in installed_wheel
+    assert "uv pip sync" in installed_wheel
+    assert '--require-hashes "$constraints"' in installed_wheel
+    assert "uv pip install --offline --no-deps" in installed_wheel
+    assert "uv pip check --python /tmp/mke-wheel-env/bin/python" in installed_wheel
     assert installed_wheel.index("uv export") < installed_wheel.index("uv pip install")
+    assert installed_wheel.index("uv export") < installed_wheel.index("uv pip sync")
+    assert installed_wheel.index("uv pip sync") < installed_wheel.index("uv pip install")
+    assert installed_wheel.index("uv pip install") < installed_wheel.index("uv pip check")
     assert 'cd "$RUNNER_TEMP"' in installed_wheel
 
 

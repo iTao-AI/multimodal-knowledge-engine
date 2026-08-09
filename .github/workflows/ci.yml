@@ -367,8 +367,11 @@ jobs:
             --output-file "$constraints"
           uv venv /tmp/mke-wheel-env --python "${{ matrix.python-version }}" \
             --no-python-downloads
-          uv pip install --offline --python /tmp/mke-wheel-env/bin/python \
-            --constraint "$constraints" dist/*.whl
+          uv pip sync --python /tmp/mke-wheel-env/bin/python \
+            --require-hashes "$constraints"
+          uv pip install --offline --no-deps \
+            --python /tmp/mke-wheel-env/bin/python dist/*.whl
+          uv pip check --python /tmp/mke-wheel-env/bin/python
           /tmp/mke-wheel-env/bin/mke
           /tmp/mke-wheel-env/bin/mke demo --verify
           (
