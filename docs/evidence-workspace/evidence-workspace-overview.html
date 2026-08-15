@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Raw material becomes consumable only after a Run validates Evidence into an active Publication.">
+  <link rel="icon" href="data:,">
+  <title>The Evidence workspace · MKE Evidence workspace</title>
+  <link rel="stylesheet" href="showcase.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="frame-page">
+    <header class="topbar app-width">
+      <a class="brand" href="index.html" aria-label="MKE showcase home">
+        <span class="brand-mark">MKE</span>
+        <span><span class="brand-kicker">Multimodal Knowledge Engine</span><strong>Evidence workspace</strong></span>
+      </a>
+      <div class="topbar-meta"><span class="demo-badge">SYNTHETIC / DEMO</span><span class="topbar-version">showcase v1</span></div>
+    </header>
+    <main id="main" class="app-width frame-main">
+      <div class="frame-heading">
+        <div><span class="eyebrow">Overview / active Publication</span><h1>The Evidence workspace</h1><p>Raw material becomes consumable only after a Run validates Evidence into an active Publication.</p></div>
+        <a class="back-link" href="index.html">All frames <span aria-hidden="true">↗</span></a>
+      </div>
+
+<section class="lifecycle-rail" aria-label="Source to consumer Evidence lifecycle">
+
+<div class="lifecycle-step lifecycle-step-active">
+  <span class="step-number">01</span>
+  <div><span class="step-label">Source</span><code>immutable input</code></div>
+</div>
+
+  <span class="rail-arrow" aria-hidden="true">→</span>
+
+<div class="lifecycle-step lifecycle-step-active">
+  <span class="step-number">02</span>
+  <div><span class="step-label">Run</span><code>run_state=published</code></div>
+</div>
+
+  <span class="rail-arrow" aria-hidden="true">→</span>
+
+<div class="lifecycle-step lifecycle-step-active">
+  <span class="step-number">03</span>
+  <div><span class="step-label">Publication</span><code>active Publication</code></div>
+</div>
+
+  <span class="rail-arrow" aria-hidden="true">→</span>
+
+<div class="lifecycle-step lifecycle-step-active">
+  <span class="step-number">04</span>
+  <div><span class="step-label">Evidence</span><code>page | timestamp_ms</code></div>
+</div>
+
+  <span class="rail-arrow" aria-hidden="true">→</span>
+
+<div class="lifecycle-step lifecycle-step-active">
+  <span class="step-number">05</span>
+  <div><span class="step-label">Consumer</span><code>CLI · stdio MCP · Export</code></div>
+</div>
+
+</section>
+
+
+<section class="source-strip">
+  <div class="source-strip-main">
+    <span class="eyebrow">Source / Publication</span>
+    <strong>local Library · three Sources</strong>
+    <span class="muted">operations-guide.pdf · incident-guide.pdf · short-audio.mp4</span>
+  </div>
+  <div class="publication-pill">
+    <span class="status-dot" aria-hidden="true"></span>
+    <div><span class="eyebrow">Active Publication</span><strong>state=active · revision=1</strong></div>
+    <span class="muted">3 active Publications · 4 active Evidence</span>
+  </div>
+</section>
+
+      <div class="content-grid">
+        <div class="main-column">
+<section class="surface-card evidence-surface" aria-labelledby="evidence-surface-heading">
+  <div class="surface-heading">
+    <div><span class="eyebrow">Evidence work surface</span><h2 id="evidence-surface-heading">Search / Ask Evidence</h2></div>
+    <span class="surface-state">active Publication only</span>
+  </div>
+  <div class="query-bar" aria-label="Search query">
+    <span class="query-icon" aria-hidden="true">⌕</span><span class="muted">query</span>
+    <code>Cedar Relay · active Publication</code><span class="query-status">Evidence-backed</span>
+  </div>
+  <div class="result-count"><span>Results from the active set</span><strong>2</strong></div>
+  <div class="evidence-list">
+<article class="evidence-card evidence-card-emphasis">
+  <div class="card-topline">
+    <span class="eyebrow">Evidence</span>
+    <span class="locator-kind">locator.kind=page</span>
+  </div>
+  <div class="evidence-heading">
+    <div>
+      <h3>Page 1</h3>
+      <p class="source-name">operations-guide.pdf</p>
+    </div>
+    <span class="verified-mark" aria-label="active Publication Evidence">✓</span>
+  </div>
+  <p class="evidence-quote">Cedar Relay maintenance window begins Tuesday at 14:00 UTC. Operators complete checklist KITE-17 before restart.</p>
+  <div class="field-grid">
+    <div class="field"><span class="field-label">evidence_id</span><code>ev_00000000000000000000000000000001</code></div>
+    <div class="field"><span class="field-label">source_id</span><code>src_00000000000000000000000000000001</code></div>
+    <div class="field"><span class="field-label">publication_id</span><code>pub_00000000000000000000000000000001</code></div>
+    <div class="field"><span class="field-label">run_id</span><code>run_00000000000000000000000000000001</code></div>
+    <div class="field"><span class="field-label">publication_revision</span><code>1</code></div>
+    <div class="field field-wide"><span class="field-label">content_fingerprint</span><code>sha256:0ac3e96efc89ee91e48bb3efc8611de88b2698e5aa26c1f8e0e8f78ad2d60ddd</code></div>
+  </div>
+</article>
+
+<article class="evidence-card">
+  <div class="card-topline">
+    <span class="eyebrow">Evidence</span>
+    <span class="locator-kind">locator.kind=page</span>
+  </div>
+  <div class="evidence-heading">
+    <div>
+      <h3>Page 1</h3>
+      <p class="source-name">incident-guide.pdf</p>
+    </div>
+    <span class="verified-mark" aria-label="active Publication Evidence">✓</span>
+  </div>
+  <p class="evidence-quote">When Cedar Relay telemetry turns amber, pause intake and review the Evidence log before restarting the relay.</p>
+  <div class="field-grid">
+    <div class="field"><span class="field-label">evidence_id</span><code>ev_00000000000000000000000000000002</code></div>
+    <div class="field"><span class="field-label">source_id</span><code>src_00000000000000000000000000000002</code></div>
+    <div class="field"><span class="field-label">publication_id</span><code>pub_00000000000000000000000000000002</code></div>
+    <div class="field"><span class="field-label">run_id</span><code>run_00000000000000000000000000000002</code></div>
+    <div class="field"><span class="field-label">publication_revision</span><code>1</code></div>
+    <div class="field field-wide"><span class="field-label">content_fingerprint</span><code>sha256:ed55cfbe9bdbf4404eb9ff55ab7e51fac14006ae0584a14d50704f68a02ff699</code></div>
+  </div>
+</article>
+</div>
+</section>
+</div>
+        <aside class="sidebar" aria-label="Provenance and consumer state">
+
+<section class="side-card completeness-card">
+  <div class="side-card-heading"><span class="eyebrow">Completeness</span><span class="mini-icon">✓</span></div>
+  <div class="refusal-metric"><strong>complete</strong><span>selection.status</span></div>
+  <code>schema_version=mke.active_publication_observation.v1</code>
+  <code>returned=4 · active_evidence_count=4</code>
+  <div class="completion-bar"><span></span></div>
+  <p class="side-note">The consumer can see which active Evidence set the result came from.</p>
+</section>
+
+
+<section class="side-card provenance-card">
+  <div class="side-card-heading"><span class="eyebrow">Provenance</span><span class="mini-icon">⌁</span></div>
+  <p class="side-note">Source bytes, Run, active Publication, and locator stay connected.</p>
+
+  <div class="field field-wide"><span class="field-label">schema_version</span><code>mke.evidence_ref.v1</code></div>
+  <div class="field field-wide"><span class="field-label">content_fingerprint</span><code>sha256:0ac3e96efc89ee91e48bb3efc8611de88b2698e5aa26c1f8e0e8f78ad2d60ddd</code></div>
+  <div class="field"><span class="field-label">publication_revision</span><code>1</code></div>
+  <div class="field"><span class="field-label">locator</span><code>page:1-1</code></div>
+
+</section>
+
+
+<section class="side-card consumer-card">
+  <div class="side-card-heading"><span class="eyebrow">Consumers</span><span class="mini-icon">→</span></div>
+  <p class="side-note">One active Publication, three bounded read paths.</p>
+  <div class="consumer-list"><a id="cli" class="consumer-entry" href="#cli"><span class="consumer-name">CLI</span><code>Search / Ask</code><span class="entry-arrow" aria-hidden="true">↗</span></a><a id="mcp" class="consumer-entry" href="#mcp"><span class="consumer-name">stdio MCP</span><code>search_library_v1 · ask_library_v1</code><span class="entry-arrow" aria-hidden="true">↗</span></a><a id="export" class="consumer-entry" href="#export"><span class="consumer-name">Compiled Library Export</span><code>mke.evidence_ref.v1 JSONL</code><span class="entry-arrow" aria-hidden="true">↗</span></a></div>
+</section>
+
+        </aside>
+      </div>
+    </main>
+    <footer class="footer app-width"><span>Synthetic/demo documentation projection only; identifiers are illustrative and are not runtime records or production data.</span><span>1600×1000 · en-US</span></footer>
+  </div>
+</body>
+</html>

@@ -2,15 +2,80 @@
 
 [English](./README.md) | [中文](./README_CN.md)
 
+MKE 只有在 `Run` 把输入验证为 `active Publication` 后，才把本地原始资料变成可引用的
+`Evidence`；未完成的处理不会进入 `Search` 或 `Ask`。
+
+## Evidence workspace / 证据工作台
+
+Multimodal Knowledge Engine 是一个本地优先、可由 Agent 调用的 `Evidence` 引擎，用来导入、检索和
+询问文档与媒体。它把来源处理、`Publication` 激活、检索和面向 Agent 的接口收在同一个可验证的
+本地应用边界内。
+
+### 五层关系
+
+| 层 | 当前产品切片中的含义 |
+|---|---|
+| `Source` | 不可变的输入身份，包括源字节的 `content_fingerprint`。 |
+| `Run` | 可观察的处理尝试，可以成功、失败或保持不可消费。 |
+| `active Publication` | `Search` 和 `Ask` 唯一可以读取的已验证 `Evidence` 集合。 |
+| `Evidence` | 带引用的 page 或 `timestamp_ms` 结果，并连接回 `Source`、`Publication` revision 和 `Run`。 |
+| Consumer | `CLI`、`stdio MCP` 或 `Compiled Library Export`，读取同一套契约。 |
+
+### 正常与恢复帧
+
+这些页面仅用于展示仓库维护的 synthetic/demo proof/export 状态；其中的标识符是示意值，契约字段和
+生命周期边界来自当前实现。
+
+![Evidence workspace overview](./docs/evidence-workspace/evidence-workspace-overview.png)
+
+![Evidence publication search](./docs/evidence-workspace/evidence-publication-search.png)
+
+![Evidence insufficient recovery](./docs/evidence-workspace/evidence-insufficient-recovery.png)
+
+### 三条工程判断
+
+1. 原始资料不是答案：`Run` 必须先验证候选输出，`Publication` 才能被消费。
+2. `Provenance` 是结果的一部分：`mke.evidence_ref.v1` 携带 `Source`、content fingerprint、
+   `active Publication` revision、`Run` 和 page 或 `timestamp_ms` locator。
+3. 不完整工作必须安全收口：失败或部分处理保持 `active_publication_impact=unchanged`，无匹配
+   `Ask` 返回 `insufficient_evidence`。
+
+## 快速验证
+
+```bash
+uv sync --locked
+uv run mke proof run
+uv run mke demo --verify
+```
+
+重新生成并验证不依赖 provider 的文档投影：
+
+```bash
+UV_OFFLINE=1 uv run python scripts/generate_evidence_workspace.py --render
+UV_OFFLINE=1 uv run python scripts/generate_evidence_workspace.py --verify
+```
+
+## MCP、Export、provenance 与 release 验证
+
+- [Local Knowledge Proof](./docs/how-to/run-local-knowledge-proof.md) 在仓库 fixture PDFs 上验证
+  stdio MCP ingest、active Publication Search、带引用 Ask 和 `insufficient_evidence`。
+- [Evidence Provenance Proof](./docs/how-to/run-evidence-provenance-proof.md) 验证
+  `mke.evidence_ref.v1` 的 Source/Publication/Run/locator graph。
+- [Compiled Library Export](./docs/how-to/export-compiled-library.md) 将 active Publications
+  写为 portable Markdown 和 authoritative Evidence JSONL。
+- [Release verification](./docs/how-to/verify-release.md) 与当前 release notes 保留更完整的
+  release 和 consumer 验证门槛。
+
+## Detailed contracts and history / 详细契约与历史
+
+下面保留详细 release record、proof 命令、contracts、边界和 implementation history；它们是
+evidence reference，不是额外 runtime surface。
+
 `v0.1.6` 保持 completeness-aware local stdio MCP Agent path 为当前入口，并使成功 PDF
 intake-report publication 原子化：
 `search_library_v2` 报告有界 selection completeness，`read_evidence_v1` 重建 exact active
 Evidence 并校验最终 digest。Equal-score order 是确定性的；这不构成 relevance improvement
 或 runtime promotion 声明。参见 [v0.1.6](./docs/releases/v0.1.6.md)。
-
-Multimodal Knowledge Engine 是一个本地优先、可被 Agent 调用的 Evidence 引擎，用于导入、检索和问答文档与媒体资料。它把
-source processing、Publication activation、retrieval 和 Agent-facing interfaces 收在同一个可验证的本地
-application boundary 内。
 
 `v0.1.4` 增加有界 direct-audio intake：本地 MP3、WAV/PCM 和 M4A/AAC clips 可进入同一 Evidence
 生命周期。它保留 Compiled Library Export、strict Evidence provenance 和 external same-wheel
@@ -131,13 +196,7 @@ production OCR、public OCR runtime 或 provider promotion。OCR 仍排除。
 | Comparison-only evidence | dense exact-cosine、RRF fusion、relevance gate / reranker artifacts 已记录。 | 它们不改变 normal Search、Ask、MCP 或 runtime default。 |
 | 不包含 | query rewrite、HyDE、HTTP/UI 和 API adapters。 | Production OCR remains excluded；它们不是 `v0.1.4` runtime behavior 或 release claims。 |
 
-## 快速验证
-
-```bash
-uv sync --locked
-uv run mke proof run
-uv run mke demo --verify
-```
+### 完整 release verification
 
 完整 release verification 命令集：
 

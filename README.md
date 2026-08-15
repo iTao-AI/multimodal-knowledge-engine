@@ -2,15 +2,81 @@
 
 [English](./README.md) | [中文](./README_CN.md)
 
+MKE turns local source material into cited Evidence only after a Run validates it into an active
+Publication; incomplete processing stays out of Search and Ask.
+
+## Evidence workspace
+
+Multimodal Knowledge Engine is a local-first, Agent-callable Evidence engine for ingesting,
+searching, and asking questions over documents and media. It keeps source processing, Publication
+activation, retrieval, and Agent-facing interfaces inside one verifiable local application boundary.
+
+### Five-layer relation
+
+| Layer | What it means in the current product slice |
+|---|---|
+| Source | Immutable input identity, including a source-byte `content_fingerprint`. |
+| Run | Observable processing attempt that can succeed, fail, or remain non-consumable. |
+| active Publication | The only validated Evidence set that Search and Ask may read. |
+| Evidence | A cited page or `timestamp_ms` result tied back to Source, Publication revision, and Run. |
+| Consumer | CLI, stdio MCP, or Compiled Library Export reading the same contract. |
+
+### Normal and recovery frames
+
+These pages are a synthetic/demo projection of repository proof/export state; identifiers are
+illustrative, while contract fields and lifecycle boundaries come from the current implementation.
+
+![Evidence workspace overview](./docs/evidence-workspace/evidence-workspace-overview.png)
+
+![Evidence publication search](./docs/evidence-workspace/evidence-publication-search.png)
+
+![Evidence insufficient recovery](./docs/evidence-workspace/evidence-insufficient-recovery.png)
+
+### Three engineering judgments
+
+1. Raw material is not an answer: a Run must validate candidate output before a Publication can be consumed.
+2. Provenance is part of the result: `mke.evidence_ref.v1` carries Source, content fingerprint,
+   active Publication revision, Run, and a page or `timestamp_ms` locator.
+3. Incomplete work fails closed: failed or partial processing leaves
+   `active_publication_impact=unchanged`, and no-match Ask returns `insufficient_evidence`.
+
+## Quick Verify
+
+```bash
+uv sync --locked
+uv run mke proof run
+uv run mke demo --verify
+```
+
+Regenerate and verify the provider-free documentation projection:
+
+```bash
+UV_OFFLINE=1 uv run python scripts/generate_evidence_workspace.py --render
+UV_OFFLINE=1 uv run python scripts/generate_evidence_workspace.py --verify
+```
+
+## MCP, Export, provenance, and release proof
+
+- [Local Knowledge Proof](./docs/how-to/run-local-knowledge-proof.md) exercises stdio MCP ingest,
+  active Publication Search, cited Ask, and `insufficient_evidence` over repository fixture PDFs.
+- [Evidence Provenance Proof](./docs/how-to/run-evidence-provenance-proof.md) verifies the
+  `mke.evidence_ref.v1` Source/Publication/Run/locator graph.
+- [Compiled Library Export](./docs/how-to/export-compiled-library.md) writes active Publications
+  as portable Markdown plus authoritative Evidence JSONL.
+- [Release verification](./docs/how-to/verify-release.md) and the current release notes preserve
+  the broader release and consumer gates.
+
+## Detailed contracts and history
+
+The sections below retain the detailed release record, proof commands, contracts, boundaries,
+and implementation history. They are navigation and evidence references, not additional runtime
+surfaces.
+
 `v0.1.6` keeps the completeness-aware local stdio MCP Agent path current and makes successful PDF
 intake-report publication atomic:
 `search_library_v2` reports bounded selection completeness and `read_evidence_v1` reconstructs
 exact active Evidence with a final digest. Equal-score ordering is deterministic; this is not a
 relevance-improvement or runtime-promotion claim. See [v0.1.6](./docs/releases/v0.1.6.md).
-
-Multimodal Knowledge Engine is a local-first, Agent-callable Evidence engine for ingesting,
-searching, and asking questions over documents and media. It keeps source processing, Publication
-activation, retrieval, and Agent-facing interfaces inside one verifiable local application boundary.
 
 The [Run The Consumer Source-Pack Proof](./docs/how-to/run-consumer-source-pack-proof.md) guide
 documents a source-built regression and consumer proof for the current source checkout. It was a
@@ -136,13 +202,7 @@ or a provider promotion. OCR remains excluded from production behavior.
 | Comparison-only evidence | dense exact-cosine, RRF fusion, and relevance gate / reranker artifacts are recorded. | This does not change normal Search, Ask, MCP, or the runtime default. |
 | Not included | query rewrite, HyDE, production OCR, HTTP/UI, and API adapters are not included. | They are not `v0.1.4` runtime behavior or release claims. |
 
-## Quick Verify
-
-```bash
-uv sync --locked
-uv run mke proof run
-uv run mke demo --verify
-```
+### Full release verification
 
 For the full release verification set:
 

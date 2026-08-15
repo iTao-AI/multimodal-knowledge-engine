@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A failed or partial Run does not switch the active Publication, and insufficient Evidence stays an explicit closed result.">
+  <link rel="icon" href="data:,">
+  <title>Incomplete work stops safely · MKE Evidence workspace</title>
+  <link rel="stylesheet" href="showcase.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="frame-page">
+    <header class="topbar app-width">
+      <a class="brand" href="index.html" aria-label="MKE showcase home">
+        <span class="brand-mark">MKE</span>
+        <span><span class="brand-kicker">Multimodal Knowledge Engine</span><strong>Evidence workspace</strong></span>
+      </a>
+      <div class="topbar-meta"><span class="demo-badge">SYNTHETIC / DEMO</span><span class="topbar-version">showcase v1</span></div>
+    </header>
+    <main id="main" class="app-width frame-main">
+      <div class="frame-heading">
+        <div><span class="eyebrow">Recovery / failed Run</span><h1>Incomplete work stops safely</h1><p>A failed or partial Run does not switch the active Publication, and insufficient Evidence stays an explicit closed result.</p></div>
+        <a class="back-link" href="index.html">All frames <span aria-hidden="true">↗</span></a>
+      </div>
+
+<section class="lifecycle-rail" aria-label="Source to consumer Evidence lifecycle">
+
+<div class="lifecycle-step">
+  <span class="step-number">01</span>
+  <div><span class="step-label">Source</span><code>immutable input</code></div>
+</div>
+
+  <span class="rail-arrow" aria-hidden="true">→</span>
+
+<div class="lifecycle-step">
+  <span class="step-number">02</span>
+  <div><span class="step-label">Run</span><code>run_state=failed</code></div>
+</div>
+
+  <span class="rail-arrow" aria-hidden="true">→</span>
+
+<div class="lifecycle-step">
+  <span class="step-number">03</span>
+  <div><span class="step-label">Publication</span><code>active Publication unchanged</code></div>
+</div>
+
+  <span class="rail-arrow" aria-hidden="true">→</span>
+
+<div class="lifecycle-step">
+  <span class="step-number">04</span>
+  <div><span class="step-label">Evidence</span><code>page | timestamp_ms</code></div>
+</div>
+
+  <span class="rail-arrow" aria-hidden="true">→</span>
+
+<div class="lifecycle-step">
+  <span class="step-number">05</span>
+  <div><span class="step-label">Consumer</span><code>CLI · stdio MCP · Export</code></div>
+</div>
+
+</section>
+
+
+<section class="source-strip">
+  <div class="source-strip-main">
+    <span class="eyebrow">Source / Publication</span>
+    <strong>previous active Publication · revision 1</strong>
+    <span class="muted">candidate Run failed before activation</span>
+  </div>
+  <div class="publication-pill">
+    <span class="status-dot" aria-hidden="true"></span>
+    <div><span class="eyebrow">Prior active Publication</span><strong>active_publication_impact=unchanged</strong></div>
+    <span class="muted">candidate Run did not switch it</span>
+  </div>
+</section>
+
+      <div class="content-grid">
+        <div class="main-column">
+<section class="surface-card failure-surface" aria-labelledby="failure-surface-heading">
+  <div class="surface-heading">
+    <div><span class="eyebrow">Recovery boundary</span><h2 id="failure-surface-heading">Nothing incomplete becomes searchable</h2></div>
+    <span class="surface-state surface-state-danger">fail closed</span>
+  </div>
+  <div class="failure-grid">
+    <article class="failure-card">
+      <div class="card-topline"><span class="eyebrow">Run</span><span class="run-state">run_state=failed</span></div>
+      <h3>Publication activation stopped</h3>
+      <p class="failure-lede">The input failure is visible as a stable operator contract; the previous active Publication remains authoritative.</p>
+      <div class="error-contract">
+        <div><span>problem</span><code>pdf_ingest_failed</code></div>
+        <div><span>cause</span><code>PDF cannot be opened</code></div>
+        <div><span>active_publication_impact</span><code>unchanged</code></div>
+        <div><span>next_step</span><code>fix_input_or_retry</code></div>
+      </div>
+    </article>
+    <article class="refusal-card">
+      <div class="card-topline"><span class="eyebrow">Ask Evidence</span><span class="run-state run-state-muted">evidence=[]</span></div>
+      <h3>Insufficient Evidence stays explicit</h3>
+      <p class="failure-lede">No active Evidence matches the question, so the contract returns a refusal instead of an invented answer.</p>
+      <div class="ask-result">
+        <strong>answer_status=insufficient_evidence</strong>
+        <span>summary=No active Evidence matched the search terms.</span>
+      </div>
+    </article>
+  </div>
+  <div class="recovery-strip">
+    <span class="status-dot status-dot-danger" aria-hidden="true"></span>
+    <strong>Active Publication is unchanged.</strong>
+    <span class="muted">The failed Run and the no-match Ask are two independent closed results under the same safety boundary.</span>
+    <span class="muted">Retry creates a new immutable Run; only a validated successful Run can switch the active set.</span>
+  </div>
+</section>
+</div>
+        <aside class="sidebar" aria-label="Provenance and consumer state">
+
+<section class="side-card completeness-card">
+  <div class="side-card-heading"><span class="eyebrow">Completeness / refusal</span><span class="mini-icon">!</span></div>
+  <div class="refusal-metric"><strong>0</strong><span>candidate Evidence exposed</span></div>
+  <code>schema_version=mke.active_publication_observation.v1</code>
+  <code>answer_status=insufficient_evidence</code>
+  <p class="side-note">The empty Evidence list is a valid closed result, not a guessed answer.</p>
+</section>
+
+
+<section class="side-card provenance-card">
+  <div class="side-card-heading"><span class="eyebrow">Provenance</span><span class="mini-icon">⌁</span></div>
+  <p class="side-note">Source bytes, Run, active Publication, and locator stay connected.</p>
+
+  <div class="provenance-empty">
+    <span class="empty-line"></span><span class="empty-line short"></span>
+    <strong>No candidate Evidence enters the active set.</strong>
+  </div>
+  <code>active_publication_impact=unchanged</code>
+
+</section>
+
+
+<section class="side-card consumer-card">
+  <div class="side-card-heading"><span class="eyebrow">Consumers</span><span class="mini-icon">→</span></div>
+  <p class="side-note">One active Publication, three bounded read paths.</p>
+  <div class="consumer-list"><a id="cli" class="consumer-entry" href="#cli"><span class="consumer-name">CLI</span><code>error contract · unchanged</code><span class="entry-arrow" aria-hidden="true">↗</span></a><a id="mcp" class="consumer-entry" href="#mcp"><span class="consumer-name">stdio MCP</span><code>same failure fields</code><span class="entry-arrow" aria-hidden="true">↗</span></a><a id="export" class="consumer-entry" href="#export"><span class="consumer-name">Compiled Library Export</span><code>no Publication switch</code><span class="entry-arrow" aria-hidden="true">↗</span></a></div>
+</section>
+
+        </aside>
+      </div>
+    </main>
+    <footer class="footer app-width"><span>Synthetic/demo documentation projection only; identifiers are illustrative and are not runtime records or production data.</span><span>1600×1000 · en-US</span></footer>
+  </div>
+</body>
+</html>
