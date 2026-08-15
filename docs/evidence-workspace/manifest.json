@@ -1,0 +1,44 @@
+{
+  "assets": {
+    "evidence-insufficient-recovery.png": {
+      "bytes": 215770,
+      "height": 1000,
+      "sha256": "8b8f6e9a506ebd0ea1574a93a52329a74aa9daf9987794c215e5fc14a6a0ad64",
+      "width": 1600
+    },
+    "evidence-publication-search.png": {
+      "bytes": 305279,
+      "height": 1000,
+      "sha256": "4f0ff9c8850dea7676d769b173520d6dfd1ebf1938bb3ec9ac9601f291de272a",
+      "width": 1600
+    },
+    "evidence-workspace-overview.png": {
+      "bytes": 304515,
+      "height": 1000,
+      "sha256": "69d5fc83e626af3381fa600236fc308dda04f76877cebdbecc683d9e2ca11147",
+      "width": 1600
+    }
+  },
+  "fixture_state": {
+    "compiled_export": "mke.compiled_library_export.v2",
+    "local_knowledge": "local-knowledge-v1",
+    "product_proof": "mke proof run",
+    "video_fixture": "short-audio.mp4.mke-transcript.json"
+  },
+  "locale": "en-US",
+  "schema_version": "mke.evidence_showcase_manifest.v1",
+  "source_commit": "7880757bfdbc80fb684292ff552fddddfd858f1d",
+  "source_tree_sha256": "4415866bf0d8279a3dddb4efeb82443575a2f5d71292aee3c22062d8d9bb7886",
+  "static_files": [
+    "index.html",
+    "showcase.css",
+    "evidence-workspace-overview.html",
+    "evidence-publication-search.html",
+    "evidence-insufficient-recovery.html"
+  ],
+  "synthetic_demo_disclosure": "Synthetic/demo documentation projection only; identifiers are illustrative and are not runtime records or production data.",
+  "viewport": {
+    "height": 1000,
+    "width": 1600
+  }
+}
