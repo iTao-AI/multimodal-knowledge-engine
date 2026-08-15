@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -34,6 +35,29 @@ def test_showcase_projection_is_closed_and_contract_bound() -> None:
     }
     assert manifest["synthetic_demo_disclosure"]
     assert set(manifest["assets"]) == PNG_NAMES
+    assert {
+        name: {"route": entry["route"], "state": entry["state"]}
+        for name, entry in manifest["assets"].items()
+    } == {
+        "evidence-workspace-overview.png": {
+            "route": "evidence-workspace-overview.html",
+            "state": "overview",
+        },
+        "evidence-publication-search.png": {
+            "route": "evidence-publication-search.html",
+            "state": "publication_search",
+        },
+        "evidence-insufficient-recovery.png": {
+            "route": "evidence-insufficient-recovery.html",
+            "state": "failed_or_insufficient_recovery",
+        },
+    }
+    for entry in manifest["assets"].values():
+        assert entry["source_commit"] == manifest["source_commit"]
+        assert entry["viewport"] == {"width": 1600, "height": 1000}
+        assert entry["locale"] == "en-US"
+        assert entry["synthetic_demo_disclosure"] == manifest["synthetic_demo_disclosure"]
+        assert (SHOWCASE / entry["route"]).is_file()
 
     all_markup = "\n".join(
         path.read_text(encoding="utf-8")
@@ -55,6 +79,100 @@ def test_showcase_projection_is_closed_and_contract_bound() -> None:
         "insufficient_evidence",
     ):
         assert marker in all_markup
+
+
+def test_search_frame_has_one_visible_result_and_matching_provenance() -> None:
+    markup = (SHOWCASE / "evidence-publication-search.html").read_text(encoding="utf-8")
+    surface = markup.split('<section class="surface-card evidence-surface"', 1)[1].split(
+        "</section>", 1
+    )[0]
+    cards = surface.count('<article class="evidence-card')
+    provenance = markup.split('<section class="side-card provenance-card"', 1)[1].split(
+        "</section>", 1
+    )[0]
+
+    assert cards == 1
+    assert '<strong>1</strong>' in surface
+    assert "short-audio.mp4" in surface
+    assert "Timestamp 1,200–2,200 ms" in surface
+    assert "returned=1 · active_evidence_count=4" in markup
+    assert "sha256:4e3c9feffa503e193165ddf27c40c0e0edf9f256c2e8e1e2d863bd7ba3e1fe49" in provenance
+    assert "timestamp_ms:1200-2200" in provenance
+    assert "page:1-1" not in provenance
+    assert "0ac3e96efc89ee91e48bb3efc8611de88b2698e5aa26c1f8e0e8f78ad2d60ddd" not in provenance
+
+
+def test_readmes_embed_canonical_frames_once_in_approved_order() -> None:
+    expected_order = (
+        "./docs/evidence-workspace/evidence-workspace-overview.png",
+        "./docs/evidence-workspace/evidence-publication-search.png",
+        "./docs/evidence-workspace/evidence-insufficient-recovery.png",
+    )
+    for name, detail_heading, judgment_heading, quick_heading in (
+        (
+            "README.md",
+            "## Detailed contracts and history",
+            "### Three engineering judgments",
+            "## Quick Verify",
+        ),
+        (
+            "README_CN.md",
+            "## Detailed contracts and history / 详细契约与历史",
+            "### 三条工程判断",
+            "## 快速验证",
+        ),
+    ):
+        text = (ROOT / name).read_text(encoding="utf-8")
+        first_layer = text[: text.index(detail_heading)]
+        positions: list[int] = []
+        for path in expected_order:
+            matches = re.findall(rf"!\[[^\]]+\]\({re.escape(path)}\)", first_layer)
+            assert len(matches) == 1, (name, path)
+            positions.append(first_layer.index(matches[0]))
+        assert positions == sorted(positions), name
+        assert max(positions) < first_layer.index(judgment_heading), name
+        assert max(positions) < first_layer.index(quick_heading), name
+        assert first_layer.lower().count("synthetic") == 1, name
+
+
+def test_readme_cn_first_layer_is_naturalized_without_changing_contract_terms() -> None:
+    text = (ROOT / "README_CN.md").read_text(encoding="utf-8")
+    first_layer = text[: text.index("## Detailed contracts and history / 详细契约与历史")]
+    for phrase in (
+        "本地原始资料",
+        "来源处理",
+        "当前产品切片",
+        "示意值",
+        "生命周期边界",
+        "原始资料不是答案",
+        "候选输出",
+        "安全收口",
+    ):
+        assert phrase in first_layer
+    for phrase in (
+        "source material",
+        "source processing",
+        "product slice",
+        "illustrative",
+        "contract fields",
+        "lifecycle boundaries",
+        "Raw material",
+        "candidate output",
+        "fail closed",
+    ):
+        assert phrase not in first_layer
+    for literal in (
+        "`Source`",
+        "`Run`",
+        "`active Publication`",
+        "`Evidence`",
+        "`Search`",
+        "`Ask`",
+        "`stdio MCP`",
+        "`mke.evidence_ref.v1`",
+        "`active_publication_impact=unchanged`",
+    ):
+        assert literal in first_layer
 
 
 def test_readmes_put_showcase_lifecycle_before_detail() -> None:

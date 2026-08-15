@@ -2,43 +2,43 @@
 
 [English](./README.md) | [中文](./README_CN.md)
 
-MKE 只有在 Run 把输入验证为 active Publication 后，才把本地 source material 变成可引用的
-Evidence；不完整处理不会进入 Search 或 Ask。
+MKE 只有在 `Run` 把输入验证为 `active Publication` 后，才把本地原始资料变成可引用的
+`Evidence`；未完成的处理不会进入 `Search` 或 `Ask`。
 
 ## Evidence workspace / 证据工作台
 
-Multimodal Knowledge Engine 是一个本地优先、可被 Agent 调用的 Evidence 引擎，用于导入、检索和
-询问文档与媒体资料。它把 source processing、Publication activation、retrieval 和 Agent-facing
-interfaces 收在同一个可验证的本地 application boundary 内。
+Multimodal Knowledge Engine 是一个本地优先、可由 Agent 调用的 `Evidence` 引擎，用来导入、检索和
+询问文档与媒体。它把来源处理、`Publication` 激活、检索和面向 Agent 的接口收在同一个可验证的
+本地应用边界内。
 
 ### 五层关系
 
-| 层 | 当前 product slice 中的含义 |
+| 层 | 当前产品切片中的含义 |
 |---|---|
-| Source | 不可变的输入身份，包括 source-byte `content_fingerprint`。 |
-| Run | 可观察的处理尝试，可以成功、失败或保持不可消费。 |
-| active Publication | Search 和 Ask 唯一可以读取的已验证 Evidence 集合。 |
-| Evidence | 带引用的 page 或 `timestamp_ms` 结果，并连接回 Source、Publication revision 和 Run。 |
-| Consumer | CLI、stdio MCP 或 Compiled Library Export，读取同一套 contract。 |
+| `Source` | 不可变的输入身份，包括源字节的 `content_fingerprint`。 |
+| `Run` | 可观察的处理尝试，可以成功、失败或保持不可消费。 |
+| `active Publication` | `Search` 和 `Ask` 唯一可以读取的已验证 `Evidence` 集合。 |
+| `Evidence` | 带引用的 page 或 `timestamp_ms` 结果，并连接回 `Source`、`Publication` revision 和 `Run`。 |
+| Consumer | `CLI`、`stdio MCP` 或 `Compiled Library Export`，读取同一套契约。 |
 
 ### 正常与恢复帧
 
-静态 [Evidence workspace 页面](./docs/evidence-workspace/index.html) 复用仓库中的 synthetic proof/export
-state。标识符是 illustrative；contract fields 和 lifecycle boundaries 来自当前实现。
+这些页面仅用于展示仓库维护的 synthetic/demo proof/export 状态；其中的标识符是示意值，契约字段和
+生命周期边界来自当前实现。
 
-| 状态 | Frame |
-|---|---|
-| 正常 overview | [evidence-workspace-overview.png](./docs/evidence-workspace/evidence-workspace-overview.png) |
-| Search / Ask Evidence | [evidence-publication-search.png](./docs/evidence-workspace/evidence-publication-search.png) |
-| Failed 或 insufficient recovery | [evidence-insufficient-recovery.png](./docs/evidence-workspace/evidence-insufficient-recovery.png) |
+![Evidence workspace overview](./docs/evidence-workspace/evidence-workspace-overview.png)
+
+![Evidence publication search](./docs/evidence-workspace/evidence-publication-search.png)
+
+![Evidence insufficient recovery](./docs/evidence-workspace/evidence-insufficient-recovery.png)
 
 ### 三条工程判断
 
-1. Raw material 不是 answer：Run 必须先验证 candidate output，Publication 才能被消费。
-2. Provenance 是结果的一部分：`mke.evidence_ref.v1` 携带 Source、content fingerprint、active
-   Publication revision、Run 和 page 或 `timestamp_ms` locator。
-3. 不完整工作 fail closed：失败或部分处理保持 `active_publication_impact=unchanged`，无匹配
-   Ask 返回 `insufficient_evidence`。
+1. 原始资料不是答案：`Run` 必须先验证候选输出，`Publication` 才能被消费。
+2. `Provenance` 是结果的一部分：`mke.evidence_ref.v1` 携带 `Source`、content fingerprint、
+   `active Publication` revision、`Run` 和 page 或 `timestamp_ms` locator。
+3. 不完整工作必须安全收口：失败或部分处理保持 `active_publication_impact=unchanged`，无匹配
+   `Ask` 返回 `insufficient_evidence`。
 
 ## 快速验证
 
@@ -48,23 +48,23 @@ uv run mke proof run
 uv run mke demo --verify
 ```
 
-重新生成并验证 provider-free 文档 projection：
+重新生成并验证不依赖 provider 的文档投影：
 
 ```bash
 UV_OFFLINE=1 uv run python scripts/generate_evidence_workspace.py --render
 UV_OFFLINE=1 uv run python scripts/generate_evidence_workspace.py --verify
 ```
 
-## MCP、Export、provenance 与 release proof
+## MCP、Export、provenance 与 release 验证
 
-- [Local Knowledge Proof](./docs/how-to/run-local-knowledge-proof.md) 在 synthetic PDFs 上验证
+- [Local Knowledge Proof](./docs/how-to/run-local-knowledge-proof.md) 在仓库 fixture PDFs 上验证
   stdio MCP ingest、active Publication Search、带引用 Ask 和 `insufficient_evidence`。
 - [Evidence Provenance Proof](./docs/how-to/run-evidence-provenance-proof.md) 验证
   `mke.evidence_ref.v1` 的 Source/Publication/Run/locator graph。
 - [Compiled Library Export](./docs/how-to/export-compiled-library.md) 将 active Publications
   写为 portable Markdown 和 authoritative Evidence JSONL。
 - [Release verification](./docs/how-to/verify-release.md) 与当前 release notes 保留更完整的
-  release 和 consumer gates。
+  release 和 consumer 验证门槛。
 
 ## Detailed contracts and history / 详细契约与历史
 

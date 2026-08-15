@@ -23,15 +23,14 @@ activation, retrieval, and Agent-facing interfaces inside one verifiable local a
 
 ### Normal and recovery frames
 
-The static [Evidence workspace pages](./docs/evidence-workspace/index.html) reuse the repository's
-synthetic proof/export state. The identifiers are illustrative; the contract fields and lifecycle
-boundaries are current.
+These pages are a synthetic/demo projection of repository proof/export state; identifiers are
+illustrative, while contract fields and lifecycle boundaries come from the current implementation.
 
-| State | Frame |
-|---|---|
-| Normal overview | [evidence-workspace-overview.png](./docs/evidence-workspace/evidence-workspace-overview.png) |
-| Search / Ask Evidence | [evidence-publication-search.png](./docs/evidence-workspace/evidence-publication-search.png) |
-| Failed or insufficient recovery | [evidence-insufficient-recovery.png](./docs/evidence-workspace/evidence-insufficient-recovery.png) |
+![Evidence workspace overview](./docs/evidence-workspace/evidence-workspace-overview.png)
+
+![Evidence publication search](./docs/evidence-workspace/evidence-publication-search.png)
+
+![Evidence insufficient recovery](./docs/evidence-workspace/evidence-insufficient-recovery.png)
 
 ### Three engineering judgments
 
@@ -59,7 +58,7 @@ UV_OFFLINE=1 uv run python scripts/generate_evidence_workspace.py --verify
 ## MCP, Export, provenance, and release proof
 
 - [Local Knowledge Proof](./docs/how-to/run-local-knowledge-proof.md) exercises stdio MCP ingest,
-  active Publication Search, cited Ask, and `insufficient_evidence` over synthetic PDFs.
+  active Publication Search, cited Ask, and `insufficient_evidence` over repository fixture PDFs.
 - [Evidence Provenance Proof](./docs/how-to/run-evidence-provenance-proof.md) verifies the
   `mke.evidence_ref.v1` Source/Publication/Run/locator graph.
 - [Compiled Library Export](./docs/how-to/export-compiled-library.md) writes active Publications

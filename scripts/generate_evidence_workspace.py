@@ -32,6 +32,11 @@ FRAME_NAMES = (
 )
 FRAME_FILES = tuple(f"{name}.html" for name in FRAME_NAMES)
 PNG_NAMES = tuple(f"{name}.png" for name in FRAME_NAMES)
+ASSET_SPECS = (
+    (PNG_NAMES[0], FRAME_FILES[0], "overview"),
+    (PNG_NAMES[1], FRAME_FILES[1], "publication_search"),
+    (PNG_NAMES[2], FRAME_FILES[2], "failed_or_insufficient_recovery"),
+)
 STATIC_FILES = (INDEX_NAME, STYLE_NAME, *FRAME_FILES)
 VIEWPORT = {"width": 1600, "height": 1000}
 LOCALE = "en-US"
@@ -343,12 +348,13 @@ def _observation_card(kind: str) -> str:
   <p class="side-note">The empty Evidence list is a valid closed result, not a guessed answer.</p>
 </section>
 """
-    return """
+    returned = 1 if kind == "search" else 4
+    return f"""
 <section class="side-card completeness-card">
   <div class="side-card-heading"><span class="eyebrow">Completeness</span><span class="mini-icon">✓</span></div>
   <div class="refusal-metric"><strong>complete</strong><span>selection.status</span></div>
   <code>schema_version=mke.active_publication_observation.v1</code>
-  <code>returned=4 · active_evidence_count=4</code>
+  <code>returned={returned} · active_evidence_count=4</code>
   <div class="completion-bar"><span></span></div>
   <p class="side-note">The consumer can see which active Evidence set the result came from.</p>
 </section>
@@ -415,7 +421,7 @@ def _normal_surface(kind: str, items: tuple[EvidenceItem, ...]) -> str:
         query = "Cedar Relay · active Publication"
         summary = "Search / Ask Evidence"
     else:
-        cards = _evidence_card(items[3], emphasis=True) + _evidence_card(items[0])
+        cards = _evidence_card(items[3], emphasis=True)
         query = "timestamp proof"
         summary = "Search / Ask Evidence · one complete result"
     return f"""
@@ -466,6 +472,7 @@ def _failure_surface() -> str:
   <div class="recovery-strip">
     <span class="status-dot status-dot-danger" aria-hidden="true"></span>
     <strong>Active Publication is unchanged.</strong>
+    <span class="muted">The failed Run and the no-match Ask are two independent closed results under the same safety boundary.</span>
     <span class="muted">Retry creates a new immutable Run; only a validated successful Run can switch the active set.</span>
   </div>
 </section>
@@ -478,6 +485,7 @@ def _frame_html(root: Path, frame: FrameSpec) -> str:
         surface = _failure_surface()
     else:
         surface = _normal_surface(frame.kind, items)
+    provenance_items = (items[3],) if frame.kind == "search" else items
     return f"""<!doctype html>
 <html lang="{LOCALE}">
 <head>
@@ -509,7 +517,7 @@ def _frame_html(root: Path, frame: FrameSpec) -> str:
         <div class="main-column">{surface}</div>
         <aside class="sidebar" aria-label="Provenance and consumer state">
           {_observation_card(frame.kind)}
-          {_provenance_card(items, kind=frame.kind)}
+          {_provenance_card(provenance_items, kind=frame.kind)}
           {_consumer_card(frame.kind)}
         </aside>
       </div>
@@ -1045,7 +1053,7 @@ def _manifest(root: Path, source_commit: str) -> dict[str, object]:
         raise ValueError("source_commit must be a 40-character lowercase commit")
     showcase = root / SHOWCASE_RELATIVE
     assets: dict[str, object] = {}
-    for name in PNG_NAMES:
+    for name, route, state in ASSET_SPECS:
         path = showcase / name
         width, height = _png_size(path)
         if (width, height) != (VIEWPORT["width"], VIEWPORT["height"]):
@@ -1053,7 +1061,13 @@ def _manifest(root: Path, source_commit: str) -> dict[str, object]:
         assets[name] = {
             "bytes": path.stat().st_size,
             "height": height,
+            "locale": LOCALE,
+            "route": route,
             "sha256": _sha256(path),
+            "source_commit": source_commit,
+            "state": state,
+            "synthetic_demo_disclosure": SYNTHETIC_DISCLOSURE,
+            "viewport": VIEWPORT,
             "width": width,
         }
     return {
@@ -1197,17 +1211,26 @@ def verify_showcase(root: Path) -> dict[str, object]:
     assets = cast(dict[str, object], assets_value)
     if set(assets) != set(PNG_NAMES):
         raise AssertionError("showcase asset inventory is invalid")
-    for name in PNG_NAMES:
+    for name, route, state in ASSET_SPECS:
         entry_value = assets.get(name)
         path = showcase / name
         if not isinstance(entry_value, dict):
             raise AssertionError(f"showcase asset entry is invalid: {name}")
         entry = cast(dict[str, object], entry_value)
+        route_path = showcase / route
+        if not route_path.is_file():
+            raise AssertionError(f"showcase asset route is missing: {name}")
         width, height = _png_size(path)
         expected = {
             "bytes": path.stat().st_size,
             "height": height,
+            "locale": LOCALE,
+            "route": route,
             "sha256": _sha256(path),
+            "source_commit": source_commit,
+            "state": state,
+            "synthetic_demo_disclosure": SYNTHETIC_DISCLOSURE,
+            "viewport": VIEWPORT,
             "width": width,
         }
         if entry != expected or (width, height) != (VIEWPORT["width"], VIEWPORT["height"]):

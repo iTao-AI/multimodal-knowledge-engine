@@ -44,3 +44,12 @@ runtime behavior, dependency, schema, or domain contract.
   and the environment-independent full suite as warranted by the changed generator/README surface.
 - `git diff --check`, exact-path diff review, private-marker scan, clean worktree, and one semantic
   atomic local commit.
+
+## Bounded repair
+
+- Align the publication-search frame to one visible timestamp Evidence result, with
+  `selection.returned=1`, `active_evidence_count=4`, and matching provenance.
+- Embed the three canonical PNGs in both README first layers, add per-asset route/state and
+  uniform asset metadata to the manifest, and naturalize only the Chinese first layer.
+- Keep the repair docs-only and provider-free; do not change runtime, domain, schema, dependency,
+  protected worktrees, or remote state.
