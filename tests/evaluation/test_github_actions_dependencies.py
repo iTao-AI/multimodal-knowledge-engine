@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
-SETUP_UV = "astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9"
+SETUP_UV = "astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d"
 SETUP_PYTHON = "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97"
 
 WORKFLOW_ACTIONS = {
@@ -51,7 +51,7 @@ def test_workflow_uses_exact_current_action_inventory(
 
 
 @pytest.mark.parametrize("workflow", WORKFLOW_ACTIONS)
-def test_setup_uv_v9_preserves_bounded_cache_pruning(workflow: Path) -> None:
+def test_setup_uv_v10_preserves_bounded_cache_pruning(workflow: Path) -> None:
     lines = workflow.read_text(encoding="utf-8").splitlines()
     setup_indexes = [index for index, line in enumerate(lines) if SETUP_UV in line]
     assert setup_indexes
