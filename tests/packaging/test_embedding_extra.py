@@ -23,7 +23,7 @@ def test_embedding_extra_has_exact_direct_dependency_boundary() -> None:
     optional = _optional_dependencies()
 
     assert optional["embedding"] == [
-        "sentence-transformers==5.6.0",
+        "sentence-transformers==5.7.0",
         "sqlite-vec==0.1.9",
         "huggingface-hub>=1.21.0,<2",
     ]
