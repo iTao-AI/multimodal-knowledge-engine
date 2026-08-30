@@ -33,6 +33,11 @@ auditing implementation history.
   records the comparison-only result that rejected the candidate under the frozen development
   protocol; holdout and runtime promotion remain `not_evaluated`.
 
+The [v0.1.6 Release Notes](./releases/v0.1.6.md) and [Verify The Release](./how-to/verify-release.md)
+describe the immutable stable tag. The Evidence workspace and MCP consumer failure-branch/recovery proof
+are documented on the current default branch, not part of stable `v0.1.6`. The current checkout proof
+guides describe the current tree; they do not change stable release claims.
+
 `v0.1.4` adds bounded direct-audio MP3, WAV/PCM, and M4A/AAC intake with timestamp Evidence and
 Compiled Library Export v2. It retains `mke.compiled_library_export.v1`, readable
 `mke.compiled_markdown.v1`, authoritative `mke.evidence_ref.v1` JSONL, the external same-wheel

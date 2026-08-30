@@ -8,6 +8,7 @@ AGENTS = ROOT / "AGENTS.md"
 CONTRIBUTING = ROOT / "CONTRIBUTING.md"
 CONTRIBUTING_GUIDE = ROOT / "docs/how-to/contribute.md"
 DOCS_INDEX = ROOT / "docs/README.md"
+CHANGELOG = ROOT / "CHANGELOG.md"
 PR_TEMPLATE = ROOT / ".github/pull_request_template.md"
 SUPERPOWERS_README = ROOT / "docs/superpowers/README.md"
 RELEASE_DESIGN = ROOT / "docs/superpowers/specs/2026-07-17-v0-1-3-release-closeout-design.md"
@@ -164,6 +165,46 @@ def test_docs_index_links_governance_and_completed_authorities() -> None:
     assert "post-merge operational gate pending" not in text
     assert "source-built regression and consumer proof for the current source checkout" in text
     assert "historical `v0.1.4` release-candidate verification gate" in normalized
+
+
+def test_unreleased_inventory_matches_post_v016_current_branch_without_future_claim() -> None:
+    text = _text(CHANGELOG)
+    unreleased = text.split("## [Unreleased]", maxsplit=1)[1].split(
+        "## [0.1.6]", maxsplit=1
+    )[0]
+
+    for literal in (
+        "already merged on the current default branch",
+        "after stable `v0.1.6`",
+        "does not announce a future Release",
+        "Evidence workspace",
+        "MCP consumer failure-branch/recovery proof",
+        "supported dependency lines",
+        "cryptography",
+        "installed-wheel consumer proof",
+        "locked dependency",
+        "Move the `setup-uv` pin from v9.0.0 to v10.0.0",
+        "update it from v10.0.0 to v10.0.1",
+        "No package publication",
+        "hosted deployment",
+        "model/provider change",
+        "retrieval-quality claim",
+    ):
+        assert literal in unreleased, literal
+
+
+def test_docs_index_separates_current_checkout_proof_from_stable_release_verification() -> None:
+    text = _text(DOCS_INDEX)
+    for literal in (
+        "current default branch",
+        "Evidence workspace",
+        "MCP consumer failure-branch/recovery proof",
+        "not part of stable `v0.1.6`",
+        "current checkout proof",
+        "immutable stable tag",
+        "do not change stable release claims",
+    ):
+        assert literal in text, literal
 
 
 def test_docs_index_links_all_current_documentation_areas() -> None:

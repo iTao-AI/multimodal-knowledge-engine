@@ -11,6 +11,10 @@ Multimodal Knowledge Engine is a local-first, Agent-callable Evidence engine for
 searching, and asking questions over documents and media. It keeps source processing, Publication
 activation, retrieval, and Agent-facing interfaces inside one verifiable local application boundary.
 
+### Current default branch status
+
+The current default branch (`main`) includes this Evidence workspace and the MCP consumer failure-branch/recovery proof. They are not included in stable `v0.1.6`; they are current-checkout documentation and proof, not a package publication, hosted deployment, model/provider change, or retrieval-quality claim.
+
 ### Five-layer relation
 
 | Layer | What it means in the current product slice |

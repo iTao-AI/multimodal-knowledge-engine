@@ -11,6 +11,10 @@ Multimodal Knowledge Engine 是一个本地优先、可由 Agent 调用的 `Evid
 询问文档与媒体。它把来源处理、`Publication` 激活、检索和面向 Agent 的接口收在同一个可验证的
 本地应用边界内。
 
+### 当前默认分支状态
+
+当前默认分支（`main`）包含这个 Evidence workspace，以及 MCP consumer failure-branch/recovery proof。它们不包含在稳定版 `v0.1.6` 中；它们是当前 checkout 的文档与 proof，不是 package publication、托管部署、model/provider 变化或 retrieval-quality 声明。
+
 ### 五层关系
 
 | 层 | 当前产品切片中的含义 |

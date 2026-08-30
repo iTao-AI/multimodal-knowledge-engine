@@ -141,6 +141,38 @@ def test_readmes_surface_mcp_consumer_branch_decisions() -> None:
             assert "非穷尽" in first_layer
 
 
+def test_readmes_disclose_current_default_branch_release_boundary() -> None:
+    requirements = {
+        "README.md": (
+            "The current default branch (`main`) includes this Evidence workspace",
+            "MCP consumer failure-branch/recovery proof",
+            "not included in stable `v0.1.6`",
+            "not a package publication",
+            "hosted deployment",
+            "model/provider change",
+            "retrieval-quality claim",
+        ),
+        "README_CN.md": (
+            "当前默认分支（`main`）包含这个 Evidence workspace",
+            "MCP consumer failure-branch/recovery proof",
+            "稳定版 `v0.1.6`",
+            "package publication",
+            "托管部署",
+            "model/provider",
+            "retrieval-quality",
+        ),
+    }
+    for name, literals in requirements.items():
+        text = (ROOT / name).read_text(encoding="utf-8")
+        first_layer = text[: text.index(
+            "## Detailed contracts and history"
+            if name == "README.md"
+            else "## Detailed contracts and history / 详细契约与历史"
+        )]
+        for literal in literals:
+            assert literal in first_layer, (name, literal)
+
+
 def test_readmes_embed_canonical_frames_once_in_approved_order() -> None:
     expected_order = (
         "./docs/evidence-workspace/evidence-workspace-overview.png",
