@@ -32,13 +32,19 @@ Multimodal Knowledge Engine 是一个本地优先、可由 Agent 调用的 `Evid
 
 ![Evidence insufficient recovery](./docs/evidence-workspace/evidence-insufficient-recovery.png)
 
-### 三条工程判断
+### 四条工程判断
 
 1. 原始资料不是答案：`Run` 必须先验证候选输出，`Publication` 才能被消费。
 2. `Provenance` 是结果的一部分：`mke.evidence_ref.v1` 携带 `Source`、content fingerprint、
    `active Publication` revision、`Run` 和 page 或 `timestamp_ms` locator。
 3. 不完整工作必须安全收口：失败或部分处理保持 `active_publication_impact=unchanged`，无匹配
    `Ask` 返回 `insufficient_evidence`。
+4. Agent consumer 的结果不能压成同一种失败：active 且穷尽的空结果以
+   `selection.status=complete` 和 `matches=[]` 表示正常无匹配，应停止当前 Search 分支；
+   `selection.status=capped` 表示已终止但并非穷尽，不能声称覆盖整个语料；过期 Evidence 返回
+   `problem=evidence_not_found`，下一步是 `next_step=search_current_active_evidence`，应重新搜索
+   当前 active Evidence，而不是重试旧身份。这些是现有契约边界上的 consumer 决策，不是
+   aggregate-v1 字段。参见 [MCP 上下文完整性证明](./docs/how-to/run-mcp-context-completeness-proof.md)。
 
 ## 快速验证
 

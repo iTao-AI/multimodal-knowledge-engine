@@ -32,13 +32,19 @@ illustrative, while contract fields and lifecycle boundaries come from the curre
 
 ![Evidence insufficient recovery](./docs/evidence-workspace/evidence-insufficient-recovery.png)
 
-### Three engineering judgments
+### Four engineering judgments
 
 1. Raw material is not an answer: a Run must validate candidate output before a Publication can be consumed.
 2. Provenance is part of the result: `mke.evidence_ref.v1` carries Source, content fingerprint,
    active Publication revision, Run, and a page or `timestamp_ms` locator.
 3. Incomplete work fails closed: failed or partial processing leaves
    `active_publication_impact=unchanged`, and no-match Ask returns `insufficient_evidence`.
+4. Agent consumer outcomes stay distinct: an active exhaustive empty result with
+   `selection.status=complete` and `matches=[]` is a normal no-match that stops this search branch;
+   `selection.status=capped` is terminal but non-exhaustive; stale Evidence returns
+   `problem=evidence_not_found` and points to `next_step=search_current_active_evidence`. These are
+   consumer decisions at the existing contract boundary, not aggregate-v1 fields. See the [MCP context
+   completeness proof](./docs/how-to/run-mcp-context-completeness-proof.md).
 
 ## Quick Verify
 

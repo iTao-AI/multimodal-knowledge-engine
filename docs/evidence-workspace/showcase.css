@@ -319,6 +319,11 @@ code {
 .ask-result { display: grid; gap: 8px; padding: 13px; border: 1px solid #ead9aa; border-radius: 9px; background: #fffdf8; }
 .ask-result strong { color: #8a5a16; font: 0.74rem "SFMono-Regular", Consolas, monospace; overflow-wrap: anywhere; }
 .ask-result span { color: var(--ink-soft); font-size: 0.76rem; }
+.recovery-decisions { gap: 0; }
+.recovery-decision { display: grid; gap: 4px; padding: 8px 0; border-top: 1px solid #ead9aa; }
+.recovery-decision:first-child { padding-top: 0; border-top: 0; }
+.recovery-decision:last-child { padding-bottom: 0; }
+.recovery-decision code { color: #8a5a16; font-size: 0.68rem; overflow-wrap: anywhere; }
 .recovery-strip { display: flex; align-items: center; gap: 11px; margin-top: 15px; padding: 13px 15px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
 .recovery-strip strong { color: var(--navy); font-size: 0.82rem; }
 

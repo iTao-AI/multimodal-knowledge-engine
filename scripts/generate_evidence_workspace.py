@@ -460,19 +460,30 @@ def _failure_surface() -> str:
       </div>
     </article>
     <article class="refusal-card">
-      <div class="card-topline"><span class="eyebrow">Ask Evidence</span><span class="run-state run-state-muted">evidence=[]</span></div>
-      <h3>Insufficient Evidence stays explicit</h3>
-      <p class="failure-lede">No active Evidence matches the question, so the contract returns a refusal instead of an invented answer.</p>
-      <div class="ask-result">
-        <strong>answer_status=insufficient_evidence</strong>
-        <span>summary=No active Evidence matched the search terms.</span>
+      <div class="card-topline"><span class="eyebrow">Agent consumer</span><span class="run-state run-state-muted">3 decisions</span></div>
+      <h3>Consumer decisions stay distinct</h3>
+      <p class="failure-lede">The same active-authority boundary keeps empty Search, capped Search, and stale Evidence recovery separate.</p>
+      <div class="ask-result recovery-decisions">
+        <div class="recovery-decision">
+          <strong>selection.status=complete · matches=[]</strong>
+          <span>Normal no-match: stop this search branch.</span>
+        </div>
+        <div class="recovery-decision">
+          <strong>selection.status=capped</strong>
+          <span>Terminal but non-exhaustive: do not claim corpus completeness.</span>
+        </div>
+        <div class="recovery-decision">
+          <strong>problem=evidence_not_found</strong>
+          <code>next_step=search_current_active_evidence</code>
+          <span>Search the current active Evidence instead of retrying the stale identity.</span>
+        </div>
       </div>
     </article>
   </div>
   <div class="recovery-strip">
     <span class="status-dot status-dot-danger" aria-hidden="true"></span>
     <strong>Active Publication is unchanged.</strong>
-    <span class="muted">The failed Run and the no-match Ask are two independent closed results under the same safety boundary.</span>
+    <span class="muted">The failed Run and the three consumer decisions are independent closed results under the same safety boundary.</span>
     <span class="muted">Retry creates a new immutable Run; only a validated successful Run can switch the active set.</span>
   </div>
 </section>
@@ -894,6 +905,11 @@ code {
 .ask-result { display: grid; gap: 8px; padding: 13px; border: 1px solid #ead9aa; border-radius: 9px; background: #fffdf8; }
 .ask-result strong { color: #8a5a16; font: 0.74rem "SFMono-Regular", Consolas, monospace; overflow-wrap: anywhere; }
 .ask-result span { color: var(--ink-soft); font-size: 0.76rem; }
+.recovery-decisions { gap: 0; }
+.recovery-decision { display: grid; gap: 4px; padding: 8px 0; border-top: 1px solid #ead9aa; }
+.recovery-decision:first-child { padding-top: 0; border-top: 0; }
+.recovery-decision:last-child { padding-bottom: 0; }
+.recovery-decision code { color: #8a5a16; font-size: 0.68rem; overflow-wrap: anywhere; }
 .recovery-strip { display: flex; align-items: center; gap: 11px; margin-top: 15px; padding: 13px 15px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
 .recovery-strip strong { color: var(--navy); font-size: 0.82rem; }
 
