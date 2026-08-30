@@ -102,6 +102,45 @@ def test_search_frame_has_one_visible_result_and_matching_provenance() -> None:
     assert "0ac3e96efc89ee91e48bb3efc8611de88b2698e5aa26c1f8e0e8f78ad2d60ddd" not in provenance
 
 
+def test_recovery_frame_distinguishes_agent_consumer_branches() -> None:
+    markup = (SHOWCASE / "evidence-insufficient-recovery.html").read_text(encoding="utf-8")
+
+    for marker in (
+        "selection.status=complete",
+        "matches=[]",
+        "Normal no-match",
+        "selection.status=capped",
+        "non-exhaustive",
+        "problem=evidence_not_found",
+        "next_step=search_current_active_evidence",
+        "active_publication_impact=unchanged",
+        "run_state=failed",
+    ):
+        assert marker in markup
+    assert "normal_no_match" not in markup
+
+
+def test_readmes_surface_mcp_consumer_branch_decisions() -> None:
+    proof_link = "./docs/how-to/run-mcp-context-completeness-proof.md"
+    for name, detail_heading in (
+        ("README.md", "## Detailed contracts and history"),
+        ("README_CN.md", "## Detailed contracts and history / 详细契约与历史"),
+    ):
+        text = (ROOT / name).read_text(encoding="utf-8")
+        first_layer = text[: text.index(detail_heading)]
+        assert len(re.findall(rf"\[[^\]]+\]\({re.escape(proof_link)}\)", first_layer)) == 1
+        for literal in (
+            "selection.status=complete",
+            "selection.status=capped",
+            "evidence_not_found",
+            "search_current_active_evidence",
+        ):
+            assert literal in first_layer
+        if name == "README_CN.md":
+            assert "正常无匹配" in first_layer
+            assert "非穷尽" in first_layer
+
+
 def test_readmes_embed_canonical_frames_once_in_approved_order() -> None:
     expected_order = (
         "./docs/evidence-workspace/evidence-workspace-overview.png",
@@ -112,13 +151,13 @@ def test_readmes_embed_canonical_frames_once_in_approved_order() -> None:
         (
             "README.md",
             "## Detailed contracts and history",
-            "### Three engineering judgments",
+            "### Four engineering judgments",
             "## Quick Verify",
         ),
         (
             "README_CN.md",
             "## Detailed contracts and history / 详细契约与历史",
-            "### 三条工程判断",
+            "### 四条工程判断",
             "## 快速验证",
         ),
     ):
