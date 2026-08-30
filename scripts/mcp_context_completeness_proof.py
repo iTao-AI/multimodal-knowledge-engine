@@ -264,6 +264,12 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             )
             for index, interpreter in enumerate(interpreters)
         ]
+    for result in results:
+        if (
+            result.get("normal_no_match") != "passed"
+            or result.get("inactive_evidence_recovery") != "passed"
+        ):
+            raise ProofFailure("consumer_proof_failed")
     versions = sorted(result["python_version"] for result in results)
     if versions != ["3.12", "3.13"]:
         raise ProofFailure("python_interpreter_unavailable")
@@ -277,6 +283,8 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "cjk_cap": "passed",
         "cursor_expiry": "passed",
         "legacy_compatibility": "passed",
+        "normal_no_match": "passed",
+        "inactive_evidence_recovery": "passed",
         "max_canonical_model_bytes": max(
             result["max_canonical_model_bytes"] for result in results
         ),

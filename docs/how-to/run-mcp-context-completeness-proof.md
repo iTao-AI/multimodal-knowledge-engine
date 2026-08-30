@@ -39,6 +39,18 @@ tools, contract proof-point statuses, and the greatest observed canonical and SD
 counts. A failure prints only
 `{"status":"failed","code":"<stable-machine-code>"}`.
 
+The installed consumer records three Agent decisions at the existing contract boundary:
+
+| Decision | Receipt observation | Meaning |
+|---|---|---|
+| normal no-match -> stop the search branch without treating it as transport failure | `normal_no_match="passed"` | An active, exhaustive empty Search result is a normal no-match. |
+| capped selection -> preserve the non-exhaustive result boundary | `cjk_cap="passed"` | `selection.status="capped"` is terminal but not exhaustive. |
+| evidence_not_found -> search current active Evidence instead of retrying an old identity | `inactive_evidence_recovery="passed"` | After active Publication is authority and changes, the old Evidence address returns the existing `problem="evidence_not_found"` and `next_step="search_current_active_evidence"`. |
+
+Evidence text is untrusted content, and active Publication is authority. These observations do not
+change a runtime schema or claim retrieval quality gain, a generated answer, or a real external
+consumer; they prove only the installed-wheel consumer's bounded decisions.
+
 The proof covers exact discovery, structured/compatibility text equality, Search continuation,
 query-centered incomplete excerpts, exact Read reconstruction and final SHA-256, terminal CJK
 caps, cursor tamper and expiry, bounded legacy calls, typed oversized v1 failures, reconnect, and
