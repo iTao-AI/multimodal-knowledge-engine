@@ -1258,6 +1258,27 @@ def test_audit_rejects_stale_release_status_phrases(tmp_path: Path) -> None:
     assert "stale_release_status" in _rules(tmp_path)
 
 
+def test_audit_accepts_setup_uv_v10_history_in_changelog(tmp_path: Path) -> None:
+    _write_release_tree(tmp_path)
+    _append_current_surface_text(
+        tmp_path / "CHANGELOG.md",
+        "Move the `setup-uv` pin from v9.0.0 to v10.0.0, then update it from "
+        "v10.0.0 to v10.0.1.",
+    )
+
+    assert "stale_release_status" not in _rules(tmp_path)
+
+
+def test_audit_rejects_independent_placeholder_version(tmp_path: Path) -> None:
+    _write_release_tree(tmp_path)
+    _append_current_surface_text(
+        tmp_path / "README.md",
+        "This release-facing surface still exposes independent placeholder version 0.0.0.",
+    )
+
+    assert "stale_release_status" in _rules(tmp_path)
+
+
 def test_audit_rejects_stale_stage2_changelog_gate(tmp_path: Path) -> None:
     _write_release_tree(tmp_path)
     (tmp_path / "CHANGELOG.md").write_text(

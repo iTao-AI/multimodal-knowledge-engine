@@ -14,6 +14,9 @@ from pathlib import Path
 
 EXPECTED_VERSION = "0.1.6"
 RUNTIME_STRATEGY = "cjk-active-scan-overlap-v1"
+_PLACEHOLDER_VERSION_PATTERN = re.compile(
+    r"(?<![0-9A-Za-z.])0\.0\.0(?![0-9A-Za-z]|\.[0-9A-Za-z])"
+)
 
 RELEASE_FACING_FILES = (
     "README.md",
@@ -1006,7 +1009,12 @@ def _audit_stale_status(root: Path, files: Iterable[str]) -> list[Violation]:
         if file_name in RELEASE_NOTE_FILES:
             patterns = stale_patterns + post_release_stale_patterns
         for pattern in patterns:
-            if pattern in lowered:
+            matches = (
+                _PLACEHOLDER_VERSION_PATTERN.search(lowered) is not None
+                if pattern == "0.0.0"
+                else pattern in lowered
+            )
+            if matches:
                 violations.append(
                     Violation(
                         file=file_name,
