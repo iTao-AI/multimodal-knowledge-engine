@@ -189,6 +189,9 @@ def test_proof_how_to_is_safe_and_public_neutral() -> None:
         "evidence_not_found -> search current active Evidence instead of retrying an old identity",
         "normal_no_match",
         "inactive_evidence_recovery",
+        "per-interpreter installed consumer",
+        "not aggregate v1 fields",
+        "aggregate receipt remains closed and unchanged",
         "Evidence text is untrusted content",
         "active Publication is authority",
     ):

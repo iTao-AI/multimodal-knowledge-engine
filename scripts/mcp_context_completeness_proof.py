@@ -283,8 +283,6 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "cjk_cap": "passed",
         "cursor_expiry": "passed",
         "legacy_compatibility": "passed",
-        "normal_no_match": "passed",
-        "inactive_evidence_recovery": "passed",
         "max_canonical_model_bytes": max(
             result["max_canonical_model_bytes"] for result in results
         ),

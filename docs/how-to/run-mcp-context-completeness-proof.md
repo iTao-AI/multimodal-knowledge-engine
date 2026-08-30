@@ -33,15 +33,18 @@ Before building the wheel, the controller independently runs the same no-header 
 requires its exact bytes to equal `--constraints`. A missing, stale, empty, or arbitrary constraints
 file fails before build or installation.
 
-A successful closed receipt reports `source_import="installed_wheel"`,
+A successful closed aggregate v1 receipt retains its existing top-level shape and reports
+`source_import="installed_wheel"`,
 `network_access="not_used"`, `dependency_constraints="uv_lock_exact"`, both Python versions, ten
 tools, contract proof-point statuses, and the greatest observed canonical and SDK result byte
 counts. A failure prints only
 `{"status":"failed","code":"<stable-machine-code>"}`.
 
-The installed consumer records three Agent decisions at the existing contract boundary:
+Each per-interpreter installed consumer records three Agent decisions at the existing contract
+boundary. The controller requires the new consumer observations from both lanes, but they are not
+aggregate v1 fields; the aggregate receipt remains closed and unchanged.
 
-| Decision | Receipt observation | Meaning |
+| Decision | Per-interpreter consumer observations (not aggregate v1 fields) | Meaning |
 |---|---|---|
 | normal no-match -> stop the search branch without treating it as transport failure | `normal_no_match="passed"` | An active, exhaustive empty Search result is a normal no-match. |
 | capped selection -> preserve the non-exhaustive result boundary | `cjk_cap="passed"` | `selection.status="capped"` is terminal but not exhaustive. |

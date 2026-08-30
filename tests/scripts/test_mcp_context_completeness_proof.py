@@ -149,11 +149,9 @@ def test_proof_controller_binds_two_interpreters_to_one_wheel() -> None:
     assert "--offline" in text
     assert "--constraints" in text
     assert '"dependency_constraints": "uv_lock_exact"' in text
-    assert '"normal_no_match": "passed"' in text
-    assert '"inactive_evidence_recovery": "passed"' in text
 
 
-def test_proof_controller_rejects_lane_without_new_consumer_observations(
+def test_proof_controller_keeps_aggregate_receipt_v1_closed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -185,9 +183,95 @@ def test_proof_controller_rejects_lane_without_new_consumer_observations(
             "python_version": "3.12"
             if kwargs["interpreter"].name.endswith("312")
             else "3.13",
+            "normal_no_match": "passed",
+            "inactive_evidence_recovery": "passed",
             "max_canonical_model_bytes": 1,
             "max_sdk_result_bytes": 1,
         }
+
+    monkeypatch.setattr(proof, "installed_case", fake_installed_case)
+
+    args = argparse.Namespace(
+        python=[tmp_path / "python312", tmp_path / "python313"],
+        constraints=constraints,
+        candidate_output=candidate,
+    )
+
+    receipt = proof.run(args)
+
+    assert set(receipt) == {
+        "status",
+        "schema_version",
+        "python_versions",
+        "tool_count",
+        "search_continuation",
+        "exact_read",
+        "cjk_cap",
+        "cursor_expiry",
+        "legacy_compatibility",
+        "max_canonical_model_bytes",
+        "max_sdk_result_bytes",
+        "source_import",
+        "network_access",
+        "dependency_constraints",
+    }
+
+
+@pytest.mark.parametrize(
+    ("bad_lane", "bad_field", "mutation"),
+    [
+        (bad_lane, bad_field, mutation)
+        for bad_lane in (0, 1)
+        for bad_field in ("normal_no_match", "inactive_evidence_recovery")
+        for mutation in ("missing", "drifted")
+    ],
+)
+def test_proof_controller_rejects_lane_without_required_consumer_observation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    bad_lane: int,
+    bad_field: str,
+    mutation: str,
+) -> None:
+    constraints = tmp_path / "constraints.txt"
+    constraints.write_text("locked\n", encoding="utf-8")
+    candidate = tmp_path / "candidate"
+
+    def fake_command(
+        argv: list[str],
+        *,
+        cwd: Path,
+        timeout: int = 180,
+    ) -> subprocess.CompletedProcess[str]:
+        del cwd, timeout
+        if argv[:2] == ["uv", "export"]:
+            return subprocess.CompletedProcess(argv, 0, "locked\n", "")
+        if argv[:2] == ["uv", "build"]:
+            output = Path(argv[argv.index("--out-dir") + 1])
+            output.mkdir(parents=True, exist_ok=True)
+            (output / "mke.whl").write_bytes(b"wheel")
+            return subprocess.CompletedProcess(argv, 0, "", "")
+        raise AssertionError(argv)
+
+    monkeypatch.setattr(proof, "command", fake_command)
+
+    def fake_installed_case(**kwargs: Any) -> dict[str, Any]:
+        receipt: dict[str, Any] = {
+            "status": "passed",
+            "python_version": "3.12"
+            if kwargs["interpreter"].name.endswith("312")
+            else "3.13",
+            "normal_no_match": "passed",
+            "inactive_evidence_recovery": "passed",
+            "max_canonical_model_bytes": 1,
+            "max_sdk_result_bytes": 1,
+        }
+        if kwargs["case_root"].name == f"case-{bad_lane}":
+            if mutation == "missing":
+                del receipt[bad_field]
+            else:
+                receipt[bad_field] = "failed"
+        return receipt
 
     monkeypatch.setattr(
         proof,
