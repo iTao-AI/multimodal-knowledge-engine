@@ -15,7 +15,7 @@ from pathlib import Path
 EXPECTED_VERSION = "0.1.6"
 RUNTIME_STRATEGY = "cjk-active-scan-overlap-v1"
 _PLACEHOLDER_VERSION_PATTERN = re.compile(
-    r"(?<![0-9A-Za-z.])0\.0\.0(?![0-9A-Za-z]|\.[0-9A-Za-z])"
+    r"(?<![0-9A-Za-z.])v?0\.0\.0(?![0-9A-Za-z]|\.[0-9A-Za-z])"
 )
 
 RELEASE_FACING_FILES = (

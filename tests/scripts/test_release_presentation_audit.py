@@ -1279,6 +1279,16 @@ def test_audit_rejects_independent_placeholder_version(tmp_path: Path) -> None:
     assert "stale_release_status" in _rules(tmp_path)
 
 
+def test_audit_rejects_v_prefixed_placeholder_version(tmp_path: Path) -> None:
+    _write_release_tree(tmp_path)
+    _append_current_surface_text(
+        tmp_path / "README.md",
+        "This release-facing surface still exposes independent placeholder version v0.0.0.",
+    )
+
+    assert "stale_release_status" in _rules(tmp_path)
+
+
 def test_audit_rejects_stale_stage2_changelog_gate(tmp_path: Path) -> None:
     _write_release_tree(tmp_path)
     (tmp_path / "CHANGELOG.md").write_text(
