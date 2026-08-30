@@ -1,12 +1,12 @@
 {
   "assets": {
     "evidence-insufficient-recovery.png": {
-      "bytes": 221242,
+      "bytes": 239840,
       "height": 1000,
       "locale": "en-US",
       "route": "evidence-insufficient-recovery.html",
-      "sha256": "b2a8c3b7e3d30d2cb51f261467ed7ff424d482a264ae897f5666a0596ef696e0",
-      "source_commit": "7880757bfdbc80fb684292ff552fddddfd858f1d",
+      "sha256": "2b6717716e6dcc293d0700fe191818cbe9ff35b2c2a82a8e2b69a432c98c6128",
+      "source_commit": "1ede313f098e92621b59e8c3c1841c073d9ec9e3",
       "state": "failed_or_insufficient_recovery",
       "synthetic_demo_disclosure": "Synthetic/demo documentation projection only; identifiers are illustrative and are not runtime records or production data.",
       "viewport": {
@@ -21,7 +21,7 @@
       "locale": "en-US",
       "route": "evidence-publication-search.html",
       "sha256": "99ec0963aabe68dc9ce93821533b714985bf086e14cfebefa33c3fcf1ffa36a2",
-      "source_commit": "7880757bfdbc80fb684292ff552fddddfd858f1d",
+      "source_commit": "1ede313f098e92621b59e8c3c1841c073d9ec9e3",
       "state": "publication_search",
       "synthetic_demo_disclosure": "Synthetic/demo documentation projection only; identifiers are illustrative and are not runtime records or production data.",
       "viewport": {
@@ -36,7 +36,7 @@
       "locale": "en-US",
       "route": "evidence-workspace-overview.html",
       "sha256": "69d5fc83e626af3381fa600236fc308dda04f76877cebdbecc683d9e2ca11147",
-      "source_commit": "7880757bfdbc80fb684292ff552fddddfd858f1d",
+      "source_commit": "1ede313f098e92621b59e8c3c1841c073d9ec9e3",
       "state": "overview",
       "synthetic_demo_disclosure": "Synthetic/demo documentation projection only; identifiers are illustrative and are not runtime records or production data.",
       "viewport": {
@@ -54,8 +54,8 @@
   },
   "locale": "en-US",
   "schema_version": "mke.evidence_showcase_manifest.v1",
-  "source_commit": "7880757bfdbc80fb684292ff552fddddfd858f1d",
-  "source_tree_sha256": "843589080791398f19b02dfd42d7685ebcd5e78a57eac2e0998528be25feac79",
+  "source_commit": "1ede313f098e92621b59e8c3c1841c073d9ec9e3",
+  "source_tree_sha256": "ad8e6571b1b66e1150f784eb6659507401aceb7f834aa75af0a8dbd1ffcbb9f5",
   "static_files": [
     "index.html",
     "showcase.css",
