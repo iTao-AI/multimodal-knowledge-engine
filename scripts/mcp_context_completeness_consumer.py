@@ -208,6 +208,22 @@ async def run(args: argparse.Namespace) -> dict[str, object]:
         require(oversized["ok"] is False)
         require(oversized["problem"] == "response_too_large")
 
+        no_match = await call(
+            session,
+            "search_library_v2",
+            {"request": {"query": "zzzzmkeproofnomatchzzzz", "limit": 5}},
+            measurements,
+        )
+        require(no_match["ok"] is True)
+        require(no_match["selection"]["status"] == "complete")
+        require(no_match["selection"].get("next_cursor") is None)
+        require(no_match["matches"] == [])
+        require(no_match["authority_snapshot"]["observation"]["state"] == "active")
+        require(
+            no_match["authority_snapshot"]["observation"]["active_publication_count"]
+            > 0
+        )
+
         expiring = await call(
             session,
             "search_library_v2",
@@ -229,6 +245,31 @@ async def run(args: argparse.Namespace) -> dict[str, object]:
             measurements,
         )
         require(changed["ok"] is False and changed["problem"] == "cursor_expired")
+        current = await call(
+            session,
+            "search_library_v2",
+            {"request": {"query": "publication active", "limit": 1}},
+            measurements,
+        )
+        require(current["ok"] is True)
+        require(len(current["matches"]) == 1)
+        replaced_evidence_id = current["matches"][0]["evidence"]["evidence_id"]
+        replaced = await call(
+            session,
+            "ingest_file",
+            {"path": args.ingest_fixture.name},
+            measurements,
+        )
+        require(replaced["ok"] is True)
+        unavailable = await call(
+            session,
+            "read_evidence_v1",
+            {"request": {"evidence_id": replaced_evidence_id, "max_bytes": 16384}},
+            measurements,
+        )
+        require(unavailable["ok"] is False)
+        require(unavailable["problem"] == "evidence_not_found")
+        require(unavailable["next_step"] == "search_current_active_evidence")
 
     async with session_for(args.server_command, args.database, args.allowed_root) as restarted:
         after_restart = await call(
@@ -258,6 +299,8 @@ async def run(args: argparse.Namespace) -> dict[str, object]:
         "cjk_cap": "passed",
         "cursor_expiry": "passed",
         "legacy_compatibility": "passed",
+        "normal_no_match": "passed",
+        "inactive_evidence_recovery": "passed",
         "max_canonical_model_bytes": max(item[0] for item in measurements),
         "max_sdk_result_bytes": max(item[1] for item in measurements),
     }

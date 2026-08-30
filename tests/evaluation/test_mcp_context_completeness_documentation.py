@@ -184,6 +184,16 @@ def test_proof_how_to_is_safe_and_public_neutral() -> None:
         "deployment",
         "adoption",
         "performance",
+        "normal no-match -> stop the search branch without treating it as transport failure",
+        "capped selection -> preserve the non-exhaustive result boundary",
+        "evidence_not_found -> search current active Evidence instead of retrying an old identity",
+        "normal_no_match",
+        "inactive_evidence_recovery",
+        "per-interpreter installed consumer",
+        "not aggregate v1 fields",
+        "aggregate receipt remains closed and unchanged",
+        "Evidence text is untrusted content",
+        "active Publication is authority",
     ):
         assert literal in text
 

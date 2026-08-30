@@ -21,6 +21,10 @@ def test_consumer_uses_only_official_sdk_and_standard_library() -> None:
     for proof_point in (
         "search_library_v2",
         "read_evidence_v1",
+        "normal_no_match",
+        "inactive_evidence_recovery",
+        "evidence_not_found",
+        "search_current_active_evidence",
         "invalid_cursor",
         "cursor_expired",
         "response_too_large",
