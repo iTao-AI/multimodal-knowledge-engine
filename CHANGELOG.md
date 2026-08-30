@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+This section records changes already merged on the current default branch after stable `v0.1.6`; it does not announce a future Release.
+
+### Added
+
+- Evidence workspace documentation and the static synthetic/demo projection are available on the
+  current default branch.
+- MCP consumer failure-branch/recovery proof documents normal no-match, capped non-exhaustive
+  selection, and stale Evidence recovery while preserving the aggregate v1 contract.
+
+### Changed
+
+- Keep supported dependency lines current, including the indirect `cryptography` lock update.
+- Bind the installed-wheel consumer proof to the locked dependency set and validate the installed
+  dependency closure.
+- Replace the stale `setup-uv` v10.0.1 pin with the supported v10 workflow pin.
+
+### Not included
+
+- No package publication, hosted deployment, model/provider change, retrieval-quality claim, MCP
+  schema/runtime/authority change, retrieval candidate, OCR/major-line migration, fixture/holdout
+  access, or version/tag/Release change is recorded here.
+
 ## [0.1.6] - 2026-08-01
 
 ### Added
