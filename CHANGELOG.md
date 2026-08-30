@@ -16,7 +16,7 @@ This section records changes already merged on the current default branch after 
 - Keep supported dependency lines current, including the indirect `cryptography` lock update.
 - Bind the installed-wheel consumer proof to the locked dependency set and validate the installed
   dependency closure.
-- Replace the stale `setup-uv` v10.0.1 pin with the supported v10 workflow pin.
+- Move the `setup-uv` pin from v9.0.0 to v10.0.0, then update it from v10.0.0 to v10.0.1.
 
 ### Not included
 
