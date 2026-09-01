@@ -109,6 +109,46 @@ _POSTPUBLICATION_STALE_PATTERNS = (
     "does not assert a tag, github release, or package publication",
     "does not assert tag, github release, or package publication",
 )
+PUBLICATION_RECORD_FIELDS = (
+    "Tag",
+    "Release-prep PR number",
+    "Release-prep PR URL",
+    "Reviewed HEAD",
+    "Reviewed tree",
+    "Annotated tag object SHA",
+    "Tag target commit",
+    "Tag tree",
+    "Merge commit",
+    "Merge tree",
+    "Reviewed tree == merge tree",
+    "GitHub Release ID",
+    "GitHub Release URL",
+    "Published timestamp",
+    "Release state",
+    "Assets",
+    "Reviewed-head hosted checks",
+    "Post-merge hosted checks",
+    "Exact-main proof",
+    "Release body SHA-256",
+    "Tagged release-note SHA-256",
+    "Archive filename",
+    "Archive bytes",
+    "Archive SHA-256",
+    "Archive manifest SHA-256",
+    "Manifest/tree equality",
+    "Archive wheel",
+    "Candidate wheel",
+    "Candidate wheel bytes",
+    "Candidate wheel SHA-256",
+    "Candidate receipt",
+    "Candidate receipt file SHA-256",
+    "Candidate receipt payload SHA-256",
+    "Archive smoke",
+    "Git-less allowlist",
+    "Canonical evidence hashes",
+    "Temporary compatibility",
+    "Limitations and non-claims",
+)
 CONSUMER_SMOKE_COMMAND_FILES = (
     "README.md",
     "README_CN.md",
@@ -162,6 +202,214 @@ def _version_from_init(text: str) -> str | None:
 def _contains_all_terms(text: str, terms: Iterable[str]) -> bool:
     normalized_text = " ".join(text.split())
     return all(" ".join(term.split()) in normalized_text for term in terms)
+
+
+def _extract_h2_section(text: str, heading: str) -> str | None:
+    match = re.search(rf"(?m)^## {re.escape(heading)}\s*$", text)
+    if match is None:
+        return None
+    section = text[match.end() :]
+    next_heading = re.search(r"(?m)^## ", section)
+    if next_heading is not None:
+        section = section[: next_heading.start()]
+    return section
+
+
+def _parse_publication_fields(section: str) -> dict[str, str] | None:
+    bullet = re.compile(r"^- ([^:\n]+):[ \t]*(.*)$")
+    nonempty_lines = [line for line in section.splitlines() if line.strip()]
+    parsed = [match for line in nonempty_lines if (match := bullet.fullmatch(line))]
+    values: dict[str, str] = {}
+    for match in parsed:
+        label, value = match.groups()
+        if label in values:
+            return None
+        values[label] = value.strip()
+    if len(parsed) != len(nonempty_lines):
+        return None
+    return values
+
+
+def _decode_publication_value(value: str) -> str:
+    decoded = value.strip()
+    if len(decoded) >= 2 and decoded.startswith("`") and decoded.endswith("`"):
+        decoded = decoded[1:-1]
+    return decoded.strip()
+
+
+def _valid_publication_identity(value: str, length: int) -> bool:
+    decoded = _decode_publication_value(value)
+    return (
+        re.fullmatch(rf"[0-9a-f]{{{length}}}", decoded) is not None
+        and set(decoded) != {"0"}
+    )
+
+
+def _valid_positive_publication_integer(value: str) -> bool:
+    return re.fullmatch(r"[1-9][0-9]*", _decode_publication_value(value)) is not None
+
+
+def _valid_publication_timestamp(value: str) -> bool:
+    decoded = _decode_publication_value(value)
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", decoded) is None:
+        return False
+    try:
+        datetime.strptime(decoded, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        return False
+    return True
+
+
+def _valid_bound_publication_checks(
+    value: str,
+    binding: str,
+    expected_sha: str,
+) -> bool:
+    match = re.fullmatch(
+        rf"status=passed; {binding}=([0-9a-f]{{40}}); "
+        r"checks=([1-9][0-9]*)/([1-9][0-9]*)",
+        _decode_publication_value(value),
+    )
+    return (
+        match is not None
+        and match.group(1) == expected_sha
+        and match.group(2) == match.group(3)
+    )
+
+
+def _valid_exact_main_publication_proof(value: str, expected_sha: str) -> bool:
+    return _decode_publication_value(value) == (
+        f"status=passed; merge={expected_sha}; proof=exact-main"
+    )
+
+
+def _valid_publication_record(values: dict[str, str] | None, section: str) -> bool:
+    if values is None or set(values) != set(PUBLICATION_RECORD_FIELDS):
+        return False
+    reviewed_head = _decode_publication_value(values["Reviewed HEAD"])
+    reviewed_tree = _decode_publication_value(values["Reviewed tree"])
+    merge_commit = _decode_publication_value(values["Merge commit"])
+    merge_tree = _decode_publication_value(values["Merge tree"])
+    release_body_sha = _decode_publication_value(values["Release body SHA-256"])
+    release_note_sha = _decode_publication_value(values["Tagged release-note SHA-256"])
+    placeholders = re.compile(
+        r"\b(?:tbd|todo|to be filled|to be created|placeholder)\b"
+        r"|<placeholder>|(?<![0-9a-f])0{40}(?![0-9a-f])",
+        re.IGNORECASE,
+    )
+    bounded_fields = (
+        "Canonical evidence hashes",
+        "Temporary compatibility",
+        "Limitations and non-claims",
+    )
+    return (
+        _decode_publication_value(values["Tag"]) == f"v{EXPECTED_VERSION}"
+        and _valid_positive_publication_integer(values["Release-prep PR number"])
+        and _decode_publication_value(values["Release-prep PR URL"])
+        == (
+            "https://github.com/iTao-AI/multimodal-knowledge-engine/pull/"
+            f"{_decode_publication_value(values['Release-prep PR number'])}"
+        )
+        and _valid_publication_identity(values["Reviewed HEAD"], 40)
+        and _valid_publication_identity(values["Reviewed tree"], 40)
+        and _valid_publication_identity(values["Merge commit"], 40)
+        and _valid_publication_identity(values["Merge tree"], 40)
+        and _decode_publication_value(values["Reviewed tree == merge tree"]) == "true"
+        and reviewed_tree == merge_tree
+        and _valid_publication_identity(values["Annotated tag object SHA"], 40)
+        and _valid_publication_identity(values["Tag target commit"], 40)
+        and _valid_publication_identity(values["Tag tree"], 40)
+        and _decode_publication_value(values["Tag target commit"]) == merge_commit
+        and _decode_publication_value(values["Tag tree"]) == merge_tree
+        and _valid_positive_publication_integer(values["GitHub Release ID"])
+        and _decode_publication_value(values["GitHub Release URL"])
+        == (
+            "https://github.com/iTao-AI/multimodal-knowledge-engine/"
+            f"releases/tag/v{EXPECTED_VERSION}"
+        )
+        and _valid_publication_timestamp(values["Published timestamp"])
+        and _decode_publication_value(values["Release state"])
+        == "public; draft=false; prerelease=false"
+        and _decode_publication_value(values["Assets"]) == "count=0"
+        and _valid_bound_publication_checks(
+            values["Reviewed-head hosted checks"], "head", reviewed_head
+        )
+        and _valid_bound_publication_checks(
+            values["Post-merge hosted checks"], "merge", merge_commit
+        )
+        and _valid_exact_main_publication_proof(values["Exact-main proof"], merge_commit)
+        and _valid_publication_identity(values["Release body SHA-256"], 64)
+        and _valid_publication_identity(values["Tagged release-note SHA-256"], 64)
+        and release_body_sha == release_note_sha
+        and _decode_publication_value(values["Archive filename"])
+        == f"multimodal-knowledge-engine-v{EXPECTED_VERSION}.tar.gz"
+        and _valid_positive_publication_integer(values["Archive bytes"])
+        and _valid_publication_identity(values["Archive SHA-256"], 64)
+        and _valid_publication_identity(values["Archive manifest SHA-256"], 64)
+        and _decode_publication_value(values["Manifest/tree equality"])
+        == f"status=equal; tree={merge_tree}"
+        and _decode_publication_value(values["Archive wheel"]) == _CURRENT_WHEEL
+        and _decode_publication_value(values["Candidate wheel"]) == _CURRENT_WHEEL
+        and _valid_positive_publication_integer(values["Candidate wheel bytes"])
+        and _valid_publication_identity(values["Candidate wheel SHA-256"], 64)
+        and _decode_publication_value(values["Candidate receipt"])
+        == "status=present; schema=mke.candidate_artifact_receipt.v1"
+        and _valid_publication_identity(values["Candidate receipt file SHA-256"], 64)
+        and _valid_publication_identity(values["Candidate receipt payload SHA-256"], 64)
+        and _decode_publication_value(values["Archive smoke"])
+        == "status=passed; source=public-github-archive"
+        and _decode_publication_value(values["Git-less allowlist"])
+        == "status=passed; scope=allowlist"
+        and all(
+            0 < len(_decode_publication_value(values[field])) <= 500
+            for field in bounded_fields
+        )
+        and "seven families" in _decode_publication_value(values["Temporary compatibility"])
+        and "all six delta classes zero"
+        in _decode_publication_value(values["Temporary compatibility"])
+        and placeholders.search(section) is None
+    )
+
+
+def _audit_current_publication_records(root: Path) -> list[Violation]:
+    release = _read_text(root, _CURRENT_RELEASE_NOTE)
+    verify_release = _read_text(root, "docs/how-to/verify-release.md")
+    release_section = _extract_h2_section(release, "Publication verification")
+    verify_section = _extract_h2_section(
+        verify_release,
+        f"Completed v{EXPECTED_VERSION} Release Record",
+    )
+    if release_section is None and verify_section is None:
+        return []
+    if release_section is None or verify_section is None:
+        return [
+            Violation(
+                file=_CURRENT_RELEASE_NOTE,
+                rule="v016_publication_verification",
+                message=(
+                    "current publication verification must exist in both the release note "
+                    "and verify-release guide"
+                ),
+            )
+        ]
+    release_values = _parse_publication_fields(release_section)
+    verify_values = _parse_publication_fields(verify_section)
+    if (
+        not _valid_publication_record(release_values, release_section)
+        or not _valid_publication_record(verify_values, verify_section)
+        or release_values != verify_values
+    ):
+        return [
+            Violation(
+                file=_CURRENT_RELEASE_NOTE,
+                rule="v016_publication_verification",
+                message=(
+                    "both current publication records must contain the complete terminal "
+                    "field inventory with identical immutable facts"
+                ),
+            )
+        ]
+    return []
 
 
 def _audit_version_identity(root: Path) -> list[Violation]:
@@ -1024,15 +1272,13 @@ def _audit_stale_status(root: Path, files: Iterable[str]) -> list[Violation]:
     )
     release_note = _read_text(root, _CURRENT_RELEASE_NOTE)
     verify_release = _read_text(root, "docs/how-to/verify-release.md")
-    publication_verified = any(
-        re.search(pattern, text) is not None
-        for pattern, text in (
-            (r"(?m)^## Publication verification\s*$", release_note),
-            (
-                rf"(?m)^## Completed v{re.escape(EXPECTED_VERSION)} Release Record\s*$",
-                verify_release,
-            ),
+    publication_verified = (
+        re.search(r"(?m)^## Publication verification\s*$", release_note) is not None
+        and re.search(
+            rf"(?m)^## Completed v{re.escape(EXPECTED_VERSION)} Release Record\s*$",
+            verify_release,
         )
+        is not None
     )
 
     def current_surface(text: str, file_name: str) -> str:
@@ -1276,162 +1522,6 @@ def _audit_v016_contract(root: Path) -> list[Violation]:
                 )
             )
 
-    publication_heading = re.search(
-        r"(?m)^## Publication verification\s*$",
-        release,
-    )
-    if publication_heading is not None:
-        publication = release[publication_heading.end() :]
-        next_heading = re.search(r"(?m)^## ", publication)
-        if next_heading is not None:
-            publication = publication[: next_heading.start()]
-        field_names = (
-            "Tag",
-            "Annotated tag object SHA",
-            "Tag target commit",
-            "Merge commit",
-            "Merge tree",
-            "GitHub Release ID",
-            "GitHub Release URL",
-            "Published timestamp",
-            "Release state",
-            "Assets",
-            "Post-merge hosted checks",
-            "Exact-main proof",
-            "Archive filename",
-            "Archive bytes",
-            "Archive SHA-256",
-            "Archive manifest SHA-256",
-            "Manifest/tree equality",
-            "Archive wheel",
-            "Candidate wheel",
-            "Candidate wheel bytes",
-            "Candidate wheel SHA-256",
-            "Candidate receipt",
-            "Candidate receipt file SHA-256",
-            "Candidate receipt payload SHA-256",
-            "Archive smoke",
-            "Git-less allowlist",
-            "Canonical evidence hashes",
-            "Temporary compatibility",
-            "Limitations and non-claims",
-        )
-        placeholders = re.compile(
-            r"\b(?:tbd|todo|to be filled|to be created|placeholder)\b"
-            r"|<placeholder>|(?<![0-9a-f])0{40}(?![0-9a-f])",
-            re.IGNORECASE,
-        )
-        bullet = re.compile(r"^- ([^:\n]+):[ \t]*(.*)$")
-        nonempty_lines = [line for line in publication.splitlines() if line.strip()]
-        parsed = [match for line in nonempty_lines if (match := bullet.fullmatch(line))]
-        values: dict[str, str] = {}
-        duplicate = False
-        for match in parsed:
-            label, value = match.groups()
-            if label in values:
-                duplicate = True
-            values[label] = value.strip()
-
-        def decode(value: str) -> str:
-            value = value.strip()
-            if len(value) >= 2 and value.startswith("`") and value.endswith("`"):
-                value = value[1:-1]
-            return value.strip()
-
-        def valid_identity(value: str, length: int) -> bool:
-            decoded = decode(value)
-            return (
-                re.fullmatch(rf"[0-9a-f]{{{length}}}", decoded) is not None
-                and set(decoded) != {"0"}
-            )
-
-        def valid_positive_integer(value: str) -> bool:
-            return re.fullmatch(r"[1-9][0-9]*", decode(value)) is not None
-
-        def valid_utc_timestamp(value: str) -> bool:
-            decoded = decode(value)
-            if re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", decoded) is None:
-                return False
-            try:
-                datetime.strptime(decoded, "%Y-%m-%dT%H:%M:%SZ")
-            except ValueError:
-                return False
-            return True
-
-        bounded_fields = (
-            "Post-merge hosted checks",
-            "Git-less allowlist",
-            "Exact-main proof",
-            "Canonical evidence hashes",
-            "Temporary compatibility",
-            "Limitations and non-claims",
-        )
-        shape_valid = (
-            len(parsed) == len(nonempty_lines)
-            and not duplicate
-            and set(values) == set(field_names)
-            and decode(values.get("Tag", "")) == f"v{EXPECTED_VERSION}"
-            and valid_identity(values.get("Annotated tag object SHA", ""), 40)
-            and valid_identity(values.get("Tag target commit", ""), 40)
-            and valid_identity(values.get("Merge commit", ""), 40)
-            and valid_identity(values.get("Merge tree", ""), 40)
-            and decode(values.get("Tag target commit", ""))
-            == decode(values.get("Merge commit", ""))
-            and valid_positive_integer(values.get("GitHub Release ID", ""))
-            and values.get("GitHub Release URL")
-            == (
-                "https://github.com/iTao-AI/multimodal-knowledge-engine/"
-                f"releases/tag/v{EXPECTED_VERSION}"
-            )
-            and valid_utc_timestamp(values.get("Published timestamp", ""))
-            and {
-                part.strip().lower()
-                for part in decode(values.get("Release state", "")).rstrip(".").split(",")
-            }
-            == {"public", "non-draft", "non-prerelease"}
-            and values.get("Assets") == "zero"
-            and "success" in decode(values.get("Post-merge hosted checks", "")).lower()
-            and "merge commit" in decode(values.get("Post-merge hosted checks", "")).lower()
-            and "passed" in decode(values.get("Exact-main proof", "")).lower()
-            and decode(values.get("Archive filename", ""))
-            == f"multimodal-knowledge-engine-v{EXPECTED_VERSION}.tar.gz"
-            and valid_positive_integer(values.get("Archive bytes", ""))
-            and valid_identity(values.get("Archive SHA-256", ""), 64)
-            and valid_identity(values.get("Archive manifest SHA-256", ""), 64)
-            and any(
-                marker in decode(values.get("Manifest/tree equality", "")).lower()
-                for marker in ("equal", "match")
-            )
-            and "tree" in decode(values.get("Manifest/tree equality", "")).lower()
-            and decode(values.get("Archive wheel", ""))
-            == _CURRENT_WHEEL
-            and decode(values.get("Candidate wheel", "")) == _CURRENT_WHEEL
-            and valid_positive_integer(values.get("Candidate wheel bytes", ""))
-            and valid_identity(values.get("Candidate wheel SHA-256", ""), 64)
-            and decode(values.get("Candidate receipt", "")) == "canonical receipt present"
-            and valid_identity(values.get("Candidate receipt file SHA-256", ""), 64)
-            and valid_identity(values.get("Candidate receipt payload SHA-256", ""), 64)
-            and "passed" in decode(values.get("Archive smoke", "")).lower()
-            and all(
-                0 < len(decode(values.get(field, ""))) <= 500
-                for field in bounded_fields
-            )
-            and "seven families" in decode(values.get("Temporary compatibility", ""))
-            and "all six delta classes zero"
-            in decode(values.get("Temporary compatibility", ""))
-            and placeholders.search(publication) is None
-        )
-        if not shape_valid:
-            violations.append(
-                Violation(
-                    file=_CURRENT_RELEASE_NOTE,
-                    rule="v016_publication_verification",
-                    message=(
-                        "Publication verification must contain the complete immutable "
-                        "public field inventory without placeholders"
-                    ),
-                )
-            )
     for file_name in ENTRY_POINT_FILES:
         text = _read_text(root, file_name)
         if len(re.findall(r"(?m)^# ", text)) != 1:
@@ -1653,6 +1743,7 @@ def audit_release_presentation(root: Path) -> list[Violation]:
     violations.extend(_audit_v015_contract(root))
     violations.extend(_audit_v016_historical_contract(root))
     violations.extend(_audit_v016_contract(root))
+    violations.extend(_audit_current_publication_records(root))
     violations.extend(_audit_prepublication_publication_claims(root))
     violations.extend(_audit_stale_status(root, RELEASE_STATUS_FILES))
     violations.extend(_audit_consumer_smoke_wheel_selection(root, CONSUMER_SMOKE_COMMAND_FILES))

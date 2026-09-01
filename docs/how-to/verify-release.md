@@ -346,11 +346,23 @@ the current release is `release-prep PR` → `exact-main gates/tag/Release/archi
 `same-scope post-publication docs closeout PR`. The release-prep PR and current release note remain
 policy-only and must not prefill future identity. After the annotated tag, exact-main result,
 GitHub Release, and public archive facts exist, the closeout PR replaces the pre-publication
-surfaces with a real record containing the annotated tag object SHA, tag target commit, merge
-commit/tree, GitHub Release ID/URL/timestamp/state/assets, archive filename/bytes/SHA-256,
-archive manifest SHA-256 and manifest/tree equality, wheel and receipt identity, hosted checks,
-exact-main proof, archive smoke, and explicit non-claims. The closeout must then pass review,
-hosted CI, squash merge, exact-main readback, and authorized task-owned cleanup.
+surfaces with two required records: `## Publication verification` in the release note and
+`## Completed v0.1.7 Release Record` in this guide. Missing either record fails the audit. The
+records share one fixed bullet inventory: release-prep PR number/URL, reviewed HEAD/tree, merge
+commit/tree, reviewed tree == merge tree, annotated tag object SHA, tag target/tree, GitHub Release
+ID/URL/timestamp/state/assets, Release body SHA-256 and tagged release-note SHA-256 values, archive
+filename/bytes/SHA-256, archive manifest SHA-256 and manifest/tree equality with
+`status=equal; tree=<sha>`, candidate
+wheel and receipt identity, closed hosted-check and exact-main values, positive archive smoke and
+Git-less values, and explicit non-claims. Both records must contain identical immutable facts; the
+inventory has no closeout PR or cleanup self-reference.
+
+Use only these closed terminal values: `status=passed; head=<sha>; checks=<n>/<n>`,
+`status=passed; merge=<sha>; checks=<n>/<n>`, `status=passed; merge=<sha>; proof=exact-main`,
+`status=passed; source=public-github-archive`, and `status=passed; scope=allowlist`. Before
+publication, neither current record section exists and this policy wording remains valid. The
+closeout must then pass review, hosted CI, squash merge, exact-main readback, and authorized
+task-owned cleanup.
 
 
 ## Completed v0.1.6 Release Record

@@ -9,10 +9,13 @@ from scripts.release_presentation_audit import audit_release_presentation
 ROOT = Path(__file__).resolve().parents[2]
 
 V017_ANNOTATED_TAG_SHA = "567890abcdef1234567890abcdef1234567890ab"
+V017_PR_NUMBER = "184"
+V017_REVIEWED_HEAD = "abcdef0123456789abcdef0123456789abcdef01"
 V017_COMMIT = "1234567890abcdef1234567890abcdef12345678"
 V017_TREE = "234567890abcdef1234567890abcdef123456789"
 V017_ARCHIVE_SHA = "34567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12"
 V017_MANIFEST_SHA = "4567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123"
+V017_RELEASE_BODY_SHA = "abcdef0123456789" * 4
 V017_WHEEL = "multimodal_knowledge_engine-0.1.7-py3-none-any.whl"
 V017_WHEEL_SHA = "67890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12345"
 V017_RECEIPT_FILE_SHA = "7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456"
@@ -22,31 +25,40 @@ COMPLETE_PUBLICATION_VERIFICATION = f"""
 ## Publication verification
 
 - Tag: `v0.1.7`
+- Release-prep PR number: `{V017_PR_NUMBER}`
+- Release-prep PR URL: https://github.com/iTao-AI/multimodal-knowledge-engine/pull/{V017_PR_NUMBER}
+- Reviewed HEAD: `{V017_REVIEWED_HEAD}`
+- Reviewed tree: `{V017_TREE}`
 - Annotated tag object SHA: `{V017_ANNOTATED_TAG_SHA}`
 - Tag target commit: `{V017_COMMIT}`
+- Tag tree: `{V017_TREE}`
 - Merge commit: `{V017_COMMIT}`
 - Merge tree: `{V017_TREE}`
+- Reviewed tree == merge tree: `true`
 - GitHub Release ID: `363582985`
 - GitHub Release URL: https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.7
 - Published timestamp: `2026-07-28T12:34:56Z`
-- Release state: public, non-draft, non-prerelease.
-- Assets: zero
-- Post-merge hosted checks: `9/9 SUCCESS` on merge commit
-- Exact-main proof: passed on the exact merge commit
+- Release state: `public; draft=false; prerelease=false`
+- Assets: `count=0`
+- Reviewed-head hosted checks: `status=passed; head={V017_REVIEWED_HEAD}; checks=9/9`
+- Post-merge hosted checks: `status=passed; merge={V017_COMMIT}; checks=9/9`
+- Exact-main proof: `status=passed; merge={V017_COMMIT}; proof=exact-main`
+- Release body SHA-256: `{V017_RELEASE_BODY_SHA}`
+- Tagged release-note SHA-256: `{V017_RELEASE_BODY_SHA}`
 - Archive filename: `multimodal-knowledge-engine-v0.1.7.tar.gz`
 - Archive bytes: `1234567`
 - Archive SHA-256: `{V017_ARCHIVE_SHA}`
 - Archive manifest SHA-256: `{V017_MANIFEST_SHA}`
-- Manifest/tree equality: normalized archive manifest equals the tagged tree
+- Manifest/tree equality: `status=equal; tree={V017_TREE}`
 - Archive wheel: `{V017_WHEEL}`
 - Candidate wheel: `{V017_WHEEL}`
 - Candidate wheel bytes: `234567`
 - Candidate wheel SHA-256: `{V017_WHEEL_SHA}`
-- Candidate receipt: canonical receipt present
+- Candidate receipt: `status=present; schema=mke.candidate_artifact_receipt.v1`
 - Candidate receipt file SHA-256: `{V017_RECEIPT_FILE_SHA}`
 - Candidate receipt payload SHA-256: `{V017_RECEIPT_PAYLOAD_SHA}`
-- Archive smoke: passed from the public GitHub source archive
-- Git-less allowlist: passed
+- Archive smoke: `status=passed; source=public-github-archive`
+- Git-less allowlist: `status=passed; scope=allowlist`
 - Canonical evidence hashes: unchanged
 - Temporary compatibility: seven families with all six delta classes zero
 - Limitations and non-claims: no retrieval-quality, performance, deployment, or adoption claim
@@ -70,6 +82,16 @@ def test_audit_targets_v0_1_7_release_identity() -> None:
     assert "docs/releases/v0.1.2.md" in audit.HISTORICAL_RELEASE_FILES
     assert "docs/releases/v0.1.0.md" not in audit.RELEASE_FACING_FILES
     assert "docs/releases/v0.1.1.md" not in audit.RELEASE_FACING_FILES
+
+
+def test_publication_record_inventory_excludes_post_closeout_self_reference() -> None:
+    from scripts import release_presentation_audit as audit
+
+    assert all(
+        term not in field.lower()
+        for field in audit.PUBLICATION_RECORD_FIELDS
+        for term in ("closeout", "cleanup")
+    )
 
 
 def test_audit_targets_current_build_wheel_command_docs() -> None:
@@ -531,13 +553,51 @@ def _append_current_surface_text(target: Path, addition: str) -> None:
     target.write_text(updated, encoding="utf-8")
 
 
-def _append_publication_record(root: Path) -> None:
-    target = root / "docs/releases/v0.1.7.md"
-    target.write_text(
-        f"{target.read_text(encoding='utf-8').rstrip()}\n\n"
-        f"{COMPLETE_PUBLICATION_VERIFICATION.strip()}\n",
-        encoding="utf-8",
-    )
+def _append_publication_record(
+    root: Path,
+    *,
+    release_note: bool = True,
+    verify_guide: bool = True,
+) -> None:
+    if release_note:
+        target = root / "docs/releases/v0.1.7.md"
+        target.write_text(
+            f"{target.read_text(encoding='utf-8').rstrip()}\n\n"
+            f"{COMPLETE_PUBLICATION_VERIFICATION.strip()}\n",
+            encoding="utf-8",
+        )
+    if verify_guide:
+        target = root / "docs/how-to/verify-release.md"
+        guide_text = target.read_text(encoding="utf-8")
+        historical_heading = "## Completed v0.1.6 Release Record"
+        if historical_heading in guide_text:
+            current, historical = guide_text.split(historical_heading, maxsplit=1)
+            historical_suffix = f"{historical_heading}{historical}"
+        else:
+            current = guide_text
+            historical_suffix = ""
+        guide_record = COMPLETE_PUBLICATION_VERIFICATION.replace(
+            "## Publication verification",
+            "## Completed v0.1.7 Release Record",
+            1,
+        )
+        target.write_text(
+            f"{current.rstrip()}\n\n{guide_record.strip()}\n\n"
+            f"{historical_suffix}\n",
+            encoding="utf-8",
+        )
+
+
+def _replace_publication_line(root: Path, old: str, new: str) -> None:
+    for relative in ("docs/releases/v0.1.7.md", "docs/how-to/verify-release.md"):
+        _replace_publication_line_in(root, relative, old, new)
+
+
+def _replace_publication_line_in(root: Path, relative: str, old: str, new: str) -> None:
+    target = root / relative
+    text = target.read_text(encoding="utf-8")
+    assert old in text
+    target.write_text(text.replace(old, new, 1), encoding="utf-8")
 
 
 def test_audit_accepts_complete_release_presentation(tmp_path: Path) -> None:
@@ -606,17 +666,17 @@ def test_audit_rejects_prepublication_persisted_state_claims(
     )
 
 
-def test_audit_accepts_completed_v017_publication_record_on_verify_release(
+def test_audit_rejects_incomplete_v017_publication_record_on_verify_release(
     tmp_path: Path,
 ) -> None:
     _write_release_tree(tmp_path)
-    _append_current_surface_text(
-        tmp_path / "docs/how-to/verify-release.md",
-        "## Completed v0.1.7 Release Record\n\n"
-        "The GitHub Release has zero assets. PyPI is absent.",
+    _append_publication_record(
+        tmp_path,
+        release_note=False,
+        verify_guide=True,
     )
 
-    assert "v016_prepublication_publication_claim" not in _rules(tmp_path)
+    assert "v016_publication_verification" in _rules(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -714,12 +774,7 @@ def test_audit_accepts_shape_valid_complete_publication_verification(
     tmp_path: Path,
 ) -> None:
     _write_release_tree(tmp_path)
-    target = tmp_path / "docs/releases/v0.1.7.md"
-    target.write_text(
-        f"{target.read_text(encoding='utf-8').rstrip()}\n\n"
-        f"{COMPLETE_PUBLICATION_VERIFICATION.strip()}\n",
-        encoding="utf-8",
-    )
+    _append_publication_record(tmp_path)
 
     assert "v016_publication_verification" not in _rules(tmp_path)
 
@@ -728,6 +783,150 @@ def test_audit_accepts_shape_valid_complete_publication_verification(
     ("old", "new"),
     [
         (
+            "- Archive smoke: `status=passed; source=public-github-archive`",
+            "- Archive smoke: `status=not-passed; source=public-github-archive`",
+        ),
+        (
+            f"- Manifest/tree equality: `status=equal; tree={V017_TREE}`",
+            f"- Manifest/tree equality: `status=not-equal; tree={V017_TREE}`",
+        ),
+        (
+            f"- Post-merge hosted checks: `status=passed; merge={V017_COMMIT}; checks=9/9`",
+            f"- Post-merge hosted checks: `status=not-passed; merge={V017_COMMIT}; checks=9/9`",
+        ),
+        (
+            f"- Exact-main proof: `status=passed; merge={V017_COMMIT}; proof=exact-main`",
+            f"- Exact-main proof: `status=not-passed; merge={V017_COMMIT}; proof=exact-main`",
+        ),
+    ],
+)
+def test_audit_rejects_negated_terminal_publication_values(
+    tmp_path: Path,
+    old: str,
+    new: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    _append_publication_record(tmp_path)
+    _replace_publication_line(tmp_path, old, new)
+
+    assert "v016_publication_verification" in _rules(tmp_path)
+
+
+def test_audit_rejects_release_note_only_publication_record(tmp_path: Path) -> None:
+    _write_release_tree(tmp_path)
+    _append_publication_record(tmp_path, verify_guide=False)
+
+    assert "v016_publication_verification" in _rules(tmp_path)
+
+
+def test_audit_rejects_verify_guide_only_publication_record(tmp_path: Path) -> None:
+    _write_release_tree(tmp_path)
+    _append_publication_record(tmp_path, release_note=False)
+
+    assert "v016_publication_verification" in _rules(tmp_path)
+
+
+def test_audit_rejects_reviewed_tree_merge_tree_mismatch(tmp_path: Path) -> None:
+    _write_release_tree(tmp_path)
+    _append_publication_record(tmp_path)
+    _replace_publication_line(
+        tmp_path,
+        f"- Reviewed tree: `{V017_TREE}`",
+        "- Reviewed tree: `abcdef0123456789abcdef0123456789abcdef01`",
+    )
+
+    assert "v016_publication_verification" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        (
+            f"- Reviewed-head hosted checks: `status=passed; head={V017_REVIEWED_HEAD}; "
+            "checks=9/9`",
+            f"- Reviewed-head hosted checks: `status=passed; head={V017_COMMIT}; "
+            "checks=9/9`",
+        ),
+        (
+            f"- Post-merge hosted checks: `status=passed; merge={V017_COMMIT}; checks=9/9`",
+            f"- Post-merge hosted checks: `status=passed; merge={V017_REVIEWED_HEAD}; checks=9/9`",
+        ),
+    ],
+)
+def test_audit_rejects_checks_bound_to_wrong_sha(
+    tmp_path: Path,
+    old: str,
+    new: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    _append_publication_record(tmp_path)
+    _replace_publication_line(tmp_path, old, new)
+
+    assert "v016_publication_verification" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["Release body SHA-256", "Tagged release-note SHA-256"],
+)
+def test_audit_rejects_release_body_tagged_note_digest_mismatch(
+    tmp_path: Path,
+    field: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    _append_publication_record(tmp_path)
+    old = f"- {field}: `{V017_RELEASE_BODY_SHA}`"
+    new = f"- {field}: `{V017_ARCHIVE_SHA}`"
+    _replace_publication_line(tmp_path, old, new)
+
+    assert "v016_publication_verification" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        (
+            f"- Tag target commit: `{V017_COMMIT}`",
+            f"- Tag target commit: `{V017_REVIEWED_HEAD}`",
+        ),
+        (
+            f"- Tag tree: `{V017_TREE}`",
+            f"- Tag tree: `{V017_REVIEWED_HEAD}`",
+        ),
+    ],
+)
+def test_audit_rejects_tag_identity_mismatch(
+    tmp_path: Path,
+    old: str,
+    new: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    _append_publication_record(tmp_path)
+    _replace_publication_line(tmp_path, old, new)
+
+    assert "v016_publication_verification" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        (
+            "- Release-prep PR number: `184`",
+            "- Release-prep PR number: `0`",
+        ),
+        (
+            "- Release-prep PR URL: https://github.com/iTao-AI/multimodal-knowledge-engine/pull/184",
+            "- Release-prep PR URL: https://example.com/pr/184",
+        ),
+        (
+            "- Reviewed HEAD: `abcdef0123456789abcdef0123456789abcdef01`",
+            "- Reviewed HEAD: `x`",
+        ),
+        (
+            "- Reviewed tree: `234567890abcdef1234567890abcdef123456789`",
+            "- Reviewed tree: `x`",
+        ),
+        (
             "- Annotated tag object SHA: `567890abcdef1234567890abcdef1234567890ab`",
             "- Annotated tag object SHA: `x`",
         ),
@@ -735,10 +934,44 @@ def test_audit_accepts_shape_valid_complete_publication_verification(
             "- Tag target commit: `1234567890abcdef1234567890abcdef12345678`",
             "- Tag target commit: `not-a-commit`",
         ),
+        (
+            "- Tag tree: `234567890abcdef1234567890abcdef123456789`",
+            "- Tag tree: `x`",
+        ),
+        (
+            "- Reviewed tree == merge tree: `true`",
+            "- Reviewed tree == merge tree: `false`",
+        ),
         ("- GitHub Release ID: `363582985`", "- GitHub Release ID: `0`"),
         (
-            "- Release state: public, non-draft, non-prerelease.",
+            "- Release state: `public; draft=false; prerelease=false`",
             "- Release state: draft",
+        ),
+        ("- Assets: `count=0`", "- Assets: `count=1`"),
+        (
+            "- Reviewed-head hosted checks: `status=passed; head="
+            "abcdef0123456789abcdef0123456789abcdef01; checks=9/9`",
+            "- Reviewed-head hosted checks: `status=passed; head=x; checks=9/9`",
+        ),
+        (
+            "- Post-merge hosted checks: `status=passed; merge="
+            "1234567890abcdef1234567890abcdef12345678; checks=9/9`",
+            "- Post-merge hosted checks: `status=passed; merge=x; checks=9/9`",
+        ),
+        (
+            "- Exact-main proof: `status=passed; merge="
+            "1234567890abcdef1234567890abcdef12345678; proof=exact-main`",
+            "- Exact-main proof: `status=passed; merge=x; proof=exact-main`",
+        ),
+        (
+            "- Release body SHA-256: `abcdef0123456789abcdef0123456789"
+            "abcdef0123456789abcdef0123456789`",
+            "- Release body SHA-256: `x`",
+        ),
+        (
+            "- Tagged release-note SHA-256: `abcdef0123456789abcdef0123456789"
+            "abcdef0123456789abcdef0123456789`",
+            "- Tagged release-note SHA-256: `x`",
         ),
         (
             "- Archive filename: `multimodal-knowledge-engine-v0.1.7.tar.gz`",
@@ -750,8 +983,10 @@ def test_audit_accepts_shape_valid_complete_publication_verification(
             "- Archive SHA-256: `x`",
         ),
         (
-            "- Manifest/tree equality: normalized archive manifest equals the tagged tree",
-            "- Manifest/tree equality: not verified",
+            "- Manifest/tree equality: `status=equal; tree="
+            "234567890abcdef1234567890abcdef123456789`",
+            "- Manifest/tree equality: `status=not-equal; tree="
+            "234567890abcdef1234567890abcdef123456789`",
         ),
         (
             "- Candidate wheel: `multimodal_knowledge_engine-0.1.7-py3-none-any.whl`",
@@ -767,8 +1002,8 @@ def test_audit_accepts_shape_valid_complete_publication_verification(
             "- Candidate wheel SHA-256: `x`",
         ),
         (
-            "- Candidate receipt: canonical receipt present",
-            "- Candidate receipt: missing",
+            "- Candidate receipt: `status=present; schema=mke.candidate_artifact_receipt.v1`",
+            "- Candidate receipt: `status=missing; schema=mke.candidate_artifact_receipt.v1`",
         ),
         (
             "- Candidate receipt file SHA-256: "
@@ -781,8 +1016,8 @@ def test_audit_accepts_shape_valid_complete_publication_verification(
             "- Candidate receipt payload SHA-256: `x`",
         ),
         (
-            "- Archive smoke: passed from the public GitHub source archive",
-            "- Archive smoke: failed",
+            "- Archive smoke: `status=passed; source=public-github-archive`",
+            "- Archive smoke: `status=failed; source=public-github-archive`",
         ),
     ],
 )
@@ -792,12 +1027,8 @@ def test_audit_rejects_invalid_terminal_publication_fields(
     new: str,
 ) -> None:
     _write_release_tree(tmp_path)
-    target = tmp_path / "docs/releases/v0.1.7.md"
-    malformed = COMPLETE_PUBLICATION_VERIFICATION.replace(old, new, 1)
-    target.write_text(
-        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{malformed.strip()}\n",
-        encoding="utf-8",
-    )
+    _append_publication_record(tmp_path)
+    _replace_publication_line(tmp_path, old, new)
 
     assert "v016_publication_verification" in _rules(tmp_path)
 
@@ -875,7 +1106,7 @@ def test_audit_rejects_postpublication_preparation_status(
             "- Published timestamp: `2026-07-28T12:34:56Z`",
             "- Published timestamp: `2026-07-28 12:34:56+00:00`",
         ),
-        ("- Assets: zero", "- Assets: one"),
+        ("- Assets: `count=0`", "- Assets: `count=1`"),
         (
             "- Archive SHA-256: "
             "`34567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12`",
@@ -892,11 +1123,19 @@ def test_audit_rejects_postpublication_preparation_status(
             "- Archive wheel: `multimodal_knowledge_engine-0.1.4-py3-none-any.whl`",
         ),
         (
-            "- Post-merge hosted checks: `9/9 SUCCESS` on merge commit",
+            "- Post-merge hosted checks: `status=passed; merge="
+            "1234567890abcdef1234567890abcdef12345678; checks=9/9`",
             "- Post-merge hosted checks:",
         ),
-        ("- Git-less allowlist: passed", "- Git-less allowlist:"),
-        ("- Exact-main proof: passed", "- Exact-main proof:"),
+        (
+            "- Git-less allowlist: `status=passed; scope=allowlist`",
+            "- Git-less allowlist:",
+        ),
+        (
+            "- Exact-main proof: `status=passed; merge="
+            "1234567890abcdef1234567890abcdef12345678; proof=exact-main`",
+            "- Exact-main proof:",
+        ),
         ("- Canonical evidence hashes: unchanged", "- Canonical evidence hashes:"),
         (
             "- Temporary compatibility: seven families with all six delta classes zero",
@@ -915,12 +1154,8 @@ def test_audit_rejects_malformed_or_empty_publication_facts(
     new: str,
 ) -> None:
     _write_release_tree(tmp_path)
-    target = tmp_path / "docs/releases/v0.1.7.md"
-    malformed = COMPLETE_PUBLICATION_VERIFICATION.replace(old, new, 1)
-    target.write_text(
-        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{malformed.strip()}\n",
-        encoding="utf-8",
-    )
+    _append_publication_record(tmp_path)
+    _replace_publication_line(tmp_path, old, new)
 
     assert "v016_publication_verification" in _rules(tmp_path)
 
@@ -929,17 +1164,26 @@ def test_audit_rejects_malformed_or_empty_publication_facts(
     "label",
     [
         "Tag",
+        "Release-prep PR number",
+        "Release-prep PR URL",
+        "Reviewed HEAD",
+        "Reviewed tree",
         "Annotated tag object SHA",
         "Tag target commit",
+        "Tag tree",
         "Merge commit",
         "Merge tree",
+        "Reviewed tree == merge tree",
         "GitHub Release URL",
         "GitHub Release ID",
         "Published timestamp",
         "Release state",
         "Assets",
+        "Reviewed-head hosted checks",
         "Post-merge hosted checks",
         "Exact-main proof",
+        "Release body SHA-256",
+        "Tagged release-note SHA-256",
         "Archive filename",
         "Archive bytes",
         "Archive SHA-256",
@@ -964,6 +1208,7 @@ def test_audit_rejects_duplicate_publication_labels(
     label: str,
 ) -> None:
     _write_release_tree(tmp_path)
+    _append_publication_record(tmp_path)
     target = tmp_path / "docs/releases/v0.1.7.md"
     duplicate = next(
         line
@@ -971,8 +1216,7 @@ def test_audit_rejects_duplicate_publication_labels(
         if line.startswith(f"- {label}:")
     )
     target.write_text(
-        f"{target.read_text(encoding='utf-8').rstrip()}\n\n"
-        f"{COMPLETE_PUBLICATION_VERIFICATION.strip()}\n{duplicate}\n",
+        f"{target.read_text(encoding='utf-8').rstrip()}\n{duplicate}\n",
         encoding="utf-8",
     )
 
@@ -983,17 +1227,26 @@ def test_audit_rejects_duplicate_publication_labels(
     "label",
     [
         "Tag",
+        "Release-prep PR number",
+        "Release-prep PR URL",
+        "Reviewed HEAD",
+        "Reviewed tree",
         "Annotated tag object SHA",
         "Tag target commit",
+        "Tag tree",
         "Merge commit",
         "Merge tree",
+        "Reviewed tree == merge tree",
         "GitHub Release URL",
         "GitHub Release ID",
         "Published timestamp",
         "Release state",
         "Assets",
+        "Reviewed-head hosted checks",
         "Post-merge hosted checks",
         "Exact-main proof",
+        "Release body SHA-256",
+        "Tagged release-note SHA-256",
         "Archive filename",
         "Archive bytes",
         "Archive SHA-256",
@@ -1018,15 +1271,48 @@ def test_audit_rejects_missing_publication_labels(
     label: str,
 ) -> None:
     _write_release_tree(tmp_path)
+    _append_publication_record(tmp_path)
     target = tmp_path / "docs/releases/v0.1.7.md"
-    incomplete = "\n".join(
+    missing = next(
         line
         for line in COMPLETE_PUBLICATION_VERIFICATION.splitlines()
-        if not line.startswith(f"- {label}:")
+        if line.startswith(f"- {label}:")
     )
+    text = target.read_text(encoding="utf-8")
+    assert f"{missing}\n" in text
     target.write_text(
-        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{incomplete.strip()}\n",
+        text.replace(f"{missing}\n", "", 1),
         encoding="utf-8",
+    )
+
+    assert "v016_publication_verification" in _rules(tmp_path)
+
+
+def test_audit_rejects_cross_record_publication_fact_mismatch(tmp_path: Path) -> None:
+    _write_release_tree(tmp_path)
+    _append_publication_record(tmp_path)
+    _replace_publication_line_in(
+        tmp_path,
+        "docs/how-to/verify-release.md",
+        f"- Release body SHA-256: `{V017_RELEASE_BODY_SHA}`",
+        f"- Release body SHA-256: `{V017_ARCHIVE_SHA}`",
+    )
+    _replace_publication_line_in(
+        tmp_path,
+        "docs/how-to/verify-release.md",
+        f"- Tagged release-note SHA-256: `{V017_RELEASE_BODY_SHA}`",
+        f"- Tagged release-note SHA-256: `{V017_ARCHIVE_SHA}`",
+    )
+
+    assert "v016_publication_verification" in _rules(tmp_path)
+
+
+def test_audit_rejects_publication_inventory_self_reference(tmp_path: Path) -> None:
+    _write_release_tree(tmp_path)
+    _append_publication_record(tmp_path)
+    _append_current_surface_text(
+        tmp_path / "docs/releases/v0.1.7.md",
+        "- Closeout PR: https://github.com/iTao-AI/multimodal-knowledge-engine/pull/185",
     )
 
     assert "v016_publication_verification" in _rules(tmp_path)
@@ -1041,14 +1327,12 @@ def test_audit_rejects_placeholder_or_unbounded_publication_values(
     invalid_value: str,
 ) -> None:
     _write_release_tree(tmp_path)
-    target = tmp_path / "docs/releases/v0.1.7.md"
-    malformed = COMPLETE_PUBLICATION_VERIFICATION.replace(
-        "`9/9 SUCCESS` on merge commit",
-        invalid_value,
-    )
-    target.write_text(
-        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{malformed.strip()}\n",
-        encoding="utf-8",
+    _append_publication_record(tmp_path)
+    _replace_publication_line(
+        tmp_path,
+        "- Post-merge hosted checks: `status=passed; merge="
+        "1234567890abcdef1234567890abcdef12345678; checks=9/9`",
+        f"- Post-merge hosted checks: {invalid_value}",
     )
 
     assert "v016_publication_verification" in _rules(tmp_path)
@@ -1058,11 +1342,19 @@ def test_audit_rejects_placeholder_or_unbounded_publication_values(
     ("old", "label"),
     [
         (
-            "- Post-merge hosted checks: `9/9 SUCCESS` on merge commit",
+            "- Post-merge hosted checks: `status=passed; merge="
+            "1234567890abcdef1234567890abcdef12345678; checks=9/9`",
             "Post-merge hosted checks",
         ),
-        ("- Git-less allowlist: passed", "Git-less allowlist"),
-        ("- Exact-main proof: passed on the exact merge commit", "Exact-main proof"),
+        (
+            "- Git-less allowlist: `status=passed; scope=allowlist`",
+            "Git-less allowlist",
+        ),
+        (
+            "- Exact-main proof: `status=passed; merge="
+            "1234567890abcdef1234567890abcdef12345678; proof=exact-main`",
+            "Exact-main proof",
+        ),
         ("- Canonical evidence hashes: unchanged", "Canonical evidence hashes"),
         (
             "- Temporary compatibility: seven families with all six delta classes zero",
@@ -1081,16 +1373,8 @@ def test_audit_rejects_semantically_empty_markdown_publication_values(
     label: str,
 ) -> None:
     _write_release_tree(tmp_path)
-    target = tmp_path / "docs/releases/v0.1.7.md"
-    malformed = COMPLETE_PUBLICATION_VERIFICATION.replace(
-        old,
-        f"- {label}:   ``  ",
-        1,
-    )
-    target.write_text(
-        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{malformed.strip()}\n",
-        encoding="utf-8",
-    )
+    _append_publication_record(tmp_path)
+    _replace_publication_line(tmp_path, old, f"- {label}:   ``  ")
 
     assert "v016_publication_verification" in _rules(tmp_path)
 
@@ -1108,15 +1392,11 @@ def test_audit_rejects_impossible_utc_publication_timestamp(
     timestamp: str,
 ) -> None:
     _write_release_tree(tmp_path)
-    target = tmp_path / "docs/releases/v0.1.7.md"
-    malformed = COMPLETE_PUBLICATION_VERIFICATION.replace(
-        "`2026-07-28T12:34:56Z`",
-        f"`{timestamp}`",
-        1,
-    )
-    target.write_text(
-        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{malformed.strip()}\n",
-        encoding="utf-8",
+    _append_publication_record(tmp_path)
+    _replace_publication_line(
+        tmp_path,
+        "- Published timestamp: `2026-07-28T12:34:56Z`",
+        f"- Published timestamp: `{timestamp}`",
     )
 
     assert "v016_publication_verification" in _rules(tmp_path)
@@ -1143,12 +1423,8 @@ def test_audit_rejects_all_zero_publication_identities(
     zero_identity: str,
 ) -> None:
     _write_release_tree(tmp_path)
-    target = tmp_path / "docs/releases/v0.1.7.md"
-    malformed = COMPLETE_PUBLICATION_VERIFICATION.replace(old, zero_identity, 1)
-    target.write_text(
-        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{malformed.strip()}\n",
-        encoding="utf-8",
-    )
+    _append_publication_record(tmp_path)
+    _replace_publication_line(tmp_path, old, zero_identity)
 
     assert "v016_publication_verification" in _rules(tmp_path)
 
@@ -1157,25 +1433,22 @@ def test_audit_rejects_retained_malformed_publication_diagnostic(
     tmp_path: Path,
 ) -> None:
     _write_release_tree(tmp_path)
-    target = tmp_path / "docs/releases/v0.1.7.md"
-    malformed = (
-        COMPLETE_PUBLICATION_VERIFICATION.replace(
-            "`1234567890abcdef1234567890abcdef12345678`",
-            "`not-a-commit`",
-        )
-        .replace(
-            "`34567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12`",
-            "`x`",
-        )
-        .replace(
-            "- Post-merge hosted checks: `9/9 SUCCESS` on merge commit "
-            "`1234567890abcdef1234567890abcdef12345678`",
-            "- Post-merge hosted checks:",
-        )
+    _append_publication_record(tmp_path)
+    _replace_publication_line(
+        tmp_path,
+        "- Tag target commit: `1234567890abcdef1234567890abcdef12345678`",
+        "- Tag target commit: `not-a-commit`",
     )
-    target.write_text(
-        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{malformed.strip()}\n",
-        encoding="utf-8",
+    _replace_publication_line(
+        tmp_path,
+        "- Archive SHA-256: `34567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12`",
+        "- Archive SHA-256: `x`",
+    )
+    _replace_publication_line(
+        tmp_path,
+        "- Post-merge hosted checks: `status=passed; merge="
+        "1234567890abcdef1234567890abcdef12345678; checks=9/9`",
+        "- Post-merge hosted checks:",
     )
 
     assert "v016_publication_verification" in _rules(tmp_path)
@@ -1857,7 +2130,7 @@ def test_audit_rejects_post_release_stale_publication_status(
 
 def test_audit_allows_verify_release_generic_stage3_instructions(tmp_path: Path) -> None:
     _write_release_tree(tmp_path)
-    _append_publication_record(tmp_path)
+    _append_publication_record(tmp_path, verify_guide=False)
     (tmp_path / "docs/how-to/verify-release.md").write_text(
         "# Verify Release\n\n"
         "The release-prep PR precedes the exact-main gates and the post-publication docs "
@@ -1869,6 +2142,7 @@ def test_audit_allows_verify_release_generic_stage3_instructions(tmp_path: Path)
         "dist/multimodal_knowledge_engine-0.1.7-py3-none-any.whl --json`\n",
         encoding="utf-8",
     )
+    _append_publication_record(tmp_path, release_note=False)
 
     assert audit_release_presentation(tmp_path) == []
 
