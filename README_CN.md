@@ -81,11 +81,13 @@ UV_OFFLINE=1 uv run python scripts/generate_evidence_workspace.py --verify
 下面保留详细 release record、proof 命令、contracts、边界和 implementation history；它们是
 evidence reference，不是额外 runtime surface。
 
-`v0.1.6` 保持 completeness-aware local stdio MCP Agent path 为当前入口，并使成功 PDF
-intake-report publication 原子化：
+`v0.1.7` 保持 completeness-aware local stdio MCP Agent path 为当前入口，延续成功 PDF
+intake-report publication 原子化，并记录有界 MCP consumer recovery 与 CJK scan-budget mapping：
 `search_library_v2` 报告有界 selection completeness，`read_evidence_v1` 重建 exact active
-Evidence 并校验最终 digest。Equal-score order 是确定性的；这不构成 relevance improvement
-或 runtime promotion 声明。参见 [v0.1.6](./docs/releases/v0.1.6.md)。
+Evidence 并校验最终 digest。正常无匹配、capped 非穷尽选择和 `evidence_not_found` recovery
+保持区分；`cjk_scan_budget_exceeded` 指向 `narrow_query_or_use_projection_strategy`。Equal-score
+order 是确定性的；这不构成 relevance improvement 或 runtime promotion 声明。参见
+[v0.1.7](./docs/releases/v0.1.7.md)。
 
 `v0.1.4` 增加有界 direct-audio intake：本地 MP3、WAV/PCM 和 M4A/AAC clips 可进入同一 Evidence
 生命周期。它保留 Compiled Library Export、strict Evidence provenance 和 external same-wheel
@@ -219,7 +221,7 @@ uv run mke proof run
 uv run mke demo --verify
 uv run python scripts/release_presentation_audit.py --root .
 uv run python scripts/release_consumer_smoke.py \
-  --wheel dist/multimodal_knowledge_engine-0.1.6-py3-none-any.whl --json
+  --wheel dist/multimodal_knowledge_engine-0.1.7-py3-none-any.whl --json
 ```
 
 ## Local Knowledge Proof
@@ -354,7 +356,7 @@ media support、hostile-media sandbox、business adoption 或 real-user outcomes
 
 ## 文档
 
-- [Release notes](./docs/releases/v0.1.6.md)
+- [Release notes](./docs/releases/v0.1.7.md)
 - [Verify The Release](./docs/how-to/verify-release.md)
 - [Documentation index](./docs/README.md)
 - [Run The Local Product Proof](./docs/how-to/run-local-product-proof.md)

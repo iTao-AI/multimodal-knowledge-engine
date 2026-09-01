@@ -82,11 +82,14 @@ The sections below retain the detailed release record, proof commands, contracts
 and implementation history. They are navigation and evidence references, not additional runtime
 surfaces.
 
-`v0.1.6` keeps the completeness-aware local stdio MCP Agent path current and makes successful PDF
-intake-report publication atomic:
+`v0.1.7` keeps the completeness-aware local stdio MCP Agent path current, carries forward atomic
+PDF intake-report publication, and records the bounded MCP consumer recovery and CJK scan-budget
+mapping:
 `search_library_v2` reports bounded selection completeness and `read_evidence_v1` reconstructs
-exact active Evidence with a final digest. Equal-score ordering is deterministic; this is not a
-relevance-improvement or runtime-promotion claim. See [v0.1.6](./docs/releases/v0.1.6.md).
+exact active Evidence with a final digest. Normal no-match, capped non-exhaustive selection, and
+`evidence_not_found` recovery remain distinct; `cjk_scan_budget_exceeded` directs the Agent to
+`narrow_query_or_use_projection_strategy`. Equal-score ordering is deterministic; this is not a
+relevance-improvement or runtime-promotion claim. See [v0.1.7](./docs/releases/v0.1.7.md).
 
 The [Run The Consumer Source-Pack Proof](./docs/how-to/run-consumer-source-pack-proof.md) guide
 documents a source-built regression and consumer proof for the current source checkout. It was a
@@ -225,7 +228,7 @@ uv run mke proof run
 uv run mke demo --verify
 uv run python scripts/release_presentation_audit.py --root .
 uv run python scripts/release_consumer_smoke.py \
-  --wheel dist/multimodal_knowledge_engine-0.1.6-py3-none-any.whl --json
+  --wheel dist/multimodal_knowledge_engine-0.1.7-py3-none-any.whl --json
 ```
 
 ## Local Knowledge Proof
@@ -365,7 +368,7 @@ business adoption, or real-user outcomes.
 
 ## Documentation
 
-- [Release notes](./docs/releases/v0.1.6.md)
+- [Release notes](./docs/releases/v0.1.7.md)
 - [Verify The Release](./docs/how-to/verify-release.md)
 - [Documentation index](./docs/README.md)
 - [Run The Local Product Proof](./docs/how-to/run-local-product-proof.md)

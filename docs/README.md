@@ -6,6 +6,8 @@ auditing implementation history.
 
 ## Release And First Run
 
+- [v0.1.7 Release Notes](./releases/v0.1.7.md) — bounded MCP consumer recovery, CJK scan-budget
+  handling, and the current release identity; publication facts remain a separate gate.
 - [v0.1.6 Release Notes](./releases/v0.1.6.md) — atomic PDF intake-report publication and the
   current completeness-aware local stdio MCP Agent
   path, exact active Evidence recovery, and deterministic equal-score ordering.
@@ -33,10 +35,11 @@ auditing implementation history.
   records the comparison-only result that rejected the candidate under the frozen development
   protocol; holdout and runtime promotion remain `not_evaluated`.
 
-The [v0.1.6 Release Notes](./releases/v0.1.6.md) and [Verify The Release](./how-to/verify-release.md)
-describe the immutable stable tag. The Evidence workspace and MCP consumer failure-branch/recovery proof
-are documented on the current default branch, not part of stable `v0.1.6`. The current checkout proof
-guides describe the current tree; they do not change stable release claims.
+The [v0.1.6 Release Notes](./releases/v0.1.6.md) describe the immutable stable tag. The bounded
+`v0.1.7` release-prep note and [Verify The Release](./how-to/verify-release.md) describe the current
+source candidate; the Evidence workspace and MCP consumer failure-branch/recovery proof are documented
+on the current default branch, not part of stable `v0.1.6`. The current checkout proof guides describe
+the current tree; they do not change stable release claims.
 
 `v0.1.4` adds bounded direct-audio MP3, WAV/PCM, and M4A/AAC intake with timestamp Evidence and
 Compiled Library Export v2. It retains `mke.compiled_library_export.v1`, readable
@@ -81,7 +84,7 @@ outside MKE runtime and Evidence authority.
   does not combine raw lexical and dense scores.
 - [Evaluate The Relevance Gate Reranker Candidate](./how-to/evaluate-relevance-gate-reranker.md)
 
-v0.1.6 retains the historical v0.1.4 runtime boundary: only E3-F changes the default retrieval
+v0.1.7 retains the historical v0.1.4 runtime boundary: only E3-F changes the default retrieval
 strategy. Comparison-only dense preparation does not change normal Search, Ask, MCP, or the runtime
 default. Dense, RRF, and relevance-gate/reranker artifacts remain evaluation artifacts, not
 runtime features.
@@ -133,6 +136,8 @@ how-to guides, reference docs, and ADRs.
 - [CJK Lexical Dense RRF Fusion Implementation Review](./superpowers/reviews/2026-06-30-cjk-lexical-dense-rrf-fusion-review.md)
 - [CJK Relevance Gate Reranker Implementation Review](./superpowers/reviews/2026-06-30-cjk-relevance-gate-reranker-review.md)
 - [MKE Candidate Artifact Receipt Prerequisite Implementation Plan](./superpowers/plans/2026-07-13-candidate-artifact-receipt-implementation.md) — completed historical implementation record; the v0.1.3 exact-main and public-archive release gates were completed without publishing the candidate artifact.
+- [v0.1.7 Bounded Release Design](./superpowers/specs/2026-09-01-v0.1.7-bounded-release-design.md)
+- [v0.1.7 Bounded Release Implementation Plan](./superpowers/plans/2026-09-01-v0.1.7-bounded-release-implementation.md)
 
 ## Development Verification
 

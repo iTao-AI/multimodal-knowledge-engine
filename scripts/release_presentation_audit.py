@@ -12,8 +12,10 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 
-EXPECTED_VERSION = "0.1.6"
+EXPECTED_VERSION = "0.1.7"
 RUNTIME_STRATEGY = "cjk-active-scan-overlap-v1"
+_CURRENT_RELEASE_NOTE = f"docs/releases/v{EXPECTED_VERSION}.md"
+_CURRENT_WHEEL = f"multimodal_knowledge_engine-{EXPECTED_VERSION}-py3-none-any.whl"
 _PLACEHOLDER_VERSION_PATTERN = re.compile(
     r"(?<![0-9A-Za-z.])v?0\.0\.0(?![0-9A-Za-z]|\.[0-9A-Za-z])"
 )
@@ -23,7 +25,7 @@ RELEASE_FACING_FILES = (
     "README_CN.md",
     "docs/README.md",
     "CHANGELOG.md",
-    "docs/releases/v0.1.6.md",
+    _CURRENT_RELEASE_NOTE,
     "docs/how-to/verify-release.md",
 )
 COMPILED_LIBRARY_CLAIM_FILES = (
@@ -72,16 +74,20 @@ STALE_TERMINAL_ASR_DENIAL_PATTERNS = (
 )
 RELEASE_NOTE_FILES = (
     "CHANGELOG.md",
-    "docs/releases/v0.1.6.md",
+    _CURRENT_RELEASE_NOTE,
 )
 HISTORICAL_RELEASE_FILES = (
     "docs/releases/v0.1.2.md",
     "docs/releases/v0.1.3.md",
     "docs/releases/v0.1.4.md",
     "docs/releases/v0.1.5.md",
+    "docs/releases/v0.1.6.md",
 )
 _V015_HISTORICAL_SHA256 = (
     "c15bf918e9358c28fea020591cb0ad179db9a0fe6d6f420d5b321d4cb258be89"
+)
+_V016_HISTORICAL_SHA256 = (
+    "106d6b010182e6f72da137ca555fa895fd33c48543305a48862101e44a8156a3"
 )
 _PREPUBLICATION_PUBLICATION_CLAIM_PATTERNS = (
     re.compile(r"\b(?:the )?GitHub Release has zero (?:extra )?assets\b", re.IGNORECASE),
@@ -92,7 +98,7 @@ _PREPUBLICATION_PUBLICATION_CLAIM_PATTERNS = (
 CONSUMER_SMOKE_COMMAND_FILES = (
     "README.md",
     "README_CN.md",
-    "docs/releases/v0.1.6.md",
+    _CURRENT_RELEASE_NOTE,
     "docs/how-to/verify-release.md",
 )
 CURRENT_BUILD_WHEEL_COMMAND_FILES = (
@@ -896,7 +902,7 @@ def _audit_release_notes_links(root: Path) -> list[Violation]:
         "local knowledge proof",
     )
     violations: list[Violation] = []
-    file_name = "docs/releases/v0.1.6.md"
+    file_name = _CURRENT_RELEASE_NOTE
     release_notes = _read_text(root, file_name)
     for term in required_terms:
         if term.lower() not in release_notes.lower():
@@ -1057,9 +1063,56 @@ def _audit_v015_contract(root: Path) -> list[Violation]:
     return []
 
 
+def _audit_v016_historical_contract(root: Path) -> list[Violation]:
+    file_name = "docs/releases/v0.1.6.md"
+    path = root / file_name
+    if path.is_symlink() or not path.is_file():
+        return [
+            Violation(
+                file=file_name,
+                rule="v016_historical_contract",
+                message="v0.1.6 historical release note is missing or not a regular file",
+            )
+        ]
+    try:
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return [
+            Violation(
+                file=file_name,
+                rule="v016_historical_contract",
+                message="v0.1.6 historical release note could not be read",
+            )
+        ]
+    if digest != _V016_HISTORICAL_SHA256:
+        return [
+            Violation(
+                file=file_name,
+                rule="v016_historical_contract",
+                message="v0.1.6 historical release note immutable digest mismatch",
+            )
+        ]
+    return []
+
+
 def _audit_v016_contract(root: Path) -> list[Violation]:
-    release = _read_text(root, "docs/releases/v0.1.6.md")
+    release = _read_text(root, _CURRENT_RELEASE_NOTE)
     required = (
+        "Evidence workspace",
+        "MCP consumer failure-branch/recovery proof",
+        "normal no-match",
+        "capped",
+        "evidence_not_found",
+        "search_current_active_evidence",
+        "cjk_scan_budget_exceeded",
+        "narrow_query_or_use_projection_strategy",
+        "supported dependency lines",
+        "cryptography",
+        "installed-wheel",
+        "locked dependency",
+        "setup-uv",
+        "synthetic",
+        "provider-free",
         "search_library_v2",
         "complete",
         "more_available",
@@ -1091,10 +1144,10 @@ def _audit_v016_contract(root: Path) -> list[Violation]:
     if not _contains_all_terms(release, required):
         violations.append(
             Violation(
-                file="docs/releases/v0.1.6.md",
+                file=_CURRENT_RELEASE_NOTE,
                 rule="v016_release_contract",
                 message=(
-                    "v0.1.6 release note must preserve the current contract and repair boundary"
+                    "current release note must preserve the v0.1.7 contract and repair boundary"
                 ),
             )
         )
@@ -1149,15 +1202,18 @@ def _audit_v016_contract(root: Path) -> list[Violation]:
     for file_name in RELEASE_FACING_FILES:
         text = _read_text(root, file_name)
         if file_name == "CHANGELOG.md":
-            current_heading = re.search(r"(?m)^## \[0\.1\.6\](?: .*)?$", text)
+            current_heading = re.search(
+                rf"(?m)^## \[{re.escape(EXPECTED_VERSION)}\](?: .*)?$",
+                text,
+            )
             if current_heading is not None:
                 text = text[current_heading.end() :]
-                historical_heading = re.search(r"(?m)^## \[0\.1\.5\](?: .*)?$", text)
+                historical_heading = re.search(r"(?m)^## \[0\.1\.6\](?: .*)?$", text)
                 if historical_heading is not None:
                     text = text[: historical_heading.start()]
         elif file_name == "docs/how-to/verify-release.md":
             historical_heading = re.search(
-                r"(?m)^## Completed v0\.1\.5 Release Record\s*$",
+                r"(?m)^## Completed v0\.1\.6 Release Record\s*$",
                 text,
             )
             if historical_heading is not None:
@@ -1168,7 +1224,7 @@ def _audit_v016_contract(root: Path) -> list[Violation]:
                 Violation(
                     file=file_name,
                     rule="v016_release_overclaim",
-                    message="current v0.1.6 surface contains an affirmative excluded claim",
+                    message="current v0.1.7 surface contains an affirmative excluded claim",
                 )
             )
 
@@ -1249,20 +1305,20 @@ def _audit_v016_contract(root: Path) -> list[Violation]:
             len(parsed) == len(nonempty_lines)
             and not duplicate
             and set(values) == set(field_names)
-            and decode(values.get("Tag", "")) == "v0.1.6"
+            and decode(values.get("Tag", "")) == f"v{EXPECTED_VERSION}"
             and valid_identity(values.get("Merge commit", ""), 40)
             and valid_identity(values.get("Merge tree", ""), 40)
             and values.get("GitHub Release URL")
             == (
                 "https://github.com/iTao-AI/multimodal-knowledge-engine/"
-                "releases/tag/v0.1.6"
+                f"releases/tag/v{EXPECTED_VERSION}"
             )
             and valid_utc_timestamp(values.get("Published timestamp", ""))
             and values.get("Assets") == "zero"
             and valid_identity(values.get("Archive descriptor SHA-256", ""), 64)
             and valid_identity(values.get("Archive manifest SHA-256", ""), 64)
             and decode(values.get("Archive wheel", ""))
-            == "multimodal_knowledge_engine-0.1.6-py3-none-any.whl"
+            == _CURRENT_WHEEL
             and all(
                 0 < len(decode(values.get(field, ""))) <= 500
                 for field in bounded_fields
@@ -1275,7 +1331,7 @@ def _audit_v016_contract(root: Path) -> list[Violation]:
         if not shape_valid:
             violations.append(
                 Violation(
-                    file="docs/releases/v0.1.6.md",
+                    file=_CURRENT_RELEASE_NOTE,
                     rule="v016_publication_verification",
                     message=(
                         "Publication verification must contain the complete immutable "
@@ -1298,20 +1354,20 @@ def _audit_v016_contract(root: Path) -> list[Violation]:
 
 def _audit_prepublication_publication_claims(root: Path) -> list[Violation]:
     violations: list[Violation] = []
-    for file_name in ("docs/releases/v0.1.6.md", "docs/how-to/verify-release.md"):
+    for file_name in (_CURRENT_RELEASE_NOTE, "docs/how-to/verify-release.md"):
         text = _read_text(root, file_name)
-        if file_name == "docs/releases/v0.1.6.md":
+        if file_name == _CURRENT_RELEASE_NOTE:
             if re.search(r"(?m)^## Publication verification\s*$", text) is not None:
                 continue
         else:
             completed_heading = re.search(
-                r"(?m)^## Completed v0\.1\.6 Release Record\s*$",
+                rf"(?m)^## Completed v{re.escape(EXPECTED_VERSION)} Release Record\s*$",
                 text,
             )
             if completed_heading is not None:
                 text = text[: completed_heading.start()]
             historical_heading = re.search(
-                r"(?m)^## Completed v0\.1\.5 Release Record\s*$",
+                r"(?m)^## Completed v0\.1\.6 Release Record\s*$",
                 text,
             )
             if historical_heading is not None:
@@ -1339,15 +1395,15 @@ def _audit_consumer_smoke_wheel_selection(
     files: Iterable[str],
 ) -> list[Violation]:
     violations: list[Violation] = []
-    exact_wheel = "dist/multimodal_knowledge_engine-0.1.6-py3-none-any.whl"
+    exact_wheel = f"dist/{_CURRENT_WHEEL}"
     for file_name in files:
         text = _read_text(root, file_name)
         current_text = text
         if file_name == "docs/how-to/verify-release.md" and "## Stage 1" in text:
             current_text = text.split("## Stage 1", maxsplit=1)[1]
-            if "## Completed v0.1.5 Release Record" in current_text:
+            if "## Completed v0.1.6 Release Record" in current_text:
                 current_text = current_text.split(
-                    "## Completed v0.1.5 Release Record",
+                    "## Completed v0.1.6 Release Record",
                     maxsplit=1,
                 )[0]
         if exact_wheel not in current_text:
@@ -1364,6 +1420,7 @@ def _audit_consumer_smoke_wheel_selection(
                 "multimodal_knowledge_engine-0.1.1-py3-none-any.whl",
                 "multimodal_knowledge_engine-0.1.2-py3-none-any.whl",
                 "multimodal_knowledge_engine-0.1.3-py3-none-any.whl",
+                "multimodal_knowledge_engine-0.1.6-py3-none-any.whl",
                 "multimodal_knowledge_engine-0.1.5-py3-none-any.whl",
             )
         ):
@@ -1379,8 +1436,8 @@ def _audit_consumer_smoke_wheel_selection(
 
 def _audit_current_build_wheel_selection(root: Path) -> list[Violation]:
     violations: list[Violation] = []
-    current_wheel = "multimodal_knowledge_engine-0.1.6-py3-none-any.whl"
-    stale_wheel = "multimodal_knowledge_engine-0.1.5-py3-none-any.whl"
+    current_wheel = _CURRENT_WHEEL
+    stale_wheel = "multimodal_knowledge_engine-0.1.6-py3-none-any.whl"
     for file_name in CURRENT_BUILD_WHEEL_COMMAND_FILES:
         text = _read_text(root, file_name)
         if not text:
@@ -1501,6 +1558,7 @@ def audit_release_presentation(root: Path) -> list[Violation]:
     violations.extend(_audit_v013_contract(root))
     violations.extend(_audit_v014_contract(root))
     violations.extend(_audit_v015_contract(root))
+    violations.extend(_audit_v016_historical_contract(root))
     violations.extend(_audit_v016_contract(root))
     violations.extend(_audit_prepublication_publication_claims(root))
     violations.extend(_audit_stale_status(root, release_files))
@@ -1512,7 +1570,9 @@ def audit_release_presentation(root: Path) -> list[Violation]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Audit v0.1.6 release presentation docs.")
+    parser = argparse.ArgumentParser(
+        description=f"Audit v{EXPECTED_VERSION} release presentation docs."
+    )
     parser.add_argument("--root", type=Path, default=Path("."))
     parser.add_argument("--json", action="store_true", help="emit the closed JSON result")
     args = parser.parse_args(argv)
