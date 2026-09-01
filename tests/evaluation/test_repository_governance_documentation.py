@@ -161,22 +161,69 @@ def test_docs_index_links_governance_and_completed_authorities() -> None:
     normalized = " ".join(text.split())
 
     assert "[Superpowers Workspace](./superpowers/README.md)" in text
+    assert "./superpowers/specs/2026-09-01-v0.1.7-bounded-release-design.md" in text
+    assert "./superpowers/plans/2026-09-01-v0.1.7-bounded-release-implementation.md" in text
     assert "[ADR-0010](./decisions/0010-pdf-ocr-evaluation-manifest-fingerprint.md)" in text
     assert "post-merge operational gate pending" not in text
     assert "source-built regression and consumer proof for the current source checkout" in text
     assert "historical `v0.1.4` release-candidate verification gate" in normalized
 
 
-def test_unreleased_inventory_matches_post_v016_current_branch_without_future_claim() -> None:
+def test_v017_terminal_sequence_requires_postpublication_closeout() -> None:
+    spec = Path("docs/superpowers/specs/2026-09-01-v0.1.7-bounded-release-design.md").read_text(
+        encoding="utf-8"
+    )
+    plan = Path(
+        "docs/superpowers/plans/2026-09-01-v0.1.7-bounded-release-implementation.md"
+    ).read_text(
+        encoding="utf-8"
+    )
+    verify = _text(ROOT / "docs/how-to/verify-release.md")
+    sequence = (
+        "release-prep PR` → `exact-main gates/tag/Release/archive proof` → "
+        "`same-scope post-publication docs closeout PR"
+    )
+    for text in (spec, plan, verify):
+        surface = " ".join(text.split())
+        assert sequence in surface
+        for literal in (
+            "Publication verification",
+            "Completed v0.1.7 Release Record",
+            "release-prep PR number/URL",
+            "reviewed HEAD/tree",
+            "reviewed tree == merge tree",
+            "annotated tag object SHA",
+            "GitHub Release ID",
+            "Release body SHA-256",
+            "tagged release-note SHA-256",
+            "archive filename/bytes/SHA-256",
+            "manifest/tree equality",
+            "wheel and receipt",
+            "archive smoke",
+            "status=passed; head=<sha>; checks=<n>/<n>",
+            "status=passed; merge=<sha>; checks=<n>/<n>",
+            "status=passed; merge=<sha>; proof=exact-main",
+            "status=equal; tree=<sha>",
+            "status=passed; source=public-github-archive",
+            "status=passed; scope=allowlist",
+            "explicit non-claims",
+            "hosted CI",
+            "squash merge",
+            "exact-main",
+        ):
+            assert literal in surface, literal
+
+
+def test_v017_inventory_matches_post_v016_current_branch_without_publication_claim() -> None:
     text = _text(CHANGELOG)
-    unreleased = text.split("## [Unreleased]", maxsplit=1)[1].split(
+    current = text.split("## [0.1.7]", maxsplit=1)[1].split(
         "## [0.1.6]", maxsplit=1
     )[0]
 
     for literal in (
         "already merged on the current default branch",
         "after stable `v0.1.6`",
-        "does not announce a future Release",
+        "does not assert tag, GitHub Release, or package publication",
         "Evidence workspace",
         "MCP consumer failure-branch/recovery proof",
         "supported dependency lines",
@@ -189,8 +236,10 @@ def test_unreleased_inventory_matches_post_v016_current_branch_without_future_cl
         "hosted deployment",
         "model/provider change",
         "retrieval-quality claim",
+        "cjk_scan_budget_exceeded",
+        "narrow_query_or_use_projection_strategy",
     ):
-        assert literal in unreleased, literal
+        assert literal in current, literal
 
 
 def test_docs_index_separates_current_checkout_proof_from_stable_release_verification() -> None:

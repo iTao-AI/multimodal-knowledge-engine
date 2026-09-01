@@ -1,9 +1,10 @@
 # Run The MCP Context Completeness Proof
 
 This current-checkout proof documents the MCP consumer failure-branch/recovery proof added on the
-current default branch after stable `v0.1.6`. It is not part of stable `v0.1.6`; it is not a package publication,
-hosted deployment, model/provider change, or retrieval-quality claim. The immutable
-release record remains in the [v0.1.6 Release Notes](../releases/v0.1.6.md).
+current default branch after stable `v0.1.6`. It is part of the bounded `v0.1.7` release-prep
+surface; it is not a package publication, hosted deployment, model/provider change, or
+retrieval-quality claim. The release record is in the [v0.1.7 Release Notes](../releases/v0.1.7.md);
+the stable `v0.1.6` record remains immutable.
 
 The proof covers the exact ten-tool inventory, bounded continuation, exact active Evidence reads,
 legacy/v1 compatibility, and cache-warmed offline execution on Python 3.12 and 3.13. Stable failure

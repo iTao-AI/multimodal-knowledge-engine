@@ -1,6 +1,6 @@
 # Verify The Release
 
-For v0.1.6 evaluators, use the source archive or checkout in a prepared cache-warmed environment:
+For v0.1.7 evaluators, use the source archive or checkout in a prepared cache-warmed environment:
 build one exact wheel, run `release_consumer_smoke.py`, then follow the completeness-aware stdio MCP
 flow. Stage 4 publication verification requires a GitHub Release with zero assets; PyPI publication
 is outside this release boundary.
@@ -93,7 +93,7 @@ git diff --check origin/main...HEAD
 
 The presentation audit checks that package version identity, README posture, release notes,
 Compiled Library Export, OCR Phase 0 boundaries, and comparison-only retrieval wording agree on
-`v0.1.6`.
+`v0.1.7`.
 
 Bounded direct audio adds a model-free pre-authorization gate:
 
@@ -116,10 +116,10 @@ Run:
 ```bash
 UV_OFFLINE=1 uv build
 UV_OFFLINE=1 uv run python scripts/release_consumer_smoke.py \
-  --wheel dist/multimodal_knowledge_engine-0.1.6-py3-none-any.whl --json
+  --wheel dist/multimodal_knowledge_engine-0.1.7-py3-none-any.whl --json
 
 candidate_parent="$(mktemp -d)"
-candidate_output="${candidate_parent}/mke-v0.1.6-candidate"
+candidate_output="${candidate_parent}/mke-v0.1.7-candidate"
 PYTHON312="$(command -v python3.12)"
 PYTHON313="$(command -v python3.13)"
 UV_OFFLINE=1 uv run python scripts/consumer_source_pack_proof.py \
@@ -148,7 +148,7 @@ assert len(entries) == 2
 assert all(not entry.is_symlink() and entry.is_file(follow_symlinks=False) for entry in entries)
 
 receipt_name = "candidate-artifact-receipt.json"
-expected_wheel_name = "multimodal_knowledge_engine-0.1.6-py3-none-any.whl"
+expected_wheel_name = "multimodal_knowledge_engine-0.1.7-py3-none-any.whl"
 assert {entry.name for entry in entries} == {receipt_name, expected_wheel_name}
 receipt_bytes = (root / receipt_name).read_bytes()
 receipt = json.loads(receipt_bytes)
@@ -173,7 +173,7 @@ assert receipt["schema_version"] == "mke.candidate_artifact_receipt.v1"
 assert receipt["repository"] == "iTao-AI/multimodal-knowledge-engine"
 assert receipt["source_commit"] == head
 assert receipt["package_name"] == project["name"] == "multimodal-knowledge-engine"
-assert receipt["package_version"] == project["version"] == "0.1.6"
+assert receipt["package_version"] == project["version"] == "0.1.7"
 assert receipt["requires_python"] == project["requires-python"]
 assert receipt["wheel_filename"] == expected_wheel_name
 assert receipt["consumer_proof_schema"] == "mke.consumer_source_pack_proof.v1"
@@ -258,7 +258,7 @@ The consumer smoke should:
 - install the wheel into a fresh temporary environment outside the repository;
 - clear source-tree import state such as `PYTHONPATH`, `PYTHONHOME`, and `VIRTUAL_ENV`;
 - verify `mke.__file__` resolves inside installed site-packages, not `src/mke`;
-- verify installed `mke.__version__` and package metadata both equal `0.1.6`;
+- verify installed `mke.__version__` and package metadata both equal `0.1.7`;
 - run `mke proof run`;
 - run `mke demo --verify`;
 - run a lightweight CLI Search/Ask path;
@@ -298,9 +298,9 @@ authorization. Then verify the public archive from a clean temporary directory:
 ```bash
 archive_dir="$(mktemp -d)"
 cd "$archive_dir"
-gh release download v0.1.6 --repo iTao-AI/multimodal-knowledge-engine --archive=tar.gz
-tar -xzf multimodal-knowledge-engine-v0.1.6.tar.gz
-cd multimodal-knowledge-engine-0.1.6
+gh release download v0.1.7 --repo iTao-AI/multimodal-knowledge-engine --archive=tar.gz
+tar -xzf multimodal-knowledge-engine-v0.1.7.tar.gz
+cd multimodal-knowledge-engine-0.1.7
 UV_OFFLINE=1 uv sync --locked
 UV_OFFLINE=1 uv run mke proof run
 UV_OFFLINE=1 uv run mke demo --verify
@@ -341,9 +341,28 @@ source archive. That controller binds a clean Git snapshot before it handles a s
 `--mke-wheel` does not replace source authority. Do not synthesize `.git` metadata for archive
 smoke.
 
-The completed release records below are durable results of this procedure. Future releases must
-record their own tag object SHA, target commit, publication timestamp, archive filename, archive
-SHA-256, and smoke result after those facts exist.
+The completed release records below are durable results of this procedure. The terminal sequence for
+the current release is `release-prep PR` → `exact-main gates/tag/Release/archive proof` →
+`same-scope post-publication docs closeout PR`. The release-prep PR and current release note remain
+policy-only and must not prefill future identity. After the annotated tag, exact-main result,
+GitHub Release, and public archive facts exist, the closeout PR replaces the pre-publication
+surfaces with two required records: `## Publication verification` in the release note and
+`## Completed v0.1.7 Release Record` in this guide. Missing either record fails the audit. The
+records share one fixed bullet inventory: release-prep PR number/URL, reviewed HEAD/tree, merge
+commit/tree, reviewed tree == merge tree, annotated tag object SHA, tag target/tree, GitHub Release
+ID/URL/timestamp/state/assets, Release body SHA-256 and tagged release-note SHA-256 values, archive
+filename/bytes/SHA-256, archive manifest SHA-256 and manifest/tree equality with
+`status=equal; tree=<sha>`, candidate
+wheel and receipt identity, closed hosted-check and exact-main values, positive archive smoke and
+Git-less values, and explicit non-claims. Both records must contain identical immutable facts; the
+inventory has no closeout PR or cleanup self-reference.
+
+Use only these closed terminal values: `status=passed; head=<sha>; checks=<n>/<n>`,
+`status=passed; merge=<sha>; checks=<n>/<n>`, `status=passed; merge=<sha>; proof=exact-main`,
+`status=passed; source=public-github-archive`, and `status=passed; scope=allowlist`. Before
+publication, neither current record section exists and this policy wording remains valid. The
+closeout must then pass review, hosted CI, squash merge, exact-main readback, and authorized
+task-owned cleanup.
 
 
 ## Completed v0.1.6 Release Record

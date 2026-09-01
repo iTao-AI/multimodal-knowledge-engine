@@ -1,8 +1,8 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.7] - 2026-09-01
 
-This section records changes already merged on the current default branch after stable `v0.1.6`; it does not announce a future Release.
+This section records changes already merged on the current default branch after stable `v0.1.6`; it does not assert tag, GitHub Release, or package publication.
 
 ### Added
 
@@ -10,6 +10,9 @@ This section records changes already merged on the current default branch after 
   current default branch.
 - MCP consumer failure-branch/recovery proof documents normal no-match, capped non-exhaustive
   selection, and stale Evidence recovery while preserving the aggregate v1 contract.
+- The `search_library_v2` CJK active-scan budget mapping records `cjk_scan_budget_exceeded` and
+  directs the Agent to `narrow_query_or_use_projection_strategy` without retrying the unchanged
+  query.
 
 ### Changed
 
@@ -22,7 +25,7 @@ This section records changes already merged on the current default branch after 
 
 - No package publication, hosted deployment, model/provider change, retrieval-quality claim, MCP
   schema/runtime/authority change, retrieval candidate, OCR/major-line migration, fixture/holdout
-  access, or version/tag/Release change is recorded here.
+  access, or tag/GitHub Release publication is asserted here.
 
 ## [0.1.6] - 2026-08-01
 

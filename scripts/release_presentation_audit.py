@@ -12,8 +12,10 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 
-EXPECTED_VERSION = "0.1.6"
+EXPECTED_VERSION = "0.1.7"
 RUNTIME_STRATEGY = "cjk-active-scan-overlap-v1"
+_CURRENT_RELEASE_NOTE = f"docs/releases/v{EXPECTED_VERSION}.md"
+_CURRENT_WHEEL = f"multimodal_knowledge_engine-{EXPECTED_VERSION}-py3-none-any.whl"
 _PLACEHOLDER_VERSION_PATTERN = re.compile(
     r"(?<![0-9A-Za-z.])v?0\.0\.0(?![0-9A-Za-z]|\.[0-9A-Za-z])"
 )
@@ -23,8 +25,12 @@ RELEASE_FACING_FILES = (
     "README_CN.md",
     "docs/README.md",
     "CHANGELOG.md",
-    "docs/releases/v0.1.6.md",
+    _CURRENT_RELEASE_NOTE,
     "docs/how-to/verify-release.md",
+)
+RELEASE_STATUS_FILES = (
+    *RELEASE_FACING_FILES,
+    "docs/how-to/run-mcp-context-completeness-proof.md",
 )
 COMPILED_LIBRARY_CLAIM_FILES = (
     *RELEASE_FACING_FILES,
@@ -72,16 +78,20 @@ STALE_TERMINAL_ASR_DENIAL_PATTERNS = (
 )
 RELEASE_NOTE_FILES = (
     "CHANGELOG.md",
-    "docs/releases/v0.1.6.md",
+    _CURRENT_RELEASE_NOTE,
 )
 HISTORICAL_RELEASE_FILES = (
     "docs/releases/v0.1.2.md",
     "docs/releases/v0.1.3.md",
     "docs/releases/v0.1.4.md",
     "docs/releases/v0.1.5.md",
+    "docs/releases/v0.1.6.md",
 )
 _V015_HISTORICAL_SHA256 = (
     "c15bf918e9358c28fea020591cb0ad179db9a0fe6d6f420d5b321d4cb258be89"
+)
+_V016_HISTORICAL_SHA256 = (
+    "106d6b010182e6f72da137ca555fa895fd33c48543305a48862101e44a8156a3"
 )
 _PREPUBLICATION_PUBLICATION_CLAIM_PATTERNS = (
     re.compile(r"\b(?:the )?GitHub Release has zero (?:extra )?assets\b", re.IGNORECASE),
@@ -89,10 +99,60 @@ _PREPUBLICATION_PUBLICATION_CLAIM_PATTERNS = (
     re.compile(r"\bthere is no PyPI\b", re.IGNORECASE),
     re.compile(r"\b(?:no|without) PyPI (?:publication|distribution)\b", re.IGNORECASE),
 )
+_POSTPUBLICATION_STALE_PATTERNS = (
+    "release-prep record",
+    "release-prep surface",
+    "release-prep note",
+    "publication facts remain a separate gate",
+    "stage 4 publication verification is a separately authorized gate",
+    "may verify the annotated tag",
+    "does not assert a tag, github release, or package publication",
+    "does not assert tag, github release, or package publication",
+)
+PUBLICATION_RECORD_FIELDS = (
+    "Tag",
+    "Release-prep PR number",
+    "Release-prep PR URL",
+    "Reviewed HEAD",
+    "Reviewed tree",
+    "Annotated tag object SHA",
+    "Tag target commit",
+    "Tag tree",
+    "Merge commit",
+    "Merge tree",
+    "Reviewed tree == merge tree",
+    "GitHub Release ID",
+    "GitHub Release URL",
+    "Published timestamp",
+    "Release state",
+    "Assets",
+    "Reviewed-head hosted checks",
+    "Post-merge hosted checks",
+    "Exact-main proof",
+    "Release body SHA-256",
+    "Tagged release-note SHA-256",
+    "Archive filename",
+    "Archive bytes",
+    "Archive SHA-256",
+    "Archive manifest SHA-256",
+    "Manifest/tree equality",
+    "Archive wheel",
+    "Candidate wheel",
+    "Candidate wheel bytes",
+    "Candidate wheel SHA-256",
+    "Candidate receipt",
+    "Candidate receipt file SHA-256",
+    "Candidate receipt payload SHA-256",
+    "Archive smoke",
+    "Git-less allowlist",
+    "Canonical evidence hashes",
+    "Temporary compatibility",
+    "Limitations and non-claims",
+)
 CONSUMER_SMOKE_COMMAND_FILES = (
     "README.md",
     "README_CN.md",
-    "docs/releases/v0.1.6.md",
+    _CURRENT_RELEASE_NOTE,
     "docs/how-to/verify-release.md",
 )
 CURRENT_BUILD_WHEEL_COMMAND_FILES = (
@@ -142,6 +202,214 @@ def _version_from_init(text: str) -> str | None:
 def _contains_all_terms(text: str, terms: Iterable[str]) -> bool:
     normalized_text = " ".join(text.split())
     return all(" ".join(term.split()) in normalized_text for term in terms)
+
+
+def _extract_h2_section(text: str, heading: str) -> str | None:
+    match = re.search(rf"(?m)^## {re.escape(heading)}\s*$", text)
+    if match is None:
+        return None
+    section = text[match.end() :]
+    next_heading = re.search(r"(?m)^## ", section)
+    if next_heading is not None:
+        section = section[: next_heading.start()]
+    return section
+
+
+def _parse_publication_fields(section: str) -> dict[str, str] | None:
+    bullet = re.compile(r"^- ([^:\n]+):[ \t]*(.*)$")
+    nonempty_lines = [line for line in section.splitlines() if line.strip()]
+    parsed = [match for line in nonempty_lines if (match := bullet.fullmatch(line))]
+    values: dict[str, str] = {}
+    for match in parsed:
+        label, value = match.groups()
+        if label in values:
+            return None
+        values[label] = value.strip()
+    if len(parsed) != len(nonempty_lines):
+        return None
+    return values
+
+
+def _decode_publication_value(value: str) -> str:
+    decoded = value.strip()
+    if len(decoded) >= 2 and decoded.startswith("`") and decoded.endswith("`"):
+        decoded = decoded[1:-1]
+    return decoded.strip()
+
+
+def _valid_publication_identity(value: str, length: int) -> bool:
+    decoded = _decode_publication_value(value)
+    return (
+        re.fullmatch(rf"[0-9a-f]{{{length}}}", decoded) is not None
+        and set(decoded) != {"0"}
+    )
+
+
+def _valid_positive_publication_integer(value: str) -> bool:
+    return re.fullmatch(r"[1-9][0-9]*", _decode_publication_value(value)) is not None
+
+
+def _valid_publication_timestamp(value: str) -> bool:
+    decoded = _decode_publication_value(value)
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", decoded) is None:
+        return False
+    try:
+        datetime.strptime(decoded, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        return False
+    return True
+
+
+def _valid_bound_publication_checks(
+    value: str,
+    binding: str,
+    expected_sha: str,
+) -> bool:
+    match = re.fullmatch(
+        rf"status=passed; {binding}=([0-9a-f]{{40}}); "
+        r"checks=([1-9][0-9]*)/([1-9][0-9]*)",
+        _decode_publication_value(value),
+    )
+    return (
+        match is not None
+        and match.group(1) == expected_sha
+        and match.group(2) == match.group(3)
+    )
+
+
+def _valid_exact_main_publication_proof(value: str, expected_sha: str) -> bool:
+    return _decode_publication_value(value) == (
+        f"status=passed; merge={expected_sha}; proof=exact-main"
+    )
+
+
+def _valid_publication_record(values: dict[str, str] | None, section: str) -> bool:
+    if values is None or set(values) != set(PUBLICATION_RECORD_FIELDS):
+        return False
+    reviewed_head = _decode_publication_value(values["Reviewed HEAD"])
+    reviewed_tree = _decode_publication_value(values["Reviewed tree"])
+    merge_commit = _decode_publication_value(values["Merge commit"])
+    merge_tree = _decode_publication_value(values["Merge tree"])
+    release_body_sha = _decode_publication_value(values["Release body SHA-256"])
+    release_note_sha = _decode_publication_value(values["Tagged release-note SHA-256"])
+    placeholders = re.compile(
+        r"\b(?:tbd|todo|to be filled|to be created|placeholder)\b"
+        r"|<placeholder>|(?<![0-9a-f])0{40}(?![0-9a-f])",
+        re.IGNORECASE,
+    )
+    bounded_fields = (
+        "Canonical evidence hashes",
+        "Temporary compatibility",
+        "Limitations and non-claims",
+    )
+    return (
+        _decode_publication_value(values["Tag"]) == f"v{EXPECTED_VERSION}"
+        and _valid_positive_publication_integer(values["Release-prep PR number"])
+        and _decode_publication_value(values["Release-prep PR URL"])
+        == (
+            "https://github.com/iTao-AI/multimodal-knowledge-engine/pull/"
+            f"{_decode_publication_value(values['Release-prep PR number'])}"
+        )
+        and _valid_publication_identity(values["Reviewed HEAD"], 40)
+        and _valid_publication_identity(values["Reviewed tree"], 40)
+        and _valid_publication_identity(values["Merge commit"], 40)
+        and _valid_publication_identity(values["Merge tree"], 40)
+        and _decode_publication_value(values["Reviewed tree == merge tree"]) == "true"
+        and reviewed_tree == merge_tree
+        and _valid_publication_identity(values["Annotated tag object SHA"], 40)
+        and _valid_publication_identity(values["Tag target commit"], 40)
+        and _valid_publication_identity(values["Tag tree"], 40)
+        and _decode_publication_value(values["Tag target commit"]) == merge_commit
+        and _decode_publication_value(values["Tag tree"]) == merge_tree
+        and _valid_positive_publication_integer(values["GitHub Release ID"])
+        and _decode_publication_value(values["GitHub Release URL"])
+        == (
+            "https://github.com/iTao-AI/multimodal-knowledge-engine/"
+            f"releases/tag/v{EXPECTED_VERSION}"
+        )
+        and _valid_publication_timestamp(values["Published timestamp"])
+        and _decode_publication_value(values["Release state"])
+        == "public; draft=false; prerelease=false"
+        and _decode_publication_value(values["Assets"]) == "count=0"
+        and _valid_bound_publication_checks(
+            values["Reviewed-head hosted checks"], "head", reviewed_head
+        )
+        and _valid_bound_publication_checks(
+            values["Post-merge hosted checks"], "merge", merge_commit
+        )
+        and _valid_exact_main_publication_proof(values["Exact-main proof"], merge_commit)
+        and _valid_publication_identity(values["Release body SHA-256"], 64)
+        and _valid_publication_identity(values["Tagged release-note SHA-256"], 64)
+        and release_body_sha == release_note_sha
+        and _decode_publication_value(values["Archive filename"])
+        == f"multimodal-knowledge-engine-v{EXPECTED_VERSION}.tar.gz"
+        and _valid_positive_publication_integer(values["Archive bytes"])
+        and _valid_publication_identity(values["Archive SHA-256"], 64)
+        and _valid_publication_identity(values["Archive manifest SHA-256"], 64)
+        and _decode_publication_value(values["Manifest/tree equality"])
+        == f"status=equal; tree={merge_tree}"
+        and _decode_publication_value(values["Archive wheel"]) == _CURRENT_WHEEL
+        and _decode_publication_value(values["Candidate wheel"]) == _CURRENT_WHEEL
+        and _valid_positive_publication_integer(values["Candidate wheel bytes"])
+        and _valid_publication_identity(values["Candidate wheel SHA-256"], 64)
+        and _decode_publication_value(values["Candidate receipt"])
+        == "status=present; schema=mke.candidate_artifact_receipt.v1"
+        and _valid_publication_identity(values["Candidate receipt file SHA-256"], 64)
+        and _valid_publication_identity(values["Candidate receipt payload SHA-256"], 64)
+        and _decode_publication_value(values["Archive smoke"])
+        == "status=passed; source=public-github-archive"
+        and _decode_publication_value(values["Git-less allowlist"])
+        == "status=passed; scope=allowlist"
+        and all(
+            0 < len(_decode_publication_value(values[field])) <= 500
+            for field in bounded_fields
+        )
+        and "seven families" in _decode_publication_value(values["Temporary compatibility"])
+        and "all six delta classes zero"
+        in _decode_publication_value(values["Temporary compatibility"])
+        and placeholders.search(section) is None
+    )
+
+
+def _audit_current_publication_records(root: Path) -> list[Violation]:
+    release = _read_text(root, _CURRENT_RELEASE_NOTE)
+    verify_release = _read_text(root, "docs/how-to/verify-release.md")
+    release_section = _extract_h2_section(release, "Publication verification")
+    verify_section = _extract_h2_section(
+        verify_release,
+        f"Completed v{EXPECTED_VERSION} Release Record",
+    )
+    if release_section is None and verify_section is None:
+        return []
+    if release_section is None or verify_section is None:
+        return [
+            Violation(
+                file=_CURRENT_RELEASE_NOTE,
+                rule="v016_publication_verification",
+                message=(
+                    "current publication verification must exist in both the release note "
+                    "and verify-release guide"
+                ),
+            )
+        ]
+    release_values = _parse_publication_fields(release_section)
+    verify_values = _parse_publication_fields(verify_section)
+    if (
+        not _valid_publication_record(release_values, release_section)
+        or not _valid_publication_record(verify_values, verify_section)
+        or release_values != verify_values
+    ):
+        return [
+            Violation(
+                file=_CURRENT_RELEASE_NOTE,
+                rule="v016_publication_verification",
+                message=(
+                    "both current publication records must contain the complete terminal "
+                    "field inventory with identical immutable facts"
+                ),
+            )
+        ]
+    return []
 
 
 def _audit_version_identity(root: Path) -> list[Violation]:
@@ -896,7 +1164,7 @@ def _audit_release_notes_links(root: Path) -> list[Violation]:
         "local knowledge proof",
     )
     violations: list[Violation] = []
-    file_name = "docs/releases/v0.1.6.md"
+    file_name = _CURRENT_RELEASE_NOTE
     release_notes = _read_text(root, file_name)
     for term in required_terms:
         if term.lower() not in release_notes.lower():
@@ -1000,13 +1268,45 @@ def _audit_stale_status(root: Path, files: Iterable[str]) -> list[Violation]:
         "tag and github release publication remain a separate authorized stage 3 action",
         "tag creation, github release publication, and pypi publication remain separate stage 3 "
         "authorization actions",
+        *_POSTPUBLICATION_STALE_PATTERNS,
     )
+    release_note = _read_text(root, _CURRENT_RELEASE_NOTE)
+    verify_release = _read_text(root, "docs/how-to/verify-release.md")
+    publication_verified = (
+        re.search(r"(?m)^## Publication verification\s*$", release_note) is not None
+        and re.search(
+            rf"(?m)^## Completed v{re.escape(EXPECTED_VERSION)} Release Record\s*$",
+            verify_release,
+        )
+        is not None
+    )
+
+    def current_surface(text: str, file_name: str) -> str:
+        if file_name == "CHANGELOG.md":
+            current_heading = re.search(
+                rf"(?m)^## \[{re.escape(EXPECTED_VERSION)}\](?: .*)?$",
+                text,
+            )
+            if current_heading is not None:
+                text = text[current_heading.end() :]
+                historical_heading = re.search(r"(?m)^## \[0\.1\.6\](?: .*)?$", text)
+                if historical_heading is not None:
+                    text = text[: historical_heading.start()]
+        elif file_name == "docs/how-to/verify-release.md":
+            historical_heading = re.search(
+                r"(?m)^## Completed v0\.1\.6 Release Record\s*$",
+                text,
+            )
+            if historical_heading is not None:
+                text = text[: historical_heading.start()]
+        return text
+
     violations: list[Violation] = []
     for file_name in files:
-        text = _read_text(root, file_name)
+        text = current_surface(_read_text(root, file_name), file_name)
         lowered = text.lower()
         patterns = stale_patterns
-        if file_name in RELEASE_NOTE_FILES:
+        if publication_verified:
             patterns = stale_patterns + post_release_stale_patterns
         for pattern in patterns:
             matches = (
@@ -1057,9 +1357,56 @@ def _audit_v015_contract(root: Path) -> list[Violation]:
     return []
 
 
+def _audit_v016_historical_contract(root: Path) -> list[Violation]:
+    file_name = "docs/releases/v0.1.6.md"
+    path = root / file_name
+    if path.is_symlink() or not path.is_file():
+        return [
+            Violation(
+                file=file_name,
+                rule="v016_historical_contract",
+                message="v0.1.6 historical release note is missing or not a regular file",
+            )
+        ]
+    try:
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return [
+            Violation(
+                file=file_name,
+                rule="v016_historical_contract",
+                message="v0.1.6 historical release note could not be read",
+            )
+        ]
+    if digest != _V016_HISTORICAL_SHA256:
+        return [
+            Violation(
+                file=file_name,
+                rule="v016_historical_contract",
+                message="v0.1.6 historical release note immutable digest mismatch",
+            )
+        ]
+    return []
+
+
 def _audit_v016_contract(root: Path) -> list[Violation]:
-    release = _read_text(root, "docs/releases/v0.1.6.md")
+    release = _read_text(root, _CURRENT_RELEASE_NOTE)
     required = (
+        "Evidence workspace",
+        "MCP consumer failure-branch/recovery proof",
+        "normal no-match",
+        "capped",
+        "evidence_not_found",
+        "search_current_active_evidence",
+        "cjk_scan_budget_exceeded",
+        "narrow_query_or_use_projection_strategy",
+        "supported dependency lines",
+        "cryptography",
+        "installed-wheel",
+        "locked dependency",
+        "setup-uv",
+        "synthetic",
+        "provider-free",
         "search_library_v2",
         "complete",
         "more_available",
@@ -1091,10 +1438,10 @@ def _audit_v016_contract(root: Path) -> list[Violation]:
     if not _contains_all_terms(release, required):
         violations.append(
             Violation(
-                file="docs/releases/v0.1.6.md",
+                file=_CURRENT_RELEASE_NOTE,
                 rule="v016_release_contract",
                 message=(
-                    "v0.1.6 release note must preserve the current contract and repair boundary"
+                    "current release note must preserve the v0.1.7 contract and repair boundary"
                 ),
             )
         )
@@ -1149,15 +1496,18 @@ def _audit_v016_contract(root: Path) -> list[Violation]:
     for file_name in RELEASE_FACING_FILES:
         text = _read_text(root, file_name)
         if file_name == "CHANGELOG.md":
-            current_heading = re.search(r"(?m)^## \[0\.1\.6\](?: .*)?$", text)
+            current_heading = re.search(
+                rf"(?m)^## \[{re.escape(EXPECTED_VERSION)}\](?: .*)?$",
+                text,
+            )
             if current_heading is not None:
                 text = text[current_heading.end() :]
-                historical_heading = re.search(r"(?m)^## \[0\.1\.5\](?: .*)?$", text)
+                historical_heading = re.search(r"(?m)^## \[0\.1\.6\](?: .*)?$", text)
                 if historical_heading is not None:
                     text = text[: historical_heading.start()]
         elif file_name == "docs/how-to/verify-release.md":
             historical_heading = re.search(
-                r"(?m)^## Completed v0\.1\.5 Release Record\s*$",
+                r"(?m)^## Completed v0\.1\.6 Release Record\s*$",
                 text,
             )
             if historical_heading is not None:
@@ -1168,121 +1518,10 @@ def _audit_v016_contract(root: Path) -> list[Violation]:
                 Violation(
                     file=file_name,
                     rule="v016_release_overclaim",
-                    message="current v0.1.6 surface contains an affirmative excluded claim",
+                    message="current v0.1.7 surface contains an affirmative excluded claim",
                 )
             )
 
-    publication_heading = re.search(
-        r"(?m)^## Publication verification\s*$",
-        release,
-    )
-    if publication_heading is not None:
-        publication = release[publication_heading.end() :]
-        next_heading = re.search(r"(?m)^## ", publication)
-        if next_heading is not None:
-            publication = publication[: next_heading.start()]
-        field_names = (
-            "Tag",
-            "Merge commit",
-            "Merge tree",
-            "GitHub Release URL",
-            "Published timestamp",
-            "Assets",
-            "Hosted checks",
-            "Archive descriptor SHA-256",
-            "Archive manifest SHA-256",
-            "Archive wheel",
-            "Git-less allowlist",
-            "Exact-main proof",
-            "Canonical evidence hashes",
-            "Temporary compatibility",
-            "Limitations and non-claims",
-        )
-        placeholders = re.compile(
-            r"\b(?:tbd|todo|to be filled|to be created|placeholder)\b"
-            r"|<placeholder>|(?<![0-9a-f])0{40}(?![0-9a-f])",
-            re.IGNORECASE,
-        )
-        bullet = re.compile(r"^- ([^:\n]+):[ \t]*(.*)$")
-        nonempty_lines = [line for line in publication.splitlines() if line.strip()]
-        parsed = [match for line in nonempty_lines if (match := bullet.fullmatch(line))]
-        values: dict[str, str] = {}
-        duplicate = False
-        for match in parsed:
-            label, value = match.groups()
-            if label in values:
-                duplicate = True
-            values[label] = value.strip()
-
-        def decode(value: str) -> str:
-            value = value.strip()
-            if len(value) >= 2 and value.startswith("`") and value.endswith("`"):
-                value = value[1:-1]
-            return value.strip()
-
-        def valid_identity(value: str, length: int) -> bool:
-            decoded = decode(value)
-            return (
-                re.fullmatch(rf"[0-9a-f]{{{length}}}", decoded) is not None
-                and set(decoded) != {"0"}
-            )
-
-        def valid_utc_timestamp(value: str) -> bool:
-            decoded = decode(value)
-            if re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", decoded) is None:
-                return False
-            try:
-                datetime.strptime(decoded, "%Y-%m-%dT%H:%M:%SZ")
-            except ValueError:
-                return False
-            return True
-
-        bounded_fields = (
-            "Hosted checks",
-            "Git-less allowlist",
-            "Exact-main proof",
-            "Canonical evidence hashes",
-            "Temporary compatibility",
-            "Limitations and non-claims",
-        )
-        shape_valid = (
-            len(parsed) == len(nonempty_lines)
-            and not duplicate
-            and set(values) == set(field_names)
-            and decode(values.get("Tag", "")) == "v0.1.6"
-            and valid_identity(values.get("Merge commit", ""), 40)
-            and valid_identity(values.get("Merge tree", ""), 40)
-            and values.get("GitHub Release URL")
-            == (
-                "https://github.com/iTao-AI/multimodal-knowledge-engine/"
-                "releases/tag/v0.1.6"
-            )
-            and valid_utc_timestamp(values.get("Published timestamp", ""))
-            and values.get("Assets") == "zero"
-            and valid_identity(values.get("Archive descriptor SHA-256", ""), 64)
-            and valid_identity(values.get("Archive manifest SHA-256", ""), 64)
-            and decode(values.get("Archive wheel", ""))
-            == "multimodal_knowledge_engine-0.1.6-py3-none-any.whl"
-            and all(
-                0 < len(decode(values.get(field, ""))) <= 500
-                for field in bounded_fields
-            )
-            and "seven families" in decode(values.get("Temporary compatibility", ""))
-            and "all six delta classes zero"
-            in decode(values.get("Temporary compatibility", ""))
-            and placeholders.search(publication) is None
-        )
-        if not shape_valid:
-            violations.append(
-                Violation(
-                    file="docs/releases/v0.1.6.md",
-                    rule="v016_publication_verification",
-                    message=(
-                        "Publication verification must contain the complete immutable "
-                        "public field inventory without placeholders"
-                    ),
-                )
-            )
     for file_name in ENTRY_POINT_FILES:
         text = _read_text(root, file_name)
         if len(re.findall(r"(?m)^# ", text)) != 1:
@@ -1298,20 +1537,20 @@ def _audit_v016_contract(root: Path) -> list[Violation]:
 
 def _audit_prepublication_publication_claims(root: Path) -> list[Violation]:
     violations: list[Violation] = []
-    for file_name in ("docs/releases/v0.1.6.md", "docs/how-to/verify-release.md"):
+    for file_name in (_CURRENT_RELEASE_NOTE, "docs/how-to/verify-release.md"):
         text = _read_text(root, file_name)
-        if file_name == "docs/releases/v0.1.6.md":
+        if file_name == _CURRENT_RELEASE_NOTE:
             if re.search(r"(?m)^## Publication verification\s*$", text) is not None:
                 continue
         else:
             completed_heading = re.search(
-                r"(?m)^## Completed v0\.1\.6 Release Record\s*$",
+                rf"(?m)^## Completed v{re.escape(EXPECTED_VERSION)} Release Record\s*$",
                 text,
             )
             if completed_heading is not None:
                 text = text[: completed_heading.start()]
             historical_heading = re.search(
-                r"(?m)^## Completed v0\.1\.5 Release Record\s*$",
+                r"(?m)^## Completed v0\.1\.6 Release Record\s*$",
                 text,
             )
             if historical_heading is not None:
@@ -1339,15 +1578,15 @@ def _audit_consumer_smoke_wheel_selection(
     files: Iterable[str],
 ) -> list[Violation]:
     violations: list[Violation] = []
-    exact_wheel = "dist/multimodal_knowledge_engine-0.1.6-py3-none-any.whl"
+    exact_wheel = f"dist/{_CURRENT_WHEEL}"
     for file_name in files:
         text = _read_text(root, file_name)
         current_text = text
         if file_name == "docs/how-to/verify-release.md" and "## Stage 1" in text:
             current_text = text.split("## Stage 1", maxsplit=1)[1]
-            if "## Completed v0.1.5 Release Record" in current_text:
+            if "## Completed v0.1.6 Release Record" in current_text:
                 current_text = current_text.split(
-                    "## Completed v0.1.5 Release Record",
+                    "## Completed v0.1.6 Release Record",
                     maxsplit=1,
                 )[0]
         if exact_wheel not in current_text:
@@ -1364,6 +1603,7 @@ def _audit_consumer_smoke_wheel_selection(
                 "multimodal_knowledge_engine-0.1.1-py3-none-any.whl",
                 "multimodal_knowledge_engine-0.1.2-py3-none-any.whl",
                 "multimodal_knowledge_engine-0.1.3-py3-none-any.whl",
+                "multimodal_knowledge_engine-0.1.6-py3-none-any.whl",
                 "multimodal_knowledge_engine-0.1.5-py3-none-any.whl",
             )
         ):
@@ -1379,8 +1619,8 @@ def _audit_consumer_smoke_wheel_selection(
 
 def _audit_current_build_wheel_selection(root: Path) -> list[Violation]:
     violations: list[Violation] = []
-    current_wheel = "multimodal_knowledge_engine-0.1.6-py3-none-any.whl"
-    stale_wheel = "multimodal_knowledge_engine-0.1.5-py3-none-any.whl"
+    current_wheel = _CURRENT_WHEEL
+    stale_wheel = "multimodal_knowledge_engine-0.1.6-py3-none-any.whl"
     for file_name in CURRENT_BUILD_WHEEL_COMMAND_FILES:
         text = _read_text(root, file_name)
         if not text:
@@ -1501,9 +1741,11 @@ def audit_release_presentation(root: Path) -> list[Violation]:
     violations.extend(_audit_v013_contract(root))
     violations.extend(_audit_v014_contract(root))
     violations.extend(_audit_v015_contract(root))
+    violations.extend(_audit_v016_historical_contract(root))
     violations.extend(_audit_v016_contract(root))
+    violations.extend(_audit_current_publication_records(root))
     violations.extend(_audit_prepublication_publication_claims(root))
-    violations.extend(_audit_stale_status(root, release_files))
+    violations.extend(_audit_stale_status(root, RELEASE_STATUS_FILES))
     violations.extend(_audit_consumer_smoke_wheel_selection(root, CONSUMER_SMOKE_COMMAND_FILES))
     violations.extend(_audit_current_build_wheel_selection(root))
     violations.extend(_audit_downstream_candidate_boundary(root))
@@ -1512,7 +1754,9 @@ def audit_release_presentation(root: Path) -> list[Violation]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Audit v0.1.6 release presentation docs.")
+    parser = argparse.ArgumentParser(
+        description=f"Audit v{EXPECTED_VERSION} release presentation docs."
+    )
     parser.add_argument("--root", type=Path, default=Path("."))
     parser.add_argument("--json", action="store_true", help="emit the closed JSON result")
     args = parser.parse_args(argv)
