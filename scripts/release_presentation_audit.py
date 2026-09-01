@@ -28,6 +28,10 @@ RELEASE_FACING_FILES = (
     _CURRENT_RELEASE_NOTE,
     "docs/how-to/verify-release.md",
 )
+RELEASE_STATUS_FILES = (
+    *RELEASE_FACING_FILES,
+    "docs/how-to/run-mcp-context-completeness-proof.md",
+)
 COMPILED_LIBRARY_CLAIM_FILES = (
     *RELEASE_FACING_FILES,
     "docs/explanation/architecture.md",
@@ -94,6 +98,16 @@ _PREPUBLICATION_PUBLICATION_CLAIM_PATTERNS = (
     re.compile(r"\bPyPI is absent\b", re.IGNORECASE),
     re.compile(r"\bthere is no PyPI\b", re.IGNORECASE),
     re.compile(r"\b(?:no|without) PyPI (?:publication|distribution)\b", re.IGNORECASE),
+)
+_POSTPUBLICATION_STALE_PATTERNS = (
+    "release-prep record",
+    "release-prep surface",
+    "release-prep note",
+    "publication facts remain a separate gate",
+    "stage 4 publication verification is a separately authorized gate",
+    "may verify the annotated tag",
+    "does not assert a tag, github release, or package publication",
+    "does not assert tag, github release, or package publication",
 )
 CONSUMER_SMOKE_COMMAND_FILES = (
     "README.md",
@@ -1006,13 +1020,47 @@ def _audit_stale_status(root: Path, files: Iterable[str]) -> list[Violation]:
         "tag and github release publication remain a separate authorized stage 3 action",
         "tag creation, github release publication, and pypi publication remain separate stage 3 "
         "authorization actions",
+        *_POSTPUBLICATION_STALE_PATTERNS,
     )
+    release_note = _read_text(root, _CURRENT_RELEASE_NOTE)
+    verify_release = _read_text(root, "docs/how-to/verify-release.md")
+    publication_verified = any(
+        re.search(pattern, text) is not None
+        for pattern, text in (
+            (r"(?m)^## Publication verification\s*$", release_note),
+            (
+                rf"(?m)^## Completed v{re.escape(EXPECTED_VERSION)} Release Record\s*$",
+                verify_release,
+            ),
+        )
+    )
+
+    def current_surface(text: str, file_name: str) -> str:
+        if file_name == "CHANGELOG.md":
+            current_heading = re.search(
+                rf"(?m)^## \[{re.escape(EXPECTED_VERSION)}\](?: .*)?$",
+                text,
+            )
+            if current_heading is not None:
+                text = text[current_heading.end() :]
+                historical_heading = re.search(r"(?m)^## \[0\.1\.6\](?: .*)?$", text)
+                if historical_heading is not None:
+                    text = text[: historical_heading.start()]
+        elif file_name == "docs/how-to/verify-release.md":
+            historical_heading = re.search(
+                r"(?m)^## Completed v0\.1\.6 Release Record\s*$",
+                text,
+            )
+            if historical_heading is not None:
+                text = text[: historical_heading.start()]
+        return text
+
     violations: list[Violation] = []
     for file_name in files:
-        text = _read_text(root, file_name)
+        text = current_surface(_read_text(root, file_name), file_name)
         lowered = text.lower()
         patterns = stale_patterns
-        if file_name in RELEASE_NOTE_FILES:
+        if publication_verified:
             patterns = stale_patterns + post_release_stale_patterns
         for pattern in patterns:
             matches = (
@@ -1239,17 +1287,31 @@ def _audit_v016_contract(root: Path) -> list[Violation]:
             publication = publication[: next_heading.start()]
         field_names = (
             "Tag",
+            "Annotated tag object SHA",
+            "Tag target commit",
             "Merge commit",
             "Merge tree",
+            "GitHub Release ID",
             "GitHub Release URL",
             "Published timestamp",
+            "Release state",
             "Assets",
-            "Hosted checks",
-            "Archive descriptor SHA-256",
-            "Archive manifest SHA-256",
-            "Archive wheel",
-            "Git-less allowlist",
+            "Post-merge hosted checks",
             "Exact-main proof",
+            "Archive filename",
+            "Archive bytes",
+            "Archive SHA-256",
+            "Archive manifest SHA-256",
+            "Manifest/tree equality",
+            "Archive wheel",
+            "Candidate wheel",
+            "Candidate wheel bytes",
+            "Candidate wheel SHA-256",
+            "Candidate receipt",
+            "Candidate receipt file SHA-256",
+            "Candidate receipt payload SHA-256",
+            "Archive smoke",
+            "Git-less allowlist",
             "Canonical evidence hashes",
             "Temporary compatibility",
             "Limitations and non-claims",
@@ -1283,6 +1345,9 @@ def _audit_v016_contract(root: Path) -> list[Violation]:
                 and set(decoded) != {"0"}
             )
 
+        def valid_positive_integer(value: str) -> bool:
+            return re.fullmatch(r"[1-9][0-9]*", decode(value)) is not None
+
         def valid_utc_timestamp(value: str) -> bool:
             decoded = decode(value)
             if re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", decoded) is None:
@@ -1294,7 +1359,7 @@ def _audit_v016_contract(root: Path) -> list[Violation]:
             return True
 
         bounded_fields = (
-            "Hosted checks",
+            "Post-merge hosted checks",
             "Git-less allowlist",
             "Exact-main proof",
             "Canonical evidence hashes",
@@ -1306,19 +1371,47 @@ def _audit_v016_contract(root: Path) -> list[Violation]:
             and not duplicate
             and set(values) == set(field_names)
             and decode(values.get("Tag", "")) == f"v{EXPECTED_VERSION}"
+            and valid_identity(values.get("Annotated tag object SHA", ""), 40)
+            and valid_identity(values.get("Tag target commit", ""), 40)
             and valid_identity(values.get("Merge commit", ""), 40)
             and valid_identity(values.get("Merge tree", ""), 40)
+            and decode(values.get("Tag target commit", ""))
+            == decode(values.get("Merge commit", ""))
+            and valid_positive_integer(values.get("GitHub Release ID", ""))
             and values.get("GitHub Release URL")
             == (
                 "https://github.com/iTao-AI/multimodal-knowledge-engine/"
                 f"releases/tag/v{EXPECTED_VERSION}"
             )
             and valid_utc_timestamp(values.get("Published timestamp", ""))
+            and {
+                part.strip().lower()
+                for part in decode(values.get("Release state", "")).rstrip(".").split(",")
+            }
+            == {"public", "non-draft", "non-prerelease"}
             and values.get("Assets") == "zero"
-            and valid_identity(values.get("Archive descriptor SHA-256", ""), 64)
+            and "success" in decode(values.get("Post-merge hosted checks", "")).lower()
+            and "merge commit" in decode(values.get("Post-merge hosted checks", "")).lower()
+            and "passed" in decode(values.get("Exact-main proof", "")).lower()
+            and decode(values.get("Archive filename", ""))
+            == f"multimodal-knowledge-engine-v{EXPECTED_VERSION}.tar.gz"
+            and valid_positive_integer(values.get("Archive bytes", ""))
+            and valid_identity(values.get("Archive SHA-256", ""), 64)
             and valid_identity(values.get("Archive manifest SHA-256", ""), 64)
+            and any(
+                marker in decode(values.get("Manifest/tree equality", "")).lower()
+                for marker in ("equal", "match")
+            )
+            and "tree" in decode(values.get("Manifest/tree equality", "")).lower()
             and decode(values.get("Archive wheel", ""))
             == _CURRENT_WHEEL
+            and decode(values.get("Candidate wheel", "")) == _CURRENT_WHEEL
+            and valid_positive_integer(values.get("Candidate wheel bytes", ""))
+            and valid_identity(values.get("Candidate wheel SHA-256", ""), 64)
+            and decode(values.get("Candidate receipt", "")) == "canonical receipt present"
+            and valid_identity(values.get("Candidate receipt file SHA-256", ""), 64)
+            and valid_identity(values.get("Candidate receipt payload SHA-256", ""), 64)
+            and "passed" in decode(values.get("Archive smoke", "")).lower()
             and all(
                 0 < len(decode(values.get(field, ""))) <= 500
                 for field in bounded_fields
@@ -1561,7 +1654,7 @@ def audit_release_presentation(root: Path) -> list[Violation]:
     violations.extend(_audit_v016_historical_contract(root))
     violations.extend(_audit_v016_contract(root))
     violations.extend(_audit_prepublication_publication_claims(root))
-    violations.extend(_audit_stale_status(root, release_files))
+    violations.extend(_audit_stale_status(root, RELEASE_STATUS_FILES))
     violations.extend(_audit_consumer_smoke_wheel_selection(root, CONSUMER_SMOKE_COMMAND_FILES))
     violations.extend(_audit_current_build_wheel_selection(root))
     violations.extend(_audit_downstream_candidate_boundary(root))

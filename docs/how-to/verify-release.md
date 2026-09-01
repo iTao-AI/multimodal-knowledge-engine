@@ -341,9 +341,16 @@ source archive. That controller binds a clean Git snapshot before it handles a s
 `--mke-wheel` does not replace source authority. Do not synthesize `.git` metadata for archive
 smoke.
 
-The completed release records below are durable results of this procedure. Future releases must
-record their own tag object SHA, target commit, publication timestamp, archive filename, archive
-SHA-256, and smoke result after those facts exist.
+The completed release records below are durable results of this procedure. The terminal sequence for
+the current release is `release-prep PR` → `exact-main gates/tag/Release/archive proof` →
+`same-scope post-publication docs closeout PR`. The release-prep PR and current release note remain
+policy-only and must not prefill future identity. After the annotated tag, exact-main result,
+GitHub Release, and public archive facts exist, the closeout PR replaces the pre-publication
+surfaces with a real record containing the annotated tag object SHA, tag target commit, merge
+commit/tree, GitHub Release ID/URL/timestamp/state/assets, archive filename/bytes/SHA-256,
+archive manifest SHA-256 and manifest/tree equality, wheel and receipt identity, hosted checks,
+exact-main proof, archive smoke, and explicit non-claims. The closeout must then pass review,
+hosted CI, squash merge, exact-main readback, and authorized task-owned cleanup.
 
 
 ## Completed v0.1.6 Release Record

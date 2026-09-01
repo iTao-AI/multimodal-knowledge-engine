@@ -8,21 +8,45 @@ from scripts.release_presentation_audit import audit_release_presentation
 
 ROOT = Path(__file__).resolve().parents[2]
 
-COMPLETE_PUBLICATION_VERIFICATION = """
+V017_ANNOTATED_TAG_SHA = "567890abcdef1234567890abcdef1234567890ab"
+V017_COMMIT = "1234567890abcdef1234567890abcdef12345678"
+V017_TREE = "234567890abcdef1234567890abcdef123456789"
+V017_ARCHIVE_SHA = "34567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12"
+V017_MANIFEST_SHA = "4567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123"
+V017_WHEEL = "multimodal_knowledge_engine-0.1.7-py3-none-any.whl"
+V017_WHEEL_SHA = "67890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12345"
+V017_RECEIPT_FILE_SHA = "7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456"
+V017_RECEIPT_PAYLOAD_SHA = "890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567"
+
+COMPLETE_PUBLICATION_VERIFICATION = f"""
 ## Publication verification
 
 - Tag: `v0.1.7`
-- Merge commit: `1234567890abcdef1234567890abcdef12345678`
-- Merge tree: `234567890abcdef1234567890abcdef123456789`
+- Annotated tag object SHA: `{V017_ANNOTATED_TAG_SHA}`
+- Tag target commit: `{V017_COMMIT}`
+- Merge commit: `{V017_COMMIT}`
+- Merge tree: `{V017_TREE}`
+- GitHub Release ID: `363582985`
 - GitHub Release URL: https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.7
 - Published timestamp: `2026-07-28T12:34:56Z`
+- Release state: public, non-draft, non-prerelease.
 - Assets: zero
-- Hosted checks: all required checks passed on the merge commit
-- Archive descriptor SHA-256: `34567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12`
-- Archive manifest SHA-256: `4567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123`
-- Archive wheel: `multimodal_knowledge_engine-0.1.7-py3-none-any.whl`
+- Post-merge hosted checks: `9/9 SUCCESS` on merge commit
+- Exact-main proof: passed on the exact merge commit
+- Archive filename: `multimodal-knowledge-engine-v0.1.7.tar.gz`
+- Archive bytes: `1234567`
+- Archive SHA-256: `{V017_ARCHIVE_SHA}`
+- Archive manifest SHA-256: `{V017_MANIFEST_SHA}`
+- Manifest/tree equality: normalized archive manifest equals the tagged tree
+- Archive wheel: `{V017_WHEEL}`
+- Candidate wheel: `{V017_WHEEL}`
+- Candidate wheel bytes: `234567`
+- Candidate wheel SHA-256: `{V017_WHEEL_SHA}`
+- Candidate receipt: canonical receipt present
+- Candidate receipt file SHA-256: `{V017_RECEIPT_FILE_SHA}`
+- Candidate receipt payload SHA-256: `{V017_RECEIPT_PAYLOAD_SHA}`
+- Archive smoke: passed from the public GitHub source archive
 - Git-less allowlist: passed
-- Exact-main proof: passed
 - Canonical evidence hashes: unchanged
 - Temporary compatibility: seven families with all six delta classes zero
 - Limitations and non-claims: no retrieval-quality, performance, deployment, or adoption claim
@@ -34,6 +58,7 @@ def test_audit_targets_v0_1_7_release_identity() -> None:
 
     assert audit.EXPECTED_VERSION == "0.1.7"
     assert "docs/releases/v0.1.7.md" in audit.RELEASE_FACING_FILES
+    assert "docs/how-to/run-mcp-context-completeness-proof.md" in audit.RELEASE_STATUS_FILES
     assert "docs/releases/v0.1.6.md" in audit.HISTORICAL_RELEASE_FILES
     assert "docs/releases/v0.1.4.md" in audit.HISTORICAL_RELEASE_FILES
     assert "docs/releases/v0.1.5.md" in audit.HISTORICAL_RELEASE_FILES
@@ -352,6 +377,11 @@ Search/Ask/MCP 读取 active Publication Evidence。
         "dist/multimodal_knowledge_engine-0.1.2-py3-none-any.whl --json`\n",
         encoding="utf-8",
     )
+    (root / "docs/how-to/run-mcp-context-completeness-proof.md").write_text(
+        "# Run MCP Context Completeness Proof\n\n"
+        "The current checkout documents the bounded MCP consumer proof.\n",
+        encoding="utf-8",
+    )
     for relative in (
         "pyproject.toml",
         "src/mke/__init__.py",
@@ -499,6 +529,15 @@ def _append_current_surface_text(target: Path, addition: str) -> None:
         current, historical = text.split(marker, maxsplit=1)
         updated = f"{current.rstrip()}\n\n{addition}\n\n{marker}{historical}\n"
     target.write_text(updated, encoding="utf-8")
+
+
+def _append_publication_record(root: Path) -> None:
+    target = root / "docs/releases/v0.1.7.md"
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n"
+        f"{COMPLETE_PUBLICATION_VERIFICATION.strip()}\n",
+        encoding="utf-8",
+    )
 
 
 def test_audit_accepts_complete_release_presentation(tmp_path: Path) -> None:
@@ -659,6 +698,18 @@ def test_audit_accepts_absent_publication_verification(tmp_path: Path) -> None:
     assert "v016_publication_verification" not in _rules(tmp_path)
 
 
+def test_audit_allows_prepublication_status_until_publication_record_exists(
+    tmp_path: Path,
+) -> None:
+    _write_release_tree(tmp_path)
+    _append_current_surface_text(
+        tmp_path / "docs/releases/v0.1.7.md",
+        "This remains a bounded release-prep record; publication facts remain a separate gate.",
+    )
+
+    assert "stale_release_status" not in _rules(tmp_path)
+
+
 def test_audit_accepts_shape_valid_complete_publication_verification(
     tmp_path: Path,
 ) -> None:
@@ -671,6 +722,131 @@ def test_audit_accepts_shape_valid_complete_publication_verification(
     )
 
     assert "v016_publication_verification" not in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        (
+            "- Annotated tag object SHA: `567890abcdef1234567890abcdef1234567890ab`",
+            "- Annotated tag object SHA: `x`",
+        ),
+        (
+            "- Tag target commit: `1234567890abcdef1234567890abcdef12345678`",
+            "- Tag target commit: `not-a-commit`",
+        ),
+        ("- GitHub Release ID: `363582985`", "- GitHub Release ID: `0`"),
+        (
+            "- Release state: public, non-draft, non-prerelease.",
+            "- Release state: draft",
+        ),
+        (
+            "- Archive filename: `multimodal-knowledge-engine-v0.1.7.tar.gz`",
+            "- Archive filename: `unknown.tar.gz`",
+        ),
+        ("- Archive bytes: `1234567`", "- Archive bytes: `0`"),
+        (
+            "- Archive SHA-256: `34567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12`",
+            "- Archive SHA-256: `x`",
+        ),
+        (
+            "- Manifest/tree equality: normalized archive manifest equals the tagged tree",
+            "- Manifest/tree equality: not verified",
+        ),
+        (
+            "- Candidate wheel: `multimodal_knowledge_engine-0.1.7-py3-none-any.whl`",
+            "- Candidate wheel: `wrong.whl`",
+        ),
+        (
+            "- Candidate wheel bytes: `234567`",
+            "- Candidate wheel bytes: `0`",
+        ),
+        (
+            "- Candidate wheel SHA-256: "
+            "`67890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12345`",
+            "- Candidate wheel SHA-256: `x`",
+        ),
+        (
+            "- Candidate receipt: canonical receipt present",
+            "- Candidate receipt: missing",
+        ),
+        (
+            "- Candidate receipt file SHA-256: "
+            "`7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456`",
+            "- Candidate receipt file SHA-256: `x`",
+        ),
+        (
+            "- Candidate receipt payload SHA-256: "
+            "`890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567`",
+            "- Candidate receipt payload SHA-256: `x`",
+        ),
+        (
+            "- Archive smoke: passed from the public GitHub source archive",
+            "- Archive smoke: failed",
+        ),
+    ],
+)
+def test_audit_rejects_invalid_terminal_publication_fields(
+    tmp_path: Path,
+    old: str,
+    new: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    target = tmp_path / "docs/releases/v0.1.7.md"
+    malformed = COMPLETE_PUBLICATION_VERIFICATION.replace(old, new, 1)
+    target.write_text(
+        f"{target.read_text(encoding='utf-8').rstrip()}\n\n{malformed.strip()}\n",
+        encoding="utf-8",
+    )
+
+    assert "v016_publication_verification" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("path", "stale_text"),
+    [
+        (
+            "docs/releases/v0.1.7.md",
+            "This remains a bounded release-prep record.",
+        ),
+        (
+            "docs/releases/v0.1.7.md",
+            "Stage 4 may verify the annotated tag after the release facts exist.",
+        ),
+        (
+            "docs/README.md",
+            "Publication facts remain a separate gate.",
+        ),
+        (
+            "docs/how-to/run-mcp-context-completeness-proof.md",
+            "This is part of the bounded v0.1.7 release-prep surface.",
+        ),
+        (
+            "CHANGELOG.md",
+            "This section does not assert tag, GitHub Release, or package publication.",
+        ),
+    ],
+)
+def test_audit_rejects_postpublication_preparation_status(
+    tmp_path: Path,
+    path: str,
+    stale_text: str,
+) -> None:
+    _write_release_tree(tmp_path)
+    _append_publication_record(tmp_path)
+    target = tmp_path / path
+    if path == "docs/releases/v0.1.7.md":
+        current = target.read_text(encoding="utf-8")
+        marker = "## Publication verification"
+        prefix, publication = current.split(marker, maxsplit=1)
+        target.write_text(
+            f"{prefix.rstrip()}\n\n{stale_text}\n\n{marker}{publication}",
+            encoding="utf-8",
+        )
+    else:
+        _append_current_surface_text(target, stale_text)
+
+    assert "stale_release_status" in _rules(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -701,9 +877,9 @@ def test_audit_accepts_shape_valid_complete_publication_verification(
         ),
         ("- Assets: zero", "- Assets: one"),
         (
-            "- Archive descriptor SHA-256: "
+            "- Archive SHA-256: "
             "`34567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12`",
-            "- Archive descriptor SHA-256: `x`",
+            "- Archive SHA-256: `x`",
         ),
         (
             "- Archive manifest SHA-256: "
@@ -716,8 +892,8 @@ def test_audit_accepts_shape_valid_complete_publication_verification(
             "- Archive wheel: `multimodal_knowledge_engine-0.1.4-py3-none-any.whl`",
         ),
         (
-            "- Hosted checks: all required checks passed on the merge commit",
-            "- Hosted checks:",
+            "- Post-merge hosted checks: `9/9 SUCCESS` on merge commit",
+            "- Post-merge hosted checks:",
         ),
         ("- Git-less allowlist: passed", "- Git-less allowlist:"),
         ("- Exact-main proof: passed", "- Exact-main proof:"),
@@ -753,17 +929,31 @@ def test_audit_rejects_malformed_or_empty_publication_facts(
     "label",
     [
         "Tag",
+        "Annotated tag object SHA",
+        "Tag target commit",
         "Merge commit",
         "Merge tree",
         "GitHub Release URL",
+        "GitHub Release ID",
         "Published timestamp",
+        "Release state",
         "Assets",
-        "Hosted checks",
-        "Archive descriptor SHA-256",
-        "Archive manifest SHA-256",
-        "Archive wheel",
-        "Git-less allowlist",
+        "Post-merge hosted checks",
         "Exact-main proof",
+        "Archive filename",
+        "Archive bytes",
+        "Archive SHA-256",
+        "Archive manifest SHA-256",
+        "Manifest/tree equality",
+        "Archive wheel",
+        "Candidate wheel",
+        "Candidate wheel bytes",
+        "Candidate wheel SHA-256",
+        "Candidate receipt",
+        "Candidate receipt file SHA-256",
+        "Candidate receipt payload SHA-256",
+        "Archive smoke",
+        "Git-less allowlist",
         "Canonical evidence hashes",
         "Temporary compatibility",
         "Limitations and non-claims",
@@ -793,17 +983,31 @@ def test_audit_rejects_duplicate_publication_labels(
     "label",
     [
         "Tag",
+        "Annotated tag object SHA",
+        "Tag target commit",
         "Merge commit",
         "Merge tree",
         "GitHub Release URL",
+        "GitHub Release ID",
         "Published timestamp",
+        "Release state",
         "Assets",
-        "Hosted checks",
-        "Archive descriptor SHA-256",
-        "Archive manifest SHA-256",
-        "Archive wheel",
-        "Git-less allowlist",
+        "Post-merge hosted checks",
         "Exact-main proof",
+        "Archive filename",
+        "Archive bytes",
+        "Archive SHA-256",
+        "Archive manifest SHA-256",
+        "Manifest/tree equality",
+        "Archive wheel",
+        "Candidate wheel",
+        "Candidate wheel bytes",
+        "Candidate wheel SHA-256",
+        "Candidate receipt",
+        "Candidate receipt file SHA-256",
+        "Candidate receipt payload SHA-256",
+        "Archive smoke",
+        "Git-less allowlist",
         "Canonical evidence hashes",
         "Temporary compatibility",
         "Limitations and non-claims",
@@ -839,7 +1043,7 @@ def test_audit_rejects_placeholder_or_unbounded_publication_values(
     _write_release_tree(tmp_path)
     target = tmp_path / "docs/releases/v0.1.7.md"
     malformed = COMPLETE_PUBLICATION_VERIFICATION.replace(
-        "all required checks passed on the merge commit",
+        "`9/9 SUCCESS` on merge commit",
         invalid_value,
     )
     target.write_text(
@@ -854,11 +1058,11 @@ def test_audit_rejects_placeholder_or_unbounded_publication_values(
     ("old", "label"),
     [
         (
-            "- Hosted checks: all required checks passed on the merge commit",
-            "Hosted checks",
+            "- Post-merge hosted checks: `9/9 SUCCESS` on merge commit",
+            "Post-merge hosted checks",
         ),
         ("- Git-less allowlist: passed", "Git-less allowlist"),
-        ("- Exact-main proof: passed", "Exact-main proof"),
+        ("- Exact-main proof: passed on the exact merge commit", "Exact-main proof"),
         ("- Canonical evidence hashes: unchanged", "Canonical evidence hashes"),
         (
             "- Temporary compatibility: seven families with all six delta classes zero",
@@ -964,8 +1168,9 @@ def test_audit_rejects_retained_malformed_publication_diagnostic(
             "`x`",
         )
         .replace(
-            "- Hosted checks: all required checks passed on the merge commit",
-            "- Hosted checks:",
+            "- Post-merge hosted checks: `9/9 SUCCESS` on merge commit "
+            "`1234567890abcdef1234567890abcdef12345678`",
+            "- Post-merge hosted checks:",
         )
     )
     target.write_text(
@@ -1634,21 +1839,29 @@ def test_audit_rejects_post_release_stale_publication_status(
     stale_text: str,
 ) -> None:
     _write_release_tree(tmp_path)
-    (tmp_path / path).write_text(
-        "# v0.1.4\n\n"
-        "Proof, demo, CLI, MCP, and retrieval evaluation docs are linked.\n"
-        "E3-C dense, E3-D RRF, and E3-E reranker remain comparison-only evidence.\n"
-        f"{stale_text}\n",
-        encoding="utf-8",
-    )
+    _append_publication_record(tmp_path)
+    target = tmp_path / path
+    if path == "docs/releases/v0.1.7.md":
+        current = target.read_text(encoding="utf-8")
+        marker = "## Publication verification"
+        prefix, publication = current.split(marker, maxsplit=1)
+        target.write_text(
+            f"{prefix.rstrip()}\n\n{stale_text}\n\n{marker}{publication}",
+            encoding="utf-8",
+        )
+    else:
+        _append_current_surface_text(target, stale_text)
 
     assert "stale_release_status" in _rules(tmp_path)
 
 
 def test_audit_allows_verify_release_generic_stage3_instructions(tmp_path: Path) -> None:
     _write_release_tree(tmp_path)
+    _append_publication_record(tmp_path)
     (tmp_path / "docs/how-to/verify-release.md").write_text(
         "# Verify Release\n\n"
+        "The release-prep PR precedes the exact-main gates and the post-publication docs "
+        "closeout.\n"
         "After Stage 1 and Stage 2 merge, create the annotated tag and GitHub Release only "
         "with explicit authorization. Then verify the public archive from a clean temporary "
         "directory.\n"

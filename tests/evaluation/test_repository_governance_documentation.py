@@ -169,6 +169,38 @@ def test_docs_index_links_governance_and_completed_authorities() -> None:
     assert "historical `v0.1.4` release-candidate verification gate" in normalized
 
 
+def test_v017_terminal_sequence_requires_postpublication_closeout() -> None:
+    spec = Path("docs/superpowers/specs/2026-09-01-v0.1.7-bounded-release-design.md").read_text(
+        encoding="utf-8"
+    )
+    plan = Path(
+        "docs/superpowers/plans/2026-09-01-v0.1.7-bounded-release-implementation.md"
+    ).read_text(
+        encoding="utf-8"
+    )
+    verify = _text(ROOT / "docs/how-to/verify-release.md")
+    sequence = (
+        "release-prep PR` → `exact-main gates/tag/Release/archive proof` → "
+        "`same-scope post-publication docs closeout PR"
+    )
+    for text in (spec, plan, verify):
+        surface = " ".join(text.split())
+        assert sequence in surface
+        for literal in (
+            "annotated tag object SHA",
+            "GitHub Release ID",
+            "archive filename/bytes/SHA-256",
+            "manifest/tree equality",
+            "wheel and receipt",
+            "archive smoke",
+            "explicit non-claims",
+            "hosted CI",
+            "squash merge",
+            "exact-main",
+        ):
+            assert literal in surface, literal
+
+
 def test_v017_inventory_matches_post_v016_current_branch_without_publication_claim() -> None:
     text = _text(CHANGELOG)
     current = text.split("## [0.1.7]", maxsplit=1)[1].split(
