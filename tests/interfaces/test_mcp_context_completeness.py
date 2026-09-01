@@ -81,6 +81,56 @@ def test_v2_search_returns_retrieval_authority_invalid(
     )
 
 
+def test_v2_search_returns_cjk_active_scan_budget_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import mke.interfaces.mcp_completeness_contract as contract
+    from mke.interfaces.mcp_schemas import SearchLibraryV2Request
+    from mke.retrieval.cjk_active_scan import compile_cjk_overlap_terms
+
+    query = "".join(chr(0x4E00 + index) for index in range(131))
+    assert len(query) == 131
+    assert len(set(query)) == 131
+    assert len(query.encode("utf-8")) <= 512
+
+    class CjkBudgetEngine:
+        def search_evidence_page(
+            self, value: str, *args: object, **kwargs: object
+        ) -> object:
+            del args, kwargs
+            assert value == query
+            compile_cjk_overlap_terms(value, require_terms=True)
+            raise AssertionError("expected the bounded CJK query to exceed its scan budget")
+
+        def close(self) -> None:
+            return None
+
+    def build_budget(_runtime: RuntimeConfig) -> CjkBudgetEngine:
+        return CjkBudgetEngine()
+
+    monkeypatch.setattr(contract, "build_engine", build_budget)
+    config = McpRuntimeConfig(
+        RuntimeConfig(
+            tmp_path / "mke.sqlite",
+            retrieval_strategy="cjk-active-scan-overlap-v1",
+        ),
+        tmp_path,
+    )
+
+    response = contract.search_library_v2(
+        config,
+        SearchLibraryV2Request(root={"query": query, "limit": 1}),
+    )
+
+    assert response.root.problem == "cjk_scan_budget_exceeded"  # type: ignore[union-attr]
+    assert response.root.cause == (  # type: ignore[union-attr]
+        "CJK active Evidence scan would exceed configured local budget"
+    )
+    assert response.root.next_step == (  # type: ignore[union-attr]
+        "narrow_query_or_use_projection_strategy"
+    )
+
+
 def test_oversized_v1_has_typed_exact_read_recovery(tmp_path: Path) -> None:
     config = McpRuntimeConfig(RuntimeConfig(tmp_path / "mke.sqlite"), tmp_path)
     engine = KnowledgeEngine(config.db_path)

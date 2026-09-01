@@ -18,6 +18,7 @@ from mcp.client.stdio import stdio_client
 PROOF_SCHEMA = "mke.mcp_context_completeness_consumer.v1"
 CANONICAL_LIMIT = 32768
 SDK_LIMIT = 96 * 1024
+CJK_SCAN_BUDGET_QUERY = "".join(chr(0x4E00 + index) for index in range(131))
 
 
 class ProofFailure(RuntimeError):
@@ -192,6 +193,25 @@ async def run(args: argparse.Namespace) -> dict[str, object]:
         require(cjk_status == "capped")
         require(cjk_count == 10)
 
+        require(
+            len(CJK_SCAN_BUDGET_QUERY) == 131
+            and len(set(CJK_SCAN_BUDGET_QUERY)) == 131
+            and len(CJK_SCAN_BUDGET_QUERY.encode("utf-8")) <= 512
+        )
+        cjk_budget = await call(
+            session,
+            "search_library_v2",
+            {"request": {"query": CJK_SCAN_BUDGET_QUERY, "limit": 1}},
+            measurements,
+        )
+        require(
+            cjk_budget["ok"] is False
+            and cjk_budget["problem"] == "cjk_scan_budget_exceeded"
+            and cjk_budget["cause"]
+            == "CJK active Evidence scan would exceed configured local budget"
+            and cjk_budget["next_step"] == "narrow_query_or_use_projection_strategy"
+        )
+
         bounded = await call(
             session,
             "search_library_v1",
@@ -297,6 +317,7 @@ async def run(args: argparse.Namespace) -> dict[str, object]:
         "search_continuation": "passed",
         "exact_read": "passed",
         "cjk_cap": "passed",
+        "cjk_scan_budget_recovery": "passed",
         "cursor_expiry": "passed",
         "legacy_compatibility": "passed",
         "normal_no_match": "passed",
