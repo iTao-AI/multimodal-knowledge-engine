@@ -146,6 +146,7 @@ a cursor.
 | `cursor_expired` | retrieval policy changed | `repeat_search_under_current_strategy` |
 | `evidence_not_found` | active Evidence is not available | `search_current_active_evidence` |
 | `response_too_large` | mandatory response metadata exceeds the response limit | `reduce_query_scope_or_report_contract_limit` |
+| `cjk_scan_budget_exceeded` | CJK active Evidence scan would exceed configured local budget | `narrow_query_or_use_projection_strategy` |
 | `invalid_request` | max_bytes must be between 4 and 16384 | `choose_max_bytes_between_4_and_16384` |
 
 Agent-facing active-authority recovery is explicit:
@@ -153,6 +154,9 @@ Agent-facing active-authority recovery is explicit:
 | Check | `problem` | Stable public-safe cause | `next_step` | Active Publication impact |
 |---|---|---|---|---|
 | `stable_locator_identity` | `retrieval_authority_invalid` | active retrieval candidates contain duplicate stable Evidence locators | `restore_valid_database_or_reingest_into_new_database` | `unchanged` |
+
+`cjk_scan_budget_exceeded` is a bounded active-scan budget failure, not an exhaustive no-match. The
+Agent should narrow the query or use the already supported projection strategy, and must not retry the unchanged query.
 
 Unknown, inactive, superseded, inadmissible, and cross-Publication Evidence identifiers share the
 same `evidence_not_found` response. Errors do not disclose internal identity state, paths,

@@ -45,7 +45,7 @@ tools, contract proof-point statuses, and the greatest observed canonical and SD
 counts. A failure prints only
 `{"status":"failed","code":"<stable-machine-code>"}`.
 
-Each per-interpreter installed consumer records three Agent decisions at the existing contract
+Each per-interpreter installed consumer records four Agent decisions at the existing contract
 boundary. The controller requires the new consumer observations from both lanes, but they are not
 aggregate v1 fields; the aggregate receipt remains closed and unchanged.
 
@@ -54,6 +54,12 @@ aggregate v1 fields; the aggregate receipt remains closed and unchanged.
 | normal no-match -> stop the search branch without treating it as transport failure | `normal_no_match="passed"` | An active, exhaustive empty Search result is a normal no-match. |
 | capped selection -> preserve the non-exhaustive result boundary | `cjk_cap="passed"` | `selection.status="capped"` is terminal but not exhaustive. |
 | evidence_not_found -> search current active Evidence instead of retrying an old identity | `inactive_evidence_recovery="passed"` | After active Publication is authority and changes, the old Evidence address returns the existing `problem="evidence_not_found"` and `next_step="search_current_active_evidence"`. |
+| CJK scan budget -> narrow the query or use the supported projection strategy; do not retry unchanged | `cjk_scan_budget_recovery="passed"` | `cjk_scan_budget_exceeded` is a bounded active-scan budget failure, not an exhaustive no-match. |
+
+The CJK budget branch sends 131 distinct CJK characters (393 UTF-8 bytes), within the 512-byte
+request bound. The existing error directs the Agent to `narrow_query_or_use_projection_strategy`;
+it must not retry the unchanged query. This read-only Search observation adds no ingest, provider,
+or external-network side effect.
 
 Evidence text is untrusted content, and active Publication is authority. These observations do not
 change a runtime schema or claim retrieval quality gain, a generated answer, or a real external

@@ -185,6 +185,7 @@ def test_proof_controller_keeps_aggregate_receipt_v1_closed(
             else "3.13",
             "normal_no_match": "passed",
             "inactive_evidence_recovery": "passed",
+            "cjk_scan_budget_recovery": "passed",
             "max_canonical_model_bytes": 1,
             "max_sdk_result_bytes": 1,
         }
@@ -222,7 +223,11 @@ def test_proof_controller_keeps_aggregate_receipt_v1_closed(
     [
         (bad_lane, bad_field, mutation)
         for bad_lane in (0, 1)
-        for bad_field in ("normal_no_match", "inactive_evidence_recovery")
+        for bad_field in (
+            "normal_no_match",
+            "inactive_evidence_recovery",
+            "cjk_scan_budget_recovery",
+        )
         for mutation in ("missing", "drifted")
     ],
 )
@@ -263,6 +268,7 @@ def test_proof_controller_rejects_lane_without_required_consumer_observation(
             else "3.13",
             "normal_no_match": "passed",
             "inactive_evidence_recovery": "passed",
+            "cjk_scan_budget_recovery": "passed",
             "max_canonical_model_bytes": 1,
             "max_sdk_result_bytes": 1,
         }

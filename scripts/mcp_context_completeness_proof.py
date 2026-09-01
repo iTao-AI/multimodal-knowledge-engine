@@ -268,6 +268,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         if (
             result.get("normal_no_match") != "passed"
             or result.get("inactive_evidence_recovery") != "passed"
+            or result.get("cjk_scan_budget_recovery") != "passed"
         ):
             raise ProofFailure("consumer_proof_failed")
     versions = sorted(result["python_version"] for result in results)
