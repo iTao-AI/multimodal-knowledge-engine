@@ -212,18 +212,24 @@ def test_v017_terminal_sequence_requires_postpublication_closeout() -> None:
             "exact-main",
         ):
             assert literal in surface, literal
+    assert (
+        "mv multimodal-knowledge-engine-0.1.7.tar.gz "
+        "multimodal-knowledge-engine-v0.1.7.tar.gz"
+    ) in verify
 
 
-def test_v017_inventory_matches_post_v016_current_branch_without_publication_claim() -> None:
+def test_v017_inventory_matches_public_release_record() -> None:
     text = _text(CHANGELOG)
     current = text.split("## [0.1.7]", maxsplit=1)[1].split(
         "## [0.1.6]", maxsplit=1
     )[0]
 
     for literal in (
-        "already merged on the current default branch",
+        "public `v0.1.7` release on the default branch",
         "after stable `v0.1.6`",
-        "does not assert tag, GitHub Release, or package publication",
+        "annotated tag",
+        "zero-asset GitHub Release",
+        "public source archive",
         "Evidence workspace",
         "MCP consumer failure-branch/recovery proof",
         "supported dependency lines",
@@ -232,7 +238,7 @@ def test_v017_inventory_matches_post_v016_current_branch_without_publication_cla
         "locked dependency",
         "Move the `setup-uv` pin from v9.0.0 to v10.0.0",
         "update it from v10.0.0 to v10.0.1",
-        "No package publication",
+        "No package registry publication",
         "hosted deployment",
         "model/provider change",
         "retrieval-quality claim",

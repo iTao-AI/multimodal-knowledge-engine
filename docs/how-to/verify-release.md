@@ -2,8 +2,8 @@
 
 For v0.1.7 evaluators, use the source archive or checkout in a prepared cache-warmed environment:
 build one exact wheel, run `release_consumer_smoke.py`, then follow the completeness-aware stdio MCP
-flow. Stage 4 publication verification requires a GitHub Release with zero assets; PyPI publication
-is outside this release boundary.
+flow. The completed publication record below captures the public archive; PyPI publication is outside
+this release boundary.
 
 ## Stable proof code recovery
 
@@ -115,7 +115,7 @@ Run:
 
 ```bash
 UV_OFFLINE=1 uv build
-UV_OFFLINE=1 uv run python scripts/release_consumer_smoke.py \
+PYMUPDF_MESSAGE=fd:2 UV_OFFLINE=1 uv run python scripts/release_consumer_smoke.py \
   --wheel dist/multimodal_knowledge_engine-0.1.7-py3-none-any.whl --json
 
 candidate_parent="$(mktemp -d)"
@@ -221,11 +221,11 @@ import json, pathlib, sys
 print(json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))["candidate_wheel"])
 PY
 )"
-UV_OFFLINE=1 uv run python scripts/release_consumer_smoke.py \
+PYMUPDF_MESSAGE=fd:2 UV_OFFLINE=1 uv run python scripts/release_consumer_smoke.py \
   --wheel "${candidate_wheel}" \
   --python "${PYTHON312}" \
   --json
-UV_OFFLINE=1 uv run python scripts/release_consumer_smoke.py \
+PYMUPDF_MESSAGE=fd:2 UV_OFFLINE=1 uv run python scripts/release_consumer_smoke.py \
   --wheel "${candidate_wheel}" \
   --python "${PYTHON313}" \
   --json
@@ -299,6 +299,7 @@ authorization. Then verify the public archive from a clean temporary directory:
 archive_dir="$(mktemp -d)"
 cd "$archive_dir"
 gh release download v0.1.7 --repo iTao-AI/multimodal-knowledge-engine --archive=tar.gz
+mv multimodal-knowledge-engine-0.1.7.tar.gz multimodal-knowledge-engine-v0.1.7.tar.gz
 tar -xzf multimodal-knowledge-engine-v0.1.7.tar.gz
 cd multimodal-knowledge-engine-0.1.7
 UV_OFFLINE=1 uv sync --locked
@@ -341,12 +342,10 @@ source archive. That controller binds a clean Git snapshot before it handles a s
 `--mke-wheel` does not replace source authority. Do not synthesize `.git` metadata for archive
 smoke.
 
-The completed release records below are durable results of this procedure. The terminal sequence for
-the current release is `release-prep PR` → `exact-main gates/tag/Release/archive proof` →
-`same-scope post-publication docs closeout PR`. The release-prep PR and current release note remain
-policy-only and must not prefill future identity. After the annotated tag, exact-main result,
-GitHub Release, and public archive facts exist, the closeout PR replaces the pre-publication
-surfaces with two required records: `## Publication verification` in the release note and
+The completed release records below are durable results of this procedure. For v0.1.7, the terminal
+sequence was `release-prep PR` → `exact-main gates/tag/Release/archive proof` →
+`same-scope post-publication docs closeout PR`. The tag, Release, archive, and exact-main facts are
+now recorded in both required sections: `## Publication verification` in the release note and
 `## Completed v0.1.7 Release Record` in this guide. Missing either record fails the audit. The
 records share one fixed bullet inventory: release-prep PR number/URL, reviewed HEAD/tree, merge
 commit/tree, reviewed tree == merge tree, annotated tag object SHA, tag target/tree, GitHub Release
@@ -354,15 +353,57 @@ ID/URL/timestamp/state/assets, Release body SHA-256 and tagged release-note SHA-
 filename/bytes/SHA-256, archive manifest SHA-256 and manifest/tree equality with
 `status=equal; tree=<sha>`, candidate
 wheel and receipt identity, closed hosted-check and exact-main values, positive archive smoke and
-Git-less values, and explicit non-claims. Both records must contain identical immutable facts; the
+Git-less values, and explicit non-claims. Both records contain identical immutable facts; the
 inventory has no closeout PR or cleanup self-reference.
 
 Use only these closed terminal values: `status=passed; head=<sha>; checks=<n>/<n>`,
 `status=passed; merge=<sha>; checks=<n>/<n>`, `status=passed; merge=<sha>; proof=exact-main`,
-`status=passed; source=public-github-archive`, and `status=passed; scope=allowlist`. Before
-publication, neither current record section exists and this policy wording remains valid. The
-closeout must then pass review, hosted CI, squash merge, exact-main readback, and authorized
-task-owned cleanup.
+`status=passed; source=public-github-archive`, and `status=passed; scope=allowlist`. For v0.1.7,
+the publication and archive gates are complete and the closeout record below is authoritative.
+For a future release, the same record sections remain absent until its own tag, Release, and
+archive facts exist; its closeout must pass review, hosted CI, squash merge, exact-main readback,
+and authorized task-owned cleanup.
+
+## Completed v0.1.7 Release Record
+
+- Tag: `v0.1.7`
+- Release-prep PR number: `119`
+- Release-prep PR URL: `https://github.com/iTao-AI/multimodal-knowledge-engine/pull/119`
+- Reviewed HEAD: `3a32d7dbca8f3407a366e084b86dbd364056dcf1`
+- Reviewed tree: `957ab39d1a6f039b26be971a87facfa3cb06f98c`
+- Annotated tag object SHA: `818975cddf02792c7d33e86b05547f2e69e37935`
+- Tag target commit: `87962688ba14bca22717d7543e79baf54db1c39d`
+- Tag tree: `957ab39d1a6f039b26be971a87facfa3cb06f98c`
+- Merge commit: `87962688ba14bca22717d7543e79baf54db1c39d`
+- Merge tree: `957ab39d1a6f039b26be971a87facfa3cb06f98c`
+- Reviewed tree == merge tree: `true`
+- GitHub Release ID: `380647259`
+- GitHub Release URL: `https://github.com/iTao-AI/multimodal-knowledge-engine/releases/tag/v0.1.7`
+- Published timestamp: `2026-09-01T16:05:32Z`
+- Release state: `public; draft=false; prerelease=false`
+- Assets: `count=0`
+- Reviewed-head hosted checks: `status=passed; head=3a32d7dbca8f3407a366e084b86dbd364056dcf1; checks=10/10`
+- Post-merge hosted checks: `status=passed; merge=87962688ba14bca22717d7543e79baf54db1c39d; checks=9/9`
+- Exact-main proof: `status=passed; merge=87962688ba14bca22717d7543e79baf54db1c39d; proof=exact-main`
+- Release body SHA-256: `6612591e82cb9a9ec92d1f991917a7b9cc876625ee769783e6fb828d019b6c5d`
+- Tagged release-note SHA-256: `6612591e82cb9a9ec92d1f991917a7b9cc876625ee769783e6fb828d019b6c5d`
+- Archive filename: `multimodal-knowledge-engine-v0.1.7.tar.gz`
+- Archive bytes: `6888578`
+- Archive SHA-256: `7b5fa39302f9d69673f8763029705c343760bb67de6b3074bab89b2eb6079ed7`
+- Archive manifest SHA-256: `c97cc13e67e6eacb34f22b95df314cfce2d8e09adf5052e3d80796b4f18c43f3`
+- Manifest/tree equality: `status=equal; tree=957ab39d1a6f039b26be971a87facfa3cb06f98c`
+- Archive wheel: `multimodal_knowledge_engine-0.1.7-py3-none-any.whl`
+- Candidate wheel: `multimodal_knowledge_engine-0.1.7-py3-none-any.whl`
+- Candidate wheel bytes: `493019`
+- Candidate wheel SHA-256: `67a9eae4ed860693827c75a59d4f385875d1d537b4961a20a8fecc3dda208578`
+- Candidate receipt: `status=present; schema=mke.candidate_artifact_receipt.v1`
+- Candidate receipt file SHA-256: `9e9845e94acef8758d4240262779a0639aac3b00a22503dbba97ec35ffa63042`
+- Candidate receipt payload SHA-256: `16406ec122816fa2e3cd44278c870250fed8375953f55d73038ad15fea3fec6e`
+- Archive smoke: `status=passed; source=public-github-archive`
+- Git-less allowlist: `status=passed; scope=allowlist`
+- Canonical evidence hashes: `unchanged; canonical Evidence fixture bytes were not modified`
+- Temporary compatibility: `seven families; all six delta classes zero; no runtime promotion`
+- Limitations and non-claims: `No package registry publication, hosted deployment, runtime promotion, uploaded assets, cold-cache or empty-machine installation, air-gapped or cache-portability claim, retrieval-quality or performance claim, adoption claim, or real ASR/model-download claim.`
 
 
 ## Completed v0.1.6 Release Record

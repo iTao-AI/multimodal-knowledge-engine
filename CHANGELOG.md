@@ -2,7 +2,9 @@
 
 ## [0.1.7] - 2026-09-01
 
-This section records changes already merged on the current default branch after stable `v0.1.6`; it does not assert tag, GitHub Release, or package publication.
+This section records the public `v0.1.7` release on the default branch after stable `v0.1.6`.
+The annotated tag, zero-asset GitHub Release, and public source archive were verified; package
+registry publication remains outside this release boundary.
 
 ### Added
 
@@ -23,9 +25,9 @@ This section records changes already merged on the current default branch after 
 
 ### Not included
 
-- No package publication, hosted deployment, model/provider change, retrieval-quality claim, MCP
-  schema/runtime/authority change, retrieval candidate, OCR/major-line migration, fixture/holdout
-  access, or tag/GitHub Release publication is asserted here.
+- No package registry publication, hosted deployment, model/provider change, retrieval-quality claim,
+  MCP schema/runtime/authority change, retrieval candidate, OCR/major-line migration, or
+  fixture/holdout access is claimed. The GitHub Release has zero uploaded assets.
 
 ## [0.1.6] - 2026-08-01
 
