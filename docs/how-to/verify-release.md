@@ -299,6 +299,7 @@ authorization. Then verify the public archive from a clean temporary directory:
 archive_dir="$(mktemp -d)"
 cd "$archive_dir"
 gh release download v0.1.7 --repo iTao-AI/multimodal-knowledge-engine --archive=tar.gz
+mv multimodal-knowledge-engine-0.1.7.tar.gz multimodal-knowledge-engine-v0.1.7.tar.gz
 tar -xzf multimodal-knowledge-engine-v0.1.7.tar.gz
 cd multimodal-knowledge-engine-0.1.7
 UV_OFFLINE=1 uv sync --locked

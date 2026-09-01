@@ -212,6 +212,10 @@ def test_v017_terminal_sequence_requires_postpublication_closeout() -> None:
             "exact-main",
         ):
             assert literal in surface, literal
+    assert (
+        "mv multimodal-knowledge-engine-0.1.7.tar.gz "
+        "multimodal-knowledge-engine-v0.1.7.tar.gz"
+    ) in verify
 
 
 def test_v017_inventory_matches_public_release_record() -> None:
