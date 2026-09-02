@@ -142,16 +142,44 @@ def test_contribution_docs_split_entry_point_from_executable_policy() -> None:
 
 def test_contributor_guide_maps_cli_navigation_and_ownership() -> None:
     guide = _normalized(CONTRIBUTING_GUIDE).lower()
+    navigation_start = guide.index("## code navigation")
+    navigation_end = guide.find("\n## ", navigation_start + 1)
+    navigation = guide[navigation_start:] if navigation_end == -1 else guide[
+        navigation_start:navigation_end
+    ]
+
+    components = (
+        "mke.cli",
+        "mke.interfaces.cli_parser",
+        "named command-family handlers",
+        "mke.runtime",
+        "application",
+        "domain",
+        "adapters",
+    )
+    for component in components:
+        assert component in navigation
+    positions = [navigation.index(component) for component in components]
+    assert positions == sorted(positions)
 
     for required in (
-        "`mke.cli` facade → `mke.interfaces.cli_parser` declarations → named `mke.cli` "
-        "command-family handlers → `mke.runtime` composition → `application`/`domain`/`adapters`",
-        "arguments change at `mke.interfaces.cli_parser`",
-        "execution is followed from the named handlers through `mke.runtime`",
-        "domain behavior does not belong in parser code",
-        "owning repository-governance assertion:",
+        "facade",
+        "declarations",
+        "parser code",
+        "argument shape",
+        "does not own",
+        "lifecycle",
+        "persistence",
+        "evidence",
+        "conflicts",
+        "agents.md",
+        "live code",
+        "tests",
+        "accepted adrs",
+        "current reference documentation",
     ):
-        assert required in guide
+        assert required in navigation
+    assert "owning repository-governance assertion:" not in navigation
 
 
 def test_superpowers_workspace_is_history_not_current_contract_authority() -> None:

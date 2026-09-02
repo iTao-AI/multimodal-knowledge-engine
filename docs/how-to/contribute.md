@@ -6,13 +6,13 @@ defines the current Agent rules and product boundaries.
 
 ## Code Navigation
 
-For a CLI change, follow this route:
+For a CLI change, start at the `mke.cli` facade. Argument declarations live in
+`mke.interfaces.cli_parser`; named command-family handlers carry execution through
+`mke.runtime` to `application`, `domain`, and `adapters`. Parser code owns argument
+shape, but does not own lifecycle, persistence, or Evidence rules.
 
-`mke.cli` facade → `mke.interfaces.cli_parser` declarations → named `mke.cli` command-family handlers → `mke.runtime` composition → `application`/`domain`/`adapters`.
-
-Arguments change at `mke.interfaces.cli_parser`; execution is followed from the named handlers through `mke.runtime` and then into the application, domain, and adapter layers. Domain behavior does not belong in parser code: parser registrations only shape the validated arguments and do not own lifecycle, persistence, or Evidence rules.
-
-Owning repository-governance assertion: `AGENTS.md` owns the current repository boundaries and verification rules; when another note conflicts, use live code, tests, accepted ADRs, and current reference documentation in that order.
+For conflicts, treat `AGENTS.md` as the current boundary and use live code, tests, accepted
+ADRs, and current reference documentation as the evidence order.
 
 ## Prepare An Isolated Change
 
