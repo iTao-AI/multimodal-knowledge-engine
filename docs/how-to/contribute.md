@@ -4,6 +4,16 @@ This guide is the executable repository workflow. The short root
 [`CONTRIBUTING.md`](../../CONTRIBUTING.md) remains the entry point, while [`AGENTS.md`](../../AGENTS.md)
 defines the current Agent rules and product boundaries.
 
+## Code Navigation
+
+For a CLI change, start at the `mke.cli` facade. Argument declarations live in
+`mke.interfaces.cli_parser`; named command-family handlers carry execution through
+`mke.runtime` to `application`, `domain`, and `adapters`. Parser code owns argument
+shape, but does not own lifecycle, persistence, or Evidence rules.
+
+For conflicts, treat `AGENTS.md` as the current boundary and use live code, tests, accepted
+ADRs, and current reference documentation as the evidence order.
+
 ## Prepare An Isolated Change
 
 1. Read `AGENTS.md`, the affected accepted ADRs, current reference or release documentation, and

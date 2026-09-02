@@ -28,12 +28,8 @@ from mke.application import (
     VideoIngestError,
 )
 from mke.domain import FailurePoint, PdfIntakeReport, SearchResult, TranscriptIntakeReport
-from mke.embeddings.contracts import CANDIDATE_ID as DENSE_CANDIDATE_ID
 from mke.embeddings.contracts import MODEL_ID as EMBEDDING_MODEL_ID
 from mke.embeddings.contracts import MODEL_REVISION as EMBEDDING_MODEL_REVISION
-from mke.embeddings.readiness import (
-    MODEL_CLI_ID as EMBEDDING_MODEL_CLI_ID,
-)
 from mke.embeddings.readiness import (
     EmbeddingModelError,
     EmbeddingReadiness,
@@ -57,12 +53,8 @@ from mke.evaluation import (
 )
 from mke.evaluation.chinese_report import ChineseRetrievalReport
 from mke.evaluation.cjk_lexical_artifact import record_cjk_lexical_artifact
-from mke.evaluation.cjk_lexical_candidate import CJK_LEXICAL_CANDIDATE
 from mke.evaluation.cjk_lexical_comparison import CjkLexicalComparisonReport
 from mke.evaluation.dense_workflow import DenseWorkflowError, run_dense_evaluation_phase
-from mke.evaluation.hybrid_rrf_protocol import (
-    CANDIDATE_ID as HYBRID_RRF_CANDIDATE_ID,
-)
 from mke.evaluation.hybrid_rrf_protocol import HybridRrfProtocolError
 from mke.evaluation.hybrid_rrf_workflow import (
     HybridRrfWorkflowError,
@@ -71,9 +63,6 @@ from mke.evaluation.hybrid_rrf_workflow import (
     run_hybrid_rrf_holdout,
 )
 from mke.evaluation.numeric_comparison import NumericComparisonReport
-from mke.evaluation.relevance_gate_protocol import (
-    CANDIDATE_ID as RELEVANCE_GATE_CANDIDATE_ID,
-)
 from mke.evaluation.relevance_gate_protocol import RelevanceGateProtocolError
 from mke.evaluation.relevance_gate_workflow import (
     RelevanceGateWorkflowError,
@@ -82,6 +71,7 @@ from mke.evaluation.relevance_gate_workflow import (
     run_relevance_gate_holdout,
 )
 from mke.evaluation.report import RetrievalEvaluationReport
+from mke.interfaces import cli_parser as _cli_parser
 from mke.interfaces.audio_errors import DIRECT_AUDIO_SAFE_CAUSES
 from mke.interfaces.library_export import run_library_export
 from mke.interfaces.mcp_contract import McpRuntimeConfig, transcript_intake_report_payload
@@ -98,16 +88,11 @@ from mke.proof import (
     run_product_proof,
     run_transcription_proof,
 )
-from mke.retrieval import (
-    SUPPORTED_RETRIEVAL_QUERY_POLICIES,
-    SUPPORTED_RETRIEVAL_STRATEGIES,
-    require_retrieval_strategy,
-)
+from mke.retrieval import require_retrieval_strategy
 from mke.retrieval.cjk_active_scan import CjkActiveScanError
 from mke.retrieval.errors import RetrievalAuthorityError
 from mke.retrieval.readiness import RetrievalReadiness, doctor_retrieval_strategy
 from mke.runtime import (
-    DEFAULT_MODEL_REVISION,
     FasterWhisperTranscriptionConfig,
     ModelPreparationConfig,
     RuntimeConfig,
@@ -115,10 +100,12 @@ from mke.runtime import (
     build_engine,
 )
 
-_DEFAULT_PDF_FIXTURE = Path("tests/fixtures/pdf/text-layer.pdf")
-_DEFAULT_REVISED_PDF_FIXTURE = Path("tests/fixtures/pdf/text-layer-revised.pdf")
-_DEFAULT_VIDEO_FIXTURE = Path("tests/fixtures/video/short-audio.mp4")
-_DEFAULT_TRANSCRIPTION_PROOF_FIXTURE = Path("tests/fixtures/video/spoken-evidence.mp4")
+build_cli_parser = _cli_parser.build_cli_parser
+add_transcription_runtime_arguments = _cli_parser.add_transcription_runtime_arguments
+add_faster_whisper_runtime_arguments = _cli_parser.add_faster_whisper_runtime_arguments
+add_direct_audio_supervision_arguments = _cli_parser.add_direct_audio_supervision_arguments
+add_embedding_runtime_arguments = _cli_parser.add_embedding_runtime_arguments
+
 _DEFAULT_DIRECT_AUDIO_FIXTURE_ROOT = Path("tests/fixtures/audio")
 _DEFAULT_DIRECT_AUDIO_RECEIPT = Path("benchmarks/audio/dependency-artifacts.json")
 _DEFAULT_COMPILED_LIBRARY_CONSUMER_V2 = Path(
@@ -133,276 +120,64 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     raw_argv = tuple(argv)
-    parser = argparse.ArgumentParser(prog="mke")
-    parser.add_argument("--db", type=Path, default=Path("mke.sqlite"))
-    parser.add_argument(
-        "--retrieval-query-policy",
-        choices=SUPPORTED_RETRIEVAL_QUERY_POLICIES,
-    )
-    parser.add_argument(
-        "--retrieval-strategy",
-        choices=SUPPORTED_RETRIEVAL_STRATEGIES,
-    )
-    subcommands = parser.add_subparsers(dest="command", required=True)
-
-    ingest = subcommands.add_parser("ingest")
-    ingest.add_argument("file", type=Path)
-    ingest.add_argument("--json", action="store_true", dest="json_output")
-    add_transcription_runtime_arguments(ingest, default_provider="sidecar")
-    add_direct_audio_supervision_arguments(ingest)
-
-    search = subcommands.add_parser("search")
-    search.add_argument("query", nargs="+")
-
-    ask = subcommands.add_parser("ask")
-    ask.add_argument("question", nargs="+")
-
-    library = subcommands.add_parser("library")
-    library_commands = library.add_subparsers(dest="library_command", required=True)
-    library_export = library_commands.add_parser("export")
-    library_export.add_argument("--output", required=True)
-    library_export.add_argument(
-        "--format-version", choices=("v1", "v2"), default="v1"
-    )
-    library_export.add_argument("--json", action="store_true", dest="json_output")
-
-    retrieval_admin = subcommands.add_parser("retrieval")
-    retrieval_subcommands = retrieval_admin.add_subparsers(
-        dest="retrieval_command", required=True
-    )
-    retrieval_doctor = retrieval_subcommands.add_parser("doctor")
-    retrieval_doctor.add_argument(
-        "--strategy", choices=SUPPORTED_RETRIEVAL_STRATEGIES, required=True
-    )
-    retrieval_doctor.add_argument("--json", action="store_true", dest="json_output")
-    retrieval_rebuild = retrieval_subcommands.add_parser("rebuild")
-    retrieval_rebuild.add_argument(
-        "--strategy", choices=SUPPORTED_RETRIEVAL_STRATEGIES, required=True
-    )
-    retrieval_rebuild.add_argument("--json", action="store_true", dest="json_output")
-
-    run = subcommands.add_parser("run")
-    run_subcommands = run.add_subparsers(dest="run_command", required=True)
-    run_get = run_subcommands.add_parser("get")
-    run_get.add_argument("run_id")
-    run_get.add_argument("--json", action="store_true", dest="json_output")
-
-    demo = subcommands.add_parser("demo")
-    demo.add_argument("--verify", action="store_true", required=True)
-    demo.add_argument("--fixture", type=Path, default=_DEFAULT_PDF_FIXTURE)
-    demo.add_argument("--revised-fixture", type=Path, default=_DEFAULT_REVISED_PDF_FIXTURE)
-    demo.add_argument("--video-fixture", type=Path, default=_DEFAULT_VIDEO_FIXTURE)
-
-    proof = subcommands.add_parser("proof")
-    proof_subcommands = proof.add_subparsers(dest="proof_command", required=True)
-    proof_run = proof_subcommands.add_parser("run")
-    proof_run.add_argument("--json", action="store_true", dest="json_output")
-    proof_direct_audio = proof_subcommands.add_parser("direct-audio")
-    proof_direct_audio.add_argument("--json", action="store_true", dest="json_output")
-    proof_transcription = proof_subcommands.add_parser("transcription-run")
-    proof_transcription.add_argument(
-        "--fixture",
-        type=Path,
-        default=_DEFAULT_TRANSCRIPTION_PROOF_FIXTURE,
-    )
-    proof_transcription.add_argument("--json", action="store_true", dest="json_output")
-    add_faster_whisper_runtime_arguments(proof_transcription)
-    proof_smoke = proof_subcommands.add_parser("transcript-smoke")
-    proof_smoke.add_argument("--fixture", type=Path, required=True)
-    proof_smoke.add_argument("transcript_command", nargs=argparse.REMAINDER)
-
-    evaluation = subcommands.add_parser("eval")
-    evaluation_subcommands = evaluation.add_subparsers(
-        dest="evaluation_command", required=True
-    )
-    retrieval = evaluation_subcommands.add_parser(
-        "retrieval",
-        description=(
-            "Record the current baseline on a small English page/timestamp corpus; "
-            "no retrieval-quality threshold is applied."
-        ),
-    )
-    retrieval.add_argument(
-        "--manifest",
-        type=Path,
-        required=True,
-        help="external retrieval-evaluation manifest",
-    )
-    retrieval.add_argument("--json", action="store_true", dest="json_output")
-    numeric_retrieval = evaluation_subcommands.add_parser(
-        "retrieval-numeric",
-        description=(
-            "Run the historical comparison-only public-holdout numeric protocol. "
-            "The holdout is public rather than blind, policy is protocol-owned, "
-            "and this command does not select the runtime strategy."
-        ),
-    )
-    numeric_retrieval.add_argument(
-        "--protocol",
-        type=Path,
-        required=True,
-        help="locked numeric retrieval comparison protocol",
-    )
-    numeric_retrieval.add_argument(
-        "--json",
-        action="store_true",
-        dest="json_output",
-    )
-    chinese_retrieval = evaluation_subcommands.add_parser(
-        "retrieval-chinese",
-        description=(
-            "Record the current FTS5 lexical baseline on a small public Chinese "
-            "development/holdout corpus; no retrieval-quality threshold is applied "
-            "and no dense, hybrid, or reranker claim is made."
-        ),
-    )
-    chinese_retrieval.add_argument(
-        "--protocol",
-        type=Path,
-        required=True,
-        help="locked Chinese retrieval evaluation protocol",
-    )
-    chinese_retrieval.add_argument(
-        "--json",
-        action="store_true",
-        dest="json_output",
-    )
-    cjk_lexical_retrieval = evaluation_subcommands.add_parser(
-        "retrieval-cjk-lexical",
-        description=(
-            "Run the historical E3-B comparison-only CJK trigram-overlap candidate; "
-            "candidate and policy are protocol-owned. This command does not select "
-            "the runtime strategy or add embedding, vector, hybrid, RRF, reranker, "
-            "or query rewrite behavior."
-        ),
-    )
-    cjk_lexical_retrieval.add_argument(
-        "--protocol",
-        type=Path,
-        required=True,
-        help="locked Chinese retrieval evaluation protocol",
-    )
-    cjk_lexical_retrieval.add_argument(
-        "--candidate",
-        choices=(CJK_LEXICAL_CANDIDATE.candidate_id,),
-        required=True,
-        help="allowlisted CJK lexical candidate identifier",
-    )
-    cjk_lexical_retrieval.add_argument(
-        "--record",
-        type=Path,
-        help="write the canonical CJK lexical comparison artifact",
-    )
-    cjk_lexical_retrieval.add_argument(
-        "--json",
-        action="store_true",
-        dest="json_output",
-    )
-    dense_retrieval = evaluation_subcommands.add_parser(
-        "retrieval-dense",
-        description=(
-            "Run the E3-C cache-only dense comparison-only protocol. The two phases "
-            "record a development freeze before one holdout observation and this "
-            "command does not change Search, Ask, MCP, or runtime defaults."
-        ),
-    )
-    dense_retrieval.add_argument("--protocol", type=Path, required=True)
-    dense_retrieval.add_argument(
-        "--candidate", choices=(DENSE_CANDIDATE_ID,), required=True
-    )
-    dense_retrieval.add_argument("--model-cache", type=Path, required=True)
-    dense_retrieval.add_argument("--development-only", action="store_true")
-    dense_retrieval.add_argument("--record-development-freeze", type=Path)
-    dense_retrieval.add_argument("--development-freeze", type=Path)
-    dense_retrieval.add_argument("--record", type=Path)
-    dense_retrieval.add_argument("--record-holdout-receipt", type=Path)
-    dense_retrieval.add_argument("--json", action="store_true", dest="json_output")
-    hybrid_rrf_retrieval = evaluation_subcommands.add_parser(
-        "retrieval-hybrid-rrf",
-        description=(
-            "Run the E3-D comparison-only rank-only RRF candidate over frozen "
-            "lexical and dense observations. This command does not promote or "
-            "change the runtime default, Search, Ask, MCP, or Publication behavior."
-        ),
-    )
-    hybrid_rrf_retrieval.add_argument("--protocol", type=Path, required=True)
-    hybrid_rrf_retrieval.add_argument(
-        "--candidate", choices=(HYBRID_RRF_CANDIDATE_ID,), required=True
-    )
-    hybrid_rrf_retrieval.add_argument("--dense-artifact", type=Path, required=True)
-    hybrid_rrf_retrieval.add_argument("--development-only", action="store_true")
-    hybrid_rrf_retrieval.add_argument("--record-development-freeze", type=Path)
-    hybrid_rrf_retrieval.add_argument("--development-freeze", type=Path)
-    hybrid_rrf_retrieval.add_argument("--record", type=Path)
-    hybrid_rrf_retrieval.add_argument("--record-holdout-receipt", type=Path)
-    hybrid_rrf_retrieval.add_argument(
-        "--json", action="store_true", dest="json_output"
-    )
-    relevance_gate_retrieval = evaluation_subcommands.add_parser(
-        "retrieval-relevance-gate",
-        description=(
-            "Run the E3-E comparison-only deterministic relevance gate and "
-            "reranker protocol. This command does not promote or change the "
-            "runtime default, Search, Ask, MCP, owner startup, Publication, "
-            "or ingestion behavior."
-        ),
-    )
-    relevance_gate_retrieval.add_argument("--protocol", type=Path, required=True)
-    relevance_gate_retrieval.add_argument(
-        "--candidate", choices=(RELEVANCE_GATE_CANDIDATE_ID,), required=True
-    )
-    relevance_gate_retrieval.add_argument("--development-only", action="store_true")
-    relevance_gate_retrieval.add_argument("--record-development-freeze", type=Path)
-    relevance_gate_retrieval.add_argument("--development-freeze", type=Path)
-    relevance_gate_retrieval.add_argument("--record", type=Path)
-    relevance_gate_retrieval.add_argument("--record-holdout-receipt", type=Path)
-    relevance_gate_retrieval.add_argument(
-        "--json", action="store_true", dest="json_output"
-    )
-
-    mcp = subcommands.add_parser("mcp")
-    mcp.add_argument("--allowed-root", type=Path, default=Path.cwd())
-    add_transcription_runtime_arguments(mcp, default_provider="sidecar")
-    add_direct_audio_supervision_arguments(mcp)
-
-    transcription = subcommands.add_parser("transcription")
-    transcription_subcommands = transcription.add_subparsers(
-        dest="transcription_command", required=True
-    )
-    prepare = transcription_subcommands.add_parser("prepare")
-    prepare.add_argument("--allow-model-download", action="store_true", required=True)
-    prepare.add_argument("--json", action="store_true", dest="json_output")
-    add_transcription_runtime_arguments(prepare, default_provider="faster-whisper")
-    doctor = transcription_subcommands.add_parser("doctor")
-    doctor.add_argument("--json", action="store_true", dest="json_output")
-    add_transcription_runtime_arguments(doctor, default_provider="faster-whisper")
-
-    embedding = subcommands.add_parser("embedding")
-    embedding_subcommands = embedding.add_subparsers(
-        dest="embedding_command", required=True
-    )
-    embedding_prepare = embedding_subcommands.add_parser("prepare")
-    embedding_prepare.add_argument(
-        "--allow-model-download", action="store_true", required=True
-    )
-    embedding_prepare.add_argument("--json", action="store_true", dest="json_output")
-    add_embedding_runtime_arguments(embedding_prepare)
-    embedding_doctor = embedding_subcommands.add_parser("doctor")
-    embedding_doctor.add_argument("--json", action="store_true", dest="json_output")
-    add_embedding_runtime_arguments(embedding_doctor)
-
+    parser = build_cli_parser()
     args = parser.parse_args(argv)
+    return _dispatch_command(parser, args, raw_argv)
+
+
+def console_main() -> int:
+    """Console script entrypoint."""
+    argv = sys.argv[1:]
+    return main(argv if argv else None)
+
+
+def _dispatch_command(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+    raw_argv: Sequence[str],
+) -> int:
     if args.command == "library" and args.library_command == "export":
-        if _raw_option_present(raw_argv, "--retrieval-query-policy"):
-            parser.error("library export does not support --retrieval-query-policy")
-        if _raw_option_present(raw_argv, "--retrieval-strategy"):
-            parser.error("library export does not support --retrieval-strategy")
-        return run_library_export(
-            args.db,
-            args.output,
-            json_output=args.json_output,
-            format_version=args.format_version,
-        )
+        return _handle_library_export(parser, args, raw_argv)
+    _validate_command_options(parser, args, raw_argv)
+    if args.command == "eval":
+        return _handle_evaluation(parser, args)
+    if args.command == "demo":
+        return _handle_demo(args)
+    if args.command == "proof":
+        return _handle_proof(parser, args)
+    if args.command == "mcp":
+        return _handle_mcp(parser, args)
+    if args.command == "transcription":
+        return _handle_transcription(parser, args)
+    if args.command == "embedding":
+        return _handle_embedding(parser, args)
+    if args.command == "retrieval":
+        return _handle_retrieval(parser, args)
+    return _handle_engine_command(parser, args)
+
+
+def _handle_library_export(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+    raw_argv: Sequence[str],
+) -> int:
+    if _raw_option_present(raw_argv, "--retrieval-query-policy"):
+        parser.error("library export does not support --retrieval-query-policy")
+    if _raw_option_present(raw_argv, "--retrieval-strategy"):
+        parser.error("library export does not support --retrieval-strategy")
+    return run_library_export(
+        args.db,
+        args.output,
+        json_output=args.json_output,
+        format_version=args.format_version,
+    )
+
+
+def _validate_command_options(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+    raw_argv: Sequence[str],
+) -> None:
     if args.command == "eval" and any(
         item == "--db" or item.startswith("--db=") for item in raw_argv
     ):
@@ -435,329 +210,378 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error(
             "--retrieval-strategy and --retrieval-query-policy must not conflict"
         )
-    if args.command == "eval":
-        if args.evaluation_command == "retrieval":
-            report = run_retrieval_evaluation(args.manifest)
-            rendered, rendering_failed = _render_retrieval_report_safely(
-                report,
-                json_output=args.json_output,
+
+
+def _handle_evaluation(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
+    if args.evaluation_command == "retrieval":
+        return _evaluate_retrieval(args)
+    if args.evaluation_command == "retrieval-numeric":
+        return _evaluate_numeric(args)
+    if args.evaluation_command == "retrieval-chinese":
+        return _evaluate_chinese(args)
+    if args.evaluation_command == "retrieval-cjk-lexical":
+        return _evaluate_cjk_lexical(args)
+    if args.evaluation_command == "retrieval-dense":
+        return _evaluate_dense(parser, args)
+    if args.evaluation_command == "retrieval-hybrid-rrf":
+        return _evaluate_hybrid_rrf(parser, args)
+    if args.evaluation_command == "retrieval-relevance-gate":
+        return _evaluate_relevance_gate(parser, args)
+    parser.error("unsupported evaluation command")
+
+
+def _evaluate_retrieval(args: argparse.Namespace) -> int:
+    report = run_retrieval_evaluation(args.manifest)
+    rendered, rendering_failed = _render_retrieval_report_safely(
+        report,
+        json_output=args.json_output,
+    )
+    print(rendered)
+    return 0 if report.status == "passed" and not rendering_failed else 1
+
+
+def _evaluate_numeric(args: argparse.Namespace) -> int:
+    report = run_numeric_comparison(args.protocol)
+    rendered, rendering_failed = _render_numeric_comparison_safely(
+        report,
+        json_output=args.json_output,
+    )
+    print(rendered)
+    return (
+        0
+        if report.integrity_status == "passed"
+        and report.candidate_status == "passed"
+        and not rendering_failed
+        else 1
+    )
+
+
+def _evaluate_chinese(args: argparse.Namespace) -> int:
+    progress = None
+    if not args.json_output:
+        progress = _print_evaluation_progress
+    report = run_chinese_retrieval_evaluation(
+        args.protocol,
+        progress=progress,
+    )
+    rendered, rendering_failed = _render_chinese_report_safely(
+        report,
+        json_output=args.json_output,
+    )
+    print(rendered, end="" if rendered.endswith("\n") else "\n")
+    return 0 if report.integrity_status == "passed" and not rendering_failed else 1
+
+
+def _evaluate_cjk_lexical(args: argparse.Namespace) -> int:
+    report = run_cjk_lexical_comparison(args.protocol)
+    if args.record is not None and report.integrity_status == "passed":
+        with tempfile.TemporaryDirectory(prefix="mke-cjk-lexical-record-") as temp:
+            observed = Path(temp) / "observed.json"
+            observed.write_text(
+                render_cjk_lexical_comparison_json(report),
+                encoding="utf-8",
             )
-            print(rendered)
-            return 0 if report.status == "passed" and not rendering_failed else 1
-        if args.evaluation_command == "retrieval-numeric":
-            report = run_numeric_comparison(args.protocol)
-            rendered, rendering_failed = _render_numeric_comparison_safely(
-                report,
-                json_output=args.json_output,
+            record_cjk_lexical_artifact(
+                artifact_path=args.record,
+                observed_path=observed,
+                protocol_path=args.protocol,
+                repository_root=Path.cwd(),
             )
-            print(rendered)
-            return (
-                0
-                if report.integrity_status == "passed"
-                and report.candidate_status == "passed"
-                and not rendering_failed
-                else 1
+    rendered, rendering_failed = _render_cjk_lexical_comparison_safely(
+        report,
+        json_output=args.json_output,
+    )
+    print(rendered, end="" if rendered.endswith("\n") else "\n")
+    return (
+        0
+        if report.integrity_status == "passed"
+        and report.candidate_status == "passed"
+        and not rendering_failed
+        else 1
+    )
+
+
+def _evaluate_dense(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
+    development_paths = (
+        args.record_development_freeze is not None
+        and args.development_freeze is None
+        and args.record is None
+        and args.record_holdout_receipt is None
+    )
+    holdout_paths = (
+        args.record_development_freeze is None
+        and args.development_freeze is not None
+        and args.record is not None
+        and args.record_holdout_receipt is not None
+    )
+    if (args.development_only and not development_paths) or (
+        not args.development_only and not holdout_paths
+    ):
+        parser.error("retrieval-dense phase flags are incomplete or incompatible")
+    try:
+        payload = run_dense_evaluation_phase(
+            phase="development" if args.development_only else "holdout",
+            protocol=args.protocol,
+            candidate=args.candidate,
+            model_cache=args.model_cache,
+            record_development_freeze=args.record_development_freeze,
+            development_freeze=args.development_freeze,
+            record=args.record,
+            record_holdout_receipt=args.record_holdout_receipt,
+        )
+    except Exception as error:
+        payload = {
+            "phase": "development" if args.development_only else "holdout",
+            "integrity_status": "failed",
+            "candidate_status": "not_evaluated",
+            "e3d_status": "not_evaluated",
+            "runtime_promotion_status": "not_evaluated",
+            "failure": {
+                "problem": "dense_comparison_incomplete",
+                "cause": _dense_failure_cause(error),
+                "next_step": "inspect_dense_comparison_inputs",
+            },
+        }
+        print(_render_dense_evaluation(payload, json_output=args.json_output))
+        return 1
+    print(_render_dense_evaluation(payload, json_output=args.json_output))
+    return 0
+
+
+def _evaluate_hybrid_rrf(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+) -> int:
+    development_paths = (
+        args.record_development_freeze is not None
+        and args.development_freeze is None
+        and args.record is None
+        and args.record_holdout_receipt is None
+    )
+    holdout_paths = (
+        args.record_development_freeze is None
+        and args.development_freeze is not None
+        and args.record is not None
+        and args.record_holdout_receipt is not None
+    )
+    if (args.development_only and not development_paths) or (
+        not args.development_only and not holdout_paths
+    ):
+        parser.error("retrieval-hybrid-rrf phase flags are incomplete or incompatible")
+    phase = "development" if args.development_only else "holdout"
+    try:
+        if args.development_only:
+            target_path = args.record_development_freeze
+            if not isinstance(target_path, Path):
+                raise HybridRrfWorkflowError("development freeze path is invalid")
+            report = run_hybrid_rrf_development(
+                protocol_path=args.protocol,
+                dense_artifact_path=args.dense_artifact,
+                repository_root=Path.cwd(),
             )
-        if args.evaluation_command == "retrieval-chinese":
-            progress = None
-            if not args.json_output:
-                progress = _print_evaluation_progress
-            report = run_chinese_retrieval_evaluation(
-                args.protocol,
-                progress=progress,
+            record_hybrid_rrf_development_freeze(
+                report=report,
+                target_path=target_path,
             )
-            rendered, rendering_failed = _render_chinese_report_safely(
-                report,
-                json_output=args.json_output,
-            )
-            print(rendered, end="" if rendered.endswith("\n") else "\n")
-            return (
-                0
-                if report.integrity_status == "passed" and not rendering_failed
-                else 1
-            )
-        if args.evaluation_command == "retrieval-cjk-lexical":
-            report = run_cjk_lexical_comparison(args.protocol)
-            if args.record is not None and report.integrity_status == "passed":
-                with tempfile.TemporaryDirectory(prefix="mke-cjk-lexical-record-") as temp:
-                    observed = Path(temp) / "observed.json"
-                    observed.write_text(
-                        render_cjk_lexical_comparison_json(report),
-                        encoding="utf-8",
-                    )
-                    record_cjk_lexical_artifact(
-                        artifact_path=args.record,
-                        observed_path=observed,
-                        protocol_path=args.protocol,
-                        repository_root=Path.cwd(),
-                    )
-            rendered, rendering_failed = _render_cjk_lexical_comparison_safely(
-                report,
-                json_output=args.json_output,
-            )
-            print(rendered, end="" if rendered.endswith("\n") else "\n")
-            return (
-                0
-                if report.integrity_status == "passed"
-                and report.candidate_status == "passed"
-                and not rendering_failed
-                else 1
-            )
-        if args.evaluation_command == "retrieval-dense":
-            development_paths = (
-                args.record_development_freeze is not None
-                and args.development_freeze is None
-                and args.record is None
-                and args.record_holdout_receipt is None
-            )
-            holdout_paths = (
-                args.record_development_freeze is None
-                and args.development_freeze is not None
-                and args.record is not None
-                and args.record_holdout_receipt is not None
-            )
-            if (args.development_only and not development_paths) or (
-                not args.development_only and not holdout_paths
+            payload = _hybrid_rrf_development_payload(report)
+        else:
+            development_freeze_path = args.development_freeze
+            record_path = args.record
+            holdout_receipt_path = args.record_holdout_receipt
+            if not all(
+                isinstance(path, Path)
+                for path in (
+                    development_freeze_path,
+                    record_path,
+                    holdout_receipt_path,
+                )
             ):
-                parser.error("retrieval-dense phase flags are incomplete or incompatible")
-            try:
-                payload = run_dense_evaluation_phase(
-                    phase="development" if args.development_only else "holdout",
-                    protocol=args.protocol,
-                    candidate=args.candidate,
-                    model_cache=args.model_cache,
-                    record_development_freeze=args.record_development_freeze,
-                    development_freeze=args.development_freeze,
-                    record=args.record,
-                    record_holdout_receipt=args.record_holdout_receipt,
+                raise HybridRrfWorkflowError("holdout paths are invalid")
+            assert isinstance(development_freeze_path, Path)
+            assert isinstance(record_path, Path)
+            assert isinstance(holdout_receipt_path, Path)
+            payload = run_hybrid_rrf_holdout(
+                protocol_path=args.protocol,
+                dense_artifact_path=args.dense_artifact,
+                development_freeze_path=development_freeze_path,
+                record_path=record_path,
+                holdout_receipt_path=holdout_receipt_path,
+                repository_root=Path.cwd(),
+            )
+    except Exception as error:
+        payload = _hybrid_rrf_failure_payload(error, phase=phase)
+        print(_render_hybrid_rrf_evaluation(payload, json_output=args.json_output))
+        return 1
+    print(_render_hybrid_rrf_evaluation(payload, json_output=args.json_output))
+    return 0
+
+
+def _evaluate_relevance_gate(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+) -> int:
+    development_paths = (
+        args.record_development_freeze is not None
+        and args.development_freeze is None
+        and args.record is None
+        and args.record_holdout_receipt is None
+    )
+    holdout_paths = (
+        args.record_development_freeze is None
+        and args.development_freeze is not None
+        and args.record is not None
+        and args.record_holdout_receipt is not None
+    )
+    if (args.development_only and not development_paths) or (
+        not args.development_only and not holdout_paths
+    ):
+        parser.error(
+            "retrieval-relevance-gate phase flags are incomplete or incompatible"
+        )
+    phase = "development" if args.development_only else "holdout"
+    try:
+        if args.development_only:
+            target_path = args.record_development_freeze
+            if not isinstance(target_path, Path):
+                raise RelevanceGateWorkflowError("development freeze path is invalid")
+            report = run_relevance_gate_development(
+                protocol_path=args.protocol,
+                candidate_id=args.candidate,
+                repository_root=Path.cwd(),
+            )
+            record_relevance_gate_development_freeze(
+                report=report,
+                target_path=target_path,
+            )
+            payload = {**report, "phase": "development"}
+        else:
+            development_freeze_path = args.development_freeze
+            record_path = args.record
+            holdout_receipt_path = args.record_holdout_receipt
+            if not all(
+                isinstance(path, Path)
+                for path in (
+                    development_freeze_path,
+                    record_path,
+                    holdout_receipt_path,
                 )
-            except Exception as error:
-                payload = {
-                    "phase": "development" if args.development_only else "holdout",
-                    "integrity_status": "failed",
-                    "candidate_status": "not_evaluated",
-                    "e3d_status": "not_evaluated",
-                    "runtime_promotion_status": "not_evaluated",
-                    "failure": {
-                        "problem": "dense_comparison_incomplete",
-                        "cause": _dense_failure_cause(error),
-                        "next_step": "inspect_dense_comparison_inputs",
-                    },
-                }
-                print(_render_dense_evaluation(payload, json_output=args.json_output))
-                return 1
-            print(_render_dense_evaluation(payload, json_output=args.json_output))
-            return 0
-        if args.evaluation_command == "retrieval-hybrid-rrf":
-            development_paths = (
-                args.record_development_freeze is not None
-                and args.development_freeze is None
-                and args.record is None
-                and args.record_holdout_receipt is None
-            )
-            holdout_paths = (
-                args.record_development_freeze is None
-                and args.development_freeze is not None
-                and args.record is not None
-                and args.record_holdout_receipt is not None
-            )
-            if (args.development_only and not development_paths) or (
-                not args.development_only and not holdout_paths
             ):
-                parser.error(
-                    "retrieval-hybrid-rrf phase flags are incomplete or incompatible"
-                )
-            phase = "development" if args.development_only else "holdout"
-            try:
-                if args.development_only:
-                    target_path = args.record_development_freeze
-                    if not isinstance(target_path, Path):
-                        raise HybridRrfWorkflowError(
-                            "development freeze path is invalid"
-                        )
-                    report = run_hybrid_rrf_development(
-                        protocol_path=args.protocol,
-                        dense_artifact_path=args.dense_artifact,
-                        repository_root=Path.cwd(),
-                    )
-                    record_hybrid_rrf_development_freeze(
-                        report=report,
-                        target_path=target_path,
-                    )
-                    payload = _hybrid_rrf_development_payload(report)
-                else:
-                    development_freeze_path = args.development_freeze
-                    record_path = args.record
-                    holdout_receipt_path = args.record_holdout_receipt
-                    if not all(
-                        isinstance(path, Path)
-                        for path in (
-                            development_freeze_path,
-                            record_path,
-                            holdout_receipt_path,
-                        )
-                    ):
-                        raise HybridRrfWorkflowError("holdout paths are invalid")
-                    assert isinstance(development_freeze_path, Path)
-                    assert isinstance(record_path, Path)
-                    assert isinstance(holdout_receipt_path, Path)
-                    payload = run_hybrid_rrf_holdout(
-                        protocol_path=args.protocol,
-                        dense_artifact_path=args.dense_artifact,
-                        development_freeze_path=development_freeze_path,
-                        record_path=record_path,
-                        holdout_receipt_path=holdout_receipt_path,
-                        repository_root=Path.cwd(),
-                    )
-            except Exception as error:
-                payload = _hybrid_rrf_failure_payload(error, phase=phase)
-                print(_render_hybrid_rrf_evaluation(payload, json_output=args.json_output))
-                return 1
-            print(_render_hybrid_rrf_evaluation(payload, json_output=args.json_output))
-            return 0
-        if args.evaluation_command == "retrieval-relevance-gate":
-            development_paths = (
-                args.record_development_freeze is not None
-                and args.development_freeze is None
-                and args.record is None
-                and args.record_holdout_receipt is None
+                raise RelevanceGateWorkflowError("holdout paths are invalid")
+            assert isinstance(development_freeze_path, Path)
+            assert isinstance(record_path, Path)
+            assert isinstance(holdout_receipt_path, Path)
+            payload = run_relevance_gate_holdout(
+                protocol_path=args.protocol,
+                candidate_id=args.candidate,
+                development_freeze_path=development_freeze_path,
+                record_path=record_path,
+                holdout_receipt_path=holdout_receipt_path,
+                repository_root=Path.cwd(),
             )
-            holdout_paths = (
-                args.record_development_freeze is None
-                and args.development_freeze is not None
-                and args.record is not None
-                and args.record_holdout_receipt is not None
-            )
-            if (args.development_only and not development_paths) or (
-                not args.development_only and not holdout_paths
-            ):
-                parser.error(
-                    "retrieval-relevance-gate phase flags are incomplete or incompatible"
-                )
-            phase = "development" if args.development_only else "holdout"
-            try:
-                if args.development_only:
-                    target_path = args.record_development_freeze
-                    if not isinstance(target_path, Path):
-                        raise RelevanceGateWorkflowError(
-                            "development freeze path is invalid"
-                        )
-                    report = run_relevance_gate_development(
-                        protocol_path=args.protocol,
-                        candidate_id=args.candidate,
-                        repository_root=Path.cwd(),
-                    )
-                    record_relevance_gate_development_freeze(
-                        report=report,
-                        target_path=target_path,
-                    )
-                    payload = {**report, "phase": "development"}
-                else:
-                    development_freeze_path = args.development_freeze
-                    record_path = args.record
-                    holdout_receipt_path = args.record_holdout_receipt
-                    if not all(
-                        isinstance(path, Path)
-                        for path in (
-                            development_freeze_path,
-                            record_path,
-                            holdout_receipt_path,
-                        )
-                    ):
-                        raise RelevanceGateWorkflowError("holdout paths are invalid")
-                    assert isinstance(development_freeze_path, Path)
-                    assert isinstance(record_path, Path)
-                    assert isinstance(holdout_receipt_path, Path)
-                    payload = run_relevance_gate_holdout(
-                        protocol_path=args.protocol,
-                        candidate_id=args.candidate,
-                        development_freeze_path=development_freeze_path,
-                        record_path=record_path,
-                        holdout_receipt_path=holdout_receipt_path,
-                        repository_root=Path.cwd(),
-                    )
-                    payload = {**payload, "phase": "holdout"}
-            except Exception as error:
-                payload = _relevance_gate_failure_payload(error, phase=phase)
-                print(
-                    _render_relevance_gate_evaluation(
-                        payload,
-                        json_output=args.json_output,
-                    )
-                )
-                return 1
-            print(
-                _render_relevance_gate_evaluation(
-                    payload,
-                    json_output=args.json_output,
-                )
-            )
-            return 0
-        parser.error("unsupported evaluation command")
-    if args.command == "demo":
-        return _demo_verify(args.fixture, args.revised_fixture, args.video_fixture)
-    if args.command == "proof":
-        if args.proof_command == "run":
-            return _proof_run(json_output=args.json_output)
-        if args.proof_command == "direct-audio":
-            return _proof_direct_audio(json_output=args.json_output)
-        if args.proof_command == "transcription-run":
-            try:
-                config = _faster_whisper_config_from_args(args)
-            except (TypeError, ValueError) as error:
-                parser.error(str(error))
-            return _proof_transcription_run(
-                args.fixture,
-                config,
+            payload = {**payload, "phase": "holdout"}
+    except Exception as error:
+        payload = _relevance_gate_failure_payload(error, phase=phase)
+        print(
+            _render_relevance_gate_evaluation(
+                payload,
                 json_output=args.json_output,
-            )
-        if args.proof_command == "transcript-smoke":
-            return _proof_transcript_smoke(args.fixture, args.transcript_command)
-        parser.error("unsupported proof command")
-    if args.command == "mcp":
-        try:
-            runtime = runtime_config_from_args(args)
-        except (TypeError, ValueError) as error:
-            parser.error(str(error))
-        return run_mcp_server(
-            McpRuntimeConfig(
-                runtime=runtime,
-                allowed_root=args.allowed_root,
             )
         )
-    if args.command == "transcription":
+        return 1
+    print(
+        _render_relevance_gate_evaluation(
+            payload,
+            json_output=args.json_output,
+        )
+    )
+    return 0
+
+
+def _handle_demo(args: argparse.Namespace) -> int:
+    return _demo_verify(args.fixture, args.revised_fixture, args.video_fixture)
+
+
+def _handle_proof(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
+    if args.proof_command == "run":
+        return _proof_run(json_output=args.json_output)
+    if args.proof_command == "direct-audio":
+        return _proof_direct_audio(json_output=args.json_output)
+    if args.proof_command == "transcription-run":
         try:
             config = _faster_whisper_config_from_args(args)
         except (TypeError, ValueError) as error:
             parser.error(str(error))
-        if args.transcription_command == "prepare":
-            return _transcription_prepare(config, json_output=args.json_output)
-        return _transcription_doctor(config, json_output=args.json_output)
-    if args.command == "embedding":
-        try:
-            cache_dir = resolve_embedding_cache(
-                args.model_cache,
-                repository_root=_discover_repository_root(Path.cwd()),
-            )
-        except EmbeddingModelError as error:
-            parser.error(error.cause)
-        if args.embedding_command == "prepare":
-            return _embedding_prepare(cache_dir, json_output=args.json_output)
-        return _embedding_doctor(cache_dir, json_output=args.json_output)
-    if args.command == "retrieval":
-        if args.retrieval_command == "doctor":
-            return _retrieval_doctor(
-                args.db,
-                args.strategy,
-                json_output=args.json_output,
-            )
-        if args.retrieval_command == "rebuild":
-            return _retrieval_rebuild(
-                args.strategy,
-                json_output=args.json_output,
-            )
-        parser.error("unsupported retrieval command")
+        return _proof_transcription_run(
+            args.fixture,
+            config,
+            json_output=args.json_output,
+        )
+    if args.proof_command == "transcript-smoke":
+        return _proof_transcript_smoke(args.fixture, args.transcript_command)
+    parser.error("unsupported proof command")
 
+
+def _handle_mcp(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
+    try:
+        runtime = runtime_config_from_args(args)
+    except (TypeError, ValueError) as error:
+        parser.error(str(error))
+    return run_mcp_server(
+        McpRuntimeConfig(
+            runtime=runtime,
+            allowed_root=args.allowed_root,
+        )
+    )
+
+
+def _handle_transcription(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+) -> int:
+    try:
+        config = _faster_whisper_config_from_args(args)
+    except (TypeError, ValueError) as error:
+        parser.error(str(error))
+    if args.transcription_command == "prepare":
+        return _transcription_prepare(config, json_output=args.json_output)
+    return _transcription_doctor(config, json_output=args.json_output)
+
+
+def _handle_embedding(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
+    try:
+        cache_dir = resolve_embedding_cache(
+            args.model_cache,
+            repository_root=_discover_repository_root(Path.cwd()),
+        )
+    except EmbeddingModelError as error:
+        parser.error(error.cause)
+    if args.embedding_command == "prepare":
+        return _embedding_prepare(cache_dir, json_output=args.json_output)
+    return _embedding_doctor(cache_dir, json_output=args.json_output)
+
+
+def _handle_retrieval(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+) -> int:
+    if args.retrieval_command == "doctor":
+        return _retrieval_doctor(
+            args.db,
+            args.strategy,
+            json_output=args.json_output,
+        )
+    if args.retrieval_command == "rebuild":
+        return _retrieval_rebuild(
+            args.strategy,
+            json_output=args.json_output,
+        )
+    parser.error("unsupported retrieval command")
+
+
+def _handle_engine_command(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+) -> int:
     try:
         runtime = runtime_config_from_args(args)
     except (TypeError, ValueError) as error:
@@ -778,21 +602,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 1
     engine = build_engine(runtime)
     try:
-        if args.command == "ingest":
-            return _ingest(engine, args.file, json_output=args.json_output)
-        if args.command == "search":
-            return _search(engine, " ".join(args.query))
-        if args.command == "ask":
-            return _ask(engine, " ".join(args.question))
-        return _run_get(engine, args.run_id, json_output=args.json_output)
+        return _dispatch_engine_command(engine, args)
     finally:
         engine.close()
 
 
-def console_main() -> int:
-    """Console script entrypoint."""
-    argv = sys.argv[1:]
-    return main(argv if argv else None)
+def _dispatch_engine_command(engine: KnowledgeEngine, args: argparse.Namespace) -> int:
+    if args.command == "ingest":
+        return _ingest(engine, args.file, json_output=args.json_output)
+    if args.command == "search":
+        return _search(engine, " ".join(args.query))
+    if args.command == "ask":
+        return _ask(engine, " ".join(args.question))
+    return _run_get(engine, args.run_id, json_output=args.json_output)
 
 
 def _print_evaluation_progress(phase: str) -> None:
@@ -1671,64 +1493,6 @@ def _print_error_contract(
         print(json.dumps(error.payload()))
     else:
         print(render_public_error_line(error))
-
-
-def add_transcription_runtime_arguments(
-    parser: argparse.ArgumentParser,
-    *,
-    default_provider: str,
-) -> None:
-    parser.add_argument(
-        "--transcript-provider",
-        choices=("sidecar", "faster-whisper"),
-        default=default_provider,
-    )
-    add_faster_whisper_runtime_arguments(parser)
-
-
-def add_faster_whisper_runtime_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--model", default="small")
-    parser.add_argument("--model-revision", default=DEFAULT_MODEL_REVISION)
-    parser.add_argument("--device", default="cpu")
-    parser.add_argument("--compute-type", default="int8")
-    parser.add_argument("--language", default="auto")
-    parser.add_argument("--model-cache", type=Path)
-    parser.add_argument("--transcription-timeout-seconds", type=float, default=900.0)
-
-
-def add_direct_audio_supervision_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--direct-audio-footprint-bytes",
-        type=_positive_int,
-    )
-    parser.add_argument(
-        "--direct-audio-footprint-budget-mode",
-        choices=("baseline_plus",),
-    )
-
-
-def _positive_int(value: str) -> int:
-    try:
-        parsed = int(value)
-    except ValueError as error:
-        raise argparse.ArgumentTypeError("value must be a positive integer") from error
-    if parsed <= 0:
-        raise argparse.ArgumentTypeError("value must be a positive integer")
-    return parsed
-
-
-def add_embedding_runtime_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--model",
-        choices=(EMBEDDING_MODEL_CLI_ID,),
-        default=EMBEDDING_MODEL_CLI_ID,
-    )
-    parser.add_argument(
-        "--model-revision",
-        choices=(EMBEDDING_MODEL_REVISION,),
-        default=EMBEDDING_MODEL_REVISION,
-    )
-    parser.add_argument("--model-cache", type=Path)
 
 
 def runtime_config_from_args(args: argparse.Namespace) -> RuntimeConfig:
