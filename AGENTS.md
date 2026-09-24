@@ -77,7 +77,7 @@ Changing any constraint above requires an ADR in the same PR.
 
 ## Working Model
 
-Codex is the primary project Agent and owns planning, implementation, testing, documentation, PR preparation, and final verification.
+The phase controller owns direction, design decisions, shared contracts, integration, final acceptance, and the terminal report. Delegated execution agents implement the assigned scope, run its assigned verification, and handle routine fixes within that scope. Codex remains the primary project Agent and coordinates the work.
 
 Use GStack and Superpowers when they match the task:
 
@@ -98,12 +98,14 @@ Do not require a second-model review for every change. Recommend an independent 
   controller is active; Superpowers owns a planning, implementation, debugging, or verification
   phase when its selected controller is active. Do not run competing full-branch controllers over
   the same mutable worktree.
-- Delegate only when there are at least two independent lanes with clear file ownership and
-  independent verification. Do not parallelize changes that share contracts, artifacts, or an
-  ordered dependency chain merely to increase activity.
-- The parent Agent owns shared contracts, integration, full verification, and the single terminal
-  report. Subagents return bounded evidence to the parent; they do not publish competing completion
-  claims or mutate the same files concurrently.
+- Delegation assigns bounded execution to an agent; it does not require parallel lanes. Parallelize
+  only when lanes have independent scope, file ownership, and verification. Do not parallelize
+  changes that share contracts or artifacts, or depend on an ordered chain.
+- The phase controller retains shared contracts, integration decisions, and acceptance. Execution
+  agents own implementation, assigned verification, and routine fixes; they return evidence to the
+  controller and do not publish competing completion claims or mutate the same files concurrently.
+- Prefer native result delivery and event-driven waits. Combine execution feedback at phase
+  boundaries and avoid short polling or repeating checks that already have evidence.
 
 ## Low-Friction Execution
 
