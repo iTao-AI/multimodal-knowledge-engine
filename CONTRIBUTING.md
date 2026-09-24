@@ -24,14 +24,14 @@ Before the full test suite, verify that isolated Python imports this worktree's 
 metadata:
 
 ```sh
-uv run --locked --offline python -I -c 'import importlib.metadata as md, pathlib, sys, mke; root=pathlib.Path.cwd().resolve(); source=pathlib.Path(mke.__file__).resolve(); metadata=pathlib.Path(md.distribution("multimodal-knowledge-engine").locate_file("")).resolve(); assert pathlib.Path(sys.prefix).resolve()==root/".venv"; assert source.is_relative_to(root/"src"); assert metadata.is_relative_to(root/".venv"); print(f"source={source}; metadata={metadata}")'
-.venv/bin/mke --help
+uv run --locked --offline python -I -c 'import importlib.metadata as md, pathlib, sys, mke; root=pathlib.Path.cwd().resolve(); source=pathlib.Path(mke.__file__).resolve(); metadata=pathlib.Path(md.distribution("multimodal-knowledge-engine").locate_file("")).resolve(); assert pathlib.Path(sys.prefix).resolve()==root/".venv"; assert source.is_relative_to(root/"src"); assert metadata.is_relative_to(root/".venv"); print(f"source={source}; metadata={metadata}")' || exit 1
+.venv/bin/mke --help || exit 1
 if .venv/bin/mke __invalid__ >/dev/null 2>&1; then
   echo "mke unexpectedly accepted an invalid command" >&2
   exit 1
 else
   exit_code=$?
-  test "$exit_code" -eq 2
+  test "$exit_code" -eq 2 || exit 1
   printf 'mke invalid-command exit=%s\n' "$exit_code"
 fi
 ```
