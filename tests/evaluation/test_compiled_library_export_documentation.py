@@ -147,6 +147,25 @@ def test_export_how_to_documents_budgets_read_only_publication_and_exclusions() 
         assert term in text
 
 
+def test_viewer_how_to_documents_v2_snapshot_reader_and_presentation_budget() -> None:
+    for relative in ("README.md", "README_CN.md", "docs/README.md"):
+        assert "view-compiled-library.md" in _text(relative)
+    export_text = _normalized("docs/how-to/export-compiled-library.md")
+    viewer_text = _normalized("docs/how-to/view-compiled-library.md")
+    assert "view-compiled-library.md" in export_text
+    for term in (
+        "scripts/build_compiled_library_viewer.py",
+        "mke.compiled_library_export.v2",
+        "self-contained HTML",
+        "64 Sources",
+        "2,000 Evidence",
+        "8 MiB",
+        "选择并复制",
+        "never changes the export",
+    ):
+        assert term in viewer_text
+
+
 def test_export_proof_how_to_is_generic_installed_wheel_evidence_only() -> None:
     text = _normalized("docs/how-to/run-compiled-library-export-proof.md")
     for term in (

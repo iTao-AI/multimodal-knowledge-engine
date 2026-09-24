@@ -337,6 +337,8 @@ timestamp query。两个精确响应都经由不可变的 exported Markdown 回�
 production OCR。
 
 参见 [Export A Compiled Library](./docs/how-to/export-compiled-library.md) 和
+[View A Compiled Library Export Offline](./docs/how-to/view-compiled-library.md) 了解直接打开的
+离线阅读器，再参见
 [Run The Compiled Library Export Proof](./docs/how-to/run-compiled-library-export-proof.md)。
 
 ## Bounded Direct Audio
@@ -372,6 +374,7 @@ media support、hostile-media sandbox、business adoption 或 real-user outcomes
 - [Evaluate The Hybrid RRF Retrieval Candidate](./docs/how-to/evaluate-hybrid-rrf-retrieval.md)
 - [Evaluate The Relevance Gate Reranker Candidate](./docs/how-to/evaluate-relevance-gate-reranker.md)
 - [Export A Compiled Library](./docs/how-to/export-compiled-library.md)
+- [View A Compiled Library Export Offline](./docs/how-to/view-compiled-library.md)
 - [Run The Compiled Library Export Proof](./docs/how-to/run-compiled-library-export-proof.md)
 
 长期架构决策在 [docs/decisions/](./docs/decisions/)。已批准的实施历史在

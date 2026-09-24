@@ -347,6 +347,8 @@ Markdown to the canonical manifest and `mke.evidence_ref.v1` sidecars. OCR Phase
 local viability evidence and is not production OCR.
 
 See [Export A Compiled Library](./docs/how-to/export-compiled-library.md) and
+[View A Compiled Library Export Offline](./docs/how-to/view-compiled-library.md) for the direct-open
+offline reader, plus
 [Run The Compiled Library Export Proof](./docs/how-to/run-compiled-library-export-proof.md).
 
 ## Bounded Direct Audio
@@ -384,6 +386,7 @@ business adoption, or real-user outcomes.
 - [Evaluate The Hybrid RRF Retrieval Candidate](./docs/how-to/evaluate-hybrid-rrf-retrieval.md)
 - [Evaluate The Relevance Gate Reranker Candidate](./docs/how-to/evaluate-relevance-gate-reranker.md)
 - [Export A Compiled Library](./docs/how-to/export-compiled-library.md)
+- [View A Compiled Library Export Offline](./docs/how-to/view-compiled-library.md)
 - [Run The Compiled Library Export Proof](./docs/how-to/run-compiled-library-export-proof.md)
 
 Long-lived architecture decisions are in [docs/decisions/](./docs/decisions/). Approved

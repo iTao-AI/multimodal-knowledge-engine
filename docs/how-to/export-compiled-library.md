@@ -50,6 +50,21 @@ success schema is `mke.compiled_library_export_consumer.v2`. The v1 and v2 consu
 cross-consume. Rollback preserves v1: omit or remove audio from the active snapshot, never widen
 the v1 validator.
 
+## Open The Offline Viewer
+
+After the v2 consumer passes, create a direct-open HTML snapshot:
+
+```bash
+python scripts/build_compiled_library_viewer.py \
+  --export compiled-library-v2 \
+  --output library-viewer.html
+```
+
+Read [View A Compiled Library Export Offline](./view-compiled-library.md) for the Source reader,
+plain-text filter, local anchors, traceable citation copy/fallback, and the separate 64-Source,
+2,000-Evidence, 8-MiB presentation budget. The Viewer is a downstream read-only artifact; it does
+not add HTTP/workspace UI, write SQLite, call a model, or change Export v2.
+
 ## Authority And Safety Boundaries
 
 The command opens SQLite read-only, performs no migration or unfinished-Run recovery, and does not
