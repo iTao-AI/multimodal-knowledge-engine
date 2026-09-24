@@ -103,6 +103,7 @@ class MatchHint:
     normalization: Literal[
         "nfkc_casefold",
         "cjk_casefold_no_whitespace",
+        "nfkc_cjk_casefold_no_whitespace",
         "fts5_ascii_tokens",
     ] = "nfkc_casefold"
 

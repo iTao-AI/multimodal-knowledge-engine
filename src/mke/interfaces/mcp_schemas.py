@@ -20,7 +20,10 @@ from pydantic import (
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import CoreSchema
 
-from mke.interfaces.public_errors import is_public_error_cause
+from mke.interfaces.public_errors import (
+    MIXED_CJK_OPERATION_SAFE_CAUSES,
+    is_public_error_cause,
+)
 
 StrictId = Annotated[str, StringConstraints(pattern=r"^[a-z]+_[0-9a-f]{32}$")]
 Fingerprint = Annotated[str, StringConstraints(pattern=r"^sha256:[0-9a-f]{64}$")]
@@ -113,9 +116,15 @@ class _PublicErrorV1(_StrictModel):
 
     @model_validator(mode="after")
     def validate_public_cause(self) -> _PublicErrorV1:
-        if not is_public_error_cause(self.cause):
+        if not is_public_error_cause(self.cause) and not self._allows_operation_cause(
+            self.cause
+        ):
             raise ValueError("error cause is not approved for the public boundary")
         return self
+
+    def _allows_operation_cause(self, cause: str) -> bool:
+        del cause
+        return False
 
 
 class ListLibrariesSuccessV1(_StrictModel):
@@ -147,6 +156,9 @@ class SearchLibrarySuccessV1(_StrictModel):
 class SearchLibraryErrorV1(_PublicErrorV1):
     schema_version: Literal["mke.search_library_response.v1"] = "mke.search_library_response.v1"
 
+    def _allows_operation_cause(self, cause: str) -> bool:
+        return cause in MIXED_CJK_OPERATION_SAFE_CAUSES
+
 
 class AskLibrarySuccessV1(_StrictModel):
     schema_version: Literal["mke.ask_library_response.v1"] = "mke.ask_library_response.v1"
@@ -172,6 +184,9 @@ class AskLibrarySuccessV1(_StrictModel):
 
 class AskLibraryErrorV1(_PublicErrorV1):
     schema_version: Literal["mke.ask_library_response.v1"] = "mke.ask_library_response.v1"
+
+    def _allows_operation_cause(self, cause: str) -> bool:
+        return cause in MIXED_CJK_OPERATION_SAFE_CAUSES
 
 
 class ListLibrariesResponseV1(
@@ -346,6 +361,9 @@ class SearchLibrarySuccessV2(_StrictModel):
 
 class SearchLibraryErrorV2(_PublicErrorV1):
     schema_version: Literal["mke.search_library_response.v2"] = "mke.search_library_response.v2"
+
+    def _allows_operation_cause(self, cause: str) -> bool:
+        return cause in MIXED_CJK_OPERATION_SAFE_CAUSES
 
 
 class SearchLibraryResponseV2(

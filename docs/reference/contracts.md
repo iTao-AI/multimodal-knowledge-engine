@@ -67,7 +67,10 @@ for eligible compiled-empty CJK queries. It is the default when the selector is 
 `current` the lower-level rollback. Strategy changes require no migration or index rebuild. The
 active strategy requires the existing `active_evidence_fts` projection for compiled non-empty
 queries but adds no CJK projection. Doctor compares that base projection exactly with active
-Publication Evidence before reporting ready. The
+Publication Evidence before reporting ready. The explicit `mixed-cjk-fts-intent-v1` candidate
+also uses that projection, preserves every compiled ASCII/numeric clause, and requires sufficient
+CJK trigram overlap for compiled-nonempty mixed queries. It must be selected at owner startup;
+it adds no request field or persistent projection. The
 built-in PDF extractor uses PyMuPDF behind the adapter boundary and extracts text-layer page text
 with `page.get_text("text", sort=True)`. Successful PDF ingest and Run inspection expose
 `PdfIntakeReport` summary fields: total pages, extracted pages, empty pages, extracted characters,
@@ -155,9 +158,12 @@ Ask validation failures use `invalid_question` for empty, overlong, or no-search
 questions and `invalid_query` for invalid limits. Legacy strategies keep CJK-only Ask inputs
 invalid. Under `cjk-active-scan-overlap-v1`, eligible compiled-empty CJK inputs can return
 `evidence_found` or `insufficient_evidence`; punctuation-only and ineligible inputs remain invalid.
-Compiled non-empty mixed or numeric queries are FTS-only, including zero-hit results, so ASCII
-constraints are not discarded. E3-F adds no persistent CJK projection, dense/vector search,
-hybrid retrieval, RRF, reranking, query rewrite, OCR, or request DTO.
+Under the default active-scan strategy, compiled non-empty mixed or numeric queries are FTS-only,
+including zero-hit results. Under the explicit mixed-intent candidate, compiled-nonempty queries
+still require the complete FTS `MATCH`; CJK intent then filters and ranks the matched set.
+No jointly supported candidate returns `insufficient_evidence`, without discarding ASCII
+constraints. Neither strategy adds a persistent CJK projection, dense/vector search, hybrid
+retrieval, RRF, reranking, query rewrite, OCR, or request DTO.
 
 ## MCP
 
@@ -197,7 +203,8 @@ and a limitation explaining that no active Evidence matched the search terms.
 
 The MCP server runs over stdio through `mke mcp --allowed-root <path>`. It uses the same typed
 runtime composition root as CLI ingest, Run inspection, Search, and Ask. The owner startup command
-may select `--retrieval-strategy cjk-active-scan-overlap-v1` or an explicit rollback; MCP requests
+may select `--retrieval-strategy cjk-active-scan-overlap-v1`, the opt-in
+`mixed-cjk-fts-intent-v1` candidate, or an explicit rollback; MCP requests
 cannot select or override retrieval strategy. `ingest_file`
 has the stable contract `ingest_file(config, path)`, only accepts files under the configured
 allowed root, and currently supports `.pdf`, `.mp4`, `.mp3`, `.wav`, and `.m4a`. MCP requests

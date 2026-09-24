@@ -46,7 +46,10 @@ from mke.interfaces.mcp_schemas import (
     SearchLibrarySuccessV1,
     TimestampLocatorV1,
 )
-from mke.interfaces.public_errors import public_error_from_cause
+from mke.interfaces.public_errors import (
+    MIXED_CJK_OPERATION_SAFE_CAUSES,
+    public_error_from_cause,
+)
 from mke.retrieval.cjk_active_scan import CjkActiveScanError
 from mke.retrieval.errors import RetrievalAuthorityError
 from mke.runtime import RuntimeConfig, SidecarTranscriptionConfig, build_engine
@@ -247,7 +250,12 @@ def search_library(
         try:
             matches = engine.search(normalized_query, limit=limit)
         except (CjkActiveScanError, RetrievalAuthorityError) as error:
-            return _failure(error.problem, error.cause, error.next_step)
+            return _failure(
+                error.problem,
+                error.cause,
+                error.next_step,
+                safe_causes=MIXED_CJK_OPERATION_SAFE_CAUSES,
+            )
         results = [_evidence_from_search_result(match) for match in matches]
         return {"ok": True, "query": normalized_query, "results": results}
     finally:
@@ -281,7 +289,12 @@ def ask_library(
             CjkActiveScanError,
             RetrievalAuthorityError,
         ) as error:
-            return _failure(error.problem, error.cause, error.next_step)
+            return _failure(
+                error.problem,
+                error.cause,
+                error.next_step,
+                safe_causes=MIXED_CJK_OPERATION_SAFE_CAUSES,
+            )
         return {
             "ok": True,
             "ask_id": result.ask_id,

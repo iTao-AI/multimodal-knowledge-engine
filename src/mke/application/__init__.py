@@ -1057,7 +1057,10 @@ def _normalize_ask_question(
             "shorten_question",
         )
     if _SEARCHABLE_TOKEN_RE.search(normalized_question) is None:
-        if retrieval_strategy == "cjk-active-scan-overlap-v1":
+        if retrieval_strategy in {
+            "cjk-active-scan-overlap-v1",
+            "mixed-cjk-fts-intent-v1",
+        }:
             try:
                 compile_cjk_overlap_terms(normalized_question, require_terms=True)
             except CjkActiveScanError:

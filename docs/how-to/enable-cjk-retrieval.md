@@ -34,11 +34,40 @@ query
   -> compiled-empty and ineligible -> stable validation result
 ```
 
-Mixed ASCII+CJK and numeric queries with a compiled non-empty expression remain FTS-only. The
-runtime does not discard ASCII or numeric constraints after an FTS zero-hit. A future
-constraint-preserving mixed-query fallback requires a separate comparison.
+Under the default `cjk-active-scan-overlap-v1`, mixed ASCII+CJK and numeric queries with a
+compiled non-empty expression remain FTS-only. The runtime does not discard ASCII or numeric
+constraints after an FTS zero-hit.
 
-The active scan reads only Evidence owned by active Publications. It permits at most 512 CJK query
+## Try The Mixed-Intent Candidate
+
+To require both the compiled ASCII/numeric clauses and literal CJK support, explicitly select
+`mixed-cjk-fts-intent-v1` at owner startup:
+
+```bash
+uv run mke --db .tmp/mke.sqlite \
+  --retrieval-strategy mixed-cjk-fts-intent-v1 \
+  search "Atlas 缓存失效原因"
+```
+
+For compiled-nonempty mixed queries, the candidate checks every active FTS `MATCH` row before
+applying CJK trigram overlap. It selects at most 10 results after ranking; Search limits and MCP
+page slices follow that selection. A query without CJK keeps the numeric FTS behavior. A
+compiled-empty CJK query keeps the existing bounded active-scan route. A missing ASCII clause,
+unsupported CJK intent, short CJK phrase without eligible trigrams, or unsupported paraphrase
+produces no Evidence. Ask then reports `insufficient_evidence` for a valid mixed question.
+
+The mixed route caps the complete matched set at 10,000 rows and 16 MiB of original UTF-8 text,
+the eligible pool at 1,000, and raw/normalized query length at 512 characters with at most 128
+deduplicated CJK terms. Exceeding a bound returns a typed error; it does not return a clipped or
+ASCII-only answer. Excerpts and citations use the original Evidence text. MCP
+`search_library_v2` exposes `more_available` for another selected page and `capped` when the
+10-result strategy cap discarded eligible candidates; `read_evidence_v1` remains the exact-read
+path for an incomplete excerpt.
+
+This is an opt-in lexical candidate. It may miss wording with insufficient literal CJK overlap.
+The default and rollback strategies remain available with no migration or index rebuild.
+
+The default active scan reads only Evidence owned by active Publications. It permits at most 512 CJK query
 characters, 128 overlap terms, 10,000 active Evidence rows, 16 MiB total UTF-8 active Evidence
 text, a 1,000-candidate pool, and 10 returned results. Row and text-volume checks happen before
 text is loaded for scoring. Budget failures use stable `problem`, `cause`, and `next_step` fields.
@@ -55,7 +84,8 @@ uv run mke --db .tmp/mke.sqlite retrieval doctor \
 The check reports SQLite readability, active Publication inspectability, exact consistency of the
 required `active_evidence_fts` base projection, and that an additional CJK projection is not
 required. Missing or inconsistent base FTS state returns `retrieval_projection_not_ready`.
-Additional CJK rebuild is a stable no-op:
+The same readiness checks apply to `mixed-cjk-fts-intent-v1`; replace the `--strategy` value to
+inspect that candidate. Additional CJK rebuild is a stable no-op:
 
 ```bash
 uv run mke --db .tmp/mke.sqlite retrieval rebuild \
@@ -63,7 +93,9 @@ uv run mke --db .tmp/mke.sqlite retrieval rebuild \
 ```
 
 Its successful result contains `action="noop"`, `projection="none"`, and
-`scope="additional_cjk_projection"`. Rebuild requests for `numeric-grouping-v1` or `current`
+`scope="additional_cjk_projection"`. The mixed candidate also has no additional projection;
+its no-op rebuild reports `scope="additional_projection"`. Rebuild requests for
+`numeric-grouping-v1` or `current`
 return `retrieval_rebuild_not_supported`; recovery requires republishing active Sources.
 
 ## Roll Back

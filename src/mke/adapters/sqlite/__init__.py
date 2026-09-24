@@ -71,6 +71,14 @@ from mke.retrieval.cjk_active_scan import (
     compile_cjk_overlap_terms,
     select_cjk_active_scan_candidates,
 )
+from mke.retrieval.mixed_cjk_fts_intent import (
+    MIXED_CJK_FTS_INTENT_PARAMETERS,
+    MixedCjkCandidate,
+    MixedCjkSelection,
+    compile_mixed_cjk_query,
+    matched_set_budget_error,
+    select_mixed_cjk_candidates,
+)
 from mke.retrieval.query_policy import (
     QUERY_POLICY_REVISION,
     compile_fts5_query_diagnostic,
@@ -111,6 +119,7 @@ class _EvidenceSearchCandidate:
     locator_start: int
     locator_end: int
     text_bytes: int
+    source_sha256: str | None = None
 
 
 _FTS_MATCHED_CTE = """
@@ -1235,8 +1244,31 @@ class SQLiteStore:
     def search(self, query: str, limit: int | None = None) -> list[SearchResult]:
         match_query = compile_fts5_query(query, policy=self._query_policy)
         if match_query:
+            if self._retrieval_strategy == "mixed-cjk-fts-intent-v1":
+                mixed_query = compile_mixed_cjk_query(query)
+                if mixed_query.has_cjk:
+                    selection = self._select_mixed_cjk_fts(
+                        match_query,
+                        mixed_query.terms,
+                    )
+                    results = [
+                        SearchResult(
+                            evidence_id=item.evidence_id,
+                            publication_id=item.publication_id,
+                            source_id=item.source_id,
+                            locator_kind=item.locator_kind,
+                            locator_start=item.locator_start,
+                            locator_end=item.locator_end,
+                            text=item.text,
+                        )
+                        for item in selection.results
+                    ]
+                    return results if limit is None else results[:limit]
             return self._search_fts(match_query, limit=limit)
-        if self._retrieval_strategy == "cjk-active-scan-overlap-v1":
+        if self._retrieval_strategy in {
+            "cjk-active-scan-overlap-v1",
+            "mixed-cjk-fts-intent-v1",
+        }:
             return self.search_cjk_active_scan(query, limit=limit)
         return []
 
@@ -1677,7 +1709,49 @@ class SQLiteStore:
             diagnostic = compile_fts5_query_diagnostic(
                 query, policy=self._query_policy
             )
-            if diagnostic.compiled_query:
+            mixed_query = None
+            if (
+                diagnostic.compiled_query
+                and self._retrieval_strategy == "mixed-cjk-fts-intent-v1"
+            ):
+                mixed_query = compile_mixed_cjk_query(query)
+            if diagnostic.compiled_query and mixed_query is not None and mixed_query.has_cjk:
+                selection = self._select_mixed_cjk_fts(
+                    diagnostic.compiled_query,
+                    mixed_query.terms,
+                )
+                selected = selection.results[position : position + page_size]
+                page = [
+                    SearchResult(
+                        evidence_id=item.evidence_id,
+                        publication_id=item.publication_id,
+                        source_id=item.source_id,
+                        locator_kind=item.locator_kind,
+                        locator_start=item.locator_start,
+                        locator_end=item.locator_end,
+                        text=item.text,
+                    )
+                    for item in selected
+                ]
+                enriched = self._bulk_enrich_provenance(page)
+                selected_results = tuple(
+                    SelectedEvidence(
+                        item,
+                        tuple(
+                            MatchHint(
+                                term,
+                                term_order,
+                                0,
+                                "nfkc_cjk_casefold_no_whitespace",
+                            )
+                            for term_order, term in enumerate(result.matched_terms)
+                        ),
+                    )
+                    for item, result in zip(enriched, selected, strict=True)
+                )
+                more_in_pool = position + len(selected) < len(selection.results)
+                discarded_by_cap = selection.discarded_by_strategy_cap
+            elif diagnostic.compiled_query:
                 candidates = self._search_fts_page(
                     diagnostic.compiled_query,
                     position=position,
@@ -1713,7 +1787,10 @@ class SQLiteStore:
                 )
                 more_in_pool = len(candidates) > len(admitted_candidates)
                 discarded_by_cap = False
-            elif self._retrieval_strategy == "cjk-active-scan-overlap-v1":
+            elif self._retrieval_strategy in {
+                "cjk-active-scan-overlap-v1",
+                "mixed-cjk-fts-intent-v1",
+            }:
                 try:
                     compiled = compile_cjk_overlap_terms(query, require_terms=True)
                 except CjkActiveScanError as error:
@@ -2071,6 +2148,106 @@ class SQLiteStore:
             for row in rows
             if row["evidence_id"] is not None
         ]
+
+    def _select_mixed_cjk_fts(
+        self,
+        match_query: str,
+        terms: tuple[str, ...],
+    ) -> MixedCjkSelection:
+        parameters = MIXED_CJK_FTS_INTENT_PARAMETERS
+        sql = (
+            _FTS_MATCHED_CTE.format(score="rank")
+            + """,
+            stats AS MATERIALIZED (
+              SELECT COUNT(*) AS matched_row_count,
+                     COALESCE(SUM(text_bytes), 0) AS matched_text_bytes
+              FROM matched
+            )
+            SELECT matched.evidence_id, matched.publication_id, matched.source_id,
+                   matched.locator_kind, matched.locator_start, matched.locator_end,
+                   matched.text_bytes, matched.source_sha256,
+                   stats.matched_row_count, stats.matched_text_bytes,
+                   integrity.duplicate_stable_locator
+            FROM stats
+            CROSS JOIN integrity
+            LEFT JOIN matched
+              ON stats.matched_row_count <= ?
+             AND stats.matched_text_bytes <= ?
+            ORDER BY """
+            + _FTS_STABLE_ORDER
+        )
+        statements: list[str] = []
+        if self._search_observer is not None:
+            self._connection.set_trace_callback(statements.append)
+        try:
+            rows = self._connection.execute(
+                sql,
+                (
+                    match_query,
+                    parameters.max_matched_rows,
+                    parameters.max_matched_text_bytes,
+                ),
+            ).fetchall()
+        finally:
+            if self._search_observer is not None:
+                self._connection.set_trace_callback(None)
+                self._search_observer(
+                    sum(
+                        "active_evidence_fts MATCH" in statement
+                        for statement in statements
+                    )
+                )
+        self._raise_for_duplicate_fts_projection(rows)
+        if not rows:
+            raise ManifestValidationError("Evidence FTS match summary is invalid")
+        matched_row_count = int(rows[0]["matched_row_count"])
+        matched_text_bytes = int(rows[0]["matched_text_bytes"])
+        if (
+            matched_row_count > parameters.max_matched_rows
+            or matched_text_bytes > parameters.max_matched_text_bytes
+        ):
+            raise matched_set_budget_error()
+        candidates = [
+            _EvidenceSearchCandidate(
+                evidence_id=str(row["evidence_id"]),
+                publication_id=str(row["publication_id"]),
+                source_id=str(row["source_id"]),
+                locator_kind=str(row["locator_kind"]),
+                locator_start=int(row["locator_start"]),
+                locator_end=int(row["locator_end"]),
+                text_bytes=int(row["text_bytes"]),
+                source_sha256=str(row["source_sha256"]),
+            )
+            for row in rows
+            if row["evidence_id"] is not None
+        ]
+        if not terms:
+            return select_mixed_cjk_candidates((), (), parameters=parameters)
+        loaded = self._load_fts_candidate_text(candidates)
+        mixed_candidates: list[MixedCjkCandidate] = []
+        for fts_order, (candidate, result) in enumerate(
+            zip(candidates, loaded, strict=True)
+        ):
+            if candidate.source_sha256 is None:
+                raise ManifestValidationError("Evidence FTS identity is invalid")
+            mixed_candidates.append(
+                MixedCjkCandidate(
+                    evidence_id=result.evidence_id,
+                    publication_id=result.publication_id,
+                    source_id=result.source_id,
+                    content_fingerprint=f"sha256:{candidate.source_sha256}",
+                    locator_kind=result.locator_kind,
+                    locator_start=result.locator_start,
+                    locator_end=result.locator_end,
+                    text=result.text,
+                    fts_order=fts_order,
+                )
+            )
+        return select_mixed_cjk_candidates(
+            tuple(mixed_candidates),
+            terms,
+            parameters=parameters,
+        )
 
     @staticmethod
     def _raise_for_duplicate_fts_projection(rows: list[sqlite3.Row]) -> None:

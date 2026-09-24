@@ -224,6 +224,13 @@ or `current` requires no migration. E3-C through E3-E remain future, evidence-ga
 does not add embedding, vector search, hybrid retrieval, RRF, reranking, query rewrite,
 Passage/chunk, OCR, HTTP, or UI behavior.
 
+The opt-in `mixed-cjk-fts-intent-v1` candidate preserves that default and the existing numeric
+compiler. For a compiled-nonempty query with CJK, the complete active FTS match set remains the
+ASCII/numeric admission gate. Within a bounded consistent read, NFKC/casefold/whitespace-normalized
+CJK trigrams filter and rank candidates before limits or MCP page slices. Matching and excerpts
+map back to unchanged original Evidence and stable FTS tie order. This introduces no second
+projection, schema migration, request-time strategy override, or new Publication authority.
+
 E3-C PR 1 adds a comparison-only local embedding prerequisite without adding runtime dense
 retrieval. Provider-neutral DTOs live under `mke.embeddings` and `mke.vector`; SentenceTransformers,
 Hugging Face Hub, torch, NumPy adapter details, and `sqlite-vec` stay behind adapter boundaries.

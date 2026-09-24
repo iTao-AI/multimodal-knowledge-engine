@@ -76,7 +76,11 @@ from mke.interfaces.audio_errors import DIRECT_AUDIO_SAFE_CAUSES
 from mke.interfaces.library_export import run_library_export
 from mke.interfaces.mcp_contract import McpRuntimeConfig, transcript_intake_report_payload
 from mke.interfaces.mcp_server import run_mcp_server
-from mke.interfaces.public_errors import public_error_from_cause, render_public_error_line
+from mke.interfaces.public_errors import (
+    MIXED_CJK_OPERATION_SAFE_CAUSES,
+    public_error_from_cause,
+    render_public_error_line,
+)
 from mke.proof import (
     DeterministicAudioProvider,
     direct_audio_report_payload,
@@ -1217,6 +1221,7 @@ def _search(engine: KnowledgeEngine, query: str) -> int:
             error.cause,
             problem=error.problem,
             next_step=error.next_step,
+            safe_causes=MIXED_CJK_OPERATION_SAFE_CAUSES,
         )
         return 1
     _print_evidence_matches(matches)
@@ -1231,7 +1236,12 @@ def _ask(engine: KnowledgeEngine, question: str) -> int:
         CjkActiveScanError,
         RetrievalAuthorityError,
     ) as error:
-        _print_error_contract(error.cause, problem=error.problem, next_step=error.next_step)
+        _print_error_contract(
+            error.cause,
+            problem=error.problem,
+            next_step=error.next_step,
+            safe_causes=MIXED_CJK_OPERATION_SAFE_CAUSES,
+        )
         return 1
     print(
         f"answer_status={result.answer_status} evidence_count={len(result.evidence)} "
@@ -1642,6 +1652,8 @@ def _retrieval_rebuild(
         canonical_strategy = "numeric-grouping-v1"
     elif validated_strategy == "current":
         canonical_strategy = "current"
+    elif validated_strategy == "mixed-cjk-fts-intent-v1":
+        canonical_strategy = "mixed-cjk-fts-intent-v1"
     else:
         raise ValueError("retrieval strategy is unsupported")
 
@@ -1652,6 +1664,18 @@ def _retrieval_rebuild(
             "action": "noop",
             "projection": "none",
             "scope": "additional_cjk_projection",
+            "problem": None,
+            "cause": None,
+            "next_step": None,
+        }
+        exit_code = 0
+    elif canonical_strategy == "mixed-cjk-fts-intent-v1":
+        payload = {
+            "status": "succeeded",
+            "strategy": canonical_strategy,
+            "action": "noop",
+            "projection": "none",
+            "scope": "additional_projection",
             "problem": None,
             "cause": None,
             "next_step": None,

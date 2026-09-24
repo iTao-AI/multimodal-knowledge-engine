@@ -131,6 +131,57 @@ def test_v2_search_returns_cjk_active_scan_budget_error(
     )
 
 
+@pytest.mark.parametrize(
+    "cause",
+    [
+        "Mixed CJK query exceeds the configured local character budget",
+        "Mixed CJK query exceeds the configured local term budget",
+        "Mixed CJK FTS match set exceeds the configured local row or text budget",
+        "Mixed CJK eligible candidate pool exceeded the configured cap",
+    ],
+)
+def test_v2_search_preserves_mixed_cjk_operation_local_causes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    cause: str,
+) -> None:
+    import mke.interfaces.mcp_completeness_contract as contract
+    from mke.interfaces.mcp_schemas import SearchLibraryV2Request
+    from mke.retrieval.mixed_cjk_fts_intent import MixedCjkFtsIntentError
+
+    class MixedBudgetEngine:
+        def search_evidence_page(self, *args: object, **kwargs: object) -> object:
+            del args, kwargs
+            raise MixedCjkFtsIntentError(
+                "mixed_cjk_budget_exceeded", cause, "narrow_query"
+            )
+
+        def close(self) -> None:
+            return None
+
+    def build_mixed_budget_engine(_runtime: RuntimeConfig) -> MixedBudgetEngine:
+        return MixedBudgetEngine()
+
+    monkeypatch.setattr(contract, "build_engine", build_mixed_budget_engine)
+    config = McpRuntimeConfig(
+        RuntimeConfig(
+            tmp_path / "mke.sqlite",
+            retrieval_strategy="mixed-cjk-fts-intent-v1",
+        ),
+        tmp_path,
+    )
+
+    response = contract.search_library_v2(
+        config,
+        SearchLibraryV2Request(
+            root={"query": "stableanchor 账户余额调整流程", "limit": 1}
+        ),
+    )
+    assert response.root.problem == "mixed_cjk_budget_exceeded"  # type: ignore[union-attr]
+    assert response.root.cause == cause  # type: ignore[union-attr]
+    assert response.root.next_step == "narrow_query"  # type: ignore[union-attr]
+
+
 def test_oversized_v1_has_typed_exact_read_recovery(tmp_path: Path) -> None:
     config = McpRuntimeConfig(RuntimeConfig(tmp_path / "mke.sqlite"), tmp_path)
     engine = KnowledgeEngine(config.db_path)
