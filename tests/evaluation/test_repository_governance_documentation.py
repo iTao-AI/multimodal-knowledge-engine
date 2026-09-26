@@ -47,20 +47,22 @@ def test_default_pr_template_uses_plain_completed_fact_placeholders() -> None:
     assert "pending gates" in text
 
 
-def test_agents_defines_conditional_parallel_and_controller_ownership() -> None:
+def test_agents_defines_bounded_delegation_and_controller_ownership() -> None:
     text = _normalized(AGENTS).lower()
+    guide = _normalized(CONTRIBUTING_GUIDE).lower()
 
     for required in (
-        "at least two independent lanes",
-        "clear file ownership",
-        "independent verification",
+        "delegation assigns bounded execution to an agent; it does not require parallel lanes",
+        "parallelize only when lanes have independent scope, file ownership, and verification",
         "one primary controller per phase",
-        "parent agent owns shared contracts, integration, full verification, and the single "
-        "terminal report",
+        "the phase controller retains shared contracts, integration decisions, and acceptance",
+        "execution agents own implementation, assigned verification, and routine fixes",
         "gstack",
         "superpowers",
     ):
         assert required in text
+    assert "delegate a bounded execution task" in guide
+    assert "parallel work requires independent scope, file ownership, and verification" in guide
 
 
 def test_agents_defines_hosted_handoff_merge_and_cleanup_authority() -> None:
