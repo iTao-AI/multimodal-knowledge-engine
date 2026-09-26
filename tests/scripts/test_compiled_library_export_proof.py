@@ -963,7 +963,7 @@ def test_primary_ci_python_job_exposes_stalled_test_diagnostics() -> None:
 def test_workflow_uses_only_pinned_actions_and_both_explicit_interpreters() -> None:
     job = _job()
     checkout = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
-    setup_uv = "astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d"
+    setup_uv = "astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7"
     setup_python = "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97"
     assert job.count(checkout) == 1
     assert job.count(setup_uv) == 1
