@@ -11,6 +11,7 @@ RetrievalStrategy = Literal[
     "current",
     "numeric-grouping-v1",
     "cjk-active-scan-overlap-v1",
+    "mixed-cjk-fts-intent-v1",
 ]
 
 DEFAULT_RETRIEVAL_STRATEGY: RetrievalStrategy = "cjk-active-scan-overlap-v1"
@@ -18,6 +19,7 @@ SUPPORTED_RETRIEVAL_STRATEGIES: tuple[RetrievalStrategy, ...] = (
     "current",
     "numeric-grouping-v1",
     "cjk-active-scan-overlap-v1",
+    "mixed-cjk-fts-intent-v1",
 )
 _SUPPORTED_STRATEGIES = frozenset(SUPPORTED_RETRIEVAL_STRATEGIES)
 
@@ -79,6 +81,23 @@ _DESCRIPTORS: dict[RetrievalStrategy, RetrievalStrategyDescriptor] = {
         fallback_semantics=(
             "use active_evidence_fts for non-empty numeric-grouping queries; "
             "use bounded active Evidence scan for eligible compiled-empty CJK queries"
+        ),
+        dense="none",
+        hybrid="none",
+        rerank="none",
+    ),
+    "mixed-cjk-fts-intent-v1": RetrievalStrategyDescriptor(
+        strategy_id="mixed-cjk-fts-intent-v1",
+        revision=1,
+        base_query_policy="numeric-grouping-v1",
+        required_projections=("active_evidence_fts",),
+        additional_projections=(),
+        term_derivation_mode="nfkc-cjk-overlap-trigrams-over-exact-fts-match",
+        readiness_checker="active-publication-fts",
+        rollback_capability=("cjk-active-scan-overlap-v1", "numeric-grouping-v1", "current"),
+        fallback_semantics=(
+            "use exact active FTS MATCH for mixed queries and bounded active Evidence "
+            "scan for compiled-empty CJK queries"
         ),
         dense="none",
         hybrid="none",

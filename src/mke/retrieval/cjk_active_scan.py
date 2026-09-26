@@ -98,7 +98,7 @@ def compile_cjk_overlap_terms(
     terms: list[str] = []
     seen_terms: set[str] = set()
     omitted: list[str] = []
-    for run in _cjk_runs(normalized_query):
+    for run in cjk_runs(normalized_query):
         if len(run) < 3:
             omitted.append(run)
             continue
@@ -202,11 +202,11 @@ def select_cjk_active_scan_candidates(
     )
 
 
-def _cjk_runs(query: str) -> tuple[str, ...]:
+def cjk_runs(query: str) -> tuple[str, ...]:
     runs: list[str] = []
     current: list[str] = []
     for character in query:
-        if _is_cjk_character(character):
+        if is_cjk_character(character):
             current.append(character)
         elif character.isspace():
             continue
@@ -218,7 +218,7 @@ def _cjk_runs(query: str) -> tuple[str, ...]:
     return tuple(runs)
 
 
-def _is_cjk_character(character: str) -> bool:
+def is_cjk_character(character: str) -> bool:
     codepoint = ord(character)
     return (
         0x3400 <= codepoint <= 0x4DBF

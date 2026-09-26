@@ -143,6 +143,17 @@ def _normalized_for_match_hint(
 ) -> tuple[str, tuple[tuple[int, int], ...]]:
     if normalization == "nfkc_casefold":
         return _normalized_with_original_spans(text)
+    if normalization == "nfkc_cjk_casefold_no_whitespace":
+        normalized, original_spans = _normalized_with_original_spans(text)
+        kept = tuple(
+            (character, span)
+            for character, span in zip(normalized, original_spans, strict=True)
+            if not character.isspace()
+        )
+        return (
+            "".join(character for character, _ in kept),
+            tuple(span for _, span in kept),
+        )
     casefolded, spans = _casefold_with_original_spans(text)
     if normalization == "cjk_casefold_no_whitespace":
         kept = tuple(
@@ -173,6 +184,9 @@ def _normalized_for_match_hint(
 def _normalize_match_hint_text(hint: MatchHint) -> str:
     if hint.normalization == "nfkc_casefold":
         return unicodedata.normalize("NFKC", hint.text).casefold()
+    if hint.normalization == "nfkc_cjk_casefold_no_whitespace":
+        normalized = unicodedata.normalize("NFKC", hint.text).casefold()
+        return "".join(character for character in normalized if not character.isspace())
     if hint.normalization == "cjk_casefold_no_whitespace":
         return "".join(
             character

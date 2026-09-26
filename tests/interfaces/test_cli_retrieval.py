@@ -15,11 +15,18 @@ from mke.domain import (
     RunManifest,
 )
 from mke.retrieval.cjk_active_scan import CjkActiveScanError
+from mke.retrieval.mixed_cjk_fts_intent import MixedCjkFtsIntentError
 from mke.runtime import RuntimeConfig
 
 
+@pytest.mark.parametrize(
+    "strategy",
+    ["cjk-active-scan-overlap-v1", "mixed-cjk-fts-intent-v1"],
+)
 def test_retrieval_doctor_reports_not_ready_without_active_publication(
-    tmp_path: Path, capsys: CaptureFixture[str]
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+    strategy: str,
 ) -> None:
     db_path = tmp_path / "mke.sqlite"
     engine = KnowledgeEngine(db_path)
@@ -33,7 +40,7 @@ def test_retrieval_doctor_reports_not_ready_without_active_publication(
                 "retrieval",
                 "doctor",
                 "--strategy",
-                "cjk-active-scan-overlap-v1",
+                strategy,
                 "--json",
             ]
         )
@@ -43,7 +50,7 @@ def test_retrieval_doctor_reports_not_ready_without_active_publication(
     payload = json.loads(capsys.readouterr().out)
     assert payload == {
         "status": "not_ready",
-        "strategy": "cjk-active-scan-overlap-v1",
+        "strategy": strategy,
         "problem": "no_active_publication",
         "cause": "No active Publication is available to scan",
         "next_step": "ingest_and_publish_source",
@@ -136,6 +143,40 @@ def test_retrieval_doctor_reports_ready_for_active_scan_without_projection(
     assert payload["checks"][-1] == {
         "name": "additional_cjk_projection",
         "status": "not_required",
+    }
+
+
+def test_retrieval_doctor_checks_base_fts_and_active_authority_for_mixed_strategy(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    db_path = tmp_path / "mke.sqlite"
+    _publish_text(db_path, "anchor 账户余额调整流程。")
+
+    assert (
+        main(
+            [
+                "--db",
+                str(db_path),
+                "retrieval",
+                "doctor",
+                "--strategy",
+                "mixed-cjk-fts-intent-v1",
+                "--json",
+            ]
+        )
+        == 0
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "ready"
+    assert payload["strategy"] == "mixed-cjk-fts-intent-v1"
+    assert {check["name"]: check["status"] for check in payload["checks"]} == {
+        "sqlite_domain_truth": "ready",
+        "active_publication": "ready",
+        "active_fts_projection": "ready",
+        "stable_locator_identity": "ready",
+        "additional_cjk_projection": "not_required",
     }
 
 
@@ -298,6 +339,37 @@ def test_retrieval_rebuild_active_scan_is_no_projection_noop(
     }
 
 
+def test_retrieval_rebuild_mixed_strategy_is_explanatory_no_projection_noop(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    assert (
+        main(
+            [
+                "--db",
+                str(tmp_path / "mke.sqlite"),
+                "retrieval",
+                "rebuild",
+                "--strategy",
+                "mixed-cjk-fts-intent-v1",
+                "--json",
+            ]
+        )
+        == 0
+    )
+
+    assert json.loads(capsys.readouterr().out) == {
+        "status": "succeeded",
+        "strategy": "mixed-cjk-fts-intent-v1",
+        "action": "noop",
+        "projection": "none",
+        "scope": "additional_projection",
+        "problem": None,
+        "cause": None,
+        "next_step": None,
+    }
+
+
 @pytest.mark.parametrize("strategy", ["current", "numeric-grouping-v1"])
 def test_retrieval_rebuild_rejects_base_projection_strategies(
     tmp_path: Path,
@@ -349,6 +421,7 @@ def test_retrieval_rebuild_rejects_unvalidated_strategy_before_output(
         ("current", 1),
         ("numeric-grouping-v1", 1),
         ("cjk-active-scan-overlap-v1", 0),
+        ("mixed-cjk-fts-intent-v1", 0),
     ],
 )
 def test_retrieval_rebuild_human_output_uses_canonical_strategy_id(
@@ -405,6 +478,63 @@ def test_cli_search_renders_stable_active_scan_budget_error(
     assert "problem=cjk_scan_budget_exceeded" in output
     assert "cause=CJK active Evidence scan would exceed configured local budget" in output
     assert "next_step=narrow_query_or_use_projection_strategy" in output
+
+
+@pytest.mark.parametrize("command", ["search", "ask"])
+@pytest.mark.parametrize(
+    "cause",
+    [
+        "Mixed CJK query exceeds the configured local character budget",
+        "Mixed CJK query exceeds the configured local term budget",
+        "Mixed CJK FTS match set exceeds the configured local row or text budget",
+        "Mixed CJK eligible candidate pool exceeded the configured cap",
+    ],
+)
+def test_cli_preserves_mixed_cjk_typed_causes(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    capsys: CaptureFixture[str],
+    command: str,
+    cause: str,
+) -> None:
+    class MixedBudgetEngine:
+        def search(self, query: str, limit: int | None = None) -> object:
+            del query, limit
+            raise MixedCjkFtsIntentError(
+                "mixed_cjk_budget_exceeded", cause, "narrow_query"
+            )
+
+        def ask(self, question: str, limit: int = 5) -> object:
+            del question, limit
+            raise MixedCjkFtsIntentError(
+                "mixed_cjk_budget_exceeded", cause, "narrow_query"
+            )
+
+        def close(self) -> None:
+            return None
+
+    def build_mixed_budget_engine(_config: RuntimeConfig) -> MixedBudgetEngine:
+        return MixedBudgetEngine()
+
+    monkeypatch.setattr(mke.cli, "build_engine", build_mixed_budget_engine)
+
+    assert (
+        main(
+            [
+                "--db",
+                str(tmp_path / "mke.sqlite"),
+                "--retrieval-strategy",
+                "mixed-cjk-fts-intent-v1",
+                command,
+                "stableanchor 账户余额调整流程",
+            ]
+        )
+        == 1
+    )
+    output = capsys.readouterr().out
+    assert "problem=mixed_cjk_budget_exceeded" in output
+    assert f"cause={cause}" in output
+    assert "next_step=narrow_query" in output
 
 
 def test_cli_search_renders_retrieval_authority_invalid(

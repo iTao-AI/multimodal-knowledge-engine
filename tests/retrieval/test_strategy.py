@@ -14,6 +14,7 @@ def test_supported_runtime_strategies_are_exact() -> None:
         "current",
         "numeric-grouping-v1",
         "cjk-active-scan-overlap-v1",
+        "mixed-cjk-fts-intent-v1",
     )
 
 
@@ -65,6 +66,17 @@ def test_runtime_retrieval_order_revisions_are_two() -> None:
     }
     assert CJK_ACTIVE_SCAN_PARAMETERS.revision == 2
     assert QUERY_POLICY_REVISION == 1
+
+
+def test_mixed_cjk_fts_intent_strategy_has_its_own_revision() -> None:
+    from mke.retrieval.strategy import get_retrieval_strategy_descriptor
+
+    descriptor = get_retrieval_strategy_descriptor("mixed-cjk-fts-intent-v1")
+
+    assert descriptor.revision == 1
+    assert descriptor.base_query_policy == "numeric-grouping-v1"
+    assert descriptor.required_projections == ("active_evidence_fts",)
+    assert descriptor.additional_projections == ()
 
 
 @pytest.mark.parametrize("value", ["unknown", "", "true"])

@@ -27,6 +27,7 @@ from mke.interfaces.mcp_contract import (
 )
 from mke.interfaces.mcp_server import build_mcp_server
 from mke.retrieval.cjk_active_scan import CjkActiveScanError
+from mke.retrieval.mixed_cjk_fts_intent import MixedCjkFtsIntentError
 from mke.runtime import FasterWhisperTranscriptionConfig, RuntimeConfig
 from tests.application.test_audio_publication import FakeAudioProvider
 from tests.application.test_video_provider_injection import FakeFasterWhisperProvider
@@ -100,6 +101,65 @@ def test_mcp_search_and_ask_return_stable_active_scan_budget_error(
             "cause": "CJK active Evidence scan would exceed configured local budget",
             "active_publication_impact": "unchanged",
             "next_step": "narrow_query_or_use_projection_strategy",
+        }
+
+
+@pytest.mark.parametrize(
+    "cause",
+    [
+        "Mixed CJK query exceeds the configured local character budget",
+        "Mixed CJK query exceeds the configured local term budget",
+        "Mixed CJK FTS match set exceeds the configured local row or text budget",
+        "Mixed CJK eligible candidate pool exceeded the configured cap",
+    ],
+)
+def test_mcp_search_and_ask_preserve_mixed_cjk_typed_causes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    cause: str,
+) -> None:
+    class MixedBudgetEngine:
+        def search(self, query: str, limit: int | None = None) -> object:
+            del query, limit
+            raise MixedCjkFtsIntentError(
+                "mixed_cjk_budget_exceeded", cause, "narrow_query"
+            )
+
+        def ask(self, question: str, limit: int = 5) -> object:
+            del question, limit
+            raise MixedCjkFtsIntentError(
+                "mixed_cjk_budget_exceeded", cause, "narrow_query"
+            )
+
+        def close(self) -> None:
+            return None
+
+    def build_mixed_budget_engine(_config: RuntimeConfig) -> MixedBudgetEngine:
+        return MixedBudgetEngine()
+
+    monkeypatch.setattr(
+        mke.interfaces.mcp_contract,
+        "build_engine",
+        build_mixed_budget_engine,
+    )
+    config = McpRuntimeConfig(
+        RuntimeConfig(
+            tmp_path / "mke.sqlite",
+            retrieval_strategy="mixed-cjk-fts-intent-v1",
+        ),
+        allowed_root=tmp_path,
+    )
+
+    for result in (
+        search_library(config, "stableanchor 账户余额调整流程"),
+        ask_library(config, "stableanchor 账户余额调整流程"),
+    ):
+        assert result == {
+            "ok": False,
+            "problem": "mixed_cjk_budget_exceeded",
+            "cause": cause,
+            "active_publication_impact": "unchanged",
+            "next_step": "narrow_query",
         }
 
 

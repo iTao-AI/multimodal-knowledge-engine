@@ -483,19 +483,24 @@ mke --db <path> run get <run_id>
 
 - `--db` defaults to `mke.sqlite` in the current working directory.
 - `--retrieval-strategy` is a global owner-startup option with allowlisted values `current`,
-  `numeric-grouping-v1`, and `cjk-active-scan-overlap-v1`. Omitting it defaults to
-  `cjk-active-scan-overlap-v1`.
+  `numeric-grouping-v1`, `cjk-active-scan-overlap-v1`, and `mixed-cjk-fts-intent-v1`. Omitting it
+  defaults to `cjk-active-scan-overlap-v1`.
 - `--retrieval-query-policy` remains a compatibility owner option limited to
   `numeric-grouping-v1` and `current`; explicit values retain legacy rollback semantics.
 - `cjk-active-scan-overlap-v1` routes compiled non-empty queries to FTS-only and eligible
   compiled-empty CJK queries to a bounded scan over active Publication Evidence.
+- `mixed-cjk-fts-intent-v1` keeps the numeric FTS route for queries without CJK and the bounded
+  active scan for compiled-empty CJK queries. Compiled-nonempty mixed queries require the full
+  active FTS match and sufficient literal CJK overlap before ranking; exhausted candidate
+  budgets fail with typed errors rather than returning an ASCII-only result.
 - The SQLite schema is created automatically when the database is opened.
 - `ingest` supports PyMuPDF text-layer PDFs and the documented short MP4 fixture profile.
 - Video ingest defaults to `<video>.mke-transcript.json`. Selecting
   `--transcript-provider faster-whisper` uses the cache-only first-party adapter. It does not run a
   system `ffmpeg`, download during ingest, or accept command argv.
-- `search` reads only active Publication rows in SQLite FTS5. Eligible standalone compact ASCII
-  integers also match tokenizer-adjacent conventional right-grouped document tokens.
+- `search` reads only active Publication Evidence, through FTS5 or the selected bounded CJK
+  route. Eligible standalone compact ASCII integers also match tokenizer-adjacent conventional
+  right-grouped document tokens.
 - PDF results print `page=<number>`.
 - Successful PDF ingest prints stable intake summary fields:
   `pdf_pages`, `extracted_pages`, `empty_pages`, `extracted_chars`, and

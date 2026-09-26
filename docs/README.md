@@ -121,6 +121,8 @@ private planning notes do not belong in this repository.
 - [ADR-0011](./decisions/0011-bounded-direct-audio-intake.md) defines v0.1.4 bounded audio authority and rollback.
 - [ADR-0012](./decisions/0012-deterministic-retrieval-order.md) defines stable semantic tie
   ordering, revision-2 cursor invalidation, and layered compatibility authority.
+- [ADR-0013](./decisions/0013-mixed-cjk-fts-intent-retrieval.md) defines the opt-in mixed CJK/ASCII
+  intent selector and its unchanged rollback boundary.
 
 ## Implementation History
 

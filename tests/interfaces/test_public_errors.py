@@ -1,5 +1,7 @@
 from mke.interfaces.public_errors import (
+    MIXED_CJK_OPERATION_SAFE_CAUSES,
     PublicError,
+    is_public_error_cause,
     public_error_from_cause,
     public_error_from_exception,
     render_public_error_line,
@@ -14,6 +16,18 @@ def test_video_duration_limit_cause_is_allowlisted_exactly() -> None:
     )
 
     assert error.cause == "video media exceeds duration limit"
+
+
+def test_mixed_cjk_retrieval_causes_are_operation_local() -> None:
+    for cause in MIXED_CJK_OPERATION_SAFE_CAUSES:
+        assert is_public_error_cause(cause) is False
+        error = public_error_from_cause(
+            cause,
+            problem="mixed_cjk_budget_exceeded",
+            next_step="narrow_query",
+            safe_causes=MIXED_CJK_OPERATION_SAFE_CAUSES,
+        )
+        assert error.cause == cause
 
 
 def test_public_error_payload_and_human_line_share_exact_fields() -> None:

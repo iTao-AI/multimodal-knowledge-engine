@@ -6,6 +6,14 @@ from collections.abc import Collection
 from dataclasses import dataclass
 
 _REDACTED_CAUSE = "operation failed; details were redacted"
+MIXED_CJK_OPERATION_SAFE_CAUSES = frozenset(
+    {
+        "Mixed CJK query exceeds the configured local character budget",
+        "Mixed CJK query exceeds the configured local term budget",
+        "Mixed CJK FTS match set exceeds the configured local row or text budget",
+        "Mixed CJK eligible candidate pool exceeded the configured cap",
+    }
+)
 _ALLOWLISTED_CAUSES = frozenset(
     {
         "PDF cannot be opened",

@@ -5,6 +5,13 @@ continue to use the owner-selected active-Publication strategy; revision-2 tie o
 invalidation are documented in the
 [proof workflow](../how-to/run-deterministic-retrieval-order-proof.md).
 
+The opt-in `mixed-cjk-fts-intent-v1` strategy changes selection for compiled-nonempty mixed
+queries without changing tool inputs or response schemas. It requires the complete active FTS
+match and sufficient CJK overlap. `search_library_v2` uses the same order as Search and Ask;
+its cursor binds strategy ID/revision, and cross-strategy continuation fails closed. A selected
+page may report `more_available`, while eligible candidates discarded by the 10-result strategy
+cap report `capped`. Budget overflow returns a typed error rather than a partial page.
+
 This page is the canonical complete MCP inventory. MKE exposes exactly ten tools:
 
 - `list_libraries`
