@@ -7,12 +7,15 @@ MKE 只有在 `Run` 把输入验证为 `active Publication` 后，才把本地�
 
 ## 阅读本地资料并复制可追溯引用
 
-将本地 PDF、音频和视频转成 Agent 可读取的 `Evidence`，并沿页码或时间戳核对。`CLI` 和
-`stdio MCP` 只检索已验证的 active Publication。也可以从 Export v2 snapshot 生成单文件 HTML，
-离线浏览实际导出的 Evidence，并复制带 Source identity、locator 和 provenance 的引用。
+将本地 PDF、音频和视频转成 Agent 可读取的 `Evidence`，并沿原文页码或时间戳核对。`CLI` 和
+`stdio MCP` 只检索已验证的 active Publication。也可以从已验证的导出快照生成单文件 HTML，
+离线浏览导出的 Evidence，并复制能回查原文与来源身份的引用。
 
-[运行不依赖 provider 的 fixture walkthrough](./docs/how-to/view-compiled-library.md)：导入仓库
-PDF 与视频 fixture，显式导出并校验 v2，再生成查看器。
+[用仓库样例体验资料查看与引用](./docs/how-to/view-compiled-library.md)。
+
+![Compiled Library Viewer 展示仓库测试资料](./docs/how-to/assets/compiled-library-viewer-repository-samples.png)
+
+这是使用仓库测试资料实际生成的查看器页面。
 
 ## Evidence workspace / 证据工作台
 
@@ -22,7 +25,7 @@ Multimodal Knowledge Engine 是一个本地优先、可由 Agent 调用的 `Evid
 
 ### 当前默认分支状态
 
-稳定版 `v0.1.7` 已包含这个 Evidence workspace 和 MCP consumer failure-branch/recovery proof。这里介绍的 Compiled Library Viewer 是更新的 source-checkout 工作流，不在 `v0.1.7` tag 中。它从已验证的 Export v2 snapshot 生成本地 HTML 文件；这不是 package publication、托管部署、model/provider 变化或 retrieval-quality 声明。参见 [v0.1.7 release notes](./docs/releases/v0.1.7.md)。
+稳定版 `v0.1.7` 已包含这个 Evidence workspace 和 MCP consumer failure-branch/recovery proof。Compiled Library Viewer 可从当前源码仓库使用，尚未包含在 `v0.1.7` 中。参见 [v0.1.7 release notes](./docs/releases/v0.1.7.md)。
 
 ### 五层关系
 

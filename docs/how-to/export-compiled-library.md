@@ -52,18 +52,13 @@ the v1 validator.
 
 ## Open The Offline Viewer
 
-After the v2 consumer passes, create a direct-open HTML snapshot:
+For a complete source-checkout walkthrough with repository samples, see
+[View A Compiled Library Export Offline](./view-compiled-library.md). It runs ingest, v2 export,
+consumer validation, and Viewer generation with paths resolved from the repository root.
 
-```bash
-python scripts/build_compiled_library_viewer.py \
-  --export compiled-library-v2 \
-  --output library-viewer.html
-```
-
-Read [View A Compiled Library Export Offline](./view-compiled-library.md) for the Source reader,
-plain-text filter, local anchors, traceable citation copy/fallback, and the separate 64-Source,
-2,000-Evidence, 8-MiB presentation budget. The Viewer is a downstream read-only artifact; it does
-not add HTTP/workspace UI, write SQLite, call a model, or change Export v2.
+The Viewer is a downstream read-only artifact; it does not add HTTP/workspace UI, write SQLite, call
+a model, or change Export v2. The guide also explains Source reading, filtering, local anchors,
+traceable citation copy/fallback, and the separate presentation budget.
 
 ## Authority And Safety Boundaries
 
