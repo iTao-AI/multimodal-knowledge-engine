@@ -320,22 +320,33 @@ def test_all_primary_mcp_documentation_surfaces_route_the_current_contract() -> 
 
 
 def test_mcp_consumer_branch_proof_is_current_checkout_evidence_not_stable_release_scope() -> None:
-    for path in (Path("README.md"), PROOF):
-        text = path.read_text(encoding="utf-8")
-        for literal in (
-            "MCP consumer failure-branch/recovery proof",
-            "stable `v0.1.6`",
-            "not a package publication",
-            "hosted deployment",
-            "model/provider",
-            "retrieval-quality",
-        ):
-            assert literal in text, f"{path} is missing {literal!r}"
+    readme = Path("README.md").read_text(encoding="utf-8")
+    for literal in (
+        "MCP consumer failure-branch/recovery proof",
+        "`v0.1.7` tag",
+        "not a package publication",
+        "hosted deployment",
+        "model/provider",
+        "retrieval-quality",
+    ):
+        assert literal in readme, f"README.md is missing {literal!r}"
+
+    proof = PROOF.read_text(encoding="utf-8")
+    for literal in (
+        "MCP consumer failure-branch/recovery proof",
+        "stable `v0.1.6`",
+        "not a package publication",
+        "hosted deployment",
+        "model/provider",
+        "retrieval-quality",
+    ):
+        assert literal in proof, f"{PROOF} is missing {literal!r}"
 
     readme_cn = Path("README_CN.md").read_text(encoding="utf-8")
     for literal in (
         "MCP consumer failure-branch/recovery proof",
-        "稳定版 `v0.1.6`",
+        "稳定版 `v0.1.7`",
+        "`v0.1.7` tag",
         "package publication",
         "托管部署",
         "model/provider",

@@ -144,18 +144,18 @@ def test_readmes_surface_mcp_consumer_branch_decisions() -> None:
 def test_readmes_disclose_current_default_branch_release_boundary() -> None:
     requirements = {
         "README.md": (
-            "The current default branch (`main`) includes this Evidence workspace",
-            "MCP consumer failure-branch/recovery proof",
-            "not included in stable `v0.1.6`",
+            "Stable `v0.1.7` includes this Evidence workspace and the MCP consumer "
+            "failure-branch/recovery proof.",
+            "newer source-checkout workflow and is not in the `v0.1.7` tag",
             "not a package publication",
             "hosted deployment",
             "model/provider change",
             "retrieval-quality claim",
         ),
         "README_CN.md": (
-            "当前默认分支（`main`）包含这个 Evidence workspace",
-            "MCP consumer failure-branch/recovery proof",
-            "稳定版 `v0.1.6`",
+            "稳定版 `v0.1.7` 已包含这个 Evidence workspace 和 MCP consumer "
+            "failure-branch/recovery proof。",
+            "新的 source-checkout 工作流，不在 `v0.1.7` tag 中",
             "package publication",
             "托管部署",
             "model/provider",

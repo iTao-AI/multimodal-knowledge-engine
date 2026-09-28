@@ -5,6 +5,16 @@
 MKE turns local source material into cited Evidence only after a Run validates it into an active
 Publication; incomplete processing stays out of Search and Ask.
 
+## Read And Cite Local Sources
+
+Turn local PDFs and audio/video into Evidence an Agent can read and verify against a page or
+timestamp. The CLI and stdio MCP retrieve only validated active Publications. For a portable reading
+path, build a single-file HTML viewer from an Export v2 snapshot, browse the exported Evidence
+offline, and copy a citation that carries its Source identity, locator, and provenance.
+
+[Run the provider-free fixture walkthrough](./docs/how-to/view-compiled-library.md) to ingest the
+repository PDF and video fixtures, export and validate v2, then build the viewer.
+
 ## Evidence workspace
 
 Multimodal Knowledge Engine is a local-first, Agent-callable Evidence engine for ingesting,
@@ -13,7 +23,12 @@ activation, retrieval, and Agent-facing interfaces inside one verifiable local a
 
 ### Current default branch status
 
-The current default branch (`main`) includes this Evidence workspace and the MCP consumer failure-branch/recovery proof. They are not included in stable `v0.1.6`; they are current-checkout documentation and proof, not a package publication, hosted deployment, model/provider change, or retrieval-quality claim.
+Stable `v0.1.7` includes this Evidence workspace and the MCP consumer failure-branch/recovery proof.
+The Compiled Library Viewer is a newer source-checkout workflow and is not in the `v0.1.7` tag. It
+builds a local file from a validated Export v2 snapshot.
+It is not a package publication or hosted deployment. It makes no model/provider change or
+retrieval-quality claim. See the
+[v0.1.7 release notes](./docs/releases/v0.1.7.md).
 
 ### Five-layer relation
 

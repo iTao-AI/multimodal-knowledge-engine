@@ -5,6 +5,15 @@
 MKE 只有在 `Run` 把输入验证为 `active Publication` 后，才把本地原始资料变成可引用的
 `Evidence`；未完成的处理不会进入 `Search` 或 `Ask`。
 
+## 阅读本地资料并复制可追溯引用
+
+将本地 PDF、音频和视频转成 Agent 可读取的 `Evidence`，并沿页码或时间戳核对。`CLI` 和
+`stdio MCP` 只检索已验证的 active Publication。也可以从 Export v2 snapshot 生成单文件 HTML，
+离线浏览实际导出的 Evidence，并复制带 Source identity、locator 和 provenance 的引用。
+
+[运行不依赖 provider 的 fixture walkthrough](./docs/how-to/view-compiled-library.md)：导入仓库
+PDF 与视频 fixture，显式导出并校验 v2，再生成查看器。
+
 ## Evidence workspace / 证据工作台
 
 Multimodal Knowledge Engine 是一个本地优先、可由 Agent 调用的 `Evidence` 引擎，用来导入、检索和
@@ -13,7 +22,7 @@ Multimodal Knowledge Engine 是一个本地优先、可由 Agent 调用的 `Evid
 
 ### 当前默认分支状态
 
-当前默认分支（`main`）包含这个 Evidence workspace，以及 MCP consumer failure-branch/recovery proof。它们不包含在稳定版 `v0.1.6` 中；它们是当前 checkout 的文档与 proof，不是 package publication、托管部署、model/provider 变化或 retrieval-quality 声明。
+稳定版 `v0.1.7` 已包含这个 Evidence workspace 和 MCP consumer failure-branch/recovery proof。这里介绍的 Compiled Library Viewer 是更新的 source-checkout 工作流，不在 `v0.1.7` tag 中。它从已验证的 Export v2 snapshot 生成本地 HTML 文件；这不是 package publication、托管部署、model/provider 变化或 retrieval-quality 声明。参见 [v0.1.7 release notes](./docs/releases/v0.1.7.md)。
 
 ### 五层关系
 
