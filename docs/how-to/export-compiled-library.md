@@ -50,6 +50,16 @@ success schema is `mke.compiled_library_export_consumer.v2`. The v1 and v2 consu
 cross-consume. Rollback preserves v1: omit or remove audio from the active snapshot, never widen
 the v1 validator.
 
+## Open The Offline Viewer
+
+For a complete source-checkout walkthrough with repository samples, see
+[View A Compiled Library Export Offline](./view-compiled-library.md). It runs ingest, v2 export,
+consumer validation, and Viewer generation with paths resolved from the repository root.
+
+The Viewer is a downstream read-only artifact; it does not add HTTP/workspace UI, write SQLite, call
+a model, or change Export v2. The guide also explains Source reading, filtering, local anchors,
+traceable citation copy/fallback, and the separate presentation budget.
+
 ## Authority And Safety Boundaries
 
 The command opens SQLite read-only, performs no migration or unfinished-Run recovery, and does not

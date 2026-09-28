@@ -319,40 +319,33 @@ def test_all_primary_mcp_documentation_surfaces_route_the_current_contract() -> 
             assert literal in text, f"{path} is missing {literal!r}"
 
 
-def test_mcp_consumer_branch_proof_is_current_checkout_evidence_not_stable_release_scope() -> None:
-    for path in (Path("README.md"), PROOF):
-        text = path.read_text(encoding="utf-8")
-        for literal in (
-            "MCP consumer failure-branch/recovery proof",
-            "stable `v0.1.6`",
-            "not a package publication",
-            "hosted deployment",
-            "model/provider",
-            "retrieval-quality",
-        ):
-            assert literal in text, f"{path} is missing {literal!r}"
+def test_mcp_consumer_proof_release_and_how_to_preserve_accurate_evidence_boundary() -> None:
+    release = RELEASE.read_text(encoding="utf-8")
+    assert "MCP consumer failure-branch/recovery proof" in release
+    assert "- Tag: `v0.1.7`" in release
+    assert "- Release state: `public; draft=false; prerelease=false`" in release
+    assert re.search(r"The proof inputs are\s+synthetic and provider-free", release)
+    assert "does not claim production adoption or real external data" in release
 
-    readme_cn = Path("README_CN.md").read_text(encoding="utf-8")
-    for literal in (
-        "MCP consumer failure-branch/recovery proof",
-        "稳定版 `v0.1.6`",
-        "package publication",
-        "托管部署",
-        "model/provider",
-        "retrieval-quality",
+    for name in ("README.md", "README_CN.md"):
+        assert "MCP consumer failure-branch/recovery proof" in Path(name).read_text(
+            encoding="utf-8"
+        )
+
+    proof = PROOF.read_text(encoding="utf-8")
+    for boundary in (
+        "stable `v0.1.6`",
+        "not a package publication",
+        "hosted deployment",
+        "model/provider change",
+        "retrieval-quality claim",
     ):
-        assert literal in readme_cn, f"README_CN.md is missing {literal!r}"
+        assert boundary in proof, f"{PROOF} is missing its scope boundary {boundary!r}"
 
     docs_index = Path("docs/README.md").read_text(encoding="utf-8")
-    for literal in (
-        "MCP consumer failure-branch/recovery proof",
-        "current default branch",
-        "not part of stable `v0.1.6`",
-        "current checkout proof",
-        "immutable stable tag",
-        "do not change stable release claims",
-    ):
-        assert literal in docs_index, f"docs/README.md is missing {literal!r}"
+    assert "MCP consumer failure-branch/recovery proof" in docs_index
+    assert re.search(r"part of the current `v0\.1\.7` release", docs_index)
+    assert "not part of stable `v0.1.6`" in docs_index
 
 
 def test_current_presentation_links_and_runtime_boundary_are_v017_authoritative() -> None:

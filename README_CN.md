@@ -5,6 +5,18 @@
 MKE 只有在 `Run` 把输入验证为 `active Publication` 后，才把本地原始资料变成可引用的
 `Evidence`；未完成的处理不会进入 `Search` 或 `Ask`。
 
+## 阅读本地资料并复制可追溯引用
+
+将本地 PDF、音频和视频转成 Agent 可读取的 `Evidence`，并沿原文页码或时间戳核对。`CLI` 和
+`stdio MCP` 只检索已验证的 active Publication。也可以从已验证的导出快照生成单文件 HTML，
+离线浏览导出的 Evidence，并复制能回查原文与来源身份的引用。
+
+[用仓库样例体验资料查看与引用](./docs/how-to/view-compiled-library.md)。
+
+![Compiled Library Viewer 展示仓库测试资料](./docs/how-to/assets/compiled-library-viewer-repository-samples.png)
+
+这是使用仓库测试资料实际生成的查看器页面。
+
 ## Evidence workspace / 证据工作台
 
 Multimodal Knowledge Engine 是一个本地优先、可由 Agent 调用的 `Evidence` 引擎，用来导入、检索和
@@ -13,7 +25,7 @@ Multimodal Knowledge Engine 是一个本地优先、可由 Agent 调用的 `Evid
 
 ### 当前默认分支状态
 
-当前默认分支（`main`）包含这个 Evidence workspace，以及 MCP consumer failure-branch/recovery proof。它们不包含在稳定版 `v0.1.6` 中；它们是当前 checkout 的文档与 proof，不是 package publication、托管部署、model/provider 变化或 retrieval-quality 声明。
+稳定版 `v0.1.7` 已包含这个 Evidence workspace 和 MCP consumer failure-branch/recovery proof。Compiled Library Viewer 可从当前源码仓库使用，尚未包含在 `v0.1.7` 中。参见 [v0.1.7 release notes](./docs/releases/v0.1.7.md)。
 
 ### 五层关系
 
@@ -337,6 +349,8 @@ timestamp query。两个精确响应都经由不可变的 exported Markdown 回�
 production OCR。
 
 参见 [Export A Compiled Library](./docs/how-to/export-compiled-library.md) 和
+[View A Compiled Library Export Offline](./docs/how-to/view-compiled-library.md) 了解直接打开的
+离线阅读器，再参见
 [Run The Compiled Library Export Proof](./docs/how-to/run-compiled-library-export-proof.md)。
 
 ## Bounded Direct Audio
@@ -372,6 +386,7 @@ media support、hostile-media sandbox、business adoption 或 real-user outcomes
 - [Evaluate The Hybrid RRF Retrieval Candidate](./docs/how-to/evaluate-hybrid-rrf-retrieval.md)
 - [Evaluate The Relevance Gate Reranker Candidate](./docs/how-to/evaluate-relevance-gate-reranker.md)
 - [Export A Compiled Library](./docs/how-to/export-compiled-library.md)
+- [View A Compiled Library Export Offline](./docs/how-to/view-compiled-library.md)
 - [Run The Compiled Library Export Proof](./docs/how-to/run-compiled-library-export-proof.md)
 
 长期架构决策在 [docs/decisions/](./docs/decisions/)。已批准的实施历史在

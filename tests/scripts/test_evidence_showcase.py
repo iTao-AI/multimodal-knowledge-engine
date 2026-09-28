@@ -142,35 +142,31 @@ def test_readmes_surface_mcp_consumer_branch_decisions() -> None:
 
 
 def test_readmes_disclose_current_default_branch_release_boundary() -> None:
-    requirements = {
-        "README.md": (
-            "The current default branch (`main`) includes this Evidence workspace",
-            "MCP consumer failure-branch/recovery proof",
-            "not included in stable `v0.1.6`",
-            "not a package publication",
-            "hosted deployment",
-            "model/provider change",
-            "retrieval-quality claim",
+    requirements = (
+        (
+            "README.md",
+            "### Current default branch status",
+            "### Five-layer relation",
+            "available from the current source checkout",
+            "not included in `v0.1.7`",
         ),
-        "README_CN.md": (
-            "当前默认分支（`main`）包含这个 Evidence workspace",
-            "MCP consumer failure-branch/recovery proof",
-            "稳定版 `v0.1.6`",
-            "package publication",
-            "托管部署",
-            "model/provider",
-            "retrieval-quality",
+        (
+            "README_CN.md",
+            "### 当前默认分支状态",
+            "### 五层关系",
+            "可从当前源码仓库使用",
+            "尚未包含在 `v0.1.7` 中",
         ),
-    }
-    for name, literals in requirements.items():
+    )
+    for name, status_heading, following_heading, source_checkout, release_boundary in requirements:
         text = (ROOT / name).read_text(encoding="utf-8")
-        first_layer = text[: text.index(
-            "## Detailed contracts and history"
-            if name == "README.md"
-            else "## Detailed contracts and history / 详细契约与历史"
-        )]
-        for literal in literals:
-            assert literal in first_layer, (name, literal)
+        status_start = text.index(status_heading)
+        status = text[status_start : text.index(following_heading, status_start)]
+        normalized_status = " ".join(status.split())
+        assert "v0.1.7" in status
+        assert "MCP consumer failure-branch/recovery proof" in status
+        assert source_checkout in normalized_status
+        assert release_boundary in normalized_status
 
 
 def test_readmes_embed_canonical_frames_once_in_approved_order() -> None:

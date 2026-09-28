@@ -13,7 +13,7 @@ import sys
 import unicodedata
 from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
-from typing import Any, cast
+from typing import Any, NamedTuple, cast
 
 _MAX_FILE_BYTES = 64 * 1024 * 1024
 _READ_BYTES = 64 * 1024
@@ -82,6 +82,20 @@ _FINGERPRINTED_EXTRACTOR = re.compile(
 
 class ValidationError(Exception):
     """Closed validation failure."""
+
+
+class ValidatedSource(NamedTuple):
+    """A validated source descriptor and the exact rows read from its JSONL file."""
+
+    descriptor: dict[str, object]
+    evidence: tuple[dict[str, object], ...]
+
+
+class ValidatedExport(NamedTuple):
+    """A complete v2 export snapshot bound to the bytes validated in one pass."""
+
+    manifest: dict[str, object]
+    sources: tuple[ValidatedSource, ...]
 
 
 def _reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -320,7 +334,7 @@ def _markdown(entry: Mapping[str, object], rows: Sequence[Mapping[str, object]])
     return (frontmatter + body).encode("utf-8", errors="strict")
 
 
-def validate(export: Path) -> dict[str, object]:
+def load_validated_export(export: Path) -> ValidatedExport:
     manifest_data = _read_regular(export / "export-manifest.json")
     manifest = _object(_json(manifest_data), _MANIFEST_KEYS)
     if (
@@ -347,6 +361,7 @@ def validate(export: Path) -> dict[str, object]:
     source_sort_keys: list[tuple[str, str]] = []
     seen_evidence_ids: set[str] = set()
     evidence_total = 0
+    validated_sources: list[ValidatedSource] = []
     for raw_entry in sources:
         entry = _object(raw_entry, _SOURCE_KEYS)
         for key in ("source_id", "publication_id", "run_id"):
@@ -416,6 +431,7 @@ def validate(export: Path) -> dict[str, object]:
         if markdown_data != _markdown(entry, rows):
             raise ValidationError
         evidence_total += count
+        validated_sources.append(ValidatedSource(entry, tuple(rows)))
     if (
         source_sort_keys != sorted(source_sort_keys)
         or _inventory(export) != expected_inventory
@@ -430,6 +446,11 @@ def validate(export: Path) -> dict[str, object]:
         or active_evidence_count != evidence_total
     ):
         raise ValidationError
+    return ValidatedExport(manifest, tuple(validated_sources))
+
+
+def validate(export: Path) -> dict[str, object]:
+    load_validated_export(export)
     return {
         "schema_version": "mke.compiled_library_export_consumer.v2",
         "status": "passed",

@@ -59,6 +59,7 @@ do not change Search, Ask, MCP, owner startup, Publication, ingestion, or runtim
 - [Enable Bounded CJK Retrieval](./how-to/enable-cjk-retrieval.md)
 - [Use Local Transcription](./how-to/use-local-transcription.md)
 - [Export A Compiled Library](./how-to/export-compiled-library.md)
+- [View A Compiled Library Export Offline](./how-to/view-compiled-library.md)
 - [Run The Compiled Library Export Proof](./how-to/run-compiled-library-export-proof.md)
 - [Use bounded direct audio](./how-to/use-direct-audio.md) — v0.1.4 golden paths
 - [Run the direct-audio proof](./how-to/run-direct-audio-proof.md) — model-free first; terminal proof requires separate authorization
