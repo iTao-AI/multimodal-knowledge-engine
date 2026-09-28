@@ -57,6 +57,9 @@ uv run --project "$MKE_REPO_ROOT" mke --db "$MKE_DB" ingest tests/fixtures/video
 open "$TASK_DIR/library-viewer.html"
 ```
 
+The final `open` command is for macOS. On other systems, open the generated `library-viewer.html`
+file in a browser.
+
 The export and viewer are new children of `TASK_DIR`; neither command overwrites an existing
 destination. Keep the directory while viewing the page. The consumer validates the complete v2
 snapshot before the viewer is built, and the viewer validates it again. The generated page reads

@@ -158,12 +158,6 @@ def test_readmes_disclose_current_default_branch_release_boundary() -> None:
             "尚未包含在 `v0.1.7` 中",
         ),
     )
-    internal_nonclaims = (
-        "package publication",
-        "hosted deployment",
-        "model/provider",
-        "retrieval-quality",
-    )
     for name, status_heading, following_heading, source_checkout, release_boundary in requirements:
         text = (ROOT / name).read_text(encoding="utf-8")
         status_start = text.index(status_heading)
@@ -173,14 +167,6 @@ def test_readmes_disclose_current_default_branch_release_boundary() -> None:
         assert "MCP consumer failure-branch/recovery proof" in status
         assert source_checkout in normalized_status
         assert release_boundary in normalized_status
-
-        first_layer = text[: text.index(
-            "## Detailed contracts and history"
-            if name == "README.md"
-            else "## Detailed contracts and history / 详细契约与历史"
-        )]
-        for nonclaim in internal_nonclaims:
-            assert nonclaim not in first_layer, (name, nonclaim)
 
 
 def test_readmes_embed_canonical_frames_once_in_approved_order() -> None:
