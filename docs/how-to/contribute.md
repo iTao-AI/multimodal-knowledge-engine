@@ -20,8 +20,9 @@ ADRs, and current reference documentation as the evidence order.
    relevant tests.
 2. Fetch the intended base and require a clean starting checkout. Do not overwrite unrelated
    operator changes.
-3. Create a short `codex/<scope>-<slug>` branch in an isolated worktree for multi-step or
-   independently reviewed changes. Verify that the worktree directory is ignored before creation.
+3. Create a short `codex/<scope>-<slug>` branch. Use an isolated worktree for substantial
+   implementation or shared-state conflicts; a focused documentation change does not require one.
+   Verify that a new worktree directory is ignored before creation.
 4. Record the exact base, branch, worktree, and allowed file scope before editing.
 
 Use one primary controller per phase. Delegate a bounded execution task when it helps, even
@@ -30,6 +31,9 @@ and verification; the phase controller retains shared contracts, integration dec
 acceptance, and the terminal report.
 
 ## Local Environment And Preflight
+
+Prepare an environment only when the selected checks need it. Reuse an existing valid environment;
+documentation-only work does not require dependency synchronization or runtime preflight.
 
 Prepare the repository-local `.venv` from the lockfile using an installed compatible Python:
 
@@ -53,8 +57,8 @@ else
 fi
 ```
 
-Run these nine targeted regressions for the subprocess proof, historical replay, and direct-audio
-CLI failure:
+Run these targeted regressions when changing subprocess proof, historical replay, or direct-audio
+CLI boundaries; select the affected cases rather than treating all nine as task-start prerequisites:
 
 ```sh
 uv run --locked --offline pytest -q \

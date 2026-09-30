@@ -11,7 +11,8 @@ The first verified product slice proves:
 - Text-layer PDFs and the documented short local video fixture can be ingested through observable Runs.
 - Search and Ask return stable page or timestamp Evidence from active Publications.
 - Failed or partial processing never becomes searchable.
-- CLI and MCP use one canonical application contract. HTTP and workspace UI remain planned.
+- CLI and MCP use one canonical application contract. The offline HTML viewer and static
+  Evidence workspace are bounded viewing surfaces, not an HTTP service or hosted application.
 
 ## Explicit Non-Goals
 
@@ -77,17 +78,21 @@ Changing any constraint above requires an ADR in the same PR.
 
 ## Working Model
 
-The phase controller owns direction, design decisions, shared contracts, integration, final acceptance, and the terminal report. Delegated execution agents implement the assigned scope, run its assigned verification, and handle routine fixes within that scope. Codex remains the primary project Agent and coordinates the work.
+The phase controller owns implementation decisions, shared contracts, integration, verification,
+and the terminal report within the approved scope. Delegated agents implement and verify their
+assigned scope and handle routine fixes. Changes to goals, key design, acceptance, or authorization
+return to the owner of the approved design.
 
 Use GStack and Superpowers when they match the task:
 
-- Ambiguous product or architecture work: `superpowers:brainstorming`.
+- Undecided product or architecture work: select a focused `gstack-workflows` design/plan Skill or
+  `superpowers:brainstorming`; reuse approved designs rather than running both.
 - Multi-step implementation: `superpowers:writing-plans`.
-- Plan review when scope or risk warrants it: `autoplan` or the relevant focused plan review.
-- Bugs and unexplained failures: default to `superpowers:systematic-debugging`; use `investigate` instead for cross-system or environment investigations, after two evidence-backed repair rounds fail to close the same problem, or when a formal investigation record is required. Do not run both full procedures for the same problem.
+- Plan review when scope or risk warrants it: `gstack-workflows:autoplan` or a focused plan review.
+- Bugs and unexplained failures: default to `superpowers:systematic-debugging`; use `gstack-workflows:investigate` instead for cross-system or environment investigations, after two evidence-backed repair rounds fail to close the same problem, or when a formal investigation record is required. Do not run both full procedures for the same problem.
 - Implementation: `superpowers:test-driven-development` and focused verification.
-- Final diff review: run `review` once before PR unless an explicitly designated independent authority already owns the same full-diff review; fixes receive targeted re-review by default.
-- Frontend behavior: `qa-only` or `qa` when a fix loop is intended.
+- Final diff review: use `gstack-workflows:review` once before PR unless an explicitly designated independent authority already owns the same full-diff review; fixes receive targeted re-review by default.
+- Frontend behavior: `gstack-workflows:qa-only` or `gstack-workflows:qa` when a fix loop is intended.
 - Completion claims: `superpowers:verification-before-completion`.
 
 Do not require a second-model review for every change. Recommend an independent second view only for major architecture decisions, high-risk cross-module changes, important milestones, or unresolved uncertainty.
@@ -134,7 +139,7 @@ Superpowers specs and plans are implementation history. Long-lived architecture 
 
 - Keep active plan checklists current as work is completed.
 - Mark completed plans explicitly so later Agents do not treat historical work as pending.
-- After `review`, `autoplan`, or equivalent plan/PR review, persist durable
+- After `gstack-workflows:review`, `gstack-workflows:autoplan`, or equivalent plan/PR review, persist durable
   public-neutral findings under `docs/superpowers/reviews/` when this repository is the downstream
   execution target.
 - If the related spec or plan changes materially after a review is persisted, mark the older review
@@ -143,11 +148,21 @@ Superpowers specs and plans are implementation history. Long-lived architecture 
 
 ## Task Start And Handoff
 
-- Before making decisions, inspect the current repository.
-- Before starting a new task, sync from the latest `main`, confirm `AGENTS.md` exists, and inspect relevant ADRs, specs, plans, tests, and open PR context.
+- At task start, confirm the intended Git base, current status, and the relevant rules, contracts,
+  tests, and PR context. Sync from `main` when it is the intended base; do not replace an approved
+  branch or recovery point merely to restart the workflow.
+- Accept a public-neutral brief or approved spec with scope, constraints, observable acceptance,
+  delivery owner, Git starting point, and authorization. Persist larger designs under the paths
+  above; small work needs only a brief. Directory placement alone is not approval.
+- Reuse approved design; use `superpowers:writing-plans` only for missing implementation details.
+  Choose direct execution for small work, or `superpowers:executing-plans` for self-implementation,
+  or `superpowers:subagent-driven-development` for managed implementation and review. Do not
+  restart the full manager workflow inside a task worker.
 - Use an isolated worktree for implementation plans or changes that should not share state with the current checkout.
 - Do not start feature implementation from a branch whose bootstrap or prerequisite PR is still unmerged.
-- At task completion, report the branch and PR, actual verification results, documentation impact, remaining risks, and any deferred Issue.
+- At task completion, report the exact HEAD, branch/PR, acceptance evidence, documentation impact,
+  remaining work, and any deferred Issue. Distinguish local completion from hosted delivery;
+  missing remote authorization does not prevent preparing a reviewable local result.
 
 ### Terminal Handoff
 
@@ -167,7 +182,9 @@ Superpowers specs and plans are implementation history. Long-lived architecture 
 - Mock remote providers in required CI. Keep optional real-provider smoke tests separate.
 - Verification depth must match the blast radius.
 
-Minimum verification targets:
+Common verification entry points; select by affected surface rather than running every command
+for every task. Documentation-only or mechanical edits use focused checks and `git diff --check`;
+packaging, proof, and demo gates apply when affected or required by the release scope:
 
 ```bash
 uv run pytest -q
@@ -191,7 +208,7 @@ Documentation changes ship in the same PR as the behavior they describe.
 | Installation, demo, or user workflow | Update tutorial or how-to docs |
 | Internal refactor with no behavior change | Record `No documentation impact` in the PR |
 
-Run `document-release` as a pre-merge documentation audit for important features, public contract changes, architecture changes, and release PRs. It is not mandatory for every small internal change.
+Run `gstack-workflows:document-release` as a pre-merge documentation audit for important features, public contract changes, architecture changes, and release PRs. It is not mandatory for every small internal change.
 
 If the audit would commit, push, update a PR body, or require a version decision without authorization, stop and recommend the exact next action.
 
