@@ -69,10 +69,12 @@ STABLE_PROOF_CODES = (
 EXPECTED_MCP_TOOL_NAMES = (
     "ask_library",
     "ask_library_v1",
+    "browse_source_evidence_v1",
     "get_run",
     "ingest_file",
     "list_libraries",
     "list_libraries_v1",
+    "list_sources_v1",
     "read_evidence_v1",
     "search_library",
     "search_library_v1",
@@ -81,13 +83,13 @@ EXPECTED_MCP_TOOL_NAMES = (
 
 
 def _documented_mcp_inventory(text: str) -> tuple[str, ...]:
-    marker = "MKE exposes exactly ten tools:\n\n"
+    marker = "MKE exposes exactly twelve tools:\n\n"
     section = text.split(marker, maxsplit=1)[1]
     block = section.split("\n\n", maxsplit=1)[0]
     return tuple(re.findall(r"^- `([^`]+)`$", block, flags=re.MULTILINE))
 
 
-def test_canonical_reference_documents_complete_ten_tool_contract() -> None:
+def test_canonical_reference_documents_complete_twelve_tool_contract() -> None:
     text = REFERENCE.read_text(encoding="utf-8")
     for literal in (
         "search_library_v2",
@@ -109,7 +111,7 @@ def test_canonical_reference_documents_complete_ten_tool_contract() -> None:
         assert literal in text
 
 
-def test_public_contracts_mcp_summary_matches_live_canonical_ten_tool_inventory(
+def test_public_contracts_mcp_summary_matches_live_canonical_twelve_tool_inventory(
     tmp_path: Path,
 ) -> None:
     server = build_mcp_server(
@@ -166,7 +168,7 @@ def test_user_how_to_has_absolute_quickstart_and_contract_boundaries() -> None:
         "deterministic Evidence convenience",
         "separate bounded delivery contract",
         "eight-tool",
-        "ten-tool",
+        "twelve-tool",
     ):
         assert literal in text
 
@@ -215,7 +217,7 @@ def test_current_cli_inventory_and_release_proof_codes_are_complete() -> None:
     for tool in (
         "list_libraries", "ingest_file", "get_run", "search_library", "ask_library",
         "list_libraries_v1", "search_library_v1", "ask_library_v1",
-        "search_library_v2", "read_evidence_v1",
+        "search_library_v2", "read_evidence_v1", "list_sources_v1", "browse_source_evidence_v1",
     ):
         assert tool in cli
     assert "mke --db <library.sqlite3> mcp --allowed-root <directory>" in cli
@@ -308,10 +310,10 @@ def test_all_primary_mcp_documentation_surfaces_route_the_current_contract() -> 
         ),
         HOW_TO: ("search_library_v2", "read_evidence_v1", "more_available"),
         PROOF: ("ten-tool", "Python 3.12", "Python 3.13", "UV_OFFLINE=1"),
-        CLI: ("ten-tool", "search_library_v2", "read_evidence_v1"),
+        CLI: ("twelve-tool", "search_library_v2", "read_evidence_v1"),
         VERIFY: ("v0.1.7", "Stable proof code recovery", "Stage 4"),
         RELEASE: ("v0.1.7", "search_library_v2", "read_evidence_v1"),
-        REFERENCE: ("exactly ten tools", "search_library_v2", "read_evidence_v1"),
+        REFERENCE: ("exactly twelve tools", "search_library_v2", "read_evidence_v1"),
     }
     for path, literals in requirements.items():
         text = path.read_text(encoding="utf-8")

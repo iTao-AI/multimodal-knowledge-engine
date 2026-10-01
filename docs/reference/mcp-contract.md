@@ -12,7 +12,7 @@ its cursor binds strategy ID/revision, and cross-strategy continuation fails clo
 page may report `more_available`, while eligible candidates discarded by the 10-result strategy
 cap report `capped`. Budget overflow returns a typed error rather than a partial page.
 
-This page is the canonical complete MCP inventory. MKE exposes exactly ten tools:
+This page is the canonical complete MCP inventory. MKE exposes exactly twelve tools:
 
 - `list_libraries`
 - `ingest_file`
@@ -24,6 +24,8 @@ This page is the canonical complete MCP inventory. MKE exposes exactly ten tools
 - `ask_library_v1`
 - `search_library_v2`
 - `read_evidence_v1`
+- `list_sources_v1`
+- `browse_source_evidence_v1`
 
 The `v1` and `v2` names are MKE tool-contract suffixes, not MCP protocol/SDK 2.x. The five legacy
 tools remain compatible. Strict v1 adds provenance. New consumers should use
@@ -180,8 +182,9 @@ contract.
 
 ## Discovery Compatibility And Annotations
 
-The immutable v0.1.4 eight-tool fixture remains release evidence. The current exact-inventory
-fixture expects exactly ten tools, including exact input/output schemas, descriptions, annotations,
+The immutable v0.1.4 eight-tool and v0.1.7 ten-tool fixtures remain historical release evidence.
+The current `tests/fixtures/source-discovery-v1/mcp-tool-schemas.json` exact-inventory
+fixture expects exactly twelve tools, including exact input/output schemas, descriptions, annotations,
 and safe causes. Consumers comparing all of `tools/list` for equality must migrate explicitly;
 unknown-tool detection is not weakened.
 
@@ -189,3 +192,49 @@ All list, get, Search, Ask, and Read tools advertise `readOnlyHint=true` and
 `openWorldHint=false`. `ingest_file` advertises `readOnlyHint=false`, `idempotentHint=false`, and
 `openWorldHint=false`. Descriptions, authority fields, and trust labels remain normative because
 annotations cannot express active authority or untrusted Evidence.
+
+## Source Discovery And Browsing
+
+The current source checkout adds read-only `list_sources_v1` and `browse_source_evidence_v1`;
+this does not amend the stable v0.1.7 release record or claim a new installed-wheel proof.
+Native envelopes are `{"request":{...}}`. Catalog initial fields are only `page_size`; browse
+initial fields are `source_id`, `publication_id`, optional `locator_range` and `page_size`. Both
+default to 10 and accept strictly integer 1–20. Continuations are cursor-only
+`{"request":{"cursor":"<opaque>"}}`; mixing branches or unknown fields fails validation.
+
+Ranges are `{kind: page, start, end}` with positive inclusive bounds, or
+`{kind: timestamp_ms, start, end}` with nonnegative start and greater exclusive end; timestamps
+select overlap. Wrong Source locator kinds and Boolean boundaries fail. Catalog orders by content
+fingerprint/Source ID. Browsing orders by locator start, end, Evidence ID.
+
+The strict schemas are `mke.list_sources_response.v1` and
+`mke.browse_source_evidence_response.v1`. Both include `authority_snapshot` and `selection`; catalog
+returns `sources`, while browse returns selected `source`, `entries` and `output`. Source metadata
+includes ID, leaf display name, media type, content fingerprint, active Publication ID/revision,
+producing Run, extractor fingerprint, required stages, active Evidence count and coverage. An entry
+contains unchanged `EvidenceDescriptorV1` under `evidence`, a prefix `excerpt` and exact-read
+`read` affordance. `complete` terminates the selected pool; `more_available` requires positive
+`returned` and `next_cursor`, including on envelope/content-limited pages. There is no ranking cap
+in catalog/browse and no promise of original-media completeness.
+
+Preview content is untrusted and capped at 2,048 UTF-8 bytes per entry / 16,384 per response; the
+canonical envelope cap is 32,768 bytes. Mandatory overflow is `response_too_large`. Reuse
+`read_evidence_v1` to reconstruct complete stored text and independently verify UTF-8 bytes, digest
+and full Source/Publication/revision/Run/fingerprint/locator citation lineage.
+
+Coverage is the selected Publication's persisted producing-Run report, not a capability score.
+PDF scalar counts retain their meanings. Catalog `page_char_counts` is empty with an explicit
+`page_char_counts_total` / `page_char_counts_omitted`; selected Source arrays contain at most 256
+entries and disclose omission. Missing PDF/transcript reports are `not_observed`, with null values
+rather than inferred counts/provenance. Transcript `evidence_kind="stored_transcript"` does not
+claim ASR quality or scene understanding. Suspected scans do not prove missing semantic content.
+
+Reads validate the Library/Source/Publication graph and load metadata/coverage/Evidence in one
+SQLite snapshot. Cursors bind operation, runtime owner, keyed configured-library identity, active
+set, page size, position and response schema; browse also binds Source/Publication/filter/order.
+Tampering or cross-tool reuse returns `invalid_cursor`; owner restart or active-set change returns
+`cursor_expired`. Restart initial discovery against current authority. Host paths, original files
+and inactive candidates are not returned. CLI uses these same adapters under one owner.
+
+See [the standalone mixed-PDF/transcript walkthrough](../how-to/discover-and-read-sources.md) and
+[ADR-0014](../decisions/0014-source-discovery-and-browsing.md).

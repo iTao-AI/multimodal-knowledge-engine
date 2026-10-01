@@ -35,6 +35,9 @@ Status:
 | Command | Status | Notes |
 |---|---|---|
 | `mke --db <path> ingest <file>` | implemented in PR 2, extended in PR 4, D1, and D3-B protocol work | PyMuPDF text-layer PDF path and documented short MP4 fixture profile. Persists candidate Evidence, validates a RunManifest, and activates a Source Publication atomically. PDF and eligible transcript success include intake summaries. |
+| `mke --db <path> sources list` | current source checkout | Active Source catalog with bounded authenticated pagination. |
+| `mke --db <path> source browse <source_id> --publication-id <id>` | current source checkout | Ordered active page/timestamp Evidence and producing-Run coverage. |
+| `mke --db <path> evidence read <evidence_id>` | current source checkout | Exact stored UTF-8 text with digest and citation lineage; automatic chunk traversal. |
 | `mke --db <path> search <query>` | implemented in PR 2, extended in E3-F | Searches active Publication Evidence through the selected owner-startup strategy. |
 | `mke --db <path> run get <run_id>` | implemented in PR 3, extended in D1 | Prints Run state, retry lineage, PDF intake summary when present, and append-only Run events. |
 | `mke proof run` | implemented in D2 | Runs the deterministic product proof harness across CLI-equivalent application behavior and MCP contract behavior. |
@@ -167,11 +170,11 @@ retrieval, RRF, reranking, query rewrite, OCR, or request DTO.
 
 ## MCP
 
-Status: implemented for the exact current ten-tool inventory. The canonical detailed contract is
+Status: implemented for the exact current twelve-tool inventory. The canonical detailed contract is
 the [MCP Contract Reference](./mcp-contract.md); this summary must remain aligned with that page
 and the live server inventory.
 
-MKE exposes exactly ten tools:
+MKE exposes exactly twelve tools:
 
 - `list_libraries`
 - `ingest_file`
@@ -183,6 +186,8 @@ MKE exposes exactly ten tools:
 - `ask_library_v1`
 - `search_library_v2`
 - `read_evidence_v1`
+- `list_sources_v1`
+- `browse_source_evidence_v1`
 
 `ask_library` returns deterministic Evidence packets, not model-generated answers. Successful
 responses include:
@@ -223,6 +228,14 @@ Cancellation and shutdown terminate registered adapter children and wait for Run
 Evidence locator payload shape.
 
 HTTP, CLI, MCP, and the workspace must use the same application services and project-owned DTOs.
+
+Catalog/browse add `mke.list_sources_response.v1` and `mke.browse_source_evidence_response.v1`.
+Native `request` envelopes have disjoint initial/cursor-only branches; page size is 1–20/default10.
+Page ranges are inclusive and timestamp ranges select overlap with an exclusive end. The active
+SQLite snapshot pins metadata, coverage and Evidence. Producing-Run coverage discloses omitted
+count arrays and `not_observed` reports; prefixes remain untrusted previews and exact text is read
+through unchanged `read_evidence_v1`. These current-checkout additions are not included in the
+historical ten-tool release receipt. See [Discover And Read Sources](../how-to/discover-and-read-sources.md).
 
 ## Compiled Library Export V1
 

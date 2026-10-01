@@ -370,3 +370,19 @@ MCP stdio request
 `active_set_fingerprint` is derived inside the same validated read transaction and exists only as
 a continuation-invalidation observation. It is not stored, activated, or treated as a
 Publication. MCP adds no parallel SQLite authority, ranking path, Agent loop, or network service.
+
+## Active Source Read Snapshots
+
+The current Source catalog/browse additions validate Library ownership and the active
+Source/Asset/Publication/Run/Manifest/Evidence graph, authenticate continuations, and load selected
+metadata, producing-Run coverage and Evidence within one SQLite read transaction. They reuse the
+existing transaction rather than issue nested BEGIN or create a competing catalog index. A
+concurrent Publication replacement cannot mix the old Source metadata with the new report/text;
+a later continuation expires against changed authority. Catalog reads no Evidence text.
+
+Coverage is bounded persisted observation with explicit array omission or `not_observed`, not an
+OCR/transcript/scene capability score. Exact stored text is recovered through the existing read
+contract and independently checked against the complete citation descriptor. No Source/Publication
+activation, Search ranking, extraction or export behavior changes. See
+[ADR-0014](../decisions/0014-source-discovery-and-browsing.md) and the
+[public walkthrough](../how-to/discover-and-read-sources.md).

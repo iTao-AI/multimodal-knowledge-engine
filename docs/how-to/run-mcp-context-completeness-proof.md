@@ -1,12 +1,13 @@
 # Run The MCP Context Completeness Proof
 
-This current-checkout proof documents the MCP consumer failure-branch/recovery proof added on the
-current default branch after stable `v0.1.6`. It is part of the bounded `v0.1.7` release-prep
-surface; it is not a package publication, hosted deployment, model/provider change, or
-retrieval-quality claim. The release record is in the [v0.1.7 Release Notes](../releases/v0.1.7.md);
+This guide retains the MCP consumer failure-branch/recovery proof recorded for `v0.1.7` after
+stable `v0.1.6`. The historical receipt remains release evidence; current script routing is
+explained below. The proof is not a package publication, hosted deployment, model/provider change,
+or retrieval-quality claim. The release record is in the [v0.1.7 Release Notes](../releases/v0.1.7.md);
 the stable `v0.1.6` record remains immutable.
 
-The proof covers the exact ten-tool inventory, bounded continuation, exact active Evidence reads,
+The historical v0.1.7 proof covered the exact ten-tool inventory, bounded continuation, exact
+active Evidence reads,
 legacy/v1 compatibility, and cache-warmed offline execution on Python 3.12 and 3.13. Stable failure
 codes map to operator actions in [Verify The Release](./verify-release.md); proof JSON is not
 relabelled as the product `problem/cause/next_step` contract.
@@ -41,8 +42,8 @@ file fails before build or installation.
 
 A successful closed aggregate v1 receipt retains its existing top-level shape and reports
 `source_import="installed_wheel"`,
-`network_access="not_used"`, `dependency_constraints="uv_lock_exact"`, both Python versions, ten
-tools, contract proof-point statuses, and the greatest observed canonical and SDK result byte
+`network_access="not_used"`, `dependency_constraints="uv_lock_exact"`, both Python versions and the
+expected tool count (the historical v0.1.7 receipt had ten tools), contract proof-point statuses, and the greatest observed canonical and SDK result byte
 counts. A failure prints only
 `{"status":"failed","code":"<stable-machine-code>"}`.
 
@@ -78,3 +79,15 @@ An issue may include dependency and Python versions, the public problem code, th
 step, and whether restart/reconnect succeeded. Never include Evidence or query text, a cursor,
 database path, username, local filename, private configuration, credentials, environment dumps,
 or tracebacks. Re-run with the documented public fixture rather than attaching private input.
+
+## Current Checkout Inventory
+
+Current proof scripts now route to the twelve-tool
+`tests/fixtures/source-discovery-v1/mcp-tool-schemas.json` fixture. The old ten-tool fixture and
+v0.1.7 installed-wheel receipt remain immutable historical evidence. Routing a current script to
+twelve tools does not establish a new same-wheel Python 3.12/3.13 result; such a run requires the
+existing installation/packaging authorization separately.
+
+The current Source workflow has a standalone [official-SDK synthetic example](./discover-and-read-sources.md)
+using an existing console entrypoint and source environment. Its current-source native receipt is
+not substituted for the historical installed-wheel proof.
