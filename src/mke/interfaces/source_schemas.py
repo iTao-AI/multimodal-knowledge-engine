@@ -4,7 +4,16 @@ from __future__ import annotations
 
 from typing import Annotated, Literal, Self
 
-from pydantic import Field, RootModel, StrictInt, TypeAdapter, model_validator
+from pydantic import (
+    Field,
+    GetJsonSchemaHandler,
+    RootModel,
+    StrictInt,
+    TypeAdapter,
+    model_validator,
+)
+from pydantic.json_schema import JsonSchemaValue
+from pydantic_core import CoreSchema
 
 from mke.interfaces.mcp_schemas import (
     ActiveAuthoritySnapshotV1,
@@ -70,9 +79,31 @@ BROWSE_SOURCE_INPUT_V1: TypeAdapter[BrowseSourceInputV1] = TypeAdapter(BrowseSou
 class ListSourcesV1Request(_RequestCapture):
     branches = (ListSourcesInitialV1, SourceContinuationV1)
 
+    @classmethod
+    def __get_pydantic_json_schema__(
+        cls,
+        core_schema: CoreSchema,
+        handler: GetJsonSchemaHandler,
+    ) -> JsonSchemaValue:
+        del core_schema
+        result = handler(LIST_SOURCES_INPUT_V1.core_schema)
+        result["oneOf"] = result.pop("anyOf")
+        return result
+
 
 class BrowseSourceEvidenceV1Request(_RequestCapture):
     branches = (BrowseSourceInitialV1, SourceContinuationV1)
+
+    @classmethod
+    def __get_pydantic_json_schema__(
+        cls,
+        core_schema: CoreSchema,
+        handler: GetJsonSchemaHandler,
+    ) -> JsonSchemaValue:
+        del core_schema
+        result = handler(BROWSE_SOURCE_INPUT_V1.core_schema)
+        result["oneOf"] = result.pop("anyOf")
+        return result
 
 
 class PdfSourceCoverageV1(_StrictModel):
