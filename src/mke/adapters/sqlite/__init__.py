@@ -109,6 +109,7 @@ if TYPE_CHECKING:
     )
 
 _BUSY_TIMEOUT_MS = 5000
+_MAX_SQLITE_INTEGER = 2**63 - 1
 _MAX_READABLE_EVIDENCE_BYTES = 16 * 1024 * 1024
 _MAX_SEARCH_PAGE_TEXT_BYTES = 16 * 1024 * 1024
 
@@ -1888,12 +1889,23 @@ class SQLiteStore:
             if locator_range is not None:
                 if locator_range.kind != kind:
                     raise ValueError("locator range kind does not match Source")
-                if kind == "page":
-                    conditions = "AND locator_start >= ? AND locator_start <= ?"
-                    parameters += (locator_range.start, locator_range.end)
+                # Keep the original unbounded range for authenticated cursors.
+                # SQLite locators occupy the signed integer domain: beyond it,
+                # the lower predicate is false and the upper predicate is true.
+                if locator_range.start > _MAX_SQLITE_INTEGER:
+                    conditions = "AND 0"
                 else:
-                    conditions = "AND locator_end > ? AND locator_start < ?"
-                    parameters += (locator_range.start, locator_range.end)
+                    conditions = (
+                        "AND locator_start >= ?" if kind == "page" else "AND locator_end > ?"
+                    )
+                    parameters += (locator_range.start,)
+                    if locator_range.end <= _MAX_SQLITE_INTEGER:
+                        conditions += (
+                            " AND locator_start <= ?"
+                            if kind == "page"
+                            else " AND locator_start < ?"
+                        )
+                        parameters += (locator_range.end,)
             candidates = self._connection.execute(
                 f"""SELECT evidence_id, locator_kind, locator_start, locator_end,
                            length(CAST(text AS BLOB)) AS text_bytes

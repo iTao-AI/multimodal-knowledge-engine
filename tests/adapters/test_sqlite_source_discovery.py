@@ -1,6 +1,7 @@
 import hashlib
 import sqlite3
 from pathlib import Path
+from typing import Literal
 
 import pytest
 
@@ -591,5 +592,139 @@ def test_discovery_accepts_an_empty_uninitialized_library(tmp_path: Path) -> Non
         assert page.authority.observation.state == "empty"
         assert page.sources == ()
         assert page.more_available is False
+    finally:
+        engine.close()
+
+
+def publish_boundary_locators(
+    engine: KnowledgeEngine,
+    kind: Literal["page", "timestamp_ms"],
+) -> tuple[str, str]:
+    """Declared candidate fixture at the actual SQLite integer locator boundary."""
+    from mke.domain import REQUIRED_VIDEO_STAGES, VIDEO_TRANSCRIPT_FINGERPRINT
+
+    maximum = 2**63 - 1
+    fingerprint = ("a" if kind == "page" else "b") * 64
+    source = engine.ensure_source(
+        "boundary.pdf" if kind == "page" else "boundary.mp4",
+        fingerprint,
+        media_type="application/pdf" if kind == "page" else "video/mp4",
+    )
+    locators = (
+        ((1, 1), (maximum - 1, maximum - 1), (maximum, maximum))
+        if kind == "page"
+        else ((0, 1), (maximum - 2, maximum - 1), (maximum - 1, maximum))
+    )
+    run = engine.create_run(source.source_id)
+    engine.persist_validated_candidate(
+        run.run_id,
+        [
+            CandidateEvidence(
+                f"ev_{fingerprint[0]}{index:031x}",
+                kind,
+                start,
+                end,
+                f"boundary text {index}",
+            )
+            for index, (start, end) in enumerate(locators, 1)
+        ],
+        RunManifest(
+            run.run_id,
+            len(locators),
+            tuple(sorted(REQUIRED_PDF_STAGES if kind == "page" else REQUIRED_VIDEO_STAGES)),
+            PDF_EXTRACTOR_FINGERPRINT if kind == "page" else VIDEO_TRANSCRIPT_FINGERPRINT,
+            fingerprint,
+        ),
+    )
+    engine.activate_publication(run.run_id)
+    selected = engine.ensure_source(
+        "boundary",
+        fingerprint,
+        media_type="application/pdf" if kind == "page" else "video/mp4",
+    )
+    assert selected.active_publication_id is not None
+    return source.source_id, selected.active_publication_id
+
+
+@pytest.mark.parametrize("kind", ["page", "timestamp_ms"])
+@pytest.mark.parametrize("scenario", ["exact_end", "overflow_end", "huge_end", "overflow_start"])
+def test_source_ranges_above_sqlite_domain_keep_locator_semantics(
+    tmp_path: Path,
+    kind: Literal["page", "timestamp_ms"],
+    scenario: str,
+) -> None:
+    from mke.domain.source_discovery import SourceLocatorRange
+
+    maximum = 2**63 - 1
+    end = {
+        "exact_end": maximum,
+        "overflow_end": maximum + 1,
+        "huge_end": 10**100,
+        "overflow_start": maximum + 2,
+    }[scenario]
+    start = maximum + 1 if scenario == "overflow_start" else (1 if kind == "page" else 0)
+    locator_range = SourceLocatorRange(kind, start, end)
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    try:
+        source, publication = publish_boundary_locators(engine, kind)
+        actual: list[int] = []
+        for position in range(3):
+            page = engine.browse_source_evidence_page(
+                source,
+                publication,
+                locator_range=locator_range,
+                position=position,
+                page_size=1,
+                authority_validator=lambda _: None,
+            )
+            actual.extend(entry.descriptor.locator_start for entry in page.entries)
+            assert page.more_available == (scenario != "overflow_start" and position < 2)
+            if not page.more_available:
+                break
+        assert actual == (
+            []
+            if scenario == "overflow_start"
+            else ([1, maximum - 1, maximum] if kind == "page" else [0, maximum - 2, maximum - 1])
+        )
+        assert locator_range.start == start and locator_range.end == end
+    finally:
+        engine.close()
+
+
+@pytest.mark.parametrize("kind", ["page", "timestamp_ms"])
+def test_source_range_exact_sqlite_boundaries_keep_inclusive_and_overlap_rules(
+    tmp_path: Path,
+    kind: Literal["page", "timestamp_ms"],
+) -> None:
+    from mke.domain.source_discovery import SourceLocatorRange
+
+    maximum = 2**63 - 1
+    ranges: list[tuple[int, int, list[int]]] = (
+        [
+            (maximum, maximum, [maximum]),
+            (maximum - 1, maximum, [maximum - 1, maximum]),
+            (maximum, maximum + 1, [maximum]),
+        ]
+        if kind == "page"
+        else [
+            (maximum - 1, maximum, [maximum - 1]),
+            (maximum - 2, maximum - 1, [maximum - 2]),
+            (maximum, maximum + 1, []),
+        ]
+    )
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    try:
+        source, publication = publish_boundary_locators(engine, kind)
+        for start, end, expected in ranges:
+            page = engine.browse_source_evidence_page(
+                source,
+                publication,
+                locator_range=SourceLocatorRange(kind, start, end),
+                position=0,
+                page_size=10,
+                authority_validator=lambda _: None,
+            )
+            assert [entry.descriptor.locator_start for entry in page.entries] == expected
+            assert not page.more_available
     finally:
         engine.close()
