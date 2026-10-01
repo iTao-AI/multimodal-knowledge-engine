@@ -49,11 +49,22 @@ from mke.domain.evidence_access import (
     ActiveAuthorityRecord,
     ActiveAuthoritySnapshot,
     ActiveEvidenceRecord,
+    EvidenceDescriptor,
     EvidenceReadSnapshot,
     EvidenceSearchPage,
     MatchHint,
     SelectedEvidence,
     derive_active_set_fingerprint,
+)
+from mke.domain.source_discovery import (
+    PdfSourceCoverage,
+    SourceBrowseEntry,
+    SourceBrowsePage,
+    SourceCatalogPage,
+    SourceCoverage,
+    SourceLocatorRange,
+    SourceMetadata,
+    TranscriptSourceCoverage,
 )
 from mke.retrieval import (
     DEFAULT_RETRIEVAL_STRATEGY,
@@ -1692,6 +1703,239 @@ class SQLiteStore:
         return ActiveAuthoritySnapshot(
             observation, derive_active_set_fingerprint(records)
         )
+
+    def _source_discovery_authority(self) -> ActiveAuthoritySnapshot:
+        # Preflight public metadata before the existing graph validator materializes it.
+        oversized = self._connection.execute(
+            """SELECT 1 FROM sources
+               JOIN assets USING(asset_id)
+               JOIN publications ON publications.publication_id = sources.active_publication_id
+               JOIN run_manifests ON run_manifests.run_id = publications.run_id
+               WHERE length(CAST(sources.display_name AS BLOB)) > 32768
+                  OR length(CAST(assets.media_type AS BLOB)) > 32768
+                  OR length(CAST(run_manifests.required_stages AS BLOB)) > 32768
+                  OR length(CAST(run_manifests.extractor_fingerprint AS BLOB)) > 32768
+               LIMIT 1"""
+        ).fetchone()
+        if oversized is not None:
+            raise EvidenceResponseTooLargeError
+        return self._active_authority_snapshot()
+
+    def _source_coverage(self, run_id: str, media_type: str, *, details: bool) -> SourceCoverage:
+        if media_type == "application/pdf":
+            row = self._connection.execute(
+                """SELECT total_pages, extracted_pages, empty_pages, suspected_scanned_pages,
+                          total_extracted_chars,
+                          CASE WHEN length(CAST(extraction_mode AS BLOB)) <= 4096
+                               THEN extraction_mode END AS extraction_mode,
+                          json_array_length(page_char_counts) AS counts_total
+                   FROM pdf_intake_reports WHERE run_id = ?""",
+                (run_id,),
+            ).fetchone()
+            if row is None:
+                return PdfSourceCoverage("not_observed")
+            if row["extraction_mode"] is None:
+                raise EvidenceResponseTooLargeError
+            count = self._require_sqlite_int(row["counts_total"], "invalid PDF coverage")
+            counts: tuple[int, ...] = ()
+            if details:
+                values = self._connection.execute(
+                    """SELECT item.value, item.type
+                       FROM pdf_intake_reports, json_each(page_char_counts) AS item
+                       WHERE run_id = ? ORDER BY CAST(item.key AS INTEGER) LIMIT 256""",
+                    (run_id,),
+                ).fetchall()
+                if any(item["type"] != "integer" or item["value"] < 0 for item in values):
+                    raise ManifestValidationError("invalid PDF coverage")
+                counts = tuple(int(item["value"]) for item in values)
+            scalars = [
+                self._require_sqlite_int(row[field], "invalid PDF coverage")
+                for field in (
+                    "total_pages",
+                    "extracted_pages",
+                    "empty_pages",
+                    "suspected_scanned_pages",
+                    "total_extracted_chars",
+                )
+            ]
+            if scalars[0] < 1 or any(value < 0 for value in scalars[1:]) or count != scalars[0]:
+                raise ManifestValidationError("invalid PDF coverage")
+            return PdfSourceCoverage(
+                report_status="observed",
+                extraction_mode=str(row["extraction_mode"]),
+                total_pages=scalars[0],
+                extracted_pages=scalars[1],
+                empty_pages=scalars[2],
+                suspected_scanned_pages=scalars[3],
+                total_extracted_chars=scalars[4],
+                page_char_counts=counts,
+                page_char_counts_total=count,
+                page_char_counts_omitted=len(counts) < count,
+            )
+        row = self._connection.execute(
+            "SELECT * FROM transcript_intake_reports WHERE run_id = ?", (run_id,)
+        ).fetchone()
+        if row is None:
+            return TranscriptSourceCoverage("not_observed")
+        report = TranscriptIntakeReport(**{key: row[key] for key in row.keys() if key != "run_id"})
+        return TranscriptSourceCoverage("observed", report)
+
+    def _source_metadata(self, row: sqlite3.Row, *, details: bool) -> SourceMetadata:
+        # Stored labels are untrusted: only a leaf name can be exposed.
+        name = str(row["display_name"]).replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+        name = name if name not in {"", ".", ".."} else "Source"
+        return SourceMetadata(
+            source_id=str(row["source_id"]),
+            display_name=name,
+            media_type=str(row["media_type"]),
+            content_fingerprint=f"sha256:{row['source_sha256']}",
+            publication_id=str(row["publication_id"]),
+            publication_revision=int(row["revision"]),
+            run_id=str(row["run_id"]),
+            extractor_fingerprint=str(row["extractor_fingerprint"]),
+            required_stages=tuple(sorted(str(row["required_stages"]).split(","))),
+            evidence_count=int(row["manifest_evidence_count"]),
+            coverage=self._source_coverage(
+                str(row["run_id"]), str(row["media_type"]), details=details
+            ),
+        )
+
+    def _select_source_metadata(
+        self, where: str, parameters: tuple[object, ...], *, limit: int, position: int
+    ) -> list[sqlite3.Row]:
+        return self._connection.execute(
+            f"""SELECT sources.source_id, sources.display_name, assets.media_type,
+                       assets.sha256 AS source_sha256, publications.publication_id,
+                       publications.revision, publications.run_id,
+                       run_manifests.extractor_fingerprint, run_manifests.required_stages,
+                       run_manifests.evidence_count AS manifest_evidence_count
+                FROM sources JOIN assets USING(asset_id)
+                JOIN publications ON publications.publication_id = sources.active_publication_id
+                JOIN run_manifests ON run_manifests.run_id = publications.run_id
+                WHERE {where}
+                ORDER BY assets.sha256, sources.source_id LIMIT ? OFFSET ?""",
+            (*parameters, limit, position),
+        ).fetchall()
+
+    def list_sources_page(
+        self,
+        *,
+        position: int,
+        page_size: int,
+        authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+    ) -> SourceCatalogPage:
+        self._validate_source_page_range(position, page_size)
+        try:
+            authority = self._source_discovery_authority()
+            authority_validator(authority)
+            rows = self._select_source_metadata("1=1", (), limit=page_size + 1, position=position)
+            page = SourceCatalogPage(
+                authority,
+                position,
+                tuple(self._source_metadata(row, details=False) for row in rows[:page_size]),
+                len(rows) > page_size,
+            )
+            self._connection.commit()
+            return page
+        except Exception:
+            self._connection.rollback()
+            raise
+
+    @staticmethod
+    def _validate_source_page_range(position: int, page_size: int) -> None:
+        if (
+            type(position) is not int
+            or position < 0
+            or type(page_size) is not int
+            or not 1 <= page_size <= 20
+        ):
+            raise ValueError("invalid Source page range")
+
+    def browse_source_evidence_page(
+        self,
+        source_id: str,
+        publication_id: str,
+        *,
+        locator_range: SourceLocatorRange | None,
+        position: int,
+        page_size: int,
+        authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+    ) -> SourceBrowsePage:
+        from mke.application.evidence_access import build_excerpt
+
+        self._validate_source_page_range(position, page_size)
+        try:
+            authority = self._source_discovery_authority()
+            authority_validator(authority)
+            rows = self._select_source_metadata(
+                "sources.source_id = ? AND publications.publication_id = ?",
+                (source_id, publication_id),
+                limit=1,
+                position=0,
+            )
+            if not rows:
+                raise EvidenceNotFoundError
+            source = self._source_metadata(rows[0], details=True)
+            kind = "page" if source.media_type == "application/pdf" else "timestamp_ms"
+            conditions = ""
+            parameters: tuple[object, ...] = (source_id, source.run_id)
+            if locator_range is not None:
+                if locator_range.kind != kind:
+                    raise ValueError("locator range kind does not match Source")
+                if kind == "page":
+                    conditions = "AND locator_start >= ? AND locator_start <= ?"
+                    parameters += (locator_range.start, locator_range.end)
+                else:
+                    conditions = "AND locator_end > ? AND locator_start < ?"
+                    parameters += (locator_range.start, locator_range.end)
+            candidates = self._connection.execute(
+                f"""SELECT evidence_id, locator_kind, locator_start, locator_end,
+                           length(CAST(text AS BLOB)) AS text_bytes
+                    FROM evidence WHERE source_id = ? AND run_id = ? {conditions}
+                    ORDER BY locator_start, locator_end, evidence_id LIMIT ? OFFSET ?""",
+                (*parameters, page_size + 1, position),
+            ).fetchall()
+            selected: list[sqlite3.Row] = []
+            text_bytes = 0
+            for row in candidates[:page_size]:
+                size = self._require_sqlite_int(row["text_bytes"], "invalid active Evidence")
+                if size < 1 or row["locator_kind"] != kind:
+                    raise ManifestValidationError("invalid active Evidence")
+                if size > _MAX_READABLE_EVIDENCE_BYTES:
+                    raise EvidenceResponseTooLargeError
+                if selected and text_bytes + size > _MAX_SEARCH_PAGE_TEXT_BYTES:
+                    break
+                selected.append(row)
+                text_bytes += size
+            entries: list[SourceBrowseEntry] = []
+            for row in selected:
+                text_row = self._connection.execute(
+                    "SELECT text FROM evidence WHERE evidence_id = ?", (row["evidence_id"],)
+                ).fetchone()
+                assert text_row is not None
+                text = str(text_row["text"])
+                descriptor = EvidenceDescriptor(
+                    evidence_id=str(row["evidence_id"]),
+                    source_id=source.source_id,
+                    content_fingerprint=source.content_fingerprint,
+                    publication_id=source.publication_id,
+                    publication_revision=source.publication_revision,
+                    run_id=source.run_id,
+                    locator_kind=cast(Literal["page", "timestamp_ms"], row["locator_kind"]),
+                    locator_start=int(row["locator_start"]),
+                    locator_end=int(row["locator_end"]),
+                    evidence_text_sha256=f"sha256:{sha256(text.encode()).hexdigest()}",
+                    original_utf8_bytes=int(row["text_bytes"]),
+                )
+                entries.append(SourceBrowseEntry(descriptor, build_excerpt(text, hints=())))
+            page = SourceBrowsePage(
+                authority, position, source, tuple(entries), len(candidates) > len(selected)
+            )
+            self._connection.commit()
+            return page
+        except Exception:
+            self._connection.rollback()
+            raise
 
     def search_evidence_page(
         self,
