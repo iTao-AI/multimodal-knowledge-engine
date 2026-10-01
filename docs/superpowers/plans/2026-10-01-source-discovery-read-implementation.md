@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-01-source-discovery-read.md`
 
-**Status:** Active local implementation; Task 1 completed and independently reviewed on 2026-10-02. Starting HEAD: `102b114d150f005ed66f680b995b7b9733d985cb`; branch: `codex/source-discovery-read`.
+**Status:** Active local implementation; Tasks 1 and 2 completed and independently reviewed on 2026-10-02. Starting HEAD: `102b114d150f005ed66f680b995b7b9733d985cb`; branch: `codex/source-discovery-read`.
 
 ## Global Constraints
 
@@ -76,11 +76,11 @@
 - Consumes: Task 1 facade methods, strict schemas, projections and cursor APIs; existing `McpRuntimeConfig`, `RuntimeConfig.owner_state`, `read_evidence_v1`.
 - Produces: `list_sources_v1(config, request)` and `browse_source_evidence_v1(config, request)` shared operations, native FastMCP tool registration, CLI commands specified above. JSON CLI output uses the same strict canonical models as MCP.
 
-- [ ] **Step 1: Add failing adapter/discovery tests and observe RED.** Assert twelve registered tools, native `request` envelopes, structured output, read-only annotations and exact old schema equality. Assert both new schema versions, public redaction, invalid ranges/IDs/cursors, 1–20 default-10 pages, explicit more/complete states, and complete exact-read reuse.
-- [ ] **Step 2: Add failing subprocess CLI/stdin-stdout SDK tests.** Generate a small synthetic PDF with a requested page outside a chosen lexical query, plus timestamp transcript fixture. Invoke the installed CLI entrypoint against current source and a real stdio SDK client. Discover Source -> select explicit Publication -> browse page/time interval -> concatenate exact-read chunks -> verify original digest and citation fields. Exercise multiple catalog/browse pages and fail on replacement during continuation; CLI retains one owner throughout.
-- [ ] **Step 3: Implement shared adapters and registrations.** Keep storage/cursor validation in the snapshot, apply final canonical response budgets, catch errors through bounded public serializers, and stream CLI pages/chunks under one owner. Preserve all old descriptions/schemas/annotations. Add current fixture routing without rewriting historical expectations.
-- [ ] **Step 4: Run focused GREEN and consumer regressions.** Run new interface/proof tests, current MCP fixture tests, MCP completeness/contract tests, and existing provenance and source-pack consumer tests. Verify installed module import identity and actual native tool calls in report. Required result: all pass with no transport fabrication.
-- [ ] **Step 5: Self-review and commit intentional files.** Commit message: `feat: expose source discovery through MCP and CLI`. Return exact HEAD, native consumer evidence and concerns for task-scoped spec/quality review.
+- [x] **Step 1: Add failing adapter/discovery tests and observe RED.** Assert twelve registered tools, native `request` envelopes, structured output, read-only annotations and exact old schema equality. Assert both new schema versions, public redaction, invalid ranges/IDs/cursors, 1–20 default-10 pages, explicit more/complete states, and complete exact-read reuse.
+- [x] **Step 2: Add failing subprocess CLI/stdin-stdout SDK tests.** Generate a small synthetic PDF with a requested page outside a chosen lexical query, plus timestamp transcript fixture. Invoke the installed CLI entrypoint against current source and a real stdio SDK client. Discover Source -> select explicit Publication -> browse page/time interval -> concatenate exact-read chunks -> verify original digest and citation fields. Exercise multiple catalog/browse pages and fail on replacement during continuation; CLI retains one owner throughout.
+- [x] **Step 3: Implement shared adapters and registrations.** Keep storage/cursor validation in the snapshot, apply final canonical response budgets, catch errors through bounded public serializers, and stream CLI pages/chunks under one owner. Preserve all old descriptions/schemas/annotations. Add current fixture routing without rewriting historical expectations.
+- [x] **Step 4: Run focused GREEN and consumer regressions.** Run new interface/proof tests, current MCP fixture tests, MCP completeness/contract tests, and existing provenance and source-pack consumer tests. Verify installed module import identity and actual native tool calls in report. Required result: all pass with no transport fabrication.
+- [x] **Step 5: Self-review and commit intentional files.** Commit message: `feat: expose source discovery through MCP and CLI`. Return exact HEAD, native consumer evidence and concerns for task-scoped spec/quality review.
 
 ### Task 3: Independent example, honest coverage, durable contract and final verification
 
