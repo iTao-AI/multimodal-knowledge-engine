@@ -47,14 +47,13 @@ def test_native_unicode_escape_and_metadata_response_budgets(tmp_path: Path) -> 
     from tests.source_discovery_support import publish_pages
 
     database = tmp_path / "mke.sqlite"
+    preview_text = '三🙂"\n\\' * 1000
+    assert "\n" in preview_text
+    assert "\\" in preview_text
+    assert '"' in preview_text and "三🙂" in preview_text
     source, publication = publish_pages(
         database,
-        (
-            '三🙂"\
-'
-            * 1000,
-        )
-        * 20,
+        (preview_text,) * 20,
         name="目录" * 1200 + ".pdf",
     )
 
