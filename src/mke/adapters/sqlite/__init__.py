@@ -1705,6 +1705,12 @@ class SQLiteStore:
         )
 
     def _source_discovery_authority(self) -> ActiveAuthoritySnapshot:
+        orphaned_sources = self._connection.execute(
+            """SELECT 1 FROM sources
+               WHERE NOT EXISTS (SELECT 1 FROM libraries) LIMIT 1"""
+        ).fetchone()
+        if orphaned_sources is not None:
+            raise ManifestValidationError("implicit local Library ownership is invalid")
         # Preflight public metadata before the existing graph validator materializes it.
         oversized = self._connection.execute(
             """SELECT 1 FROM sources

@@ -551,3 +551,45 @@ def test_copied_library_with_same_active_ids_rejects_catalog_cursor(tmp_path: Pa
             )
     finally:
         copied.close()
+
+
+@pytest.mark.parametrize("operation", ["catalog", "browse"])
+def test_discovery_rejects_sources_without_library(tmp_path: Path, operation: str) -> None:
+    from mke.domain import ManifestValidationError
+
+    path = tmp_path / "mke.sqlite"
+    engine = KnowledgeEngine(path)
+    try:
+        source, publication, _ = publish(engine)
+        # A separate corrupt-fixture writer has foreign-key enforcement disabled.
+        with sqlite3.connect(path) as writer:
+            writer.execute("DELETE FROM libraries")
+        with pytest.raises(ManifestValidationError, match="Library ownership"):
+            if operation == "catalog":
+                engine.list_sources_page(
+                    position=0, page_size=10, authority_validator=lambda _: None
+                )
+            else:
+                engine.browse_source_evidence_page(
+                    source,
+                    publication,
+                    locator_range=None,
+                    position=0,
+                    page_size=10,
+                    authority_validator=lambda _: None,
+                )
+    finally:
+        engine.close()
+
+
+def test_discovery_accepts_an_empty_uninitialized_library(tmp_path: Path) -> None:
+    engine = KnowledgeEngine(tmp_path / "mke.sqlite")
+    try:
+        page = engine.list_sources_page(
+            position=0, page_size=10, authority_validator=lambda _: None
+        )
+        assert page.authority.observation.state == "empty"
+        assert page.sources == ()
+        assert page.more_available is False
+    finally:
+        engine.close()
