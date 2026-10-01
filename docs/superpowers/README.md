@@ -20,5 +20,7 @@ Artifacts are grouped under [`specs/`](./specs/), [`plans/`](./plans/), and
 For the current Source discovery/read workflow, start with
 [ADR-0014](../decisions/0014-source-discovery-and-browsing.md),
 [the MCP reference](../reference/mcp-contract.md) and
-[the independent walkthrough](../how-to/discover-and-read-sources.md). The approved Source design
-and plan here record implementation history; their placement does not imply release publication.
+[the independent walkthrough](../how-to/discover-and-read-sources.md). The approved Source design,
+[completed plan](./plans/2026-10-01-source-discovery-read-implementation.md) and
+[final local review](./reviews/2026-10-01-source-discovery-read-review.md) record implementation
+history; their placement does not imply release publication.
