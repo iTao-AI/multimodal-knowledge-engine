@@ -154,6 +154,10 @@ Superpowers specs and plans are implementation history. Long-lived architecture 
 - Accept a public-neutral brief or approved spec with scope, constraints, observable acceptance,
   delivery owner, Git starting point, and authorization. Persist larger designs under the paths
   above; small work needs only a brief. Directory placement alone is not approval.
+- When the task specifies a delegated approval owner, send new approval requests to that owner
+  with the action, scope, impact, and evidence. Existing authorization remains valid within its
+  scope. Ask for the user's personal confirmation when delegation or host policy does not permit
+  the owner to approve the action.
 - Reuse approved design; use `superpowers:writing-plans` only for missing implementation details.
   Choose direct execution for small work, or `superpowers:executing-plans` for self-implementation,
   or `superpowers:subagent-driven-development` for managed implementation and review. Do not

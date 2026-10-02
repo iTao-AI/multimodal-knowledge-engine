@@ -125,6 +125,11 @@ Report one terminal state:
 
 Do not repeatedly poll unchanged hosted state. Resume after a bounded wait or a new event.
 
+When the task specifies a delegated approval owner, send new approval requests to that owner with
+the action, scope, impact, and evidence. Existing authorization remains valid within its scope.
+Ask for the user's personal confirmation when delegation or host policy does not permit the owner
+to approve the action.
+
 Cleanup is separately gated. Remove only a task-owned branch or worktree that is clean, inactive,
 and whose results are retained by a verified merge or another explicit authority. Confirm remote
 state before deletion, prune only stale worktree metadata, and leave unrelated worktrees, caches,
