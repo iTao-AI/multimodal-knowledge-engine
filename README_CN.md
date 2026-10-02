@@ -408,6 +408,17 @@ uv build
 MIT，详见 [LICENSE](./LICENSE)。
 ## MCP 上下文完整性
 
-十工具清单、完整性语义、精确 Evidence 读取契约与稳定恢复操作统一维护在
+十二工具清单、完整性语义、精确 Evidence 读取契约与稳定恢复操作统一维护在
 [MCP 契约参考](./docs/reference/mcp-contract.md)。安装 wheel 后的验证方式见
 [MCP 上下文完整性证明](./docs/how-to/run-mcp-context-completeness-proof.md)。
+
+## 发现并读取 Active Sources
+
+当前 source checkout 新增 `list_sources_v1`、`browse_source_evidence_v1`，组成十二工具 stdio MCP
+清单，并提供 `mke sources list`、`mke source browse`、`mke evidence read`。选择明确的
+Source/Publication 后，按 page 或 timestamp 浏览已存储 Evidence，再使用原有 `read_evidence_v1`
+验证完整 UTF-8 字节、digest 与 citation provenance。
+
+[独立混合 PDF / sidecar 示例](./docs/how-to/discover-and-read-sources.md)披露实际 text-layer coverage、
+数组省略和 `not_observed` transcript provenance。新增能力属于当前 checkout；不改写稳定 v0.1.7
+发布记录，也不宣称新的 installed-wheel / dual-Python proof。

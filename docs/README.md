@@ -23,6 +23,8 @@ auditing implementation history.
 - [Run The Local Product Proof](./how-to/run-local-product-proof.md)
 - [Run The Local Knowledge Proof](./how-to/run-local-knowledge-proof.md)
 - [Use MKE As A Local MCP Server](./how-to/use-mke-mcp.md)
+- [Discover And Read Sources](./how-to/discover-and-read-sources.md) — current-checkout independent
+  mixed-PDF/sidecar navigation and exact UTF-8/citation verification; not a new release proof.
 - [MCP Contract Reference](./reference/mcp-contract.md)
 - [Run The Evidence Provenance Proof](./how-to/run-evidence-provenance-proof.md)
 - [Run The Consumer Source-Pack Proof](./how-to/run-consumer-source-pack-proof.md) documents a
@@ -124,6 +126,9 @@ private planning notes do not belong in this repository.
   ordering, revision-2 cursor invalidation, and layered compatibility authority.
 - [ADR-0013](./decisions/0013-mixed-cjk-fts-intent-retrieval.md) defines the opt-in mixed CJK/ASCII
   intent selector and its unchanged rollback boundary.
+
+- [ADR-0014](./decisions/0014-source-discovery-and-browsing.md) defines active Source catalog/browse,
+  coherent snapshots, authenticated continuations and honest persisted coverage.
 
 ## Implementation History
 

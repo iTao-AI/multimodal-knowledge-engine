@@ -143,6 +143,8 @@ def _dispatch_command(
     if args.command == "library" and args.library_command == "export":
         return _handle_library_export(parser, args, raw_argv)
     _validate_command_options(parser, args, raw_argv)
+    if args.command in {"sources", "source", "evidence"}:
+        return _handle_source_discovery(parser, args)
     if args.command == "eval":
         return _handle_evaluation(parser, args)
     if args.command == "demo":
@@ -1778,3 +1780,74 @@ def _format_transcript_intake_report(report: TranscriptIntakeReport) -> str:
     payload = transcript_intake_report_payload(report)
     fields = " ".join(f"{key}={value}" for key, value in payload.items())
     return f"transcript_intake_report {fields}"
+
+
+def _handle_source_discovery(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
+    from mke.interfaces.mcp_completeness_contract import read_evidence_v1
+    from mke.interfaces.mcp_schemas import ReadEvidenceV1Request
+    from mke.interfaces.source_discovery import browse_source_evidence_v1, list_sources_v1
+    from mke.interfaces.source_schemas import BrowseSourceEvidenceV1Request, ListSourcesV1Request
+
+    # One owner config persists through every authenticated page/chunk of this command.
+    config = McpRuntimeConfig(runtime_config_from_args(args), Path.cwd())
+    request: dict[str, object]
+    if args.command == "sources":
+        request = {"page_size": args.page_size}
+    elif args.command == "source":
+        page = (args.page_start, args.page_end)
+        timestamp = (args.start_ms, args.end_ms)
+        if ((any(value is not None for value in page) and None in page)
+                or (any(value is not None for value in timestamp) and None in timestamp)):
+            parser.error("locator ranges require both start and end")
+        if page[0] is not None and timestamp[0] is not None:
+            parser.error("choose either page or timestamp range")
+        request = {
+            "source_id": args.source_id, "publication_id": args.publication_id,
+            "page_size": args.page_size,
+        }
+        if page[0] is not None or timestamp[0] is not None:
+            kind = "page" if page[0] is not None else "timestamp_ms"
+            start, end = page if kind == "page" else timestamp
+            request["locator_range"] = {"kind": kind, "start": start, "end": end}
+    else:
+        request = {"evidence_id": args.evidence_id, "max_bytes": args.max_bytes}
+    try:
+        while True:
+            if args.command == "sources":
+                response = list_sources_v1(config, ListSourcesV1Request(root=request))
+            elif args.command == "source":
+                response = browse_source_evidence_v1(
+                    config, BrowseSourceEvidenceV1Request(root=request),
+                )
+            else:
+                response = read_evidence_v1(config, ReadEvidenceV1Request(root=request))
+            payload = response.model_dump(mode="json")
+            if args.json_output:
+                print(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), flush=True)
+            elif not payload["ok"]:
+                print(f"problem={payload['problem']} cause={payload['cause']} "
+                      f"next_step={payload['next_step']}", flush=True)
+            elif args.command == "sources":
+                for item in payload["sources"]:
+                    print(f"source_id={item['source_id']} publication_id={item['publication_id']} "
+                          f"name={item['display_name']} evidence_count={item['evidence_count']}")
+            elif args.command == "source":
+                for item in payload["entries"]:
+                    print(f"evidence_id={item['evidence']['evidence_id']} "
+                          f"locator={item['evidence']['locator']} "
+                          f"preview_complete={item['excerpt']['complete']} "
+                          f"text={item['excerpt']['text']}")
+            else:
+                print(payload["content"]["text"], end="", flush=True)
+            if not payload["ok"]:
+                return 1
+            if args.command == "evidence":
+                cursor = payload["next_cursor"]
+            else:
+                selection = payload["selection"]
+                cursor = selection.get("next_cursor")
+            if cursor is None:
+                return 0
+            request = {"cursor": cursor}
+    finally:
+        config.runtime.process_controller.shutdown()
