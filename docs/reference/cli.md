@@ -654,9 +654,9 @@ mke --db <library.sqlite3> mcp --allowed-root <directory>
 - Runs a local stdio MCP server.
 - `--allowed-root` defaults to the current working directory.
 - `ingest_file` rejects paths outside `--allowed-root`.
-- The exact ten-tool inventory is `list_libraries`, `ingest_file`, `get_run`, `search_library`,
+- The exact twelve-tool inventory is `list_libraries`, `ingest_file`, `get_run`, `search_library`,
   `ask_library`, `list_libraries_v1`, `search_library_v1`, `ask_library_v1`,
-  `search_library_v2`, and `read_evidence_v1`.
+  `search_library_v2`, `read_evidence_v1`, `list_sources_v1`, and `browse_source_evidence_v1`.
 - Retrieval strategy is owner-startup configuration. It is not present in MCP tool schemas.
 - `--retrieval-strategy numeric-grouping-v1` rolls Search and Ask back without changing the
   database or rebuilding a projection. `current` remains the lower-level rollback.
@@ -713,3 +713,32 @@ First-party adapter failures preserve stable recovery actions such as
 
 Generative Ask, HTTP, workspace UI, OCR, scanned PDFs, long videos, bundled model weights, tables,
 page coordinates, hosted coordination, and multi-worker behavior remain outside scope.
+
+## Source Discovery And Exact Reading
+
+Available in the current source checkout; historical release/wheel-proof receipts are unchanged.
+
+```text
+mke --db <path> sources list [--page-size 1..20] [--json]
+mke --db <path> source browse <source_id> --publication-id <id>
+    [--page-size 1..20] [--page-start <start> --page-end <end> |
+                       --start-ms <start> --end-ms <end>] [--json]
+mke --db <path> evidence read <evidence_id> [--max-bytes 4..16384] [--json]
+```
+
+Catalog/browse defaults to page size 10. PDF boundaries are positive/inclusive; time boundaries
+are nonnegative start / greater exclusive end and select overlapping stored Evidence. Boundary
+flags must be paired and kinds cannot be mixed. Omit ranges to browse all selected active Evidence.
+Locators sort by start, end, Evidence ID. Exact-read max bytes defaults to 16,384.
+
+Each command automatically follows authenticated continuations under one runtime owner, printing
+one canonical strict response per NDJSON line with `--json`. Catalog uses
+`mke.list_sources_response.v1`, browse uses `mke.browse_source_evidence_response.v1`, and read keeps
+`mke.read_evidence_response.v1`. There is no unchecked numeric-offset option. Exit 0 means traversal
+completed; public errors exit 1, invalid usage exits 2. After owner/active-set expiry, rerun initial
+discovery against current authority rather than reusing an old token.
+
+PDF coverage is persisted producing-Run text-layer observation with scalar empty/suspected counts,
+bounded detailed arrays and explicit omissions; missing reports are `not_observed`. Transcript
+Evidence does not imply ASR quality or frame understanding. Preview limits and exact UTF-8/citation
+verification are described in [Discover And Read Sources](../how-to/discover-and-read-sources.md).

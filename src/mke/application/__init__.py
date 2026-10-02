@@ -66,6 +66,7 @@ from mke.domain import (
     is_recognized_audio_fingerprint,
     validate_manifest,
 )
+from mke.domain.source_discovery import SourceBrowsePage, SourceCatalogPage, SourceLocatorRange
 from mke.retrieval import (
     DEFAULT_RETRIEVAL_STRATEGY,
     RetrievalQueryPolicy,
@@ -353,6 +354,36 @@ class KnowledgeEngine:
     ) -> EvidenceSearchPage:
         return self._store.search_evidence_page(
             query,
+            position=position,
+            page_size=page_size,
+            authority_validator=authority_validator,
+        )
+
+    def list_sources_page(
+        self,
+        *,
+        position: int,
+        page_size: int,
+        authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+    ) -> SourceCatalogPage:
+        return self._store.list_sources_page(
+            position=position, page_size=page_size, authority_validator=authority_validator
+        )
+
+    def browse_source_evidence_page(
+        self,
+        source_id: str,
+        publication_id: str,
+        *,
+        locator_range: SourceLocatorRange | None,
+        position: int,
+        page_size: int,
+        authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+    ) -> SourceBrowsePage:
+        return self._store.browse_source_evidence_page(
+            source_id,
+            publication_id,
+            locator_range=locator_range,
             position=position,
             page_size=page_size,
             authority_validator=authority_validator,
