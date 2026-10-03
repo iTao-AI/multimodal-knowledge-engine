@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!.env.*.example
 .python-version
 .pytest_cache/
 .ruff_cache/
@@ -19,3 +20,17 @@ node_modules/
 frontend/dist/
 
 .worktrees/
+
+# Local agent state and execution records
+.codex/
+.claude/
+.agents/
+.gstack/
+.sessions/
+.superpowers/
+.playwright-cli/
+
+# Local verification output
+.coverage
+htmlcov/
+coverage/
