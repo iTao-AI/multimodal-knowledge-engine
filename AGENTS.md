@@ -99,6 +99,9 @@ Do not require a second-model review for every change. Recommend an independent 
 
 ### Phase Ownership And Parallel Work
 
+- Read the current Skill instructions before use. Handoffs include the relevant
+  Skill names and entry points; each worker loads the Skills needed for its task.
+  Briefly identify the chosen method in the existing progress or return.
 - Use one primary controller per phase. GStack owns a review or shipping phase when its selected
   controller is active; Superpowers owns a planning, implementation, debugging, or verification
   phase when its selected controller is active. Do not run competing full-branch controllers over
