@@ -76,6 +76,21 @@ Changing any constraint above requires an ADR in the same PR.
 - Before building ingestion, parsing, retrieval, MCP, process-control, or provider infrastructure, inspect the installed library and framework versions, existing adapters, relevant source boundaries, and current official documentation.
 - Prefer native capabilities behind project-owned ports when they satisfy the approved contract, deterministic tests, offline and privacy requirements, authority separation, compatibility, and maintenance cost. Keep project-owned logic when framework semantics do not match or would introduce unnecessary coupling, hosted dependencies, runtime side effects, or migration risk. Framework runtime, index, trace, or checkpoint state never owns `Library`, `Run`, `Evidence`, or `Publication` authority.
 
+## Development Roles And Reasoning Effort
+
+Use the current Sol model configured for the workspace, with only `max`, `high`, and `low`:
+
+- `max`: project-owner conversations, PRD and design, architecture and implementation
+  plans, consequential tradeoffs, delivery coordination, and final acceptance.
+- `high`: complex implementation, root-cause investigations, deep code review,
+  and computer or browser operations.
+- `low`: routine implementation, fixes with an identified cause, tests, and mechanical
+  documentation work when the scope is clear and the result is easy to verify.
+
+Select effort by the assigned responsibility and risk, not the output's file format;
+acceptance standards stay the same. The owner conversation keeps its configured effort;
+explicitly assign the model and effort for each new worker. Delegation is optional.
+
 ## Working Model
 
 The phase controller owns implementation decisions, shared contracts, integration, verification,
@@ -91,7 +106,7 @@ Use GStack and Superpowers when they match the task:
 - Plan review when scope or risk warrants it: `gstack-workflows:autoplan` or a focused plan review.
 - Bugs and unexplained failures: default to `superpowers:systematic-debugging`; use `gstack-workflows:investigate` instead for cross-system or environment investigations, after two evidence-backed repair rounds fail to close the same problem, or when a formal investigation record is required. Do not run both full procedures for the same problem.
 - Implementation: `superpowers:test-driven-development` and focused verification.
-- Final diff review: use `gstack-workflows:review` once before PR unless an explicitly designated independent authority already owns the same full-diff review; fixes receive targeted re-review by default.
+- Final diff review: match depth to risk and reuse the chosen implementation route's review; use `gstack-workflows:review` as a view of that review when useful. Small document or mechanical changes need a focused diff check, not an extra full-branch review. Fixes receive targeted re-review.
 - Frontend behavior: `gstack-workflows:qa-only` or `gstack-workflows:qa` when a fix loop is intended.
 - Completion claims: `superpowers:verification-before-completion`.
 
@@ -99,6 +114,9 @@ Do not require a second-model review for every change. Recommend an independent 
 
 ### Phase Ownership And Parallel Work
 
+- Read the current Skill instructions before use. Handoffs include the relevant
+  Skill names and entry points; each worker loads the Skills needed for its task.
+  Briefly identify the chosen method in the existing progress or return.
 - Use one primary controller per phase. GStack owns a review or shipping phase when its selected
   controller is active; Superpowers owns a planning, implementation, debugging, or verification
   phase when its selected controller is active. Do not run competing full-branch controllers over
@@ -115,11 +133,9 @@ Do not require a second-model review for every change. Recommend an independent 
 ## Low-Friction Execution
 
 - Complete safe, discoverable workflow steps proactively instead of asking the user to remember them.
-- When a required action cannot be performed automatically because it is risky or requires authorization, stop and report:
-  - current state,
-  - recommended action,
-  - why it is needed,
-  - impact of proceeding or skipping.
+- Reuse existing authorization within its scope. Send unresolved approval decisions
+  to the designated coordinating owner when present; continue independent authorized
+  work while awaiting a decision. Tool-required user confirmation remains binding.
 - Do not stop merely to ask whether to run an obvious test, inspect a relevant file, or update documentation required by the current change.
 - Never claim that a review, test, documentation update, push, release, or deployment happened without actual evidence.
 
@@ -139,9 +155,9 @@ Superpowers specs and plans are implementation history. Long-lived architecture 
 
 - Keep active plan checklists current as work is completed.
 - Mark completed plans explicitly so later Agents do not treat historical work as pending.
-- After `gstack-workflows:review`, `gstack-workflows:autoplan`, or equivalent plan/PR review, persist durable
-  public-neutral findings under `docs/superpowers/reviews/` when this repository is the downstream
-  execution target.
+- Persist durable public-neutral review findings when they affect a shared contract
+  or lasting decision. Routine execution/review logs and handoff receipts stay in
+  ignored local directories; running a Skill alone does not require a new public file.
 - If the related spec or plan changes materially after a review is persisted, mark the older review
   as superseded in the same PR or add a replacement review file.
 - Do not commit raw GStack review artifacts, timelines, restore points, learnings, or private planning notes. Extract durable public decisions into ADRs or project documentation.
@@ -151,14 +167,14 @@ Superpowers specs and plans are implementation history. Long-lived architecture 
 - At task start, confirm the intended Git base, current status, and the relevant rules, contracts,
   tests, and PR context. Sync from `main` when it is the intended base; do not replace an approved
   branch or recovery point merely to restart the workflow.
+- Verify the rules in the actual execution worktree; another checkout's update does
+  not update this one. Keep the designated approval owner in the handoff.
 - Accept a public-neutral brief or approved spec with scope, constraints, observable acceptance,
   delivery owner, Git starting point, and authorization. Persist larger designs under the paths
   above; small work needs only a brief. Directory placement alone is not approval.
-- When the task specifies a delegated approval owner, send new approval requests to that owner
-  with the action, scope, impact, and evidence. Existing authorization remains valid within its
-  scope. Ask for the user's personal confirmation when delegation or host policy does not permit
-  the owner to approve the action.
 - Reuse approved design; use `superpowers:writing-plans` only for missing implementation details.
+  When implementation is authorized, the handoff states whether the delivery owner may
+  review and decide in-scope plan details; do not infer this from a spec's directory.
   Choose direct execution for small work, or `superpowers:executing-plans` for self-implementation,
   or `superpowers:subagent-driven-development` for managed implementation and review. Do not
   restart the full manager workflow inside a task worker.
@@ -168,15 +184,9 @@ Superpowers specs and plans are implementation history. Long-lived architecture 
   remaining work, and any deferred Issue. Distinguish local completion from hosted delivery;
   missing remote authorization does not prevent preparing a reviewable local result.
 
-### Terminal Handoff
-
-- Use `READY` when the requested local or hosted gate is complete, `WAITING` when an external gate
-  is still running, and `BLOCKED` when a concrete failed authority or ownership gate prevents safe
-  progress.
-- A waiting handoff records the exact external state and the next gate. Do not keep polling
-  unchanged hosted state; resume only after a bounded wait or a new event.
-- One phase produces one terminal report from its primary controller. Intermediate worker reports
-  are evidence inputs, not additional terminal handoffs.
+Return once on completion or when a decision is needed. State labels are optional;
+report an unmet original acceptance goal even when a local fix passes. Worker
+reports are evidence inputs to the controller's consolidated result.
 
 ## TDD And Verification
 
@@ -185,6 +195,13 @@ Superpowers specs and plans are implementation history. Long-lived architecture 
 - Use unit tests for domain behavior, contract tests for public schemas, and integration tests for storage, worker, Publication, and provider boundaries.
 - Mock remote providers in required CI. Keep optional real-provider smoke tests separate.
 - Verification depth must match the blast radius.
+- Reuse evidence when its inputs have not changed. Before another authorized costly
+  run, establish the prior failure's cause and usable diagnostics; changing the
+  harness or error label does not reset failure of the same acceptance goal. A
+  scripted provider test does not prove autonomous model behavior or content quality.
+- After a second substantive failure of the same real/costly acceptance goal,
+  stop those runs and return to the coordinating owner for a route decision.
+  An explicitly frozen stage requires an explicit instruction to resume.
 
 Common verification entry points; select by affected surface rather than running every command
 for every task. Documentation-only or mechanical edits use focused checks and `git diff --check`;
@@ -224,18 +241,16 @@ If the audit would commit, push, update a PR body, or require a version decision
 - Route all intended changes to `main` through a PR.
 - Keep each PR independently reviewable and verifiable. Avoid phase-sized PRs containing unrelated capabilities.
 - Stage only intentional files. Never use `git add -A` or `git add .`.
-- Do not push, create a PR, merge, release, or publish without explicit user authorization.
+- Do not push, create a PR, merge, release, or publish without explicit authorization,
+  including a valid user delegation.
 - Query the actual pull request and checks for hosted state. Local workflow YAML is not hosted-state
   authority and must not be used alone to claim that checks exist, passed, or are required.
 - After creating or updating a PR, read back the persisted title, body, base, head, and draft state.
   Use ordinary bullets for completed facts. Add checkboxes only for real pending gates whose
   completion affects merge readiness.
-- Reconcile the final PR body as gates change: every satisfied `[ ]` gate becomes `[x]`. After
-  merge and before closeout, synchronize actual checks, authorization, merge identity,
-  mergeability, review blockers, necessary links, cleanup, remaining risk, and explicit
-  non-claims. Attempt the write-back, then read back the persisted PR body. If the write-back or
-  persisted-body readback fails, or the body still drifts from actual state, record the exact
-  blocker or pending trigger and you must not claim complete closeout.
+- Correct materially stale PR claims when delivery changes them. Headings and checkbox
+  style are not extra merge gates. If documentation write-back fails, report the
+  remaining work separately from the verified code, merge and CI result.
 - Before merge, bind review evidence and successful checks to the same reviewed HEAD and checks
   head. For a squash merge, verify that the reviewed tree equals the merge tree; commit-SHA
   inequality alone is expected and is not tree evidence.
@@ -255,18 +270,15 @@ commands, code identifiers, API names, CLI output, file paths, and public produc
 Switch a PR description to English only when the PR is intended for external collaborators or the
 user explicitly asks for English.
 
-PR descriptions must include:
-
-- Result-focused summary.
-- Completed acceptance items.
-- Actual verification commands and results.
-- Scope and explicit non-scope when needed.
-- Risk, migration, or rollback notes when applicable.
-- Documentation impact.
+PR descriptions explain the problem, resulting behavior, actual verification and
+material limits. Scale detail to the change; add migration or rollback only when needed.
 
 ## Security And Public Boundaries
 
 - Never commit secrets, tokens, cookies, private configuration, private source material, or personal paths.
+- Keep raw agent state, temporary screenshots and execution receipts in ignored
+  directories. Preserve public specs/plans, ADRs, test fixtures and selected assets;
+  ignore rules do not untrack existing files or replace release inventory checks.
 - Do not accept arbitrary provider URLs, keys, or filesystem output paths through public contracts.
 - Do not expose absolute paths or stack traces in API responses.
 - Treat uploaded files, extracted content, model output, and external provider responses as untrusted.

@@ -65,14 +65,13 @@ def test_agents_defines_bounded_delegation_and_controller_ownership() -> None:
     assert "parallel work requires independent scope, file ownership, and verification" in guide
 
 
-def test_agents_defines_hosted_handoff_merge_and_cleanup_authority() -> None:
+def test_agents_defines_hosted_merge_and_cleanup_authority() -> None:
     text = _normalized(AGENTS).lower()
 
     for required in (
-        "ready",
-        "waiting",
-        "blocked",
-        "do not keep polling unchanged hosted state",
+        "return once on completion or when a decision is needed",
+        "state labels are optional",
+        "report an unmet original acceptance goal even when a local fix passes",
         "query the actual pull request and checks",
         "local workflow yaml is not hosted-state authority",
         "reviewed head",
@@ -88,38 +87,24 @@ def test_agents_defines_hosted_handoff_merge_and_cleanup_authority() -> None:
         assert required in text
 
 
-def test_pr_body_final_reconciliation_is_fail_closed_across_governance_docs() -> None:
+def test_pr_body_updates_preserve_delivery_truth_across_governance_docs() -> None:
     agents = _normalized(AGENTS).lower()
     guide = _normalized(CONTRIBUTING_GUIDE).lower()
     template = _normalized(PR_TEMPLATE).lower()
 
     for text in (agents, guide, template):
-        reconciliation = re.search(
-            r"(?:reconcile the final pr body|during final reconciliation).{0,900}", text
-        )
-        assert reconciliation is not None
-        contract = reconciliation.group(0)
         for required in (
-            "[ ]",
-            "[x]",
-            "after merge",
-            "before closeout",
-            "actual checks",
-            "authorization",
-            "merge identity",
-            "mergeability",
-            "review blockers",
-            "necessary links",
-            "cleanup",
-            "remaining risk",
-            "non-claims",
-            "persisted pr body",
-            "write-back",
-            "persisted-body readback",
-            "exact blocker or pending trigger",
-            "must not claim complete closeout",
+            "correct materially stale pr claims when delivery changes them",
+            "headings and checkbox style are not extra merge gates",
+            "if documentation write-back fails",
+            "report the remaining work separately from the verified code, merge and ci result",
         ):
-            assert required in contract
+            assert required in text
+        assert "must not claim complete closeout" not in text
+
+    for text in (agents, guide):
+        assert "state labels are optional" in text
+        assert "report an unmet original acceptance goal even when a local fix passes" in text
 
 
 def test_contribution_docs_split_entry_point_from_executable_policy() -> None:

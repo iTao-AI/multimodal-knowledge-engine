@@ -103,27 +103,21 @@ Do not push or create a PR without authorization. When authorized:
 5. Query the actual pull request and checks for hosted state. Local workflow YAML does not prove
    that a hosted check exists, ran, or passed.
 
-Reconcile the final PR body as gates change: every satisfied `[ ]` gate becomes `[x]`. After merge
-and before closeout, synchronize actual checks, authorization, merge identity, mergeability,
-review blockers, necessary links, cleanup, remaining risk, and explicit non-claims. Attempt the
-write-back, then read back the persisted PR body. If the write-back or persisted-body readback
-fails, or the body still drifts from actual state, record the exact blocker or pending trigger and
-you must not claim complete closeout.
+Correct materially stale PR claims when delivery changes them. Headings and checkbox style
+are not extra merge gates. If documentation write-back fails, report the remaining work
+separately from the verified code, merge and CI result.
 
 Before merge, require the reviewed HEAD and checks head to identify the same commit, all binding
 checks to be successful, the base to remain approved, and platform review/mergeability to be clear.
 For a squash merge, record both commit identities and prove the reviewed tree equals the merge
 tree.
 
-## Terminal State And Safe Cleanup
+## Completion And Safe Cleanup
 
-Report one terminal state:
-
-- `READY`: the requested gate is complete;
-- `WAITING`: an external check is nonterminal, with its exact URL/state recorded; or
-- `BLOCKED`: a concrete authority, ownership, verification, or scope gate failed.
-
-Do not repeatedly poll unchanged hosted state. Resume after a bounded wait or a new event.
+Return once on completion or when a decision is needed. State labels are optional.
+Report an unmet original acceptance goal even when a local fix passes. Record any remaining
+external check and its exact URL/state; resume after a bounded wait or a new event rather than
+repeatedly polling unchanged hosted state.
 
 When the task specifies a delegated approval owner, send new approval requests to that owner with
 the action, scope, impact, and evidence. Existing authorization remains valid within its scope.
