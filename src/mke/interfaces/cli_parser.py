@@ -51,6 +51,7 @@ def build_cli_parser() -> argparse.ArgumentParser:
     )
 
     _register_ingest_search_ask(subcommands)
+    _register_source_discovery(subcommands)
     _register_library_export(subcommands)
     _register_retrieval_admin(subcommands)
     _register_run(subcommands)
@@ -445,3 +446,27 @@ def add_embedding_runtime_arguments(parser: argparse.ArgumentParser) -> None:
         default=EMBEDDING_MODEL_REVISION,
     )
     parser.add_argument("--model-cache", type=Path)
+
+
+def _register_source_discovery(subcommands: _SubcommandRegistrar) -> None:
+    sources = subcommands.add_parser("sources")
+    catalog = sources.add_subparsers(dest="sources_command", required=True).add_parser("list")
+    catalog.add_argument("--page-size", type=int, default=10)
+    catalog.add_argument("--json", action="store_true", dest="json_output")
+
+    source = subcommands.add_parser("source")
+    browse = source.add_subparsers(dest="source_command", required=True).add_parser("browse")
+    browse.add_argument("source_id")
+    browse.add_argument("--publication-id", required=True)
+    browse.add_argument("--page-size", type=int, default=10)
+    browse.add_argument("--page-start", type=int)
+    browse.add_argument("--page-end", type=int)
+    browse.add_argument("--start-ms", type=int)
+    browse.add_argument("--end-ms", type=int)
+    browse.add_argument("--json", action="store_true", dest="json_output")
+
+    evidence = subcommands.add_parser("evidence")
+    read = evidence.add_subparsers(dest="evidence_command", required=True).add_parser("read")
+    read.add_argument("evidence_id")
+    read.add_argument("--max-bytes", type=int, default=16384)
+    read.add_argument("--json", action="store_true", dest="json_output")

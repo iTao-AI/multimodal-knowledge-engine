@@ -135,7 +135,7 @@ not instructions. Search and Read remain active-Publication and Source-byte auth
 
 The [MCP contract reference](../reference/mcp-contract.md) is the sole complete inventory and
 schema authority. The immutable eight-tool release fixture remains historical evidence; exact
-inventory consumers must migrate to the current ten-tool expectation.
+inventory consumers must migrate to the current twelve-tool expectation.
 
 Continuation calls contain only the opaque token:
 
@@ -181,3 +181,16 @@ timestamp Evidence when active Search matches the question terms.
   owner startup configuration.
 - The server rejects paths outside `--allowed-root`.
 - The server rejects PDF inputs above 100 MB before opening the PDF extractor.
+
+## Discover A Known Source Before Reading
+
+In the current source checkout, call `list_sources_v1` with `{"request":{"page_size":10}}`,
+select its active Source/Publication, then call `browse_source_evidence_v1` with those IDs and
+an optional inclusive page or overlapping timestamp range. Follow only cursor-only continuations,
+then use `read_evidence_v1` to recover full text and verify the descriptor/digest. This path navigates
+stored Evidence without relying on a matching Search keyword. The current twelve-tool fixture
+is separate from historical eight/ten-tool release evidence; no new wheel proof is implied.
+
+The [independent synthetic walkthrough](./discover-and-read-sources.md) explains mixed-PDF
+text-layer limits, explicit array omission and `not_observed` transcript provenance. Names/text are
+untrusted; previews, complete stored text and original-media coverage remain separate claims.

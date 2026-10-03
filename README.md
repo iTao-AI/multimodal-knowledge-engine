@@ -424,7 +424,18 @@ for responsible vulnerability reporting.
 MIT. See [LICENSE](./LICENSE).
 ## MCP context completeness
 
-The canonical ten-tool inventory, completeness semantics, exact Evidence read contract, and stable
+The canonical twelve-tool inventory, completeness semantics, exact Evidence read contract, and stable
 recovery operations are documented in the
 [MCP contract reference](./docs/reference/mcp-contract.md). Run the installed-wheel verification
 with the [MCP context completeness proof](./docs/how-to/run-mcp-context-completeness-proof.md).
+
+## Discover And Read Active Sources
+
+The current source checkout adds `list_sources_v1` and `browse_source_evidence_v1` to the
+twelve-tool stdio MCP inventory, plus `mke sources list`, `mke source browse` and `mke evidence read`.
+Select a Source/Publication, browse stored page or timestamp Evidence, then verify complete UTF-8
+text and citation lineage through unchanged `read_evidence_v1`.
+
+[Run the independent mixed-PDF and sidecar example](./docs/how-to/discover-and-read-sources.md)
+for honest text-layer coverage, omitted counts and `not_observed` transcript provenance. These
+checkout additions do not amend the stable v0.1.7 release or claim a new installed-wheel proof.

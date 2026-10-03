@@ -6,10 +6,13 @@ import json
 import re
 from dataclasses import asdict, dataclass, fields
 from hashlib import sha256
-from typing import Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from mke.domain.evidence_access import ActiveAuthoritySnapshot
 from mke.runtime_owner import CursorOwnerMaterial
+
+if TYPE_CHECKING:
+    from mke.application.source_cursor import SourceCursorPayload
 
 MAX_CURSOR_BYTES = 4096
 _BASE64URL = re.compile(r"[A-Za-z0-9_-]+\Z")
@@ -96,7 +99,7 @@ def _unb64(value: str) -> bytes:
 
 def _encode(
     material: CursorOwnerMaterial,
-    payload: SearchCursorPayload | ReadCursorPayload,
+    payload: SearchCursorPayload | ReadCursorPayload | SourceCursorPayload,
 ) -> str:
     payload_bytes = _canonical(asdict(payload))
     envelope = {
@@ -356,3 +359,8 @@ def decode_read_cursor(
     ):
         raise CursorExpiredError("active_set_changed")
     return payload
+
+
+# Shared envelope primitives for additive, operation-specific cursor contracts.
+encode_authenticated_cursor = _encode
+authenticate_cursor = _authenticate

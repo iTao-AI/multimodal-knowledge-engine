@@ -749,11 +749,11 @@ def test_run_proof_builds_once_and_uses_same_wheel(
     (repository / "scripts/consumer_source_pack_client.py").write_text("# client")
     fixtures = repository / "tests/fixtures"
     (fixtures / "consumer-source-pack-v1").mkdir(parents=True)
-    (fixtures / "mcp-context-completeness-v1").mkdir()
+    (fixtures / "source-discovery-v1").mkdir()
     (fixtures / "local-knowledge-v1").mkdir()
     for name in ("manifest.json", "mcp-tool-schemas.json"):
         (fixtures / "consumer-source-pack-v1" / name).write_text("{}")
-    (fixtures / "mcp-context-completeness-v1/mcp-tool-schemas.json").write_text(
+    (fixtures / "source-discovery-v1/mcp-tool-schemas.json").write_text(
         '{"tools":"current"}'
     )
     for name in ("operations-guide.pdf", "incident-guide.pdf"):
@@ -977,7 +977,7 @@ def _repository_fixture(tmp_path: Path) -> Path:
     (repository / "scripts").mkdir(parents=True)
     (repository / "scripts/consumer_source_pack_client.py").write_text("# client")
     consumer = repository / "tests/fixtures/consumer-source-pack-v1"
-    current = repository / "tests/fixtures/mcp-context-completeness-v1"
+    current = repository / "tests/fixtures/source-discovery-v1"
     local = repository / "tests/fixtures/local-knowledge-v1"
     consumer.mkdir(parents=True)
     current.mkdir()

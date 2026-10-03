@@ -14,15 +14,17 @@ from mke.runtime import RuntimeConfig
 from scripts.mcp_context_completeness_consumer import tool_snapshot
 
 FIXTURE = Path(
-    "tests/fixtures/mcp-context-completeness-v1/mcp-tool-schemas.json"
+    "tests/fixtures/source-discovery-v1/mcp-tool-schemas.json"
 )
 EXPECTED_TOOL_NAMES = (
     "ask_library",
     "ask_library_v1",
+    "browse_source_evidence_v1",
     "get_run",
     "ingest_file",
     "list_libraries",
     "list_libraries_v1",
+    "list_sources_v1",
     "read_evidence_v1",
     "search_library",
     "search_library_v1",
@@ -69,3 +71,11 @@ def test_current_mcp_contract_fixture_matches_exact_producer_snapshot(
     }
     assert fixture == expected
     assert STABLE_LOCATOR_CAUSE in safe_causes
+
+
+def test_historical_ten_tool_snapshot_is_unchanged() -> None:
+    historical = json.loads(Path(
+        "tests/fixtures/mcp-context-completeness-v1/mcp-tool-schemas.json"
+    ).read_text(encoding="utf-8"))
+    current = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    assert {name: current["tools"][name] for name in historical["tools"]} == historical["tools"]
