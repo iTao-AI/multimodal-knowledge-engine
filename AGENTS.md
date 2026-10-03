@@ -76,6 +76,21 @@ Changing any constraint above requires an ADR in the same PR.
 - Before building ingestion, parsing, retrieval, MCP, process-control, or provider infrastructure, inspect the installed library and framework versions, existing adapters, relevant source boundaries, and current official documentation.
 - Prefer native capabilities behind project-owned ports when they satisfy the approved contract, deterministic tests, offline and privacy requirements, authority separation, compatibility, and maintenance cost. Keep project-owned logic when framework semantics do not match or would introduce unnecessary coupling, hosted dependencies, runtime side effects, or migration risk. Framework runtime, index, trace, or checkpoint state never owns `Library`, `Run`, `Evidence`, or `Publication` authority.
 
+## Development Roles And Reasoning Effort
+
+Use the current Sol model configured for the workspace, with only `max`, `high`, and `low`:
+
+- `max`: project-owner conversations, PRD and design, architecture and implementation
+  plans, consequential tradeoffs, delivery coordination, and final acceptance.
+- `high`: complex implementation, root-cause investigations, deep code review,
+  and computer or browser operations.
+- `low`: routine implementation, fixes with an identified cause, tests, and mechanical
+  documentation work when the scope is clear and the result is easy to verify.
+
+Select effort by the assigned responsibility and risk, not the output's file format;
+acceptance standards stay the same. The owner conversation keeps its configured effort;
+explicitly assign the model and effort for each new worker. Delegation is optional.
+
 ## Working Model
 
 The phase controller owns implementation decisions, shared contracts, integration, verification,
@@ -158,6 +173,8 @@ Superpowers specs and plans are implementation history. Long-lived architecture 
   delivery owner, Git starting point, and authorization. Persist larger designs under the paths
   above; small work needs only a brief. Directory placement alone is not approval.
 - Reuse approved design; use `superpowers:writing-plans` only for missing implementation details.
+  When implementation is authorized, the handoff states whether the delivery owner may
+  review and decide in-scope plan details; do not infer this from a spec's directory.
   Choose direct execution for small work, or `superpowers:executing-plans` for self-implementation,
   or `superpowers:subagent-driven-development` for managed implementation and review. Do not
   restart the full manager workflow inside a task worker.
