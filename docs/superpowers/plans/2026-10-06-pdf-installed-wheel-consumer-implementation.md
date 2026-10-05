@@ -10,13 +10,12 @@
 
 **Spec:** [PDF observation design](../specs/2026-10-05-pdf-extraction-observation-design.md) and the approved C1 delivery brief below. C1 adds installation evidence, without changing that design's product behavior.
 
-Status: Controller and targeted provenance/isolation/negative-fixture repairs verified locally on
-2026-10-06; full C1 remains incomplete. Two initial attempts stopped before native ingestion (cold
-locked cache, then an invalid optional-metadata assumption). After explicit resume, both installation
-preflights passed; the complete run passed the 3.12 native and independent export consumers, then
-failed because its negative-fixture setup used the wrong manifest filename. The corrected setup
-passes its regression and actual targeted failure-exit checks. The 3.13 native case and a complete
-successful receipt remain pending a new route decision. All failed runs/diagnostics are retained.
+Status: Completed locally on 2026-10-06. After the coordinating owner's explicit second resume,
+one complete controller run exited 0 with both fresh Python 3.12.13/3.13.13 native consumers,
+independent Export v3 consumers and negative exit boundaries passing. It reused the same wheel,
+original lock and prepared cache; no rebuild, runtime download or extra preflight was performed.
+The three earlier failed attempts and their diagnostics remain retained. Their partial receipts
+are not combined into the successful receipt. C1 remote delivery requires separate authorization.
 
 ## Approved Delivery Brief
 
@@ -88,7 +87,7 @@ Stage exact paths only. Commit message: `test: prove PDF observations from an in
 - Consumes: Task 1 controller, the wheel built at the clean exact merge, available 3.12/3.13 interpreters, preserved C0/M1 CI/review evidence.
 - Produces: two fresh installed consumer results for one wheel, reproducible operator command, truthful local acceptance and a specific candidate for approval.
 
-- [ ] **Step 1: Run the actual two-runtime installation proof**
+- [x] **Step 1: Run the actual two-runtime installation proof**
 
 Run the controller once with the same exact-merge wheel and installed 3.12/3.13 paths. Expected: both results use fourteen tools, verify complete UTF-8/citation identity and Export v3, record actual dependencies/interpreters/fixture hashes, and confirm failure exits. If the same costly goal fails twice, return for a route decision.
 
@@ -100,9 +99,10 @@ Add exact build/proof commands, retained artifacts, failure meaning, verificatio
 
 Run affected proof/packaging/consumer checks, required docs checks, Ruff, Pyright and `git diff --check`. Obtain one fresh bounded review of the new controller and evidence; fix substantive findings with regression coverage. Do not repeat unchanged provider-free full suites or old installation proofs merely for workflow bookkeeping.
 
-The controller/targeted repairs and documentation are verified; the bounded review explicitly
-declines complete dual-runtime acceptance while Step 1 remains unmet.
+The code review binds the unchanged controller/test HEAD `11d78cab4b4f3abeb83fe444b834201a597a94f0`.
+The delivery controller verified the later complete single-run receipt under explicit resume;
+see the [bounded review and evidence](../reviews/2026-10-06-pdf-installed-wheel-consumer-review.md).
 
-- [ ] **Step 4: Commit documentation and return once for candidate approval**
+- [x] **Step 4: Commit documentation and return once for candidate approval**
 
 Report exact local HEAD/base/branch, wheel hash, both actual results, checks, limitations and documentation impact. No C1 push, PR, merge, version or Release without new specific authorization.

@@ -131,14 +131,16 @@ per-command diagnostics and all synthetic artifacts remain in the new external d
 work directories fail without overwriting evidence; a timed-out command terminates its own POSIX
 process group.
 
-On 2026-10-06 fresh installation preflights passed on Python 3.12.13 and 3.13.13. The resumed
-complete run passed the 3.12 native and independent Export v3 consumers, then failed in the
-controller's negative-fixture setup before the 3.13 case. The setup now uses the public
-`export-manifest.json` filename; its regression and actual targeted malformed-export/unknown-Source
-exit checks pass. The controller has 39 passing regression tests, but no complete dual-runtime
-success receipt is claimed. The full run awaits a coordinating route decision; all three failed
-attempts are retained. See the [bounded review](../superpowers/reviews/2026-10-06-pdf-installed-wheel-consumer-review.md)
-for source/wheel binding, actual evidence and remaining acceptance.
+On 2026-10-06 one complete controller run exited 0 with `status="passed"` on fresh Python 3.12.13
+and 3.13.13 environments/stores using the same exact-merge wheel and original lock. Both runtime
+cases passed fourteen tools, 33 exact UTF-8 chunks, descriptor/citation identity, separate Export v3
+consumption and malformed-export/unknown-Source exit 1. Measured maximum canonical/full SDK
+responses were 6,271/14,245 bytes in each case. The full proof used no network or runtime download;
+earlier necessary dependency-cache preparation is recorded separately. The controller's 39
+regressions and prior bounded code review are unchanged. All three earlier failed attempts are
+retained, and their partial receipts are not combined with this successful run. See the
+[bounded review](../superpowers/reviews/2026-10-06-pdf-installed-wheel-consumer-review.md)
+for source/wheel/receipt binding and both synthetic identities.
 This entry does not claim a stable release, original-media completeness, OCR/model quality, or
 interactive file-origin/clipboard verification.
 
