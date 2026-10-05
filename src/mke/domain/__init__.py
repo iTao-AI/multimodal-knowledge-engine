@@ -124,6 +124,7 @@ class PdfIntakeReport:
     suspected_scanned_pages: int
     extraction_mode: str
     failure_reason: str | None = None
+    page_has_raster_images: tuple[bool, ...] | None = None
 
 
 @dataclass(frozen=True)

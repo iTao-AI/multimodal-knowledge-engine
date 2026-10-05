@@ -386,6 +386,13 @@ class SQLiteStore:
               failure_reason TEXT
             );
 
+            -- Additive, producing-Run-bound observation; do not backfill old reports.
+            CREATE TABLE IF NOT EXISTS pdf_extraction_observations (
+              run_id TEXT PRIMARY KEY REFERENCES runs(run_id),
+              method TEXT NOT NULL CHECK(method = 'pymupdf-displayed-raster-v1'),
+              page_has_raster_images TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS transcript_intake_reports (
               run_id TEXT PRIMARY KEY REFERENCES runs(run_id),
               provider TEXT NOT NULL CHECK(length(provider) BETWEEN 1 AND 256),
@@ -595,6 +602,12 @@ class SQLiteStore:
             self._insert_pdf_intake_report(run_id, report)
 
     def _insert_pdf_intake_report(self, run_id: str, report: PdfIntakeReport) -> None:
+        self._validate_pdf_raster_observation(report)
+        existing = self._connection.execute(
+            "SELECT run_id FROM pdf_extraction_observations WHERE run_id = ?", (run_id,)
+        ).fetchone()
+        if existing is not None and self.get_pdf_intake_report(run_id) != report:
+            raise ManifestValidationError("PDF raster observation is immutable for its Run")
         self._connection.execute(
             """
             INSERT OR REPLACE INTO pdf_intake_reports(
@@ -614,6 +627,33 @@ class SQLiteStore:
                 report.failure_reason,
             ),
         )
+        if report.page_has_raster_images is not None and existing is None:
+            self._connection.execute(
+                """INSERT INTO pdf_extraction_observations(run_id, method, page_has_raster_images)
+                   VALUES (?, 'pymupdf-displayed-raster-v1', ?)""",
+                (run_id, json.dumps(report.page_has_raster_images, separators=(",", ":"))),
+            )
+
+    @staticmethod
+    def _validate_pdf_raster_observation(report: PdfIntakeReport) -> None:
+        flags = report.page_has_raster_images
+        if flags is None:
+            return
+        if (
+            report.extraction_mode != "pymupdf-text"
+            or type(flags) is not tuple
+            or any(type(value) is not bool for value in flags)
+            or len(flags) != report.total_pages
+            or len(report.page_char_counts) != report.total_pages
+            or any(type(value) is not int or value < 0 for value in report.page_char_counts)
+        ):
+            raise ManifestValidationError("PDF raster observation is invalid")
+
+    def _has_pdf_observation_table(self) -> bool:
+        # Read-only export must also accept Libraries predating this additive migration.
+        return self._connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='pdf_extraction_observations'"
+        ).fetchone() is not None
 
     def get_pdf_intake_report(self, run_id: str) -> PdfIntakeReport | None:
         row = self._connection.execute(
@@ -626,7 +666,22 @@ class SQLiteStore:
         ).fetchone()
         if row is None:
             return None
-        return PdfIntakeReport(
+        flags = None
+        if self._has_pdf_observation_table():
+            observation = self._connection.execute(
+                """SELECT method, page_has_raster_images
+                   FROM pdf_extraction_observations WHERE run_id=?""",
+                (run_id,),
+            ).fetchone()
+            if observation is not None:
+                values = json.loads(observation["page_has_raster_images"])
+                if (
+                    observation["method"] != "pymupdf-displayed-raster-v1"
+                    or type(values) is not list
+                ):
+                    raise ManifestValidationError("PDF raster observation is invalid")
+                flags = tuple(values)
+        report = PdfIntakeReport(
             total_pages=int(row["total_pages"]),
             extracted_pages=int(row["extracted_pages"]),
             empty_pages=int(row["empty_pages"]),
@@ -639,7 +694,10 @@ class SQLiteStore:
             failure_reason=(
                 str(row["failure_reason"]) if row["failure_reason"] is not None else None
             ),
+            page_has_raster_images=flags,
         )
+        self._validate_pdf_raster_observation(report)
+        return report
 
     def mark_run_failed(self, run_id: str) -> None:
         with self._connection:
@@ -899,6 +957,7 @@ class SQLiteStore:
             raise ManifestValidationError(
                 "activation requires a successful PDF intake report"
             )
+        SQLiteStore._validate_pdf_raster_observation(report)
         if type(report.total_pages) is not int or report.total_pages <= 0:
             raise ManifestValidationError("PDF intake report total pages are invalid")
         if type(report.extracted_pages) is not int or report.extracted_pages <= 0:
