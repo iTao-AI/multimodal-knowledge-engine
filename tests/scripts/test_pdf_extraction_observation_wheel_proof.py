@@ -99,9 +99,7 @@ def test_changed_lock_cannot_supply_dependency_constraints_for_an_older_wheel(
         module.verify_locked_inputs(repository, commit)
 
 
-@pytest.mark.parametrize(
-    ("bounds", "accepted"), [("<3.14,>=3.12", True), ("<3.14,>=3.11", False)]
-)
+@pytest.mark.parametrize(("bounds", "accepted"), [("<3.14,>=3.12", True), ("<3.14,>=3.11", False)])
 def test_wheel_metadata_accepts_equivalent_bounds_but_rejects_a_changed_floor(
     tmp_path: Path, bounds: str, accepted: bool
 ) -> None:
@@ -185,6 +183,68 @@ def test_unlocked_installed_dependency_version_is_rejected() -> None:
             {"mcp": {"1.29.1"}, "pydantic": {"2.13.5"}, "pymupdf": {"1.27.2.3"}},
             "0.1.7",
         )
+
+
+def test_identity_probe_accepts_uv_local_archive_without_optional_hashes(tmp_path: Path) -> None:
+    site = tmp_path / "site-packages"
+    package = site / "mke"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    metadata = site / "multimodal_knowledge_engine-0.1.7.dist-info"
+    metadata.mkdir()
+    (metadata / "METADATA").write_text(
+        "Name: multimodal-knowledge-engine\nVersion: 0.1.7\n", encoding="utf-8"
+    )
+    origin: dict[str, object] = {"url": (tmp_path / "declared.whl").as_uri(), "archive_info": {}}
+    (metadata / "direct_url.json").write_text(json.dumps(origin), encoding="utf-8")
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-B",
+            "-c",
+            f"import sys;sys.path.insert(0,{str(site)!r});" + proof()._IDENTITY_PROBE,
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["direct_url"] == origin
+
+
+@pytest.mark.parametrize(
+    ("archive", "expected"),
+    [
+        ({}, None),
+        ({"hashes": {"sha256": "a" * 64}}, "a" * 64),
+        ({"hash": "sha256=" + "a" * 64}, "a" * 64),
+    ],
+)
+def test_install_origin_requires_the_selected_wheel_with_optional_hashes(
+    tmp_path: Path, archive: dict[str, object], expected: str | None
+) -> None:
+    wheel = tmp_path / "declared.whl"
+    payload = {"direct_url": {"url": wheel.as_uri(), "archive_info": archive}}
+    assert proof().validate_install_origin(payload, wheel, "a" * 64) == expected
+
+
+@pytest.mark.parametrize("mutation", ["url", "hash", "legacy_hash", "editable"])
+def test_wrong_install_origin_or_recorded_digest_is_rejected(tmp_path: Path, mutation: str) -> None:
+    wheel = tmp_path / "declared.whl"
+    origin: dict[str, object] = {"url": wheel.as_uri(), "archive_info": {}}
+    if mutation == "url":
+        origin["url"] = (tmp_path / "different.whl").as_uri()
+    elif mutation == "hash":
+        origin["archive_info"] = {"hashes": {"sha256": "b" * 64}}
+    elif mutation == "legacy_hash":
+        origin["archive_info"] = {"hashes": {"sha256": "a" * 64}, "hash": "sha256=" + "b" * 64}
+    else:
+        origin["dir_info"] = {"editable": True}
+    module = proof()
+    with pytest.raises(module.ProofFailure, match="installed_origin_invalid"):
+        module.validate_install_origin({"direct_url": origin}, wheel, "a" * 64)
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX child-group cleanup contract")

@@ -191,6 +191,34 @@ def validate_dependencies(
         )
 
 
+def validate_install_origin(payload: dict[str, Any], wheel: Path, wheel_sha256: str) -> str | None:
+    """PyPA permits empty archive_info; present SHA-256 values must still match."""
+    raw_direct: object = payload.get("direct_url")
+    require(isinstance(raw_direct, dict), "installed_origin_invalid")
+    direct = cast(dict[str, Any], raw_direct)
+    require(
+        direct.get("url") == wheel.resolve().as_uri()
+        and "archive_info" in direct
+        and "dir_info" not in direct
+        and "vcs_info" not in direct,
+        "installed_origin_invalid",
+    )
+    raw_archive: object = direct["archive_info"]
+    require(isinstance(raw_archive, dict), "installed_origin_invalid")
+    archive = cast(dict[str, Any], raw_archive)
+    raw_hashes: object = archive.get("hashes", {})
+    require(isinstance(raw_hashes, dict), "installed_origin_invalid")
+    hashes = cast(dict[str, Any], raw_hashes)
+    recorded = hashes.get("sha256")
+    if recorded is not None:
+        require(recorded == wheel_sha256, "installed_origin_invalid")
+    legacy = archive.get("hash")
+    if legacy is not None:
+        require(legacy == "sha256=" + wheel_sha256, "installed_origin_invalid")
+        recorded = wheel_sha256
+    return cast(str | None, recorded)
+
+
 _IDENTITY_PROBE = """
 import hashlib,importlib.metadata,json,sys
 from pathlib import Path
@@ -206,7 +234,7 @@ print(json.dumps({
                   if path.is_file() and '__pycache__' not in path.parts},
  'dependencies':{item.metadata['Name'].lower().replace('_','-'):item.version
                  for item in importlib.metadata.distributions()},
- 'wheel_sha256':direct['archive_info']['hashes']['sha256'],
+ 'direct_url':direct,
 }))
 """
 
@@ -272,7 +300,7 @@ def installed_case(
     )
     validate_installed_identity(identity, environment, repository, minor, binding["module_sha256"])
     validate_dependencies(identity["dependencies"], locked, binding["version"])
-    require(identity["wheel_sha256"] == binding["wheel_sha256"], "installed_identity_failed")
+    recorded_hash = validate_install_origin(identity, wheel, binding["wheel_sha256"])
 
     client = root / "consumer"
     client.mkdir()
@@ -354,7 +382,8 @@ def installed_case(
         "python_version": identity["python_version"],
         "dependencies": identity["dependencies"],
         "installed_identity": "environment_site_packages_bytes_match_wheel",
-        "installed_wheel_sha256": identity["wheel_sha256"],
+        "installed_wheel_origin": "bound_local_wheel",
+        "recorded_archive_sha256": recorded_hash,
         "fixture_sha256": fixture_sha256,
         "tool_schema_sha256": digest(expectation.read_bytes()),
         "native_consumer": native,

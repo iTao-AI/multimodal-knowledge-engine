@@ -4,11 +4,16 @@
 
 **Goal:** Prove the merged PDF observation route through one installed wheel, fresh stores and independent consumers on available Python 3.12 and 3.13 runtimes.
 
-**Architecture:** Build one wheel from the clean, exact merge commit. A standalone controller verifies its module bytes against that commit, installs only the locked core dependencies into two fresh environments, and copies the public consumers and current fourteen-tool expectation from the same commit. The existing native consumer owns CLI/MCP/export identity and exact UTF-8 verification; a separate stdlib export process supplies an independent success/failure boundary.
+**Architecture:** Build one wheel from the clean, exact merge commit. A standalone controller verifies its module bytes against that commit, installs only the locked core dependencies into two fresh environments, and copies the public consumers and current fourteen-tool expectation from the same commit. The existing native consumer owns CLI/MCP/export identity and exact UTF-8 verification; a separate stdlib export process supplies an independent success/failure boundary. Missing locked dependency artifacts may be prepared in task-owned isolation before the offline proof; no runtime or dependency version is substituted.
 
 **Tech Stack:** Existing uv, locked PyMuPDF and official MCP SDK; Python stdlib controller and validators. No new dependency.
 
 **Spec:** [PDF observation design](../specs/2026-10-05-pdf-extraction-observation-design.md) and the approved C1 delivery brief below. C1 adds installation evidence, without changing that design's product behavior.
+
+Status: Controller and targeted provenance/isolation repairs verified locally on 2026-10-06.
+Two installed-proof attempts stopped before native ingestion (cold locked cache, then an invalid
+assumption about optional installer metadata). Their diagnostics are retained. Further full
+installed-proof runs await the coordinating owner's route decision; no complete C1 result is claimed.
 
 ## Approved Delivery Brief
 
@@ -16,14 +21,14 @@
 - Delivery owner: current MKE controller. In-scope implementation details and local acceptance are authorized; remote delivery of this C1 candidate requires separate approval.
 - Build from that exact clean merge; install the same wheel in fresh task-owned environments and create fresh synthetic PDF stores. Use independent CLI and stdio MCP server processes, the official SDK, Source v2, complete Evidence reads/citations, Export v3 and the independent stdlib validator.
 - Capture wheel SHA-256, actual interpreter and dependency versions, declared/generated fixture identity, Source/Run/Publication/revision and measured response sizes. Assert the current fourteen-tool inventory explicitly.
-- Check both declared runtimes if already available. Missing runtimes or locked cache entries are an environment limit; do not download a runtime, alter dependencies or silently substitute one.
+- Check both declared runtimes if already available. Missing runtimes are an environment limit; do not download or silently substitute a runtime. Necessary original-lock dependency installation in task-owned isolation is authorized, including hash-checked preparation of missing cached artifacts.
 - First deliver a reproducible local entry, bounded result, necessary documentation/checks and semantic commits. New version, tag, Release, hosted delivery and M2 are outside this authorization.
 
 ## Global Constraints
 
 - Product runtime, required processing stages, SQLite authority, legacy contracts, retrieval defaults and frozen historical fixtures remain unchanged.
 - `requires-python = ">=3.12,<3.14"`; use existing installed interpreters only.
-- Core dependencies come from unchanged `uv.lock`; offline installation uses hash-checked locked requirements and wheel installation uses `--no-deps`.
+- Core dependencies come from unchanged `uv.lock`; offline installation uses hash-checked locked requirements and wheel installation uses `--no-deps`. A cold cache may be prepared with those same hash-checked requirements before the proof; dependency preparation network use must be recorded separately from the offline proof/runtime.
 - Never substitute repository source or `PYTHONPATH` for installation. Run isolated Python and clear inherited Python import state; verify the imported package is the selected environment's site-packages and its bytes match the wheel.
 - Keep raw commands, paths, PDFs, stores, exports and diagnostics in ignored/task-owned directories. Public receipts contain only declared synthetic identities, versions, digests and bounded aggregates.
 - Preserve the primary checkout and the C0/M1 recovery worktree. Reuse unchanged prior tests and installation evidence; run the new installed consumer boundary.
@@ -48,23 +53,23 @@
 - Consumes: explicit `--wheel`, full `--source-commit`, two repeatable `--python` paths and fresh `--work-dir`; Git objects from the selected repository, unchanged lock and existing uv cache.
 - Produces: `mke.pdf_extraction_observation_wheel_proof.v1` JSON receipt, exit 0 only after both installed consumers and failure boundaries pass; retained private diagnostics and native artifacts.
 
-- [ ] **Step 1: Add behavioral RED coverage**
+- [x] **Step 1: Add behavioral RED coverage**
 
 Exercise the actual script CLI and validation functions. Hand-built small wheels and committed local Git fixtures must reject missing/extra/changed package modules despite equal metadata versions. Reused workspaces and invalid inputs must exit nonzero with bounded codes. Identity validation must reject a source-tree import, wrong executable and wrong interpreter minor. A controlled child command must verify inherited Python import variables are absent. Do not mock the consumer's semantic result.
 
-- [ ] **Step 2: Run the new tests and inspect RED**
+- [x] **Step 2: Run the new tests and inspect RED**
 
 Run the existing locked test interpreter against `tests/scripts/test_pdf_extraction_observation_wheel_proof.py`; expected failures are the missing proof entry/validation behavior, not fixture or import mistakes.
 
-- [ ] **Step 3: Implement the smallest controller**
+- [x] **Step 3: Implement the smallest controller**
 
 Verify wheel/source bytes and unchanged config/lock; export core locked requirements; create fresh environments with downloads disabled; hash-check offline dependency sync, install the supplied wheel with no dependencies, and check installed identity/versions. Copy the five consumer scripts and current fixture from the selected Git commit into each external case. Execute the existing consumer with `-I -B`, the independent v3 validator, a malformed-export rejection and native unknown-Source rejection. Bind synthetic PDF bytes to the native fingerprint and recheck the wheel digest at the end.
 
-- [ ] **Step 4: Run GREEN and focused static checks**
+- [x] **Step 4: Run GREEN and focused static checks**
 
 Expected: new tests pass; Ruff passes for the changed script/tests; Pyright passes for affected typed code. Existing product inputs are unchanged; record prior full-suite binding instead of repeating it.
 
-- [ ] **Step 5: Commit the intentional controller and tests**
+- [x] **Step 5: Commit the intentional controller and tests**
 
 Stage exact paths only. Commit message: `test: prove PDF observations from an installed wheel`.
 
