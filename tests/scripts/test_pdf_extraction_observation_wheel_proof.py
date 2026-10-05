@@ -25,7 +25,8 @@ def source_and_wheel(tmp_path: Path) -> tuple[Path, str, Path]:
     (repository / "src/mke/__init__.py").write_bytes(b'"""Declared package."""\n')
     (repository / "pyproject.toml").write_text(
         '[project]\nname="multimodal-knowledge-engine"\nversion="0.1.7"\n'
-        'requires-python=">=3.12,<3.14"\n',
+        'requires-python=">=3.12,<3.14"\n'
+        '[project.scripts]\nmke="mke:console_main"\n',
         encoding="utf-8",
     )
     (repository / "uv.lock").write_text("version=1\n", encoding="utf-8")
@@ -53,6 +54,10 @@ def source_and_wheel(tmp_path: Path) -> tuple[Path, str, Path]:
             "multimodal_knowledge_engine-0.1.7.dist-info/METADATA",
             "Metadata-Version: 2.3\nName: multimodal-knowledge-engine\nVersion: 0.1.7\n"
             "Requires-Python: >=3.12,<3.14\n\n",
+        )
+        archive.writestr(
+            "multimodal_knowledge_engine-0.1.7.dist-info/entry_points.txt",
+            "[console_scripts]\nmke = mke:console_main\n",
         )
     return repository, commit, wheel
 
@@ -97,6 +102,54 @@ def test_changed_lock_cannot_supply_dependency_constraints_for_an_older_wheel(
     module = proof()
     with pytest.raises(module.ProofFailure, match="locked_inputs_changed"):
         module.verify_locked_inputs(repository, commit)
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        "unreviewed.py",
+        "unreviewed_startup.pth",
+        "multimodal_knowledge_engine-0.1.7.data/purelib/unreviewed.py",
+        "multimodal_knowledge_engine-0.1.7.data/scripts/mke",
+        "multimodal_knowledge_engine-0.1.7.dist-info/unreviewed.py",
+    ],
+)
+def test_wheel_rejects_unbound_members_outside_the_package(tmp_path: Path, extra: str) -> None:
+    repository, commit, wheel = source_and_wheel(tmp_path)
+    with zipfile.ZipFile(wheel, "a") as archive:
+        archive.writestr(extra, "import unreviewed\n")
+    module = proof()
+    with pytest.raises(module.ProofFailure, match="wheel_source_mismatch"):
+        module.verify_wheel(repository, commit, wheel)
+
+
+@pytest.mark.parametrize(
+    "entry_points",
+    [
+        None,
+        "[console_scripts]\nmke = unreviewed:main\n",
+        "[console_scripts]\nmke = mke:console_main\nextra = unreviewed:main\n",
+        "[console_scripts]\nmke = mke:console_main\n[gui_scripts]\nextra = unreviewed:main\n",
+        "[console_scripts]\nMKE = mke:console_main\n",
+        "[console_scripts]\nmke = mke:console_main\nmke = unreviewed:main\n",
+        "[DEFAULT]\nmke = mke:console_main\n[console_scripts]\n",
+    ],
+)
+def test_wheel_entry_points_must_match_the_committed_project(
+    tmp_path: Path, entry_points: str | None
+) -> None:
+    repository, commit, wheel = source_and_wheel(tmp_path)
+    entry_name = "multimodal_knowledge_engine-0.1.7.dist-info/entry_points.txt"
+    with zipfile.ZipFile(wheel) as original:
+        entries = {name: original.read(name) for name in original.namelist() if name != entry_name}
+    if entry_points is not None:
+        entries[entry_name] = entry_points.encode()
+    with zipfile.ZipFile(wheel, "w") as archive:
+        for name, data in entries.items():
+            archive.writestr(name, data)
+    module = proof()
+    with pytest.raises(module.ProofFailure, match="wheel_source_mismatch"):
+        module.verify_wheel(repository, commit, wheel)
 
 
 @pytest.mark.parametrize(("bounds", "accepted"), [("<3.14,>=3.12", True), ("<3.14,>=3.11", False)])
@@ -175,14 +228,23 @@ def test_installed_identity_requires_selected_environment_and_wheel_bytes(
             )
 
 
-def test_unlocked_installed_dependency_version_is_rejected() -> None:
+@pytest.mark.parametrize("mcp_version", ["1.29.1", "1.29.2"])
+def test_installed_dependency_versions_are_checked_after_required_packages(
+    mcp_version: str,
+) -> None:
     module = proof()
-    with pytest.raises(module.ProofFailure, match="installed_dependencies_failed"):
-        module.validate_dependencies(
-            {"mcp": "1.29.2", "pydantic": "2.13.5", "pymupdf": "1.27.2.3"},
-            {"mcp": {"1.29.1"}, "pydantic": {"2.13.5"}, "pymupdf": {"1.27.2.3"}},
-            "0.1.7",
-        )
+    actual = {
+        "mcp": mcp_version,
+        "pydantic": "2.13.5",
+        "pymupdf": "1.27.2.3",
+        "multimodal-knowledge-engine": "0.1.7",
+    }
+    locked = {"mcp": {"1.29.1"}, "pydantic": {"2.13.5"}, "pymupdf": {"1.27.2.3"}}
+    if mcp_version == "1.29.1":
+        module.validate_dependencies(actual, locked, "0.1.7")
+    else:
+        with pytest.raises(module.ProofFailure, match="installed_dependencies_failed"):
+            module.validate_dependencies(actual, locked, "0.1.7")
 
 
 def test_identity_probe_accepts_uv_local_archive_without_optional_hashes(tmp_path: Path) -> None:

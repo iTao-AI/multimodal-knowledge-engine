@@ -8,6 +8,7 @@ The external work directory is retained; stdout never contains its private paths
 from __future__ import annotations
 
 import argparse
+import configparser
 import hashlib
 import json
 import os
@@ -116,18 +117,33 @@ def verify_wheel(repository: Path, commit: str, wheel: Path) -> dict[str, Any]:
     require(bool(files), "wheel_source_mismatch")
     expected = {path.removeprefix("src/"): digest(blob(repository, commit, path)) for path in files}
     project = tomllib.loads(blob(repository, commit, "pyproject.toml").decode())["project"]
+    dist_info = f"{project['name'].replace('-', '_')}-{project['version']}.dist-info"
+    metadata_name = f"{dist_info}/METADATA"
+    entry_points_name = f"{dist_info}/entry_points.txt"
+    metadata_files = {
+        metadata_name,
+        entry_points_name,
+        f"{dist_info}/WHEEL",
+        f"{dist_info}/RECORD",
+        f"{dist_info}/licenses/LICENSE",
+    }
+    console_scripts = project.get("scripts", {})
+    expected_entry_points = {"console_scripts": console_scripts} if console_scripts else {}
     with zipfile.ZipFile(wheel) as archive:
         names = archive.namelist()
-        require(len(names) == len(set(names)), "wheel_source_mismatch")
+        require(
+            len(names) == len(set(names))
+            and set(names) <= expected.keys() | metadata_files
+            and metadata_name in names,
+            "wheel_source_mismatch",
+        )
         observed = {
             name: digest(archive.read(name))
             for name in names
             if name.startswith("mke/") and not name.endswith("/")
         }
         require(observed == expected, "wheel_source_mismatch")
-        metadata_names = [name for name in names if name.endswith(".dist-info/METADATA")]
-        require(len(metadata_names) == 1, "wheel_source_mismatch")
-        metadata = BytesParser().parsebytes(archive.read(metadata_names[0]))
+        metadata = BytesParser().parsebytes(archive.read(metadata_name))
         require(
             metadata["Name"] == project["name"] == DISTRIBUTION
             and metadata["Version"] == project["version"]
@@ -135,10 +151,25 @@ def verify_wheel(repository: Path, commit: str, wheel: Path) -> dict[str, Any]:
             == set(project["requires-python"].split(",")),
             "wheel_source_mismatch",
         )
+        observed_entry_points: dict[str, dict[str, str]] = {}
+        if entry_points_name in names:
+            parser = configparser.ConfigParser(interpolation=None)
+            parser.optionxform = lambda optionstr: optionstr
+            try:
+                parser.read_string(archive.read(entry_points_name).decode("utf-8"))
+            except (configparser.Error, UnicodeError) as error:
+                raise ProofFailure("wheel_source_mismatch") from error
+            require(not parser.defaults(), "wheel_source_mismatch")
+            observed_entry_points = {
+                section: dict(parser.items(section)) for section in parser.sections()
+            }
+        require(observed_entry_points == expected_entry_points, "wheel_source_mismatch")
     return {
         "wheel_sha256": digest(wheel.read_bytes()),
         "version": project["version"],
         "module_sha256": expected,
+        "wheel_members_matched": len(names),
+        "console_scripts": console_scripts,
     }
 
 
@@ -458,6 +489,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "wheel_sha256": binding["wheel_sha256"],
         "package_version": binding["version"],
         "package_files_matched": len(binding["module_sha256"]),
+        "wheel_members_matched": binding["wheel_members_matched"],
+        "console_scripts": binding["console_scripts"],
         "uv_lock_sha256": digest(blob(repository, args.source_commit, "uv.lock")),
         "constraints_sha256": digest(exported.stdout),
         "python_versions": sorted(minor for _, minor in versions),

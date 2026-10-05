@@ -12,8 +12,10 @@
 
 Status: Controller and targeted provenance/isolation repairs verified locally on 2026-10-06.
 Two installed-proof attempts stopped before native ingestion (cold locked cache, then an invalid
-assumption about optional installer metadata). Their diagnostics are retained. Further full
-installed-proof runs await the coordinating owner's route decision; no complete C1 result is claimed.
+assumption about optional installer metadata). Their diagnostics are retained. The coordinating
+owner explicitly resumed one complete fresh dual-runtime proof after accepting the metadata repair.
+Installation preflight and the bounded review repairs precede that run; no complete C1 result is
+claimed until both native consumers pass.
 
 ## Approved Delivery Brief
 
@@ -37,6 +39,7 @@ installed-proof runs await the coordinating owner's route decision; no complete 
 ## Review Focus
 
 - Same version with different wheel module bytes must fail before installation; version strings alone do not bind provenance.
+- Non-package wheel members are restricted to the canonical metadata inventory; console entry points must match the committed project before installation. Extra modules, startup files and unbound script payloads must fail.
 - Host `PYTHONPATH`, an editable/source import, wrong interpreter or wrong dependency versions must never count as installed-wheel evidence.
 - A copied historical twelve-tool expectation must fail rather than hide the current fourteen-tool contract.
 - A malformed export and a normal native public error must produce bounded failure receipts and nonzero exits.
