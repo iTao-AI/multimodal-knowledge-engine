@@ -337,7 +337,9 @@ class CompiledSourceSnapshotV3(CompiledSourceSnapshotV2):
             assert observation.mixed_text_raster_pages is not None
             assert observation.total_pages is not None
             if (
-                observation.text_only_pages + observation.mixed_text_raster_pages
+                tuple(page.page_number for page in observation.pages)
+                != tuple(range(1, min(observation.total_pages, 256) + 1))
+                or observation.text_only_pages + observation.mixed_text_raster_pages
                 != len(self.evidence)
             ):
                 _reject_provenance()

@@ -83,7 +83,7 @@ def _validate_observation(entry: dict[str, object], rows: Sequence[dict[str, obj
     if type(value["pages"]) is not list or type(value["omitted_page_ranges"]) is not list:
         raise ValidationError
     pages = cast(list[object], value["pages"])
-    if len(pages) > 256:
+    if len(pages) != min(total, 256):
         raise ValidationError
     known: dict[int, int] = {}
     categories = [0, 0, 0, 0]
@@ -97,22 +97,11 @@ def _validate_observation(entry: dict[str, object], rows: Sequence[dict[str, obj
         known[number] = chars
         category = (1 if raster else 0) if chars else (2 if raster else 3)
         categories[category] += 1
-    returned = value["returned_page_range"]
-    omitted: list[dict[str, object]]
-    if known:
-        bounds = _range(returned, total)
-        start, end = cast(int, bounds["start"]), cast(int, bounds["end"])
-        if list(known) != list(range(start, end + 1)):
-            raise ValidationError
-        omitted = [
-            {"start": start, "end": end}
-            for start, end in ((1, start - 1), (end + 1, total))
-            if start <= end
-        ]
-    else:
-        if returned is not None:
-            raise ValidationError
-        omitted = [{"start": 1, "end": total}]
+    bounds = _range(value["returned_page_range"], total)
+    end = min(total, 256)
+    if bounds != {"start": 1, "end": end} or list(known) != list(range(1, end + 1)):
+        raise ValidationError
+    omitted: list[dict[str, object]] = [{"start": end + 1, "end": total}] if end < total else []
     actual_omitted = [
         _range(item, total) for item in cast(list[object], value["omitted_page_ranges"])
     ]

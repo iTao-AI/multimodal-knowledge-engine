@@ -11,8 +11,15 @@ from mke.domain.library_export import (
     CompiledLibrarySnapshotV2,
     CompiledSourceSnapshot,
     CompiledSourceSnapshotV2,
+    CompiledSourceSnapshotV3,
     ExportLimits,
     LibraryExportDataError,
+)
+from mke.domain.pdf_observation import (
+    PdfExtractionObservation,
+    PdfObservationRange,
+    PdfPageObservation,
+    omitted_ranges,
 )
 
 
@@ -155,6 +162,42 @@ def assert_reason(reason: str, factory: object) -> None:
     with pytest.raises(LibraryExportDataError) as exc_info:
         factory()  # type: ignore[operator]
     assert exc_info.value.reason == reason
+
+
+@pytest.mark.parametrize(
+    ("total", "bounds"),
+    [(6, None), (6, (2, 6)), (6, (1, 5)), (300, (2, 257)), (300, (1, 255))],
+)
+def test_v3_pdf_snapshot_requires_first_bounded_page_details(
+    total: int, bounds: tuple[int, int] | None,
+) -> None:
+    source = source_snapshot_v2(
+        media_type="application/pdf", source_suffix="a", publication_suffix="b",
+        run_suffix="c", digest="a" * 64,
+    )
+    returned = None if bounds is None else PdfObservationRange(*bounds)
+    pages = () if returned is None else tuple(
+        PdfPageObservation(number, len(source.evidence[0].text) if number == 1 else 0, False)
+        for number in range(returned.start, returned.end + 1)
+    )
+    observation = PdfExtractionObservation(
+        status="observed", method="pymupdf-displayed-raster-v1",
+        extraction_scope="text_layer_only", total_pages=total, text_only_pages=1,
+        mixed_text_raster_pages=0, raster_only_pages=0, neither_text_nor_raster_pages=total - 1,
+        pages=pages, returned_page_range=returned,
+        omitted_page_ranges=omitted_ranges(total, returned),
+    )
+    # This is valid for Source v2 range browsing, but Export v3 has a fixed first-page window.
+    assert observation.status == "observed"
+    with pytest.raises(LibraryExportDataError, match="provenance"):
+        CompiledSourceSnapshotV3(
+            source_id=source.source_id, display_name=source.display_name,
+            content_fingerprint=source.content_fingerprint, media_type=source.media_type,
+            publication_id=source.publication_id, publication_revision=source.publication_revision,
+            run_id=source.run_id, extractor_fingerprint=source.extractor_fingerprint,
+            required_stages=source.required_stages, evidence=source.evidence,
+            pdf_extraction_observation=observation,
+        )
 
 
 def test_compiled_library_snapshot_accepts_page_and_timestamp_sources() -> None:

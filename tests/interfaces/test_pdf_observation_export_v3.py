@@ -190,7 +190,10 @@ def test_v3_large_pdf_discloses_bounded_details_and_full_counts(tmp_path: Path) 
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-@pytest.mark.parametrize("mutation", ["boolean", "omission", "unknown_zero", "identity", "chars"])
+@pytest.mark.parametrize(
+    "mutation",
+    ["boolean", "omission", "unknown_zero", "identity", "chars", "empty_details", "shifted_range"],
+)
 def test_independent_v3_consumer_rejects_forged_observation(tmp_path: Path, mutation: str) -> None:
     config = library(tmp_path)
     directory = export(config.db_path, tmp_path, "export-v3", "v3")
@@ -206,6 +209,14 @@ def test_independent_v3_consumer_rejects_forged_observation(tmp_path: Path, muta
         observation["status"] = "not_observed"
     elif mutation == "identity":
         source["run_id"] = "run_" + "f" * 32
+    elif mutation == "empty_details":
+        observation["pages"] = []
+        observation["returned_page_range"] = None
+        observation["omitted_page_ranges"] = [{"start": 1, "end": 6}]
+    elif mutation == "shifted_range":
+        observation["pages"] = observation["pages"][1:]
+        observation["returned_page_range"] = {"start": 2, "end": 6}
+        observation["omitted_page_ranges"] = [{"start": 1, "end": 1}]
     else:
         observation["pages"][0]["text_layer_chars"] = 13
     # Keep Markdown consistent with the forged declaration so its hash alone cannot catch it.
@@ -230,3 +241,13 @@ def test_independent_v3_consumer_rejects_forged_observation(tmp_path: Path, muta
         json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
     )
     assert consumer(directory, "v3").returncode == 1
+    output = tmp_path / "forged-viewer.html"
+    viewer = subprocess.run(
+        [
+            sys.executable, "-I", "-B", str(ROOT / "scripts/build_compiled_library_viewer.py"),
+            "--export", str(directory), "--output", str(output),
+        ],
+        cwd=tmp_path, capture_output=True, text=True, check=False, timeout=30,
+    )
+    assert viewer.returncode == 1
+    assert not output.exists()

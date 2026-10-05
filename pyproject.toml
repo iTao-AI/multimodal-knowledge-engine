@@ -42,6 +42,9 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/mke"]
 
+[tool.hatch.build.targets.sdist]
+exclude = ["/artifacts/", "/.superpowers/"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
