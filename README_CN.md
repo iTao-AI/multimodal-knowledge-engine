@@ -12,6 +12,10 @@ MKE 只有在 `Run` 把输入验证为 `active Publication` 后，才把本地�
 active Publication。[Source 发现与阅读指南](./docs/how-to/discover-and-read-sources.md) 展示了这条路径，
 包括预览不完整时的完整读取和引用校验。
 
+PDF 可以显式选择 Source v2 和 Export v3，查看文本／光栅图像的页范围，以及未观察或未返回的
+观察结果。混合页会提醒涉及图像的问题需要核对原页；矢量图与图像含义不在观察范围内。
+参见[无需 provider 的原生消费证明](./docs/how-to/observe-pdf-extraction-scope.md)。
+
 离线阅读时，可以从已验证的导出快照生成单文件 HTML Viewer：选择 Source、沿页码或时间戳阅读，
 再复制绑定 Source、Publication 和 Run 的引用。
 
@@ -33,6 +37,7 @@ Multimodal Knowledge Engine 是一个本地优先、可由 Agent 调用的 `Evid
 Source catalog/browsing 和 Compiled Library Viewer 可从当前源码仓库使用，尚未包含在 `v0.1.7` 中。
 这个不可变 Release 保留其已记录的 Search、exact-read 和 recovery 契约。
 参见 [v0.1.7 release notes](./docs/releases/v0.1.7.md)。
+Source v2 / Export v3 的 PDF 观察也属于当前源码功能；默认 Source v1 和 Export v1 保持不变。
 
 ### 五层关系
 

@@ -749,7 +749,7 @@ def test_run_proof_builds_once_and_uses_same_wheel(
     (repository / "scripts/consumer_source_pack_client.py").write_text("# client")
     fixtures = repository / "tests/fixtures"
     (fixtures / "consumer-source-pack-v1").mkdir(parents=True)
-    (fixtures / "source-discovery-v1").mkdir()
+    (fixtures / "pdf-extraction-observation-v1").mkdir()
     (fixtures / "local-knowledge-v1").mkdir()
     for name in ("manifest.json", "mcp-tool-schemas.json"):
         (fixtures / "consumer-source-pack-v1" / name).write_text("{}")
@@ -977,7 +977,7 @@ def _repository_fixture(tmp_path: Path) -> Path:
     (repository / "scripts").mkdir(parents=True)
     (repository / "scripts/consumer_source_pack_client.py").write_text("# client")
     consumer = repository / "tests/fixtures/consumer-source-pack-v1"
-    current = repository / "tests/fixtures/source-discovery-v1"
+    current = repository / "tests/fixtures/pdf-extraction-observation-v1"
     local = repository / "tests/fixtures/local-knowledge-v1"
     consumer.mkdir(parents=True)
     current.mkdir()

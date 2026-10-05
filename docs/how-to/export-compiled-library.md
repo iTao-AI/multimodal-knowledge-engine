@@ -60,6 +60,35 @@ The Viewer is a downstream read-only artifact; it does not add HTTP/workspace UI
 a model, or change Export v2. The guide also explains Source reading, filtering, local anchors,
 traceable citation copy/fallback, and the separate presentation budget.
 
+## Opt-In V3 PDF Observation
+
+```bash
+mke --db "$MKE_DB" library export --output compiled-library-v3 --format-version v3 --json
+python -I -B scripts/compiled_library_export_consumer_v3.py --export compiled-library-v3 --json
+python -I -B scripts/build_compiled_library_viewer.py \
+  --export compiled-library-v3 --output library-viewer.html
+```
+
+V3 uses `mke.compiled_library_export.v3`, `mke.compiled_markdown.v3` and
+`mke.compiled_library_export_response.v3`. It retains the v2 authority/media/stage matrix and
+adds a required `pdf_extraction_observation` to each Source manifest descriptor: the same closed
+PDF observation as Source v2 browsing, or null for other media. Counts cover the whole PDF;
+per-page detail is bounded to pages 1–256 with explicit returned/omitted ranges. Older missing
+observations are nullable `not_observed`, never zero-filled or backfilled from files.
+
+Markdown includes the canonical observation JSON as a readable scope section. Exact Evidence
+JSONL remains byte-identical to v2 for the same snapshot and uses `mke.evidence_ref.v1`. The
+independent stdlib consumer validates observation fields/types, counts, scope, exact character
+counts against stored page Evidence, hashes, inventory and lineage. Its receipt schema is
+`mke.compiled_library_export_consumer.v3`. It imports no MKE implementation or storage.
+
+All three formats stay closed and require an explicit matching validator. V2 cannot consume v3;
+do not widen it to ignore extra fields. Default v1 and explicit v1/v2 behavior remain unchanged.
+Rollback regenerates the snapshot explicitly in v2 for older consumers and retains historical
+Run records. This current-checkout feature does not amend immutable v0.1.7 release claims or
+prove OCR, image meaning or semantic completeness. See the
+[native observation proof](./observe-pdf-extraction-scope.md).
+
 ## Authority And Safety Boundaries
 
 The command opens SQLite read-only, performs no migration or unfinished-Run recovery, and does not

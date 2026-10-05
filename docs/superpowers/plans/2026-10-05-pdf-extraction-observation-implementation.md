@@ -84,8 +84,9 @@ independent consumer identity; HTML escaping and unchanged complete text/citatio
 **Files:** new ADR-0015; architecture; discovery/export/Viewer guides; CLI/MCP/generated references;
 new provider-free consumer proof and tests as needed; spec/plan/review status.
 
-- [ ] Document observed/unknown semantics, opt-in versions, inventory migration, limitations and rollback.
-- [ ] Actual CLI ingestion/discovery/browse/exact-read → native MCP calls → v3 export/independent validator → Viewer build proves shared identities and exact text.
+- [x] Document observed/unknown semantics, opt-in versions, inventory migration, limitations and rollback.
+- [x] Actual CLI ingestion/discovery/browse/exact-read → native MCP calls → v3 export/independent validator → Viewer build proves shared identities and exact text.
+- [x] Repair current verification scaffolding: migrate temporary inventory directories and derive a separate current numeric replay schema scope; keep frozen archived validation and strict-live rejection unchanged.
 - [ ] Run proportionate integrated checks (full provider-free pytest, ruff, pyright, build if package surface warrants it), contract generation verification and diff checks once final inputs are stable.
 - [ ] Fresh Sol high independent final review; fix concrete findings with targeted re-verification.
 - [ ] Mark plan complete; retain local evidence; final semantic commit and report exact HEAD, results, documentation, limitations and remote authorization residue.

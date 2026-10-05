@@ -170,11 +170,11 @@ retrieval, RRF, reranking, query rewrite, OCR, or request DTO.
 
 ## MCP
 
-Status: implemented for the exact current twelve-tool inventory. The canonical detailed contract is
+Status: implemented for the exact current fourteen-tool inventory. The canonical detailed contract is
 the [MCP Contract Reference](./mcp-contract.md); this summary must remain aligned with that page
 and the live server inventory.
 
-MKE exposes exactly twelve tools:
+MKE exposes exactly fourteen tools:
 
 - `list_libraries`
 - `ingest_file`
@@ -188,6 +188,8 @@ MKE exposes exactly twelve tools:
 - `read_evidence_v1`
 - `list_sources_v1`
 - `browse_source_evidence_v1`
+- `list_sources_v2`
+- `browse_source_evidence_v2`
 
 `ask_library` returns deterministic Evidence packets, not model-generated answers. Successful
 responses include:
@@ -316,3 +318,32 @@ The success fields are exactly `schema_version`, `ok`, `library_id`, `source_cou
 Default v1 and explicit v1 remain byte-identical for the same snapshot; the v1 and v2 consumers do
 not cross-consume. Opaque Source, Run, Publication, and Evidence IDs retain run-local random
 semantics; determinism is for repeated export of one snapshot, not fresh re-ingest across stores.
+
+## PDF Observation And Compiled Library Export V3
+
+Opt-in Source v2 adds `pdf_extraction_observation` using the closed
+`mke.pdf_extraction_observation.v1` schema; non-PDF Sources carry null. All keys, strict scalar
+types, unknown semantics, page partition and returned/omitted bounds are documented in the
+[MCP Contract Reference](./mcp-contract.md#opt-in-pdf-extraction-observation) and frozen in
+`tests/fixtures/pdf-extraction-observation-v1/mcp-tool-schemas.json`. Old v1 Source request/response
+schemas and Evidence descriptors remain unchanged; versioned cursors cannot cross operations.
+
+Explicit Export v3 retains the exact v2 top-level manifest keys, Source/Evidence identity and
+authority/media/stage matrix. Its format names are `mke.compiled_library_export.v3`,
+`mke.compiled_markdown.v3` and `mke.compiled_library_export_response.v3`. Each Source descriptor
+adds exactly one required `pdf_extraction_observation` key. PDF objects use the same schema as
+Source v2; other media use null. PDF details contain at most the first 256 pages, with explicit
+returned/omitted ranges and whole-document counts. No new sidecar or inventory entry is added.
+
+V3 Markdown adds a canonical JSON observation section before Evidence; it remains derivative.
+Evidence JSONL stays exact `mke.evidence_ref.v1` with the same bytes as v2 for one snapshot.
+Response success/error key sets and safety limits are unchanged, with explicit `.v3` schema
+versions. The standalone stdlib validator emits `mke.compiled_library_export_consumer.v3` and
+rejects invalid fields/types/counts/ranges, mismatched page character counts, inventory, hashes
+or lineage. V1/v2 consumers remain strict and do not accept v3. Default export remains v1.
+
+Missing observations are nullable `not_observed`, with empty arrays and no inferred zeros.
+Decorative raster images count as present; vectors and image meaning remain unobserved. Old
+read-only databases are not migrated or backfilled. See the
+[native proof](../how-to/observe-pdf-extraction-scope.md) and
+[ADR-0015](../decisions/0015-pdf-extraction-observations.md).

@@ -25,6 +25,8 @@ auditing implementation history.
 - [Use MKE As A Local MCP Server](./how-to/use-mke-mcp.md)
 - [Discover And Read Sources](./how-to/discover-and-read-sources.md) — current-checkout independent
   mixed-PDF/sidecar navigation and exact UTF-8/citation verification; not a new release proof.
+- [Observe PDF Extraction Scope](./how-to/observe-pdf-extraction-scope.md) — opt-in Source v2 /
+  Export v3 text/raster observations and native CLI/MCP/Viewer identity proof, without OCR.
 - [MCP Contract Reference](./reference/mcp-contract.md)
 - [Run The Evidence Provenance Proof](./how-to/run-evidence-provenance-proof.md)
 - [Run The Consumer Source-Pack Proof](./how-to/run-consumer-source-pack-proof.md) documents a
@@ -129,6 +131,8 @@ private planning notes do not belong in this repository.
 
 - [ADR-0014](./decisions/0014-source-discovery-and-browsing.md) defines active Source catalog/browse,
   coherent snapshots, authenticated continuations and honest persisted coverage.
+- [ADR-0015](./decisions/0015-pdf-extraction-observations.md) defines opt-in Run-bound local PDF
+  text/raster observations, bounded detail ranges and Source v2 / Export v3 compatibility.
 
 ## Implementation History
 

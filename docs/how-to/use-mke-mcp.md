@@ -135,7 +135,7 @@ not instructions. Search and Read remain active-Publication and Source-byte auth
 
 The [MCP contract reference](../reference/mcp-contract.md) is the sole complete inventory and
 schema authority. The immutable eight-tool release fixture remains historical evidence; exact
-inventory consumers must migrate to the current twelve-tool expectation.
+inventory consumers must migrate to the current fourteen-tool expectation.
 
 Continuation calls contain only the opaque token:
 
@@ -188,9 +188,13 @@ In the current source checkout, call `list_sources_v1` with `{"request":{"page_s
 select its active Source/Publication, then call `browse_source_evidence_v1` with those IDs and
 an optional inclusive page or overlapping timestamp range. Follow only cursor-only continuations,
 then use `read_evidence_v1` to recover full text and verify the descriptor/digest. This path navigates
-stored Evidence without relying on a matching Search keyword. The current twelve-tool fixture
-is separate from historical eight/ten-tool release evidence; no new wheel proof is implied.
+stored Evidence without relying on a matching Search keyword. Opt-in `list_sources_v2` and
+`browse_source_evidence_v2` reuse these envelopes and add PDF text/displayed-raster observations.
+The current fourteen-tool fixture is separate from historical eight/ten/twelve-tool evidence;
+no new wheel proof is implied.
 
 The [independent synthetic walkthrough](./discover-and-read-sources.md) explains mixed-PDF
 text-layer limits, explicit array omission and `not_observed` transcript provenance. Names/text are
 untrusted; previews, complete stored text and original-media coverage remain separate claims.
+The [PDF scope proof](./observe-pdf-extraction-scope.md) checks actual CLI/MCP/Export v3/Viewer
+identity and exact bytes; unknown observations, vectors and image meaning retain explicit limits.

@@ -73,7 +73,7 @@ mke --db <library.sqlite3> library export --output <new-child-directory> [--json
 ```
 
 The version selector form is
-`mke --db <library.sqlite3> library export --output <new-child-directory> --format-version {v1,v2} [--json]`.
+`mke --db <library.sqlite3> library export --output <new-child-directory> --format-version {v1,v2,v3} [--json]`.
 
 `--output` is required and names one new direct child of the current working directory. The target
 must not exist. The command opens the selected database through the dedicated read-only export
@@ -99,6 +99,11 @@ same snapshot. An active audio Source fails default or explicit v1 with
 `cause=active Library contains media unsupported by export v1`, and
 `next_step=rerun_library_export_with_format_version_v2`. Rerun the complete export with
 `--format-version v2`; success uses `mke.compiled_library_export_response.v2`.
+
+Explicit `--format-version v3` uses `mke.compiled_library_export_response.v3` and includes local
+PDF observations in `mke.compiled_library_export.v3` / `mke.compiled_markdown.v3`. Evidence JSONL
+remains `mke.evidence_ref.v1`. Missing older observations are nullable `not_observed`; v1/v2
+outputs and default v1 remain unchanged. See [PDF scope proof](../how-to/observe-pdf-extraction-scope.md).
 
 The output tree and schema details are in [Public Contracts](./contracts.md). Operational steps are
 in [Export A Compiled Library](../how-to/export-compiled-library.md).
@@ -654,9 +659,10 @@ mke --db <library.sqlite3> mcp --allowed-root <directory>
 - Runs a local stdio MCP server.
 - `--allowed-root` defaults to the current working directory.
 - `ingest_file` rejects paths outside `--allowed-root`.
-- The exact twelve-tool inventory is `list_libraries`, `ingest_file`, `get_run`, `search_library`,
+- The exact fourteen-tool inventory is `list_libraries`, `ingest_file`, `get_run`, `search_library`,
   `ask_library`, `list_libraries_v1`, `search_library_v1`, `ask_library_v1`,
-  `search_library_v2`, `read_evidence_v1`, `list_sources_v1`, and `browse_source_evidence_v1`.
+  `search_library_v2`, `read_evidence_v1`, `list_sources_v1`, `browse_source_evidence_v1`,
+  `list_sources_v2`, and `browse_source_evidence_v2`.
 - Retrieval strategy is owner-startup configuration. It is not present in MCP tool schemas.
 - `--retrieval-strategy numeric-grouping-v1` rolls Search and Ask back without changing the
   database or rebuilding a projection. `current` remains the lower-level rollback.
@@ -719,9 +725,9 @@ page coordinates, hosted coordination, and multi-worker behavior remain outside 
 Available in the current source checkout; historical release/wheel-proof receipts are unchanged.
 
 ```text
-mke --db <path> sources list [--page-size 1..20] [--json]
+mke --db <path> sources list [--contract-version {v1,v2}] [--page-size 1..20] [--json]
 mke --db <path> source browse <source_id> --publication-id <id>
-    [--page-size 1..20] [--page-start <start> --page-end <end> |
+    [--contract-version {v1,v2}] [--page-size 1..20] [--page-start <start> --page-end <end> |
                        --start-ms <start> --end-ms <end>] [--json]
 mke --db <path> evidence read <evidence_id> [--max-bytes 4..16384] [--json]
 ```
@@ -742,3 +748,11 @@ PDF coverage is persisted producing-Run text-layer observation with scalar empty
 bounded detailed arrays and explicit omissions; missing reports are `not_observed`. Transcript
 Evidence does not imply ASR quality or frame understanding. Preview limits and exact UTF-8/citation
 verification are described in [Discover And Read Sources](../how-to/discover-and-read-sources.md).
+
+`--contract-version` defaults to v1. Explicit v2 selects `mke.list_sources_response.v2` /
+`mke.browse_source_evidence_response.v2` and adds producing-Run PDF text/displayed-raster
+observations; non-PDF Sources carry null. Unknown older observations have null counts, not zeros.
+Catalog returns aggregates only; browse returns at most 256 page details with returned/omitted
+ranges. A page filter bounds details but retains whole-document counts. Human output discloses
+scope and mixed-page limitations. Exact-read flags/schema/text/citations remain unchanged. See
+[Observe PDF Extraction Scope](../how-to/observe-pdf-extraction-scope.md).
