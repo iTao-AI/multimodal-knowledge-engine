@@ -247,6 +247,28 @@ def test_installed_dependency_versions_are_checked_after_required_packages(
             module.validate_dependencies(actual, locked, "0.1.7")
 
 
+def test_negative_fixture_changes_the_public_export_manifest_and_preserves_original(
+    tmp_path: Path,
+) -> None:
+    export = tmp_path / "compiled-v3"
+    export.mkdir()
+    manifest = export / "export-manifest.json"
+    original = b'{"schema_version":"mke.compiled_library_export.v3","sources":[]}\n'
+    manifest.write_bytes(original)
+    evidence = export / "evidence"
+    evidence.mkdir()
+    (evidence / "declared.jsonl").write_bytes(b"preserve evidence bytes\n")
+    destination = tmp_path / "malformed-export"
+    proof().create_malformed_export(export, destination)
+    assert manifest.read_bytes() == original
+    assert json.loads((destination / "export-manifest.json").read_bytes()) == {
+        "schema_version": "mke.compiled_library_export.invalid",
+        "sources": [],
+    }
+    assert (destination / "evidence/declared.jsonl").read_bytes() == b"preserve evidence bytes\n"
+    assert not (destination / "manifest.json").exists()
+
+
 def test_identity_probe_accepts_uv_local_archive_without_optional_hashes(tmp_path: Path) -> None:
     site = tmp_path / "site-packages"
     package = site / "mke"

@@ -10,12 +10,13 @@
 
 **Spec:** [PDF observation design](../specs/2026-10-05-pdf-extraction-observation-design.md) and the approved C1 delivery brief below. C1 adds installation evidence, without changing that design's product behavior.
 
-Status: Controller and targeted provenance/isolation repairs verified locally on 2026-10-06.
-Two installed-proof attempts stopped before native ingestion (cold locked cache, then an invalid
-assumption about optional installer metadata). Their diagnostics are retained. The coordinating
-owner explicitly resumed one complete fresh dual-runtime proof after accepting the metadata repair.
-Installation preflight and the bounded review repairs precede that run; no complete C1 result is
-claimed until both native consumers pass.
+Status: Controller and targeted provenance/isolation/negative-fixture repairs verified locally on
+2026-10-06; full C1 remains incomplete. Two initial attempts stopped before native ingestion (cold
+locked cache, then an invalid optional-metadata assumption). After explicit resume, both installation
+preflights passed; the complete run passed the 3.12 native and independent export consumers, then
+failed because its negative-fixture setup used the wrong manifest filename. The corrected setup
+passes its regression and actual targeted failure-exit checks. The 3.13 native case and a complete
+successful receipt remain pending a new route decision. All failed runs/diagnostics are retained.
 
 ## Approved Delivery Brief
 

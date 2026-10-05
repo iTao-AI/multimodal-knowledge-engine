@@ -279,6 +279,14 @@ def receipt(result: subprocess.CompletedProcess[bytes], code: str) -> dict[str, 
     return value
 
 
+def create_malformed_export(export: Path, destination: Path) -> None:
+    shutil.copytree(export, destination)
+    manifest = destination / "export-manifest.json"
+    payload = json.loads(manifest.read_bytes())
+    payload["schema_version"] = "mke.compiled_library_export.invalid"
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+
+
 def installed_case(
     repository: Path,
     commit: str,
@@ -374,11 +382,7 @@ def installed_case(
         "independent_consumer_failed",
     )
     broken = root / "malformed-export"
-    shutil.copytree(data / "compiled-v3", broken)
-    manifest = broken / "manifest.json"
-    payload = json.loads(manifest.read_bytes())
-    payload["schema_version"] = "mke.compiled_library_export.invalid"
-    manifest.write_text(json.dumps(payload), encoding="utf-8")
+    create_malformed_export(data / "compiled-v3", broken)
     rejected = command(validator + ["--export", str(broken), "--json"], cwd=root, log=log)
     require(
         rejected.returncode == 1
