@@ -7,10 +7,14 @@ Publication; incomplete processing stays out of Search and Ask.
 
 ## Read Local Sources And Copy Traceable Citations
 
-Turn local PDFs and audio/video into Evidence an Agent can read and verify against an original page or
-timestamp. The CLI and stdio MCP retrieve only validated active Publications. Or build a single-file
-HTML viewer from a validated export snapshot, browse the exported Evidence offline, and copy
-citations that link each passage back to its source and original page or timestamp.
+Discover the local Library's active Sources, choose a document or transcript, browse its page or
+timestamp Evidence, read the complete stored text, and verify the citation against the original
+material. The CLI and stdio MCP use the same validated active Publications. The
+[Source discovery walkthrough](./docs/how-to/discover-and-read-sources.md) shows this route, including
+complete reads and citation checks when a preview is incomplete.
+
+For offline reading, build a single-file HTML Viewer from a validated export snapshot, choose a
+Source, follow its page or timestamp, and copy a citation tied to the Source, Publication and Run.
 
 [Try reading sources and citations with repository examples](./docs/how-to/view-compiled-library.md).
 
@@ -27,8 +31,9 @@ activation, retrieval, and Agent-facing interfaces inside one verifiable local a
 ### Current default branch status
 
 Stable `v0.1.7` includes this Evidence workspace and the MCP consumer failure-branch/recovery proof.
-The Compiled Library Viewer is available from the current source checkout and is not included in
-`v0.1.7`. See the [v0.1.7 release notes](./docs/releases/v0.1.7.md).
+Source catalog/browsing and the Compiled Library Viewer are available from the current source
+checkout and are not included in `v0.1.7`. The immutable release retains its documented Search,
+exact-read and recovery contracts. See the [v0.1.7 release notes](./docs/releases/v0.1.7.md).
 
 ### Five-layer relation
 

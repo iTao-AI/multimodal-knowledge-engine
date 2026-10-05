@@ -7,9 +7,13 @@ MKE 只有在 `Run` 把输入验证为 `active Publication` 后，才把本地�
 
 ## 阅读本地资料并复制可追溯引用
 
-将本地 PDF、音频和视频转成 Agent 可读取的 `Evidence`，并沿原文页码或时间戳核对。`CLI` 和
-`stdio MCP` 只检索已验证的 active Publication。也可以从已验证的导出快照生成单文件 HTML，
-离线浏览导出的 Evidence，并复制能回查原文与来源身份的引用。
+先发现本地 Library 中的 active Source，选择文档或转录资料，再按页码或时间戳浏览 Evidence，
+完整读取已存文本，最后回到原始资料核对引用。`CLI` 和 `stdio MCP` 使用同一套已验证的
+active Publication。[Source 发现与阅读指南](./docs/how-to/discover-and-read-sources.md) 展示了这条路径，
+包括预览不完整时的完整读取和引用校验。
+
+离线阅读时，可以从已验证的导出快照生成单文件 HTML Viewer：选择 Source、沿页码或时间戳阅读，
+再复制绑定 Source、Publication 和 Run 的引用。
 
 [用仓库样例体验资料查看与引用](./docs/how-to/view-compiled-library.md)。
 
@@ -25,7 +29,10 @@ Multimodal Knowledge Engine 是一个本地优先、可由 Agent 调用的 `Evid
 
 ### 当前默认分支状态
 
-稳定版 `v0.1.7` 已包含这个 Evidence workspace 和 MCP consumer failure-branch/recovery proof。Compiled Library Viewer 可从当前源码仓库使用，尚未包含在 `v0.1.7` 中。参见 [v0.1.7 release notes](./docs/releases/v0.1.7.md)。
+稳定版 `v0.1.7` 已包含这个 Evidence workspace 和 MCP consumer failure-branch/recovery proof。
+Source catalog/browsing 和 Compiled Library Viewer 可从当前源码仓库使用，尚未包含在 `v0.1.7` 中。
+这个不可变 Release 保留其已记录的 Search、exact-read 和 recovery 契约。
+参见 [v0.1.7 release notes](./docs/releases/v0.1.7.md)。
 
 ### 五层关系
 
