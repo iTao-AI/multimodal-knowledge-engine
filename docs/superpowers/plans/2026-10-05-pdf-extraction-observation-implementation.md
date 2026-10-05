@@ -10,6 +10,11 @@
 
 **Spec:** [Frozen M1 design](../specs/2026-10-05-pdf-extraction-observation-design.md).
 
+**Status:** Completed locally on 2026-10-05. The
+[acceptance review](../reviews/2026-10-05-pdf-extraction-observation-review.md) records the reviewed
+code, executed checks and unverified file-origin/clipboard behavior. No remote operation is part
+of this completion.
+
 ## Global Constraints
 
 - Local commits/validation only. No push, PR, merge, Release, provider or new dependency.
@@ -87,6 +92,6 @@ new provider-free consumer proof and tests as needed; spec/plan/review status.
 - [x] Document observed/unknown semantics, opt-in versions, inventory migration, limitations and rollback.
 - [x] Actual CLI ingestion/discovery/browse/exact-read → native MCP calls → v3 export/independent validator → Viewer build proves shared identities and exact text.
 - [x] Repair current verification scaffolding: migrate temporary inventory directories and derive a separate current numeric replay schema scope; keep frozen archived validation and strict-live rejection unchanged.
-- [ ] Run proportionate integrated checks (full provider-free pytest, ruff, pyright, build if package surface warrants it), contract generation verification and diff checks once final inputs are stable.
-- [ ] Fresh Sol high independent final review; fix concrete findings with targeted re-verification.
-- [ ] Mark plan complete; retain local evidence; final semantic commit and report exact HEAD, results, documentation, limitations and remote authorization residue.
+- [x] Run proportionate integrated checks (full provider-free pytest, ruff, pyright, build if package surface warrants it), contract generation verification and diff checks once final inputs are stable.
+- [x] Fresh Sol high independent final review; fix concrete findings with targeted re-verification.
+- [x] Mark plan complete; retain local evidence; final semantic commit and report exact HEAD, results, documentation, limitations and remote authorization residue.

@@ -1,6 +1,8 @@
 # PDF Text/Raster Extraction Observation
 
-Status: Frozen for local implementation. Scope: C0 public navigation, then M1 local PDF observations.
+Status: Implemented and reviewed locally on 2026-10-05. Scope: C0 public navigation, then M1 local
+PDF observations. See the [acceptance review](../reviews/2026-10-05-pdf-extraction-observation-review.md)
+for verified contracts and the remaining browser verification limits. No remote delivery occurred.
 
 ## Problem And Boundary
 

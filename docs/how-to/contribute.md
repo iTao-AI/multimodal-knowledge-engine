@@ -89,6 +89,15 @@ Use risk-based verification that matches the change:
 Always inspect `git diff`, run `git diff --check`, and report only commands actually executed.
 Never claim a test, review, build, push, or publication without command evidence.
 
+For local packaging checks, run `UV_OFFLINE=1 uv build --out-dir artifacts/local-build-check`
+with an existing cached backend, then inspect both the sdist and wheel inventories. Build success
+alone is insufficient: neither output may contain local agent state or execution records. The
+sdist explicitly excludes `artifacts/` and `.superpowers/`; Git ignore rules alone can be dropped
+when a managed checkout's root matches an ignore pattern. The real-build regression in
+`tests/packaging/test_source_distribution.py` covers ordinary and `.codex` parent directories,
+preserving public source and documentation while rejecting those records. This path was verified
+on 2026-10-05; it is a local construction check, not an installed-wheel or publication proof.
+
 ## Prepare And Verify A Pull Request
 
 Do not push or create a PR without authorization. When authorized:

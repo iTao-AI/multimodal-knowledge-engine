@@ -140,6 +140,8 @@ private planning notes do not belong in this repository.
 is useful for audits and future planning, but release readers should start from release notes,
 how-to guides, reference docs, and ADRs.
 
+- [PDF Extraction Observation Review](./superpowers/reviews/2026-10-05-pdf-extraction-observation-review.md)
+  — local C0/M1 implementation, native consumer checks and explicit browser verification limits.
 - [v0.1.0 Release Readiness Design](./superpowers/specs/2026-07-02-v0-1-0-release-readiness-design.md)
 - [v0.1.0 Release Readiness Implementation Plan](./superpowers/plans/2026-07-02-v0-1-0-release-readiness-implementation.md)
 - [v0.1.0 Release Readiness Plan Review](./superpowers/reviews/2026-07-02-v0-1-0-release-readiness-review.md)
