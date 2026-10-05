@@ -10,14 +10,15 @@
 
 **Spec:** [Frozen M1 design](../specs/2026-10-05-pdf-extraction-observation-design.md).
 
-**Status:** Completed locally on 2026-10-05. The
+**Status:** Implementation completed locally on 2026-10-05. The
 [acceptance review](../reviews/2026-10-05-pdf-extraction-observation-review.md) records the reviewed
-code, executed checks and unverified file-origin/clipboard behavior. No remote operation is part
-of this completion.
+code, executed checks and unverified file-origin/clipboard behavior. The accepted candidate's
+subsequent PR delivery follows reviewed-HEAD checks, standard merge and exact-main CI gates.
 
 ## Global Constraints
 
-- Local commits/validation only. No push, PR, merge, Release, provider or new dependency.
+- Implementation was local-only. Subsequent accepted-candidate PR/merge delivery is authorized;
+  no tag, Release, provider, new dependency or M2 belongs to this scope.
 - Preserve old Evidence bytes/locators, Search, Ask, required stages, atomic Publication and strict old contracts/defaults.
 - Root owns shared DTOs, storage, interfaces and integration. Read-only audits do not mutate the worktree.
 - Keep raw test/run/UI receipts ignored. Public fixtures are small synthetic additions; historical bytes stay frozen.
@@ -94,4 +95,5 @@ new provider-free consumer proof and tests as needed; spec/plan/review status.
 - [x] Repair current verification scaffolding: migrate temporary inventory directories and derive a separate current numeric replay schema scope; keep frozen archived validation and strict-live rejection unchanged.
 - [x] Run proportionate integrated checks (full provider-free pytest, ruff, pyright, build if package surface warrants it), contract generation verification and diff checks once final inputs are stable.
 - [x] Fresh Sol high independent final review; fix concrete findings with targeted re-verification.
+- [x] Follow-up acceptance: preserve the cursor-fixture failure, deterministically cover both catalog orders, bind the selected Source, and recheck browser limitations without bypasses or product changes.
 - [x] Mark plan complete; retain local evidence; final semantic commit and report exact HEAD, results, documentation, limitations and remote authorization residue.

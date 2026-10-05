@@ -2,7 +2,8 @@
 
 Status: Implemented and reviewed locally on 2026-10-05. Scope: C0 public navigation, then M1 local
 PDF observations. See the [acceptance review](../reviews/2026-10-05-pdf-extraction-observation-review.md)
-for verified contracts and the remaining browser verification limits. No remote delivery occurred.
+for verified contracts and the remaining browser verification limits. PR delivery has separate
+reviewed-HEAD and exact-main CI gates; no tag or release belongs to this design.
 
 ## Problem And Boundary
 
