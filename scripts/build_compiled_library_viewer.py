@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a self-contained, read-only HTML viewer for a v2 Library export."""
+"""Build a self-contained, read-only HTML viewer for a v2/v3 Library export."""
 
 # The embedded HTML is kept readable as a single self-contained template.
 # ruff: noqa: E501
@@ -26,12 +26,22 @@ from compiled_library_export_consumer_v2 import (  # noqa: E402
     ValidationError,
     load_validated_export,
 )
+from compiled_library_export_consumer_v3 import (  # noqa: E402
+    load_validated_export as load_validated_export_v3,
+)
 
 _VIEWER_SCHEMA = "mke.compiled_library_viewer.v1"
 _MAX_SOURCES = 64
 _MAX_EVIDENCE = 2_000
 _MAX_EVIDENCE_UTF8_BYTES = 8 * 1024 * 1024
 _O_NOFOLLOW = getattr(os, "O_NOFOLLOW", 0)
+_UNKNOWN_PDF_OBSERVATION: dict[str, object] = {
+    "schema_version": "mke.pdf_extraction_observation.v1", "status": "not_observed",
+    "method": None, "extraction_scope": None, "total_pages": None, "text_only_pages": None,
+    "mixed_text_raster_pages": None, "raster_only_pages": None,
+    "neither_text_nor_raster_pages": None, "pages": [], "returned_page_range": None,
+    "omitted_page_ranges": [],
+}
 
 
 class ViewerError(Exception):
@@ -53,7 +63,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>资料与引用 · Compiled Library Export v2</title>
+  <title>资料与引用 · Compiled Library Export</title>
   <style>
     :root {
       color-scheme: light;
@@ -117,6 +127,12 @@ _HTML_TEMPLATE = r"""<!doctype html>
     .reader-meta, .record-count { color: var(--muted); font-size: .9rem; }
     .record-count { flex: 0 0 auto; padding-top: 5px; text-align: right; }
     .evidence-list { display: grid; gap: 16px; }
+    .extraction-summary { margin-bottom: 20px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: #f4f5ee; }
+    .extraction-summary p { margin: 6px 0; font-size: .86rem; color: var(--muted); }
+    .extraction-summary details { margin-top: 10px; font-size: .84rem; }
+    .extraction-summary summary { cursor: pointer; color: var(--teal-dark); }
+    .observation-pages { max-height: 220px; overflow: auto; padding-left: 20px; }
+    .extraction-notice { margin: 0 0 14px; padding: 9px 12px; border-left: 3px solid #c7954d; background: #fff6e7; color: var(--warn); font-size: .85rem; }
     .evidence-card { min-width: 0; scroll-margin-top: 20px; border: 1px solid var(--line); border-radius: 12px; padding: 18px; background: #fffefa; }
     .record-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-bottom: 11px; }
     .record-heading h3 { margin-bottom: 0; font-size: 1rem; }
@@ -153,7 +169,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
   <div class="shell">
     <header class="hero">
       <div>
-        <p class="eyebrow">Compiled Library Export v2</p>
+        <p class="eyebrow">Compiled Library Export</p>
         <h1>资料与引用</h1>
         <p class="subtitle">浏览本次导出的资料，沿页码或时间戳核对证据。</p>
       </div>
@@ -313,6 +329,44 @@ _HTML_TEMPLATE = r"""<!doctype html>
         card.append(details);
       };
 
+      const rangeLabel = (range) => range ? `${range.start}–${range.end} 页` : "无";
+
+      const pdfSummary = (source) => {
+        const observation = source.pdf_extraction_observation;
+        if (!observation) return null;
+        const summary = node("section", "extraction-summary");
+        summary.setAttribute("aria-label", "PDF 提取范围");
+        if (observation.status === "not_observed") {
+          summary.append(node("strong", null, "PDF 提取范围未观察"));
+          summary.append(node("p", null, "这份快照未记录逐页文本与光栅图像信号；不能据此判断没有图像。"));
+          return summary;
+        }
+        summary.append(node("strong", null, "PDF 文本层提取"));
+        summary.append(node("p", null, `共 ${observation.total_pages} 页：仅文本信号 ${observation.text_only_pages} 页，文本与图像 ${observation.mixed_text_raster_pages} 页，仅图像信号 ${observation.raster_only_pages} 页，未观察到这两类信号 ${observation.neither_text_nor_raster_pages} 页。`));
+        summary.append(node("p", null, "光栅图像信号包括装饰图；未评估矢量图形或图像语义。没有文本层文字不表示该页没有内容。"));
+        const omitted = observation.omitted_page_ranges.map(rangeLabel).join("、") || "无";
+        summary.append(node("p", "observation-scope", `逐页观察已返回：${rangeLabel(observation.returned_page_range)}；未返回：${omitted}。`));
+        if (observation.pages.length) {
+          const details = node("details");
+          details.append(node("summary", null, `查看逐页信号（${observation.pages.length} 页）`));
+          const pages = node("ul", "observation-pages");
+          observation.pages.forEach((page) => pages.append(node("li", null, `第 ${page.page_number} 页 · 文本层 ${page.text_layer_chars} 字符 · ${page.has_raster_images ? "有" : "未观察到"}光栅图像`)));
+          details.append(pages);
+          summary.append(details);
+        }
+        return summary;
+      };
+
+      const pdfPageNotice = (source, evidence) => {
+        const observation = source.pdf_extraction_observation;
+        if (!observation || evidence.locator.kind !== "page") return null;
+        if (observation.status === "not_observed") return "本页的文本与光栅图像信号未观察。";
+        const page = observation.pages.find((item) => item.page_number === evidence.locator.start);
+        if (!page) return "本页的逐页观察未返回；涉及图像的问题请核对原页。";
+        if (page.text_layer_chars > 0 && page.has_raster_images) return "本页含文本与图像；仅提取文本层。涉及图像的问题请核对原页。";
+        return null;
+      };
+
       const renderEvidence = (source, evidence) => {
         const card = node("article", "evidence-card");
         card.id = `evidence-${evidence.evidence_id}`;
@@ -340,7 +394,10 @@ _HTML_TEMPLATE = r"""<!doctype html>
           }
         });
         actions.append(copy, status);
-        card.append(heading, text, actions);
+        card.append(heading);
+        const notice = pdfPageNotice(source, evidence);
+        if (notice) card.append(node("p", "extraction-notice", notice));
+        card.append(text, actions);
         addCitationDetails(card, source, evidence);
         return card;
       };
@@ -388,7 +445,10 @@ _HTML_TEMPLATE = r"""<!doctype html>
         header.append(title, node("div", "record-count", `${selectedEvidence.length}/${selected.evidence.length} 条 Evidence`));
         const list = node("div", "evidence-list");
         selectedEvidence.forEach((evidence) => list.append(renderEvidence(selected, evidence)));
-        readerContent.append(header, list);
+        readerContent.append(header);
+        const observation = pdfSummary(selected);
+        if (observation) readerContent.append(observation);
+        readerContent.append(list);
       };
 
       const render = ({ fragment = null, focusSourceId = null } = {}) => {
@@ -451,11 +511,14 @@ _HTML_TEMPLATE = r"""<!doctype html>
 
 def _load_snapshot(export: Path) -> ValidatedExport:
     try:
-        return load_validated_export(export)
+        try:
+            return load_validated_export(export)
+        except ValidationError:
+            return load_validated_export_v3(export)
     except (OSError, ValueError, TypeError, ValidationError) as exc:
         raise ViewerError(
             "export_invalid",
-            "a validated compiled Library Export v2 is required",
+            "a validated compiled Library Export v2 or v3 is required",
         ) from exc
 
 
@@ -515,12 +578,15 @@ def _viewer_data(
                 "publication_id": entry["publication_id"],
                 "publication_revision": entry["publication_revision"],
                 "run_id": entry["run_id"],
+                "pdf_extraction_observation": entry.get("pdf_extraction_observation", (
+                    _UNKNOWN_PDF_OBSERVATION if entry["media_type"] == "application/pdf" else None
+                )),
                 "evidence": evidence,
             }
         )
     return {
         "schema_version": _VIEWER_SCHEMA,
-        "export_schema": "mke.compiled_library_export.v2",
+        "export_schema": snapshot.manifest["schema_version"],
         "source_count": source_count,
         "evidence_count": evidence_count,
         "sources": sources,

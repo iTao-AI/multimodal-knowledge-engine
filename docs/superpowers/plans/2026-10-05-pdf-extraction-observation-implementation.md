@@ -74,10 +74,10 @@ independent consumer identity; HTML escaping and unchanged complete text/citatio
 
 **Files:** `scripts/build_compiled_library_viewer.py`, `tests/scripts/test_compiled_library_viewer.py`.
 
-- [ ] RED: v3 warnings, old v2 unknown, omitted page and escaping tests fail.
-- [ ] GREEN: validate v2/v3 explicitly; show Source summary/scope and selected-page warnings without changing text/citation.
-- [ ] Build actual v2/v3 HTML; inspect changed UI in a browser, including hostile labels/text and normal reading.
-- [ ] Run Viewer tests and focused diff review; commit.
+- [x] RED: v3 warnings, old v2 unknown, omitted page and escaping tests fail.
+- [x] GREEN: validate v2/v3 explicitly; show Source summary/scope and selected-page warnings without changing text/citation.
+- [x] Build actual v2/v3 HTML; inspect changed UI in a browser, including hostile labels/text and normal reading.
+- [x] Run Viewer tests and focused diff review; commit.
 
 ### Task 6: Docs, native proof and final acceptance
 
