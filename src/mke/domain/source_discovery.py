@@ -7,6 +7,7 @@ from typing import Literal
 
 from mke.domain import TranscriptIntakeReport
 from mke.domain.evidence_access import ActiveAuthoritySnapshot, EvidenceDescriptor, EvidenceExcerpt
+from mke.domain.pdf_observation import PdfExtractionObservation
 
 
 @dataclass(frozen=True)
@@ -66,6 +67,7 @@ class SourceMetadata:
     required_stages: tuple[str, ...]
     evidence_count: int
     coverage: SourceCoverage
+    pdf_extraction_observation: PdfExtractionObservation | None = None
 
 
 @dataclass(frozen=True)

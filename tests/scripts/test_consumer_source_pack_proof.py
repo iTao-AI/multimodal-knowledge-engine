@@ -753,7 +753,7 @@ def test_run_proof_builds_once_and_uses_same_wheel(
     (fixtures / "local-knowledge-v1").mkdir()
     for name in ("manifest.json", "mcp-tool-schemas.json"):
         (fixtures / "consumer-source-pack-v1" / name).write_text("{}")
-    (fixtures / "source-discovery-v1/mcp-tool-schemas.json").write_text(
+    (fixtures / "pdf-extraction-observation-v1/mcp-tool-schemas.json").write_text(
         '{"tools":"current"}'
     )
     for name in ("operations-guide.pdf", "incident-guide.pdf"):

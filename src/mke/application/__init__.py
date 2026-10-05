@@ -365,9 +365,11 @@ class KnowledgeEngine:
         position: int,
         page_size: int,
         authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+        include_pdf_observation: bool = False,
     ) -> SourceCatalogPage:
         return self._store.list_sources_page(
-            position=position, page_size=page_size, authority_validator=authority_validator
+            position=position, page_size=page_size, authority_validator=authority_validator,
+            include_pdf_observation=include_pdf_observation,
         )
 
     def browse_source_evidence_page(
@@ -379,6 +381,7 @@ class KnowledgeEngine:
         position: int,
         page_size: int,
         authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+        include_pdf_observation: bool = False,
     ) -> SourceBrowsePage:
         return self._store.browse_source_evidence_page(
             source_id,
@@ -387,6 +390,7 @@ class KnowledgeEngine:
             position=position,
             page_size=page_size,
             authority_validator=authority_validator,
+            include_pdf_observation=include_pdf_observation,
         )
 
     def read_active_evidence(

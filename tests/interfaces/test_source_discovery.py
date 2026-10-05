@@ -34,7 +34,9 @@ def test_native_inventory_keeps_historical_ten_tools_byte_equivalent(tmp_path: P
     old = json.loads(
         Path("tests/fixtures/mcp-context-completeness-v1/mcp-tool-schemas.json").read_text()
     )["tools"]
-    assert set(actual) == set(old) | {"list_sources_v1", "browse_source_evidence_v1"}
+    assert set(actual) == set(old) | {
+        "list_sources_v1", "browse_source_evidence_v1", "list_sources_v2", "browse_source_evidence_v2",
+    }
     assert {name: actual[name] for name in old} == old
     for name in ("list_sources_v1", "browse_source_evidence_v1"):
         tool = actual[name]

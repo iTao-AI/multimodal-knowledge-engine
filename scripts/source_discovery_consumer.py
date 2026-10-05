@@ -256,7 +256,7 @@ async def discover(
             key: dumped.get(key)
             for key in ("inputSchema", "outputSchema", "description", "annotations")
         }
-    require(actual == expected_tools and len(actual) == 12, "tool_inventory_mismatch")
+    require(actual == expected_tools and len(actual) == 14, "tool_inventory_mismatch")
     measurements: list[tuple[int, int]] = []
     catalog = await pages(session, "list_sources_v1", {"page_size": 1}, measurements)
     sources = [source for response in catalog for source in response["sources"]]
@@ -408,7 +408,7 @@ def main() -> int:
     parser.add_argument(
         "--expectation",
         type=Path,
-        default=Path("tests/fixtures/source-discovery-v1/mcp-tool-schemas.json"),
+        default=Path("tests/fixtures/pdf-extraction-observation-v1/mcp-tool-schemas.json"),
     )
     args = parser.parse_args()
     try:

@@ -56,6 +56,12 @@ from mke.domain.evidence_access import (
     SelectedEvidence,
     derive_active_set_fingerprint,
 )
+from mke.domain.pdf_observation import (
+    PdfExtractionObservation,
+    PdfObservationRange,
+    PdfPageObservation,
+    omitted_ranges,
+)
 from mke.domain.source_discovery import (
     PdfSourceCoverage,
     SourceBrowseEntry,
@@ -680,7 +686,7 @@ class SQLiteStore:
                     or type(values) is not list
                 ):
                     raise ManifestValidationError("PDF raster observation is invalid")
-                flags = tuple(values)
+                flags = tuple(cast(list[bool], values))
         report = PdfIntakeReport(
             total_pages=int(row["total_pages"]),
             extracted_pages=int(row["extracted_pages"]),
@@ -1846,7 +1852,87 @@ class SQLiteStore:
         report = TranscriptIntakeReport(**{key: row[key] for key in row.keys() if key != "run_id"})
         return TranscriptSourceCoverage("observed", report)
 
-    def _source_metadata(self, row: sqlite3.Row, *, details: bool) -> SourceMetadata:
+    def _pdf_extraction_observation(
+        self, run_id: str, *, details: bool, locator_range: SourceLocatorRange | None = None,
+    ) -> PdfExtractionObservation:
+        if not self._has_pdf_observation_table():
+            return PdfExtractionObservation()
+        # Aggregate and validate in SQLite; never materialize the unbounded arrays in Python.
+        row = self._connection.execute(
+            """SELECT o.method, p.total_pages, p.extraction_mode, p.failure_reason,
+                      json_type(o.page_has_raster_images) AS flags_kind,
+                      json_array_length(o.page_has_raster_images) AS flags_total,
+                      json_array_length(p.page_char_counts) AS chars_total,
+                      SUM(CASE WHEN r.type NOT IN ('true', 'false')
+                                    OR json_type(p.page_char_counts, '$[' || r.key || ']')
+                                       IS NOT 'integer'
+                                    OR json_extract(p.page_char_counts, '$[' || r.key || ']') < 0
+                               THEN 1 ELSE 0 END) AS invalid,
+                      SUM(CASE WHEN json_extract(p.page_char_counts, '$[' || r.key || ']') > 0
+                                    AND r.type = 'false' THEN 1 ELSE 0 END) AS text_only,
+                      SUM(CASE WHEN json_extract(p.page_char_counts, '$[' || r.key || ']') > 0
+                                    AND r.type = 'true' THEN 1 ELSE 0 END) AS mixed,
+                      SUM(CASE WHEN json_extract(p.page_char_counts, '$[' || r.key || ']') = 0
+                                    AND r.type = 'true' THEN 1 ELSE 0 END) AS raster_only,
+                      SUM(CASE WHEN json_extract(p.page_char_counts, '$[' || r.key || ']') = 0
+                                    AND r.type = 'false' THEN 1 ELSE 0 END) AS neither
+               FROM pdf_extraction_observations AS o
+               LEFT JOIN pdf_intake_reports AS p USING(run_id)
+               LEFT JOIN json_each(o.page_has_raster_images) AS r ON 1=1
+               WHERE o.run_id=? GROUP BY o.run_id""",
+            (run_id,),
+        ).fetchone()
+        if row is None:
+            return PdfExtractionObservation()
+        error = "invalid PDF raster observation"
+        total = self._require_sqlite_int(row["total_pages"], error)
+        if (
+            total < 1 or row["method"] != "pymupdf-displayed-raster-v1"
+            or row["extraction_mode"] != "pymupdf-text" or row["failure_reason"] is not None
+            or row["flags_kind"] != "array" or row["flags_total"] != total
+            or row["chars_total"] != total or row["invalid"] != 0
+        ):
+            raise ManifestValidationError(error)
+        pages: tuple[PdfPageObservation, ...] = ()
+        returned = None
+        if details:
+            start = 1 if locator_range is None else locator_range.start
+            end = total if locator_range is None else min(total, locator_range.end)
+            end = min(end, start + 255)
+            if start <= end:
+                values = self._connection.execute(
+                    """SELECT CAST(r.key AS INTEGER)+1 AS page_number,
+                              json_extract(p.page_char_counts, '$[' || r.key || ']') AS chars,
+                              r.value AS raster
+                       FROM pdf_extraction_observations AS o
+                       JOIN pdf_intake_reports AS p USING(run_id),
+                       json_each(o.page_has_raster_images) AS r
+                       WHERE o.run_id=? AND CAST(r.key AS INTEGER) BETWEEN ? AND ?
+                       ORDER BY CAST(r.key AS INTEGER) LIMIT 256""",
+                    (run_id, start - 1, end - 1),
+                ).fetchall()
+                pages = tuple(PdfPageObservation(
+                    int(value["page_number"]), int(value["chars"]), bool(value["raster"]),
+                ) for value in values)
+                returned = PdfObservationRange(start, end)
+        try:
+            return PdfExtractionObservation(
+                status="observed", method="pymupdf-displayed-raster-v1",
+                extraction_scope="text_layer_only", total_pages=total,
+                text_only_pages=self._require_sqlite_int(row["text_only"], error),
+                mixed_text_raster_pages=self._require_sqlite_int(row["mixed"], error),
+                raster_only_pages=self._require_sqlite_int(row["raster_only"], error),
+                neither_text_nor_raster_pages=self._require_sqlite_int(row["neither"], error),
+                pages=pages, returned_page_range=returned,
+                omitted_page_ranges=omitted_ranges(total, returned),
+            )
+        except ValueError as exc:
+            raise ManifestValidationError(error) from exc
+
+    def _source_metadata(
+        self, row: sqlite3.Row, *, details: bool, include_pdf_observation: bool = False,
+        locator_range: SourceLocatorRange | None = None,
+    ) -> SourceMetadata:
         # Stored labels are untrusted: only a leaf name can be exposed.
         name = str(row["display_name"]).replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
         name = name if name not in {"", ".", ".."} else "Source"
@@ -1863,6 +1949,11 @@ class SQLiteStore:
             evidence_count=int(row["manifest_evidence_count"]),
             coverage=self._source_coverage(
                 str(row["run_id"]), str(row["media_type"]), details=details
+            ),
+            pdf_extraction_observation=(
+                self._pdf_extraction_observation(
+                    str(row["run_id"]), details=details, locator_range=locator_range,
+                ) if include_pdf_observation and row["media_type"] == "application/pdf" else None
             ),
         )
 
@@ -1889,6 +1980,7 @@ class SQLiteStore:
         position: int,
         page_size: int,
         authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+        include_pdf_observation: bool = False,
     ) -> SourceCatalogPage:
         self._validate_source_page_range(position, page_size)
         try:
@@ -1898,7 +1990,9 @@ class SQLiteStore:
             page = SourceCatalogPage(
                 authority,
                 position,
-                tuple(self._source_metadata(row, details=False) for row in rows[:page_size]),
+                tuple(self._source_metadata(
+                    row, details=False, include_pdf_observation=include_pdf_observation,
+                ) for row in rows[:page_size]),
                 len(rows) > page_size,
             )
             self._connection.commit()
@@ -1926,6 +2020,7 @@ class SQLiteStore:
         position: int,
         page_size: int,
         authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+        include_pdf_observation: bool = False,
     ) -> SourceBrowsePage:
         from mke.application.evidence_access import build_excerpt
 
@@ -1941,7 +2036,10 @@ class SQLiteStore:
             )
             if not rows:
                 raise EvidenceNotFoundError
-            source = self._source_metadata(rows[0], details=True)
+            source = self._source_metadata(
+                rows[0], details=True, include_pdf_observation=include_pdf_observation,
+                locator_range=locator_range,
+            )
             kind = "page" if source.media_type == "application/pdf" else "timestamp_ms"
             conditions = ""
             parameters: tuple[object, ...] = (source_id, source.run_id)

@@ -30,33 +30,33 @@ independent consumer identity; HTML escaping and unchanged complete text/citatio
 
 **Files:** `README.md`, `README_CN.md`.
 
-- [ ] Put discover → choose → browse → complete read → verify citation at the first entry.
-- [ ] Link the existing discovery and Viewer guides; reuse the existing screenshot.
-- [ ] Distinguish source-checkout features from immutable v0.1.7.
-- [ ] Check links and `git diff --check`; semantic documentation commit.
+- [x] Put discover → choose → browse → complete read → verify citation at the first entry.
+- [x] Link the existing discovery and Viewer guides; reuse the existing screenshot.
+- [x] Distinguish source-checkout features from immutable v0.1.7.
+- [x] Check links and `git diff --check`; semantic documentation commit.
 
 ### Task 2: Producer and run-bound storage
 
-**Files:** `src/mke/domain/__init__.py`, new `src/mke/domain/pdf_observation.py`,
+**Files:** `src/mke/domain/__init__.py`,
 `src/mke/adapters/pdf/extractor.py`, `src/mke/adapters/sqlite/__init__.py`, relevant PDF tests.
 
-- [ ] RED: new generated mixed/decorative/image-only/blank tests fail because the raster observation is absent.
-- [ ] GREEN: retain normalized text/legacy scan logic; collect displayed-raster booleans on every page.
-- [ ] RED: roundtrip, old rows, malformed arrays and observation-write rollback tests fail on missing persistence.
-- [ ] GREEN: additive table; same report/activation transaction; strict validation and producing-Run projection.
-- [ ] Run PDF extractor/intake/report/application tests; review exact diff; commit.
+- [x] RED: new generated mixed/decorative/image-only/blank tests fail because the raster observation is absent.
+- [x] GREEN: retain normalized text/legacy scan logic; collect displayed-raster booleans on every page.
+- [x] RED: roundtrip, old rows, malformed arrays and observation-write rollback tests fail on missing persistence.
+- [x] GREEN: additive table; same report/activation transaction; strict validation and producing-Run projection.
+- [x] Run PDF extractor/intake/report/application tests; review exact diff; commit.
 
 ### Task 3: Versioned Source consumers
 
-**Files:** `domain/source_discovery.py`, `application/source_cursor.py`,
+**Files:** new `domain/pdf_observation.py`, `domain/source_discovery.py`, `application/source_cursor.py`,
 `interfaces/source_schemas.py`, `interfaces/source_discovery.py`, `interfaces/mcp_server.py`,
 `interfaces/cli_parser.py`, `cli.py`, Source/schema/cursor/stdio tests and new current fixture.
 
-- [ ] RED: opt-in v2 payloads/ranges, cross-version cursors and old projection tests fail.
-- [ ] GREEN: add strict observation/v2 schemas, isolated v1 serialization, v2 tool/schema cursor bindings and CLI routing.
-- [ ] Catalog has no pages; browse uses at most 256 entries and explicit returned/omitted ranges.
-- [ ] Freeze legacy fixtures; explicitly migrate exact current inventory from 12 to 14 while proving old subsets identical.
-- [ ] Run Source discovery, schemas, cursor and native stdio tests; commit.
+- [x] RED: opt-in v2 payloads/ranges, cross-version cursors and old projection tests fail.
+- [x] GREEN: add strict observation/v2 schemas, isolated v1 serialization, v2 tool/schema cursor bindings and CLI routing.
+- [x] Catalog has no pages; browse uses at most 256 entries and explicit returned/omitted ranges.
+- [x] Freeze legacy fixtures; explicitly migrate exact current inventory from 12 to 14 while proving old subsets identical.
+- [x] Run Source discovery, schemas, cursor and native stdio tests; commit.
 
 ### Task 4: Export v3 and independent validator
 

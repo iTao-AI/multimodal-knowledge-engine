@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from typing import cast
+from functools import partial
+from typing import Literal, cast
 
 from pydantic import ValidationError
 
@@ -20,6 +21,7 @@ from mke.application.source_cursor import (
     BROWSE_ORDER,
     CATALOG_ORDER,
     SourceCursorPayload,
+    SourceTool,
     encode_source_cursor,
     library_binding,
     untrusted_source_route,
@@ -44,23 +46,29 @@ from mke.interfaces.mcp_schemas import (
 from mke.interfaces.source_schemas import (
     BROWSE_SOURCE_INPUT_V1,
     LIST_SOURCES_INPUT_V1,
-    BrowseSourceEvidenceErrorV1,
     BrowseSourceEvidenceResponseV1,
+    BrowseSourceEvidenceResponseV2,
     BrowseSourceEvidenceSuccessV1,
+    BrowseSourceEvidenceSuccessV2,
     BrowseSourceEvidenceV1Request,
-    ListSourcesErrorV1,
     ListSourcesResponseV1,
+    ListSourcesResponseV2,
     ListSourcesSuccessV1,
+    ListSourcesSuccessV2,
     ListSourcesV1Request,
     SourceContinuationV1,
     SourceMetadataV1,
+    SourceMetadataV2,
     SourceSelectionCompleteV1,
     SourceSelectionMoreV1,
     SourceSelectionV1,
 )
 from mke.runtime import build_engine
 
-type SourceResponse = ListSourcesResponseV1 | BrowseSourceEvidenceResponseV1
+type SourceResponse = (
+    ListSourcesResponseV1 | BrowseSourceEvidenceResponseV1
+    | ListSourcesResponseV2 | BrowseSourceEvidenceResponseV2
+)
 
 
 def list_sources_v1(
@@ -77,6 +85,28 @@ def browse_source_evidence_v1(
     return cast(BrowseSourceEvidenceResponseV1, _operation(config, request.root, browse=True))
 
 
+def _metadata_v1(value: object) -> dict[str, object]:
+    payload = asdict(value)  # type: ignore[arg-type]
+    payload.pop("pdf_extraction_observation")
+    return payload
+
+
+def list_sources_v2(
+    config: McpRuntimeConfig, request: ListSourcesV1Request,
+) -> ListSourcesResponseV2:
+    return cast(
+        ListSourcesResponseV2, _operation(config, request.root, browse=False, version="v2"),
+    )
+
+
+def browse_source_evidence_v2(
+    config: McpRuntimeConfig, request: BrowseSourceEvidenceV1Request,
+) -> BrowseSourceEvidenceResponseV2:
+    return cast(
+        BrowseSourceEvidenceResponseV2, _operation(config, request.root, browse=True, version="v2"),
+    )
+
+
 def _selection(count: int, cursor: str | None) -> SourceSelectionV1:
     if cursor is None:
         return SourceSelectionCompleteV1(status="complete", returned=count)
@@ -88,7 +118,7 @@ def _catalog_success(page: SourceCatalogPage, cursor: str | None) -> ListSources
         root=ListSourcesSuccessV1(
             authority_snapshot=_authority(page.authority),
             sources=[
-                SourceMetadataV1.model_validate_json(canonical_json_bytes(asdict(item)))
+                SourceMetadataV1.model_validate_json(canonical_json_bytes(_metadata_v1(item)))
                 for item in page.sources
             ],
             selection=_selection(len(page.sources), cursor),
@@ -103,7 +133,7 @@ def _browse_success(
     return BrowseSourceEvidenceResponseV1(
         root=BrowseSourceEvidenceSuccessV1(
             authority_snapshot=_authority(page.authority),
-            source=SourceMetadataV1.model_validate_json(canonical_json_bytes(asdict(page.source))),
+            source=SourceMetadataV1.model_validate_json(canonical_json_bytes(_metadata_v1(page.source))),
             entries=[
                 SearchMatchV2(
                     evidence=_descriptor(item.descriptor),
@@ -120,30 +150,65 @@ def _browse_success(
     )
 
 
-def _error(browse: bool, problem: str, cause: str, next_step: str) -> SourceResponse:
-    if browse:
-        return BrowseSourceEvidenceResponseV1(
-            root=BrowseSourceEvidenceErrorV1(
-                ok=False,
-                problem=problem,
-                cause=cause,
-                next_step=next_step,
-            )
-        )
-    return ListSourcesResponseV1(
-        root=ListSourcesErrorV1(
-            ok=False,
-            problem=problem,
-            cause=cause,
-            next_step=next_step,
+def _catalog_success_v2(page: SourceCatalogPage, cursor: str | None) -> ListSourcesResponseV2:
+    return ListSourcesResponseV2(
+        root=ListSourcesSuccessV2(
+            authority_snapshot=_authority(page.authority),
+            sources=[
+                SourceMetadataV2.model_validate_json(canonical_json_bytes(asdict(item)))
+                for item in page.sources
+            ],
+            selection=_selection(len(page.sources), cursor),
         )
     )
 
 
-def _operation(config: McpRuntimeConfig, raw: object, *, browse: bool) -> SourceResponse:
-    tool = "browse_source_evidence_v1" if browse else "list_sources_v1"
+def _browse_success_v2(
+    page: SourceBrowsePage,
+    cursor: str | None,
+) -> BrowseSourceEvidenceResponseV2:
+    return BrowseSourceEvidenceResponseV2(
+        root=BrowseSourceEvidenceSuccessV2(
+            authority_snapshot=_authority(page.authority),
+            source=SourceMetadataV2.model_validate_json(canonical_json_bytes(asdict(page.source))),
+            entries=[
+                SearchMatchV2(
+                    evidence=_descriptor(item.descriptor),
+                    excerpt=EvidenceExcerptV1(**asdict(item.preview)),
+                    read=EvidenceReadAffordanceV1(evidence_id=item.descriptor.evidence_id),
+                )
+                for item in page.entries
+            ],
+            selection=_selection(len(page.entries), cursor),
+            output=SearchOutputBudgetV1(
+                incomplete_excerpt_count=sum(not item.preview.complete for item in page.entries),
+            ),
+        )
+    )
+
+
+def _error(
+    browse: bool, problem: str, cause: str, next_step: str, *, version: str = "v1",
+) -> SourceResponse:
+    operation = "browse_source_evidence" if browse else "list_sources"
+    payload = {"schema_version": f"mke.{operation}_response.{version}",
+               "ok": False, "problem": problem, "cause": cause, "next_step": next_step}
+    model = ((BrowseSourceEvidenceResponseV2 if browse else ListSourcesResponseV2)
+             if version == "v2" else
+             (BrowseSourceEvidenceResponseV1 if browse else ListSourcesResponseV1))
+    return model.model_validate(payload)
+
+
+def _operation(
+    config: McpRuntimeConfig, raw: object, *, browse: bool, version: Literal["v1", "v2"] = "v1",
+) -> SourceResponse:
+    tool = cast(SourceTool, f"{'browse_source_evidence' if browse else 'list_sources'}_{version}")
+    error_response = partial(_error, version=version)
+    catalog_success = _catalog_success_v2 if version == "v2" else _catalog_success
+    browse_success = _browse_success_v2 if version == "v2" else _browse_success
     response_schema = (
-        "mke.browse_source_evidence_response.v1" if browse else "mke.list_sources_response.v1"
+        f"mke.browse_source_evidence_response.{version}" if browse
+        else f"mke.list_sources_response.{version}"
     )
     parsed: ParsedCursor | None = None
     engine: KnowledgeEngine | None = None
@@ -156,13 +221,13 @@ def _operation(config: McpRuntimeConfig, raw: object, *, browse: bool) -> Source
             if isinstance(raw, dict):
                 cursor = cast(dict[str, object], raw).get("cursor")
                 if isinstance(cursor, str) and len(cursor.encode()) > 4096:
-                    return _error(
+                    return error_response(
                         browse,
                         "invalid_cursor",
                         "cursor exceeds 4096 UTF-8 bytes",
                         "restart_from_initial_call",
                     )
-            return _error(
+            return error_response(
                 browse,
                 "invalid_request",
                 "request must use exactly one supported input branch",
@@ -221,61 +286,63 @@ def _operation(config: McpRuntimeConfig, raw: object, *, browse: bool) -> Source
                 position=position,
                 page_size=page_size,
                 authority_validator=validate,
+                include_pdf_observation=version == "v2",
             )
             assembly = assemble_source_page(
                 page,
                 cursor_factory=lambda offset: cursor_factory(page.authority, offset),
-                serialize_response=lambda selected, cursor: _browse_success(
+                serialize_response=lambda selected, cursor: browse_success(
                     selected,
                     cursor,
                 ).model_dump(mode="json"),
             )
-            return _browse_success(assembly.page, assembly.next_cursor)
+            return browse_success(assembly.page, assembly.next_cursor)
         catalog = engine.list_sources_page(
             position=position,
             page_size=page_size,
             authority_validator=validate,
+            include_pdf_observation=version == "v2",
         )
         selected_catalog = assemble_source_page(
             catalog,
             cursor_factory=lambda offset: cursor_factory(catalog.authority, offset),
-            serialize_response=lambda selected, cursor: _catalog_success(
+            serialize_response=lambda selected, cursor: catalog_success(
                 selected,
                 cursor,
             ).model_dump(mode="json"),
         )
-        return _catalog_success(selected_catalog.page, selected_catalog.next_cursor)
+        return catalog_success(selected_catalog.page, selected_catalog.next_cursor)
     except (InvalidCursorError, CursorExpiredError) as error:
-        return _error(browse, *_cursor_recovery(error))
+        return error_response(browse, *_cursor_recovery(error))
     except EvidenceNotFoundError:
-        return _error(
+        return error_response(
             browse,
             "evidence_not_found",
             "active Evidence is not available",
             "search_current_active_evidence",
         )
     except (EvidenceResponseTooLargeError, ResponseTooLargeError):
-        return _error(
+        return error_response(
             browse,
             "response_too_large",
             "mandatory response metadata exceeds the response limit",
             "reduce_query_scope_or_report_contract_limit",
         )
     except (ManifestValidationError, ValidationError):
-        return _error(
+        return error_response(
             browse, "internal_error", "operation failed; details were redacted", "check_server_logs"
         )
     except ValueError:
         if parsed is not None:
-            return _error(browse, *_cursor_recovery(InvalidCursorError("invalid route")))
-        return _error(
+            return error_response(browse, *_cursor_recovery(InvalidCursorError("invalid route")))
+        return error_response(
             browse,
             "invalid_request",
             "request must use exactly one supported input branch",
             "use_exactly_one_supported_request_branch",
         )
     except Exception:
-        return _error(
+        return error_response(
             browse, "internal_error", "operation failed; details were redacted", "check_server_logs"
         )
     finally:
