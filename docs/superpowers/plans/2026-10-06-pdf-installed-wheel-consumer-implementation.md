@@ -92,13 +92,16 @@ Stage exact paths only. Commit message: `test: prove PDF observations from an in
 
 Run the controller once with the same exact-merge wheel and installed 3.12/3.13 paths. Expected: both results use fourteen tools, verify complete UTF-8/citation identity and Export v3, record actual dependencies/interpreters/fixture hashes, and confirm failure exits. If the same costly goal fails twice, return for a route decision.
 
-- [ ] **Step 2: Document the verified shortest route and limits**
+- [x] **Step 2: Document the verified shortest route and limits**
 
 Add exact build/proof commands, retained artifacts, failure meaning, verification date and completion signal to the existing guide. Keep browser file-origin/clipboard limits and release/publication limits separate from this installed proof. Record wheel/source/test binding without raw private paths or execution logs.
 
-- [ ] **Step 3: Review and verify the final local candidate**
+- [x] **Step 3: Review and verify the final local candidate**
 
 Run affected proof/packaging/consumer checks, required docs checks, Ruff, Pyright and `git diff --check`. Obtain one fresh bounded review of the new controller and evidence; fix substantive findings with regression coverage. Do not repeat unchanged provider-free full suites or old installation proofs merely for workflow bookkeeping.
+
+The controller/targeted repairs and documentation are verified; the bounded review explicitly
+declines complete dual-runtime acceptance while Step 1 remains unmet.
 
 - [ ] **Step 4: Commit documentation and return once for candidate approval**
 
