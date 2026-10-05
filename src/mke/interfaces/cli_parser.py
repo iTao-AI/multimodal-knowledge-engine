@@ -86,7 +86,7 @@ def _register_library_export(subcommands: _SubcommandRegistrar) -> None:
     library_export = library_commands.add_parser("export")
     library_export.add_argument("--output", required=True)
     library_export.add_argument(
-        "--format-version", choices=("v1", "v2"), default="v1"
+        "--format-version", choices=("v1", "v2", "v3"), default="v1"
     )
     library_export.add_argument("--json", action="store_true", dest="json_output")
 

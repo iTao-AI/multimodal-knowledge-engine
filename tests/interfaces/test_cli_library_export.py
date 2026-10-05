@@ -364,7 +364,7 @@ def test_library_export_help_is_closed(capsys: CaptureFixture[str]) -> None:
     assert raised.value.code == 0
     help_text = capsys.readouterr().out
     assert "--output" in help_text and "--json" in help_text
-    assert "--format-version" in help_text and "{v1,v2}" in help_text
+    assert "--format-version" in help_text and "{v1,v2,v3}" in help_text
     for forbidden in ("library-id", "source", "extractor", "provider", "mcp", "parent"):
         assert forbidden not in help_text.casefold()
 

@@ -378,10 +378,10 @@ def test_manifest_rejects_snapshot_dto_version_mismatch(
 
 def test_renderers_reject_unknown_format_version() -> None:
     with pytest.raises(ValueError, match="format version"):
-        render_evidence_jsonl(_compiled_source_v2(), format_version="v3")  # type: ignore[arg-type]
+        render_evidence_jsonl(_compiled_source_v2(), format_version="v999")  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="format version"):
         render_export_manifest(
-            _compiled_snapshot_v2(), (), format_version="v3"  # type: ignore[arg-type]
+            _compiled_snapshot_v2(), (), format_version="v999"  # type: ignore[arg-type]
         )
 
 

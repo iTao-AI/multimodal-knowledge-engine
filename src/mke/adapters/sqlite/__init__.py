@@ -21,8 +21,10 @@ from mke.domain import (
     CompiledEvidenceSnapshot,
     CompiledLibrarySnapshot,
     CompiledLibrarySnapshotV2,
+    CompiledLibrarySnapshotV3,
     CompiledSourceSnapshot,
     CompiledSourceSnapshotV2,
+    CompiledSourceSnapshotV3,
     ExportFormatVersion,
     ExportLimits,
     FailurePoint,
@@ -1507,13 +1509,21 @@ class SQLiteStore:
         limits: ExportLimits = DEFAULT_EXPORT_LIMITS,
     ) -> CompiledLibrarySnapshotV2: ...
 
+    @overload
+    def compiled_library_snapshot(
+        self,
+        *,
+        format_version: Literal["v3"],
+        limits: ExportLimits = DEFAULT_EXPORT_LIMITS,
+    ) -> CompiledLibrarySnapshotV3: ...
+
     def compiled_library_snapshot(
         self,
         *,
         format_version: ExportFormatVersion = "v1",
         limits: ExportLimits = DEFAULT_EXPORT_LIMITS,
-    ) -> CompiledLibrarySnapshot | CompiledLibrarySnapshotV2:
-        if format_version not in ("v1", "v2"):
+    ) -> CompiledLibrarySnapshot | CompiledLibrarySnapshotV2 | CompiledLibrarySnapshotV3:
+        if format_version not in ("v1", "v2", "v3"):
             raise ValueError("unsupported export format version")
         try:
             observation, active_rows = self._read_and_validate_active_publication_rows()
@@ -1634,17 +1644,21 @@ class SQLiteStore:
         evidence_rows: list[sqlite3.Row],
         *,
         format_version: ExportFormatVersion,
-    ) -> CompiledLibrarySnapshot | CompiledLibrarySnapshotV2:
+    ) -> CompiledLibrarySnapshot | CompiledLibrarySnapshotV2 | CompiledLibrarySnapshotV3:
         evidence_by_run: dict[str, list[sqlite3.Row]] = {}
         for evidence_row in evidence_rows:
             run_id = self._require_sqlite_text(
                 evidence_row["run_id"], "active Publication provenance graph is invalid"
             )
             evidence_by_run.setdefault(run_id, []).append(evidence_row)
-        sources: list[CompiledSourceSnapshot | CompiledSourceSnapshotV2] = []
-        source_type = (
-            CompiledSourceSnapshot if format_version == "v1" else CompiledSourceSnapshotV2
-        )
+        sources: list[
+            CompiledSourceSnapshot | CompiledSourceSnapshotV2 | CompiledSourceSnapshotV3
+        ] = []
+        source_type = {
+            "v1": CompiledSourceSnapshot,
+            "v2": CompiledSourceSnapshotV2,
+            "v3": CompiledSourceSnapshotV3,
+        }[format_version]
         for row in active_rows:
             error = "active Publication provenance graph is invalid"
             run_id = self._require_sqlite_text(row["run_id"], error)
@@ -1695,6 +1709,10 @@ class SQLiteStore:
                         row["required_stages"]
                     ),
                     evidence=evidence,
+                    **({"pdf_extraction_observation": self._pdf_extraction_observation(
+                        run_id, details=True,
+                    ) if row["media_type"] == "application/pdf" else None}
+                       if format_version == "v3" else {}),
                 )
             )
         sorted_sources = tuple(
@@ -1704,6 +1722,10 @@ class SQLiteStore:
             return CompiledLibrarySnapshot(
                 observation,
                 cast(tuple[CompiledSourceSnapshot, ...], sorted_sources),
+            )
+        if format_version == "v3":
+            return CompiledLibrarySnapshotV3(
+                observation, cast(tuple[CompiledSourceSnapshotV3, ...], sorted_sources),
             )
         return CompiledLibrarySnapshotV2(
             observation,

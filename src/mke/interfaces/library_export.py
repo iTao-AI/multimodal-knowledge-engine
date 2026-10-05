@@ -16,6 +16,7 @@ from mke.interfaces.public_errors import PublicError
 _RESPONSE_SCHEMAS = {
     "v1": "mke.compiled_library_export_response.v1",
     "v2": "mke.compiled_library_export_response.v2",
+    "v3": "mke.compiled_library_export_response.v3",
 }
 _REDACTED_CAUSE = "operation failed; details were redacted"
 _COMMON_NON_REDACTED_CAUSES = frozenset(
@@ -35,6 +36,9 @@ _V1_EXPORT_CAUSES = _COMMON_NON_REDACTED_CAUSES | {
 _V2_EXPORT_CAUSES = _COMMON_NON_REDACTED_CAUSES | {
     _REDACTED_CAUSE,
     "active Library exceeds v2 export limits",
+}
+_V3_EXPORT_CAUSES = _COMMON_NON_REDACTED_CAUSES | {
+    _REDACTED_CAUSE, "active Library exceeds v3 export limits",
 }
 _MachineToken = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]{0,127}$")]
 _Sha256 = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
@@ -100,16 +104,46 @@ class LibraryExportErrorV2(_StrictModel):
         return self
 
 
+class LibraryExportSuccessV3(_StrictModel):
+    schema_version: Literal["mke.compiled_library_export_response.v3"] = (
+        "mke.compiled_library_export_response.v3"
+    )
+    ok: Literal[True] = True
+    library_id: Literal["local"] = "local"
+    source_count: int = Field(ge=1)
+    evidence_count: int = Field(ge=1)
+    manifest_sha256: _Sha256
+
+
+class LibraryExportErrorV3(_StrictModel):
+    schema_version: Literal["mke.compiled_library_export_response.v3"] = (
+        "mke.compiled_library_export_response.v3"
+    )
+    ok: Literal[False]
+    problem: _MachineToken
+    cause: Annotated[str, StringConstraints(min_length=1, max_length=512)]
+    active_publication_impact: Literal["unchanged"] = "unchanged"
+    next_step: _MachineToken
+
+    @model_validator(mode="after")
+    def validate_export_cause(self) -> LibraryExportErrorV3:
+        if self.cause not in _V3_EXPORT_CAUSES:
+            raise ValueError("error cause is not approved for the Library export boundary")
+        return self
+
+
 LibraryExportResponse = (
     LibraryExportSuccessV1
     | LibraryExportErrorV1
     | LibraryExportSuccessV2
     | LibraryExportErrorV2
+    | LibraryExportSuccessV3
+    | LibraryExportErrorV3
 )
 
 
 def _require_format_version(value: object) -> ExportFormatVersion:
-    if value not in ("v1", "v2"):
+    if value not in ("v1", "v2", "v3"):
         raise ValueError("unsupported export format version")
     return value  # type: ignore[return-value]
 
@@ -122,8 +156,9 @@ def library_export_error_payload(
 
 def _error_model(
     error: PublicError, format_version: ExportFormatVersion
-) -> LibraryExportErrorV1 | LibraryExportErrorV2:
-    model = LibraryExportErrorV1 if format_version == "v1" else LibraryExportErrorV2
+) -> LibraryExportErrorV1 | LibraryExportErrorV2 | LibraryExportErrorV3:
+    model = {"v1": LibraryExportErrorV1, "v2": LibraryExportErrorV2,
+             "v3": LibraryExportErrorV3}[format_version]
     return model.model_validate(
         library_export_error_payload(error, format_version=format_version)
     )
@@ -136,7 +171,9 @@ def _render_response(
         return json.dumps(
             payload.model_dump(), ensure_ascii=False, separators=(",", ":"), sort_keys=True
         )
-    if isinstance(payload, (LibraryExportSuccessV1, LibraryExportSuccessV2)):
+    if isinstance(payload, (
+        LibraryExportSuccessV1, LibraryExportSuccessV2, LibraryExportSuccessV3,
+    )):
         return (
             "library_export=passed "
             f"library_id={payload.library_id} "
@@ -199,7 +236,7 @@ def _publication_error(error: OutputPublicationError) -> PublicError:
 
 def _redacted_failure(
     format_version: ExportFormatVersion,
-) -> LibraryExportErrorV1 | LibraryExportErrorV2:
+) -> LibraryExportErrorV1 | LibraryExportErrorV2 | LibraryExportErrorV3:
     return _error_model(
         PublicError("library_export_failed", _REDACTED_CAUSE, "retry_library_export"),
         format_version,
@@ -257,11 +294,10 @@ def run_library_export(
                 output_name=output_name,
                 parent=parent,
             )
-            success_model = (
-                LibraryExportSuccessV1
-                if format_version == "v1"
-                else LibraryExportSuccessV2
-            )
+            success_model = {
+                "v1": LibraryExportSuccessV1, "v2": LibraryExportSuccessV2,
+                "v3": LibraryExportSuccessV3,
+            }[format_version]
             response = success_model.model_validate(
                 {
                     "library_id": result.library_id,

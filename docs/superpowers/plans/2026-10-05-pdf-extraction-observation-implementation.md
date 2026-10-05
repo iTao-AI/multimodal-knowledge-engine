@@ -64,11 +64,11 @@ independent consumer identity; HTML escaping and unchanged complete text/citatio
 `application/__init__.py`, `adapters/sqlite/__init__.py`, `adapters/filesystem/library_export.py`,
 `interfaces/library_export.py`, `interfaces/cli_parser.py`, new `scripts/compiled_library_export_consumer_v3.py`, export tests.
 
-- [ ] RED: native v3 export and independent consumer reject/roundtrip tests fail on absent v3.
-- [ ] GREEN: explicit third branch everywhere; bound observation to snapshot Run in the same read transaction.
-- [ ] Use the same observation shape; preserve exact Evidence JSONL and v1/v2 shapes/bytes/defaults.
-- [ ] Independent stdlib validation checks strict keys, identities, counts, ranges, inventory and hashes.
-- [ ] Run export domain/application/storage/filesystem/CLI/consumer checks; commit.
+- [x] RED: native v3 export and independent consumer reject/roundtrip tests fail on absent v3.
+- [x] GREEN: explicit third branch everywhere; bound observation to snapshot Run in the same read transaction.
+- [x] Use the same observation shape; preserve exact Evidence JSONL and v1/v2 shapes/bytes/defaults.
+- [x] Independent stdlib validation checks strict keys, identities, counts, ranges, inventory and hashes.
+- [x] Run export domain/application/storage/filesystem/CLI/consumer checks; commit.
 
 ### Task 5: Offline Viewer observation display
 

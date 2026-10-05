@@ -45,6 +45,7 @@ from mke.domain import (
     CandidateEvidence,
     CompiledLibrarySnapshot,
     CompiledLibrarySnapshotV2,
+    CompiledLibrarySnapshotV3,
     EvidenceReadSnapshot,
     EvidenceSearchPage,
     ExportFormatVersion,
@@ -334,9 +335,14 @@ class KnowledgeEngine:
         self, *, format_version: Literal["v2"]
     ) -> CompiledLibrarySnapshotV2: ...
 
+    @overload
+    def compiled_library_snapshot(
+        self, *, format_version: Literal["v3"]
+    ) -> CompiledLibrarySnapshotV3: ...
+
     def compiled_library_snapshot(
         self, *, format_version: ExportFormatVersion = "v1"
-    ) -> CompiledLibrarySnapshot | CompiledLibrarySnapshotV2:
+    ) -> CompiledLibrarySnapshot | CompiledLibrarySnapshotV2 | CompiledLibrarySnapshotV3:
         return self._store.compiled_library_snapshot(format_version=format_version)
 
     def search_provenance_snapshot(

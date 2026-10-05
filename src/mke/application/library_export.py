@@ -5,15 +5,17 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 from mke.domain import (
     DEFAULT_EXPORT_LIMITS,
     CompiledEvidenceSnapshot,
     CompiledLibrarySnapshot,
     CompiledLibrarySnapshotV2,
+    CompiledLibrarySnapshotV3,
     CompiledSourceSnapshot,
     CompiledSourceSnapshotV2,
+    CompiledSourceSnapshotV3,
     ExportFormatVersion,
     LibraryExportDataError,
 )
@@ -61,31 +63,32 @@ class LibraryExportResult:
     manifest_sha256: str
 
 
-CompiledSource = CompiledSourceSnapshot | CompiledSourceSnapshotV2
-CompiledLibrary = CompiledLibrarySnapshot | CompiledLibrarySnapshotV2
+CompiledSource = CompiledSourceSnapshot | CompiledSourceSnapshotV2 | CompiledSourceSnapshotV3
+CompiledLibrary = CompiledLibrarySnapshot | CompiledLibrarySnapshotV2 | CompiledLibrarySnapshotV3
 
 _MARKDOWN_FORMAT = {
     "v1": "mke.compiled_markdown.v1",
     "v2": "mke.compiled_markdown.v2",
+    "v3": "mke.compiled_markdown.v3",
 }
 _MANIFEST_SCHEMA = {
     "v1": "mke.compiled_library_export.v1",
     "v2": "mke.compiled_library_export.v2",
+    "v3": "mke.compiled_library_export.v3",
 }
 
 
 def _require_format_version(value: object) -> ExportFormatVersion:
-    if value not in ("v1", "v2"):
+    if value not in ("v1", "v2", "v3"):
         raise ValueError("unsupported export format version")
     return value  # type: ignore[return-value]
 
 
 def _validate_source(source: CompiledSource, format_version: ExportFormatVersion) -> None:
-    expected_type = (
-        CompiledSourceSnapshot
-        if format_version == "v1"
-        else CompiledSourceSnapshotV2
-    )
+    expected_type = {
+        "v1": CompiledSourceSnapshot, "v2": CompiledSourceSnapshotV2,
+        "v3": CompiledSourceSnapshotV3,
+    }[format_version]
     if type(source) is not expected_type:
         raise LibraryExportDataError("provenance")
     for item in source.evidence:
@@ -164,6 +167,13 @@ def render_compiled_markdown(
 
     def parts() -> Iterator[bytes]:
         yield frontmatter
+        if (
+            isinstance(source, CompiledSourceSnapshotV3)
+            and source.pdf_extraction_observation is not None
+        ):
+            yield b"\n## PDF Extraction Observation\n\n```json\n"
+            yield canonical_json_line(asdict(source.pdf_extraction_observation))
+            yield b"```\n"
         for item in source.evidence:
             if item.locator_kind == "page":
                 heading = f"## Page {item.locator_start}"
@@ -251,11 +261,10 @@ def render_export_manifest(
     """Render the closed canonical manifest for a validated snapshot."""
 
     format_version = _require_format_version(format_version)
-    expected_type = (
-        CompiledLibrarySnapshot
-        if format_version == "v1"
-        else CompiledLibrarySnapshotV2
-    )
+    expected_type = {
+        "v1": CompiledLibrarySnapshot, "v2": CompiledLibrarySnapshotV2,
+        "v3": CompiledLibrarySnapshotV3,
+    }[format_version]
     if type(snapshot) is not expected_type:
         raise LibraryExportDataError("provenance")
     snapshot.__post_init__()
@@ -280,6 +289,12 @@ def render_export_manifest(
                 "active_publication_count": observation.active_publication_count,
                 "active_evidence_count": observation.active_evidence_count,
             },
-            "sources": [_entry_payload(entry) for entry in entries],
+            "sources": [
+                {**_entry_payload(entry), **({"pdf_extraction_observation": (
+                    None if source.pdf_extraction_observation is None
+                    else asdict(source.pdf_extraction_observation)
+                )} if isinstance(source, CompiledSourceSnapshotV3) else {})}
+                for source, entry in zip(snapshot.sources, entries, strict=True)
+            ],
         }
     )

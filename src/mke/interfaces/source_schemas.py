@@ -364,14 +364,14 @@ class SourceMetadataV2(_StrictModel):
         if observation.status == "observed":
             assert observation.text_only_pages is not None
             assert observation.mixed_text_raster_pages is not None
-        if observation.status == "observed" and (
-            self.coverage.report_status != "observed"
-            or self.coverage.extraction_mode != "pymupdf-text"
-            or self.coverage.total_pages != observation.total_pages
-            or self.coverage.extracted_pages
-            != observation.text_only_pages + observation.mixed_text_raster_pages
-        ):
-            raise ValueError("PDF observation differs from producing report")
+            if (
+                self.coverage.report_status != "observed"
+                or self.coverage.extraction_mode != "pymupdf-text"
+                or self.coverage.total_pages != observation.total_pages
+                or self.coverage.extracted_pages
+                != observation.text_only_pages + observation.mixed_text_raster_pages
+            ):
+                raise ValueError("PDF observation differs from producing report")
         return self
 
 
@@ -446,4 +446,3 @@ class BrowseSourceEvidenceResponseV2(
     ]
 ):
     pass
-
