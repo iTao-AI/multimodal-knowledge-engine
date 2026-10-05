@@ -121,19 +121,28 @@ def test_browse_observation_bounds_and_page_filter_are_explicit(tmp_path: Path) 
     ]
 
 
-def test_v2_cursor_cannot_be_used_by_v1(tmp_path: Path) -> None:
+@pytest.mark.parametrize("second_fingerprint", ["0", "f"])
+def test_v2_cursor_cannot_be_used_by_v1(tmp_path: Path, second_fingerprint: str) -> None:
     config = library(tmp_path)
-    publish_pages(config.db_path, ("second",), fingerprint="b")
+    source = selected(config)
+    assert source["evidence_count"] == 3
+    publish_pages(config.db_path, ("second",), fingerprint=second_fingerprint)
+    catalog = call(config, "list_sources_v2", {})["sources"]
+    assert [item["evidence_count"] for item in catalog] == (
+        [1, 3] if second_fingerprint == "0" else [3, 1]
+    )
     initial = call(config, "list_sources_v2", {"page_size": 1})
     token = initial["selection"]["next_cursor"]
     assert call(config, "list_sources_v1", {"cursor": token})["problem"] == "invalid_cursor"
     assert call(config, "list_sources_v2", {"cursor": token})["ok"]
-    source = selected(config)
     initial = browse(config, source, page_size=1)
+    assert initial["source"]["source_id"] == source["source_id"]
+    assert initial["selection"]["status"] == "more_available"
     token = initial["selection"]["next_cursor"]
     assert call(config, "browse_source_evidence_v1", {"cursor": token})["problem"] == (
         "invalid_cursor"
     )
+    assert call(config, "browse_source_evidence_v2", {"cursor": token})["ok"]
 
 
 def test_bad_observation_fails_v2_closed_while_v1_shape_stays_usable(tmp_path: Path) -> None:
