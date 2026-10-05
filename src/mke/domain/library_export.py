@@ -18,8 +18,9 @@ from . import (
     is_recognized_video_fingerprint,
     validate_manifest,
 )
+from .pdf_observation import PdfExtractionObservation
 
-ExportFormatVersion = Literal["v1", "v2"]
+ExportFormatVersion = Literal["v1", "v2", "v3"]
 
 _CONTENT_FINGERPRINT_RE = re.compile(r"sha256:[0-9a-f]{64}\Z")
 _ID_PATTERNS = {
@@ -317,6 +318,41 @@ class CompiledSourceSnapshotV2:
 
 
 @dataclass(frozen=True)
+class CompiledSourceSnapshotV3(CompiledSourceSnapshotV2):
+    pdf_extraction_observation: PdfExtractionObservation | None
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        observation = self.pdf_extraction_observation
+        if self.media_type != "application/pdf":
+            if observation is not None:
+                _reject_provenance()
+            return
+        if type(observation) is not PdfExtractionObservation:
+            _reject_provenance()
+        assert observation is not None
+        observation.__post_init__()
+        if observation.status == "observed":
+            assert observation.text_only_pages is not None
+            assert observation.mixed_text_raster_pages is not None
+            assert observation.total_pages is not None
+            if (
+                tuple(page.page_number for page in observation.pages)
+                != tuple(range(1, min(observation.total_pages, 256) + 1))
+                or observation.text_only_pages + observation.mixed_text_raster_pages
+                != len(self.evidence)
+            ):
+                _reject_provenance()
+            by_page = {item.locator_start: item for item in self.evidence}
+            if any(number > observation.total_pages for number in by_page):
+                _reject_provenance()
+            for page in observation.pages:
+                item = by_page.get(page.page_number)
+                if page.text_layer_chars != (0 if item is None else len(item.text)):
+                    _reject_provenance()
+
+
+@dataclass(frozen=True)
 class CompiledLibrarySnapshot:
     observation: ActivePublicationObservation
     sources: tuple[CompiledSourceSnapshot, ...]
@@ -372,6 +408,50 @@ class CompiledLibrarySnapshotV2:
             raise LibraryExportDataError("empty")
         if type(self.sources) is not tuple or not all(
             type(source) is CompiledSourceSnapshotV2 for source in self.sources
+        ):
+            _reject_provenance()
+        if self.sources != tuple(
+            sorted(self.sources, key=lambda source: (source.content_fingerprint, source.source_id))
+        ):
+            _reject_provenance()
+        fingerprints = tuple(source.content_fingerprint for source in self.sources)
+        if len(fingerprints) != len(set(fingerprints)):
+            _reject_provenance()
+        evidence_count = sum(len(source.evidence) for source in self.sources)
+        if (
+            len(self.sources) != self.observation.active_publication_count
+            or evidence_count != self.observation.active_evidence_count
+        ):
+            _reject_provenance()
+        limits = DEFAULT_EXPORT_LIMITS
+        if (
+            len(self.sources) > limits.max_active_publications
+            or evidence_count > limits.max_active_evidence
+            or self.evidence_utf8_bytes > limits.max_evidence_utf8_bytes
+        ):
+            raise LibraryExportDataError("too_large")
+
+    @property
+    def evidence_utf8_bytes(self) -> int:
+        return sum(
+            len(item.text.encode("utf-8"))
+            for source in self.sources
+            for item in source.evidence
+        )
+
+
+@dataclass(frozen=True)
+class CompiledLibrarySnapshotV3:
+    observation: ActivePublicationObservation
+    sources: tuple[CompiledSourceSnapshotV3, ...]
+
+    def __post_init__(self) -> None:
+        if type(self.observation) is not ActivePublicationObservation:
+            _reject_provenance()
+        if self.observation.state != "active":
+            raise LibraryExportDataError("empty")
+        if type(self.sources) is not tuple or not all(
+            type(source) is CompiledSourceSnapshotV3 for source in self.sources
         ):
             _reject_provenance()
         if self.sources != tuple(

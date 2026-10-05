@@ -36,6 +36,7 @@ class PyMuPDFPdfExtractor:
                 raise PdfExtractionError("encrypted PDF is not supported", report)
             pages: list[PdfPageText] = []
             page_char_counts: list[int] = []
+            page_has_raster_images: list[bool] = []
             suspected_scanned_pages = 0
             total_pages = int(document.page_count)
             for page_index in range(total_pages):
@@ -45,6 +46,7 @@ class PyMuPDFPdfExtractor:
                 )
                 char_count = len(text)
                 page_char_counts.append(char_count)
+                page_has_raster_images.append(bool(page.get_image_info(hashes=False, xrefs=False)))
                 if text:
                     pages.append(PdfPageText(page_number=page_index + 1, text=text))
                 elif page.get_images():
@@ -58,6 +60,7 @@ class PyMuPDFPdfExtractor:
                 suspected_scanned_pages=suspected_scanned_pages,
                 extraction_mode=self.extraction_mode,
                 failure_reason=None,
+                page_has_raster_images=tuple(page_has_raster_images),
             )
         except PdfExtractionError:
             raise
@@ -80,6 +83,7 @@ class PyMuPDFPdfExtractor:
                 suspected_scanned_pages=report.suspected_scanned_pages,
                 extraction_mode=report.extraction_mode,
                 failure_reason="PDF has no extractable text",
+                page_has_raster_images=report.page_has_raster_images,
             )
             raise PdfExtractionError("PDF has no extractable text", failed)
         return PdfExtractionResult(report=report, pages=tuple(pages))

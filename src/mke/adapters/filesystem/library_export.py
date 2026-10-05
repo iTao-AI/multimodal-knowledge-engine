@@ -20,6 +20,7 @@ from mke.application.library_export import (
 from mke.domain import (
     CompiledLibrarySnapshot,
     CompiledLibrarySnapshotV2,
+    CompiledLibrarySnapshotV3,
     ExportFormatVersion,
     LibraryExportDataError,
 )
@@ -447,7 +448,7 @@ def _cleanup_target_only(
 
 
 def publish_compiled_library(
-    snapshot: CompiledLibrarySnapshot | CompiledLibrarySnapshotV2,
+    snapshot: CompiledLibrarySnapshot | CompiledLibrarySnapshotV2 | CompiledLibrarySnapshotV3,
     *,
     format_version: ExportFormatVersion = "v1",
     output_name: str,
@@ -455,13 +456,12 @@ def publish_compiled_library(
 ) -> LibraryExportResult:
     """Publish a new compiled Library directory with the manifest as commit marker."""
 
-    if format_version not in ("v1", "v2"):
+    if format_version not in ("v1", "v2", "v3"):
         raise ValueError("unsupported export format version")
-    expected_type = (
-        CompiledLibrarySnapshot
-        if format_version == "v1"
-        else CompiledLibrarySnapshotV2
-    )
+    expected_type = {
+        "v1": CompiledLibrarySnapshot, "v2": CompiledLibrarySnapshotV2,
+        "v3": CompiledLibrarySnapshotV3,
+    }[format_version]
     if type(snapshot) is not expected_type:
         raise LibraryExportDataError("provenance")
     _validate_output_name(output_name)

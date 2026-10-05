@@ -14,6 +14,13 @@ differential validation -> revision-2 comparison only
 temporary output -> never canonical authority
 ```
 
+Current E2 numeric replay validates and snapshots the locked historical inputs, then derives an
+explicit schema expectation from the current runtime. Additive metadata tables therefore do not
+misclassify the current replay as an archived schema run. Archived validation retains its frozen
+hashes/schema; strict-live `mke eval retrieval-numeric` retains the original stale-fence rejection.
+The actual observed schema must still match its selected context. No historical bytes, retrieval
+gate, ranking rule or canonical quality claim is rewritten by this separation.
+
 ## Command Authority
 
 | Command | Authority and expected boundary |

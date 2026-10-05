@@ -25,6 +25,8 @@ auditing implementation history.
 - [Use MKE As A Local MCP Server](./how-to/use-mke-mcp.md)
 - [Discover And Read Sources](./how-to/discover-and-read-sources.md) — current-checkout independent
   mixed-PDF/sidecar navigation and exact UTF-8/citation verification; not a new release proof.
+- [Observe PDF Extraction Scope](./how-to/observe-pdf-extraction-scope.md) — opt-in Source v2 /
+  Export v3 text/raster observations and native CLI/MCP/Viewer identity proof, without OCR.
 - [MCP Contract Reference](./reference/mcp-contract.md)
 - [Run The Evidence Provenance Proof](./how-to/run-evidence-provenance-proof.md)
 - [Run The Consumer Source-Pack Proof](./how-to/run-consumer-source-pack-proof.md) documents a
@@ -129,6 +131,8 @@ private planning notes do not belong in this repository.
 
 - [ADR-0014](./decisions/0014-source-discovery-and-browsing.md) defines active Source catalog/browse,
   coherent snapshots, authenticated continuations and honest persisted coverage.
+- [ADR-0015](./decisions/0015-pdf-extraction-observations.md) defines opt-in Run-bound local PDF
+  text/raster observations, bounded detail ranges and Source v2 / Export v3 compatibility.
 
 ## Implementation History
 
@@ -136,6 +140,8 @@ private planning notes do not belong in this repository.
 is useful for audits and future planning, but release readers should start from release notes,
 how-to guides, reference docs, and ADRs.
 
+- [PDF Extraction Observation Review](./superpowers/reviews/2026-10-05-pdf-extraction-observation-review.md)
+  — local C0/M1 implementation, native consumer checks and explicit browser verification limits.
 - [v0.1.0 Release Readiness Design](./superpowers/specs/2026-07-02-v0-1-0-release-readiness-design.md)
 - [v0.1.0 Release Readiness Implementation Plan](./superpowers/plans/2026-07-02-v0-1-0-release-readiness-implementation.md)
 - [v0.1.0 Release Readiness Plan Review](./superpowers/reviews/2026-07-02-v0-1-0-release-readiness-review.md)

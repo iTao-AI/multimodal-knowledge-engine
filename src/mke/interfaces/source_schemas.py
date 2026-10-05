@@ -15,6 +15,11 @@ from pydantic import (
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import CoreSchema
 
+from mke.domain.pdf_observation import (
+    PdfExtractionObservation,
+    PdfObservationRange,
+    PdfPageObservation,
+)
 from mke.interfaces.mcp_schemas import (
     ActiveAuthoritySnapshotV1,
     Fingerprint,
@@ -280,6 +285,163 @@ class BrowseSourceEvidenceResponseV1(
     RootModel[
         Annotated[
             BrowseSourceEvidenceSuccessV1 | BrowseSourceEvidenceErrorV1, Field(discriminator="ok")
+        ]
+    ]
+):
+    pass
+
+
+class PdfObservationRangeV1(_StrictModel):
+    start: int = Field(ge=1)
+    end: int = Field(ge=1)
+
+
+class PdfPageObservationV1(_StrictModel):
+    page_number: int = Field(ge=1)
+    text_layer_chars: int = Field(ge=0)
+    has_raster_images: bool
+
+
+class PdfExtractionObservationV1(_StrictModel):
+    schema_version: Literal["mke.pdf_extraction_observation.v1"] = (
+        "mke.pdf_extraction_observation.v1"
+    )
+    status: Literal["observed", "not_observed"]
+    method: Literal["pymupdf-displayed-raster-v1"] | None
+    extraction_scope: Literal["text_layer_only"] | None
+    total_pages: int | None = Field(ge=1)
+    text_only_pages: int | None = Field(ge=0)
+    mixed_text_raster_pages: int | None = Field(ge=0)
+    raster_only_pages: int | None = Field(ge=0)
+    neither_text_nor_raster_pages: int | None = Field(ge=0)
+    pages: list[PdfPageObservationV1] = Field(max_length=256)
+    returned_page_range: PdfObservationRangeV1 | None
+    omitted_page_ranges: list[PdfObservationRangeV1] = Field(max_length=2)
+
+    @model_validator(mode="after")
+    def validate_signals(self) -> Self:
+        PdfExtractionObservation(
+            status=self.status, method=self.method, extraction_scope=self.extraction_scope,
+            total_pages=self.total_pages, text_only_pages=self.text_only_pages,
+            mixed_text_raster_pages=self.mixed_text_raster_pages,
+            raster_only_pages=self.raster_only_pages,
+            neither_text_nor_raster_pages=self.neither_text_nor_raster_pages,
+            pages=tuple(PdfPageObservation(**page.model_dump()) for page in self.pages),
+            returned_page_range=(
+                None if self.returned_page_range is None
+                else PdfObservationRange(**self.returned_page_range.model_dump())
+            ),
+            omitted_page_ranges=tuple(
+                PdfObservationRange(**value.model_dump()) for value in self.omitted_page_ranges
+            ),
+        )
+        return self
+
+
+class SourceMetadataV2(_StrictModel):
+    source_id: str = Field(min_length=1)
+    display_name: str = Field(min_length=1)
+    media_type: str = Field(min_length=1)
+    content_fingerprint: Fingerprint
+    publication_id: str = Field(min_length=1)
+    publication_revision: int = Field(gt=0)
+    run_id: str = Field(min_length=1)
+    extractor_fingerprint: str = Field(min_length=1)
+    required_stages: list[str] = Field(min_length=1)
+    evidence_count: int = Field(gt=0)
+    coverage: SourceCoverageV1
+    pdf_extraction_observation: PdfExtractionObservationV1 | None
+
+    @model_validator(mode="after")
+    def observation_matches_source(self) -> Self:
+        observation = self.pdf_extraction_observation
+        if self.media_type != "application/pdf":
+            if observation is not None:
+                raise ValueError("non-PDF Source has no PDF observation")
+            return self
+        if observation is None or not isinstance(self.coverage, PdfSourceCoverageV1):
+            raise ValueError("PDF Source requires an explicit observation status")
+        if observation.status == "observed":
+            assert observation.text_only_pages is not None
+            assert observation.mixed_text_raster_pages is not None
+            if (
+                self.coverage.report_status != "observed"
+                or self.coverage.extraction_mode != "pymupdf-text"
+                or self.coverage.total_pages != observation.total_pages
+                or self.coverage.extracted_pages
+                != observation.text_only_pages + observation.mixed_text_raster_pages
+            ):
+                raise ValueError("PDF observation differs from producing report")
+        return self
+
+
+class ListSourcesSuccessV2(_StrictModel):
+    schema_version: Literal["mke.list_sources_response.v2"] = "mke.list_sources_response.v2"
+    ok: Literal[True] = True
+    authority_snapshot: ActiveAuthoritySnapshotV1
+    sources: list[SourceMetadataV2] = Field(max_length=20)
+    selection: SourceSelectionV1
+
+    @model_validator(mode="after")
+    def returned_count(self) -> Self:
+        if self.selection.returned != len(self.sources):
+            raise ValueError("selection count mismatch")
+        return self
+
+
+class BrowseSourceEvidenceSuccessV2(_StrictModel):
+    schema_version: Literal["mke.browse_source_evidence_response.v2"] = (
+        "mke.browse_source_evidence_response.v2"
+    )
+    ok: Literal[True] = True
+    authority_snapshot: ActiveAuthoritySnapshotV1
+    source: SourceMetadataV2
+    entries: list[SearchMatchV2] = Field(max_length=20)
+    selection: SourceSelectionV1
+    output: SearchOutputBudgetV1
+
+    @model_validator(mode="after")
+    def returned_count(self) -> Self:
+        if self.selection.returned != len(self.entries):
+            raise ValueError("selection count mismatch")
+        for entry in self.entries:
+            evidence = entry.evidence
+            if (
+                evidence.source_id != self.source.source_id
+                or evidence.publication_id != self.source.publication_id
+                or evidence.publication_revision != self.source.publication_revision
+                or evidence.run_id != self.source.run_id
+                or evidence.content_fingerprint != self.source.content_fingerprint
+                or entry.read.evidence_id != evidence.evidence_id
+            ):
+                raise ValueError("browse entry provenance differs from selected Source")
+        if self.output.incomplete_excerpt_count != sum(
+            not entry.excerpt.complete for entry in self.entries
+        ):
+            raise ValueError("incomplete preview count mismatch")
+        return self
+
+
+class ListSourcesErrorV2(_PublicErrorV1):
+    schema_version: Literal["mke.list_sources_response.v2"] = "mke.list_sources_response.v2"
+
+
+class BrowseSourceEvidenceErrorV2(_PublicErrorV1):
+    schema_version: Literal["mke.browse_source_evidence_response.v2"] = (
+        "mke.browse_source_evidence_response.v2"
+    )
+
+
+class ListSourcesResponseV2(
+    RootModel[Annotated[ListSourcesSuccessV2 | ListSourcesErrorV2, Field(discriminator="ok")]]
+):
+    pass
+
+
+class BrowseSourceEvidenceResponseV2(
+    RootModel[
+        Annotated[
+            BrowseSourceEvidenceSuccessV2 | BrowseSourceEvidenceErrorV2, Field(discriminator="ok")
         ]
     ]
 ):

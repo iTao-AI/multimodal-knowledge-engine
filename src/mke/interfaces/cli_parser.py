@@ -86,7 +86,7 @@ def _register_library_export(subcommands: _SubcommandRegistrar) -> None:
     library_export = library_commands.add_parser("export")
     library_export.add_argument("--output", required=True)
     library_export.add_argument(
-        "--format-version", choices=("v1", "v2"), default="v1"
+        "--format-version", choices=("v1", "v2", "v3"), default="v1"
     )
     library_export.add_argument("--json", action="store_true", dest="json_output")
 
@@ -452,6 +452,7 @@ def _register_source_discovery(subcommands: _SubcommandRegistrar) -> None:
     sources = subcommands.add_parser("sources")
     catalog = sources.add_subparsers(dest="sources_command", required=True).add_parser("list")
     catalog.add_argument("--page-size", type=int, default=10)
+    catalog.add_argument("--contract-version", choices=("v1", "v2"), default="v1")
     catalog.add_argument("--json", action="store_true", dest="json_output")
 
     source = subcommands.add_parser("source")
@@ -459,6 +460,7 @@ def _register_source_discovery(subcommands: _SubcommandRegistrar) -> None:
     browse.add_argument("source_id")
     browse.add_argument("--publication-id", required=True)
     browse.add_argument("--page-size", type=int, default=10)
+    browse.add_argument("--contract-version", choices=("v1", "v2"), default="v1")
     browse.add_argument("--page-start", type=int)
     browse.add_argument("--page-end", type=int)
     browse.add_argument("--start-ms", type=int)

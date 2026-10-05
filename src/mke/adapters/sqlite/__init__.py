@@ -21,8 +21,10 @@ from mke.domain import (
     CompiledEvidenceSnapshot,
     CompiledLibrarySnapshot,
     CompiledLibrarySnapshotV2,
+    CompiledLibrarySnapshotV3,
     CompiledSourceSnapshot,
     CompiledSourceSnapshotV2,
+    CompiledSourceSnapshotV3,
     ExportFormatVersion,
     ExportLimits,
     FailurePoint,
@@ -55,6 +57,12 @@ from mke.domain.evidence_access import (
     MatchHint,
     SelectedEvidence,
     derive_active_set_fingerprint,
+)
+from mke.domain.pdf_observation import (
+    PdfExtractionObservation,
+    PdfObservationRange,
+    PdfPageObservation,
+    omitted_ranges,
 )
 from mke.domain.source_discovery import (
     PdfSourceCoverage,
@@ -386,6 +394,13 @@ class SQLiteStore:
               failure_reason TEXT
             );
 
+            -- Additive, producing-Run-bound observation; do not backfill old reports.
+            CREATE TABLE IF NOT EXISTS pdf_extraction_observations (
+              run_id TEXT PRIMARY KEY REFERENCES runs(run_id),
+              method TEXT NOT NULL CHECK(method = 'pymupdf-displayed-raster-v1'),
+              page_has_raster_images TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS transcript_intake_reports (
               run_id TEXT PRIMARY KEY REFERENCES runs(run_id),
               provider TEXT NOT NULL CHECK(length(provider) BETWEEN 1 AND 256),
@@ -595,6 +610,12 @@ class SQLiteStore:
             self._insert_pdf_intake_report(run_id, report)
 
     def _insert_pdf_intake_report(self, run_id: str, report: PdfIntakeReport) -> None:
+        self._validate_pdf_raster_observation(report)
+        existing = self._connection.execute(
+            "SELECT run_id FROM pdf_extraction_observations WHERE run_id = ?", (run_id,)
+        ).fetchone()
+        if existing is not None and self.get_pdf_intake_report(run_id) != report:
+            raise ManifestValidationError("PDF raster observation is immutable for its Run")
         self._connection.execute(
             """
             INSERT OR REPLACE INTO pdf_intake_reports(
@@ -614,6 +635,33 @@ class SQLiteStore:
                 report.failure_reason,
             ),
         )
+        if report.page_has_raster_images is not None and existing is None:
+            self._connection.execute(
+                """INSERT INTO pdf_extraction_observations(run_id, method, page_has_raster_images)
+                   VALUES (?, 'pymupdf-displayed-raster-v1', ?)""",
+                (run_id, json.dumps(report.page_has_raster_images, separators=(",", ":"))),
+            )
+
+    @staticmethod
+    def _validate_pdf_raster_observation(report: PdfIntakeReport) -> None:
+        flags = report.page_has_raster_images
+        if flags is None:
+            return
+        if (
+            report.extraction_mode != "pymupdf-text"
+            or type(flags) is not tuple
+            or any(type(value) is not bool for value in flags)
+            or len(flags) != report.total_pages
+            or len(report.page_char_counts) != report.total_pages
+            or any(type(value) is not int or value < 0 for value in report.page_char_counts)
+        ):
+            raise ManifestValidationError("PDF raster observation is invalid")
+
+    def _has_pdf_observation_table(self) -> bool:
+        # Read-only export must also accept Libraries predating this additive migration.
+        return self._connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='pdf_extraction_observations'"
+        ).fetchone() is not None
 
     def get_pdf_intake_report(self, run_id: str) -> PdfIntakeReport | None:
         row = self._connection.execute(
@@ -626,7 +674,22 @@ class SQLiteStore:
         ).fetchone()
         if row is None:
             return None
-        return PdfIntakeReport(
+        flags = None
+        if self._has_pdf_observation_table():
+            observation = self._connection.execute(
+                """SELECT method, page_has_raster_images
+                   FROM pdf_extraction_observations WHERE run_id=?""",
+                (run_id,),
+            ).fetchone()
+            if observation is not None:
+                values = json.loads(observation["page_has_raster_images"])
+                if (
+                    observation["method"] != "pymupdf-displayed-raster-v1"
+                    or type(values) is not list
+                ):
+                    raise ManifestValidationError("PDF raster observation is invalid")
+                flags = tuple(cast(list[bool], values))
+        report = PdfIntakeReport(
             total_pages=int(row["total_pages"]),
             extracted_pages=int(row["extracted_pages"]),
             empty_pages=int(row["empty_pages"]),
@@ -639,7 +702,10 @@ class SQLiteStore:
             failure_reason=(
                 str(row["failure_reason"]) if row["failure_reason"] is not None else None
             ),
+            page_has_raster_images=flags,
         )
+        self._validate_pdf_raster_observation(report)
+        return report
 
     def mark_run_failed(self, run_id: str) -> None:
         with self._connection:
@@ -899,6 +965,7 @@ class SQLiteStore:
             raise ManifestValidationError(
                 "activation requires a successful PDF intake report"
             )
+        SQLiteStore._validate_pdf_raster_observation(report)
         if type(report.total_pages) is not int or report.total_pages <= 0:
             raise ManifestValidationError("PDF intake report total pages are invalid")
         if type(report.extracted_pages) is not int or report.extracted_pages <= 0:
@@ -1442,13 +1509,21 @@ class SQLiteStore:
         limits: ExportLimits = DEFAULT_EXPORT_LIMITS,
     ) -> CompiledLibrarySnapshotV2: ...
 
+    @overload
+    def compiled_library_snapshot(
+        self,
+        *,
+        format_version: Literal["v3"],
+        limits: ExportLimits = DEFAULT_EXPORT_LIMITS,
+    ) -> CompiledLibrarySnapshotV3: ...
+
     def compiled_library_snapshot(
         self,
         *,
         format_version: ExportFormatVersion = "v1",
         limits: ExportLimits = DEFAULT_EXPORT_LIMITS,
-    ) -> CompiledLibrarySnapshot | CompiledLibrarySnapshotV2:
-        if format_version not in ("v1", "v2"):
+    ) -> CompiledLibrarySnapshot | CompiledLibrarySnapshotV2 | CompiledLibrarySnapshotV3:
+        if format_version not in ("v1", "v2", "v3"):
             raise ValueError("unsupported export format version")
         try:
             observation, active_rows = self._read_and_validate_active_publication_rows()
@@ -1569,17 +1644,21 @@ class SQLiteStore:
         evidence_rows: list[sqlite3.Row],
         *,
         format_version: ExportFormatVersion,
-    ) -> CompiledLibrarySnapshot | CompiledLibrarySnapshotV2:
+    ) -> CompiledLibrarySnapshot | CompiledLibrarySnapshotV2 | CompiledLibrarySnapshotV3:
         evidence_by_run: dict[str, list[sqlite3.Row]] = {}
         for evidence_row in evidence_rows:
             run_id = self._require_sqlite_text(
                 evidence_row["run_id"], "active Publication provenance graph is invalid"
             )
             evidence_by_run.setdefault(run_id, []).append(evidence_row)
-        sources: list[CompiledSourceSnapshot | CompiledSourceSnapshotV2] = []
-        source_type = (
-            CompiledSourceSnapshot if format_version == "v1" else CompiledSourceSnapshotV2
-        )
+        sources: list[
+            CompiledSourceSnapshot | CompiledSourceSnapshotV2 | CompiledSourceSnapshotV3
+        ] = []
+        source_type = {
+            "v1": CompiledSourceSnapshot,
+            "v2": CompiledSourceSnapshotV2,
+            "v3": CompiledSourceSnapshotV3,
+        }[format_version]
         for row in active_rows:
             error = "active Publication provenance graph is invalid"
             run_id = self._require_sqlite_text(row["run_id"], error)
@@ -1630,6 +1709,10 @@ class SQLiteStore:
                         row["required_stages"]
                     ),
                     evidence=evidence,
+                    **({"pdf_extraction_observation": self._pdf_extraction_observation(
+                        run_id, details=True,
+                    ) if row["media_type"] == "application/pdf" else None}
+                       if format_version == "v3" else {}),
                 )
             )
         sorted_sources = tuple(
@@ -1639,6 +1722,10 @@ class SQLiteStore:
             return CompiledLibrarySnapshot(
                 observation,
                 cast(tuple[CompiledSourceSnapshot, ...], sorted_sources),
+            )
+        if format_version == "v3":
+            return CompiledLibrarySnapshotV3(
+                observation, cast(tuple[CompiledSourceSnapshotV3, ...], sorted_sources),
             )
         return CompiledLibrarySnapshotV2(
             observation,
@@ -1787,7 +1874,87 @@ class SQLiteStore:
         report = TranscriptIntakeReport(**{key: row[key] for key in row.keys() if key != "run_id"})
         return TranscriptSourceCoverage("observed", report)
 
-    def _source_metadata(self, row: sqlite3.Row, *, details: bool) -> SourceMetadata:
+    def _pdf_extraction_observation(
+        self, run_id: str, *, details: bool, locator_range: SourceLocatorRange | None = None,
+    ) -> PdfExtractionObservation:
+        if not self._has_pdf_observation_table():
+            return PdfExtractionObservation()
+        # Aggregate and validate in SQLite; never materialize the unbounded arrays in Python.
+        row = self._connection.execute(
+            """SELECT o.method, p.total_pages, p.extraction_mode, p.failure_reason,
+                      json_type(o.page_has_raster_images) AS flags_kind,
+                      json_array_length(o.page_has_raster_images) AS flags_total,
+                      json_array_length(p.page_char_counts) AS chars_total,
+                      SUM(CASE WHEN r.type NOT IN ('true', 'false')
+                                    OR json_type(p.page_char_counts, '$[' || r.key || ']')
+                                       IS NOT 'integer'
+                                    OR json_extract(p.page_char_counts, '$[' || r.key || ']') < 0
+                               THEN 1 ELSE 0 END) AS invalid,
+                      SUM(CASE WHEN json_extract(p.page_char_counts, '$[' || r.key || ']') > 0
+                                    AND r.type = 'false' THEN 1 ELSE 0 END) AS text_only,
+                      SUM(CASE WHEN json_extract(p.page_char_counts, '$[' || r.key || ']') > 0
+                                    AND r.type = 'true' THEN 1 ELSE 0 END) AS mixed,
+                      SUM(CASE WHEN json_extract(p.page_char_counts, '$[' || r.key || ']') = 0
+                                    AND r.type = 'true' THEN 1 ELSE 0 END) AS raster_only,
+                      SUM(CASE WHEN json_extract(p.page_char_counts, '$[' || r.key || ']') = 0
+                                    AND r.type = 'false' THEN 1 ELSE 0 END) AS neither
+               FROM pdf_extraction_observations AS o
+               LEFT JOIN pdf_intake_reports AS p USING(run_id)
+               LEFT JOIN json_each(o.page_has_raster_images) AS r ON 1=1
+               WHERE o.run_id=? GROUP BY o.run_id""",
+            (run_id,),
+        ).fetchone()
+        if row is None:
+            return PdfExtractionObservation()
+        error = "invalid PDF raster observation"
+        total = self._require_sqlite_int(row["total_pages"], error)
+        if (
+            total < 1 or row["method"] != "pymupdf-displayed-raster-v1"
+            or row["extraction_mode"] != "pymupdf-text" or row["failure_reason"] is not None
+            or row["flags_kind"] != "array" or row["flags_total"] != total
+            or row["chars_total"] != total or row["invalid"] != 0
+        ):
+            raise ManifestValidationError(error)
+        pages: tuple[PdfPageObservation, ...] = ()
+        returned = None
+        if details:
+            start = 1 if locator_range is None else locator_range.start
+            end = total if locator_range is None else min(total, locator_range.end)
+            end = min(end, start + 255)
+            if start <= end:
+                values = self._connection.execute(
+                    """SELECT CAST(r.key AS INTEGER)+1 AS page_number,
+                              json_extract(p.page_char_counts, '$[' || r.key || ']') AS chars,
+                              r.value AS raster
+                       FROM pdf_extraction_observations AS o
+                       JOIN pdf_intake_reports AS p USING(run_id),
+                       json_each(o.page_has_raster_images) AS r
+                       WHERE o.run_id=? AND CAST(r.key AS INTEGER) BETWEEN ? AND ?
+                       ORDER BY CAST(r.key AS INTEGER) LIMIT 256""",
+                    (run_id, start - 1, end - 1),
+                ).fetchall()
+                pages = tuple(PdfPageObservation(
+                    int(value["page_number"]), int(value["chars"]), bool(value["raster"]),
+                ) for value in values)
+                returned = PdfObservationRange(start, end)
+        try:
+            return PdfExtractionObservation(
+                status="observed", method="pymupdf-displayed-raster-v1",
+                extraction_scope="text_layer_only", total_pages=total,
+                text_only_pages=self._require_sqlite_int(row["text_only"], error),
+                mixed_text_raster_pages=self._require_sqlite_int(row["mixed"], error),
+                raster_only_pages=self._require_sqlite_int(row["raster_only"], error),
+                neither_text_nor_raster_pages=self._require_sqlite_int(row["neither"], error),
+                pages=pages, returned_page_range=returned,
+                omitted_page_ranges=omitted_ranges(total, returned),
+            )
+        except ValueError as exc:
+            raise ManifestValidationError(error) from exc
+
+    def _source_metadata(
+        self, row: sqlite3.Row, *, details: bool, include_pdf_observation: bool = False,
+        locator_range: SourceLocatorRange | None = None,
+    ) -> SourceMetadata:
         # Stored labels are untrusted: only a leaf name can be exposed.
         name = str(row["display_name"]).replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
         name = name if name not in {"", ".", ".."} else "Source"
@@ -1804,6 +1971,11 @@ class SQLiteStore:
             evidence_count=int(row["manifest_evidence_count"]),
             coverage=self._source_coverage(
                 str(row["run_id"]), str(row["media_type"]), details=details
+            ),
+            pdf_extraction_observation=(
+                self._pdf_extraction_observation(
+                    str(row["run_id"]), details=details, locator_range=locator_range,
+                ) if include_pdf_observation and row["media_type"] == "application/pdf" else None
             ),
         )
 
@@ -1830,6 +2002,7 @@ class SQLiteStore:
         position: int,
         page_size: int,
         authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+        include_pdf_observation: bool = False,
     ) -> SourceCatalogPage:
         self._validate_source_page_range(position, page_size)
         try:
@@ -1839,7 +2012,9 @@ class SQLiteStore:
             page = SourceCatalogPage(
                 authority,
                 position,
-                tuple(self._source_metadata(row, details=False) for row in rows[:page_size]),
+                tuple(self._source_metadata(
+                    row, details=False, include_pdf_observation=include_pdf_observation,
+                ) for row in rows[:page_size]),
                 len(rows) > page_size,
             )
             self._connection.commit()
@@ -1867,6 +2042,7 @@ class SQLiteStore:
         position: int,
         page_size: int,
         authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+        include_pdf_observation: bool = False,
     ) -> SourceBrowsePage:
         from mke.application.evidence_access import build_excerpt
 
@@ -1882,7 +2058,10 @@ class SQLiteStore:
             )
             if not rows:
                 raise EvidenceNotFoundError
-            source = self._source_metadata(rows[0], details=True)
+            source = self._source_metadata(
+                rows[0], details=True, include_pdf_observation=include_pdf_observation,
+                locator_range=locator_range,
+            )
             kind = "page" if source.media_type == "application/pdf" else "timestamp_ms"
             conditions = ""
             parameters: tuple[object, ...] = (source_id, source.run_id)

@@ -139,6 +139,60 @@ class TestNormalizePageText:
         assert _normalize_page_text("caf\u00e9 - text") == "caf\u00e9 - text"
 
 
+def test_pdf_observes_mixed_decorative_raster_and_vector_pages(tmp_path: Path) -> None:
+    import pymupdf
+
+    path = tmp_path / "signals.pdf"
+    doc: Any = pymupdf.open()
+    for index in range(6):
+        page: Any = doc.new_page()
+        if index < 3:
+            page.insert_text((72, 72), f"text on page {index + 1}")
+        if index in (1, 2, 3):
+            # Page 3's tiny decorative mark must still count; no semantic importance claim.
+            side = 2 if index == 2 else 40
+            page.insert_image(
+                pymupdf.Rect(72, 100, 72 + side, 100 + side),
+                stream=b"P6\n1 1\n255\n\x00\x00\x00",
+            )
+        if index == 5:
+            page.draw_rect(pymupdf.Rect(72, 72, 120, 120))
+    doc.save(path)
+    doc.close()
+
+    result = PyMuPDFPdfExtractor().extract(path)
+
+    assert getattr(result.report, "page_has_raster_images", None) == (
+        False, True, True, True, False, False,
+    )
+    assert tuple(page.text for page in result.pages) == (
+        "text on page 1", "text on page 2", "text on page 3",
+    )
+    assert tuple(page.page_number for page in result.pages) == (1, 2, 3)
+    assert result.report.empty_pages == 3
+    assert result.report.suspected_scanned_pages == 1
+
+
+def test_pdf_raster_signal_excludes_unused_resource_images(tmp_path: Path) -> None:
+    import pymupdf
+
+    path = tmp_path / "unused-resource.pdf"
+    doc: Any = pymupdf.open()
+    page: Any = doc.new_page()
+    image_xref = page.insert_image(
+        pymupdf.Rect(72, 100, 112, 140), stream=b"P6\n1 1\n255\n\x00\x00\x00",
+    )
+    other: Any = doc.new_page()
+    other.insert_text((72, 72), "ordinary text")
+    doc.xref_set_key(other.xref, "Resources", f"<< /XObject << /Unused {image_xref} 0 R >> >>")
+    doc.save(path)
+    doc.close()
+
+    result = PyMuPDFPdfExtractor().extract(path)
+    assert getattr(result.report, "page_has_raster_images", None) == (True, False)
+    assert result.pages[0].text == "ordinary text"
+
+
 def _write_blank_and_text_pdf(path: Path) -> None:
     import pymupdf
 
@@ -211,6 +265,9 @@ class _ImageDetectionPage:
 
     def get_text(self, text_format: str, *, sort: bool) -> str:
         return ""
+
+    def get_image_info(self, *, hashes: bool, xrefs: bool) -> list[object]:
+        return []
 
     def get_images(self, full: bool = False) -> list[object]:
         self.seen_full_args.append(full)

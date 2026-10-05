@@ -95,7 +95,7 @@ _CLIENT_FILES = (
     Path("tests/fixtures/local-knowledge-v1/incident-guide.pdf"),
 )
 _CURRENT_SCHEMAS = Path(
-    "tests/fixtures/source-discovery-v1/mcp-tool-schemas.json"
+    "tests/fixtures/pdf-extraction-observation-v1/mcp-tool-schemas.json"
 )
 _CLIENT_KEYS = frozenset(
     {

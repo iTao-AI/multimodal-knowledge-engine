@@ -45,6 +45,7 @@ from mke.domain import (
     CandidateEvidence,
     CompiledLibrarySnapshot,
     CompiledLibrarySnapshotV2,
+    CompiledLibrarySnapshotV3,
     EvidenceReadSnapshot,
     EvidenceSearchPage,
     ExportFormatVersion,
@@ -334,9 +335,14 @@ class KnowledgeEngine:
         self, *, format_version: Literal["v2"]
     ) -> CompiledLibrarySnapshotV2: ...
 
+    @overload
+    def compiled_library_snapshot(
+        self, *, format_version: Literal["v3"]
+    ) -> CompiledLibrarySnapshotV3: ...
+
     def compiled_library_snapshot(
         self, *, format_version: ExportFormatVersion = "v1"
-    ) -> CompiledLibrarySnapshot | CompiledLibrarySnapshotV2:
+    ) -> CompiledLibrarySnapshot | CompiledLibrarySnapshotV2 | CompiledLibrarySnapshotV3:
         return self._store.compiled_library_snapshot(format_version=format_version)
 
     def search_provenance_snapshot(
@@ -365,9 +371,11 @@ class KnowledgeEngine:
         position: int,
         page_size: int,
         authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+        include_pdf_observation: bool = False,
     ) -> SourceCatalogPage:
         return self._store.list_sources_page(
-            position=position, page_size=page_size, authority_validator=authority_validator
+            position=position, page_size=page_size, authority_validator=authority_validator,
+            include_pdf_observation=include_pdf_observation,
         )
 
     def browse_source_evidence_page(
@@ -379,6 +387,7 @@ class KnowledgeEngine:
         position: int,
         page_size: int,
         authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+        include_pdf_observation: bool = False,
     ) -> SourceBrowsePage:
         return self._store.browse_source_evidence_page(
             source_id,
@@ -387,6 +396,7 @@ class KnowledgeEngine:
             position=position,
             page_size=page_size,
             authority_validator=authority_validator,
+            include_pdf_observation=include_pdf_observation,
         )
 
     def read_active_evidence(

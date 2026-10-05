@@ -382,7 +382,24 @@ a later continuation expires against changed authority. Catalog reads no Evidenc
 
 Coverage is bounded persisted observation with explicit array omission or `not_observed`, not an
 OCR/transcript/scene capability score. Exact stored text is recovered through the existing read
-contract and independently checked against the complete citation descriptor. No Source/Publication
-activation, Search ranking, extraction or export behavior changes. See
+contract and independently checked against the complete citation descriptor. ADR-0014 does not change
+Source/Publication activation or Search ranking. Its later versioned observation extension is
+described below. See
 [ADR-0014](../decisions/0014-source-discovery-and-browsing.md) and the
 [public walkthrough](../how-to/discover-and-read-sources.md).
+
+## Producing-Run PDF Observations
+
+The PyMuPDF text adapter records displayed-raster presence alongside unchanged normalized text
+counts. A new additive table binds this observation to the producing Run; it shares the report
+write/activation transaction and cannot overwrite a conflicting same-Run observation. Required
+PDF text/OCR stages, Evidence bytes and locators, Search/Ask and atomic Publication authority
+remain unchanged. Decorative raster images are observed; vectors and image meaning are not.
+
+Source v2 reads aggregates and at most 256 page details in its same validated snapshot, with exact
+returned/omitted ranges. Missing older rows/tables are nullable `not_observed`, including read-only
+export without migration. Explicit Export v3 adds the same object to Source descriptors/Markdown;
+old Source v1 and Export v1/v2/defaults remain closed and unchanged. The independent validator
+checks exact portable Evidence, and the Viewer consumes validated v2/v3 snapshots. V2 inputs show
+unknown scope. No original Source file is reopened to infer missing history. See
+[ADR-0015](../decisions/0015-pdf-extraction-observations.md).

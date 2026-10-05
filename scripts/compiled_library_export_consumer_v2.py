@@ -11,9 +11,9 @@ import re
 import stat
 import sys
 import unicodedata
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path, PurePosixPath
-from typing import Any, NamedTuple, cast
+from typing import Any, Literal, NamedTuple, cast
 
 _MAX_FILE_BYTES = 64 * 1024 * 1024
 _READ_BYTES = 64 * 1024
@@ -302,10 +302,13 @@ def _validate_locator(value: object) -> dict[str, object]:
     return locator
 
 
-def _markdown(entry: Mapping[str, object], rows: Sequence[Mapping[str, object]]) -> bytes:
+def _markdown(
+    entry: Mapping[str, object], rows: Sequence[Mapping[str, object]], *,
+    format_version: Literal["v2", "v3"] = "v2",
+) -> bytes:
     frontmatter = (
         "---\n"
-        'mke_format: "mke.compiled_markdown.v2"\n'
+        f'mke_format: "mke.compiled_markdown.{format_version}"\n'
         f"source_id: {json.dumps(entry['source_id'], ensure_ascii=False)}\n"
         f"display_name: {json.dumps(entry['display_name'], ensure_ascii=False)}\n"
         f"content_fingerprint: {json.dumps(entry['content_fingerprint'])}\n"
@@ -320,6 +323,9 @@ def _markdown(entry: Mapping[str, object], rows: Sequence[Mapping[str, object]])
         f"# Compiled source `{entry['content_fingerprint']}`\n"
     )
     body = ""
+    if format_version == "v3" and entry["pdf_extraction_observation"] is not None:
+        body += "\n## PDF Extraction Observation\n\n```json\n"
+        body += _canonical(entry["pdf_extraction_observation"]).decode("utf-8") + "```\n"
     for row in rows:
         locator = row["locator"]
         assert isinstance(locator, dict)
@@ -334,13 +340,22 @@ def _markdown(entry: Mapping[str, object], rows: Sequence[Mapping[str, object]])
     return (frontmatter + body).encode("utf-8", errors="strict")
 
 
-def load_validated_export(export: Path) -> ValidatedExport:
+def _load_validated_export(
+    export: Path, *, format_version: Literal["v2", "v3"],
+    observation_validator: Callable[
+        [dict[str, object], Sequence[dict[str, object]]], None
+    ] | None = None,
+) -> ValidatedExport:
+    if format_version not in ("v2", "v3") or (
+        format_version == "v3" and observation_validator is None
+    ):
+        raise ValidationError
     manifest_data = _read_regular(export / "export-manifest.json")
     manifest = _object(_json(manifest_data), _MANIFEST_KEYS)
     if (
-        manifest["schema_version"] != "mke.compiled_library_export.v2"
+        manifest["schema_version"] != f"mke.compiled_library_export.{format_version}"
         or manifest["evidence_schema"] != "mke.evidence_ref.v1"
-        or manifest["markdown_format"] != "mke.compiled_markdown.v2"
+        or manifest["markdown_format"] != f"mke.compiled_markdown.{format_version}"
     ):
         raise ValidationError
     observation = _object(manifest["observation"], _OBSERVATION_KEYS)
@@ -363,7 +378,9 @@ def load_validated_export(export: Path) -> ValidatedExport:
     evidence_total = 0
     validated_sources: list[ValidatedSource] = []
     for raw_entry in sources:
-        entry = _object(raw_entry, _SOURCE_KEYS)
+        entry = _object(raw_entry, _SOURCE_KEYS | (
+            {"pdf_extraction_observation"} if format_version == "v3" else set()
+        ))
         for key in ("source_id", "publication_id", "run_id"):
             _text(entry[key], _IDENTIFIER[key])
         _display_name(entry["display_name"])
@@ -428,7 +445,9 @@ def load_validated_export(export: Path) -> ValidatedExport:
             )
         if row_sort_keys != sorted(row_sort_keys):
             raise ValidationError
-        if markdown_data != _markdown(entry, rows):
+        if observation_validator is not None:
+            observation_validator(entry, rows)
+        if markdown_data != _markdown(entry, rows, format_version=format_version):
             raise ValidationError
         evidence_total += count
         validated_sources.append(ValidatedSource(entry, tuple(rows)))
@@ -447,6 +466,11 @@ def load_validated_export(export: Path) -> ValidatedExport:
     ):
         raise ValidationError
     return ValidatedExport(manifest, tuple(validated_sources))
+
+
+def load_validated_export(export: Path) -> ValidatedExport:
+    """The v2 public entry remains closed to every other export version."""
+    return _load_validated_export(export, format_version="v2")
 
 
 def validate(export: Path) -> dict[str, object]:

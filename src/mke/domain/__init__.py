@@ -124,6 +124,7 @@ class PdfIntakeReport:
     suspected_scanned_pages: int
     extraction_mode: str
     failure_reason: str | None = None
+    page_has_raster_images: tuple[bool, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -598,8 +599,10 @@ from .library_export import (  # noqa: E402
     CompiledEvidenceSnapshot,
     CompiledLibrarySnapshot,
     CompiledLibrarySnapshotV2,
+    CompiledLibrarySnapshotV3,
     CompiledSourceSnapshot,
     CompiledSourceSnapshotV2,
+    CompiledSourceSnapshotV3,
     ExportFormatVersion,
     ExportLimits,
     LibraryExportDataError,
@@ -610,8 +613,10 @@ _LIBRARY_EXPORT_CONTRACTS = (
     CompiledEvidenceSnapshot,
     CompiledLibrarySnapshot,
     CompiledLibrarySnapshotV2,
+    CompiledLibrarySnapshotV3,
     CompiledSourceSnapshot,
     CompiledSourceSnapshotV2,
+    CompiledSourceSnapshotV3,
     ExportFormatVersion,
     ExportLimits,
     LibraryExportDataError,

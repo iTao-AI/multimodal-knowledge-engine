@@ -24,10 +24,16 @@ CATALOG_ORDER = "content-fingerprint-source-id-v1"
 BROWSE_ORDER = "locator-start-end-evidence-id-v1"
 
 
+type SourceTool = Literal[
+    "list_sources_v1", "browse_source_evidence_v1",
+    "list_sources_v2", "browse_source_evidence_v2",
+]
+
+
 @dataclass(frozen=True)
 class SourceCursorPayload:
     schema_version: Literal["mke.mcp_cursor.v1"]
-    tool: Literal["list_sources_v1", "browse_source_evidence_v1"]
+    tool: SourceTool
     owner_epoch: str
     active_set_fingerprint: str
     library_binding: str
@@ -80,9 +86,9 @@ def validate_source_cursor(
         or not 1 <= payload.page_size <= 20
     ):
         raise InvalidCursorError("cursor source bindings")
-    if tool == "list_sources_v1":
+    if tool in ("list_sources_v1", "list_sources_v2"):
         if (
-            payload.response_schema != "mke.list_sources_response.v1"
+            payload.response_schema != f"mke.list_sources_response.{tool.rsplit('_', 1)[1]}"
             or payload.ordering_version != CATALOG_ORDER
             or payload.source_id
             or payload.publication_id
@@ -91,9 +97,10 @@ def validate_source_cursor(
             or payload.locator_end != 0
         ):
             raise InvalidCursorError("cursor catalog bindings")
-    elif tool == "browse_source_evidence_v1":
+    elif tool in ("browse_source_evidence_v1", "browse_source_evidence_v2"):
         if (
-            payload.response_schema != "mke.browse_source_evidence_response.v1"
+            payload.response_schema
+            != f"mke.browse_source_evidence_response.{tool.rsplit('_', 1)[1]}"
             or payload.ordering_version != BROWSE_ORDER
             or not payload.source_id
             or not payload.publication_id

@@ -182,7 +182,7 @@ def installed_case(
         (repository / "scripts/mcp_context_completeness_consumer.py", consumer_script),
         (
             repository
-            / "tests/fixtures/source-discovery-v1/mcp-tool-schemas.json",
+            / "tests/fixtures/pdf-extraction-observation-v1/mcp-tool-schemas.json",
             expectation,
         ),
         (repository / "tests/fixtures/pdf/text-layer.pdf", pdf),
@@ -278,7 +278,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "status": "passed",
         "schema_version": PROOF_SCHEMA,
         "python_versions": versions,
-        "tool_count": 12,
+        "tool_count": 14,
         "search_continuation": "passed",
         "exact_read": "passed",
         "cjk_cap": "passed",

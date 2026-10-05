@@ -1,4 +1,5 @@
 import sqlite3
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -42,6 +43,92 @@ def test_sqlite_returns_none_for_missing_pdf_intake_report(tmp_path: Path) -> No
     run = store.create_run(source.source_id)
 
     assert store.get_pdf_intake_report(run.run_id) is None
+
+
+def test_new_pdf_observation_roundtrips_with_its_producing_report(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "mke.sqlite")
+    source = store.ensure_source("mixed.pdf", "a" * 64)
+    run_id = _validated_pdf_run(store, source.source_id, "mixed text")
+    report = replace(
+        _pdf_report("mixed text"), extraction_mode="pymupdf-text", page_has_raster_images=(True,),
+    )
+    store.activate_publication(run_id, pdf_intake_report=report)
+    assert store.get_pdf_intake_report(run_id) == report
+    assert store._connection.execute(  # pyright: ignore[reportPrivateUsage]
+        "SELECT method, page_has_raster_images FROM pdf_extraction_observations WHERE run_id=?",
+        (run_id,),
+    ).fetchone()["page_has_raster_images"] == "[true]"
+
+
+def test_observation_write_failure_preserves_prior_publication(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "mke.sqlite")
+    source = store.ensure_source("replacement.pdf", "a" * 64)
+    first = _validated_pdf_run(store, source.source_id, "old text")
+    store.activate_publication(first, pdf_intake_report=_pdf_report("old text"))
+    second = _validated_pdf_run(store, source.source_id, "new text")
+    before = store.get_source(source.source_id)
+    store._connection.execute(  # pyright: ignore[reportPrivateUsage]
+        """CREATE TRIGGER fail_observation BEFORE INSERT ON pdf_extraction_observations
+           BEGIN SELECT RAISE(ABORT, 'observation write failed'); END"""
+    )
+    with pytest.raises(sqlite3.IntegrityError, match="observation write failed"):
+        store.activate_publication(
+            second, pdf_intake_report=replace(
+                _pdf_report("new text"), extraction_mode="pymupdf-text",
+                page_has_raster_images=(True,),
+            ),
+        )
+    assert store.get_source(source.source_id) == before
+    assert store.get_run(second).state is RunState.VALIDATED
+    assert store.get_pdf_intake_report(second) is None
+    assert len(store.search("old text")) == 1
+    assert store.search("new text") == []
+
+
+def test_observation_write_failure_cannot_publish_first_run(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "mke.sqlite")
+    source = store.ensure_source("first.pdf", "a" * 64)
+    run_id = _validated_pdf_run(store, source.source_id, "text")
+    store._connection.execute(  # pyright: ignore[reportPrivateUsage]
+        """CREATE TRIGGER fail_observation BEFORE INSERT ON pdf_extraction_observations
+           BEGIN SELECT RAISE(ABORT, 'observation write failed'); END"""
+    )
+    with pytest.raises(sqlite3.IntegrityError):
+        store.activate_publication(run_id, pdf_intake_report=replace(
+            _pdf_report("text"), extraction_mode="pymupdf-text", page_has_raster_images=(True,),
+        ))
+    assert store.get_source(source.source_id).active_publication_id is None
+    assert store.get_pdf_intake_report(run_id) is None
+    assert store.get_run(run_id).state is RunState.VALIDATED
+    assert _count_rows(store, "publications") == 0
+    assert store.search("text") == []
+
+
+def test_raster_observation_cannot_be_rewritten_on_same_run(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "mke.sqlite")
+    source = store.ensure_source("first.pdf", "a" * 64)
+    run_id = _validated_pdf_run(store, source.source_id, "text")
+    report = replace(
+        _pdf_report("text"), extraction_mode="pymupdf-text", page_has_raster_images=(True,),
+    )
+    store.persist_pdf_intake_report(run_id, report)
+    with pytest.raises(ManifestValidationError, match="immutable"):
+        store.persist_pdf_intake_report(run_id, replace(report, page_has_raster_images=(False,)))
+    store.activate_publication(run_id, pdf_intake_report=report)
+    assert store.get_pdf_intake_report(run_id) == report
+
+
+@pytest.mark.parametrize("flags", [(True, False), (1,), (), (None,)])
+def test_activation_rejects_invalid_raster_array(tmp_path: Path, flags: tuple[object, ...]) -> None:
+    store = SQLiteStore(tmp_path / "mke.sqlite")
+    source = store.ensure_source("invalid.pdf", "a" * 64)
+    run_id = _validated_pdf_run(store, source.source_id, "text")
+    report = replace(
+        _pdf_report("text"), extraction_mode="pymupdf-text", page_has_raster_images=flags,
+    )
+    with pytest.raises(ManifestValidationError, match="raster observation"):
+        store.activate_publication(run_id, pdf_intake_report=report)
+    assert store.get_source(source.source_id).active_publication_id is None
 
 
 def test_pdf_report_insert_failure_rolls_back_first_publication_atomically(

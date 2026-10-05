@@ -1,7 +1,8 @@
 # Discover A Source And Read Its Active Evidence
 
-The current source checkout adds `list_sources_v1` and `browse_source_evidence_v1` to the local
-stdio MCP server. These tools browse stored active Evidence. This is an additive checkout feature,
+The current source checkout adds Source v1 and opt-in `list_sources_v2` /
+`browse_source_evidence_v2` to the local stdio MCP server. These tools browse stored active
+Evidence; v2 also discloses local PDF text/raster observations. This is an additive checkout feature,
 not a new release or a new installed-wheel/dual-Python proof. Search ranking, exact read, ingestion
 and Publication activation retain their existing contracts.
 
@@ -14,14 +15,15 @@ model preparation or download is performed by this script. Run from the reposito
 .venv/bin/python -I -B scripts/source_discovery_consumer.py \
   --mke-bin /ABSOLUTE/PATH/TO/EXISTING/mke \
   --work-dir /ABSOLUTE/PATH/TO/NEW/source-discovery-example \
-  --expectation tests/fixtures/source-discovery-v1/mcp-tool-schemas.json
+  --expectation tests/fixtures/pdf-extraction-observation-v1/mcp-tool-schemas.json
 ```
 
 `--work-dir` must not exist; the script preserves its generated public synthetic inputs and SQLite
 Library for inspection. Choose a fresh directory for another run. The consumer imports neither
 MKE implementation nor test helpers. It ingests inputs through the real console entrypoint and
 uses official `ClientSession` / `stdio_client` to initialize, list tools and call the native server.
-It checks the complete current twelve-tool schema/description/annotation fixture.
+It checks the complete current fourteen-tool schema/description/annotation fixture while using
+unchanged v1 Source responses. Historical eight/ten/twelve-tool fixtures remain frozen.
 
 The PDF has four declared synthetic pages: a lexical marker on page 1; sixty lines of Latin text
 with multibyte accents on page 2; an image-only checkerboard on page 3; and text on page 4. The
@@ -70,12 +72,39 @@ provenance is disclosed. Neither representation scores ASR quality or claims fra
 understanding. Preview completeness, complete stored Evidence text and original-media coverage
 are separate claims.
 
+## Opt In To PDF Text/Raster Observations
+
+Use `list_sources_v2` / `browse_source_evidence_v2`, or add `--contract-version v2` to the two
+Source CLI commands. Request fields, exact reads and citation descriptors are unchanged;
+responses use `mke.list_sources_response.v2` / `mke.browse_source_evidence_response.v2`.
+Default CLI commands continue to use v1.
+
+PDF `pdf_extraction_observation` records the selected Publication's producing Run. The method is
+`pymupdf-displayed-raster-v1`, scope is `text_layer_only`; whole-document counts partition pages
+into text-only, mixed text/raster, raster-only and neither observed signal. Decorative raster
+images count as present. Vector graphics and image meaning are not assessed. The existing
+empty-text suspected-scan count is unchanged and cannot identify mixed pages.
+
+Catalog returns no per-page details. Browse returns at most 256 contiguous
+`{page_number,text_layer_chars,has_raster_images}` entries, starting at page 1 or the requested
+page-range start. `returned_page_range` and `omitted_page_ranges` explicitly describe the detail
+scope, independently of Evidence pagination. Counts still cover the whole PDF. Missing older
+observations have `status="not_observed"`, null counts/method/scope and empty arrays; they do not
+mean zero images. Non-PDF Sources use null. A v1 cursor cannot continue a v2 operation.
+
+For complete declared CLI/MCP/Export v3/Viewer verification, run the
+[native PDF observation proof](./observe-pdf-extraction-scope.md). The observation cannot prove
+OCR quality, visual importance or original-media semantic completeness.
+
 ## Use The CLI
 
 ```bash
 mke --db <library.sqlite> sources list --page-size 10 --json
+mke --db <library.sqlite> sources list --contract-version v2 --json
 mke --db <library.sqlite> source browse <source_id> --publication-id <publication_id> \
   --page-start 2 --page-end 4 --page-size 1 --json
+mke --db <library.sqlite> source browse <source_id> --publication-id <publication_id> \
+  --contract-version v2 --page-start 2 --page-end 4 --json
 mke --db <library.sqlite> source browse <source_id> --publication-id <publication_id> \
   --start-ms 500 --end-ms 1500 --json
 mke --db <library.sqlite> evidence read <evidence_id> --max-bytes 97 --json
@@ -133,4 +162,5 @@ Publication replacement fails `cursor_expired`. Restart discovery against curren
 than retrying a stale token or offset. Missing/stale Evidence uses the existing exact-read recovery.
 
 See [MCP Contract Reference](../reference/mcp-contract.md), [CLI Reference](../reference/cli.md) and
-[ADR-0014](../decisions/0014-source-discovery-and-browsing.md).
+[ADR-0014](../decisions/0014-source-discovery-and-browsing.md) and
+[ADR-0015](../decisions/0015-pdf-extraction-observations.md).

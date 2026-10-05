@@ -7,7 +7,7 @@ import sys
 import tempfile
 import time
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal, cast
 
@@ -234,6 +234,25 @@ def load_archived_numeric_protocol(
         snapshot_root=snapshot_root,
         archived_scope=True,
     )
+
+
+def load_current_numeric_replay_protocol(
+    path: Path, *, snapshot_root: Path,
+) -> NumericProtocol:
+    """Replay locked historical inputs under the current runtime's explicit schema scope.
+
+    Archived validation and strict-live comparison keep their original fences. Only current
+    compatibility replay derives a fresh schema expectation; no historical bytes are rewritten.
+    """
+    protocol = load_archived_numeric_protocol(path, snapshot_root=snapshot_root)
+    from mke.adapters.sqlite import SQLiteStore
+
+    with tempfile.TemporaryDirectory(prefix="mke-current-numeric-replay-scope-") as workspace:
+        store = SQLiteStore(Path(workspace) / "scope.sqlite")
+        try:
+            return replace(protocol, sqlite_schema_sha256=store.schema_sha256())
+        finally:
+            store.close()
 
 
 def _load_numeric_protocol(

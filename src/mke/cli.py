@@ -9,7 +9,7 @@ import tempfile
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from mke.adapters.video import LocalCommandTranscriptConfig, LocalCommandTranscriptProvider
 from mke.adapters.video.contracts import VideoTranscriptionLimits
@@ -1782,14 +1782,42 @@ def _format_transcript_intake_report(report: TranscriptIntakeReport) -> str:
     return f"transcript_intake_report {fields}"
 
 
+def _print_pdf_observation(source: dict[str, Any]) -> None:
+    observation = source.get("pdf_extraction_observation")
+    if observation is None:
+        return
+    if observation["status"] == "not_observed":
+        print("PDF extraction observation: 未观察；不能据此推断图像不存在。")
+        return
+    print("PDF extraction_scope=text_layer_only "
+          f"text_only_pages={observation['text_only_pages']} "
+          f"mixed_text_raster_pages={observation['mixed_text_raster_pages']} "
+          f"raster_only_pages={observation['raster_only_pages']} "
+          f"neither_text_nor_raster_pages={observation['neither_text_nor_raster_pages']} "
+          f"returned_page_range={observation['returned_page_range']} "
+          f"omitted_page_ranges={observation['omitted_page_ranges']}")
+    for page in observation["pages"]:
+        if page["text_layer_chars"] and page["has_raster_images"]:
+            print(f"Page {page['page_number']}: 本页含文本与图像；仅提取文本层。"
+                  "涉及图像的问题请核对原页。")
+
+
 def _handle_source_discovery(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     from mke.interfaces.mcp_completeness_contract import read_evidence_v1
     from mke.interfaces.mcp_schemas import ReadEvidenceV1Request
-    from mke.interfaces.source_discovery import browse_source_evidence_v1, list_sources_v1
+    from mke.interfaces.source_discovery import (
+        browse_source_evidence_v1,
+        browse_source_evidence_v2,
+        list_sources_v1,
+        list_sources_v2,
+    )
     from mke.interfaces.source_schemas import BrowseSourceEvidenceV1Request, ListSourcesV1Request
 
     # One owner config persists through every authenticated page/chunk of this command.
     config = McpRuntimeConfig(runtime_config_from_args(args), Path.cwd())
+    version = getattr(args, "contract_version", "v1")
+    list_sources = list_sources_v2 if version == "v2" else list_sources_v1
+    browse_source = browse_source_evidence_v2 if version == "v2" else browse_source_evidence_v1
     request: dict[str, object]
     if args.command == "sources":
         request = {"page_size": args.page_size}
@@ -1814,9 +1842,9 @@ def _handle_source_discovery(parser: argparse.ArgumentParser, args: argparse.Nam
     try:
         while True:
             if args.command == "sources":
-                response = list_sources_v1(config, ListSourcesV1Request(root=request))
+                response = list_sources(config, ListSourcesV1Request(root=request))
             elif args.command == "source":
-                response = browse_source_evidence_v1(
+                response = browse_source(
                     config, BrowseSourceEvidenceV1Request(root=request),
                 )
             else:
@@ -1831,7 +1859,11 @@ def _handle_source_discovery(parser: argparse.ArgumentParser, args: argparse.Nam
                 for item in payload["sources"]:
                     print(f"source_id={item['source_id']} publication_id={item['publication_id']} "
                           f"name={item['display_name']} evidence_count={item['evidence_count']}")
+                    if version == "v2":
+                        _print_pdf_observation(item)
             elif args.command == "source":
+                if version == "v2":
+                    _print_pdf_observation(payload["source"])
                 for item in payload["entries"]:
                     print(f"evidence_id={item['evidence']['evidence_id']} "
                           f"locator={item['evidence']['locator']} "

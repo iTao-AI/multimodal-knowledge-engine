@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -194,6 +195,45 @@ def test_viewer_binds_actual_export_and_escapes_untrusted_text(tmp_path: Path) -
         if path.is_file()
     }
     assert after == before
+
+
+def _data(html: str) -> dict[str, Any]:
+    marker = '<script type="application/json" id="viewer-data">'
+    return json.loads(html.split(marker, 1)[1].split("</script>", 1)[0])
+
+
+def test_v2_pdf_viewer_observation_is_unknown(tmp_path: Path) -> None:
+    export = _valid_export(tmp_path)
+    output = tmp_path / "v2.html"
+    assert _run(export, output).returncode == 0
+    data = _data(output.read_text())
+    source = data["sources"][0]
+    assert source["pdf_extraction_observation"]["status"] == "not_observed"
+    assert source["pdf_extraction_observation"]["mixed_text_raster_pages"] is None
+    assert source["evidence"][0]["text"] == MALICIOUS_TEXT
+
+
+def test_v3_viewer_binds_native_observations_and_preserves_text(tmp_path: Path) -> None:
+    from tests.interfaces.test_pdf_observation_export_v3 import export as native_export
+    from tests.interfaces.test_pdf_observation_source_v2 import browse, library, selected
+
+    config = library(tmp_path)
+    source = selected(config)
+    observation = browse(config, source)["source"]["pdf_extraction_observation"]
+    directory = native_export(config.db_path, tmp_path, "native-v3", "v3")
+    output = tmp_path / "v3.html"
+    result = _run(directory, output)
+    assert result.returncode == 0, result.stdout + result.stderr
+    data = _data(output.read_text())
+    assert data["export_schema"] == "mke.compiled_library_export.v3"
+    rendered = data["sources"][0]
+    assert rendered["pdf_extraction_observation"] == observation
+    assert [row["text"] for row in rendered["evidence"]] == [
+        "text on page 1", "text on page 2", "text on page 3",
+    ]
+    assert rendered["source_id"] == source["source_id"]
+    assert rendered["publication_id"] == source["publication_id"]
+    assert rendered["run_id"] == source["run_id"]
 
 
 def test_viewer_rejects_v1_or_mutated_input_without_success_artifact(tmp_path: Path) -> None:

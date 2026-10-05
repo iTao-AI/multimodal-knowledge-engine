@@ -128,7 +128,7 @@ def test_publisher_rejects_unknown_version_before_output(tmp_path: Path) -> None
     with pytest.raises(ValueError, match="format version"):
         publish_compiled_library(
             _snapshot_v2(),
-            format_version="v3",  # type: ignore[arg-type]
+            format_version="v999",  # type: ignore[arg-type]
             output_name="compiled-library",
             parent=tmp_path,
         )

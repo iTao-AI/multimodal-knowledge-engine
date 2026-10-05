@@ -340,7 +340,7 @@ def test_sqlite_snapshot_rejects_unknown_export_version(tmp_path: Path) -> None:
     store = SQLiteStore.open_read_only_export(_published_database(tmp_path))
     try:
         with pytest.raises(ValueError, match="format version"):
-            store.compiled_library_snapshot(format_version="v3")  # type: ignore[arg-type]
+            store.compiled_library_snapshot(format_version="v999")  # type: ignore[arg-type]
     finally:
         store.close()
 

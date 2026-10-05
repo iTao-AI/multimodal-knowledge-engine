@@ -12,7 +12,7 @@ its cursor binds strategy ID/revision, and cross-strategy continuation fails clo
 page may report `more_available`, while eligible candidates discarded by the 10-result strategy
 cap report `capped`. Budget overflow returns a typed error rather than a partial page.
 
-This page is the canonical complete MCP inventory. MKE exposes exactly twelve tools:
+This page is the canonical complete MCP inventory. MKE exposes exactly fourteen tools:
 
 - `list_libraries`
 - `ingest_file`
@@ -26,6 +26,8 @@ This page is the canonical complete MCP inventory. MKE exposes exactly twelve to
 - `read_evidence_v1`
 - `list_sources_v1`
 - `browse_source_evidence_v1`
+- `list_sources_v2`
+- `browse_source_evidence_v2`
 
 The `v1` and `v2` names are MKE tool-contract suffixes, not MCP protocol/SDK 2.x. The five legacy
 tools remain compatible. Strict v1 adds provenance. New consumers should use
@@ -182,9 +184,9 @@ contract.
 
 ## Discovery Compatibility And Annotations
 
-The immutable v0.1.4 eight-tool and v0.1.7 ten-tool fixtures remain historical release evidence.
-The current `tests/fixtures/source-discovery-v1/mcp-tool-schemas.json` exact-inventory
-fixture expects exactly twelve tools, including exact input/output schemas, descriptions, annotations,
+The immutable v0.1.4 eight-tool, v0.1.7 ten-tool and Source-discovery twelve-tool fixtures remain
+historical evidence. The current `tests/fixtures/pdf-extraction-observation-v1/mcp-tool-schemas.json`
+exact-inventory fixture expects exactly fourteen tools, including exact input/output schemas, descriptions, annotations,
 and safe causes. Consumers comparing all of `tools/list` for equality must migrate explicitly;
 unknown-tool detection is not weakened.
 
@@ -228,6 +230,39 @@ PDF scalar counts retain their meanings. Catalog `page_char_counts` is empty wit
 entries and disclose omission. Missing PDF/transcript reports are `not_observed`, with null values
 rather than inferred counts/provenance. Transcript `evidence_kind="stored_transcript"` does not
 claim ASR quality or scene understanding. Suspected scans do not prove missing semantic content.
+
+## Opt-In PDF Extraction Observation
+
+`list_sources_v2` and `browse_source_evidence_v2` reuse the exact v1 request envelopes, selection,
+Evidence descriptors, preview budgets and recovery. Their strict response schemas are
+`mke.list_sources_response.v2` and `mke.browse_source_evidence_response.v2`. V2 Source metadata adds
+the required `pdf_extraction_observation` field: a closed `mke.pdf_extraction_observation.v1`
+object for PDFs and null for other media. V1 fields, descriptions and schemas remain unchanged.
+Cursors bind the versioned operation; cross-version reuse fails `invalid_cursor`.
+
+Observed objects have `status="observed"`, `method="pymupdf-displayed-raster-v1"`,
+`extraction_scope="text_layer_only"`, positive `total_pages`, and nonnegative `text_only_pages`,
+`mixed_text_raster_pages`, `raster_only_pages`, `neither_text_nor_raster_pages` summing to the total.
+`pages` contains closed `{page_number,text_layer_chars,has_raster_images}` objects; the first two
+are strict integers and the last is a strict Boolean. `returned_page_range` is null or
+`{start,end}` with inclusive bounds. `omitted_page_ranges` is the exact complement of returned
+page observations. These ranges describe observation materialization, independently of Evidence
+pagination and preview completeness.
+
+Catalog returns no page details and omits pages 1–total. Browse returns at most 256 contiguous
+page observations, starting at page 1 or the requested inclusive page-range start, clamped to the
+document/range. An entirely out-of-document range returns no observations and omits all pages.
+SQLite aggregates full counts and bounds rows before Python decoding. The report is read from the
+selected active Publication's producing Run in the same transaction as Source/Evidence identity.
+
+A missing new observation is `status="not_observed"`: method, scope, total and category counts
+are null; `pages=[]`, `returned_page_range=null`, `omitted_page_ranges=[]`. It does not imply zero
+images or full semantic coverage. Decorative raster images count as present; vector graphics,
+image meaning, charts, tables, OCR quality and visual completeness are not assessed. The old
+`suspected_scanned_pages <= empty_pages` invariant keeps its original meaning and behavior.
+
+See [ADR-0015](../decisions/0015-pdf-extraction-observations.md) and the
+[native consumer proof](../how-to/observe-pdf-extraction-scope.md).
 
 Reads validate the Library/Source/Publication graph and load metadata/coverage/Evidence in one
 SQLite snapshot. Cursors bind operation, runtime owner, keyed configured-library identity, active

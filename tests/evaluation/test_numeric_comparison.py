@@ -60,7 +60,7 @@ def _copy_live_numeric_repository(tmp_path: Path) -> tuple[Path, Path]:
     return repository, protocol_path
 
 
-def _run_archived_numeric_comparison(
+def _run_current_numeric_replay(
     protocol_path: Path,
 ) -> NumericComparisonReport:
     from mke.evaluation import numeric_comparison
@@ -68,7 +68,7 @@ def _run_archived_numeric_comparison(
     with tempfile.TemporaryDirectory(
         prefix="mke-test-archived-numeric-"
     ) as snapshot_root:
-        protocol = numeric_comparison.load_archived_numeric_protocol(
+        protocol = numeric_comparison.load_current_numeric_replay_protocol(
             protocol_path,
             snapshot_root=Path(snapshot_root),
         )
@@ -96,8 +96,8 @@ def _with_wrong_schema(
     )
 
 
-def test_checked_in_protocol_produces_passing_candidate_comparison() -> None:
-    report = _run_archived_numeric_comparison(PROTOCOL)
+def test_current_replay_of_checked_in_inputs_produces_passing_candidate_comparison() -> None:
+    report = _run_current_numeric_replay(PROTOCOL)
     payload = json.loads(render_numeric_comparison_json(report))
 
     assert report.integrity_status == "passed"
@@ -123,10 +123,39 @@ def test_checked_in_protocol_produces_passing_candidate_comparison() -> None:
     ]
 
 
+def test_current_replay_scope_is_separate_from_immutable_archived_scope(tmp_path: Path) -> None:
+    from mke.adapters.sqlite import SQLiteStore
+    from mke.evaluation import numeric_comparison
+
+    before = PROTOCOL.read_bytes()
+    archived = numeric_comparison.load_archived_numeric_protocol(PROTOCOL)
+    replay = numeric_comparison.load_current_numeric_replay_protocol(
+        PROTOCOL, snapshot_root=tmp_path / "snapshot",
+    )
+    store = SQLiteStore(tmp_path / "scope.sqlite")
+    try:
+        assert replay.sqlite_schema_sha256 == store.schema_sha256()
+    finally:
+        store.close()
+    assert archived.sqlite_schema_sha256 == (
+        json.loads(before)["scope_fence"]["sqlite_schema_sha256"]
+    )
+    assert PROTOCOL.read_bytes() == before
+    assert hashlib.sha256(before).hexdigest() == PROTOCOL_SHA256
+    assert replay.candidate_id == archived.candidate_id
+    for partition, manifest in replay.loaded_manifests.items():
+        assert replace(manifest, root=archived.loaded_manifests[partition].root) == (
+            archived.loaded_manifests[partition]
+        )
+        assert replay.manifests[partition].read_bytes() == (
+            archived.manifests[partition].read_bytes()
+        )
+
+
 def test_comparison_records_only_the_allowlisted_e1_delta() -> None:
     payload = json.loads(
         render_numeric_comparison_json(
-            _run_archived_numeric_comparison(PROTOCOL)
+            _run_current_numeric_replay(PROTOCOL)
         )
     )
     current = {
@@ -147,7 +176,7 @@ def test_comparison_records_only_the_allowlisted_e1_delta() -> None:
 
 
 def test_comparison_compiled_queries_preserve_noneligible_text() -> None:
-    report = _run_archived_numeric_comparison(PROTOCOL)
+    report = _run_current_numeric_replay(PROTOCOL)
 
     assert len(report.compiled_queries) == 38
     grouped = next(
@@ -227,7 +256,7 @@ def test_comparison_uses_one_protocol_bound_snapshot_for_all_observations(
         observe,
     )
 
-    report = _run_archived_numeric_comparison(protocol_path)
+    report = _run_current_numeric_replay(protocol_path)
 
     assert report.integrity_status == "passed"
     assert len(observed_paths) == 6
@@ -294,7 +323,7 @@ def test_evaluation_failure_is_redacted_and_not_recorded(
         fail_selected,
     )
 
-    report = _run_archived_numeric_comparison(PROTOCOL)
+    report = _run_current_numeric_replay(PROTOCOL)
 
     assert report.integrity_status == "failed"
     assert report.candidate_status == "not_recorded"
@@ -344,7 +373,7 @@ def test_nondeterministic_evaluation_uses_fixed_numeric_error_mapping(
         nondeterministic,
     )
 
-    report = _run_archived_numeric_comparison(PROTOCOL)
+    report = _run_current_numeric_replay(PROTOCOL)
 
     assert report.integrity_status == "failed"
     assert report.candidate_status == "not_recorded"
@@ -410,7 +439,7 @@ def test_evidence_backed_gates_reject_invalid_runtime_observations(
         observe,
     )
 
-    report = _run_archived_numeric_comparison(PROTOCOL)
+    report = _run_current_numeric_replay(PROTOCOL)
 
     assert report.integrity_status == "passed"
     assert report.candidate_status == "rejected"
@@ -443,7 +472,7 @@ def test_trustworthy_gate_failure_is_candidate_rejection(
 
     monkeypatch.setattr(numeric_comparison, "_evaluate_gates", reject)
 
-    report = _run_archived_numeric_comparison(PROTOCOL)
+    report = _run_current_numeric_replay(PROTOCOL)
 
     assert report.integrity_status == "passed"
     assert report.candidate_status == "rejected"
@@ -453,12 +482,12 @@ def test_trustworthy_gate_failure_is_candidate_rejection(
 def test_semantic_payload_is_deterministic_without_duration() -> None:
     first = json.loads(
         render_numeric_comparison_json(
-            _run_archived_numeric_comparison(PROTOCOL)
+            _run_current_numeric_replay(PROTOCOL)
         )
     )
     second = json.loads(
         render_numeric_comparison_json(
-            _run_archived_numeric_comparison(PROTOCOL)
+            _run_current_numeric_replay(PROTOCOL)
         )
     )
 

@@ -2546,7 +2546,7 @@ def _current_e1_e2(
     with tempfile.TemporaryDirectory(
         prefix="mke-compatibility-numeric-"
     ) as snapshot:
-        protocol = numeric_comparison.load_archived_numeric_protocol(
+        protocol = numeric_comparison.load_current_numeric_replay_protocol(
             root / _NUMERIC_PROTOCOL,
             snapshot_root=Path(snapshot),
         )
