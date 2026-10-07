@@ -71,7 +71,8 @@ def create_library(root: Path) -> Path:
 
 
 def publish_pages(
-    database: Path, texts: tuple[str, ...], name: str = "large.pdf", fingerprint: str = "a"
+    database: Path, texts: tuple[str, ...], name: str = "large.pdf", fingerprint: str = "a",
+    *, evidence_prefix: str | None = None,
 ) -> tuple[str, str]:
     from mke.domain import (
         PDF_EXTRACTOR_FINGERPRINT,
@@ -82,12 +83,13 @@ def publish_pages(
 
     engine = KnowledgeEngine(database)
     try:
+        prefix = fingerprint if evidence_prefix is None else evidence_prefix
         source = engine.ensure_source(name, fingerprint * 64)
         run = engine.create_run(source.source_id)
         engine.persist_validated_candidate(
             run.run_id,
             [
-                CandidateEvidence(f"ev_{fingerprint}{index:031x}", "page", index, index, text)
+                CandidateEvidence(f"ev_{prefix}{index:031x}", "page", index, index, text)
                 for index, text in enumerate(texts, 1)
             ],
             RunManifest(

@@ -145,11 +145,14 @@ def _dispatch_command(
     _validate_command_options(parser, args, raw_argv)
     if args.command in {"sources", "source", "evidence"}:
         return _handle_source_discovery(parser, args)
-    if args.command == "search":
+    if args.command in {"search", "ask"}:
         if (args.source_id is None) != (args.publication_id is None):
-            parser.error("scoped Search requires both --source-id and --publication-id")
+            parser.error(
+                f"scoped {args.command.capitalize()} requires both --source-id and --publication-id"
+            )
         if args.source_id is not None:
-            return _handle_source_search(args)
+            handler = _handle_source_search if args.command == "search" else _handle_source_ask
+            return handler(args)
         if args.limit is not None or args.json_output:
             parser.error("--limit and --json require an explicit Source/Publication scope")
     if args.command == "eval":
@@ -1807,6 +1810,48 @@ def _print_pdf_observation(source: dict[str, Any]) -> None:
         if page["text_layer_chars"] and page["has_raster_images"]:
             print(f"Page {page['page_number']}: 本页含文本与图像；仅提取文本层。"
                   "涉及图像的问题请核对原页。")
+
+
+def _handle_source_ask(args: argparse.Namespace) -> int:
+    from mke.application.evidence_access import canonical_json_bytes
+    from mke.interfaces.source_ask import ask_source_evidence
+
+    config = McpRuntimeConfig(runtime_config_from_args(args), Path.cwd())
+    try:
+        response = ask_source_evidence(
+            config, args.source_id, args.publication_id, " ".join(args.question),
+            limit=args.limit if args.limit is not None else 5,
+        ).model_dump(mode="json")
+        if args.json_output:
+            print(canonical_json_bytes(response).decode("utf-8"))
+        elif not response["ok"]:
+            print(f"problem={response['problem']} cause={response['cause']} "
+                  f"active_publication_impact={response['active_publication_impact']} "
+                  f"next_step={response['next_step']}")
+        else:
+            print(
+                f"answer_status={response['answer_status']} "
+                f"evidence_count={len(response['evidence'])} "
+                f"selection={response['selection']['status']} mode=bounded_first_page"
+            )
+            print("question=" + json.dumps(response["question"], ensure_ascii=False))
+            print(
+                "scope=" + json.dumps(response["scope"], ensure_ascii=False, separators=(",", ":"))
+            )
+            print(f"next_step={response['selection']['next_step']}")
+            print(response["limitations"])
+            for item in response["evidence"]:
+                print(
+                    "evidence="
+                    + json.dumps(item["evidence"], ensure_ascii=False, separators=(",", ":"))
+                    + " excerpt="
+                    + json.dumps(item["excerpt"], ensure_ascii=False, separators=(",", ":"))
+                    + " read="
+                    + json.dumps(item["read"], ensure_ascii=False, separators=(",", ":"))
+                )
+        return 0 if response["ok"] else 1
+    finally:
+        config.runtime.process_controller.shutdown()
 
 
 def _handle_source_search(args: argparse.Namespace) -> int:

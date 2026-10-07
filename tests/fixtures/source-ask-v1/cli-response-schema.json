@@ -1,0 +1,554 @@
+{
+  "$defs": {
+    "ActiveAuthoritySnapshotV1": {
+      "additionalProperties": false,
+      "properties": {
+        "active_set_fingerprint": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Active Set Fingerprint",
+          "type": "string"
+        },
+        "observation": {
+          "$ref": "#/$defs/ActivePublicationObservationV1"
+        },
+        "schema_version": {
+          "const": "mke.active_authority_snapshot.v1",
+          "default": "mke.active_authority_snapshot.v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "observation",
+        "active_set_fingerprint"
+      ],
+      "title": "ActiveAuthoritySnapshotV1",
+      "type": "object"
+    },
+    "ActivePublicationObservationV1": {
+      "additionalProperties": false,
+      "properties": {
+        "active_evidence_count": {
+          "minimum": 0,
+          "title": "Active Evidence Count",
+          "type": "integer"
+        },
+        "active_publication_count": {
+          "minimum": 0,
+          "title": "Active Publication Count",
+          "type": "integer"
+        },
+        "library_id": {
+          "const": "local",
+          "default": "local",
+          "title": "Library Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "mke.active_publication_observation.v1",
+          "default": "mke.active_publication_observation.v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_count": {
+          "minimum": 0,
+          "title": "Source Count",
+          "type": "integer"
+        },
+        "state": {
+          "enum": [
+            "empty",
+            "no_active_publication",
+            "active"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "source_count",
+        "active_publication_count",
+        "active_evidence_count"
+      ],
+      "title": "ActivePublicationObservationV1",
+      "type": "object"
+    },
+    "EvidenceDescriptorV1": {
+      "additionalProperties": false,
+      "properties": {
+        "content_fingerprint": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Content Fingerprint",
+          "type": "string"
+        },
+        "evidence_id": {
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "evidence_text_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Evidence Text Sha256",
+          "type": "string"
+        },
+        "locator": {
+          "$ref": "#/$defs/LocatorV1"
+        },
+        "original_utf8_bytes": {
+          "exclusiveMinimum": 0,
+          "title": "Original Utf8 Bytes",
+          "type": "integer"
+        },
+        "publication_id": {
+          "title": "Publication Id",
+          "type": "string"
+        },
+        "publication_revision": {
+          "exclusiveMinimum": 0,
+          "title": "Publication Revision",
+          "type": "integer"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "source_id",
+        "content_fingerprint",
+        "publication_id",
+        "publication_revision",
+        "run_id",
+        "locator",
+        "evidence_text_sha256",
+        "original_utf8_bytes"
+      ],
+      "title": "EvidenceDescriptorV1",
+      "type": "object"
+    },
+    "EvidenceExcerptV1": {
+      "additionalProperties": false,
+      "properties": {
+        "complete": {
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "content_trust": {
+          "const": "untrusted_evidence",
+          "title": "Content Trust",
+          "type": "string"
+        },
+        "end_utf8_byte": {
+          "exclusiveMinimum": 0,
+          "title": "End Utf8 Byte",
+          "type": "integer"
+        },
+        "kind": {
+          "enum": [
+            "query_window",
+            "prefix_fallback"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "prefix_omitted": {
+          "title": "Prefix Omitted",
+          "type": "boolean"
+        },
+        "returned_utf8_bytes": {
+          "exclusiveMinimum": 0,
+          "maximum": 2048,
+          "title": "Returned Utf8 Bytes",
+          "type": "integer"
+        },
+        "start_utf8_byte": {
+          "minimum": 0,
+          "title": "Start Utf8 Byte",
+          "type": "integer"
+        },
+        "suffix_omitted": {
+          "title": "Suffix Omitted",
+          "type": "boolean"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "text",
+        "start_utf8_byte",
+        "end_utf8_byte",
+        "prefix_omitted",
+        "suffix_omitted",
+        "complete",
+        "returned_utf8_bytes",
+        "content_trust"
+      ],
+      "title": "EvidenceExcerptV1",
+      "type": "object"
+    },
+    "EvidenceReadAffordanceV1": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_id": {
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "tool": {
+          "const": "read_evidence_v1",
+          "default": "read_evidence_v1",
+          "title": "Tool",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id"
+      ],
+      "title": "EvidenceReadAffordanceV1",
+      "type": "object"
+    },
+    "LocatorV1": {
+      "discriminator": {
+        "mapping": {
+          "page": "#/$defs/PageLocatorV1",
+          "timestamp_ms": "#/$defs/TimestampLocatorV1"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/PageLocatorV1"
+        },
+        {
+          "$ref": "#/$defs/TimestampLocatorV1"
+        }
+      ]
+    },
+    "PageLocatorV1": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "exclusiveMinimum": 0,
+          "title": "End",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "page",
+          "title": "Kind",
+          "type": "string"
+        },
+        "start": {
+          "exclusiveMinimum": 0,
+          "title": "Start",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "start",
+        "end"
+      ],
+      "title": "PageLocatorV1",
+      "type": "object"
+    },
+    "SearchMatchV2": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "$ref": "#/$defs/EvidenceDescriptorV1"
+        },
+        "excerpt": {
+          "$ref": "#/$defs/EvidenceExcerptV1"
+        },
+        "read": {
+          "$ref": "#/$defs/EvidenceReadAffordanceV1"
+        }
+      },
+      "required": [
+        "evidence",
+        "excerpt",
+        "read"
+      ],
+      "title": "SearchMatchV2",
+      "type": "object"
+    },
+    "SearchOutputBudgetV1": {
+      "additionalProperties": false,
+      "properties": {
+        "content_budget_bytes": {
+          "const": 16384,
+          "default": 16384,
+          "title": "Content Budget Bytes",
+          "type": "integer"
+        },
+        "envelope_budget_bytes": {
+          "const": 32768,
+          "default": 32768,
+          "title": "Envelope Budget Bytes",
+          "type": "integer"
+        },
+        "incomplete_excerpt_count": {
+          "minimum": 0,
+          "title": "Incomplete Excerpt Count",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "mke.search_output_budget.v1",
+          "default": "mke.search_output_budget.v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "incomplete_excerpt_count"
+      ],
+      "title": "SearchOutputBudgetV1",
+      "type": "object"
+    },
+    "SourceAskErrorV1": {
+      "additionalProperties": false,
+      "properties": {
+        "active_publication_impact": {
+          "const": "unchanged",
+          "default": "unchanged",
+          "title": "Active Publication Impact",
+          "type": "string"
+        },
+        "cause": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Cause",
+          "type": "string"
+        },
+        "next_step": {
+          "pattern": "^[a-z][a-z0-9_]{0,127}$",
+          "title": "Next Step",
+          "type": "string"
+        },
+        "ok": {
+          "const": false,
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "problem": {
+          "pattern": "^[a-z][a-z0-9_]{0,127}$",
+          "title": "Problem",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "mke.source_ask_response.v1",
+          "default": "mke.source_ask_response.v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ok",
+        "problem",
+        "cause",
+        "next_step"
+      ],
+      "title": "SourceAskErrorV1",
+      "type": "object"
+    },
+    "SourceAskSelectionV1": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "bounded_first_page",
+          "default": "bounded_first_page",
+          "title": "Mode",
+          "type": "string"
+        },
+        "next_step": {
+          "enum": [
+            "read_selected_evidence",
+            "run_scoped_search_for_all_matches",
+            "refine_question_in_selected_source"
+          ],
+          "title": "Next Step",
+          "type": "string"
+        },
+        "returned": {
+          "maximum": 20,
+          "minimum": 0,
+          "title": "Returned",
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "complete",
+            "more_available"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "returned",
+        "next_step"
+      ],
+      "title": "SourceAskSelectionV1",
+      "type": "object"
+    },
+    "SourceAskSuccessV1": {
+      "additionalProperties": false,
+      "properties": {
+        "answer_status": {
+          "enum": [
+            "evidence_found",
+            "insufficient_evidence"
+          ],
+          "title": "Answer Status",
+          "type": "string"
+        },
+        "authority_snapshot": {
+          "$ref": "#/$defs/ActiveAuthoritySnapshotV1"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/SearchMatchV2"
+          },
+          "maxItems": 20,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "limitations": {
+          "const": "Evidence selection only; matches do not verify an answer or complete understanding of original media.",
+          "default": "Evidence selection only; matches do not verify an answer or complete understanding of original media.",
+          "title": "Limitations",
+          "type": "string"
+        },
+        "ok": {
+          "const": true,
+          "default": true,
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "output": {
+          "$ref": "#/$defs/SearchOutputBudgetV1"
+        },
+        "question": {
+          "title": "Question",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "mke.source_ask_response.v1",
+          "default": "mke.source_ask_response.v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/SourceSearchScopeV1"
+        },
+        "selection": {
+          "$ref": "#/$defs/SourceAskSelectionV1"
+        }
+      },
+      "required": [
+        "question",
+        "answer_status",
+        "scope",
+        "authority_snapshot",
+        "evidence",
+        "selection",
+        "output"
+      ],
+      "title": "SourceAskSuccessV1",
+      "type": "object"
+    },
+    "SourceSearchScopeV1": {
+      "additionalProperties": false,
+      "properties": {
+        "content_fingerprint": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Content Fingerprint",
+          "type": "string"
+        },
+        "publication_id": {
+          "title": "Publication Id",
+          "type": "string"
+        },
+        "publication_revision": {
+          "exclusiveMinimum": 0,
+          "title": "Publication Revision",
+          "type": "integer"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "mke.source_search_scope.v1",
+          "default": "mke.source_search_scope.v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "publication_id",
+        "publication_revision",
+        "run_id",
+        "content_fingerprint"
+      ],
+      "title": "SourceSearchScopeV1",
+      "type": "object"
+    },
+    "TimestampLocatorV1": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "exclusiveMinimum": 0,
+          "title": "End",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "timestamp_ms",
+          "title": "Kind",
+          "type": "string"
+        },
+        "start": {
+          "minimum": 0,
+          "title": "Start",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "start",
+        "end"
+      ],
+      "title": "TimestampLocatorV1",
+      "type": "object"
+    }
+  },
+  "discriminator": {
+    "mapping": {
+      "False": "#/$defs/SourceAskErrorV1",
+      "True": "#/$defs/SourceAskSuccessV1"
+    },
+    "propertyName": "ok"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/SourceAskSuccessV1"
+    },
+    {
+      "$ref": "#/$defs/SourceAskErrorV1"
+    }
+  ],
+  "title": "SourceAskResponseV1"
+}
