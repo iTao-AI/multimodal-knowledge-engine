@@ -78,6 +78,8 @@ Evidence convenience. Future scoped Ask requires its own approved citation-rejec
 
 ## Verified Checkout Boundary
 
+Verified on 2026-10-07 with the locked Python3.12 environment and official MCP SDK1.29.1.
+
 The native tests in `tests/proof/test_source_search_stdio.py` and
 `tests/proof/test_source_search_native_bounds.py` ingest public synthetic PDF and declared
 sidecar inputs through the actual CLI, use official SDK `ClientSession` / `stdio_client`,

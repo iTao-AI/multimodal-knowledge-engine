@@ -274,16 +274,18 @@ def test_installed_version_identity_drift_is_rejected(
         ("McpRuntimeConfig", "mcp_contract_failed"),
     ],
 )
+@pytest.mark.parametrize("directory_name", ["ordinary-runtime", "source-search"])
 def test_substep_failure_returns_stable_json(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     command_marker: str,
     expected_code: str,
+    directory_name: str,
 ) -> None:
     from scripts import release_consumer_smoke as smoke
 
-    repo, wheel, runtime_root = _repo_wheel_runtime(tmp_path)
+    repo, wheel, runtime_root = _repo_wheel_runtime(tmp_path / directory_name)
     monkeypatch.setattr(smoke, "repository_root", lambda: repo)
     monkeypatch.setattr(smoke.tempfile, "TemporaryDirectory", _tempdir(runtime_root))
     monkeypatch.setattr(
@@ -412,7 +414,10 @@ def _fake_run_with_failure(
         if command[:2] == ["uv", "venv"]:
             installed_python.parent.mkdir(parents=True, exist_ok=True)
             installed_python.write_text("")
-        if marker in " ".join(command):
+        requested_step = marker in command
+        if marker == "McpRuntimeConfig":
+            requested_step = len(command) >= 3 and command[1] == "-c" and marker in command[2]
+        if requested_step:
             raise smoke.ConsumerSmokeError("private detail", "secret=value")
         if len(command) >= 3 and command[1] == "-c" and "mke.__file__" in command[2]:
             module.parent.mkdir(parents=True, exist_ok=True)
