@@ -12,7 +12,7 @@
 
 **Git Base:** `main` at `3f5469254788013463b3494efe90f63edcd89570`.
 
-**Status:** In progress. Local implementation and semantic commits are authorized; remote delivery is a later gate.
+**Status:** Completed locally. Implementation, documentation, focused verification and fresh branch review are complete; remote delivery is outside this plan and awaits separate authorization.
 
 ## Global Constraints
 
@@ -64,6 +64,21 @@
 
 - [x] Update ordinary entry points, schema/reference links, fixed Evidence-only limitations and the runnable SDK example; explain first-page scope versus excerpt completeness.
 - [x] Run affected tests, Ruff, Pyright, local documentation links/index checks and `git diff --check`. Expect all passed; reuse unchanged broad baseline evidence.
-- [ ] Perform focused documentation audit and one fresh whole-branch code review using the current Sol model/high; fix actionable findings with targeted regression and re-review.
-- [ ] Commit documentation and completed plan, keep exact behavior-input/test evidence bound, and preserve ignored receipts/old worktrees.
-- [ ] Prepare a public-neutral PR title/body and exact HEAD/diff/verification/limits; return one local READY candidate for remote approval.
+- [x] Perform focused documentation audit and one fresh whole-branch code review using the current Sol model/high; fix actionable findings with targeted regression and re-review.
+- [x] Commit documentation and completed plan, keep exact behavior-input/test evidence bound, and preserve ignored receipts/old worktrees.
+- [x] Prepare a public-neutral PR title/body and exact HEAD/diff/verification/limits; return one local READY candidate for remote approval.
+
+## Local Acceptance Record
+
+- Scoped CLI/service plus compatibility/schema boundaries: 68 passed.
+- Ordinary SDK consumer boundaries and actual CLI/stdio workflows: 42 passed; no skipped cases.
+- CLI error/documentation/index checks: 43 passed. These three disjoint groups total 153 tests.
+- Full Ruff and configured Pyright passed; targeted SDK example/test Pyright passed.
+- Fifteen changed Markdown files / 247 local links and anchors resolve; all 66 pre-existing
+  fixture files are byte-unchanged. The separate CLI schema snapshot matches its strict DTO.
+- Fresh Sol/high whole-branch review returned READY without actionable findings.
+- The named GStack document-release Skill was unavailable. Equivalent local documentation
+  coverage/link audit completed; its named workflow is not claimed as run.
+- Reused unchanged broad baseline/Source Search evidence; no installed-wheel/provider/model,
+  Release/tag/deploy or remote delivery claim. Task-owned branch, worktree and ignored receipts
+  remain retained for the next authorized phase.
