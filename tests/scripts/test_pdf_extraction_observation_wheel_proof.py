@@ -73,6 +73,33 @@ def test_wheel_provenance_uses_committed_bytes_not_the_dirty_checkout(tmp_path: 
     }
 
 
+@pytest.mark.parametrize("count", [14, 15])
+def test_inventory_is_bound_to_declared_commit_with_historical_fallback(
+    tmp_path: Path, count: int,
+) -> None:
+    repository, _, _ = source_and_wheel(tmp_path)
+    old = repository / "tests/fixtures/pdf-extraction-observation-v1/mcp-tool-schemas.json"
+    new = repository / "tests/fixtures/source-search-v1/mcp-tool-schemas.json"
+    old.parent.mkdir(parents=True)
+    old.write_text(json.dumps({"tools": {str(index): {} for index in range(14)}}))
+    tracked = [str(old.relative_to(repository))]
+    if count == 15:
+        new.parent.mkdir(parents=True)
+        new.write_text(json.dumps({"tools": {str(index): {} for index in range(15)}}))
+        tracked.append(str(new.relative_to(repository)))
+    subprocess.run(["git", "add", *tracked], cwd=repository, check=True)
+    subprocess.run(
+        ["git", "-c", "user.name=Proof Test", "-c", "user.email=proof@example.invalid",
+         "commit", "--quiet", "-m", "declared inventory"],
+        cwd=repository, check=True,
+    )
+    commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repository).decode().strip()
+    new.parent.mkdir(exist_ok=True)
+    new.write_text('{"tools":{}}')
+    declared = json.loads(proof().expectation_bytes(repository, commit))
+    assert len(declared["tools"]) == count
+
+
 @pytest.mark.parametrize("mutation", ["missing", "extra", "changed"])
 def test_equal_version_wheel_with_wrong_package_bytes_is_rejected(
     tmp_path: Path, mutation: str

@@ -22,7 +22,7 @@ def test_installed_case_accepts_alias_for_resolved_environment_parent(
     for relative in (
         "scripts/mcp_context_completeness_fixture.py",
         "scripts/mcp_context_completeness_consumer.py",
-        "tests/fixtures/pdf-extraction-observation-v1/mcp-tool-schemas.json",
+        "tests/fixtures/source-search-v1/mcp-tool-schemas.json",
         "tests/fixtures/pdf/text-layer.pdf",
     ):
         path = repository / relative

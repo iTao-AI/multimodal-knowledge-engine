@@ -82,10 +82,10 @@ or tracebacks. Re-run with the documented public fixture rather than attaching p
 
 ## Current Checkout Inventory
 
-Current proof scripts now route to the fourteen-tool
-`tests/fixtures/pdf-extraction-observation-v1/mcp-tool-schemas.json` fixture. The old ten/twelve-tool fixtures and
+Current proof scripts now route to the fifteen-tool
+`tests/fixtures/source-search-v1/mcp-tool-schemas.json` fixture. The old ten/twelve-tool fixtures and
 v0.1.7 installed-wheel receipt remain immutable historical evidence. Routing a current script to
-fourteen tools does not establish a new same-wheel Python 3.12/3.13 result; such a run requires the
+fifteen tools does not establish a new same-wheel Python 3.12/3.13 result; such a run requires the
 existing installation/packaging authorization separately.
 
 The current Source workflow has a standalone [official-SDK synthetic example](./discover-and-read-sources.md)

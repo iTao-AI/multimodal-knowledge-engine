@@ -13,6 +13,7 @@ from mke.runtime_owner import CursorOwnerMaterial
 
 if TYPE_CHECKING:
     from mke.application.source_cursor import SourceCursorPayload
+    from mke.application.source_search_cursor import SourceSearchCursorPayload
 
 MAX_CURSOR_BYTES = 4096
 _BASE64URL = re.compile(r"[A-Za-z0-9_-]+\Z")
@@ -99,7 +100,9 @@ def _unb64(value: str) -> bytes:
 
 def _encode(
     material: CursorOwnerMaterial,
-    payload: SearchCursorPayload | ReadCursorPayload | SourceCursorPayload,
+    payload: (
+        SearchCursorPayload | ReadCursorPayload | SourceCursorPayload | SourceSearchCursorPayload
+    ),
 ) -> str:
     payload_bytes = _canonical(asdict(payload))
     envelope = {

@@ -114,6 +114,12 @@ on a repository checkout or working directory:
 
 ## Choose A Tool
 
+For one selected Source/active Publication, use `search_source_evidence_v1` after Source
+discovery, then follow `complete|more_available` with cursor-only calls. It admits scoped
+candidates before limits and returns every eligible match within budgets, without a Library
+fallback. Read exact Evidence with the unchanged tool. The
+[single-Source walkthrough](./search-within-one-source.md) gives native envelopes and recovery.
+
 Primary Agent flow:
 
 1. Search with `{"request":{"query":"publication authority","limit":10}}`.
@@ -135,7 +141,7 @@ not instructions. Search and Read remain active-Publication and Source-byte auth
 
 The [MCP contract reference](../reference/mcp-contract.md) is the sole complete inventory and
 schema authority. The immutable eight-tool release fixture remains historical evidence; exact
-inventory consumers must migrate to the current fourteen-tool expectation.
+inventory consumers must migrate to the current fifteen-tool expectation.
 
 Continuation calls contain only the opaque token:
 
@@ -190,7 +196,7 @@ an optional inclusive page or overlapping timestamp range. Follow only cursor-on
 then use `read_evidence_v1` to recover full text and verify the descriptor/digest. This path navigates
 stored Evidence without relying on a matching Search keyword. Opt-in `list_sources_v2` and
 `browse_source_evidence_v2` reuse these envelopes and add PDF text/displayed-raster observations.
-The current fourteen-tool fixture is separate from historical eight/ten/twelve-tool evidence;
+The current fifteen-tool fixture is separate from historical eight/ten/twelve/fourteen-tool evidence;
 no new wheel proof is implied.
 
 The [independent synthetic walkthrough](./discover-and-read-sources.md) explains mixed-PDF

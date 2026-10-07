@@ -58,6 +58,7 @@ do not change Search, Ask, MCP, owner startup, Publication, ingestion, or runtim
 - [Architecture](./explanation/architecture.md)
 - [Public Contracts](./reference/contracts.md)
 - [CLI Reference](./reference/cli.md)
+- [Search Within One Active Source](./how-to/search-within-one-source.md)
 - [Direct-Audio Dependency And License Evidence](./reference/direct-audio-dependency-and-license-evidence.md)
   records the PR A dependency, license, and synthetic-fixture feasibility receipt.
 - [Enable Bounded CJK Retrieval](./how-to/enable-cjk-retrieval.md)
@@ -112,6 +113,9 @@ Documentation changes ship in the same PR as affected behavior. Private generate
 private planning notes do not belong in this repository.
 
 ## Current Decisions
+
+- [ADR-0016](./decisions/0016-single-source-active-publication-search.md) defines single-Source
+  active Publication Search, complete eligible pagination, scope/cursor identity and Ask follow-up boundaries.
 
 - [ADR-0001](./decisions/0001-local-first-pilot-architecture.md) defines the local-first Pilot architecture.
 - [ADR-0002](./decisions/0002-source-publication-and-active-search-projection.md) defines Source Publication and active Search projection semantics.

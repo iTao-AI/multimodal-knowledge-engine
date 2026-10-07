@@ -170,11 +170,11 @@ retrieval, RRF, reranking, query rewrite, OCR, or request DTO.
 
 ## MCP
 
-Status: implemented for the exact current fourteen-tool inventory. The canonical detailed contract is
+Status: implemented for the exact current fifteen-tool inventory. The canonical detailed contract is
 the [MCP Contract Reference](./mcp-contract.md); this summary must remain aligned with that page
 and the live server inventory.
 
-MKE exposes exactly fourteen tools:
+MKE exposes exactly fifteen tools:
 
 - `list_libraries`
 - `ingest_file`
@@ -190,6 +190,15 @@ MKE exposes exactly fourteen tools:
 - `browse_source_evidence_v1`
 - `list_sources_v2`
 - `browse_source_evidence_v2`
+- `search_source_evidence_v1`
+
+Single-Source Search uses an explicit current Source/Publication selection and cursor-only
+continuation, with `mke.search_source_evidence_response.v1` and full Source/Publication/revision/
+Run/content scope identity. It constrains candidates before strategy budgets and completes the
+eligible set without Library fallback. See the
+[canonical scoped contract](./mcp-contract.md#search-within-one-selected-source) and
+[CLI/MCP workflow](../how-to/search-within-one-source.md). Old unscoped Search/Ask contracts remain
+unchanged; scoped Ask is follow-up design only.
 
 `ask_library` returns deterministic Evidence packets, not model-generated answers. Successful
 responses include:
@@ -324,8 +333,9 @@ semantics; determinism is for repeated export of one snapshot, not fresh re-inge
 Opt-in Source v2 adds `pdf_extraction_observation` using the closed
 `mke.pdf_extraction_observation.v1` schema; non-PDF Sources carry null. All keys, strict scalar
 types, unknown semantics, page partition and returned/omitted bounds are documented in the
-[MCP Contract Reference](./mcp-contract.md#opt-in-pdf-extraction-observation) and frozen in
-`tests/fixtures/pdf-extraction-observation-v1/mcp-tool-schemas.json`. Old v1 Source request/response
+[MCP Contract Reference](./mcp-contract.md#opt-in-pdf-extraction-observation) and frozen in the historical
+`tests/fixtures/pdf-extraction-observation-v1/mcp-tool-schemas.json` fixture. The complete current
+inventory is `tests/fixtures/source-search-v1/mcp-tool-schemas.json`. Old v1 Source request/response
 schemas and Evidence descriptors remain unchanged; versioned cursors cannot cross operations.
 
 Explicit Export v3 retains the exact v2 top-level manifest keys, Source/Evidence identity and

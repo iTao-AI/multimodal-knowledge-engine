@@ -12,7 +12,7 @@ its cursor binds strategy ID/revision, and cross-strategy continuation fails clo
 page may report `more_available`, while eligible candidates discarded by the 10-result strategy
 cap report `capped`. Budget overflow returns a typed error rather than a partial page.
 
-This page is the canonical complete MCP inventory. MKE exposes exactly fourteen tools:
+This page is the canonical complete MCP inventory. MKE exposes exactly fifteen tools:
 
 - `list_libraries`
 - `ingest_file`
@@ -28,6 +28,7 @@ This page is the canonical complete MCP inventory. MKE exposes exactly fourteen 
 - `browse_source_evidence_v1`
 - `list_sources_v2`
 - `browse_source_evidence_v2`
+- `search_source_evidence_v1`
 
 The `v1` and `v2` names are MKE tool-contract suffixes, not MCP protocol/SDK 2.x. The five legacy
 tools remain compatible. Strict v1 adds provenance. New consumers should use
@@ -185,8 +186,8 @@ contract.
 ## Discovery Compatibility And Annotations
 
 The immutable v0.1.4 eight-tool, v0.1.7 ten-tool and Source-discovery twelve-tool fixtures remain
-historical evidence. The current `tests/fixtures/pdf-extraction-observation-v1/mcp-tool-schemas.json`
-exact-inventory fixture expects exactly fourteen tools, including exact input/output schemas, descriptions, annotations,
+historical evidence. The fourteen-tool PDF snapshot also remains immutable. The current `tests/fixtures/source-search-v1/mcp-tool-schemas.json`
+exact-inventory fixture expects exactly fifteen tools, including exact input/output schemas, descriptions, annotations,
 and safe causes. Consumers comparing all of `tools/list` for equality must migrate explicitly;
 unknown-tool detection is not weakened.
 
@@ -194,6 +195,43 @@ All list, get, Search, Ask, and Read tools advertise `readOnlyHint=true` and
 `openWorldHint=false`. `ingest_file` advertises `readOnlyHint=false`, `idempotentHint=false`, and
 `openWorldHint=false`. Descriptions, authority fields, and trust labels remain normative because
 annotations cannot express active authority or untrusted Evidence.
+
+## Search Within One Selected Source
+
+`search_source_evidence_v1` is an additive read-only tool. Its initial native envelope is
+`{"request":{"source_id":"<Source>","publication_id":"<Publication>","query":"terms","limit":5}}`;
+IDs are explicit selections from current Source discovery. Limit is strictly integer 1–20,
+default5; query is nonblank and <=512 UTF-8 bytes. Continuation accepts exactly
+`{"request":{"cursor":"<opaque>"}}`. Mixed branches and unknown fields fail validation.
+
+Success schema is `mke.search_source_evidence_response.v1`. It contains `scope` with schema
+`mke.source_search_scope.v1`, Source/Publication/revision/Run/content fingerprint, plus the
+existing authority snapshot, query, descriptor/excerpt/read matches, selection and output.
+Every citation agrees with the complete selected scope. Empty matches remain a scoped complete
+success. Unknown/mismatched/unpublished/superseded selection returns `evidence_not_found` with
+`next_step=reselect_active_source`; it never falls back to Library Search.
+
+Source/Publication predicates apply before candidate limits and scan budgets for all four
+runtime strategies. Scoped CJK/mixed selection paginates all eligible matches within the
+existing1000-candidate and10000-row/16MiB budgets, with explicit budget failure and only
+`complete|more_available`. The old Library top10 caps, schemas, defaults and Evidence identities
+are unchanged. Native FTS corpus rank statistics remain unchanged.
+
+The separate authenticated cursor binds tool/schema, owner, configured Library, active-set
+authority, full scope, query/digest, retrieval policy, page size and actual position. Full scope
+is validated inside the same read transaction before candidates are loaded. Cross-tool/Library
+reuse or tampering fails `invalid_cursor`; owner/policy/active-set changes fail `cursor_expired`
+with the existing explicit recovery actions. The Library-wide authority conservatively expires
+the cursor even when another Source's Publication changes. A changed selected Publication
+requires rediscovery and explicit reselection.
+
+The full canonical response, including scope/cursor, is <=32,768 bytes; excerpts keep the
+existing2048/16384-byte per-item/combined limits. Pages advance by actual returned count and
+must make positive progress. Use unchanged `read_evidence_v1` and verify its descriptor/digest.
+See [single-Source workflow](../how-to/search-within-one-source.md) and
+[ADR-0016](../decisions/0016-single-source-active-publication-search.md). Ask remains unchanged;
+the approved follow-up design requires rejection of out-of-scope/stale citations in a separate
+implementation slice. This contract adds no permission system or historical/multi-Source access.
 
 ## Source Discovery And Browsing
 

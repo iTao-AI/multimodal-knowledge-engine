@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Self, cast, overload
@@ -74,6 +74,7 @@ from mke.domain.source_discovery import (
     SourceMetadata,
     TranscriptSourceCoverage,
 )
+from mke.domain.source_search import SourceSearchScope
 from mke.retrieval import (
     DEFAULT_RETRIEVAL_STRATEGY,
     RetrievalAuthorityError,
@@ -168,6 +169,21 @@ _FTS_MATCHED_CTE = """
       ) AS duplicate_stable_locator
     )
 """
+
+
+def _fts_matched_cte(scope: SourceSearchScope | None) -> str:
+    sql = _FTS_MATCHED_CTE.format(score="rank")
+    if scope is None:
+        return sql
+    return sql.replace(
+        "WHERE active_evidence_fts MATCH ?",
+        "WHERE active_evidence_fts MATCH ? AND sources.source_id = ? "
+        "AND active_evidence_fts.publication_id = ?",
+    )
+
+
+def _scope_parameters(scope: SourceSearchScope | None) -> tuple[str, ...]:
+    return () if scope is None else (scope.source_id, scope.publication_id)
 
 _FTS_STABLE_ORDER = (
     "score, locator_start, locator_kind, locator_end, source_sha256"
@@ -2134,6 +2150,42 @@ class SQLiteStore:
             self._connection.rollback()
             raise
 
+    def _resolve_search_scope(self, source_id: str, publication_id: str) -> SourceSearchScope:
+        row = self._connection.execute(
+            """SELECT sources.source_id, publications.publication_id, publications.revision,
+                      publications.run_id, assets.sha256
+               FROM sources JOIN assets ON assets.asset_id = sources.asset_id
+               JOIN publications ON publications.publication_id = sources.active_publication_id
+               WHERE sources.source_id = ? AND publications.publication_id = ?
+                 AND publications.source_id = sources.source_id
+                 AND publications.revision = sources.active_revision""",
+            (source_id, publication_id),
+        ).fetchone()
+        if row is None:
+            raise EvidenceNotFoundError
+        return SourceSearchScope(
+            str(row["source_id"]), str(row["publication_id"]), int(row["revision"]),
+            str(row["run_id"]), f"sha256:{row['sha256']}",
+        )
+
+    def search_source_evidence_page(
+        self,
+        source_id: str,
+        publication_id: str,
+        query: str,
+        *,
+        position: int,
+        page_size: int,
+        authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+        scope_validator: Callable[[SourceSearchScope], None] | None = None,
+    ) -> EvidenceSearchPage:
+        return self.search_evidence_page(
+            query, position=position, page_size=page_size,
+            authority_validator=authority_validator,
+            _source_selection=(source_id, publication_id),
+            _scope_validator=scope_validator,
+        )
+
     def search_evidence_page(
         self,
         query: str,
@@ -2141,12 +2193,20 @@ class SQLiteStore:
         position: int,
         page_size: int,
         authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+        _source_selection: tuple[str, str] | None = None,
+        _scope_validator: Callable[[SourceSearchScope], None] | None = None,
     ) -> EvidenceSearchPage:
         if position < 0 or not 1 <= page_size <= 20:
             raise ValueError("invalid Evidence page range")
         try:
             authority = self._active_authority_snapshot()
             authority_validator(authority)
+            scope = (
+                None if _source_selection is None
+                else self._resolve_search_scope(*_source_selection)
+            )
+            if scope is not None and _scope_validator is not None:
+                _scope_validator(scope)
             diagnostic = compile_fts5_query_diagnostic(
                 query, policy=self._query_policy
             )
@@ -2160,6 +2220,7 @@ class SQLiteStore:
                 selection = self._select_mixed_cjk_fts(
                     diagnostic.compiled_query,
                     mixed_query.terms,
+                    scope=scope,
                 )
                 selected = selection.results[position : position + page_size]
                 page = [
@@ -2197,6 +2258,7 @@ class SQLiteStore:
                     diagnostic.compiled_query,
                     position=position,
                     fetch_count=page_size + 1,
+                    scope=scope,
                 )
                 admitted_candidates: list[_EvidenceSearchCandidate] = []
                 used = 0
@@ -2241,7 +2303,11 @@ class SQLiteStore:
                 else:
                     selection = self._select_cjk_active_scan(
                         compiled.terms,
-                        parameters=CJK_ACTIVE_SCAN_PARAMETERS,
+                        parameters=(CJK_ACTIVE_SCAN_PARAMETERS if scope is None else replace(
+                            CJK_ACTIVE_SCAN_PARAMETERS,
+                            max_results=CJK_ACTIVE_SCAN_PARAMETERS.max_candidate_pool,
+                        )),
+                        scope=scope,
                     )
                 selected = selection.results[position : position + page_size]
                 page = [
@@ -2290,6 +2356,7 @@ class SQLiteStore:
                 results=selected_results,
                 more_in_selected_pool=more_in_pool,
                 eligible_discarded_by_cap=discarded_by_cap,
+                scope=scope,
             )
             self._connection.commit()
             return result
@@ -2462,9 +2529,10 @@ class SQLiteStore:
         *,
         position: int,
         fetch_count: int,
+        scope: SourceSearchScope | None = None,
     ) -> list[_EvidenceSearchCandidate]:
         rows = self._connection.execute(
-            _FTS_MATCHED_CTE.format(score="rank")
+            _fts_matched_cte(scope)
             + """,
             page AS (
               SELECT *
@@ -2481,7 +2549,7 @@ class SQLiteStore:
             LEFT JOIN page ON 1 = 1
             ORDER BY """
             + _FTS_PAGE_STABLE_ORDER,
-            (match_query, fetch_count, position),
+            (match_query, *_scope_parameters(scope), fetch_count, position),
         ).fetchall()
         self._raise_for_duplicate_fts_projection(rows)
         return [
@@ -2594,10 +2662,14 @@ class SQLiteStore:
         self,
         match_query: str,
         terms: tuple[str, ...],
+        *,
+        scope: SourceSearchScope | None = None,
     ) -> MixedCjkSelection:
         parameters = MIXED_CJK_FTS_INTENT_PARAMETERS
+        if scope is not None:
+            parameters = replace(parameters, max_results=parameters.max_candidate_pool)
         sql = (
-            _FTS_MATCHED_CTE.format(score="rank")
+            _fts_matched_cte(scope)
             + """,
             stats AS MATERIALIZED (
               SELECT COUNT(*) AS matched_row_count,
@@ -2625,6 +2697,7 @@ class SQLiteStore:
                 sql,
                 (
                     match_query,
+                    *_scope_parameters(scope),
                     parameters.max_matched_rows,
                     parameters.max_matched_text_bytes,
                 ),
@@ -2737,7 +2810,12 @@ class SQLiteStore:
         terms: tuple[str, ...],
         *,
         parameters: CjkActiveScanParameters,
+        scope: SourceSearchScope | None = None,
     ) -> CjkActiveScanSelection:
+        scope_filter = (
+            " WHERE sources.source_id = ? AND publications.publication_id = ?"
+            if scope is not None else ""
+        )
         budget_row = self._connection.execute(
             """
                 SELECT COUNT(*) AS active_row_count,
@@ -2751,7 +2829,8 @@ class SQLiteStore:
                 JOIN evidence
                   ON evidence.run_id = publications.run_id
                  AND evidence.source_id = sources.source_id
-            """
+            """ + scope_filter,
+            _scope_parameters(scope),
         ).fetchone()
         active_row_count = int(budget_row["active_row_count"])
         active_text_bytes = int(budget_row["active_text_bytes"])
@@ -2777,10 +2856,12 @@ class SQLiteStore:
             JOIN evidence
               ON evidence.run_id = publications.run_id
              AND evidence.source_id = sources.source_id
+            """ + scope_filter + """
             ORDER BY evidence.source_id, evidence.locator_kind,
                      evidence.locator_start, evidence.locator_end,
                      evidence.evidence_id
-            """
+            """,
+            _scope_parameters(scope),
         ).fetchall()
         candidates = tuple(
             CjkActiveScanCandidate(

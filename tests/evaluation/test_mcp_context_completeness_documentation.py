@@ -81,17 +81,18 @@ EXPECTED_MCP_TOOL_NAMES = (
     "search_library",
     "search_library_v1",
     "search_library_v2",
+    "search_source_evidence_v1",
 )
 
 
 def _documented_mcp_inventory(text: str) -> tuple[str, ...]:
-    marker = "MKE exposes exactly fourteen tools:\n\n"
+    marker = "MKE exposes exactly fifteen tools:\n\n"
     section = text.split(marker, maxsplit=1)[1]
     block = section.split("\n\n", maxsplit=1)[0]
     return tuple(re.findall(r"^- `([^`]+)`$", block, flags=re.MULTILINE))
 
 
-def test_canonical_reference_documents_complete_fourteen_tool_contract() -> None:
+def test_canonical_reference_documents_complete_fifteen_tool_contract() -> None:
     text = REFERENCE.read_text(encoding="utf-8")
     for literal in (
         "search_library_v2",
@@ -113,7 +114,7 @@ def test_canonical_reference_documents_complete_fourteen_tool_contract() -> None
         assert literal in text
 
 
-def test_public_contracts_mcp_summary_matches_live_canonical_fourteen_tool_inventory(
+def test_public_contracts_mcp_summary_matches_live_canonical_fifteen_tool_inventory(
     tmp_path: Path,
 ) -> None:
     server = build_mcp_server(
@@ -170,7 +171,7 @@ def test_user_how_to_has_absolute_quickstart_and_contract_boundaries() -> None:
         "deterministic Evidence convenience",
         "separate bounded delivery contract",
         "eight-tool",
-        "fourteen-tool",
+        "fifteen-tool",
     ):
         assert literal in text
 
@@ -312,10 +313,10 @@ def test_all_primary_mcp_documentation_surfaces_route_the_current_contract() -> 
         ),
         HOW_TO: ("search_library_v2", "read_evidence_v1", "more_available"),
         PROOF: ("ten-tool", "Python 3.12", "Python 3.13", "UV_OFFLINE=1"),
-        CLI: ("fourteen-tool", "search_library_v2", "read_evidence_v1"),
+        CLI: ("fifteen-tool", "search_library_v2", "read_evidence_v1"),
         VERIFY: ("v0.1.7", "Stable proof code recovery", "Stage 4"),
         RELEASE: ("v0.1.7", "search_library_v2", "read_evidence_v1"),
-        REFERENCE: ("exactly fourteen tools", "search_library_v2", "read_evidence_v1"),
+        REFERENCE: ("exactly fifteen tools", "search_library_v2", "read_evidence_v1"),
     }
     for path, literals in requirements.items():
         text = path.read_text(encoding="utf-8")

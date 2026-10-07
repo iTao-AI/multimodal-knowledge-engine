@@ -32,6 +32,7 @@ CONSUMERS = (
     "build_compiled_library_viewer.py",
 )
 EXPECTATION = "tests/fixtures/pdf-extraction-observation-v1/mcp-tool-schemas.json"
+CURRENT_EXPECTATION = "tests/fixtures/source-search-v1/mcp-tool-schemas.json"
 DIRTY_ENV = frozenset({"PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"})
 
 
@@ -106,6 +107,13 @@ def blob(repository: Path, commit: str, path: str) -> bytes:
     result = command(["git", "show", f"{commit}:{path}"], cwd=repository)
     require(result.returncode == 0, "source_commit_invalid")
     return result.stdout
+
+
+def expectation_bytes(repository: Path, commit: str) -> bytes:
+    """Select the complete inventory from the declared commit, including pre-scoped commits."""
+    current = command(["git", "cat-file", "-e", f"{commit}:{CURRENT_EXPECTATION}"], cwd=repository)
+    path = CURRENT_EXPECTATION if current.returncode == 0 else EXPECTATION
+    return blob(repository, commit, path)
 
 
 def verify_wheel(repository: Path, commit: str, wheel: Path) -> dict[str, Any]:
@@ -346,8 +354,8 @@ def installed_case(
     for name in CONSUMERS:
         (client / name).write_bytes(blob(repository, commit, "scripts/" + name))
     expectation = client / "mcp-tool-schemas.json"
-    expectation.write_bytes(blob(repository, commit, EXPECTATION))
-    require(len(json.loads(expectation.read_bytes())["tools"]) == 14, "tool_inventory_mismatch")
+    expectation.write_bytes(expectation_bytes(repository, commit))
+    tool_count = len(json.loads(expectation.read_bytes())["tools"])
     data = root / "data"
     native = receipt(
         checked(
@@ -367,7 +375,7 @@ def installed_case(
         ),
         "native_consumer_failed",
     )
-    require(native.get("tool_count") == 14, "tool_inventory_mismatch")
+    require(native.get("tool_count") == tool_count, "tool_inventory_mismatch")
     fixture_sha256 = digest((data / "declared-mixed.pdf").read_bytes())
     require(
         native["identity"]["content_fingerprint"] == "sha256:" + fixture_sha256,
@@ -498,7 +506,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "uv_lock_sha256": digest(blob(repository, args.source_commit, "uv.lock")),
         "constraints_sha256": digest(exported.stdout),
         "python_versions": sorted(minor for _, minor in versions),
-        "tool_count": 14,
+        "tool_count": len(json.loads(expectation_bytes(repository, args.source_commit))["tools"]),
         "source_import": "installed_wheel",
         "network_access": "not_used",
         "dependency_constraints": "uv_lock_hash_checked",

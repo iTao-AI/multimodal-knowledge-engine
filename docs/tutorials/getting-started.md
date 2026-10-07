@@ -10,7 +10,10 @@ For known-Source navigation in the current checkout, call `list_sources_v1`, sel
 Source/Publication, browse through `browse_source_evidence_v1`, then reuse exact read. The
 [standalone synthetic walkthrough](../how-to/discover-and-read-sources.md) runs actual CLI ingest
 and official MCP SDK reads, with mixed-PDF text-layer limits and honest sidecar provenance.
-This current twelve-tool workflow is separate from historical v0.1.7 installed-wheel evidence.
+The current fifteen-tool inventory also provides
+[`search_source_evidence_v1`](../how-to/search-within-one-source.md) for complete lexical Search
+within a selected Source/active Publication. This checkout workflow is separate from historical
+v0.1.7 installed-wheel evidence.
 
 The repository has a deterministic local PDF and short-video proof path. Broader product
 workflows are still planned.

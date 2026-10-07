@@ -9,7 +9,7 @@ downloads no model or dependency. From the repository root:
 UV_OFFLINE=1 .venv/bin/python -I -B scripts/pdf_extraction_observation_consumer.py \
   --mke-bin /ABSOLUTE/PATH/TO/EXISTING/mke \
   --work-dir /ABSOLUTE/PATH/TO/NEW/pdf-observation-example \
-  --expectation tests/fixtures/pdf-extraction-observation-v1/mcp-tool-schemas.json
+  --expectation tests/fixtures/source-search-v1/mcp-tool-schemas.json
 ```
 
 The new `--work-dir` is retained for inspection: generated public synthetic PDF, SQLite Library,
@@ -37,7 +37,7 @@ image understanding and assigns no semantic completeness score.
 
 The consumer performs real CLI ingest, opt-in CLI list/browse, and official MCP SDK initialize,
 `tools/list`, `list_sources_v2`, `browse_source_evidence_v2` with page-size-1 continuation, and
-`read_evidence_v1`. It checks the exact fourteen-tool fixture. It compares legacy v1 entries with
+`read_evidence_v1`. It checks the exact fifteen-tool fixture. It compares legacy v1 entries with
 v2 entries, verifies complete known UTF-8 text through multiple 97-byte exact-read chunks and
 checks every Source/Publication/revision/Run/fingerprint/locator descriptor and final digest.
 It also exercises the actual CLI exact-read route.
@@ -91,8 +91,10 @@ metadata and binds console entry points to the committed `pyproject.toml`. Extra
 locked core requirements, and hash-checks their offline installation into two fresh environments.
 It installs the supplied wheel with `--no-deps`, removes inherited Python import state and probes
 isolated site-packages/interpreter/versions/package bytes. Copied standalone consumers and the exact
-current fourteen-tool fixture come from the same Git commit; product source is not copied into
-the environments or added to `PYTHONPATH`.
+commit-selected complete tool fixture come from the same Git commit; product source is not copied into
+the environments or added to `PYTHONPATH`. The controller selects the fifteen-tool Source Search
+fixture when it exists in that commit and otherwise preserves the pinned fourteen-tool PDF
+fixture. A schema or inventory mismatch still fails; historical successful receipts remain unchanged.
 
 A cold cache can fail before ingestion. When necessary dependency setup is authorized, prepare
 missing artifacts with the same exported/hash-checked core requirements in a task-owned environment.
@@ -124,7 +126,7 @@ version string or successful build alone does not establish an installed consume
 The actual route runs separate installed CLI and official-SDK stdio MCP processes, the independent
 stdlib Export v3 validator and Viewer builder. Malformed export and unknown-Source CLI calls must
 return bounded failure and exit 1. Stdout is `mke.pdf_extraction_observation_wheel_proof.v1`; exit 0
-and `status="passed"` require both runtime cases, fourteen tools, exact UTF-8/citation identity and
+and `status="passed"` require both runtime cases, the exact declared tool inventory, exact UTF-8/citation identity and
 failure exits. The receipt captures source/wheel/lock/fixture/tool-schema digests, actual Python and
 dependency versions, native Source/Run/Publication identity and measured response sizes. Private
 per-command diagnostics and all synthetic artifacts remain in the new external directory. Reused

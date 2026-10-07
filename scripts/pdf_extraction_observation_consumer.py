@@ -103,7 +103,7 @@ async def discover(
             key: dumped.get(key)
             for key in ("inputSchema", "outputSchema", "description", "annotations")
         }
-    require(actual == expected_tools and len(actual) == 14, "tool_inventory_mismatch")
+    require(actual == expected_tools, "tool_inventory_mismatch")
     measurements: list[tuple[int, int]] = []
     catalog = await call(session, "list_sources_v2", {}, measurements)
     require(len(catalog["sources"]) == 1)
