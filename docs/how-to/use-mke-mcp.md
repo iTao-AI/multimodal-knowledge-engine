@@ -120,6 +120,13 @@ candidates before limits and returns every eligible match within budgets, withou
 fallback. Read exact Evidence with the unchanged tool. The
 [single-Source walkthrough](./search-within-one-source.md) gives native envelopes and recovery.
 
+For a bounded first-page consumer example, run the
+[ordinary SDK citation consumer](./ask-within-one-source.md#run-the-ordinary-sdk-consumer).
+It discovers the selected active pair, searches that Source, then verifies every citation through
+streamed exact read. CLI scoped Ask exposes the same Evidence-selection boundary; the example
+adds no Ask MCP tool and emits success only after identity, authority, offsets, digest and excerpt
+windows all validate.
+
 Primary Agent flow:
 
 1. Search with `{"request":{"query":"publication authority","limit":10}}`.

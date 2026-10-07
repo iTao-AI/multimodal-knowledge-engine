@@ -12,6 +12,11 @@ MKE 只有在 `Run` 把输入验证为 `active Publication` 后，才把本地�
 active Publication。[Source 发现与阅读指南](./docs/how-to/discover-and-read-sources.md) 展示了这条路径，
 包括预览不完整时的完整读取和引用校验。
 
+对所选 Source 询问匹配 Evidence，可以使用
+[单 Source CLI Ask](./docs/how-to/ask-within-one-source.md)，显式传入 Source/Publication。
+它返回一页有界引用并说明 selection 完整性；找到 Evidence 不代表答案或命题已被证明。
+指南中的普通 SDK 示例会校验所选引用的完整存储文本和 excerpt 字节窗口。
+
 PDF 可以显式选择 Source v2 和 Export v3，查看文本／光栅图像的页范围，以及未观察或未返回的
 观察结果。混合页会提醒涉及图像的问题需要核对原页；矢量图与图像含义不在观察范围内。
 参见[无需 provider 的原生消费证明](./docs/how-to/observe-pdf-extraction-scope.md)。
@@ -38,6 +43,7 @@ Source catalog/browsing 和 Compiled Library Viewer 可从当前源码仓库使�
 这个不可变 Release 保留其已记录的 Search、exact-read 和 recovery 契约。
 参见 [v0.1.7 release notes](./docs/releases/v0.1.7.md)。
 Source v2 / Export v3 的 PDF 观察也属于当前源码功能；默认 Source v1 和 Export v1 保持不变。
+Scoped Search 和单 Source CLI Ask 属于当前源码功能；MCP 仍为十五个 tools。
 
 ### 五层关系
 

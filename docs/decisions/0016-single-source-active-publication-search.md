@@ -42,5 +42,14 @@ The CLI holds one owner through automatic traversal and emits canonical NDJSON w
 an old unscoped command keeps its original output. Process-bound cursors are not persisted across
 commands. The selected scope is search authority, not an authorization or permission boundary.
 
+## Ask Deferral At Acceptance
+
 Ask implementation remains deferred. A future scoped Ask must independently reject out-of-scope
 or stale citations and avoid Library fallback; this ADR adds no Ask tool or request parameter.
+
+## Follow-Up (2026-10-07)
+
+The later CLI-only Ask slice is decided in
+[ADR-0017](./0017-single-source-evidence-only-cli-ask.md). It composes one validated scoped Search
+page and independently rejects citation/selection inconsistencies. The Search decision and
+fifteen-tool MCP contracts above remain unchanged.

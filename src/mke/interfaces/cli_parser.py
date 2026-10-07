@@ -79,6 +79,10 @@ def _register_ingest_search_ask(subcommands: _SubcommandRegistrar) -> None:
 
     ask = subcommands.add_parser("ask")
     ask.add_argument("question", nargs="+")
+    ask.add_argument("--source-id")
+    ask.add_argument("--publication-id")
+    ask.add_argument("--limit", type=int)
+    ask.add_argument("--json", action="store_true", dest="json_output")
 
 
 def _register_library_export(subcommands: _SubcommandRegistrar) -> None:

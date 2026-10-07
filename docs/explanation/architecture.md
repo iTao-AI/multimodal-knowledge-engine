@@ -403,3 +403,19 @@ old Source v1 and Export v1/v2/defaults remain closed and unchanged. The indepen
 checks exact portable Evidence, and the Viewer consumes validated v2/v3 snapshots. V2 inputs show
 unknown scope. No original Source file is reopened to infer missing history. See
 [ADR-0015](../decisions/0015-pdf-extraction-observations.md).
+
+## Scoped Evidence-Only CLI Ask
+
+The opt-in CLI Source/Publication pair composes one validated scoped Search snapshot, retaining
+scope admission before retrieval limits/budgets/ranking. Project-owned CLI DTOs validate all
+citations before reducing the page to fit the complete canonical envelope. Selection truth
+records both underlying continuation and envelope omission. No Search cursor is exported as an
+Ask continuation, and no application/domain/storage Ask authority changes.
+
+The ordinary SDK consumer uses the existing Source catalog, scoped Search and exact-read ports
+under one stdio owner. Each call uses its existing read transaction; the client compares full
+lineage and authority snapshots, streams text/digest checks, and verifies excerpt byte windows
+before emitting one bounded receipt. Publication or descriptor changes fail closed.
+`evidence_found` is stored lexical matching, not semantic answer verification. See
+[ADR-0017](../decisions/0017-single-source-evidence-only-cli-ask.md) and the
+[CLI/SDK walkthrough](../how-to/ask-within-one-source.md).

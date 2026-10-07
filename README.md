@@ -13,6 +13,11 @@ material. The CLI and stdio MCP use the same validated active Publications. The
 [Source discovery walkthrough](./docs/how-to/discover-and-read-sources.md) shows this route, including
 complete reads and citation checks when a preview is incomplete.
 
+To ask for matching Evidence from that Source, use
+[single-Source CLI Ask](./docs/how-to/ask-within-one-source.md) with both selected IDs. It returns
+one bounded page with full citations and an explicit completeness status. Finding Evidence does
+not verify an answer; the ordinary SDK example verifies the selected stored text and excerpts.
+
 For PDFs, opt-in Source v2 and Export v3 disclose text/raster page scope and unknown or omitted
 observations. Mixed pages remind you to verify image questions against the original page; vectors
 and image meaning are not assessed. See the [provider-free native proof](./docs/how-to/observe-pdf-extraction-scope.md).
@@ -40,6 +45,7 @@ checkout and are not included in `v0.1.7`. The immutable release retains its doc
 exact-read and recovery contracts. See the [v0.1.7 release notes](./docs/releases/v0.1.7.md).
 PDF observations through Source v2 / Export v3 are also current-checkout features, with default
 Source v1 and Export v1 unchanged.
+Scoped Search and scoped CLI Ask are current-checkout features; MCP stays at fifteen tools.
 
 ### Five-layer relation
 
