@@ -46,6 +46,7 @@ Status:
 | `mke demo --verify` | implemented in PR 3, extended in PR 4 | Compatibility-oriented deterministic offline PDF and short-video proof using temporary SQLite workspace and repository fixtures. |
 | `mke --db <path> mcp --allowed-root <path>` | implemented in C1 | Runs a local stdio MCP server for Agent-facing ingest, Run inspection, and active Evidence Search. |
 | `mke --db <path> ask <question>` | implemented in C2 | Returns deterministic evidence-only Ask output using active Publication Search. |
+| `mke --db <path> ask <question> --source-id <id> --publication-id <id>` | current source checkout | One bounded first page of Evidence from the selected active Source; full scope/citations and truthful completeness, no Library fallback. |
 | `mke transcription prepare --allow-model-download` | implemented in D3-B | Explicit exact-revision acquisition; no database or Run. |
 | `mke transcription doctor` | implemented in D3-B | Read-only dependency, profile, language, and cache checks. |
 | `mke eval retrieval-chinese --protocol <protocol.json>` | implemented in E3-A | Records the current FTS5 lexical baseline over isolated Chinese development/public-holdout corpora; no quality threshold or runtime promotion. |
@@ -168,6 +169,34 @@ No jointly supported candidate returns `insufficient_evidence`, without discardi
 constraints. Neither strategy adds a persistent CJK projection, dense/vector search, hybrid
 retrieval, RRF, reranking, query rewrite, OCR, or request DTO.
 
+## Scoped CLI Ask
+
+The opt-in paired Source/active Publication route emits `mke.source_ask_response.v1`, one
+canonical JSON object with `--json`. It composes one existing scoped Search snapshot and keeps
+unscoped CLI/application Ask unchanged. Limit is integer 1–20/default 5; question is nonblank and
+<=512 UTF-8 bytes. Supplying only one ID, or using `--limit` / `--json` without scope, is a usage
+error. A successful zero-match packet remains scoped `insufficient_evidence`.
+
+Success has `schema_version`, `ok`, `question`, `answer_status`, `scope`,
+`authority_snapshot`, `evidence`, `selection`, `output` and `limitations`.
+Scope is `mke.source_search_scope.v1`; each existing citation/excerpt/read descriptor agrees
+with its Source, Publication/revision, producing Run and content fingerprint.
+`evidence_found` indicates lexical matches, not verification of an answer or proposition.
+
+`selection.mode=bounded_first_page` carries `status`, `returned` and `next_step`.
+`complete` requires a complete underlying page with no envelope omission; nonempty output
+uses `read_selected_evidence`, while empty output uses `refine_question_in_selected_source`.
+`more_available` requires positive progress and `run_scoped_search_for_all_matches`. Ask
+exposes no cursor. Excerpt limits are 2,048/16,384 bytes per-item/combined; the full canonical
+envelope, including every metadata field, is <=32,768. Shrinking cannot hide a bad citation or
+produce empty success from nonempty Search. Error packets retain scoped Search's safe
+`problem`, `cause`, `active_publication_impact` and `next_step` under the new schema.
+
+The exact CLI schema is frozen separately in
+[`cli-response-schema.json`](../../tests/fixtures/source-ask-v1/cli-response-schema.json).
+See [CLI Reference](./cli.md), [ordinary CLI/SDK workflow](../how-to/ask-within-one-source.md)
+and [ADR-0017](../decisions/0017-single-source-evidence-only-cli-ask.md).
+
 ## MCP
 
 Status: implemented for the exact current fifteen-tool inventory. The canonical detailed contract is
@@ -198,7 +227,9 @@ Run/content scope identity. It constrains candidates before strategy budgets and
 eligible set without Library fallback. See the
 [canonical scoped contract](./mcp-contract.md#search-within-one-selected-source) and
 [CLI/MCP workflow](../how-to/search-within-one-source.md). Old unscoped Search/Ask contracts remain
-unchanged; scoped Ask is follow-up design only.
+unchanged. Scoped CLI Ask composes this existing tool; it adds no MCP Ask tool or parameter.
+The [ordinary SDK consumer](../how-to/ask-within-one-source.md#run-the-ordinary-sdk-consumer)
+uses discovery, scoped Search and exact read and rejects inconsistent authority/citations.
 
 `ask_library` returns deterministic Evidence packets, not model-generated answers. Successful
 responses include:

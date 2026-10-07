@@ -229,9 +229,12 @@ The full canonical response, including scope/cursor, is <=32,768 bytes; excerpts
 existing2048/16384-byte per-item/combined limits. Pages advance by actual returned count and
 must make positive progress. Use unchanged `read_evidence_v1` and verify its descriptor/digest.
 See [single-Source workflow](../how-to/search-within-one-source.md) and
-[ADR-0016](../decisions/0016-single-source-active-publication-search.md). Ask remains unchanged;
-the approved follow-up design requires rejection of out-of-scope/stale citations in a separate
-implementation slice. This contract adds no permission system or historical/multi-Source access.
+[ADR-0016](../decisions/0016-single-source-active-publication-search.md). MCP Ask stays unchanged.
+The [CLI-only scoped Ask](../how-to/ask-within-one-source.md) composes one page from this tool;
+it adds no MCP tool or request parameter. Its ordinary SDK example uses `list_sources_v1`,
+`search_source_evidence_v1` and `read_evidence_v1` to verify full citation lineage, authority,
+UTF-8 offsets/digest and excerpt bytes before a bounded receipt. This contract adds no permission
+system or historical/multi-Source access.
 
 ## Source Discovery And Browsing
 

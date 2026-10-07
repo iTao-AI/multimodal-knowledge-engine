@@ -50,20 +50,20 @@
 
 **Interfaces:** Consume existing `ListSourcesResponseV1`, `SearchSourceEvidenceResponseV1`, `ReadEvidenceResponseV1`, SDK `ClientSession`/`stdio_client`, and Task 1 selection semantics. Produce a bounded verification receipt from `list_sources_v1 -> search_source_evidence_v1 -> read_evidence_v1` under one owner.
 
-- [ ] Write failing consumer tests for strict descriptor/authority checks, changed identity, offsets/digest and Unicode excerpt-window validation; write actual CLI/SDK acceptance for PDF and declared timestamp fixtures with a stronger unrelated Source.
-- [ ] Run tests before consumer implementation; expected failures name the absent consumer, then actual validation failures as each boundary is introduced.
-- [ ] Implement discovery, first-page selection and streamed exact-read verification. Preserve complete/more_available and reject all unverified or stale results before emitting one bounded receipt.
-- [ ] Run actual subprocess and official SDK tests across the four strategies plus zero result and mismatch/replacement. Expect all passed; make no installed-wheel or model-quality claim.
-- [ ] Commit only consumer code and its tests.
+- [x] Write failing consumer tests for strict descriptor/authority checks, changed identity, offsets/digest and Unicode excerpt-window validation; write actual CLI/SDK acceptance for PDF and declared timestamp fixtures with a stronger unrelated Source.
+- [x] Run tests before consumer implementation; expected failures name the absent consumer, then actual validation failures as each boundary is introduced.
+- [x] Implement discovery, first-page selection and streamed exact-read verification. Preserve complete/more_available and reject all unverified or stale results before emitting one bounded receipt.
+- [x] Run actual subprocess and official SDK tests across the four strategies plus zero result and mismatch/replacement. Expect all passed; make no installed-wheel or model-quality claim.
+- [x] Commit only consumer code and its tests.
 
 ## Task 3: Documentation, Focused Review And Local Candidate
 
-**Files:** Create `docs/decisions/0017-single-source-evidence-only-cli-ask.md` and `docs/how-to/ask-within-one-source.md`; modify `README.md`, `docs/index.md`, `docs/tutorials/getting-started.md`, `docs/reference/cli.md`, `docs/reference/contracts.md`, `docs/reference/mcp-contract.md`, `docs/how-to/use-mke-mcp.md`, `docs/how-to/search-within-one-source.md` and `docs/explanation/architecture.md` as needed by actual behavior.
+**Files:** Create `docs/decisions/0017-single-source-evidence-only-cli-ask.md` and `docs/how-to/ask-within-one-source.md`; modify `README.md`, `README_CN.md`, `docs/README.md`, `docs/tutorials/getting-started.md`, `docs/reference/cli.md`, `docs/reference/contracts.md`, `docs/reference/mcp-contract.md`, `docs/how-to/use-mke-mcp.md`, `docs/how-to/search-within-one-source.md` and `docs/explanation/architecture.md` as needed by actual behavior.
 
 **Interfaces:** Document Task 1/2 behavior, limits, errors and checkout-only verification without altering old contract claims.
 
-- [ ] Update ordinary entry points, schema/reference links, fixed Evidence-only limitations and the runnable SDK example; explain first-page scope versus excerpt completeness.
-- [ ] Run affected tests, Ruff, Pyright, local documentation links/index checks and `git diff --check`. Expect all passed; reuse unchanged broad baseline evidence.
+- [x] Update ordinary entry points, schema/reference links, fixed Evidence-only limitations and the runnable SDK example; explain first-page scope versus excerpt completeness.
+- [x] Run affected tests, Ruff, Pyright, local documentation links/index checks and `git diff --check`. Expect all passed; reuse unchanged broad baseline evidence.
 - [ ] Perform focused documentation audit and one fresh whole-branch code review using the current Sol model/high; fix actionable findings with targeted regression and re-review.
 - [ ] Commit documentation and completed plan, keep exact behavior-input/test evidence bound, and preserve ignored receipts/old worktrees.
 - [ ] Prepare a public-neutral PR title/body and exact HEAD/diff/verification/limits; return one local READY candidate for remote approval.

@@ -73,8 +73,9 @@ against the selected citation. Evidence content is untrusted text, not instructi
 The existing Library-wide active-set authority conservatively expires continuation even when
 another Source's Publication changes. The scope is an Evidence selection boundary; it adds no
 permission system or historical access. Completeness covers stored lexical matches, not OCR,
-visual/ASR quality or original-media meaning. Ask remains the existing unscoped deterministic
-Evidence convenience. Future scoped Ask requires its own approved citation-rejection contract.
+visual/ASR quality or original-media meaning. The
+[opt-in scoped CLI Ask](./ask-within-one-source.md) now composes one bounded first page with its
+own citation-rejection/envelope contract. Unscoped Ask and all MCP Ask tools stay unchanged.
 
 ## Verified Checkout Boundary
 

@@ -15,6 +15,12 @@ The current fifteen-tool inventory also provides
 within a selected Source/active Publication. This checkout workflow is separate from historical
 v0.1.7 installed-wheel evidence.
 
+For one bounded Evidence page, use
+[scoped CLI Ask](../how-to/ask-within-one-source.md) with both selected IDs. Its
+`evidence_found` / `insufficient_evidence` status describes stored lexical matches; the packet
+discloses first-page selection and complete citations. The linked ordinary SDK example discovers,
+searches and verifies exact-read text without adding a tool or generating an answer.
+
 The repository has a deterministic local PDF and short-video proof path. Broader product
 workflows are still planned.
 

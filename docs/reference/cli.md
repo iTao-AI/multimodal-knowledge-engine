@@ -502,6 +502,27 @@ usage errors exit2. Cursors are process-bound. Without identity flags, the exist
 Search route and human output remain unchanged. See
 [Search within one active Source](../how-to/search-within-one-source.md).
 
+Scoped Ask uses the same explicit pair:
+
+```bash
+mke --db <path> ask <question> --source-id <source_id> \
+  --publication-id <publication_id> --limit 3 --json
+```
+
+It returns exactly one bounded first-page `mke.source_ask_response.v1` object, not NDJSON
+traversal. Limit is 1–20/default 5; question is nonblank and <=512 UTF-8 bytes. `--limit` / `--json`
+on Ask require both IDs. Human output shows the same bounded citation/excerpt/read facts.
+Exit 0 includes scoped no-match `insufficient_evidence`; public errors exit 1 and usage errors exit 2.
+`evidence_found` means lexical matching Evidence, not verified answer/proposition authority.
+`selection.mode=bounded_first_page` is `complete` only if all eligible matches fitted;
+`more_available` directs `run_scoped_search_for_all_matches`. Ask exposes no cursor.
+
+Per-excerpt/combined content limits are 2,048/16,384 UTF-8 bytes; the full canonical Ask envelope
+is <=32,768, including question, scope, citations, selection and limitations. Envelope omission
+changes selection truth; any invalid citation fails before omission. Existing unscoped Ask stays
+unchanged. See [Ask within one active Source](../how-to/ask-within-one-source.md) and
+[Public Contracts](./contracts.md#scoped-cli-ask).
+
 - `--db` defaults to `mke.sqlite` in the current working directory.
 - `--retrieval-strategy` is a global owner-startup option with allowlisted values `current`,
   `numeric-grouping-v1`, `cjk-active-scan-overlap-v1`, and `mixed-cjk-fts-intent-v1`. Omitting it

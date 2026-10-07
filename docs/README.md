@@ -59,6 +59,8 @@ do not change Search, Ask, MCP, owner startup, Publication, ingestion, or runtim
 - [Public Contracts](./reference/contracts.md)
 - [CLI Reference](./reference/cli.md)
 - [Search Within One Active Source](./how-to/search-within-one-source.md)
+- [Ask Within One Active Source](./how-to/ask-within-one-source.md) — bounded Evidence-only CLI Ask
+  and ordinary SDK citation/text verification; current checkout, no new MCP tool or release proof.
 - [Direct-Audio Dependency And License Evidence](./reference/direct-audio-dependency-and-license-evidence.md)
   records the PR A dependency, license, and synthetic-fixture feasibility receipt.
 - [Enable Bounded CJK Retrieval](./how-to/enable-cjk-retrieval.md)
@@ -114,6 +116,8 @@ private planning notes do not belong in this repository.
 
 ## Current Decisions
 
+- [ADR-0017](./decisions/0017-single-source-evidence-only-cli-ask.md) defines bounded first-page
+  CLI Ask and ordinary SDK exact-read citation verification, with unchanged MCP inventory.
 - [ADR-0016](./decisions/0016-single-source-active-publication-search.md) defines single-Source
   active Publication Search, complete eligible pagination, scope/cursor identity and Ask follow-up boundaries.
 
