@@ -1,5 +1,7 @@
 # Single-Source Search Implementation Plan
 
+Status: Completed locally on 2026-10-07. Hosted delivery remains a separate authorization.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans for inline implementation. Steps use checkbox syntax for tracking.
 
 **Goal:** Public CLI/stdio MCP consumers can completely paginate Search within one selected active Source/Publication.
@@ -94,21 +96,48 @@ CLI opts in with `--source-id/--publication-id`, optional `--limit/--json`.
 
 ### Task 3: Native Acceptance, Documentation And Final Review
 
-**Files:** Create `tests/proof/test_source_search_stdio.py`; update contract references,
+**Files:** Create `tests/proof/test_source_search_stdio.py` and
+`tests/proof/test_source_search_native_bounds.py`; update contract references,
 getting-started/Source how-to; persist bounded public review outcomes if they affect contracts.
 
 **Interfaces:** Consumes Task2 public tools/CLI; uses actual native CLI ingest and SDK stdio,
 public DTOs, Source discovery, active descriptors and exact read for independent acceptance.
 
-- [ ] Write native tests covering two real ingested Sources, complete pagination and all strategies,
+- [x] Write native tests covering two real ingested Sources, complete pagination and all strategies,
   empty scoped selection, invalid/mixed cursor rejection and Publication replacement; verify each
   success against active Evidence/read descriptors. Witness failures before the missing behavior
   is implemented; reuse Task2 RED when that public behavior is already implemented.
-- [ ] Run native acceptance and record actual response sizes/exit/errors in ignored artifacts.
-- [ ] Update user workflow, scope/errors, current inventory and Ask-only follow-up design; audit
+- [x] Run native acceptance and record actual response sizes/exit/errors in ignored artifacts.
+- [x] Update user workflow, scope/errors, current inventory and Ask-only follow-up design; audit
   docs with `gstack-workflows:document-release` within local authorization.
-- [ ] Run `uv run --locked --offline pytest -q`, Ruff, Pyright, `git diff --check`; no paid/provider
+- [x] Run `uv run --locked --offline pytest -q`, Ruff, Pyright, `git diff --check`; no paid/provider
   or additional installed-wheel costly proof. Run packaging only if inventory changes require it.
-- [ ] Fresh bounded reviewer checks full diff against spec; fix substantiated defects with TDD and
+- [x] Fresh bounded reviewer checks full diff against spec; fix substantiated defects with TDD and
   focused re-verification. Mark plan complete, commit intended files and report exact clean HEAD,
   actual gates, method and remaining remote approval to the coordinating owner once.
+
+## Local Acceptance
+
+- Final full suite on reviewed `ed46b1f99956b125b3d1361095bf560e1d31c3d4`: 4,510 passed,
+  34 skipped, five existing PyMuPDF Swig deprecation warnings; 304.77 seconds.
+- Native CLI ingest and official SDK stdio acceptance: eight passed, covering all four strategies
+  and relevant FTS/CJK/mixed branches, PDF/timestamp Evidence, 13 selected matches over five pages,
+  empty selection, cursor/identity rejection and Publication replacement/reselection.
+- Escaped Unicode acceptance: 20 matches over three pages, maximum Search canonical envelope
+  28,628 bytes and maximum full SDK result 65,731 bytes, with exact-read citation/digest checks.
+- Ruff, Pyright and full-range diff-check passed. Offline wheel/sdist build passed; all four new
+  module byte payloads in the wheel equal source. Later test/docs-only commits preserve build
+  package/dependency inputs. No additional installed-wheel consumer proof was performed.
+- Native fifteen-tool fixture matches exactly; historical five/eight/ten/twelve/fourteen tool
+  schemas and recorded fixture bytes remain unchanged. Lock, dependencies and runtime defaults
+  are unchanged. Current exact-inventory consumers migrate without ignoring unknown tools.
+- Local document-release audit and current inventory/source workflow checks passed. Full-suite
+  findings closed the ADR index, a second inventory assertion and a test stub matching directory
+  names instead of command argv; the release product script was unaffected.
+- One fresh bounded read-only review passed on `3810386fde231325fed1c0352e149158aa5cc94d`;
+  targeted re-review of `3810386..ed46b1f` passed. No Critical/Important/Minor findings remain.
+
+The final closeout commit changes this plan only. Source, tests, schemas and dependency inputs
+remain exactly those of the reviewed full-suite HEAD. Ask is the approved follow-up design only;
+push/PR/merge/release, additional proof and retained-worktree cleanup are not part of this local
+completion.
