@@ -7,6 +7,7 @@ from hashlib import sha256
 from typing import Literal
 
 from mke.domain import ActivePublicationObservation, SearchResultProvenance
+from mke.domain.source_search import SourceSearchScope
 
 _SHA256 = re.compile(r"sha256:[0-9a-f]{64}\Z")
 
@@ -147,6 +148,7 @@ class EvidenceSearchPage:
     results: tuple[SelectedEvidence, ...]
     more_in_selected_pool: bool
     eligible_discarded_by_cap: bool
+    scope: SourceSearchScope | None = None
 
 
 @dataclass(frozen=True)

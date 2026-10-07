@@ -365,6 +365,21 @@ class KnowledgeEngine:
             authority_validator=authority_validator,
         )
 
+    def search_source_evidence_page(
+        self,
+        source_id: str,
+        publication_id: str,
+        query: str,
+        *,
+        position: int,
+        page_size: int,
+        authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+    ) -> EvidenceSearchPage:
+        return self._store.search_source_evidence_page(
+            source_id, publication_id, query, position=position, page_size=page_size,
+            authority_validator=authority_validator,
+        )
+
     def list_sources_page(
         self,
         *,
