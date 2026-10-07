@@ -68,6 +68,7 @@ from mke.domain import (
     validate_manifest,
 )
 from mke.domain.source_discovery import SourceBrowsePage, SourceCatalogPage, SourceLocatorRange
+from mke.domain.source_search import SourceSearchScope
 from mke.retrieval import (
     DEFAULT_RETRIEVAL_STRATEGY,
     RetrievalQueryPolicy,
@@ -374,10 +375,12 @@ class KnowledgeEngine:
         position: int,
         page_size: int,
         authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+        scope_validator: Callable[[SourceSearchScope], None] | None = None,
     ) -> EvidenceSearchPage:
         return self._store.search_source_evidence_page(
             source_id, publication_id, query, position=position, page_size=page_size,
             authority_validator=authority_validator,
+            scope_validator=scope_validator,
         )
 
     def list_sources_page(

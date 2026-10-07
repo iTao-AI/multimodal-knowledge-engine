@@ -13,6 +13,7 @@ from mke.domain import (
     RunManifest,
 )
 from mke.domain.evidence_access import ActiveAuthoritySnapshot, SelectedEvidence
+from mke.domain.source_search import SourceSearchScope
 from mke.retrieval.cjk_active_scan import CjkActiveScanError
 from mke.retrieval.strategy import RetrievalStrategy
 from tests.source_discovery_support import publish_pages
@@ -131,6 +132,25 @@ def test_scoped_candidate_budget_fails_instead_of_silent_cap(tmp_path: Path) -> 
             engine.search_source_evidence_page(
                 source, publication, "知识检索范围", position=0, page_size=20,
                 authority_validator=lambda _: None,
+            )
+    finally:
+        engine.close()
+
+
+def test_scope_identity_is_validated_before_candidate_budget_selection(tmp_path: Path) -> None:
+    database = tmp_path / "mke.sqlite"
+    source, publication = publish_pages(database, ("知识检索范围",) * 1001)
+    engine = KnowledgeEngine(database)
+
+    def reject(scope: SourceSearchScope) -> None:
+        assert scope.source_id == source and scope.publication_id == publication
+        raise ValueError("selected identity rejected before candidate budget")
+
+    try:
+        with pytest.raises(ValueError, match="selected identity rejected"):
+            engine.search_source_evidence_page(
+                source, publication, "知识检索范围", position=0, page_size=5,
+                authority_validator=lambda _: None, scope_validator=reject,
             )
     finally:
         engine.close()

@@ -1,4 +1,4 @@
-# ADR-0015: Single-Source Active Publication Search
+# ADR-0016: Single-Source Active Publication Search
 
 Status: Accepted
 Date: 2026-10-07

@@ -124,7 +124,7 @@ def test_independent_native_consumer_reports_honest_coverage(tmp_path: Path) -> 
             "--work-dir",
             str(tmp_path / "example"),
             "--expectation",
-            "tests/fixtures/pdf-extraction-observation-v1/mcp-tool-schemas.json",
+            "tests/fixtures/source-search-v1/mcp-tool-schemas.json",
         ],
         capture_output=True,
         text=True,
@@ -134,7 +134,7 @@ def test_independent_native_consumer_reports_honest_coverage(tmp_path: Path) -> 
     assert result.returncode == 0, result.stdout + result.stderr
     receipt = json.loads(result.stdout)
     assert receipt["status"] == "passed"
-    assert receipt["tool_count"] == 14
+    assert receipt["tool_count"] == 15
     assert receipt["pdf"]["coverage"]["total_pages"] == 4
     assert receipt["pdf"]["coverage"]["extracted_pages"] == 3
     assert receipt["pdf"]["coverage"]["empty_pages"] == 1

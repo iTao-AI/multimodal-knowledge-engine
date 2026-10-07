@@ -6,10 +6,15 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 SCRIPT = Path("scripts/pdf_extraction_observation_consumer.py").resolve()
 
 
-def test_native_observation_consumers_share_identity_and_exact_text(tmp_path: Path) -> None:
+@pytest.mark.parametrize("expectation", ["source-search-v1", "pdf-extraction-observation-v1"])
+def test_native_observation_consumers_share_identity_and_exact_text(
+    tmp_path: Path, expectation: str,
+) -> None:
     result = subprocess.run(
         [
             sys.executable,
@@ -22,7 +27,7 @@ def test_native_observation_consumers_share_identity_and_exact_text(tmp_path: Pa
             str(tmp_path / "case"),
             "--expectation",
             str(
-                Path("tests/fixtures/pdf-extraction-observation-v1/mcp-tool-schemas.json").resolve()
+                Path(f"tests/fixtures/{expectation}/mcp-tool-schemas.json").resolve()
             ),
         ],
         cwd=tmp_path,
@@ -31,10 +36,15 @@ def test_native_observation_consumers_share_identity_and_exact_text(tmp_path: Pa
         timeout=60,
         check=False,
     )
+    if expectation == "pdf-extraction-observation-v1":
+        assert result.returncode == 1
+        # SDK task groups wrap inventory rejection; the existing entrypoint redacts that failure.
+        assert json.loads(result.stdout) == {"status": "failed", "code": "example_failed"}
+        return
     assert result.returncode == 0, result.stdout + result.stderr
     receipt = json.loads(result.stdout)
     assert receipt["schema_version"] == "mke.pdf_extraction_observation_consumer.v1"
-    assert receipt["status"] == "passed" and receipt["tool_count"] == 14
+    assert receipt["status"] == "passed" and receipt["tool_count"] == 15
     observation = receipt["pdf_extraction_observation"]
     assert [
         observation[key]

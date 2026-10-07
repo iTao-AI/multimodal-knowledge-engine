@@ -14,7 +14,7 @@ from mke.runtime import RuntimeConfig
 from scripts.mcp_context_completeness_consumer import tool_snapshot
 
 FIXTURE = Path(
-    "tests/fixtures/pdf-extraction-observation-v1/mcp-tool-schemas.json"
+    "tests/fixtures/source-search-v1/mcp-tool-schemas.json"
 )
 EXPECTED_TOOL_NAMES = (
     "ask_library",
@@ -31,6 +31,7 @@ EXPECTED_TOOL_NAMES = (
     "search_library",
     "search_library_v1",
     "search_library_v2",
+    "search_source_evidence_v1",
 )
 STABLE_LOCATOR_CAUSE = (
     "active retrieval candidates contain duplicate stable Evidence locators"
@@ -89,3 +90,12 @@ def test_historical_twelve_tool_snapshot_is_unchanged() -> None:
     ).read_text(encoding="utf-8"))
     current = json.loads(FIXTURE.read_text(encoding="utf-8"))
     assert {name: current["tools"][name] for name in historical["tools"]} == historical["tools"]
+
+
+def test_historical_fourteen_tool_snapshot_is_unchanged() -> None:
+    historical = json.loads(Path(
+        "tests/fixtures/pdf-extraction-observation-v1/mcp-tool-schemas.json"
+    ).read_text(encoding="utf-8"))
+    current = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    assert {name: current["tools"][name] for name in historical["tools"]} == historical["tools"]
+    assert current["safe_causes"] == historical["safe_causes"]

@@ -15,15 +15,15 @@ model preparation or download is performed by this script. Run from the reposito
 .venv/bin/python -I -B scripts/source_discovery_consumer.py \
   --mke-bin /ABSOLUTE/PATH/TO/EXISTING/mke \
   --work-dir /ABSOLUTE/PATH/TO/NEW/source-discovery-example \
-  --expectation tests/fixtures/pdf-extraction-observation-v1/mcp-tool-schemas.json
+  --expectation tests/fixtures/source-search-v1/mcp-tool-schemas.json
 ```
 
 `--work-dir` must not exist; the script preserves its generated public synthetic inputs and SQLite
 Library for inspection. Choose a fresh directory for another run. The consumer imports neither
 MKE implementation nor test helpers. It ingests inputs through the real console entrypoint and
 uses official `ClientSession` / `stdio_client` to initialize, list tools and call the native server.
-It checks the complete current fourteen-tool schema/description/annotation fixture while using
-unchanged v1 Source responses. Historical eight/ten/twelve-tool fixtures remain frozen.
+It checks the complete current fifteen-tool schema/description/annotation fixture while using
+unchanged v1 Source responses. Historical eight/ten/twelve/fourteen-tool fixtures remain frozen.
 
 The PDF has four declared synthetic pages: a lexical marker on page 1; sixty lines of Latin text
 with multibyte accents on page 2; an image-only checkerboard on page 3; and text on page 4. The
@@ -97,6 +97,10 @@ For complete declared CLI/MCP/Export v3/Viewer verification, run the
 OCR quality, visual importance or original-media semantic completeness.
 
 ## Use The CLI
+
+To find lexical matches within a selected Source rather than browse every stored locator, use
+[`search_source_evidence_v1` or scoped CLI Search](./search-within-one-source.md). Its Source and
+Publication are explicit, and complete pagination remains within that same authority.
 
 ```bash
 mke --db <library.sqlite> sources list --page-size 10 --json

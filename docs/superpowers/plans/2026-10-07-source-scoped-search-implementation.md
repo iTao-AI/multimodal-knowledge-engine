@@ -58,7 +58,7 @@ test `tests/adapters/test_sqlite_source_search.py`.
 
 **Interfaces:** Produces `SourceSearchScope` (Source/Publication/revision/Run/content identity)
 and `KnowledgeEngine.search_source_evidence_page(source_id, publication_id, query, *, position,
-page_size, authority_validator) -> EvidenceSearchPage`; page has optional scope, absent for old calls.
+page_size, authority_validator, scope_validator=None) -> EvidenceSearchPage`; page has optional scope, absent for old calls.
 
 - [x] Write real SQLite regressions for all four strategies/branches, >10 matches paged by3,
   unrelated high-ranked candidates, unrelated budget interference, zero hits, wrong selections,
@@ -82,15 +82,15 @@ create `tests/fixtures/source-search-v1/mcp-tool-schemas.json` and migrate curre
 `SearchSourceEvidenceResponseV1` and `search_source_evidence_v1(config, request)`;
 CLI opts in with `--source-id/--publication-id`, optional `--limit/--json`.
 
-- [ ] Write DTO/real adapter regressions for cursor-only and initial disjointness, malformed IDs,
+- [x] Write DTO/real adapter regressions for cursor-only and initial disjointness, malformed IDs,
   tampering, cross-tool/Library, restart/policy/Publication expiry, full-scope descriptor agreement,
   Unicode envelope budgets and zero results. Add actual CLI subprocess pagination/rejection tests.
-- [ ] Run new tests and witness missing-contract/route failures.
-- [ ] Implement strict schema, separate authenticated cursor validator and bounded full-envelope
+- [x] Run new tests and witness missing-contract/route failures.
+- [x] Implement strict schema, separate authenticated cursor validator and bounded full-envelope
   assembly; register one new read-only native tool and preserve all existing registrations.
-- [ ] Keep old fourteen-tool fixture immutable, generate a new fifteen-tool current snapshot,
+- [x] Keep old fourteen-tool fixture immutable, generate a new fifteen-tool current snapshot,
   migrate current exact-inventory consumers explicitly and preserve pinned historical proof routes.
-- [ ] Run affected contract/cursor/CLI/consumer tests, Ruff and Pyright; expect PASS; commit atomically.
+- [x] Run affected contract/cursor/CLI/consumer tests, Ruff and Pyright; expect PASS; commit atomically.
 
 ### Task 3: Native Acceptance, Documentation And Final Review
 

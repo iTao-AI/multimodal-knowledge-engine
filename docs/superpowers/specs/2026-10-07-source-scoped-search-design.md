@@ -40,7 +40,7 @@ output. Cursors are process-bound and are not persisted across CLI commands.
 ## Retrieval And Authority
 
 The new application entry is `KnowledgeEngine.search_source_evidence_page(source_id,
-publication_id, query, *, position, page_size, authority_validator) -> EvidenceSearchPage`.
+publication_id, query, *, position, page_size, authority_validator, scope_validator=None) -> EvidenceSearchPage`.
 Reuse the existing active graph validation, transactional page selection and enrichment. Resolve
 the selected Source/Publication and scope inside that read transaction; validate continuations
 before loading/scoring candidates. SQLite remains domain truth and FTS remains a projection.

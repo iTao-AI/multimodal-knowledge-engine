@@ -486,6 +486,22 @@ mke --db <path> run get <run_id>
 
 `ingest` and `run get` accept `--json` and emit exactly one JSON object.
 
+For a selected active Source, opt in with:
+
+```bash
+mke --db <path> search <query> --source-id <source_id> \
+  --publication-id <publication_id> --limit 3 --json
+```
+
+Choose both IDs from `mke sources list --json`. They are required together; `--limit` / `--json`
+on Search require this scope. Limit is page size1–20/default5; query is nonblank and <=512 UTF-8
+bytes. Scoped Search automatically follows complete pagination under one owner and prints one
+`mke.search_source_evidence_response.v1` per NDJSON line. Zero results stay scoped; stale/mixed
+identities fail rather than selecting another Publication. Public errors stop with exit1; CLI
+usage errors exit2. Cursors are process-bound. Without identity flags, the existing unscoped
+Search route and human output remain unchanged. See
+[Search within one active Source](../how-to/search-within-one-source.md).
+
 - `--db` defaults to `mke.sqlite` in the current working directory.
 - `--retrieval-strategy` is a global owner-startup option with allowlisted values `current`,
   `numeric-grouping-v1`, `cjk-active-scan-overlap-v1`, and `mixed-cjk-fts-intent-v1`. Omitting it
@@ -659,10 +675,10 @@ mke --db <library.sqlite3> mcp --allowed-root <directory>
 - Runs a local stdio MCP server.
 - `--allowed-root` defaults to the current working directory.
 - `ingest_file` rejects paths outside `--allowed-root`.
-- The exact fourteen-tool inventory is `list_libraries`, `ingest_file`, `get_run`, `search_library`,
+- The exact fifteen-tool inventory is `list_libraries`, `ingest_file`, `get_run`, `search_library`,
   `ask_library`, `list_libraries_v1`, `search_library_v1`, `ask_library_v1`,
   `search_library_v2`, `read_evidence_v1`, `list_sources_v1`, `browse_source_evidence_v1`,
-  `list_sources_v2`, and `browse_source_evidence_v2`.
+  `list_sources_v2`, `browse_source_evidence_v2`, and `search_source_evidence_v1`.
 - Retrieval strategy is owner-startup configuration. It is not present in MCP tool schemas.
 - `--retrieval-strategy numeric-grouping-v1` rolls Search and Ask back without changing the
   database or rebuilding a projection. `current` remains the lower-level rollback.

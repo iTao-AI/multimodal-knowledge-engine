@@ -145,6 +145,13 @@ def _dispatch_command(
     _validate_command_options(parser, args, raw_argv)
     if args.command in {"sources", "source", "evidence"}:
         return _handle_source_discovery(parser, args)
+    if args.command == "search":
+        if (args.source_id is None) != (args.publication_id is None):
+            parser.error("scoped Search requires both --source-id and --publication-id")
+        if args.source_id is not None:
+            return _handle_source_search(args)
+        if args.limit is not None or args.json_output:
+            parser.error("--limit and --json require an explicit Source/Publication scope")
     if args.command == "eval":
         return _handle_evaluation(parser, args)
     if args.command == "demo":
@@ -1800,6 +1807,41 @@ def _print_pdf_observation(source: dict[str, Any]) -> None:
         if page["text_layer_chars"] and page["has_raster_images"]:
             print(f"Page {page['page_number']}: 本页含文本与图像；仅提取文本层。"
                   "涉及图像的问题请核对原页。")
+
+
+def _handle_source_search(args: argparse.Namespace) -> int:
+    from mke.interfaces.source_search import search_source_evidence_v1
+    from mke.interfaces.source_search_schemas import SearchSourceEvidenceV1Request
+
+    config = McpRuntimeConfig(runtime_config_from_args(args), Path.cwd())
+    request: dict[str, object] = {
+        "source_id": args.source_id, "publication_id": args.publication_id,
+        "query": " ".join(args.query), "limit": args.limit if args.limit is not None else 5,
+    }
+    try:
+        while True:
+            payload = search_source_evidence_v1(
+                config, SearchSourceEvidenceV1Request(root=request),
+            ).model_dump(mode="json")
+            if args.json_output:
+                print(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), flush=True)
+            elif not payload["ok"]:
+                print(f"problem={payload['problem']} cause={payload['cause']} "
+                      f"next_step={payload['next_step']}", flush=True)
+            else:
+                for item in payload["matches"]:
+                    print(f"evidence_id={item['evidence']['evidence_id']} "
+                          f"source_id={item['evidence']['source_id']} "
+                          f"publication_id={item['evidence']['publication_id']} "
+                          f"locator={item['evidence']['locator']} text={item['excerpt']['text']}")
+            if not payload["ok"]:
+                return 1
+            cursor = payload["selection"].get("next_cursor")
+            if cursor is None:
+                return 0
+            request = {"cursor": cursor}
+    finally:
+        config.runtime.process_controller.shutdown()
 
 
 def _handle_source_discovery(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:

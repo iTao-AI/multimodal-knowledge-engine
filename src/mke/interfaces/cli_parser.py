@@ -72,6 +72,10 @@ def _register_ingest_search_ask(subcommands: _SubcommandRegistrar) -> None:
 
     search = subcommands.add_parser("search")
     search.add_argument("query", nargs="+")
+    search.add_argument("--source-id")
+    search.add_argument("--publication-id")
+    search.add_argument("--limit", type=int)
+    search.add_argument("--json", action="store_true", dest="json_output")
 
     ask = subcommands.add_parser("ask")
     ask.add_argument("question", nargs="+")

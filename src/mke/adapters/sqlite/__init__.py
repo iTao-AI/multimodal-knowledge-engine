@@ -2177,11 +2177,13 @@ class SQLiteStore:
         position: int,
         page_size: int,
         authority_validator: Callable[[ActiveAuthoritySnapshot], None],
+        scope_validator: Callable[[SourceSearchScope], None] | None = None,
     ) -> EvidenceSearchPage:
         return self.search_evidence_page(
             query, position=position, page_size=page_size,
             authority_validator=authority_validator,
             _source_selection=(source_id, publication_id),
+            _scope_validator=scope_validator,
         )
 
     def search_evidence_page(
@@ -2192,6 +2194,7 @@ class SQLiteStore:
         page_size: int,
         authority_validator: Callable[[ActiveAuthoritySnapshot], None],
         _source_selection: tuple[str, str] | None = None,
+        _scope_validator: Callable[[SourceSearchScope], None] | None = None,
     ) -> EvidenceSearchPage:
         if position < 0 or not 1 <= page_size <= 20:
             raise ValueError("invalid Evidence page range")
@@ -2202,6 +2205,8 @@ class SQLiteStore:
                 None if _source_selection is None
                 else self._resolve_search_scope(*_source_selection)
             )
+            if scope is not None and _scope_validator is not None:
+                _scope_validator(scope)
             diagnostic = compile_fts5_query_diagnostic(
                 query, policy=self._query_policy
             )
