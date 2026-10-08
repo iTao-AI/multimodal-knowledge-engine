@@ -148,7 +148,7 @@ in-scope implementation details and local acceptance. Hosted delivery needs sepa
 - MCP inventory stays fifteen; no MCP Ask or product behavior/authority/lock/fixture rewrite.
   Use the explicit existing `current` retrieval strategy in this installation cell. Existing
   four-strategy checkout evidence is retained rather than rerun as installation evidence.
-- Controller subprocess streams are capped while drained (2 MiB per stream), SDK server stderr
+- Build, installation and consumer subprocess streams are capped while drained (2 MiB per stream), SDK server stderr
   is capped at 64 KiB, tool/startup deadlines are 15 seconds, and each consumer workflow has a
   90-second deadline below the 180-second controller command deadline. Parsed SDK envelopes
   retain the existing 32,768 canonical-byte limit; raw stdout framing remains owned by the SDK.
@@ -203,13 +203,13 @@ Reuse unchanged source-pack bounded execution/snapshot and C1 validation helpers
 one fresh installed environment and Library. The controller runs flow plus all negative processes,
 checks exact schemas/exit statuses and cleans successful temporary resources before output.
 
-- [ ] Add RED tests for dirty/changed commit, missing/wrong interpreter, existing/repository work
+- [x] Add RED tests for dirty/changed commit, missing/wrong interpreter, existing/repository work
   directory, bad consumer receipts and failure/no partial candidate; exercise bounded subprocess
   failures and diagnostic retention. Reuse existing wheel/import/origin validator tests.
-- [ ] Implement one tracked snapshot/build and hash-checked installation, validate module/dependency/
+- [x] Implement one tracked snapshot/build and hash-checked installation, validate module/dependency/
   interpreter/origin identity, copy only commit-bound consumer assets, run each boundary with the
   installed Python and CLI, and revalidate source/wheel/lock before successful cleanup and receipt.
-- [ ] Run focused new controller tests plus `tests/scripts/test_pdf_extraction_observation_wheel_proof.py`
+- [x] Run focused new controller tests plus `tests/scripts/test_pdf_extraction_observation_wheel_proof.py`
   and `tests/scripts/test_consumer_source_pack_proof.py`; expected all affected cases pass with only
   existing platform skips. Run Ruff/Pyright and diff checks. Commit the intentional controller/tests.
 

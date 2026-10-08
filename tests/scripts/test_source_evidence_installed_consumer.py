@@ -7,6 +7,7 @@ import importlib
 import json
 import os
 import sys
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, cast
 
@@ -152,6 +153,22 @@ def test_reused_library_is_refused_without_overwrite(tmp_path: Path) -> None:
     with pytest.raises(module.CaseFailure, match="work_directory_exists"):
         asyncio.run(module.run_flow(config(module, data, source_root)))
     assert retained.read_bytes() == b"retained"
+
+
+def test_cli_command_does_not_block_the_consumer_workflow_deadline(tmp_path: Path) -> None:
+    module = consumer()
+    source_root = assets(tmp_path / "assets")
+    slow_cli = tmp_path / "slow-mke"
+    slow_cli.write_text(f"#!{sys.executable}\nimport time\ntime.sleep(0.2)\nraise SystemExit(1)\n")
+    slow_cli.chmod(0o700)
+    cfg = replace(config(module, tmp_path / "data", source_root), mke=slow_cli)
+
+    async def execute() -> None:
+        async with asyncio.timeout(0.02):
+            await module.run_flow(cfg)
+
+    with pytest.raises(TimeoutError):
+        asyncio.run(execute())
 
 
 def test_cli_ask_packet_validation_rejects_changed_lineage(tmp_path: Path) -> None:

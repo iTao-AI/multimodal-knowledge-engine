@@ -245,9 +245,11 @@ async def run_flow(cfg: Config) -> dict[str, Any]:
     require(not cfg.work_dir.exists(), "work_directory_exists")
     cfg.work_dir.mkdir()
     for role in ("selected", "other"):
+        result = await asyncio.to_thread(
+            cli, cfg, "ingest", str(cfg.assets / assets[role]["filename"]), "--json"
+        )
         require(
-            cli(cfg, "ingest", str(cfg.assets / assets[role]["filename"]), "--json").returncode
-            == 0,
+            result.returncode == 0,
             "ingest_failed",
         )
     async with asyncio.timeout(90):
@@ -260,7 +262,8 @@ async def run_flow(cfg: Config) -> dict[str, Any]:
         ("complete", "needle", 3),
         ("empty", "outsideonly", 3),
     ]:
-        command = cli(
+        command = await asyncio.to_thread(
+            cli,
             cfg,
             "ask",
             question,
@@ -298,7 +301,7 @@ async def run_flow(cfg: Config) -> dict[str, Any]:
             "cli_sdk_mismatch",
         )
         results.append(receipt)
-    unrelated = cli(cfg, "ask", "outsideonly")
+    unrelated = await asyncio.to_thread(cli, cfg, "ask", "outsideonly")
     require(
         unrelated.returncode == 0 and b"outsideonly" in unrelated.stdout, "unrelated_match_missing"
     )
@@ -422,7 +425,8 @@ async def run_negative(cfg: Config, case: str) -> None:
             else:
                 raise CaseFailure("negative_boundary_not_exercised")
     if case in {"mismatch", "stale"}:
-        failure = cli(
+        failure = await asyncio.to_thread(
+            cli,
             cfg,
             "ask",
             "needle",
