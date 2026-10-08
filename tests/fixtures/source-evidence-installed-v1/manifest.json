@@ -1,0 +1,1 @@
+{"schema_version":"mke.source_evidence_installed_manifest.v1","sources":[{"bytes":1536,"filename":"selected.pdf","pages":3,"role":"selected","sha256":"1cab505611d1a1373985ac5760aac2bfb85253cebe781d4a14a1fa7285e87ff5"},{"bytes":2309,"filename":"other.pdf","pages":5,"role":"other","sha256":"dd95859b6da33c92d41963458c10c35fc90b231863e64333c733711f25752d35"}]}

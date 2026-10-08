@@ -60,7 +60,9 @@ do not change Search, Ask, MCP, owner startup, Publication, ingestion, or runtim
 - [CLI Reference](./reference/cli.md)
 - [Search Within One Active Source](./how-to/search-within-one-source.md)
 - [Ask Within One Active Source](./how-to/ask-within-one-source.md) — bounded Evidence-only CLI Ask
-  and ordinary SDK citation/text verification; current checkout, no new MCP tool or release proof.
+  and ordinary SDK citation/text verification; no new MCP tool or release proof.
+- [Run The Installed Single-Source Evidence Proof](./how-to/run-source-evidence-wheel-proof.md) —
+  one commit-bound wheel, fresh Python 3.12/3.13 CLI/SDK consumers and explicit failure boundaries.
 - [Direct-Audio Dependency And License Evidence](./reference/direct-audio-dependency-and-license-evidence.md)
   records the PR A dependency, license, and synthetic-fixture feasibility receipt.
 - [Enable Bounded CJK Retrieval](./how-to/enable-cjk-retrieval.md)

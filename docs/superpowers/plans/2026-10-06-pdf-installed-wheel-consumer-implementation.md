@@ -106,3 +106,141 @@ see the [bounded review and evidence](../reviews/2026-10-06-pdf-installed-wheel-
 - [x] **Step 4: Commit documentation and return once for candidate approval**
 
 Report exact local HEAD/base/branch, wheel hash, both actual results, checks, limitations and documentation impact. No C1 push, PR, merge, version or Release without new specific authorization.
+
+
+## M3: Single-Source Installed-Wheel Follow-up
+
+Approved follow-up, 2026-10-08. Tasks 1 and 2 and their C1 evidence remain completed history;
+this follow-up starts at Task 3. M3 status: completed locally on 2026-10-08. One complete native
+run passed from clean `3bdc28f71523acd5017cf9fa70b6de87497cb5c2`, with one wheel used by both
+fresh Python 3.12.13/3.13.13 environments. The final documentation closeout retains that native
+input binding; hosted delivery requires separate authorization.
+
+**Goal:** Build one commit-bound wheel and prove the single-Source CLI Ask and official SDK
+consumer through that wheel in fresh Python 3.12/3.13 environments and Libraries.
+
+**Architecture:** Reuse `consumer_source_pack_proof.py` for the clean commit, immutable tracked
+snapshot and incrementally bounded process execution; reuse `consumer_source_pack_client.py`
+for MCP schema checks, deadlines and stderr capture. Reuse the C1 wheel/module, installed-origin,
+interpreter and dependency validators. A separately named external consumer and synthetic source
+pack exercise the new boundary without changing either historical proof output.
+
+**Spec:** [ADR-0017](../../decisions/0017-single-source-evidence-only-cli-ask.md),
+[single-Source design](../specs/2026-10-07-source-scoped-ask-design.md), and this approved follow-up.
+Base is clean `main` `55e7d42637624c5733f98e7483d32bd5f46b6356`. The delivery controller may decide
+in-scope implementation details and local acceptance. Hosted delivery needs separate approval.
+
+### M3 Constraints And Acceptance
+
+- Use one stable clean commit for the tracked build snapshot, unchanged lock, copied scripts,
+  current fifteen-tool schemas and newly named fixtures. Reject HEAD/dirty-input changes before
+  or after the proof. Build exactly one wheel and use its same SHA-256 in both runtimes.
+- Install hash-checked original-lock core dependencies, then the wheel with `--no-deps`, into
+  fresh owned environments. Use already available Python 3.12/3.13; do not download runtimes.
+  Prefer the provisioned cache, and record any authorized locked cache preparation separately.
+- External consumers run with `-I -B`, no inherited Python import state and no repository import
+  path. Assert installed site-packages/module bytes, selected interpreter, dependency versions,
+  wheel origin and copied consumer asset digests. The build controller may use repository code.
+- Discover and explicitly select Source/active Publication, retain revision/Run/fingerprint in
+  CLI Ask and all references, and independently verify complete UTF-8 bytes, SHA-256 and excerpt
+  windows through `source_evidence_consumer.py`. CLI and SDK must select the same first page.
+- Native cases include positive `more_available`, positive `complete`, selected-source empty
+  despite an unrelated match, mismatched identity, stale Publication, replacement during reads
+  and controlled corruption of a native read payload. Failure processes exit 1 with one bounded
+  redacted failure object and no successful prefix/partial references.
+- MCP inventory stays fifteen; no MCP Ask or product behavior/authority/lock/fixture rewrite.
+  Use the explicit existing `current` retrieval strategy in this installation cell. Existing
+  four-strategy checkout evidence is retained rather than rerun as installation evidence.
+- Build, installation and consumer subprocess streams are capped while drained (2 MiB per stream), SDK server stderr
+  is capped at 64 KiB, tool/startup deadlines are 15 seconds, and each consumer workflow has a
+  90-second deadline below the 180-second controller command deadline. Parsed SDK envelopes
+  retain the existing 32,768 canonical-byte limit; raw stdout framing remains owned by the SDK.
+- Preserve task-owned diagnostics on failure. Successful temporary build/source/env/consumer
+  data are removed before emitting a successful proof receipt; retain the wheel, bounded receipt
+  and private diagnostic logs. No overwrite or cleanup of prior resources is allowed.
+- Freeze and review the candidate before one complete native run. A failure is classified as
+  product, harness or environment using retained diagnostics before further costly work; do not
+  automatically retry it. Local candidate and semantic commits are authorized, remote delivery,
+  Release/tag/deploy, providers, Docker and other frozen goals are outside M3.
+
+### M3 Review Focus
+
+1. Correct version but wrong module bytes, dependency, interpreter or installation origin must fail.
+2. A source-tree import, inherited Python path, changed consumer asset or reused Library must fail.
+3. Empty selected scope must not admit stronger unrelated Evidence or silently change the pair.
+4. A replaced Publication or corruption after a verified read prefix must discard the entire result.
+5. Multi-byte text, incomplete first pages, oversized output and cleanup failure must remain explicit.
+
+### Task 3: Installed Single-Source Consumer And Separate Assets
+
+**Files:** Create `scripts/source_evidence_installed_consumer.py`,
+`scripts/generate_source_evidence_installed_fixtures.py`,
+`tests/fixtures/source-evidence-installed-v1/{manifest.json,selected.pdf,other.pdf}`,
+`tests/scripts/test_source_evidence_installed_consumer.py`.
+Reuse unchanged `scripts/source_evidence_consumer.py` and `scripts/consumer_source_pack_client.py`.
+
+**Interfaces:** `main(argv=None) -> int` accepts installed `--mke`, fresh `--work-dir`, copied
+`--assets` and `--schemas`, and `--case flow|mismatch|stale|read_failure|citation_failure`.
+`flow` creates a fresh Library and returns `mke.source_evidence_installed_consumer.v1` with passed
+status only after discovery, scoped CLI Ask and complete citation verification. Negative cases
+use that owned Library and emit a failed receipt/exit 1 only after the intended real boundary is
+exercised. Copies of the example and source-pack client reside beside this external script.
+
+- [x] Add RED tests for fresh Library creation, first-page/complete/empty selection, lineage,
+  multi-byte exact reads, wrong/stale pair and failure after a verified prefix. Test real CLI/SDK
+  behavior with the development runtime; these are focused checkout checks, not native acceptance.
+- [x] Implement `load_assets`, `run_flow`, `run_negative` and bounded SDK sessions using the existing
+  consumer validators/deadlines. Independently bind both fixture digests to discovered scopes.
+- [x] Run `PYTHONPATH=src UV_NO_SYNC=1 UV_OFFLINE=1 uv run --locked --offline --no-sync python -m pytest -q tests/scripts/test_source_evidence_installed_consumer.py tests/scripts/test_source_evidence_consumer.py`.
+  Expected: all pass; no new skip. Commit only the new consumer, its tests and separately named assets.
+
+### Task 4: One-Build Dual-Runtime Controller
+
+**Files:** Create `scripts/source_evidence_wheel_proof.py` and
+`tests/scripts/test_source_evidence_wheel_proof.py`; modify this plan's M3 checklists.
+Reuse source-pack bounded execution/snapshot and unchanged C1 validation helpers. The bounded
+helper's optional private exception fields retain captured prefixes on timeout/overflow; its
+historical stdout schemas and failure codes remain unchanged.
+
+**Interfaces:** `run(args) -> dict` and `main(argv=None) -> int` accept `--source-commit`, two
+`--python` paths and a fresh external `--work-dir`. Output is independently named
+`mke.source_evidence_wheel_proof.v1`; existing strict receipts are untouched. Each runtime gets
+one fresh installed environment and Library. The controller runs flow plus all negative processes,
+checks exact schemas/exit statuses and cleans successful temporary resources before output.
+
+- [x] Add RED tests for dirty/changed commit, missing/wrong interpreter, existing/repository work
+  directory, bad consumer receipts and failure/no partial candidate; exercise bounded subprocess
+  failures and diagnostic retention. Reuse existing wheel/import/origin validator tests.
+- [x] Implement one tracked snapshot/build and hash-checked installation, validate module/dependency/
+  interpreter/origin identity, copy only commit-bound consumer assets, run each boundary with the
+  installed Python and CLI, and revalidate source/wheel/lock before successful cleanup and receipt.
+- [x] Run focused new controller tests plus `tests/scripts/test_pdf_extraction_observation_wheel_proof.py`
+  and `tests/scripts/test_consumer_source_pack_proof.py`; expected all affected cases pass with only
+  existing platform skips. Run Ruff/Pyright and diff checks. Commit the intentional controller/tests.
+
+### Task 5: Frozen Candidate, Native Acceptance And Public Route
+
+**Files:** Update `docs/how-to/ask-within-one-source.md`, add
+`docs/how-to/run-source-evidence-wheel-proof.md`, update `docs/README.md` and this plan.
+
+- [x] Document the shortest build-once proof command and exact completion/failure signals before
+  candidate freeze; link the new installed boundary without erasing historical checkout evidence.
+- [x] Complete one fresh bounded whole-branch review, resolve consequential findings with regression
+  coverage, run affected/static/docs checks and commit the stable candidate.
+- [x] Run the complete controller once with that exact clean commit and provisioned 3.12/3.13 paths.
+  Expected: one wheel, both native flows and all failure exits pass, same installed wheel digest,
+  truthful dependency/interpreter identities and successful owned-temp cleanup.
+- [x] Add the actual result/date/binding and limitations to the guide and mark M3 explicitly complete.
+  Documentation-only closeout must retain the native input binding. Report local final HEAD, native
+  source commit, wheel hash, checks, diagnostics/limits and remaining hosted authorization once.
+
+The fresh review covered `55e7d42..f83781e`; its two Important findings were repaired through
+equal-length CLI-excerpt corruption and bounded CLI/SDK/timeout/overflow diagnostic regressions.
+The final affected suite passed 264 tests with no skips. The delivery controller accepted the
+single complete native receipt, same-wheel/origin/module/dependency identities, all negative
+exit boundaries and successful cleanup. See the
+[installed proof guide](../../how-to/run-source-evidence-wheel-proof.md#verified-native-result)
+for the exact source/wheel/lock/receipt binding and actual result.
+
+M3 does not prove a Release, empty-machine/offline cache provisioning, semantic answers, complete
+original-media understanding, OS sandboxing or production adoption.

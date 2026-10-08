@@ -148,9 +148,12 @@ _EXPECTED_RECEIPTS = (
 
 
 class ControllerError(RuntimeError):
-    def __init__(self, code: str) -> None:
+    def __init__(self, code: str, *, stdout: bytes = b"", stderr: bytes = b"") -> None:
         super().__init__(code)
         self.code = code
+        # Optional private diagnostics; public failure output still uses only code.
+        self.stdout = stdout
+        self.stderr = stderr
 
 
 @dataclass(frozen=True)
@@ -568,15 +571,29 @@ def run_bounded(
     process.stderr.close()
     if process.poll() is None:
         _terminate(process, pgid)
-        raise ControllerError("proof_failed")
+        raise ControllerError(
+            "proof_failed", stdout=bytes(buffers["stdout"]), stderr=bytes(buffers["stderr"])
+        )
     if any(reader.is_alive() for reader in readers):
-        raise ControllerError("proof_failed")
+        raise ControllerError(
+            "proof_failed", stdout=bytes(buffers["stdout"]), stderr=bytes(buffers["stderr"])
+        )
     if terminal and terminal[0][0] == "overflow":
-        raise ControllerError("command_output_exceeded")
+        raise ControllerError(
+            "command_output_exceeded",
+            stdout=bytes(buffers["stdout"]),
+            stderr=bytes(buffers["stderr"]),
+        )
     if event == "overflow":
-        raise ControllerError("command_output_exceeded")
+        raise ControllerError(
+            "command_output_exceeded",
+            stdout=bytes(buffers["stdout"]),
+            stderr=bytes(buffers["stderr"]),
+        )
     if event == "timeout":
-        raise ControllerError("command_timed_out")
+        raise ControllerError(
+            "command_timed_out", stdout=bytes(buffers["stdout"]), stderr=bytes(buffers["stderr"])
+        )
     return CommandResult(process.returncode, bytes(buffers["stdout"]), bytes(buffers["stderr"]))
 
 
