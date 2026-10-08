@@ -330,7 +330,28 @@ def test_oversized_subprocess_output_is_stopped_with_a_retained_terminal_diagnos
     runner = module.Runner(tmp_path, log)
     with pytest.raises(module.ProofFailure, match="command_output_exceeded"):
         runner.call([sys.executable, "-c", "import os;os.write(1,b'x'*(2*1024*1024+1))"])
-    assert json.loads(log.read_text())["code"] == "command_output_exceeded"
+    diagnostic = json.loads(log.read_text())
+    assert diagnostic["code"] == "command_output_exceeded"
+    assert len(diagnostic["stdout"].encode()) == 2 * 1024 * 1024
+
+
+def test_bounded_timeout_error_keeps_captured_prefix_for_m3_diagnostics(tmp_path: Path) -> None:
+    module = proof()
+    with pytest.raises(module.processes.ControllerError, match="command_timed_out") as failure:
+        module.processes.run_bounded(
+            [
+                sys.executable,
+                "-c",
+                "import sys,time;print('startup cause',flush=True);"
+                "print('stderr cause',file=sys.stderr,flush=True);time.sleep(3)",
+            ],
+            cwd=tmp_path,
+            env=module.Runner(tmp_path).environment,
+            timeout_seconds=0.2,
+            max_stdout_bytes=32,
+            max_stderr_bytes=32,
+        )
+    assert failure.value.stdout == b"startup cause\n" and failure.value.stderr == b"stderr cause\n"
 
 
 def test_cleanup_failure_does_not_remove_or_accept_a_retained_non_directory(tmp_path: Path) -> None:

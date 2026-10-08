@@ -136,7 +136,14 @@ class Runner:
             )
         except processes.ControllerError as error:
             terminal = error.code if error.code in FAILURE_CODES else "proof_failed"
-            self.record({"argv": argv, "code": terminal})
+            self.record(
+                {
+                    "argv": argv,
+                    "code": terminal,
+                    "stdout": error.stdout.decode(errors="replace"),
+                    "stderr": error.stderr.decode(errors="replace"),
+                }
+            )
             raise ProofFailure(terminal) from error
         self.record(
             {

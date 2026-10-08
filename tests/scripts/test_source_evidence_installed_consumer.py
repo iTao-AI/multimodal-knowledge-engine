@@ -183,6 +183,105 @@ def test_cli_ask_packet_validation_rejects_changed_lineage(tmp_path: Path) -> No
         module.validate_ask(corrupted, stored["scope"], "needle")
 
 
+def test_equal_length_wrong_cli_excerpt_discards_the_entire_native_flow(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = consumer()
+    cfg = config(module, tmp_path / "data", assets(tmp_path / "assets"))
+    original = module.cli
+
+    def corrupt_cli(cfg: Any, *args: str) -> Any:
+        result = original(cfg, *args)
+        if args[0] == "ask" and args[1] == "needle" and "--json" in args and result.returncode == 0:
+            payload = json.loads(result.stdout)
+            text = payload["evidence"][0]["excerpt"]["text"]
+            payload["evidence"][0]["excerpt"]["text"] = "X" + text[1:]
+            return module.processes.CommandResult(
+                result.returncode, module.encoded(payload), result.stderr
+            )
+        return result
+
+    monkeypatch.setattr(module, "cli", corrupt_cli)
+    with pytest.raises(module.CaseFailure, match="cli_sdk_mismatch"):
+        asyncio.run(module.run_flow(cfg))
+    assert not (cfg.work_dir / "selected-pairs.json").exists()
+
+
+def test_nonzero_internal_cli_retains_private_stdout_stderr(tmp_path: Path) -> None:
+    module = consumer()
+    root = tmp_path / "data"
+    root.mkdir()
+    failing = tmp_path / "failing-cli"
+    failing.write_text(
+        f"#!{sys.executable}\nimport sys\nprint('cli diagnostic')\n"
+        "print('private cause',file=sys.stderr)\nraise SystemExit(7)\n"
+    )
+    failing.chmod(0o700)
+    cfg = replace(config(module, root, tmp_path), mke=failing)
+    result = module.cli(cfg, "ingest", "selected.pdf", "--json")
+    assert result.returncode == 7
+    diagnostic = json.loads((root / "diagnostics/cli.jsonl").read_text())
+    assert diagnostic["stdout"] == "cli diagnostic\n" and diagnostic["stderr"] == "private cause\n"
+
+
+@pytest.mark.parametrize("overflow", [False, True])
+def test_sdk_stderr_prefix_is_retained_after_startup_timeout_or_overflow(
+    tmp_path: Path, overflow: bool
+) -> None:
+    module = consumer()
+    destination = tmp_path / "sdk-stderr.log"
+
+    async def execute() -> None:
+        async with module.DiagnosticStderrCapture(destination, 16) as capture:
+            capture.write_end.write("startup cause" + ("x" * 30 if overflow else ""))
+            capture.write_end.flush()
+            with pytest.raises(
+                module.pack.ProofError,
+                match="command_output_exceeded" if overflow else "mcp_startup_timeout",
+            ):
+                await module.pack._deadline(asyncio.sleep(1), 0.05, "mcp_startup_timeout", capture)
+
+    asyncio.run(execute())
+    assert destination.read_bytes().startswith(b"startup cause")
+    assert len(destination.read_bytes()) <= 16
+
+
+def test_failed_consumer_keeps_phase_and_exception_without_partial_success(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    module = consumer()
+    cfg = config(module, tmp_path / "data", assets(tmp_path / "assets"))
+    cfg.work_dir.mkdir()
+    error = RuntimeError("private transport diagnostic")
+    module.record_exception(cfg, "sdk_startup", error)
+    diagnostic = json.loads((cfg.work_dir / "diagnostics/failure.json").read_text())
+    assert (
+        diagnostic["phase"] == "sdk_startup"
+        and "private transport diagnostic" in diagnostic["traceback"]
+    )
+    assert not capsys.readouterr().out
+
+
+def test_real_sdk_startup_failure_retains_stderr_and_phase_without_success(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    module = consumer()
+    stub = tmp_path / "startup-failure-mke"
+    stub.write_text(
+        f"#!{sys.executable}\nimport sys\n"
+        "if 'mcp' in sys.argv:\n print('SDK startup cause',file=sys.stderr)\n raise SystemExit(1)\n"
+    )
+    stub.chmod(0o700)
+    cfg = replace(config(module, tmp_path / "data", assets(tmp_path / "assets")), mke=stub)
+    with pytest.raises(ExceptionGroup, match="unhandled errors"):
+        asyncio.run(module.run_case(cfg, "flow"))
+    logs = list((cfg.work_dir / "diagnostics").glob("sdk-*.stderr.log"))
+    assert logs and any(b"SDK startup cause" in log.read_bytes() for log in logs)
+    diagnostic = json.loads((cfg.work_dir / "diagnostics/failure.json").read_text())
+    assert diagnostic["phase"] == "flow" and diagnostic["traceback"]
+    assert not (cfg.work_dir / "selected-pairs.json").exists() and not capsys.readouterr().out
+
+
 def test_declared_generator_is_deterministic_and_keeps_multibyte_pdf_text(tmp_path: Path) -> None:
     script = ROOT / "scripts/generate_source_evidence_installed_fixtures.py"
     assert script.is_file(), "independently named fixture generator is missing"

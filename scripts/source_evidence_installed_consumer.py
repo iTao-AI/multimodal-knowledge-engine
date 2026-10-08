@@ -11,12 +11,15 @@ import importlib.util
 import json
 import os
 import sys
+import time
+import traceback
+import uuid
 from collections.abc import AsyncGenerator, Mapping, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -54,6 +57,11 @@ def adjacent(name: str) -> Any:
 pack = adjacent("consumer_source_pack_client")
 processes = adjacent("consumer_source_pack_proof")
 example = adjacent("source_evidence_consumer")
+
+if TYPE_CHECKING:
+    from scripts.consumer_source_pack_client import BoundedStderrCapture
+else:
+    BoundedStderrCapture = pack.BoundedStderrCapture
 
 
 class CaseFailure(RuntimeError):
@@ -124,22 +132,93 @@ def load_assets(root: Path) -> dict[str, dict[str, Any]]:
         raise CaseFailure("asset_identity_invalid") from error
 
 
-def cli(cfg: Config, *args: str) -> Any:
-    return processes.run_bounded(
-        [
-            str(cfg.mke),
-            "--db",
-            str(cfg.work_dir / "library.sqlite"),
-            "--retrieval-strategy",
-            "current",
-            *args,
-        ],
-        cwd=cfg.work_dir,
-        env=cfg.environment,
-        timeout_seconds=15,
-        max_stdout_bytes=2 * 1024 * 1024,
-        max_stderr_bytes=65536,
+def diagnostics_root(cfg: Config) -> Path:
+    path = cfg.work_dir / "diagnostics"
+    path.mkdir(exist_ok=True)
+    return path
+
+
+def record_exception(cfg: Config, phase: str, error: Exception) -> None:
+    text = "".join(traceback.format_exception(error)).encode()[:65536].decode(errors="replace")
+    (diagnostics_root(cfg) / "failure.json").write_bytes(
+        encoded({"phase": phase, "error_type": type(error).__name__, "traceback": text})
     )
+
+
+def cli(cfg: Config, *args: str) -> Any:
+    command = [
+        str(cfg.mke),
+        "--db",
+        str(cfg.work_dir / "library.sqlite"),
+        "--retrieval-strategy",
+        "current",
+        *args,
+    ]
+    try:
+        result = processes.run_bounded(
+            command,
+            cwd=cfg.work_dir,
+            env=cfg.environment,
+            timeout_seconds=15,
+            max_stdout_bytes=2 * 1024 * 1024,
+            max_stderr_bytes=65536,
+        )
+    except processes.ControllerError as error:
+        diagnostic = {
+            "argv": command,
+            "code": error.code,
+            "stdout": error.stdout.decode(errors="replace"),
+            "stderr": error.stderr.decode(errors="replace"),
+        }
+        with (diagnostics_root(cfg) / "cli.jsonl").open("a", encoding="utf-8") as stream:
+            stream.write(encoded(diagnostic).decode() + "\n")
+        raise
+    with (diagnostics_root(cfg) / "cli.jsonl").open("a", encoding="utf-8") as stream:
+        stream.write(
+            encoded(
+                {
+                    "argv": command,
+                    "returncode": result.returncode,
+                    "stdout": result.stdout.decode(errors="replace"),
+                    "stderr": result.stderr.decode(errors="replace"),
+                }
+            ).decode()
+            + "\n"
+        )
+    return result
+
+
+class DiagnosticStderrCapture(BoundedStderrCapture):
+    """Keep M3 stderr bytes while reusing the bounded pipe's lifecycle/deadlines."""
+
+    def __init__(self, destination: Path, max_bytes: int) -> None:
+        super().__init__(max_bytes)
+        self.destination = destination
+
+    async def _drain(self) -> None:
+        assert self._read_fd is not None
+        retained = 0
+        with self.destination.open("xb") as stream:
+            try:
+                while True:
+                    chunk = await asyncio.to_thread(os.read, self._read_fd, 4096)
+                    if not chunk:
+                        return
+                    prefix = chunk[: max(0, self.max_bytes - retained)]
+                    stream.write(prefix)
+                    stream.flush()
+                    retained += len(prefix)
+                    self.bytes_seen += len(chunk)
+                    if self.bytes_seen > self.max_bytes:
+                        self.overflow_observed_at = time.monotonic()
+                        self.overflow.set()
+                        if self.errlog is not None:
+                            self.errlog.close()
+                        os.close(self._read_fd)
+                        self._read_fd = None
+                        return
+            except (OSError, asyncio.CancelledError):
+                return
 
 
 class BoundedSession:
@@ -160,6 +239,20 @@ class BoundedSession:
         return result
 
 
+class SearchCapture:
+    """Retain the native first-page matches which the example fully verifies."""
+
+    def __init__(self, client: BoundedSession) -> None:
+        self.client = client
+        self.matches: list[dict[str, Any]] | None = None
+
+    async def call_tool(self, name: str, arguments: dict[str, Any] | None = None) -> CallToolResult:
+        result = await self.client.call_tool(name, arguments)
+        if name == "search_source_evidence_v1" and result.structuredContent is not None:
+            self.matches = copy.deepcopy(result.structuredContent.get("matches"))
+        return result
+
+
 @asynccontextmanager
 async def session(cfg: Config) -> AsyncGenerator[BoundedSession, None]:
     params = StdioServerParameters(
@@ -176,7 +269,8 @@ async def session(cfg: Config) -> AsyncGenerator[BoundedSession, None]:
         cwd=str(cfg.work_dir),
         env=dict(cfg.environment),
     )
-    async with pack.BoundedStderrCapture(65536) as capture:
+    destination = diagnostics_root(cfg) / ("sdk-" + uuid.uuid4().hex + ".stderr.log")
+    async with DiagnosticStderrCapture(destination, 65536) as capture:
         async with stdio_client(params, errlog=capture.write_end) as (read, write):
             async with ClientSession(
                 read, write, read_timeout_seconds=timedelta(seconds=15)
@@ -280,8 +374,9 @@ async def run_flow(cfg: Config) -> dict[str, Any]:
         (cfg.work_dir / f"cli-{label}.json").write_bytes(encoded(packet))
         async with asyncio.timeout(90):
             async with session(cfg) as client:
+                captured = SearchCapture(client)
                 receipt = await example.consume_source_evidence(
-                    client,
+                    captured,
                     target["source_id"],
                     target["publication_id"],
                     question,
@@ -296,8 +391,7 @@ async def run_flow(cfg: Config) -> dict[str, Any]:
             "cli_sdk_mismatch",
         )
         require(
-            [item["evidence"] for item in receipt["references"]]
-            == [item["evidence"] for item in packet["evidence"]],
+            captured.matches == packet["evidence"],
             "cli_sdk_mismatch",
         )
         results.append(receipt)
@@ -447,6 +541,25 @@ async def run_negative(cfg: Config, case: str) -> None:
     raise CaseFailure(CASE_CODES[case])
 
 
+async def run_case(cfg: Config, case: str) -> dict[str, Any]:
+    owned = (
+        not cfg.work_dir.exists()
+        if case == "flow"
+        else (cfg.work_dir / "selected-pairs.json").is_file()
+    )
+    try:
+        async with asyncio.timeout(90):
+            if case == "flow":
+                return await run_flow(cfg)
+            await run_negative(cfg, case)
+            raise CaseFailure("negative_boundary_not_exercised")
+    except Exception as error:
+        expected = isinstance(error, CaseFailure) and error.code in CASE_CODES.values()
+        if owned and not expected and (cfg.work_dir / "diagnostics").is_dir():
+            record_exception(cfg, case, error)
+        raise
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mke", type=Path, required=True)
@@ -477,14 +590,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "installed_identity_failed",
         )
 
-        async def execute() -> dict[str, Any]:
-            async with asyncio.timeout(90):
-                if args.case == "flow":
-                    return await run_flow(cfg)
-                await run_negative(cfg, args.case)
-                raise CaseFailure("negative_boundary_not_exercised")
-
-        result = asyncio.run(execute())
+        result = asyncio.run(run_case(cfg, args.case))
         require(len(encoded(result)) <= 32768, "consumer_output_exceeded")
     except CaseFailure as error:
         result = {"schema_version": SCHEMA, "status": "failed", "code": error.code}

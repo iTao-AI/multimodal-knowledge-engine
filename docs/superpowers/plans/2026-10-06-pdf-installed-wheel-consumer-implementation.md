@@ -195,7 +195,9 @@ exercised. Copies of the example and source-pack client reside beside this exter
 
 **Files:** Create `scripts/source_evidence_wheel_proof.py` and
 `tests/scripts/test_source_evidence_wheel_proof.py`; modify this plan's M3 checklists.
-Reuse unchanged source-pack bounded execution/snapshot and C1 validation helpers.
+Reuse source-pack bounded execution/snapshot and unchanged C1 validation helpers. The bounded
+helper's optional private exception fields retain captured prefixes on timeout/overflow; its
+historical stdout schemas and failure codes remain unchanged.
 
 **Interfaces:** `run(args) -> dict` and `main(argv=None) -> int` accept `--source-commit`, two
 `--python` paths and a fresh external `--work-dir`. Output is independently named
@@ -220,7 +222,7 @@ checks exact schemas/exit statuses and cleans successful temporary resources bef
 
 - [x] Document the shortest build-once proof command and exact completion/failure signals before
   candidate freeze; link the new installed boundary without erasing historical checkout evidence.
-- [ ] Complete one fresh bounded whole-branch review, resolve consequential findings with regression
+- [x] Complete one fresh bounded whole-branch review, resolve consequential findings with regression
   coverage, run affected/static/docs checks and commit the stable candidate.
 - [ ] Run the complete controller once with that exact clean commit and provisioned 3.12/3.13 paths.
   Expected: one wheel, both native flows and all failure exits pass, same installed wheel digest,

@@ -45,8 +45,8 @@ module byte, console entry point, interpreter, dependency version and local-whee
 rechecks installation identity and copied bytes after the cases. CLI and SDK use the installed
 console script; repository source is never their import path.
 
-The official SDK discovers the active pair explicitly. CLI Ask and SDK scoped Search select the
-same first page, then SDK reads verify every selected citation's Source, Publication, revision,
+The official SDK discovers the active pair explicitly. CLI Ask must equal the complete native SDK
+first-page matches, including excerpts and read descriptors. SDK reads verify each Source, Publication, revision,
 Run, fingerprint and locator. Complete stored UTF-8 reads use four-byte chunk budgets and
 independent byte counts, SHA-256 and excerpt windows. The controller also checks the three
 complete references against the declared page text's independently computed lengths and digests.
@@ -79,6 +79,12 @@ receipt is published. Cleanup failure cannot count as success. A failed attempt 
 owned temporary state and bounded diagnostics for classification; `proof.json` is published
 only after acceptance and cleanup. Do not combine partial results from different attempts.
 The controller does not retry automatically.
+
+Failed consumers retain `data/diagnostics/cli.jsonl`, bounded `sdk-*.stderr.log` files and
+`failure.json` with the workflow phase and bounded exception traceback. Command timeout/overflow
+also retains its already captured stream prefixes. These are private diagnostics, never public
+stdout or a partial successful receipt. The shared bounded helper's optional exception fields
+carry those prefixes without changing historical source-pack output schemas or failure codes.
 
 Build, install and consumer command streams are drained with 2 MiB caps per stream and a
 180-second deadline. Consumers have a 90-second workflow deadline, CLI/tool/startup calls have
