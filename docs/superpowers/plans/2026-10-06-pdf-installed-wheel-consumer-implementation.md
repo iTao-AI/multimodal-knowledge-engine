@@ -218,7 +218,7 @@ checks exact schemas/exit statuses and cleans successful temporary resources bef
 **Files:** Update `docs/how-to/ask-within-one-source.md`, add
 `docs/how-to/run-source-evidence-wheel-proof.md`, update `docs/README.md` and this plan.
 
-- [ ] Document the shortest build-once proof command and exact completion/failure signals before
+- [x] Document the shortest build-once proof command and exact completion/failure signals before
   candidate freeze; link the new installed boundary without erasing historical checkout evidence.
 - [ ] Complete one fresh bounded whole-branch review, resolve consequential findings with regression
   coverage, run affected/static/docs checks and commit the stable candidate.
