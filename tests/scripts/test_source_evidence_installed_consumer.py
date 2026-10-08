@@ -8,7 +8,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pymupdf
 import pytest
@@ -176,7 +176,7 @@ def test_declared_generator_is_deterministic_and_keeps_multibyte_pdf_text(tmp_pa
         assert (tmp_path / "first" / name).read_bytes() == (tmp_path / "second" / name).read_bytes()
     with pymupdf.open(tmp_path / "first/selected.pdf") as document:
         assert len(document) == 3
-        text = document[0].get_text()  # pyright: ignore[reportUnknownMemberType]
+        text = cast(str, document[0].get_text())  # pyright: ignore[reportUnknownMemberType]
         assert isinstance(text, str) and text.strip() == "needle café selected page 1"
     manifest = json.loads((tmp_path / "first/manifest.json").read_text())
     assert {row["filename"] for row in manifest["sources"]} == {"selected.pdf", "other.pdf"}

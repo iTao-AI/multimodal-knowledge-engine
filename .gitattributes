@@ -1,2 +1,3 @@
 tests/fixtures/local-knowledge-v1/*.pdf binary
 tests/fixtures/agent-context-unit-v2/**/*.pdf binary
+/tests/fixtures/source-evidence-installed-v1/*.pdf binary
