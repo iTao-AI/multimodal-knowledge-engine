@@ -98,7 +98,34 @@ validators. Focused checks are `tests/scripts/test_source_evidence_installed_con
 `tests/scripts/test_source_evidence_wheel_proof.py` and their existing helper regressions.
 The ordinary checkout evidence remains documented in [Ask Within One Active Source](./ask-within-one-source.md).
 
-Native installed acceptance is pending for this follow-up. A successful build or checkout test
-alone does not establish it. This route proves bounded synthetic Evidence consumption; it does
+## Verified Native Result
+
+On 2026-10-08 one complete controller invocation exited 0 with `status="passed"`. It built one
+wheel and used that same wheel in fresh Python 3.12.13 and 3.13.13 environments. Both cases used
+MCP 1.29.1, Pydantic 2.13.5 and PyMuPDF 1.27.2.3 from the original lock and passed all cases in
+the table above. Each verified all three selected references at 28 UTF-8 bytes per reference,
+including their full lineage, exact text digests and excerpt windows. Inventory remained fifteen.
+
+| Binding | Verified value |
+|---|---|
+| Native source commit | `3bdc28f71523acd5017cf9fa70b6de87497cb5c2` |
+| Wheel SHA-256 | `6b721a2349191f0fa1bcefe6df81b98cfaf0b769f579d7edbb7561dfca345059` |
+| Lock SHA-256 | `aa4f1c5d612b48a5b9280675eb82dfa972523877810ad90e7ef7d122aaf5109d` |
+| Locked requirements SHA-256 | `9b5c5e75cda34cb3679a391bf6b907082d95a5eb33dc58df0b4a329aba373ea9` |
+| Receipt SHA-256 | `9081fe26f3332ed2f17a14ac0ae4326848eecefe0a1df53fe775d6aeb26506f7` |
+
+The wheel matched 142 package files and 147 total members. The persisted receipt and stdout
+were byte-identical (11,276 bytes including the trailing newline), with empty controller stderr.
+The original cache supplied all dependencies; this run used no network or runtime download.
+Owned temporary source/build/environment/consumer data were absent after acceptance. The wheel,
+complete receipt and bounded private command diagnostics remain retained.
+
+Before this run, one independent review identified excerpt-comparison and diagnostic-retention
+gaps. The regressions first failed, then passed after repair; the final affected suite passed
+264 tests with no skips, alongside Ruff, Pyright and focused documentation checks. This result
+binds the native source commit above; the later documentation closeout changes no proof input.
+
+A successful build or checkout test alone does not establish installed acceptance. This route
+proves bounded synthetic Evidence consumption; it does
 not establish a Release, cold-machine cache provisioning, semantic answers, original-media
 completeness, OCR/ASR quality or production adoption.

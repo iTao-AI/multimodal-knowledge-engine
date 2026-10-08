@@ -110,7 +110,8 @@ excerpt windows and inconsistent/oversized SDK responses.
 Those results are ordinary checkout checks. The separate
 [installed single-Source proof](./run-source-evidence-wheel-proof.md) builds one commit-bound wheel
 and exercises this CLI/SDK boundary in fresh Python 3.12/3.13 environments. Its own receipt and
-native result determine installation acceptance. Current inventory stays fifteen; no MCP Ask,
+native result determine installation acceptance; one complete dual-runtime run passed on
+2026-10-08 with the same wheel. Current inventory stays fifteen; no MCP Ask,
 model/provider execution or release claim is added, and historical fixture bytes stay frozen.
 See [CLI Reference](../reference/cli.md), [Public Contracts](../reference/contracts.md),
 [MCP Reference](../reference/mcp-contract.md) and

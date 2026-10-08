@@ -111,7 +111,10 @@ Report exact local HEAD/base/branch, wheel hash, both actual results, checks, li
 ## M3: Single-Source Installed-Wheel Follow-up
 
 Approved follow-up, 2026-10-08. Tasks 1 and 2 and their C1 evidence remain completed history;
-this follow-up starts at Task 3. M3 status: implementation in progress, native acceptance pending.
+this follow-up starts at Task 3. M3 status: completed locally on 2026-10-08. One complete native
+run passed from clean `3bdc28f71523acd5017cf9fa70b6de87497cb5c2`, with one wheel used by both
+fresh Python 3.12.13/3.13.13 environments. The final documentation closeout retains that native
+input binding; hosted delivery requires separate authorization.
 
 **Goal:** Build one commit-bound wheel and prove the single-Source CLI Ask and official SDK
 consumer through that wheel in fresh Python 3.12/3.13 environments and Libraries.
@@ -224,12 +227,20 @@ checks exact schemas/exit statuses and cleans successful temporary resources bef
   candidate freeze; link the new installed boundary without erasing historical checkout evidence.
 - [x] Complete one fresh bounded whole-branch review, resolve consequential findings with regression
   coverage, run affected/static/docs checks and commit the stable candidate.
-- [ ] Run the complete controller once with that exact clean commit and provisioned 3.12/3.13 paths.
+- [x] Run the complete controller once with that exact clean commit and provisioned 3.12/3.13 paths.
   Expected: one wheel, both native flows and all failure exits pass, same installed wheel digest,
   truthful dependency/interpreter identities and successful owned-temp cleanup.
-- [ ] Add the actual result/date/binding and limitations to the guide and mark M3 explicitly complete.
+- [x] Add the actual result/date/binding and limitations to the guide and mark M3 explicitly complete.
   Documentation-only closeout must retain the native input binding. Report local final HEAD, native
   source commit, wheel hash, checks, diagnostics/limits and remaining hosted authorization once.
+
+The fresh review covered `55e7d42..f83781e`; its two Important findings were repaired through
+equal-length CLI-excerpt corruption and bounded CLI/SDK/timeout/overflow diagnostic regressions.
+The final affected suite passed 264 tests with no skips. The delivery controller accepted the
+single complete native receipt, same-wheel/origin/module/dependency identities, all negative
+exit boundaries and successful cleanup. See the
+[installed proof guide](../../how-to/run-source-evidence-wheel-proof.md#verified-native-result)
+for the exact source/wheel/lock/receipt binding and actual result.
 
 M3 does not prove a Release, empty-machine/offline cache provisioning, semantic answers, complete
 original-media understanding, OS sandboxing or production adoption.
