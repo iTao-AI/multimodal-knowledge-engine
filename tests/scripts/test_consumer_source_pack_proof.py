@@ -102,7 +102,7 @@ def test_consumer_source_pack_workflow_is_one_bounded_non_matrix_job() -> None:
     assert job.count("scripts/consumer_source_pack_proof.py") == 1
     assert "uv build" not in job
     assert job.count("actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1") == 1
-    assert job.count("astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7") == 1
+    assert job.count("astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa") == 1
 
 
 def test_consumer_source_pack_workflow_rejects_a_sibling_job() -> None:
@@ -114,7 +114,7 @@ def test_consumer_source_pack_workflow_rejects_a_sibling_job() -> None:
 
 def test_consumer_source_pack_workflow_uses_both_explicit_interpreters() -> None:
     job = _consumer_proof_job()
-    setup_python = "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97"
+    setup_python = "actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0"
     assert job.count(setup_python) == 2
     assert re.search(
         r'id: python312\n\s+uses: .*setup-python.*\n\s+with:\n\s+python-version: "3\.12"',
