@@ -102,7 +102,7 @@ def test_consumer_source_pack_workflow_is_one_bounded_non_matrix_job() -> None:
     assert job.count("scripts/consumer_source_pack_proof.py") == 1
     assert "uv build" not in job
     assert job.count("actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1") == 1
-    assert job.count("astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa") == 1
+    assert job.count("astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2") == 1
 
 
 def test_consumer_source_pack_workflow_rejects_a_sibling_job() -> None:
